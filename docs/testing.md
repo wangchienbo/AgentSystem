@@ -378,3 +378,18 @@ export OPENAI_API_KEY="<provided-secret>"
 - Blueprint 升级兼容性测试
 - 多版本迁移测试
 - 权限越权攻击测试
+
+
+## 6. Requirement Router 测试
+
+### TC-RTR-001 App 需求分类
+预期结果：输出 `requirement_type=app`，并给出 `optional` 或更明确的示范建议。
+
+### TC-RTR-002 Skill 需求分类
+预期结果：输出 `requirement_type=skill`，且默认优先直接生成而非先示范。
+
+### TC-RTR-003 示范优先判断
+预期结果：当输入明显包含页面点击、演示、示范等信号时，输出 `demonstration_decision=required`。
+
+### TC-RTR-004 抽象需求澄清
+预期结果：对战略、长期规划等抽象目标输出 `clarify`，而不是误判为可直接示范。

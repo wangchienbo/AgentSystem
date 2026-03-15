@@ -524,3 +524,14 @@ running -> archived
 ## 17. 结论
 
 本系统应被实现为一个 **以 App 为持久化一等公民的 App OS**。系统通过 Builder App 让用户持续创建和演化应用，通过 Foundation Modules 保证确定性执行，通过 Intelligence Skills 提供少量高价值智能能力，并通过生命周期、数据隔离、日志审计与恢复机制保障系统稳定运行。
+
+
+## 11. Requirement Router 模块
+
+首期新增 `RequirementRouter` 模块，负责：
+- 对用户输入做轻量规范化
+- 基于规则做 app / skill / hybrid / unclear 分类
+- 判断是否应优先进入示范流程
+- 输出结构化 `RequirementIntent` 供后续 Builder / Demonstration / Skill Generator 使用
+
+当前版本先采用规则引擎，后续再接入 LLM 增强。

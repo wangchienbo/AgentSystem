@@ -485,3 +485,26 @@ Builder App 应优先调用：
 - 数据采集 App
 - 简单审批 App
 - Builder App
+
+
+## 9. Requirement Routing 要求
+
+系统必须支持将用户自然语言需求路由为：
+- app
+- skill
+- hybrid
+- unclear
+
+并给出是否应先让用户示范的判断：
+- required
+- optional
+- not_needed
+- clarify
+
+首期实现至少应输出结构化 `RequirementIntent`，包含：
+- raw_text
+- normalized_text
+- requirement_type
+- demonstration_decision
+- reason
+- extracted_keywords
