@@ -415,3 +415,15 @@ export OPENAI_API_KEY="<provided-secret>"
 
 ### TC-SCI-006 API 错误映射
 预期结果：未知 skill 返回 404；修改 immutable skill 返回 400；避免把领域错误都变成 500。
+
+
+## 8. Experience Store 测试
+
+### TC-EXP-001 经验存储
+预期结果：ExperienceRecord 可被保存并列出。
+
+### TC-EXP-002 Skill Blueprint 存储
+预期结果：SkillBlueprint 可被保存并列出。
+
+### TC-EXP-003 经验关联 Skill 推荐
+预期结果：系统可根据 experience_id 返回相关的 skill blueprint。

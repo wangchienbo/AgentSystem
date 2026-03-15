@@ -559,3 +559,12 @@ HTTP API 层应将领域错误稳定映射为明确状态码：
 - unknown internal failures -> 500
 
 这样人工调试接口可预测、可脚本化。
+
+
+## 14. Experience Store / Skill Blueprint Layer
+
+新增 `ExperienceStore` 作为轻量内存层，用于沉淀：
+- ExperienceRecord（显式经验）
+- SkillBlueprint（程序化能力定义）
+
+该层目标是将“经验 + skill”正式纳入系统骨架，使后续 Builder、Demonstration、Skill Generator 能围绕这两类资产演化。

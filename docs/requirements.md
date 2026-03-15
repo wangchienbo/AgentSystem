@@ -523,3 +523,20 @@ Builder App 应优先调用：
 该接口属于底层稳定接口的一部分，应默认以确定性逻辑实现，不依赖 LLM。
 
 接口设计一旦确定，应视为不可变更契约之一。
+
+
+## 11. Experience + Skill 资产化要求
+
+系统必须将经验（experience）与技能（skill）都作为一等资产管理。
+
+### ExperienceRecord
+用于承载显式经验，如文档、示范总结、运行复盘、人工备注。
+
+### SkillBlueprint
+用于承载程序化能力定义，如输入输出、步骤、目标、与经验的关联。
+
+系统应支持：
+- 存储 experience
+- 存储 skill blueprint
+- 将 experience 与 skill 建立引用关系
+- 基于 experience 推荐相关 skill

@@ -4,7 +4,10 @@ from app.core.errors import map_domain_error
 
 from app.services.requirement_router import RequirementRouter
 from app.services.skill_control import SkillControlService
+from app.services.experience_store import ExperienceStore
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
+from app.models.experience import ExperienceRecord
+from app.models.skill_blueprint import SkillBlueprint
 from app.services.skill_control import SkillControlError
 
 from app.models.app_blueprint import AppBlueprint
@@ -40,6 +43,7 @@ def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
 
 router = RequirementRouter()
 skill_control = SkillControlService()
+experience_store = ExperienceStore()
 skill_control.register(
     SkillRegistryEntry(
         skill_id="core.skill.control",
@@ -99,3 +103,26 @@ def enable_skill(skill_id: str) -> dict:
         return skill_control.enable_skill(skill_id).model_dump(mode="json")
     except SkillControlError as error:
         raise map_domain_error(error) from error
+
+@app.get("/experiences")
+def list_experiences() -> list[dict]:
+    return [item.model_dump(mode="json") for item in experience_store.list_experiences()]
+
+@app.post("/experiences")
+def add_experience(record: ExperienceRecord) -> dict:
+    return experience_store.add_experience(record).model_dump(mode="json")
+
+@app.get("/skill-blueprints")
+def list_skill_blueprints() -> list[dict]:
+    return [item.model_dump(mode="json") for item in experience_store.list_skill_blueprints()]
+
+@app.post("/skill-blueprints")
+def add_skill_blueprint(blueprint: SkillBlueprint) -> dict:
+    return experience_store.add_skill_blueprint(blueprint).model_dump(mode="json")
+
+@app.get("/experiences/{experience_id}/suggested-skills")
+def suggest_skills_for_experience(experience_id: str) -> list[dict]:
+    return [
+        item.model_dump(mode="json")
+        for item in experience_store.suggest_skills_for_experience(experience_id)
+    ]
