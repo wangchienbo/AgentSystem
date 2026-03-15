@@ -540,3 +540,16 @@ Builder App 应优先调用：
 - 存储 skill blueprint
 - 将 experience 与 skill 建立引用关系
 - 基于 experience 推荐相关 skill
+
+
+## 12. Demonstration Extraction 要求
+
+系统必须支持接收用户示范（DemonstrationRecord），并将其提取为：
+- ExperienceRecord
+- SkillBlueprint
+
+至少应保留：
+- 示范目标
+- 操作步骤
+- 观察到的输入输出
+- 与新生成 skill 的关联关系

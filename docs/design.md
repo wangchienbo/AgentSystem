@@ -568,3 +568,14 @@ HTTP API 层应将领域错误稳定映射为明确状态码：
 - SkillBlueprint（程序化能力定义）
 
 该层目标是将“经验 + skill”正式纳入系统骨架，使后续 Builder、Demonstration、Skill Generator 能围绕这两类资产演化。
+
+
+## 15. Demonstration Extractor
+
+新增 `DemonstrationExtractor`，负责把用户示范记录转成显式经验与 skill blueprint。
+
+首期版本采用规则型抽取：
+- 将示范标题/目标/步骤转成 ExperienceRecord 摘要
+- 将步骤、输入、输出转成 SkillBlueprint
+
+后续可叠加 LLM 做更强的规则归纳与步骤压缩。

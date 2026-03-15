@@ -5,9 +5,11 @@ from app.core.errors import map_domain_error
 from app.services.requirement_router import RequirementRouter
 from app.services.skill_control import SkillControlService
 from app.services.experience_store import ExperienceStore
+from app.services.demonstration_extractor import DemonstrationExtractor
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
+from app.models.demonstration import DemonstrationRecord
 from app.services.skill_control import SkillControlError
 
 from app.models.app_blueprint import AppBlueprint
@@ -44,6 +46,7 @@ def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
 router = RequirementRouter()
 skill_control = SkillControlService()
 experience_store = ExperienceStore()
+demonstration_extractor = DemonstrationExtractor()
 skill_control.register(
     SkillRegistryEntry(
         skill_id="core.skill.control",
@@ -126,3 +129,13 @@ def suggest_skills_for_experience(experience_id: str) -> list[dict]:
         item.model_dump(mode="json")
         for item in experience_store.suggest_skills_for_experience(experience_id)
     ]
+
+@app.post("/demonstrations/extract")
+def extract_demonstration(record: DemonstrationRecord) -> dict:
+    experience, skill = demonstration_extractor.extract(record)
+    experience_store.add_experience(experience)
+    experience_store.add_skill_blueprint(skill)
+    return {
+        "experience": experience.model_dump(mode="json"),
+        "skill_blueprint": skill.model_dump(mode="json"),
+    }

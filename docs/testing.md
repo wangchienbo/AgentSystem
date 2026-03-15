@@ -427,3 +427,15 @@ export OPENAI_API_KEY="<provided-secret>"
 
 ### TC-EXP-003 经验关联 Skill 推荐
 预期结果：系统可根据 experience_id 返回相关的 skill blueprint。
+
+
+## 9. Demonstration Extraction 测试
+
+### TC-DEM-001 示范转经验
+预期结果：DemonstrationRecord 能生成 ExperienceRecord。
+
+### TC-DEM-002 示范转 Skill
+预期结果：DemonstrationRecord 能生成 SkillBlueprint，并保留步骤/输入/输出。
+
+### TC-DEM-003 生成后入库
+预期结果：提取后的 experience 和 skill blueprint 可进入 ExperienceStore。
