@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from app.services.requirement_router import RequirementRouter
+
 from app.models.app_blueprint import AppBlueprint
 
 app = FastAPI(title="AgentSystem App OS", version="0.1.0")
@@ -29,3 +31,10 @@ def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
         "missing": missing,
         "blueprint_id": blueprint.id,
     }
+
+router = RequirementRouter()
+
+@app.post("/route-requirement")
+def route_requirement(payload: dict[str, str]) -> dict:
+    text = payload.get("text", "")
+    return router.route(text).model_dump()
