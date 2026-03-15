@@ -411,3 +411,7 @@ export OPENAI_API_KEY="<provided-secret>"
 
 ### TC-SCI-005 保护不可变接口
 预期结果：对 immutable skill 的替换或修改请求被拒绝。
+
+
+### TC-SCI-006 API 错误映射
+预期结果：未知 skill 返回 404；修改 immutable skill 返回 400；避免把领域错误都变成 500。

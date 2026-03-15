@@ -549,3 +549,13 @@ running -> archived
 该层被视为 immutable core 的一部分，主要用于防止系统自修改失控，并为人工调试和恢复提供安全入口。
 
 首期版本采用内存注册表模型，后续可扩展为持久化版本库与变更审计系统。
+
+
+## 13. API error mapping
+
+HTTP API 层应将领域错误稳定映射为明确状态码：
+- skill not found -> 404
+- immutable interface violation / invalid rollback -> 400
+- unknown internal failures -> 500
+
+这样人工调试接口可预测、可脚本化。

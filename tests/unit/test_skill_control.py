@@ -67,3 +67,26 @@ def test_immutable_skill_cannot_be_modified() -> None:
 
     with pytest.raises(SkillControlError):
         service.replace_skill("core.skill.interface", "2.0.0", "danger")
+
+
+from fastapi.testclient import TestClient
+from app.api.main import app
+
+
+def test_get_unknown_skill_returns_404() -> None:
+    client = TestClient(app)
+
+    response = client.get("/skills/unknown.skill")
+
+    assert response.status_code == 404
+
+
+def test_replace_immutable_skill_returns_400() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/skills/core.skill.control/replace",
+        json={"version": "2.0.0", "content": "danger"},
+    )
+
+    assert response.status_code == 400

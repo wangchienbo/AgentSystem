@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 
+from app.core.errors import map_domain_error
+
 from app.services.requirement_router import RequirementRouter
 from app.services.skill_control import SkillControlService
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
+from app.services.skill_control import SkillControlError
 
 from app.models.app_blueprint import AppBlueprint
 
@@ -59,25 +62,40 @@ def list_skills() -> list[dict]:
 
 @app.get("/skills/{skill_id}")
 def get_skill(skill_id: str) -> dict:
-    return skill_control.get_skill(skill_id).model_dump(mode="json")
+    try:
+        return skill_control.get_skill(skill_id).model_dump(mode="json")
+    except SkillControlError as error:
+        raise map_domain_error(error) from error
 
 @app.post("/skills/{skill_id}/replace")
 def replace_skill(skill_id: str, payload: dict[str, str]) -> dict:
-    return skill_control.replace_skill(
-        skill_id=skill_id,
-        version=payload["version"],
-        content=payload["content"],
-        note=payload.get("note", ""),
-    ).model_dump(mode="json")
+    try:
+        return skill_control.replace_skill(
+            skill_id=skill_id,
+            version=payload["version"],
+            content=payload["content"],
+            note=payload.get("note", ""),
+        ).model_dump(mode="json")
+    except SkillControlError as error:
+        raise map_domain_error(error) from error
 
 @app.post("/skills/{skill_id}/rollback")
 def rollback_skill(skill_id: str, payload: dict[str, str]) -> dict:
-    return skill_control.rollback_skill(skill_id, payload["target_version"]).model_dump(mode="json")
+    try:
+        return skill_control.rollback_skill(skill_id, payload["target_version"]).model_dump(mode="json")
+    except SkillControlError as error:
+        raise map_domain_error(error) from error
 
 @app.post("/skills/{skill_id}/disable")
 def disable_skill(skill_id: str) -> dict:
-    return skill_control.disable_skill(skill_id).model_dump(mode="json")
+    try:
+        return skill_control.disable_skill(skill_id).model_dump(mode="json")
+    except SkillControlError as error:
+        raise map_domain_error(error) from error
 
 @app.post("/skills/{skill_id}/enable")
 def enable_skill(skill_id: str) -> dict:
-    return skill_control.enable_skill(skill_id).model_dump(mode="json")
+    try:
+        return skill_control.enable_skill(skill_id).model_dump(mode="json")
+    except SkillControlError as error:
+        raise map_domain_error(error) from error
