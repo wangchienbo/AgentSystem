@@ -1,0 +1,351 @@
+# App OS 详细测试文档
+
+## 1. 文档信息
+
+- 项目名称：AgentSystem / App OS
+- 代码仓库：https://github.com/wangchienbo/AgentSystem
+- 关联文档：
+  - `README.md`
+  - `DESIGN.md`
+  - `TESTING.md`
+
+---
+
+## 2. 测试目标
+
+本测试文档面向实现阶段，覆盖：
+- 系统级行为
+- App 生命周期
+- Builder App
+- 数据持久化和隔离
+- Foundation Modules
+- Intelligence Skills
+- 模型供应商连通性
+- 稳定性与恢复
+
+---
+
+## 3. 测试分层
+
+### 3.1 单元测试
+目标：验证 Foundation Modules、policy、schema validator。
+
+### 3.2 集成测试
+目标：验证 Builder、Runtime、Storage、Model Provider 联动。
+
+### 3.3 端到端测试
+目标：从“用户创建 App”到“App 安装并运行”全链路验证。
+
+### 3.4 回归测试
+目标：验证版本升级、回滚、诊断、持久化兼容性。
+
+---
+
+## 4. 模型测试配置
+
+测试环境采用以下模型配置：
+
+```toml
+model_provider = "OpenAI"
+model = "gpt-5.4"
+review_model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+network_access = "enabled"
+windows_wsl_setup_acknowledged = true
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+
+[model_providers.OpenAI]
+name = "OpenAI"
+base_url = "https://crs.ruinique.com"
+wire_api = "openai-responses"
+requires_openai_auth = true
+```
+
+鉴权要求：
+- 通过环境变量 `OPENAI_API_KEY` 注入
+- 不将真实密钥写入仓库、日志或测试报告
+
+主测试接口：
+- `POST https://crs.ruinique.com/v1/responses`
+
+兼容回退接口（可选）：
+- `POST https://crs.ruinique.com/v1/chat/completions`
+
+---
+
+## 5. 系统级测试
+
+### SYS-001 App Registry 基本行为
+验证：
+- 能注册 App Blueprint
+- 能创建 AppInstance
+- 能查询已安装 App 列表
+
+### SYS-002 Lifecycle 管理
+验证：
+- draft → compiled → installed → running
+- running → paused → running
+- running → upgrading → rollback
+
+### SYS-003 Builder App 可用性
+验证：
+- Builder 能创建其他 App
+- Builder 能修改其他 App
+- Builder 的历史记录可追溯
+
+### SYS-004 数据分层
+验证：
+- 用户数据、App 数据、系统元数据分开存储和访问
+
+---
+
+## 6. App 生命周期测试用例
+
+### LC-001 创建 Draft
+输入：一个最小 App 描述
+期望：
+- Draft 创建成功
+- 状态为 draft
+- 可继续编辑
+
+### LC-002 Draft 校验失败
+输入：缺失角色和输出定义的 Draft
+期望：
+- 返回缺失项
+- Builder 发起补问
+- 不可安装
+
+### LC-003 编译成功
+输入：完整 Draft
+期望：
+- 生成 Blueprint
+- Blueprint 含 roles/tasks/views/workflows/storage_plan
+
+### LC-004 安装成功
+期望：
+- 生成 AppInstance
+- 分配数据命名空间
+- 记录安装日志
+
+### LC-005 运行成功
+期望：
+- App 进入 running
+- 可触发 workflow
+
+### LC-006 升级与回滚
+期望：
+- 新版本可安装
+- 升级失败可恢复原版本
+
+---
+
+## 7. Builder App 测试用例
+
+### BLD-001 requirement.clarify
+输入："我想做个文件同步软件"
+期望：
+- 输出结构化缺失项
+- 提问包含角色、输入源、输出目标、失败策略
+
+### BLD-002 blueprint.generate
+输入：完整需求
+期望：
+- 输出结构化 Blueprint
+- 字段包含 roles/tasks/interactions/views/workflows
+
+### BLD-003 definition.diagnose
+输入：存在角色权限冲突的 Blueprint
+期望：
+- 输出冲突点
+- 输出修正建议
+
+### BLD-004 修改 App
+输入：对已安装 App 发起变更
+期望：
+- 生成新版本 Draft
+- 原版本保留
+
+---
+
+## 8. Foundation Modules 测试用例
+
+### FM-001 file.read
+期望：正确读取文本文件并返回元信息
+
+### FM-002 file.write
+期望：正确写入并校验内容一致
+
+### FM-003 file.list
+期望：正确列出目录项
+
+### FM-004 http.get
+期望：返回状态码、头、响应体
+
+### FM-005 http.post
+期望：成功提交数据并收到响应
+
+### FM-006 state.get/state.set
+期望：状态可写可读
+
+### FM-007 auth.check
+期望：权限正确判定
+
+### FM-008 event.emit/event.subscribe
+期望：事件能够发送和被消费
+
+---
+
+## 9. Intelligence Skills 测试用例
+
+### IS-001 requirement.clarify
+接口：`POST /v1/responses`
+期望：
+- 输出结构化追问
+- 输出缺失字段列表
+
+### IS-002 blueprint.generate
+接口：`POST /v1/responses`
+期望：
+- 生成 Blueprint JSON 草案
+- 不只是自由文本
+
+### IS-003 role.infer
+期望：
+- 根据目标推荐角色集合
+- 结果是建议而非硬约束
+
+### IS-004 definition.diagnose
+期望：
+- 能指出冲突和风险
+
+### IS-005 data.analyze
+期望：
+- 能对输入数据做语义分析并输出结构化结果
+
+---
+
+## 10. 数据与隔离测试
+
+### DATA-001 用户隔离
+- 用户 A 不可读用户 B 数据
+
+### DATA-002 App 隔离
+- App A 不可默认访问 App B 数据
+
+### DATA-003 Runtime 隔离
+- 一个 workflow run 的上下文不污染另一个 run
+
+### DATA-004 Secret 安全
+- secret 不写入普通日志
+- secret 不出现在返回给普通角色的视图里
+
+---
+
+## 11. 观测与审计测试
+
+### OBS-001 生命周期日志
+验证 create/install/start/stop/update 均有记录
+
+### OBS-002 Workflow Trace
+验证每个 workflow run 都有 trace id、步骤记录、耗时
+
+### OBS-003 Skill / Module 调用日志
+验证调用均可追踪
+
+### OBS-004 模型调用日志
+验证：
+- 记录 provider/model/接口/耗时/状态
+- 不回显完整密钥
+
+---
+
+## 12. 恢复与异常测试
+
+### REC-001 模块执行失败
+期望：
+- 正确记录错误
+- 按策略重试或人工接管
+
+### REC-002 Skill 调用失败
+期望：
+- 返回受控错误
+- Builder 或 Runtime 不崩溃
+
+### REC-003 网络抖动
+期望：
+- 超时正确处理
+- 支持可配置重试
+
+### REC-004 中断恢复
+期望：
+- 从 checkpoint 恢复
+- 不丢失关键状态
+
+---
+
+## 13. 模型联调测试示例
+
+### 13.1 Responses API 最小连通性
+请求：
+```http
+POST https://crs.ruinique.com/v1/responses
+Authorization: Bearer $OPENAI_API_KEY
+Content-Type: application/json
+```
+
+请求体：
+```json
+{
+  "model": "gpt-5.4",
+  "input": "hello"
+}
+```
+
+校验点：
+- HTTP 200 或兼容成功响应
+- 返回可解析文本或结构化内容
+
+### 13.2 requirement.clarify 测试
+请求体：
+```json
+{
+  "model": "gpt-5.4",
+  "input": "我想做一个文件同步应用，请列出还缺哪些需求。"
+}
+```
+
+校验点：
+- 是否返回缺失项
+- 是否有结构化问题列表
+
+### 13.3 chat/completions 兼容性回退测试（可选）
+目标：验证网关是否兼容旧接口
+主结论仍以 `/v1/responses` 为准。
+
+---
+
+## 14. 验收标准
+
+首期通过条件：
+- 能创建、安装并运行至少一个 App
+- Builder App 能创建并修改其他 App
+- Foundation Modules 关键测试全部通过
+- 至少 3 个 Intelligence Skills 能通过模型接口完成测试
+- 生命周期、日志、恢复、隔离验证通过
+- 模型主接口 `/v1/responses` 联调通过
+
+---
+
+## 15. 测试执行说明
+
+当前阶段文档已形成，但系统实现尚未完成，因此现阶段测试状态应标记为：
+- 文档测试设计：已完成
+- 实际代码测试：待实现后执行
+- 模型接口联调：待接入测试脚本后执行
+
+建议后续新增：
+- curl 测试脚本
+- Python 联调脚本
+- CI 集成测试脚本
