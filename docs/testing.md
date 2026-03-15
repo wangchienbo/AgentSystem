@@ -393,3 +393,21 @@ export OPENAI_API_KEY="<provided-secret>"
 
 ### TC-RTR-004 抽象需求澄清
 预期结果：对战略、长期规划等抽象目标输出 `clarify`，而不是误判为可直接示范。
+
+
+## 7. Skill Control Interface 测试
+
+### TC-SCI-001 列出 Skill
+预期结果：能够读取系统当前登记的 skill 列表与当前激活版本。
+
+### TC-SCI-002 替换 Skill
+预期结果：对可变 skill 替换后，active_version 更新为新版本。
+
+### TC-SCI-003 回退 Skill
+预期结果：可切换回指定历史版本，并保留回退状态记录。
+
+### TC-SCI-004 禁用 / 启用 Skill
+预期结果：技能可被人工禁用并重新启用。
+
+### TC-SCI-005 保护不可变接口
+预期结果：对 immutable skill 的替换或修改请求被拒绝。

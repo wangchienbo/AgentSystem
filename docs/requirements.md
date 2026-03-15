@@ -508,3 +508,18 @@ Builder App 应优先调用：
 - demonstration_decision
 - reason
 - extracted_keywords
+
+
+## 10. Human Override / Skill Control 要求
+
+系统必须提供一个稳定且不可随意自修改的人工 skill 接管接口，用于：
+- 读取全部 skill
+- 查看 skill 历史版本
+- 替换 skill
+- 回退 skill
+- 禁用 / 启用 skill
+- 检查 skill 依赖与影响范围
+
+该接口属于底层稳定接口的一部分，应默认以确定性逻辑实现，不依赖 LLM。
+
+接口设计一旦确定，应视为不可变更契约之一。

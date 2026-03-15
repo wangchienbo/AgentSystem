@@ -535,3 +535,17 @@ running -> archived
 - 输出结构化 `RequirementIntent` 供后续 Builder / Demonstration / Skill Generator 使用
 
 当前版本先采用规则引擎，后续再接入 LLM 增强。
+
+
+## 12. Skill Control Interface（不可变人工接管层）
+
+系统新增 `SkillControlService`，作为稳定人工接管接口，负责：
+- skill registry 管理
+- 技能读取
+- 技能替换
+- 技能回退
+- 技能禁用 / 启用
+
+该层被视为 immutable core 的一部分，主要用于防止系统自修改失控，并为人工调试和恢复提供安全入口。
+
+首期版本采用内存注册表模型，后续可扩展为持久化版本库与变更审计系统。
