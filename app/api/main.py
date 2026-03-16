@@ -12,6 +12,8 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService, SchedulerError
 from app.services.supervisor import SupervisorService, SupervisorError
 from app.services.app_catalog import AppCatalogService, AppCatalogError
+from app.services.app_registry import AppRegistryService, AppRegistryError
+from app.services.app_installer import AppInstallerService, AppInstallerError
 from app.services.interaction_gateway import InteractionGateway
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
 from app.models.experience import ExperienceRecord
@@ -19,6 +21,7 @@ from app.models.skill_blueprint import SkillBlueprint
 from app.models.demonstration import DemonstrationRecord
 from app.models.app_instance import AppInstance
 from app.models.interaction import AppCatalogEntry, UserCommand
+from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 
@@ -62,12 +65,15 @@ lifecycle = AppLifecycleService(store=runtime_store)
 runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
 scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host, store=runtime_store)
 supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
+app_registry = AppRegistryService(store=runtime_store)
+app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host)
 app_catalog = AppCatalogService()
 interaction_gateway = InteractionGateway(
     catalog=app_catalog,
     router=router,
     lifecycle=lifecycle,
     runtime_host=runtime_host,
+    installer=app_installer,
 )
 skill_control.register(
     SkillRegistryEntry(
@@ -77,6 +83,44 @@ skill_control.register(
         active_version="1.0.0",
         versions=[SkillVersion(version="1.0.0", content="protected control surface")],
         dependencies=[],
+    )
+)
+app_registry.register_blueprint(
+    AppBlueprint(
+        id="bp.workspace.assistant",
+        name="Workspace Assistant",
+        goal="长期运行的工作台助手 app",
+        roles=[],
+        tasks=[],
+        workflows=[{"id": "wf.assistant", "name": "assistant loop", "triggers": ["manual"], "steps": []}],
+        required_modules=["state.get"],
+        required_skills=["requirement.clarify"],
+        runtime_policy={
+            "execution_mode": "service",
+            "activation": "on_demand",
+            "restart_policy": "on_failure",
+            "persistence_level": "full",
+            "idle_strategy": "keep_alive",
+        },
+    )
+)
+app_registry.register_blueprint(
+    AppBlueprint(
+        id="bp.pipeline.executor",
+        name="Pipeline Executor",
+        goal="一次性流水线执行 app",
+        roles=[],
+        tasks=[],
+        workflows=[{"id": "wf.pipeline", "name": "pipeline run", "triggers": ["manual"], "steps": []}],
+        required_modules=["state.set"],
+        required_skills=["workflow.suggest"],
+        runtime_policy={
+            "execution_mode": "pipeline",
+            "activation": "on_demand",
+            "restart_policy": "never",
+            "persistence_level": "standard",
+            "idle_strategy": "stop",
+        },
     )
 )
 app_catalog.register(
@@ -265,6 +309,27 @@ def get_runtime_overview(app_instance_id: str) -> dict:
         raise map_domain_error(error) from error
 
 
+@app.get("/registry/apps")
+def list_registry_apps() -> list[dict]:
+    return [item.model_dump(mode="json") for item in app_registry.list_entries()]
+
+
+@app.post("/registry/apps")
+def register_blueprint(blueprint: AppBlueprint) -> dict:
+    try:
+        return app_registry.register_blueprint(blueprint).model_dump(mode="json")
+    except (AppRegistryError,) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/registry/apps/{blueprint_id}/install")
+def install_blueprint(blueprint_id: str, payload: dict[str, str]) -> dict:
+    try:
+        return app_installer.install_app(blueprint_id=blueprint_id, user_id=payload["user_id"]).model_dump(mode="json")
+    except (AppRegistryError, AppInstallerError, LifecycleError, RuntimeHostError) as error:
+        raise map_domain_error(error) from error
+
+
 @app.get("/catalog/apps")
 def list_catalog_apps() -> list[dict]:
     return [item.model_dump(mode="json") for item in app_catalog.list_apps()]
@@ -289,6 +354,8 @@ def get_runtime_persistence_snapshot() -> dict:
         "runtime_schedules": runtime_store.load_json("runtime_schedules", {}),
         "supervision_policies": runtime_store.load_json("supervision_policies", {}),
         "supervision_statuses": runtime_store.load_json("supervision_statuses", {}),
+        "registry_entries": runtime_store.load_json("registry_entries", {}),
+        "registry_blueprints": runtime_store.load_json("registry_blueprints", {}),
     }
 
 

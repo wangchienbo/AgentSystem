@@ -6,7 +6,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T04:06:20.721441Z"
+      "created_at": "2026-03-16T04:31:08.080435Z"
     }
   ],
   "app.pipeline.executor:qq-user:run": [
@@ -16,7 +16,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T04:06:20.728347Z"
+      "created_at": "2026-03-16T04:31:08.087060Z"
     },
     {
       "checkpoint_id": "runtime.stop:2",
@@ -26,7 +26,7 @@
         "执行流水线"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T04:06:20.730474Z"
+      "created_at": "2026-03-16T04:31:08.089249Z"
     }
   ],
   "app.api.001": [
@@ -36,10 +36,11 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T04:06:20.751905Z"
+      "created_at": "2026-03-16T04:31:08.110160Z"
     }
   ],
   "app.api.002": [],
+  "bp.api.registry:api-user": [],
   "app.api.ops.001": [
     {
       "checkpoint_id": "runtime.start:1",
@@ -47,7 +48,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T04:06:20.789674Z"
+      "created_at": "2026-03-16T04:31:08.166720Z"
     },
     {
       "checkpoint_id": "runtime.fail:2",
@@ -59,7 +60,7 @@
       "metadata": {
         "reason": "api crash"
       },
-      "created_at": "2026-03-16T04:06:20.800940Z"
+      "created_at": "2026-03-16T04:31:08.178472Z"
     },
     {
       "checkpoint_id": "runtime.start:3",
@@ -69,7 +70,7 @@
         "heartbeat sweep"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T04:06:20.807142Z"
+      "created_at": "2026-03-16T04:31:08.184695Z"
     }
   ]
 }

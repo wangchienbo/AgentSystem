@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from app.models.app_instance import AppInstance
 from app.models.interaction import AppExecutionMode, InteractionDecision, UserCommand
 from app.services.app_catalog import AppCatalogService
+from app.services.app_installer import AppInstallerService
 from app.services.lifecycle import AppLifecycleService
 from app.services.requirement_router import RequirementRouter
 from app.services.runtime_host import AppRuntimeHostService
@@ -15,11 +15,13 @@ class InteractionGateway:
         router: RequirementRouter,
         lifecycle: AppLifecycleService,
         runtime_host: AppRuntimeHostService,
+        installer: AppInstallerService,
     ) -> None:
         self._catalog = catalog
         self._router = router
         self._lifecycle = lifecycle
         self._runtime_host = runtime_host
+        self._installer = installer
 
     def handle_command(self, command: UserCommand) -> InteractionDecision:
         matched_app, matched_phrases = self._catalog.match_command(command.text)
@@ -44,11 +46,7 @@ class InteractionGateway:
         matched_phrases: list[str],
     ) -> InteractionDecision:
         app_instance_id = f"{app_id}:{command.user_id}"
-        instance = self._ensure_instance(app_instance_id, blueprint_id, command.user_id)
-        if instance.status == "draft":
-            self._lifecycle.transition(app_instance_id, "validate", reason="interaction gateway boot")
-            self._lifecycle.transition(app_instance_id, "compile", reason="interaction gateway boot")
-            self._lifecycle.transition(app_instance_id, "install", reason="interaction gateway boot")
+        self._installer.install_app(blueprint_id=blueprint_id, user_id=command.user_id, app_instance_id=app_instance_id)
         if self._lifecycle.get_instance(app_instance_id).status in {"installed", "stopped", "failed"}:
             overview = self._runtime_host.start(app_instance_id, reason="user open app")
         else:
@@ -72,11 +70,7 @@ class InteractionGateway:
         matched_phrases: list[str],
     ) -> InteractionDecision:
         app_instance_id = f"{app_id}:{command.user_id}:run"
-        instance = self._ensure_instance(app_instance_id, blueprint_id, command.user_id)
-        if instance.status == "draft":
-            self._lifecycle.transition(app_instance_id, "validate", reason="pipeline boot")
-            self._lifecycle.transition(app_instance_id, "compile", reason="pipeline boot")
-            self._lifecycle.transition(app_instance_id, "install", reason="pipeline boot")
+        self._installer.install_app(blueprint_id=blueprint_id, user_id=command.user_id, app_instance_id=app_instance_id)
         self._runtime_host.start(app_instance_id, reason="run pipeline")
         pending_tasks = self._runtime_host.enqueue_task(app_instance_id, command.text)
         overview = self._runtime_host.stop(app_instance_id, reason="pipeline complete")
@@ -90,16 +84,3 @@ class InteractionGateway:
             pending_tasks=overview.pending_tasks or pending_tasks,
         )
 
-    def _ensure_instance(self, app_instance_id: str, blueprint_id: str, user_id: str) -> AppInstance:
-        try:
-            return self._lifecycle.get_instance(app_instance_id)
-        except Exception:
-            instance = AppInstance(
-                id=app_instance_id,
-                blueprint_id=blueprint_id,
-                owner_user_id=user_id,
-                status="draft",
-                data_namespace=f"users/{user_id}/apps/{app_instance_id}",
-            )
-            self._runtime_host.register_instance(instance)
-            return instance

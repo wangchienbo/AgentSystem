@@ -3,9 +3,12 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.models.app_blueprint import AppBlueprint
 from app.models.app_instance import AppInstance
 from app.models.interaction import AppCatalogEntry, UserCommand
 from app.services.app_catalog import AppCatalogService
+from app.services.app_installer import AppInstallerService
+from app.services.app_registry import AppRegistryService
 from app.services.interaction_gateway import InteractionGateway
 from app.services.lifecycle import AppLifecycleService
 from app.services.requirement_router import RequirementRouter
@@ -20,7 +23,22 @@ def test_interaction_gateway_opens_service_app() -> None:
     store = RuntimeStateStore(base_dir="data/test-runtime-gateway-service")
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime)
     catalog = AppCatalogService()
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.assistant",
+            name="Assistant",
+            goal="long running assistant",
+            roles=[],
+            tasks=[],
+            workflows=[{"id": "wf.assistant", "name": "assistant", "triggers": ["manual"], "steps": []}],
+            required_modules=["state.get"],
+            required_skills=[],
+            runtime_policy={"execution_mode": "service"},
+        )
+    )
     catalog.register(
         AppCatalogEntry(
             app_id="app.assistant",
@@ -31,7 +49,7 @@ def test_interaction_gateway_opens_service_app() -> None:
             blueprint_id="bp.assistant",
         )
     )
-    gateway = InteractionGateway(catalog, RequirementRouter(), lifecycle, runtime)
+    gateway = InteractionGateway(catalog, RequirementRouter(), lifecycle, runtime, installer)
 
     decision = gateway.handle_command(UserCommand(user_id="u1", text="请帮我打开助手"))
 
@@ -45,7 +63,22 @@ def test_interaction_gateway_runs_pipeline_app() -> None:
     store = RuntimeStateStore(base_dir="data/test-runtime-gateway-pipeline")
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime)
     catalog = AppCatalogService()
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.pipeline",
+            name="Pipeline",
+            goal="one-shot pipeline",
+            roles=[],
+            tasks=[],
+            workflows=[{"id": "wf.pipeline", "name": "pipeline", "triggers": ["manual"], "steps": []}],
+            required_modules=["state.set"],
+            required_skills=[],
+            runtime_policy={"execution_mode": "pipeline", "restart_policy": "never", "idle_strategy": "stop"},
+        )
+    )
     catalog.register(
         AppCatalogEntry(
             app_id="app.pipeline",
@@ -56,7 +89,7 @@ def test_interaction_gateway_runs_pipeline_app() -> None:
             blueprint_id="bp.pipeline",
         )
     )
-    gateway = InteractionGateway(catalog, RequirementRouter(), lifecycle, runtime)
+    gateway = InteractionGateway(catalog, RequirementRouter(), lifecycle, runtime, installer)
 
     decision = gateway.handle_command(UserCommand(user_id="u2", text="现在执行流水线"))
 
@@ -71,7 +104,9 @@ def test_interaction_gateway_clarifies_unknown_command() -> None:
     store = RuntimeStateStore(base_dir="data/test-runtime-gateway-clarify")
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
-    gateway = InteractionGateway(AppCatalogService(), RequirementRouter(), lifecycle, runtime)
+    registry = AppRegistryService(store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime)
+    gateway = InteractionGateway(AppCatalogService(), RequirementRouter(), lifecycle, runtime, installer)
 
     decision = gateway.handle_command(UserCommand(user_id="u3", text="帮我搞个抽象战略平台"))
 

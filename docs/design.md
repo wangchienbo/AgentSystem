@@ -526,6 +526,39 @@ running -> archived
 本系统应被实现为一个 **以 App 为持久化一等公民的 App OS**。系统通过 Builder App 让用户持续创建和演化应用，通过 Foundation Modules 保证确定性执行，通过 Intelligence Skills 提供少量高价值智能能力，并通过生命周期、数据隔离、日志审计与恢复机制保障系统稳定运行。
 
 
+## 18. Skill / Blueprint / App Instance 边界
+
+为了避免系统边界混乱，当前设计明确区分三类对象：
+
+### 18.1 Skill
+Skill 是可复用能力单元，类似操作系统中的库、插件或子系统能力。
+- 有版本生命周期
+- 可启用 / 禁用 / 替换 / 回退
+- 被 App、Builder、Runtime 调用
+- 默认不作为主要用户产品入口
+
+### 18.2 App Blueprint
+App Blueprint 是应用定义模板，类似操作系统中的可安装程序描述或 service unit 模板。
+- 定义 app 的目标、角色、工作流、视图与依赖 skill/module
+- 定义 execution mode 与 runtime policy
+- 不直接承载运行态
+
+### 18.3 App Instance
+App Instance 是真正拥有生命周期的对象，类似已安装并运行的服务实例。
+- 拥有 status、runtime policy、data namespace
+- 由 Blueprint 安装得到
+- 接受 Lifecycle / Runtime / Scheduler / Supervisor 管理
+
+### 18.4 数据分层校准
+- App Data：与 app instance 绑定，长期持久化，不因 stop 而消失
+- Runtime State：与运行周期强相关，按恢复需求选择性持久化
+- Skill Asset Data：服务于 skill 版本与经验资产，不属于某个 app 的业务空间
+
+### 18.5 两类 App
+- Service App：长期存在、可被打开、可后台调度
+- Pipeline App：按次执行，完成后停止，保留结果数据
+
+
 ## 11. Requirement Router 模块
 
 首期新增 `RequirementRouter` 模块，负责：

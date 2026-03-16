@@ -4,12 +4,15 @@ App OS prototype for building, managing, and running AI-native applications.
 
 ## Current status
 
-This repository contains the first project skeleton for:
-- App Blueprint models
-- App Instance models
-- Minimal FastAPI service
-- Initial validation endpoint
-- Initial unit tests
+This repository now contains a working prototype skeleton for:
+- App Blueprint models with runtime policy
+- App Instance models with execution mode
+- App registry and installer flow
+- Interaction gateway for opening service apps and running pipeline apps
+- Runtime host, scheduler, and supervisor services
+- File-based runtime persistence
+- FastAPI endpoints for validation, registry, install, runtime, and interaction flows
+- Unit tests covering the core lifecycle and orchestration path
 
 ## Documentation
 

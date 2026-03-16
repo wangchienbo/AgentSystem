@@ -176,3 +176,71 @@ Implemented a first user-facing command gateway plus minimal file-based runtime 
 - Reused local virtual environment: `.venv`
 - Ran test suite successfully
 - Result: `34 passed`
+
+### Module: app registry, installer, and runtime policy alignment
+
+Aligned the architecture around OS-style boundaries: skill as reusable capability, blueprint as definition, instance as lifecycle object.
+
+#### Added
+- `app/models/runtime_policy.py`
+  - execution mode
+  - activation mode
+  - restart policy
+  - persistence level
+  - idle strategy
+- `app/models/registry.py`
+  - registry entry model
+  - install result model
+- `app/services/app_registry.py`
+  - blueprint registration
+  - registry listing
+  - blueprint lookup
+  - persistence to runtime store
+- `app/services/app_installer.py`
+  - blueprint -> instance installation flow
+  - instance creation with execution mode and runtime policy
+  - lifecycle transitions through validate / compile / install
+
+#### Updated
+- `app/models/app_blueprint.py`
+  - added `runtime_policy`
+- `app/models/app_instance.py`
+  - added `execution_mode`
+  - added `runtime_policy`
+- `app/services/interaction_gateway.py`
+  - now routes through installer instead of directly constructing instances
+- `app/api/main.py`
+  - added registry endpoints
+  - preloaded example blueprints into registry
+  - interaction path now depends on registry + installer flow
+- `app/core/errors.py`
+  - added registry / installer error mapping
+- `README.md`
+  - updated current prototype status
+- `docs/design.md`
+  - added boundary clarification for skill / blueprint / app instance / data layers
+
+#### API endpoints added
+- `GET /registry/apps`
+- `POST /registry/apps`
+- `POST /registry/apps/{blueprint_id}/install`
+
+#### Behavior added
+- service/pipeline mode now belongs to runtime policy instead of being only a catalog convention
+- app interaction now installs from registered blueprints before runtime activation
+- registry data and blueprints are persisted into runtime store snapshots
+
+#### Tests
+- added `tests/unit/test_registry_installer.py`
+- updated `tests/unit/test_interaction_gateway.py`
+- validated:
+  - blueprint registration
+  - install flow
+  - runtime policy propagation into app instance
+  - registry API flow
+  - interaction gateway installer-backed execution
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Ran test suite successfully
+- Result: `37 passed`
