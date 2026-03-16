@@ -151,5 +151,22 @@
       "idle_strategy": "suspend",
       "max_restart_attempts": 3
     }
+  },
+  "bp.workspace.assistant:skill-suggest-user": {
+    "id": "bp.workspace.assistant:skill-suggest-user",
+    "blueprint_id": "bp.workspace.assistant",
+    "owner_user_id": "skill-suggest-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/skill-suggest-user/apps/bp.workspace.assistant:skill-suggest-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3
+    }
   }
 }

@@ -15,5 +15,6 @@
   "bp.api.registry:api-user": [],
   "app.api.ops.001": [
     "heartbeat sweep"
-  ]
+  ],
+  "bp.workspace.assistant:skill-suggest-user": []
 }

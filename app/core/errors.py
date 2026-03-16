@@ -12,11 +12,12 @@ from app.services.practice_review import PracticeReviewError
 from app.services.runtime_host import RuntimeHostError
 from app.services.scheduler import SchedulerError
 from app.services.skill_control import SkillControlError
+from app.services.skill_suggestion import SkillSuggestionError
 from app.services.supervisor import SupervisorError
 
 
 def map_domain_error(error: Exception) -> HTTPException:
-    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, EventBusError, PracticeReviewError)):
+    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, EventBusError, PracticeReviewError, SkillSuggestionError)):
         message = str(error)
         if "not found" in message.lower():
             return HTTPException(status_code=404, detail=message)

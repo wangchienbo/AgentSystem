@@ -398,3 +398,44 @@ Implemented a first practice-to-experience loop so the system can summarize runt
 - Cleaned transient `data/test-*` directories and `*.egg-info`
 - Ran test suite successfully
 - Result: `47 passed`
+
+### Module: experience-to-skill suggestion layer
+
+Implemented a first semi-automatic bridge from runtime experience to reusable skill blueprint suggestions.
+
+#### Added
+- `app/models/skill_suggestion.py`
+  - `SkillSuggestionRequest`
+  - `SkillSuggestionResult`
+- `app/services/skill_suggestion.py`
+  - experience lookup
+  - candidate skill blueprint generation
+  - optional persistence into skill blueprint store
+- `tests/unit/test_skill_suggestion.py`
+  - skill suggestion tests
+
+#### Updated
+- `app/api/main.py`
+  - added skill suggestion endpoint
+- `app/core/errors.py`
+  - added skill suggestion error mapping
+
+#### API endpoints added
+- `POST /skills/suggest-from-experience`
+
+#### Behavior added
+- system can now generate a candidate `SkillBlueprint` from an `ExperienceRecord`
+- suggestion can remain advisory or be persisted into the skill blueprint store
+- practice review output can now feed the next evolution step: experience -> skill suggestion
+
+#### Tests
+- validated:
+  - blueprint suggestion generation from runtime experience
+  - optional suggestion persistence
+  - practice review -> skill suggestion API flow
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Cleaned transient `data/test-*` directories and `*.egg-info`
+- Ran test suite successfully
+- Result: `50 passed`
