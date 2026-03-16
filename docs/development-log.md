@@ -555,6 +555,58 @@ Implemented the first review loop for self-refinement proposals so the system ca
 - Ran test suite successfully
 - Result: `54 passed`
 
+### Module: priority and contradiction analysis for self-refinement
+
+Implemented a first priority-analysis layer so the system can rank its own refinement proposals and identify the current main contradiction.
+
+#### Added
+- `app/models/priority_analysis.py`
+  - `PriorityAnalysisRequest`
+  - `PrioritizedProposal`
+  - `PriorityAnalysisResult`
+- `app/services/priority_analysis.py`
+  - proposal scoring
+  - main contradiction description
+  - recommended next action generation
+- `tests/unit/test_priority_analysis.py`
+  - priority analysis tests
+
+#### Updated
+- `app/api/main.py`
+  - added self-refinement priority analysis endpoint
+- `app/core/errors.py`
+  - added priority analysis error mapping
+
+#### API endpoints added
+- `POST /self-refinement/analyze-priority`
+
+#### Behavior added
+- system can now rank multiple refinement proposals by priority
+- ranking considers:
+  - target type impact
+  - risk level
+  - auto-apply eligibility
+  - amount of evidence
+- analysis also outputs:
+  - primary contradiction
+  - recommended next action
+
+#### Design value
+- the system no longer only produces proposals
+- it can now distinguish primary vs secondary refinement actions
+- this is the first step toward a structured “抓主要矛盾” capability in the runtime evolution loop
+
+#### Tests
+- validated:
+  - low-risk runtime policy proposal ranks ahead of workflow proposal when appropriate
+  - priority analysis API flow
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Cleaned transient `data/test-*` directories and `*.egg-info`
+- Ran test suite successfully
+- Result: `56 passed`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.

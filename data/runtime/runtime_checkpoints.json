@@ -7,7 +7,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:25:33.175876Z"
+      "created_at": "2026-03-16T12:38:02.731711Z"
     }
   ],
   "app.workspace.assistant:qq-user": [
@@ -17,7 +17,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:25:33.227834Z"
+      "created_at": "2026-03-16T12:38:02.798445Z"
     }
   ],
   "app.pipeline.executor:qq-user:run": [
@@ -27,7 +27,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:25:33.235697Z"
+      "created_at": "2026-03-16T12:38:02.805918Z"
     },
     {
       "checkpoint_id": "runtime.stop:2",
@@ -37,7 +37,7 @@
         "执行流水线"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T12:25:33.237713Z"
+      "created_at": "2026-03-16T12:38:02.807809Z"
     }
   ],
   "app.api.001": [
@@ -47,11 +47,12 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:25:33.259661Z"
+      "created_at": "2026-03-16T12:38:02.829859Z"
     }
   ],
   "app.api.002": [],
   "bp.workspace.assistant:review-api-user": [],
+  "bp.workspace.assistant:priority-api-user": [],
   "bp.workspace.assistant:proposal-review-user": [],
   "bp.api.registry:api-user": [],
   "app.api.ops.001": [
@@ -61,7 +62,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:25:33.371148Z"
+      "created_at": "2026-03-16T12:38:02.985019Z"
     },
     {
       "checkpoint_id": "runtime.fail:2",
@@ -73,7 +74,7 @@
       "metadata": {
         "reason": "api crash"
       },
-      "created_at": "2026-03-16T12:25:33.383582Z"
+      "created_at": "2026-03-16T12:38:02.998047Z"
     },
     {
       "checkpoint_id": "runtime.start:3",
@@ -83,7 +84,7 @@
         "heartbeat sweep"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T12:25:33.390254Z"
+      "created_at": "2026-03-16T12:38:03.004984Z"
     }
   ],
   "bp.workspace.assistant:self-refine-user": [],
