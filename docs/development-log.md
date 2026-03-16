@@ -718,6 +718,34 @@ Unified the local private model configuration into a single YAML file outside th
 - Ran actual model probe using `/root/.config/agentsystem/config.yaml`
 - Result: endpoint reachable and returned SSE response events from `/v1/responses`
 
+### Module: model-enhanced skill suggestion with deterministic fallback
+
+Added an optional model-backed skill suggestion layer while preserving the original deterministic synthesis path as a safe fallback.
+
+#### Added
+- `app/services/model_skill_suggester.py`
+  - generates constrained skill blueprint JSON from runtime experience via the configured responses API
+  - exposes availability checks so model enhancement stays optional
+
+#### Updated
+- `app/services/skill_suggestion.py`
+  - now supports injected model suggester
+  - still builds a deterministic rule-based suggestion first
+  - falls back to deterministic synthesis whenever model config or model output is invalid
+- `app/api/main.py`
+  - wires `ModelSkillSuggester` into the global `SkillSuggestionService`
+- `tests/unit/test_skill_suggestion.py`
+  - added model-success and model-fallback tests
+
+#### Behavior added
+- skill suggestion can now be model-enhanced when local private model config is available
+- model output is constrained to a narrow JSON blueprint shape
+- deterministic fallback still guarantees the feature works without model access or under model failure
+
+#### Validation
+- Ran full test suite successfully
+- Result: `61 passed`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.

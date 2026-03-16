@@ -7,7 +7,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T13:19:02.215774Z"
+      "created_at": "2026-03-16T13:22:39.514060Z"
     }
   ],
   "app.workspace.assistant:qq-user": [
@@ -17,7 +17,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T13:19:02.269250Z"
+      "created_at": "2026-03-16T13:22:39.572509Z"
     }
   ],
   "app.pipeline.executor:qq-user:run": [
@@ -27,7 +27,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T13:19:02.277951Z"
+      "created_at": "2026-03-16T13:22:39.579818Z"
     },
     {
       "checkpoint_id": "runtime.stop:2",
@@ -37,7 +37,7 @@
         "执行流水线"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T13:19:02.279810Z"
+      "created_at": "2026-03-16T13:22:39.582116Z"
     }
   ],
   "app.api.001": [
@@ -47,7 +47,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T13:19:02.301932Z"
+      "created_at": "2026-03-16T13:22:39.604629Z"
     }
   ],
   "app.api.002": [],
@@ -62,7 +62,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T13:19:02.459658Z"
+      "created_at": "2026-03-16T13:22:39.756664Z"
     },
     {
       "checkpoint_id": "runtime.fail:2",
@@ -74,7 +74,7 @@
       "metadata": {
         "reason": "api crash"
       },
-      "created_at": "2026-03-16T13:19:02.472247Z"
+      "created_at": "2026-03-16T13:22:39.769002Z"
     },
     {
       "checkpoint_id": "runtime.start:3",
@@ -84,7 +84,7 @@
         "heartbeat sweep"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T13:19:02.479260Z"
+      "created_at": "2026-03-16T13:22:39.776034Z"
     }
   ],
   "bp.workspace.assistant:self-refine-user": [],
