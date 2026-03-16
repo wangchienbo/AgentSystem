@@ -16,5 +16,6 @@
   "app.api.ops.001": [
     "heartbeat sweep"
   ],
+  "bp.workspace.assistant:self-refine-user": [],
   "bp.workspace.assistant:skill-suggest-user": []
 }

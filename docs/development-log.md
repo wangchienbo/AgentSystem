@@ -440,6 +440,62 @@ Implemented a first semi-automatic bridge from runtime experience to reusable sk
 - Ran test suite successfully
 - Result: `50 passed`
 
+### Module: self-refinement patch proposal layer
+
+Implemented the first constrained self-iteration layer. The system can now generate patch proposals for itself without directly auto-modifying core runtime behavior.
+
+#### Added
+- `app/models/patch_proposal.py`
+  - `PatchProposal`
+  - `SelfRefinementRequest`
+  - `SelfRefinementResult`
+- `app/services/self_refinement.py`
+  - experience-driven patch proposal generation
+  - runtime policy patch suggestions
+  - workflow patch suggestions
+- `tests/unit/test_self_refinement.py`
+  - self-refinement tests
+
+#### Updated
+- `app/api/main.py`
+  - added self-refinement proposal endpoint
+- `app/core/errors.py`
+  - added self-refinement error mapping
+
+#### API endpoints added
+- `POST /self-refinement/propose`
+
+#### Behavior added
+- system can now generate constrained self-refinement proposals from runtime experience
+- proposals include:
+  - target type
+  - evidence
+  - expected benefit
+  - risk level
+  - auto-apply allowance
+  - validation checklist
+  - rollback target
+- current proposal targets:
+  - runtime policy
+  - workflow
+
+#### Safety boundary
+- this layer only produces proposals
+- it does not auto-apply structural system changes
+- medium/high-risk refinement remains explicitly reviewable
+
+#### Tests
+- validated:
+  - self-refinement proposal generation from reviewed runtime experience
+  - runtime policy and workflow proposals both appear when relevant
+  - self-refinement API flow
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Cleaned transient `data/test-*` directories and `*.egg-info`
+- Ran test suite successfully
+- Result: `52 passed`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.

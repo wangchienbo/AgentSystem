@@ -18,8 +18,10 @@ from app.services.app_installer import AppInstallerService, AppInstallerError
 from app.services.event_bus import EventBusService, EventBusError
 from app.services.interaction_gateway import InteractionGateway
 from app.services.practice_review import PracticeReviewService, PracticeReviewError
+from app.services.self_refinement import SelfRefinementService, SelfRefinementError
 from app.services.skill_suggestion import SkillSuggestionService, SkillSuggestionError
 from app.models.event_bus import EventSubscription
+from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
@@ -78,6 +80,7 @@ supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
 practice_review = PracticeReviewService(event_bus=event_bus, data_store=app_data_store, experience_store=experience_store)
 skill_suggestion = SkillSuggestionService(experience_store=experience_store)
 app_registry = AppRegistryService(store=runtime_store)
+self_refinement = SelfRefinementService(experience_store=experience_store, registry=app_registry, lifecycle=lifecycle)
 app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host, data_store=app_data_store)
 app_catalog = AppCatalogService()
 interaction_gateway = InteractionGateway(
@@ -453,6 +456,14 @@ def suggest_skill_from_experience(request: SkillSuggestionRequest) -> dict:
     try:
         return skill_suggestion.suggest(request).model_dump(mode="json")
     except SkillSuggestionError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/self-refinement/propose")
+def propose_self_refinement(request: SelfRefinementRequest) -> dict:
+    try:
+        return self_refinement.propose(request).model_dump(mode="json")
+    except SelfRefinementError as error:
         raise map_domain_error(error) from error
 
 
