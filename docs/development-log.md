@@ -607,6 +607,51 @@ Implemented a first priority-analysis layer so the system can rank its own refin
 - Ran test suite successfully
 - Result: `56 passed`
 
+### Module: local model configuration and connectivity probe
+
+Implemented the first project-level model access scaffolding so AgentSystem can connect to an OpenAI-compatible responses API independently of the host assistant runtime.
+
+#### Added
+- `app/models/model_config.py`
+  - local model configuration schema
+- `app/services/model_config_loader.py`
+  - local file / environment configuration loader
+  - API key resolution
+- `app/services/model_client.py`
+  - OpenAI-compatible `/v1/responses` probe client
+- `config/model.local.example.json`
+  - example local model configuration template
+- `.env.local.example`
+  - example environment variable template
+- `scripts/model_probe.py`
+  - minimal connectivity probe script
+- `tests/unit/test_model_config.py`
+  - model configuration loader tests
+
+#### Updated
+- `.gitignore`
+  - ignore `.env.local`
+  - ignore `config/model.local.json`
+- `README.md`
+  - added local model configuration section
+- `docs/testing-detail.md`
+  - recorded actual project-level model probe status
+
+#### Behavior added
+- project can now load model settings from a local gitignored config file or environment variables
+- project can now resolve API key by env var name
+- project can probe an OpenAI-compatible responses endpoint directly
+
+#### Validation
+- Ran unit tests successfully
+- Result: `59 passed`
+- Ran actual model probe against configured endpoint
+- Result: `/v1/responses` returned `MODEL_PROBE_OK`
+
+#### Security note
+- real API secret was written only to local gitignored files
+- no secret was added to tracked repository files or commits
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.
