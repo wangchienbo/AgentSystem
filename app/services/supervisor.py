@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from app.models.scheduling import SupervisionActionResult, SupervisionPolicy, SupervisionStatus
 from app.services.runtime_host import AppRuntimeHostService, RuntimeHostError
+from app.services.runtime_state_store import RuntimeStateStore
 
 
 class SupervisorError(ValueError):
@@ -11,15 +12,17 @@ class SupervisorError(ValueError):
 
 
 class SupervisorService:
-    def __init__(self, runtime_host: AppRuntimeHostService) -> None:
+    def __init__(self, runtime_host: AppRuntimeHostService, store: RuntimeStateStore | None = None) -> None:
         self._runtime_host = runtime_host
         self._policies: dict[str, SupervisionPolicy] = {}
         self._statuses: dict[str, SupervisionStatus] = {}
+        self._store = store
 
     def register_policy(self, policy: SupervisionPolicy) -> SupervisionPolicy:
         self._runtime_host.get_overview(policy.app_instance_id)
         self._policies[policy.app_instance_id] = policy
         self._statuses.setdefault(policy.app_instance_id, SupervisionStatus(app_instance_id=policy.app_instance_id))
+        self._persist()
         return policy
 
     def get_policy(self, app_instance_id: str) -> SupervisionPolicy:
@@ -44,6 +47,7 @@ class SupervisorService:
             status.state = "restart_pending"
         else:
             status.state = "healthy"
+        self._persist()
         return SupervisionActionResult(
             app_instance_id=app_instance_id,
             action="observe_failure",
@@ -74,6 +78,7 @@ class SupervisorService:
         status.restart_attempts += 1
         status.state = "healthy"
         status.updated_at = datetime.now(UTC)
+        self._persist()
         return SupervisionActionResult(
             app_instance_id=app_instance_id,
             action="attempt_restart",
@@ -90,6 +95,7 @@ class SupervisorService:
         status.restart_attempts = 0
         status.last_failure_reason = ""
         status.updated_at = datetime.now(UTC)
+        self._persist()
         return SupervisionActionResult(
             app_instance_id=app_instance_id,
             action="reset",
@@ -98,3 +104,9 @@ class SupervisorService:
             restart_attempts=status.restart_attempts,
             message="supervision status reset",
         )
+
+    def _persist(self) -> None:
+        if self._store is None:
+            return
+        self._store.save_mapping("supervision_policies", self._policies)
+        self._store.save_mapping("supervision_statuses", self._statuses)

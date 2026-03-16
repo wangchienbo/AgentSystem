@@ -1,0 +1,10 @@
+{
+  "app.api.ops.001": {
+    "app_instance_id": "app.api.ops.001",
+    "state": "healthy",
+    "failure_count": 1,
+    "restart_attempts": 1,
+    "last_failure_reason": "api crash",
+    "updated_at": "2026-03-16T04:06:20.807786Z"
+  }
+}

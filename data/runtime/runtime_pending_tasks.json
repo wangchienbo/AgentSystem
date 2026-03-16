@@ -1,0 +1,13 @@
+{
+  "app.workspace.assistant:qq-user": [],
+  "app.pipeline.executor:qq-user:run": [
+    "执行流水线"
+  ],
+  "app.api.001": [
+    "poll queue"
+  ],
+  "app.api.002": [],
+  "app.api.ops.001": [
+    "heartbeat sweep"
+  ]
+}

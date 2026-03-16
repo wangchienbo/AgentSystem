@@ -1,0 +1,163 @@
+{
+  "app.workspace.assistant:qq-user": [
+    {
+      "app_instance_id": "app.workspace.assistant:qq-user",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "interaction gateway boot",
+      "created_at": "2026-03-16T04:06:20.718160Z"
+    },
+    {
+      "app_instance_id": "app.workspace.assistant:qq-user",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "interaction gateway boot",
+      "created_at": "2026-03-16T04:06:20.718569Z"
+    },
+    {
+      "app_instance_id": "app.workspace.assistant:qq-user",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "interaction gateway boot",
+      "created_at": "2026-03-16T04:06:20.719757Z"
+    },
+    {
+      "app_instance_id": "app.workspace.assistant:qq-user",
+      "event_type": "start",
+      "from_status": "installed",
+      "to_status": "running",
+      "reason": "user open app",
+      "created_at": "2026-03-16T04:06:20.720473Z"
+    }
+  ],
+  "app.pipeline.executor:qq-user:run": [
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "pipeline boot",
+      "created_at": "2026-03-16T04:06:20.725096Z"
+    },
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "pipeline boot",
+      "created_at": "2026-03-16T04:06:20.725587Z"
+    },
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "pipeline boot",
+      "created_at": "2026-03-16T04:06:20.726598Z"
+    },
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "start",
+      "from_status": "installed",
+      "to_status": "running",
+      "reason": "run pipeline",
+      "created_at": "2026-03-16T04:06:20.727313Z"
+    },
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "stop",
+      "from_status": "running",
+      "to_status": "stopped",
+      "reason": "pipeline complete",
+      "created_at": "2026-03-16T04:06:20.730029Z"
+    }
+  ],
+  "app.api.001": [
+    {
+      "app_instance_id": "app.api.001",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "",
+      "created_at": "2026-03-16T04:06:20.743630Z"
+    },
+    {
+      "app_instance_id": "app.api.001",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "",
+      "created_at": "2026-03-16T04:06:20.746357Z"
+    },
+    {
+      "app_instance_id": "app.api.001",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "",
+      "created_at": "2026-03-16T04:06:20.748900Z"
+    },
+    {
+      "app_instance_id": "app.api.001",
+      "event_type": "start",
+      "from_status": "installed",
+      "to_status": "running",
+      "reason": "boot app",
+      "created_at": "2026-03-16T04:06:20.751372Z"
+    }
+  ],
+  "app.api.002": [],
+  "app.api.ops.001": [
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "",
+      "created_at": "2026-03-16T04:06:20.778617Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "",
+      "created_at": "2026-03-16T04:06:20.781358Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "",
+      "created_at": "2026-03-16T04:06:20.783855Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "start",
+      "from_status": "installed",
+      "to_status": "running",
+      "reason": "",
+      "created_at": "2026-03-16T04:06:20.786457Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "fail",
+      "from_status": "running",
+      "to_status": "failed",
+      "reason": "api crash",
+      "created_at": "2026-03-16T04:06:20.800335Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "start",
+      "from_status": "failed",
+      "to_status": "running",
+      "reason": "supervisor restart",
+      "created_at": "2026-03-16T04:06:20.806507Z"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "app.workspace.assistant:qq-user": {
+    "id": "app.workspace.assistant:qq-user",
+    "blueprint_id": "bp.workspace.assistant",
+    "owner_user_id": "qq-user",
+    "status": "running",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/qq-user/apps/app.workspace.assistant:qq-user"
+  },
+  "app.pipeline.executor:qq-user:run": {
+    "id": "app.pipeline.executor:qq-user:run",
+    "blueprint_id": "bp.pipeline.executor",
+    "owner_user_id": "qq-user",
+    "status": "stopped",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/qq-user/apps/app.pipeline.executor:qq-user:run"
+  },
+  "app.api.001": {
+    "id": "app.api.001",
+    "blueprint_id": "bp.api.001",
+    "owner_user_id": "user.api",
+    "status": "running",
+    "installed_version": "0.1.0",
+    "data_namespace": "tenant/api/app.api.001"
+  },
+  "app.api.002": {
+    "id": "app.api.002",
+    "blueprint_id": "bp.api.002",
+    "owner_user_id": "user.api",
+    "status": "draft",
+    "installed_version": "0.1.0",
+    "data_namespace": "tenant/api/app.api.002"
+  },
+  "app.api.ops.001": {
+    "id": "app.api.ops.001",
+    "blueprint_id": "bp.api.ops.001",
+    "owner_user_id": "user.api",
+    "status": "running",
+    "installed_version": "0.1.0",
+    "data_namespace": "tenant/api/app.api.ops.001"
+  }
+}

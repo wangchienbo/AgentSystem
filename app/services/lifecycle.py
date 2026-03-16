@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.models.app_instance import AppInstance, AppStatus
 from app.models.runtime import LifecycleEvent, LifecycleTransitionResult
+from app.services.runtime_state_store import RuntimeStateStore
 
 
 class LifecycleError(ValueError):
@@ -36,13 +37,15 @@ _EVENT_TO_TARGET: dict[str, AppStatus] = {
 
 
 class AppLifecycleService:
-    def __init__(self) -> None:
+    def __init__(self, store: RuntimeStateStore | None = None) -> None:
         self._instances: dict[str, AppInstance] = {}
         self._events: dict[str, list[LifecycleEvent]] = {}
+        self._store = store
 
     def register_instance(self, instance: AppInstance) -> AppInstance:
         self._instances[instance.id] = instance
         self._events.setdefault(instance.id, [])
+        self._persist()
         return instance
 
     def get_instance(self, app_instance_id: str) -> AppInstance:
@@ -78,6 +81,7 @@ class AppLifecycleService:
                 reason=reason,
             )
         )
+        self._persist()
         return LifecycleTransitionResult(
             app_instance_id=app_instance_id,
             previous_status=previous_status,
@@ -85,3 +89,9 @@ class AppLifecycleService:
             event=event,  # type: ignore[arg-type]
             recorded_events=len(self._events[app_instance_id]),
         )
+
+    def _persist(self) -> None:
+        if self._store is None:
+            return
+        self._store.save_mapping("app_instances", self._instances)
+        self._store.save_nested_mapping("lifecycle_events", self._events)

@@ -8,13 +8,17 @@ from app.services.experience_store import ExperienceStore
 from app.services.demonstration_extractor import DemonstrationExtractor
 from app.services.lifecycle import AppLifecycleService, LifecycleError
 from app.services.runtime_host import AppRuntimeHostService, RuntimeHostError
+from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService, SchedulerError
 from app.services.supervisor import SupervisorService, SupervisorError
+from app.services.app_catalog import AppCatalogService, AppCatalogError
+from app.services.interaction_gateway import InteractionGateway
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.demonstration import DemonstrationRecord
 from app.models.app_instance import AppInstance
+from app.models.interaction import AppCatalogEntry, UserCommand
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 
@@ -53,10 +57,18 @@ router = RequirementRouter()
 skill_control = SkillControlService()
 experience_store = ExperienceStore()
 demonstration_extractor = DemonstrationExtractor()
-lifecycle = AppLifecycleService()
-runtime_host = AppRuntimeHostService(lifecycle=lifecycle)
-scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host)
-supervisor = SupervisorService(runtime_host=runtime_host)
+runtime_store = RuntimeStateStore()
+lifecycle = AppLifecycleService(store=runtime_store)
+runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
+scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host, store=runtime_store)
+supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
+app_catalog = AppCatalogService()
+interaction_gateway = InteractionGateway(
+    catalog=app_catalog,
+    router=router,
+    lifecycle=lifecycle,
+    runtime_host=runtime_host,
+)
 skill_control.register(
     SkillRegistryEntry(
         skill_id="core.skill.control",
@@ -65,6 +77,26 @@ skill_control.register(
         active_version="1.0.0",
         versions=[SkillVersion(version="1.0.0", content="protected control surface")],
         dependencies=[],
+    )
+)
+app_catalog.register(
+    AppCatalogEntry(
+        app_id="app.workspace.assistant",
+        name="Workspace Assistant",
+        description="长期运行的工作台助手 app",
+        execution_mode="service",
+        trigger_phrases=["打开助手", "assistant", "workspace assistant", "打开工作台"],
+        blueprint_id="bp.workspace.assistant",
+    )
+)
+app_catalog.register(
+    AppCatalogEntry(
+        app_id="app.pipeline.executor",
+        name="Pipeline Executor",
+        description="一次性流水线执行 app",
+        execution_mode="pipeline",
+        trigger_phrases=["执行流水线", "pipeline", "run pipeline", "跑一下流程"],
+        blueprint_id="bp.pipeline.executor",
     )
 )
 
@@ -231,6 +263,33 @@ def get_runtime_overview(app_instance_id: str) -> dict:
         return runtime_host.get_overview(app_instance_id).model_dump(mode="json")
     except (LifecycleError, RuntimeHostError) as error:
         raise map_domain_error(error) from error
+
+
+@app.get("/catalog/apps")
+def list_catalog_apps() -> list[dict]:
+    return [item.model_dump(mode="json") for item in app_catalog.list_apps()]
+
+
+@app.post("/interaction/command")
+def handle_user_command(command: UserCommand) -> dict:
+    try:
+        return interaction_gateway.handle_command(command).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, AppCatalogError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/runtime/persistence")
+def get_runtime_persistence_snapshot() -> dict:
+    return {
+        "app_instances": runtime_store.load_json("app_instances", {}),
+        "lifecycle_events": runtime_store.load_json("lifecycle_events", {}),
+        "runtime_leases": runtime_store.load_json("runtime_leases", {}),
+        "runtime_checkpoints": runtime_store.load_json("runtime_checkpoints", {}),
+        "runtime_pending_tasks": runtime_store.load_json("runtime_pending_tasks", {}),
+        "runtime_schedules": runtime_store.load_json("runtime_schedules", {}),
+        "supervision_policies": runtime_store.load_json("supervision_policies", {}),
+        "supervision_statuses": runtime_store.load_json("supervision_statuses", {}),
+    }
 
 
 @app.get("/schedules")

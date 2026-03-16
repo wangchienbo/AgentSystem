@@ -113,3 +113,66 @@ Implemented a first minimal scheduling and supervision layer for long-running ap
 - Reused local virtual environment: `.venv`
 - Ran test suite successfully
 - Result: `29 passed`
+
+### Module: interaction gateway and runtime persistence
+
+Implemented a first user-facing command gateway plus minimal file-based runtime persistence.
+
+#### Added
+- `app/models/interaction.py`
+  - `AppCatalogEntry`
+  - `UserCommand`
+  - `InteractionDecision`
+- `app/services/app_catalog.py`
+  - app catalog registry
+  - trigger phrase matching
+- `app/services/interaction_gateway.py`
+  - main user command entry
+  - service app open flow
+  - pipeline app one-shot run flow
+  - fallback clarify decision when no app matches
+- `app/services/runtime_state_store.py`
+  - JSON file persistence for runtime state collections and mappings
+
+#### Updated
+- `app/services/lifecycle.py`
+  - persist app instances and lifecycle events
+- `app/services/runtime_host.py`
+  - persist leases, checkpoints, and pending tasks
+- `app/services/scheduler.py`
+  - persist schedules
+- `app/services/supervisor.py`
+  - persist supervision policies and statuses
+- `app/api/main.py`
+  - added catalog listing endpoint
+  - added interaction command endpoint
+  - added runtime persistence snapshot endpoint
+  - wired a default service app and pipeline app into the catalog
+- `app/core/errors.py`
+  - added app catalog domain error mapping
+
+#### API endpoints added
+- `GET /catalog/apps`
+- `POST /interaction/command`
+- `GET /runtime/persistence`
+
+#### Behavior added
+- user commands can now be routed to:
+  - open a long-running service app
+  - execute a one-shot pipeline app
+  - return a clarify response when no app is matched
+- runtime state now persists to `data/runtime/*.json`
+
+#### Tests
+- added `tests/unit/test_interaction_gateway.py`
+- validated:
+  - service app command routing
+  - pipeline app command routing
+  - clarify fallback
+  - runtime persistence file creation
+  - interaction API and persistence snapshot
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Ran test suite successfully
+- Result: `34 passed`

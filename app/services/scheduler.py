@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from app.models.scheduling import ScheduleRecord, ScheduleTriggerResult
 from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
+from app.services.runtime_state_store import RuntimeStateStore
 
 
 class SchedulerError(ValueError):
@@ -12,15 +13,17 @@ class SchedulerError(ValueError):
 
 
 class SchedulerService:
-    def __init__(self, lifecycle: AppLifecycleService, runtime_host: AppRuntimeHostService) -> None:
+    def __init__(self, lifecycle: AppLifecycleService, runtime_host: AppRuntimeHostService, store: RuntimeStateStore | None = None) -> None:
         self._lifecycle = lifecycle
         self._runtime_host = runtime_host
         self._schedules: dict[str, ScheduleRecord] = {}
+        self._store = store
 
     def register_schedule(self, record: ScheduleRecord) -> ScheduleRecord:
         self._lifecycle.get_instance(record.app_instance_id)
         self._validate_record(record)
         self._schedules[record.schedule_id] = record
+        self._persist()
         return record
 
     def list_schedules(self, app_instance_id: str | None = None) -> list[ScheduleRecord]:
@@ -50,16 +53,19 @@ class SchedulerService:
     def pause_schedule(self, schedule_id: str) -> ScheduleRecord:
         schedule = self.get_schedule(schedule_id)
         schedule.status = "paused"
+        self._persist()
         return schedule
 
     def resume_schedule(self, schedule_id: str) -> ScheduleRecord:
         schedule = self.get_schedule(schedule_id)
         schedule.status = "active"
+        self._persist()
         return schedule
 
     def disable_schedule(self, schedule_id: str) -> ScheduleRecord:
         schedule = self.get_schedule(schedule_id)
         schedule.status = "disabled"
+        self._persist()
         return schedule
 
     def get_schedule(self, schedule_id: str) -> ScheduleRecord:
@@ -79,6 +85,7 @@ class SchedulerService:
             )
         pending_tasks = self._runtime_host.enqueue_task(schedule.app_instance_id, schedule.task_name)
         schedule.last_triggered_at = datetime.now(UTC)
+        self._persist()
         return ScheduleTriggerResult(
             schedule_id=schedule.schedule_id,
             app_instance_id=schedule.app_instance_id,
@@ -93,3 +100,8 @@ class SchedulerService:
             raise SchedulerError("Interval schedule requires interval_seconds")
         if record.trigger_type == "event" and not record.event_name:
             raise SchedulerError("Event schedule requires event_name")
+
+    def _persist(self) -> None:
+        if self._store is None:
+            return
+        self._store.save_mapping("runtime_schedules", self._schedules)
