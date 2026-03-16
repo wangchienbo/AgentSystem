@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 
 from app.services.app_catalog import AppCatalogError
+from app.services.app_context_store import AppContextStoreError
 from app.services.app_data_store import AppDataStoreError
 from app.services.app_installer import AppInstallerError
 from app.services.app_registry import AppRegistryError
@@ -20,7 +21,7 @@ from app.services.supervisor import SupervisorError
 
 
 def map_domain_error(error: Exception) -> HTTPException:
-    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, EventBusError, PracticeReviewError, SkillSuggestionError, SelfRefinementError, ProposalReviewError, PriorityAnalysisError)):
+    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, AppContextStoreError, EventBusError, PracticeReviewError, SkillSuggestionError, SelfRefinementError, ProposalReviewError, PriorityAnalysisError)):
         message = str(error)
         if "not found" in message.lower():
             return HTTPException(status_code=404, detail=message)

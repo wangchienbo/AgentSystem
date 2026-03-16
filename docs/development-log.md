@@ -776,6 +776,50 @@ Added an optional model-backed self-refinement proposal synthesizer while keepin
 - Ran full test suite successfully
 - Result: `63 passed`
 
+### Module: app shared context model and control-plane boundary docs
+
+Added the first explicit app-local shared context model so apps can maintain internal execution context independently from the user-facing control plane.
+
+#### Added
+- `app/models/app_context.py`
+  - `AppSharedContext`
+  - `AppContextEntry`
+- `app/services/app_context_store.py`
+  - shared context creation
+  - context stage/goal update
+  - structured entry append
+  - persistence via runtime state store
+- `tests/unit/test_app_context_store.py`
+  - app context service and API tests
+
+#### Updated
+- `app/api/main.py`
+  - added app context APIs
+  - runtime persistence snapshot now includes `app_contexts`
+- `app/core/errors.py`
+  - added app context error mapping
+- `docs/requirements.md`
+  - documented app-local shared context and user-facing control plane boundary
+- `docs/design.md`
+  - documented control plane vs app runtime boundary and app shared context store
+- `docs/testing.md`
+  - added app shared context coverage to testing strategy
+
+#### API endpoints added
+- `GET /app-contexts`
+- `GET /app-contexts/{app_instance_id}`
+- `POST /app-contexts/{app_instance_id}`
+- `POST /app-contexts/{app_instance_id}/entries`
+
+#### Behavior added
+- apps can now maintain app-local shared context independently from the control-plane AI
+- app contexts can store structured facts, artifacts, decisions, questions, constraints, and open loops
+- the system can now expose app-level goal/stage state without forcing all internal execution back through the user-facing control plane
+
+#### Validation
+- Ran full test suite successfully
+- Result: `65 passed`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.

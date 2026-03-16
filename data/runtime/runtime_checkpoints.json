@@ -1,4 +1,5 @@
 {
+  "bp.workspace.assistant:context-api-user": [],
   "bp.workspace.assistant:data-api-user": [],
   "app.api.event.001": [
     {
@@ -7,7 +8,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T15:03:22.434173Z"
+      "created_at": "2026-03-16T18:08:43.279689Z"
     }
   ],
   "app.workspace.assistant:qq-user": [
@@ -17,7 +18,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T15:03:22.489343Z"
+      "created_at": "2026-03-16T18:08:43.330425Z"
     }
   ],
   "app.pipeline.executor:qq-user:run": [
@@ -27,7 +28,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T15:03:22.502268Z"
+      "created_at": "2026-03-16T18:08:43.338092Z"
     },
     {
       "checkpoint_id": "runtime.stop:2",
@@ -37,7 +38,7 @@
         "执行流水线"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T15:03:22.504690Z"
+      "created_at": "2026-03-16T18:08:43.340097Z"
     }
   ],
   "app.api.001": [
@@ -47,7 +48,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T15:03:22.527077Z"
+      "created_at": "2026-03-16T18:08:43.364165Z"
     }
   ],
   "app.api.002": [],
@@ -62,7 +63,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T15:03:24.516850Z"
+      "created_at": "2026-03-16T18:08:45.514593Z"
     },
     {
       "checkpoint_id": "runtime.fail:2",
@@ -74,7 +75,7 @@
       "metadata": {
         "reason": "api crash"
       },
-      "created_at": "2026-03-16T15:03:24.529763Z"
+      "created_at": "2026-03-16T18:08:45.527118Z"
     },
     {
       "checkpoint_id": "runtime.start:3",
@@ -84,7 +85,7 @@
         "heartbeat sweep"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T15:03:24.536763Z"
+      "created_at": "2026-03-16T18:08:45.535811Z"
     }
   ],
   "bp.workspace.assistant:self-refine-user": [],

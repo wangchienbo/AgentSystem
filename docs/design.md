@@ -6,9 +6,10 @@ AgentSystem is designed as an **App OS** rather than a single assistant runtime.
 Its core job is to manage apps as long-lived system objects while allowing the system to learn from runtime practice and gradually improve its reusable capability layer.
 
 The current design direction is:
-- user interacts with apps through a unified gateway
+- user interacts with the system through a control plane and unified gateway
 - apps are defined as blueprints, installed as instances, and governed by runtime policy
 - apps own separated namespaces for business and runtime data
+- apps also own app-local shared context for internal execution and coordination
 - apps can react to events and schedules
 - runtime behavior can be reviewed into experience
 - experience can be turned into candidate skills
@@ -49,9 +50,11 @@ The intended evolutionary chain is:
 [ User / API / Chat Input ]
             |
             v
-[ Interaction Gateway ]
+[ Control Plane / Interaction Gateway ]
             |
-            v
+            +------------------------------+
+            |                              |
+            v                              v
 [ App Catalog ] ----> [ App Registry ] ----> [ App Installer ]
             |                                 |
             |                                 v
@@ -62,6 +65,8 @@ The intended evolutionary chain is:
                                       |                  |
                                       |                  v
                                       |            [ Event Bus ]
+                                      |
+                                      +------> [ App Shared Context Store ]
                                       |
                                       v
                               [ App Data Store ]
@@ -158,6 +163,14 @@ Represents an isolated namespace for:
 ### DataRecord
 Structured record within a namespace.
 
+### AppSharedContext / AppContextEntry
+Structured app-local shared execution context containing:
+- app identity and description
+- current goal and current stage
+- grouped entries for facts, artifacts, decisions, questions, constraints, and open loops
+
+This context is separate from the user-facing control AI context and is intended to support autonomous app-local execution.
+
 ### ExperienceRecord
 Structured runtime, demonstration, or human knowledge asset.
 
@@ -210,10 +223,22 @@ It supports linking skill blueprints to related experiences.
 ## 5.9 App Data Store
 `AppDataStore` provisions and manages namespaces and records for apps and global skill assets.
 
-## 5.10 Interaction Gateway
-`InteractionGateway` is the main command entry point. It routes user commands to app catalog entries and triggers install/open/run flows.
+## 5.10 Interaction Gateway / Control Plane Boundary
+`InteractionGateway` is the main command entry point for the user-facing control plane.
+It routes user commands to app catalog entries and triggers install/open/run flows.
 
-## 5.11 Practice Review
+The control plane is responsible for:
+- user-facing interaction
+- app routing and orchestration
+- high-level intervention
+- inspection and explanation
+
+The control plane is not required for every app-internal execution step.
+
+## 5.11 App Shared Context
+`AppContextStore` maintains app-local shared execution context so an app can continue internal work without routing every step through the control plane.
+
+## 5.12 Practice Review
 `PracticeReviewService` reviews recent runtime events and data records, then distills them into an experience.
 
 ## 5.12 Skill Suggestion

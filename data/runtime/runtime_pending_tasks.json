@@ -1,4 +1,5 @@
 {
+  "bp.workspace.assistant:context-api-user": [],
   "bp.workspace.assistant:data-api-user": [],
   "app.api.event.001": [
     "process event"
