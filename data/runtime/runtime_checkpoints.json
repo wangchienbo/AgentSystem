@@ -7,7 +7,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:20:51.228487Z"
+      "created_at": "2026-03-16T12:25:33.175876Z"
     }
   ],
   "app.workspace.assistant:qq-user": [
@@ -17,7 +17,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:20:51.279379Z"
+      "created_at": "2026-03-16T12:25:33.227834Z"
     }
   ],
   "app.pipeline.executor:qq-user:run": [
@@ -27,7 +27,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:20:51.286442Z"
+      "created_at": "2026-03-16T12:25:33.235697Z"
     },
     {
       "checkpoint_id": "runtime.stop:2",
@@ -37,7 +37,7 @@
         "执行流水线"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T12:20:51.289919Z"
+      "created_at": "2026-03-16T12:25:33.237713Z"
     }
   ],
   "app.api.001": [
@@ -47,11 +47,12 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:20:51.312092Z"
+      "created_at": "2026-03-16T12:25:33.259661Z"
     }
   ],
   "app.api.002": [],
   "bp.workspace.assistant:review-api-user": [],
+  "bp.workspace.assistant:proposal-review-user": [],
   "bp.api.registry:api-user": [],
   "app.api.ops.001": [
     {
@@ -60,7 +61,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T12:20:51.391842Z"
+      "created_at": "2026-03-16T12:25:33.371148Z"
     },
     {
       "checkpoint_id": "runtime.fail:2",
@@ -72,7 +73,7 @@
       "metadata": {
         "reason": "api crash"
       },
-      "created_at": "2026-03-16T12:20:51.406502Z"
+      "created_at": "2026-03-16T12:25:33.383582Z"
     },
     {
       "checkpoint_id": "runtime.start:3",
@@ -82,7 +83,7 @@
         "heartbeat sweep"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T12:20:51.413221Z"
+      "created_at": "2026-03-16T12:25:33.390254Z"
     }
   ],
   "bp.workspace.assistant:self-refine-user": [],

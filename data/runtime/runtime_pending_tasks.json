@@ -12,6 +12,7 @@
   ],
   "app.api.002": [],
   "bp.workspace.assistant:review-api-user": [],
+  "bp.workspace.assistant:proposal-review-user": [],
   "bp.api.registry:api-user": [],
   "app.api.ops.001": [
     "heartbeat sweep"

@@ -18,11 +18,13 @@ from app.services.app_installer import AppInstallerService, AppInstallerError
 from app.services.event_bus import EventBusService, EventBusError
 from app.services.interaction_gateway import InteractionGateway
 from app.services.practice_review import PracticeReviewService, PracticeReviewError
+from app.services.proposal_review import ProposalReviewService, ProposalReviewError
 from app.services.self_refinement import SelfRefinementService, SelfRefinementError
 from app.services.skill_suggestion import SkillSuggestionService, SkillSuggestionError
 from app.models.event_bus import EventSubscription
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
+from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
 from app.models.experience import ExperienceRecord
@@ -81,6 +83,7 @@ practice_review = PracticeReviewService(event_bus=event_bus, data_store=app_data
 skill_suggestion = SkillSuggestionService(experience_store=experience_store)
 app_registry = AppRegistryService(store=runtime_store)
 self_refinement = SelfRefinementService(experience_store=experience_store, registry=app_registry, lifecycle=lifecycle)
+proposal_review = ProposalReviewService(lifecycle=lifecycle, store=runtime_store)
 app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host, data_store=app_data_store)
 app_catalog = AppCatalogService()
 interaction_gateway = InteractionGateway(
@@ -375,6 +378,8 @@ def get_runtime_persistence_snapshot() -> dict:
         "data_records": runtime_store.load_json("data_records", {}),
         "event_log": runtime_store.load_json("event_log", []),
         "event_subscriptions": runtime_store.load_json("event_subscriptions", {}),
+        "patch_proposals": runtime_store.load_json("patch_proposals", {}),
+        "proposal_reviews": runtime_store.load_json("proposal_reviews", {}),
     }
 
 
@@ -462,8 +467,28 @@ def suggest_skill_from_experience(request: SkillSuggestionRequest) -> dict:
 @app.post("/self-refinement/propose")
 def propose_self_refinement(request: SelfRefinementRequest) -> dict:
     try:
-        return self_refinement.propose(request).model_dump(mode="json")
+        result = self_refinement.propose(request)
+        proposal_review.register_proposals(result)
+        return result.model_dump(mode="json")
     except SelfRefinementError as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/self-refinement/proposals")
+def list_self_refinement_proposals(app_instance_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in proposal_review.list_proposals(app_instance_id)]
+
+
+@app.get("/self-refinement/reviews")
+def list_self_refinement_reviews() -> list[dict]:
+    return [item.model_dump(mode="json") for item in proposal_review.list_reviews()]
+
+
+@app.post("/self-refinement/review")
+def review_self_refinement_proposal(request: ProposalReviewRequest) -> dict:
+    try:
+        return proposal_review.review(request).model_dump(mode="json")
+    except ProposalReviewError as error:
         raise map_domain_error(error) from error
 
 

@@ -118,6 +118,23 @@
       "max_restart_attempts": 3
     }
   },
+  "bp.workspace.assistant:proposal-review-user": {
+    "id": "bp.workspace.assistant:proposal-review-user",
+    "blueprint_id": "bp.workspace.assistant",
+    "owner_user_id": "proposal-review-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/proposal-review-user/apps/bp.workspace.assistant:proposal-review-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3
+    }
+  },
   "bp.api.registry:api-user": {
     "id": "bp.api.registry:api-user",
     "blueprint_id": "bp.api.registry",

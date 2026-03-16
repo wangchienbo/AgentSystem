@@ -496,6 +496,65 @@ Implemented the first constrained self-iteration layer. The system can now gener
 - Ran test suite successfully
 - Result: `52 passed`
 
+### Module: proposal review and approval flow
+
+Implemented the first review loop for self-refinement proposals so the system can move from proposal generation to controlled approval and limited application.
+
+#### Added
+- `app/models/proposal_review.py`
+  - `ProposalReviewRecord`
+  - `ProposalReviewRequest`
+- `app/services/proposal_review.py`
+  - proposal registration
+  - proposal listing
+  - proposal review state transitions
+  - limited low-risk runtime policy patch application
+- `tests/unit/test_proposal_review.py`
+  - proposal review and apply tests
+
+#### Updated
+- `app/api/main.py`
+  - self-refinement proposal generation now registers proposals for later review
+  - added proposal listing endpoint
+  - added review record listing endpoint
+  - added approve/reject/apply endpoint
+  - persistence snapshot now includes patch proposals and proposal reviews
+- `app/core/errors.py`
+  - added proposal review error mapping
+
+#### API endpoints added
+- `GET /self-refinement/proposals`
+- `GET /self-refinement/reviews`
+- `POST /self-refinement/review`
+
+#### Behavior added
+- self-refinement proposals are now persisted as first-class review objects
+- review states now include:
+  - proposed
+  - approved
+  - rejected
+  - applied
+- low-risk runtime policy proposals can be applied in a constrained way
+- workflow proposals currently support review/approval but not direct application
+
+#### Safety boundary
+- review and approval are now explicit steps
+- structural workflow changes are not auto-applied
+- apply remains restricted to low-risk runtime-policy patches only
+
+#### Tests
+- validated:
+  - proposal registration
+  - low-risk runtime patch application
+  - proposal review API flow
+  - approval flow for workflow proposals
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Cleaned transient `data/test-*` directories and `*.egg-info`
+- Ran test suite successfully
+- Result: `54 passed`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.
