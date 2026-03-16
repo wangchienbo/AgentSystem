@@ -535,3 +535,47 @@ running -> archived
 - 输出结构化 `RequirementIntent` 供后续 Builder / Demonstration / Skill Generator 使用
 
 当前版本先采用规则引擎，后续再接入 LLM 增强。
+
+
+## 12. Skill Control Interface（不可变人工接管层）
+
+系统新增 `SkillControlService`，作为稳定人工接管接口，负责：
+- skill registry 管理
+- 技能读取
+- 技能替换
+- 技能回退
+- 技能禁用 / 启用
+
+该层被视为 immutable core 的一部分，主要用于防止系统自修改失控，并为人工调试和恢复提供安全入口。
+
+首期版本采用内存注册表模型，后续可扩展为持久化版本库与变更审计系统。
+
+
+## 13. API error mapping
+
+HTTP API 层应将领域错误稳定映射为明确状态码：
+- skill not found -> 404
+- immutable interface violation / invalid rollback -> 400
+- unknown internal failures -> 500
+
+这样人工调试接口可预测、可脚本化。
+
+
+## 14. Experience Store / Skill Blueprint Layer
+
+新增 `ExperienceStore` 作为轻量内存层，用于沉淀：
+- ExperienceRecord（显式经验）
+- SkillBlueprint（程序化能力定义）
+
+该层目标是将“经验 + skill”正式纳入系统骨架，使后续 Builder、Demonstration、Skill Generator 能围绕这两类资产演化。
+
+
+## 15. Demonstration Extractor
+
+新增 `DemonstrationExtractor`，负责把用户示范记录转成显式经验与 skill blueprint。
+
+首期版本采用规则型抽取：
+- 将示范标题/目标/步骤转成 ExperienceRecord 摘要
+- 将步骤、输入、输出转成 SkillBlueprint
+
+后续可叠加 LLM 做更强的规则归纳与步骤压缩。

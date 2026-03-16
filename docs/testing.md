@@ -393,3 +393,49 @@ export OPENAI_API_KEY="<provided-secret>"
 
 ### TC-RTR-004 抽象需求澄清
 预期结果：对战略、长期规划等抽象目标输出 `clarify`，而不是误判为可直接示范。
+
+
+## 7. Skill Control Interface 测试
+
+### TC-SCI-001 列出 Skill
+预期结果：能够读取系统当前登记的 skill 列表与当前激活版本。
+
+### TC-SCI-002 替换 Skill
+预期结果：对可变 skill 替换后，active_version 更新为新版本。
+
+### TC-SCI-003 回退 Skill
+预期结果：可切换回指定历史版本，并保留回退状态记录。
+
+### TC-SCI-004 禁用 / 启用 Skill
+预期结果：技能可被人工禁用并重新启用。
+
+### TC-SCI-005 保护不可变接口
+预期结果：对 immutable skill 的替换或修改请求被拒绝。
+
+
+### TC-SCI-006 API 错误映射
+预期结果：未知 skill 返回 404；修改 immutable skill 返回 400；避免把领域错误都变成 500。
+
+
+## 8. Experience Store 测试
+
+### TC-EXP-001 经验存储
+预期结果：ExperienceRecord 可被保存并列出。
+
+### TC-EXP-002 Skill Blueprint 存储
+预期结果：SkillBlueprint 可被保存并列出。
+
+### TC-EXP-003 经验关联 Skill 推荐
+预期结果：系统可根据 experience_id 返回相关的 skill blueprint。
+
+
+## 9. Demonstration Extraction 测试
+
+### TC-DEM-001 示范转经验
+预期结果：DemonstrationRecord 能生成 ExperienceRecord。
+
+### TC-DEM-002 示范转 Skill
+预期结果：DemonstrationRecord 能生成 SkillBlueprint，并保留步骤/输入/输出。
+
+### TC-DEM-003 生成后入库
+预期结果：提取后的 experience 和 skill blueprint 可进入 ExperienceStore。
