@@ -11,6 +11,7 @@
     "poll queue"
   ],
   "app.api.002": [],
+  "bp.workspace.assistant:review-api-user": [],
   "bp.api.registry:api-user": [],
   "app.api.ops.001": [
     "heartbeat sweep"

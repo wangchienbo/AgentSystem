@@ -8,6 +8,7 @@ from app.services.app_installer import AppInstallerError
 from app.services.app_registry import AppRegistryError
 from app.services.event_bus import EventBusError
 from app.services.lifecycle import LifecycleError
+from app.services.practice_review import PracticeReviewError
 from app.services.runtime_host import RuntimeHostError
 from app.services.scheduler import SchedulerError
 from app.services.skill_control import SkillControlError
@@ -15,7 +16,7 @@ from app.services.supervisor import SupervisorError
 
 
 def map_domain_error(error: Exception) -> HTTPException:
-    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, EventBusError)):
+    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, EventBusError, PracticeReviewError)):
         message = str(error)
         if "not found" in message.lower():
             return HTTPException(status_code=404, detail=message)

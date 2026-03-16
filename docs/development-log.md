@@ -357,3 +357,44 @@ Implemented a first internal event bus so long-running apps can react to system 
 - Cleaned transient `data/test-*` directories and `*.egg-info`
 - Ran test suite successfully
 - Result: `45 passed`
+
+### Module: practice review and runtime experience distillation
+
+Implemented a first practice-to-experience loop so the system can summarize runtime behavior into reusable experience records.
+
+#### Added
+- `app/models/practice_review.py`
+  - `PracticeReviewRequest`
+  - `PracticeReviewResult`
+- `app/services/practice_review.py`
+  - runtime event + data record review
+  - experience summary generation
+  - experience store integration
+- `tests/unit/test_practice_review.py`
+  - runtime practice review tests
+
+#### Updated
+- `app/api/main.py`
+  - added practice review endpoint
+- `app/core/errors.py`
+  - added practice review error mapping
+
+#### API endpoints added
+- `POST /practice/review`
+
+#### Behavior added
+- system can now inspect an app instance's recent event log and data records
+- runtime behavior is summarized into an `ExperienceRecord`
+- generated runtime experiences are added to the experience store
+
+#### Tests
+- validated:
+  - runtime practice review generates an experience record
+  - review works from runtime events + app data records
+  - practice review API flow
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Cleaned transient `data/test-*` directories and `*.egg-info`
+- Ran test suite successfully
+- Result: `47 passed`

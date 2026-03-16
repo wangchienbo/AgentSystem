@@ -17,7 +17,9 @@ from app.services.app_registry import AppRegistryService, AppRegistryError
 from app.services.app_installer import AppInstallerService, AppInstallerError
 from app.services.event_bus import EventBusService, EventBusError
 from app.services.interaction_gateway import InteractionGateway
+from app.services.practice_review import PracticeReviewService, PracticeReviewError
 from app.models.event_bus import EventSubscription
+from app.models.practice_review import PracticeReviewRequest
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
@@ -71,6 +73,7 @@ runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
 scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host, store=runtime_store)
 event_bus = EventBusService(scheduler=scheduler, store=runtime_store)
 supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
+practice_review = PracticeReviewService(event_bus=event_bus, data_store=app_data_store, experience_store=experience_store)
 app_registry = AppRegistryService(store=runtime_store)
 app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host, data_store=app_data_store)
 app_catalog = AppCatalogService()
@@ -431,6 +434,14 @@ def create_event_subscription(subscription: EventSubscription) -> dict:
     try:
         return event_bus.subscribe(subscription).model_dump(mode="json")
     except EventBusError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/practice/review")
+def review_practice(request: PracticeReviewRequest) -> dict:
+    try:
+        return practice_review.review(request).model_dump(mode="json")
+    except PracticeReviewError as error:
         raise map_domain_error(error) from error
 
 
