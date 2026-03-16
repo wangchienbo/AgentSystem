@@ -334,9 +334,13 @@ Content-Type: application/json
 - `config/model.local.example.json`
 - `.env.local.example`
 
-本地真实密钥文件采用 gitignore 保护：
-- `config/model.local.json`
-- `.env.local`
+默认私有配置路径位于仓库外：
+- `/root/.config/agentsystem/model.local.json`
+- `/root/.config/agentsystem/model.local.env`
+
+仓库内只保留模板：
+- `config/model.local.example.json`
+- `.env.local.example`
 
 已完成一次实际 `/v1/responses` 联通探测，返回 `MODEL_PROBE_OK`。
 

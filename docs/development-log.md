@@ -652,6 +652,33 @@ Implemented the first project-level model access scaffolding so AgentSystem can 
 - real API secret was written only to local gitignored files
 - no secret was added to tracked repository files or commits
 
+### Module: external private default path for model config
+
+Moved the default model configuration lookup path out of the repository so secrets no longer need to live under the project directory.
+
+#### Updated
+- `app/services/model_config_loader.py`
+  - default config path changed to `/root/.config/agentsystem/model.local.json`
+  - default env path changed to `/root/.config/agentsystem/model.local.env`
+  - loader now imports environment values from the private env file automatically
+- `README.md`
+  - updated local model configuration instructions
+- `docs/testing-detail.md`
+  - updated project-level model probe notes
+- `tests/unit/test_model_config.py`
+  - added validation for private env-file loading
+
+#### Behavior added
+- the project now prefers private configuration outside the repository by default
+- local model secrets can live in `/root/.config/agentsystem/` instead of the workspace
+- model probe works using the new default private path without requiring project-local secret files
+
+#### Validation
+- Ran full test suite successfully
+- Result: `60 passed`
+- Ran actual model probe via default external config path
+- Result: `/v1/responses` returned `MODEL_PROBE_OK`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.

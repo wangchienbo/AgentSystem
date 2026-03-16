@@ -20,10 +20,11 @@ This repository now contains a working prototype skeleton for:
 ## Local model configuration
 
 The project now supports local model configuration via either:
-- `config/model.local.json` (gitignored)
+- `/root/.config/agentsystem/model.local.json` (default private config path)
+- `/root/.config/agentsystem/model.local.env` (default private env path)
 - environment variables such as `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`
 
-Examples:
+Repository examples:
 - `config/model.local.example.json`
 - `.env.local.example`
 
