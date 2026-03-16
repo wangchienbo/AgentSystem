@@ -7,6 +7,7 @@ from app.models.app_blueprint import AppBlueprint
 from app.models.app_instance import AppInstance
 from app.models.interaction import AppCatalogEntry, UserCommand
 from app.services.app_catalog import AppCatalogService
+from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_registry import AppRegistryService
 from app.services.interaction_gateway import InteractionGateway
@@ -24,7 +25,8 @@ def test_interaction_gateway_opens_service_app() -> None:
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime)
+    data_store = AppDataStore(base_dir="data/test-runtime-gateway-service-ns", store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
     catalog = AppCatalogService()
     registry.register_blueprint(
         AppBlueprint(
@@ -64,7 +66,8 @@ def test_interaction_gateway_runs_pipeline_app() -> None:
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime)
+    data_store = AppDataStore(base_dir="data/test-runtime-gateway-pipeline-ns", store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
     catalog = AppCatalogService()
     registry.register_blueprint(
         AppBlueprint(
@@ -105,7 +108,8 @@ def test_interaction_gateway_clarifies_unknown_command() -> None:
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime)
+    data_store = AppDataStore(base_dir="data/test-runtime-gateway-clarify-ns", store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
     gateway = InteractionGateway(AppCatalogService(), RequirementRouter(), lifecycle, runtime, installer)
 
     decision = gateway.handle_command(UserCommand(user_id="u3", text="帮我搞个抽象战略平台"))

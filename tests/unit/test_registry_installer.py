@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
+from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_registry import AppRegistryService
 from app.services.lifecycle import AppLifecycleService
@@ -47,7 +48,8 @@ def test_installer_creates_instance_with_runtime_policy() -> None:
     registry = AppRegistryService(store=store)
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime)
+    data_store = AppDataStore(base_dir="data/test-installer-ns", store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
     registry.register_blueprint(build_blueprint(execution_mode="pipeline"))
 
     result = installer.install_app("bp.test.registry", user_id="user.install")

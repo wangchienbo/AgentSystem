@@ -1,4 +1,30 @@
 {
+  "bp.workspace.assistant:data-api-user": [
+    {
+      "app_instance_id": "bp.workspace.assistant:data-api-user",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "installer",
+      "created_at": "2026-03-16T07:38:54.079972Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:data-api-user",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "installer",
+      "created_at": "2026-03-16T07:38:54.081817Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:data-api-user",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "installer",
+      "created_at": "2026-03-16T07:38:54.083168Z"
+    }
+  ],
   "app.workspace.assistant:qq-user": [
     {
       "app_instance_id": "app.workspace.assistant:qq-user",
@@ -6,7 +32,7 @@
       "from_status": "draft",
       "to_status": "validating",
       "reason": "installer",
-      "created_at": "2026-03-16T04:31:08.076734Z"
+      "created_at": "2026-03-16T07:38:54.130965Z"
     },
     {
       "app_instance_id": "app.workspace.assistant:qq-user",
@@ -14,7 +40,7 @@
       "from_status": "validating",
       "to_status": "compiled",
       "reason": "installer",
-      "created_at": "2026-03-16T04:31:08.077837Z"
+      "created_at": "2026-03-16T07:38:54.133698Z"
     },
     {
       "app_instance_id": "app.workspace.assistant:qq-user",
@@ -22,7 +48,7 @@
       "from_status": "compiled",
       "to_status": "installed",
       "reason": "installer",
-      "created_at": "2026-03-16T04:31:08.078755Z"
+      "created_at": "2026-03-16T07:38:54.134586Z"
     },
     {
       "app_instance_id": "app.workspace.assistant:qq-user",
@@ -30,7 +56,7 @@
       "from_status": "installed",
       "to_status": "running",
       "reason": "user open app",
-      "created_at": "2026-03-16T04:31:08.079698Z"
+      "created_at": "2026-03-16T07:38:54.136058Z"
     }
   ],
   "app.pipeline.executor:qq-user:run": [
@@ -40,7 +66,7 @@
       "from_status": "draft",
       "to_status": "validating",
       "reason": "installer",
-      "created_at": "2026-03-16T04:31:08.084046Z"
+      "created_at": "2026-03-16T07:38:54.140277Z"
     },
     {
       "app_instance_id": "app.pipeline.executor:qq-user:run",
@@ -48,7 +74,7 @@
       "from_status": "validating",
       "to_status": "compiled",
       "reason": "installer",
-      "created_at": "2026-03-16T04:31:08.084687Z"
+      "created_at": "2026-03-16T07:38:54.140893Z"
     },
     {
       "app_instance_id": "app.pipeline.executor:qq-user:run",
@@ -56,7 +82,7 @@
       "from_status": "compiled",
       "to_status": "installed",
       "reason": "installer",
-      "created_at": "2026-03-16T04:31:08.085351Z"
+      "created_at": "2026-03-16T07:38:54.141471Z"
     },
     {
       "app_instance_id": "app.pipeline.executor:qq-user:run",
@@ -64,7 +90,7 @@
       "from_status": "installed",
       "to_status": "running",
       "reason": "run pipeline",
-      "created_at": "2026-03-16T04:31:08.086064Z"
+      "created_at": "2026-03-16T07:38:54.142831Z"
     },
     {
       "app_instance_id": "app.pipeline.executor:qq-user:run",
@@ -72,7 +98,7 @@
       "from_status": "running",
       "to_status": "stopped",
       "reason": "pipeline complete",
-      "created_at": "2026-03-16T04:31:08.088771Z"
+      "created_at": "2026-03-16T07:38:54.145111Z"
     }
   ],
   "app.api.001": [
@@ -82,7 +108,7 @@
       "from_status": "draft",
       "to_status": "validating",
       "reason": "",
-      "created_at": "2026-03-16T04:31:08.102169Z"
+      "created_at": "2026-03-16T07:38:54.159271Z"
     },
     {
       "app_instance_id": "app.api.001",
@@ -90,7 +116,7 @@
       "from_status": "validating",
       "to_status": "compiled",
       "reason": "",
-      "created_at": "2026-03-16T04:31:08.104683Z"
+      "created_at": "2026-03-16T07:38:54.161919Z"
     },
     {
       "app_instance_id": "app.api.001",
@@ -98,7 +124,7 @@
       "from_status": "compiled",
       "to_status": "installed",
       "reason": "",
-      "created_at": "2026-03-16T04:31:08.107165Z"
+      "created_at": "2026-03-16T07:38:54.164464Z"
     },
     {
       "app_instance_id": "app.api.001",
@@ -106,7 +132,7 @@
       "from_status": "installed",
       "to_status": "running",
       "reason": "boot app",
-      "created_at": "2026-03-16T04:31:08.109602Z"
+      "created_at": "2026-03-16T07:38:54.167037Z"
     }
   ],
   "app.api.002": [],
@@ -117,7 +143,7 @@
       "from_status": "draft",
       "to_status": "validating",
       "reason": "installer",
-      "created_at": "2026-03-16T04:31:08.140430Z"
+      "created_at": "2026-03-16T07:38:54.197994Z"
     },
     {
       "app_instance_id": "bp.api.registry:api-user",
@@ -125,7 +151,7 @@
       "from_status": "validating",
       "to_status": "compiled",
       "reason": "installer",
-      "created_at": "2026-03-16T04:31:08.141162Z"
+      "created_at": "2026-03-16T07:38:54.198786Z"
     },
     {
       "app_instance_id": "bp.api.registry:api-user",
@@ -133,7 +159,7 @@
       "from_status": "compiled",
       "to_status": "installed",
       "reason": "installer",
-      "created_at": "2026-03-16T04:31:08.142711Z"
+      "created_at": "2026-03-16T07:38:54.199585Z"
     }
   ],
   "app.api.ops.001": [
@@ -143,7 +169,7 @@
       "from_status": "draft",
       "to_status": "validating",
       "reason": "",
-      "created_at": "2026-03-16T04:31:08.156988Z"
+      "created_at": "2026-03-16T07:38:54.212527Z"
     },
     {
       "app_instance_id": "app.api.ops.001",
@@ -151,7 +177,7 @@
       "from_status": "validating",
       "to_status": "compiled",
       "reason": "",
-      "created_at": "2026-03-16T04:31:08.159555Z"
+      "created_at": "2026-03-16T07:38:54.215366Z"
     },
     {
       "app_instance_id": "app.api.ops.001",
@@ -159,7 +185,7 @@
       "from_status": "compiled",
       "to_status": "installed",
       "reason": "",
-      "created_at": "2026-03-16T04:31:08.163378Z"
+      "created_at": "2026-03-16T07:38:54.218034Z"
     },
     {
       "app_instance_id": "app.api.ops.001",
@@ -167,7 +193,7 @@
       "from_status": "installed",
       "to_status": "running",
       "reason": "",
-      "created_at": "2026-03-16T04:31:08.166039Z"
+      "created_at": "2026-03-16T07:38:54.220773Z"
     },
     {
       "app_instance_id": "app.api.ops.001",
@@ -175,7 +201,7 @@
       "from_status": "running",
       "to_status": "failed",
       "reason": "api crash",
-      "created_at": "2026-03-16T04:31:08.177728Z"
+      "created_at": "2026-03-16T07:38:54.232534Z"
     },
     {
       "app_instance_id": "app.api.ops.001",
@@ -183,7 +209,7 @@
       "from_status": "failed",
       "to_status": "running",
       "reason": "supervisor restart",
-      "created_at": "2026-03-16T04:31:08.184080Z"
+      "created_at": "2026-03-16T07:38:54.239038Z"
     }
   ]
 }

@@ -244,3 +244,62 @@ Aligned the architecture around OS-style boundaries: skill as reusable capabilit
 - Reused local virtual environment: `.venv`
 - Ran test suite successfully
 - Result: `37 passed`
+
+### Module: app data store and namespace separation
+
+Implemented a first explicit data layer split for long-lived apps.
+
+#### Added
+- `app/models/data_record.py`
+  - `DataNamespace`
+  - `DataRecord`
+- `app/services/app_data_store.py`
+  - app namespace provisioning
+  - skill asset namespace provisioning
+  - record write/read APIs
+  - persistence of namespaces and records via runtime store
+- `.gitignore`
+  - ignore local virtualenv, caches, and test data directories
+
+#### Updated
+- `app/services/app_installer.py`
+  - app installation now provisions app-specific namespaces
+- `app/api/main.py`
+  - added namespace and record endpoints
+  - runtime persistence snapshot now includes data namespaces and records
+  - initialized global skill asset namespace
+- `app/core/errors.py`
+  - added app data store error mapping
+- `tests/unit/test_registry_installer.py`
+  - installer tests now include app data store wiring
+- `tests/unit/test_interaction_gateway.py`
+  - gateway tests now include installer + data store wiring
+
+#### API endpoints added
+- `GET /data/namespaces`
+- `GET /data/namespaces/{namespace_id}`
+- `GET /data/namespaces/{namespace_id}/records`
+- `POST /data/namespaces/{namespace_id}/records`
+
+#### Behavior added
+- every installed app now gets dedicated namespaces for:
+  - `app_data`
+  - `runtime_state`
+  - `system_metadata`
+- system also maintains a global `skill_assets` namespace
+- app business data is now explicitly separated from runtime state in the model
+
+#### Tests
+- added `tests/unit/test_app_data_store.py`
+- validated:
+  - namespace provisioning
+  - installer-driven namespace creation
+  - record write/read behavior
+  - namespace API flow
+  - persistence snapshot exposure
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Cleaned transient `data/test-*` directories
+- Ran test suite successfully
+- Result: `41 passed`

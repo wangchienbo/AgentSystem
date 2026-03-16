@@ -12,6 +12,7 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService, SchedulerError
 from app.services.supervisor import SupervisorService, SupervisorError
 from app.services.app_catalog import AppCatalogService, AppCatalogError
+from app.services.app_data_store import AppDataStore, AppDataStoreError
 from app.services.app_registry import AppRegistryService, AppRegistryError
 from app.services.app_installer import AppInstallerService, AppInstallerError
 from app.services.interaction_gateway import InteractionGateway
@@ -61,12 +62,14 @@ skill_control = SkillControlService()
 experience_store = ExperienceStore()
 demonstration_extractor = DemonstrationExtractor()
 runtime_store = RuntimeStateStore()
+app_data_store = AppDataStore(store=runtime_store)
+app_data_store.ensure_skill_asset_namespace()
 lifecycle = AppLifecycleService(store=runtime_store)
 runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
 scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host, store=runtime_store)
 supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
 app_registry = AppRegistryService(store=runtime_store)
-app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host)
+app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host, data_store=app_data_store)
 app_catalog = AppCatalogService()
 interaction_gateway = InteractionGateway(
     catalog=app_catalog,
@@ -356,7 +359,43 @@ def get_runtime_persistence_snapshot() -> dict:
         "supervision_statuses": runtime_store.load_json("supervision_statuses", {}),
         "registry_entries": runtime_store.load_json("registry_entries", {}),
         "registry_blueprints": runtime_store.load_json("registry_blueprints", {}),
+        "data_namespaces": runtime_store.load_json("data_namespaces", {}),
+        "data_records": runtime_store.load_json("data_records", {}),
     }
+
+
+@app.get("/data/namespaces")
+def list_data_namespaces(app_instance_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in app_data_store.list_namespaces(app_instance_id)]
+
+
+@app.get("/data/namespaces/{namespace_id}")
+def get_data_namespace(namespace_id: str) -> dict:
+    try:
+        return app_data_store.get_namespace(namespace_id).model_dump(mode="json")
+    except AppDataStoreError as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/data/namespaces/{namespace_id}/records")
+def list_data_records(namespace_id: str) -> list[dict]:
+    try:
+        return [item.model_dump(mode="json") for item in app_data_store.list_records(namespace_id)]
+    except AppDataStoreError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/data/namespaces/{namespace_id}/records")
+def put_data_record(namespace_id: str, payload: dict) -> dict:
+    try:
+        return app_data_store.put_record(
+            namespace_id=namespace_id,
+            key=payload["key"],
+            value=payload.get("value", {}),
+            tags=payload.get("tags", []),
+        ).model_dump(mode="json")
+    except AppDataStoreError as error:
+        raise map_domain_error(error) from error
 
 
 @app.get("/schedules")
