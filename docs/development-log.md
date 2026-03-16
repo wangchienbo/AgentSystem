@@ -439,3 +439,28 @@ Implemented a first semi-automatic bridge from runtime experience to reusable sk
 - Cleaned transient `data/test-*` directories and `*.egg-info`
 - Ran test suite successfully
 - Result: `50 passed`
+
+### Module: documentation consolidation for requirements, design, and testing
+
+Reorganized the project documents into a coherent set aligned with the current implemented architecture.
+
+#### Updated
+- `docs/requirements.md`
+  - rewritten around current scope and implemented milestones
+  - clarified app / skill / blueprint / instance boundaries
+  - aligned requirements with actual runtime, data, event, and evolution capabilities
+- `docs/design.md`
+  - rewritten into a single coherent architecture document
+  - aligned service map, object model, runtime flows, data model, and evolution chain with the current codebase
+- `docs/testing.md`
+  - rewritten into a testing strategy document aligned with the implemented test matrix and development discipline
+
+#### Documentation goals achieved
+- removed duplicated / conflicting structure from older drafts
+- aligned docs with the current implemented milestone instead of a purely hypothetical future system
+- made the logic consistent across requirements, design, and testing
+- clarified near-term gaps after the current milestone
+
+#### Validation
+- Ran full test suite after documentation update
+- Result: `50 passed`
