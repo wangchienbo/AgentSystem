@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from app.models.event_bus import EventSubscription
 from app.models.scheduling import ScheduleRecord, ScheduleTriggerResult
 from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
@@ -17,12 +18,21 @@ class SchedulerService:
         self._lifecycle = lifecycle
         self._runtime_host = runtime_host
         self._schedules: dict[str, ScheduleRecord] = {}
+        self._subscriptions: dict[str, EventSubscription] = {}
         self._store = store
 
     def register_schedule(self, record: ScheduleRecord) -> ScheduleRecord:
         self._lifecycle.get_instance(record.app_instance_id)
         self._validate_record(record)
         self._schedules[record.schedule_id] = record
+        if record.trigger_type == "event" and record.event_name:
+            subscription = EventSubscription(
+                subscription_id=f"sub:{record.schedule_id}",
+                event_name=record.event_name,
+                schedule_id=record.schedule_id,
+                app_instance_id=record.app_instance_id,
+            )
+            self._subscriptions[subscription.subscription_id] = subscription
         self._persist()
         return record
 
@@ -73,6 +83,12 @@ class SchedulerService:
             raise SchedulerError(f"Schedule not found: {schedule_id}")
         return self._schedules[schedule_id]
 
+    def list_subscriptions(self, event_name: str | None = None) -> list[EventSubscription]:
+        subscriptions = list(self._subscriptions.values())
+        if event_name is None:
+            return subscriptions
+        return [item for item in subscriptions if item.event_name == event_name]
+
     def _trigger(self, schedule: ScheduleRecord, reason: str) -> ScheduleTriggerResult:
         if schedule.status != "active":
             return ScheduleTriggerResult(
@@ -105,3 +121,4 @@ class SchedulerService:
         if self._store is None:
             return
         self._store.save_mapping("runtime_schedules", self._schedules)
+        self._store.save_mapping("event_subscriptions", self._subscriptions)

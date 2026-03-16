@@ -16,6 +16,23 @@
       "max_restart_attempts": 3
     }
   },
+  "app.api.event.001": {
+    "id": "app.api.event.001",
+    "blueprint_id": "bp.api.event.001",
+    "owner_user_id": "user.api",
+    "status": "running",
+    "installed_version": "0.1.0",
+    "data_namespace": "tenant/api/app.api.event.001",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3
+    }
+  },
   "app.workspace.assistant:qq-user": {
     "id": "app.workspace.assistant:qq-user",
     "blueprint_id": "bp.workspace.assistant",

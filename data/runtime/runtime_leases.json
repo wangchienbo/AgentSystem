@@ -1,30 +1,37 @@
 {
+  "app.api.event.001": {
+    "app_instance_id": "app.api.event.001",
+    "status": "running",
+    "health": "healthy",
+    "last_heartbeat_at": "2026-03-16T09:55:31.363523Z",
+    "restart_count": 0
+  },
   "app.workspace.assistant:qq-user": {
     "app_instance_id": "app.workspace.assistant:qq-user",
     "status": "running",
     "health": "healthy",
-    "last_heartbeat_at": "2026-03-16T07:38:54.136511Z",
+    "last_heartbeat_at": "2026-03-16T09:55:31.412814Z",
     "restart_count": 0
   },
   "app.pipeline.executor:qq-user:run": {
     "app_instance_id": "app.pipeline.executor:qq-user:run",
     "status": "stopped",
     "health": "healthy",
-    "last_heartbeat_at": "2026-03-16T07:38:54.145626Z",
+    "last_heartbeat_at": "2026-03-16T09:55:31.422147Z",
     "restart_count": 0
   },
   "app.api.001": {
     "app_instance_id": "app.api.001",
     "status": "running",
     "health": "healthy",
-    "last_heartbeat_at": "2026-03-16T07:38:54.167645Z",
+    "last_heartbeat_at": "2026-03-16T09:55:31.444325Z",
     "restart_count": 0
   },
   "app.api.ops.001": {
     "app_instance_id": "app.api.ops.001",
     "status": "running",
     "health": "healthy",
-    "last_heartbeat_at": "2026-03-16T07:38:54.239771Z",
+    "last_heartbeat_at": "2026-03-16T09:55:31.524686Z",
     "restart_count": 0
   }
 }

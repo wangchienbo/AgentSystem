@@ -15,7 +15,9 @@ from app.services.app_catalog import AppCatalogService, AppCatalogError
 from app.services.app_data_store import AppDataStore, AppDataStoreError
 from app.services.app_registry import AppRegistryService, AppRegistryError
 from app.services.app_installer import AppInstallerService, AppInstallerError
+from app.services.event_bus import EventBusService, EventBusError
 from app.services.interaction_gateway import InteractionGateway
+from app.models.event_bus import EventSubscription
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
@@ -67,6 +69,7 @@ app_data_store.ensure_skill_asset_namespace()
 lifecycle = AppLifecycleService(store=runtime_store)
 runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
 scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host, store=runtime_store)
+event_bus = EventBusService(scheduler=scheduler, store=runtime_store)
 supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
 app_registry = AppRegistryService(store=runtime_store)
 app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host, data_store=app_data_store)
@@ -361,6 +364,8 @@ def get_runtime_persistence_snapshot() -> dict:
         "registry_blueprints": runtime_store.load_json("registry_blueprints", {}),
         "data_namespaces": runtime_store.load_json("data_namespaces", {}),
         "data_records": runtime_store.load_json("data_records", {}),
+        "event_log": runtime_store.load_json("event_log", []),
+        "event_subscriptions": runtime_store.load_json("event_subscriptions", {}),
     }
 
 
@@ -395,6 +400,37 @@ def put_data_record(namespace_id: str, payload: dict) -> dict:
             tags=payload.get("tags", []),
         ).model_dump(mode="json")
     except AppDataStoreError as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/events")
+def list_events(event_name: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in event_bus.list_events(event_name)]
+
+
+@app.post("/events/publish")
+def publish_event(payload: dict) -> dict:
+    try:
+        return event_bus.publish(
+            event_name=payload["event_name"],
+            source=payload.get("source", "system"),
+            app_instance_id=payload.get("app_instance_id"),
+            payload=payload.get("payload", {}),
+        ).model_dump(mode="json")
+    except EventBusError as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/events/subscriptions")
+def list_event_subscriptions(event_name: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in scheduler.list_subscriptions(event_name)]
+
+
+@app.post("/events/subscriptions")
+def create_event_subscription(subscription: EventSubscription) -> dict:
+    try:
+        return event_bus.subscribe(subscription).model_dump(mode="json")
+    except EventBusError as error:
         raise map_domain_error(error) from error
 
 

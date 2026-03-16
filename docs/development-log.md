@@ -303,3 +303,57 @@ Implemented a first explicit data layer split for long-lived apps.
 - Cleaned transient `data/test-*` directories
 - Ran test suite successfully
 - Result: `41 passed`
+
+### Module: event bus and event-driven scheduling
+
+Implemented a first internal event bus so long-running apps can react to system and app events.
+
+#### Added
+- `app/models/event_bus.py`
+  - `EventRecord`
+  - `EventSubscription`
+  - `EventPublishResult`
+- `app/services/event_bus.py`
+  - event publishing
+  - event log persistence
+  - subscription registration
+  - scheduler integration on publish
+- `tests/unit/test_event_bus.py`
+  - event-driven scheduling tests
+
+#### Updated
+- `app/services/scheduler.py`
+  - event schedules now auto-create subscriptions
+  - subscription listing support
+  - event subscriptions persist alongside schedules
+- `app/api/main.py`
+  - added event publish/list/subscription endpoints
+  - runtime persistence snapshot now includes event log and subscriptions
+- `app/core/errors.py`
+  - added event bus error mapping
+- `.gitignore`
+  - now ignores `*.egg-info/`
+
+#### API endpoints added
+- `GET /events`
+- `POST /events/publish`
+- `GET /events/subscriptions`
+- `POST /events/subscriptions`
+
+#### Behavior added
+- event schedules can now be triggered through internal event publication instead of only manual scheduler calls
+- published events are recorded in a persistent event log
+- event subscriptions are visible and persisted as first-class runtime objects
+
+#### Tests
+- validated:
+  - event publish triggers event schedules
+  - scheduler auto-registers event subscriptions
+  - event API flow
+  - manual subscription creation
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Cleaned transient `data/test-*` directories and `*.egg-info`
+- Ran test suite successfully
+- Result: `45 passed`

@@ -1,5 +1,15 @@
 {
   "bp.workspace.assistant:data-api-user": [],
+  "app.api.event.001": [
+    {
+      "checkpoint_id": "runtime.start:1",
+      "app_instance_id": "app.api.event.001",
+      "status": "running",
+      "pending_tasks": [],
+      "metadata": {},
+      "created_at": "2026-03-16T09:55:31.363541Z"
+    }
+  ],
   "app.workspace.assistant:qq-user": [
     {
       "checkpoint_id": "runtime.start:1",
@@ -7,7 +17,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T07:38:54.136526Z"
+      "created_at": "2026-03-16T09:55:31.412828Z"
     }
   ],
   "app.pipeline.executor:qq-user:run": [
@@ -17,7 +27,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T07:38:54.143341Z"
+      "created_at": "2026-03-16T09:55:31.420102Z"
     },
     {
       "checkpoint_id": "runtime.stop:2",
@@ -27,7 +37,7 @@
         "执行流水线"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T07:38:54.145637Z"
+      "created_at": "2026-03-16T09:55:31.422159Z"
     }
   ],
   "app.api.001": [
@@ -37,7 +47,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T07:38:54.167658Z"
+      "created_at": "2026-03-16T09:55:31.444341Z"
     }
   ],
   "app.api.002": [],
@@ -49,7 +59,7 @@
       "status": "running",
       "pending_tasks": [],
       "metadata": {},
-      "created_at": "2026-03-16T07:38:54.221485Z"
+      "created_at": "2026-03-16T09:55:31.506055Z"
     },
     {
       "checkpoint_id": "runtime.fail:2",
@@ -61,7 +71,7 @@
       "metadata": {
         "reason": "api crash"
       },
-      "created_at": "2026-03-16T07:38:54.233266Z"
+      "created_at": "2026-03-16T09:55:31.518357Z"
     },
     {
       "checkpoint_id": "runtime.start:3",
@@ -71,7 +81,7 @@
         "heartbeat sweep"
       ],
       "metadata": {},
-      "created_at": "2026-03-16T07:38:54.239786Z"
+      "created_at": "2026-03-16T09:55:31.524702Z"
     }
   ]
 }
