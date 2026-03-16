@@ -2,7 +2,8 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
-from app.models.patch_proposal import SelfRefinementRequest
+from app.models.experience import ExperienceRecord
+from app.models.patch_proposal import PatchProposal, SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
@@ -18,6 +19,35 @@ from app.services.self_refinement import SelfRefinementService
 
 
 client = TestClient(app)
+
+
+class StubModelSelfRefiner:
+    def __init__(self, available: bool = True, should_fail: bool = False) -> None:
+        self._available = available
+        self._should_fail = should_fail
+
+    def is_available(self) -> bool:
+        return self._available
+
+    def propose(self, app_instance_id, blueprint, experience):
+        if self._should_fail:
+            raise ValueError("model failed")
+        return [
+            PatchProposal(
+                proposal_id=f"proposal.model.{app_instance_id}.1",
+                app_instance_id=app_instance_id,
+                target_type="workflow",
+                title="Model-generated workflow refinement",
+                summary="Use model synthesis to add an explicit reflection checkpoint.",
+                evidence=[experience.summary],
+                expected_benefit="Improve adaptation quality before action execution.",
+                risk_level="medium",
+                auto_apply_allowed=False,
+                validation_checklist=["validate generated workflow patch"],
+                rollback_target="restore previous workflow",
+                patch={"workflow_id": blueprint.workflows[0].id, "append_step": {"kind": "module", "ref": "state.get"}},
+            )
+        ]
 
 
 def test_self_refinement_generates_patch_proposals() -> None:
@@ -68,6 +98,99 @@ def test_self_refinement_generates_patch_proposals() -> None:
     assert len(result.proposals) >= 2
     assert any(item.target_type == "runtime_policy" for item in result.proposals)
     assert any(item.target_type == "workflow" for item in result.proposals)
+
+
+
+def test_self_refinement_uses_model_when_available() -> None:
+    store = RuntimeStateStore(base_dir="data/test-self-refinement-model")
+    data_store = AppDataStore(base_dir="data/test-self-refinement-model-ns", store=store)
+    experience_store = ExperienceStore()
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
+    refinement_service = SelfRefinementService(
+        experience_store=experience_store,
+        registry=registry,
+        lifecycle=lifecycle,
+        model_self_refiner=StubModelSelfRefiner(),
+    )
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.self.refinement.model",
+            name="Self Refinement Model App",
+            goal="generate model refinement proposals",
+            roles=[],
+            tasks=[],
+            workflows=[{"id": "wf.model", "name": "model", "triggers": ["manual"], "steps": []}],
+            required_modules=["state.get"],
+            required_skills=[],
+            runtime_policy={"execution_mode": "service", "idle_strategy": "keep_alive"},
+        )
+    )
+    install_result = installer.install_app("bp.self.refinement.model", user_id="model.user")
+    experience_store.add_experience(
+        ExperienceRecord(
+            experience_id="exp.model.self.1",
+            title="Model self refinement experience",
+            summary="系统需要在执行前增加显式反思检查点。",
+            source="runtime",
+        )
+    )
+
+    result = refinement_service.propose(
+        SelfRefinementRequest(app_instance_id=install_result.app_instance_id, experience_id="exp.model.self.1")
+    )
+
+    assert result.proposals[0].title == "Model-generated workflow refinement"
+
+
+
+def test_self_refinement_falls_back_when_model_fails() -> None:
+    store = RuntimeStateStore(base_dir="data/test-self-refinement-fallback")
+    data_store = AppDataStore(base_dir="data/test-self-refinement-fallback-ns", store=store)
+    experience_store = ExperienceStore()
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
+    refinement_service = SelfRefinementService(
+        experience_store=experience_store,
+        registry=registry,
+        lifecycle=lifecycle,
+        model_self_refiner=StubModelSelfRefiner(should_fail=True),
+    )
+
+    blueprint = AppBlueprint(
+        id="bp.self.refinement.fallback",
+        name="Self Refinement Fallback App",
+        goal="generate fallback proposals",
+        roles=[],
+        tasks=[],
+        workflows=[{"id": "wf.fallback", "name": "fallback", "triggers": ["manual"], "steps": []}],
+        required_modules=["state.get"],
+        required_skills=[],
+        runtime_policy={"execution_mode": "service", "idle_strategy": "suspend"},
+    )
+    registry.register_blueprint(blueprint)
+    install_result = installer.install_app("bp.self.refinement.fallback", user_id="fallback.user")
+    experience_store.add_experience(
+        ExperienceRecord(
+            experience_id="exp.model.self.2",
+            title="Fallback self refinement experience",
+            summary="即使模型失败也要保留规则化 proposal。",
+            source="runtime",
+        )
+    )
+
+    result = refinement_service.propose(
+        SelfRefinementRequest(app_instance_id=install_result.app_instance_id, experience_id="exp.model.self.2")
+    )
+
+    assert any(item.target_type == "workflow" for item in result.proposals)
+    assert any(item.target_type == "runtime_policy" for item in result.proposals)
+
 
 
 def test_self_refinement_api_flow() -> None:

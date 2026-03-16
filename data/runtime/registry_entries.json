@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "status": "registered",
     "description": "长期运行的工作台助手 app",
-    "created_at": "2026-03-16T13:22:39.391786Z"
+    "created_at": "2026-03-16T15:03:22.308606Z"
   },
   "bp.pipeline.executor": {
     "blueprint_id": "bp.pipeline.executor",
@@ -13,7 +13,7 @@
     "version": "0.1.0",
     "status": "registered",
     "description": "一次性流水线执行 app",
-    "created_at": "2026-03-16T13:22:39.392435Z"
+    "created_at": "2026-03-16T15:03:22.309046Z"
   },
   "bp.api.registry": {
     "blueprint_id": "bp.api.registry",
@@ -21,6 +21,6 @@
     "version": "0.1.0",
     "status": "registered",
     "description": "registry api flow",
-    "created_at": "2026-03-16T13:22:39.724157Z"
+    "created_at": "2026-03-16T15:03:24.484688Z"
   }
 }

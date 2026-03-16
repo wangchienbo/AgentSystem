@@ -23,6 +23,7 @@ from app.services.proposal_review import ProposalReviewService, ProposalReviewEr
 from app.services.self_refinement import SelfRefinementService, SelfRefinementError
 from app.services.skill_suggestion import SkillSuggestionService, SkillSuggestionError
 from app.services.model_skill_suggester import ModelSkillSuggester
+from app.services.model_self_refiner import ModelSelfRefiner
 from app.models.event_bus import EventSubscription
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
@@ -86,7 +87,13 @@ practice_review = PracticeReviewService(event_bus=event_bus, data_store=app_data
 model_skill_suggester = ModelSkillSuggester()
 skill_suggestion = SkillSuggestionService(experience_store=experience_store, model_suggester=model_skill_suggester)
 app_registry = AppRegistryService(store=runtime_store)
-self_refinement = SelfRefinementService(experience_store=experience_store, registry=app_registry, lifecycle=lifecycle)
+model_self_refiner = ModelSelfRefiner()
+self_refinement = SelfRefinementService(
+    experience_store=experience_store,
+    registry=app_registry,
+    lifecycle=lifecycle,
+    model_self_refiner=model_self_refiner,
+)
 proposal_review = ProposalReviewService(lifecycle=lifecycle, store=runtime_store)
 priority_analysis = PriorityAnalysisService(proposal_review=proposal_review)
 app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host, data_store=app_data_store)

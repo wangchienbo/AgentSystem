@@ -7,8 +7,8 @@
     "interval_seconds": null,
     "event_name": "app.updated",
     "status": "active",
-    "created_at": "2026-03-16T13:22:39.516722Z",
-    "last_triggered_at": "2026-03-16T13:22:39.520183Z"
+    "created_at": "2026-03-16T15:03:22.436894Z",
+    "last_triggered_at": "2026-03-16T15:03:22.440323Z"
   },
   "sch.api.001": {
     "schedule_id": "sch.api.001",
@@ -18,7 +18,7 @@
     "interval_seconds": 30,
     "event_name": null,
     "status": "active",
-    "created_at": "2026-03-16T13:22:39.759265Z",
-    "last_triggered_at": "2026-03-16T13:22:39.763065Z"
+    "created_at": "2026-03-16T15:03:24.519438Z",
+    "last_triggered_at": "2026-03-16T15:03:24.523424Z"
   }
 }

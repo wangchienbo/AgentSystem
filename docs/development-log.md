@@ -746,6 +746,36 @@ Added an optional model-backed skill suggestion layer while preserving the origi
 - Ran full test suite successfully
 - Result: `61 passed`
 
+### Module: model-enhanced self refinement with constrained fallback
+
+Added an optional model-backed self-refinement proposal synthesizer while keeping the existing deterministic proposal path as the hard safety floor.
+
+#### Added
+- `app/services/model_self_refiner.py`
+  - generates constrained self-refinement proposal JSON via the configured responses API
+  - only targets proposal synthesis, not direct mutation
+  - exposes availability checks so model enhancement remains optional
+
+#### Updated
+- `app/services/self_refinement.py`
+  - now supports injected model self-refiner
+  - still builds deterministic runtime_policy/workflow proposals first
+  - falls back to deterministic proposals whenever model config or model output is invalid
+- `app/api/main.py`
+  - wires `ModelSelfRefiner` into the global `SelfRefinementService`
+- `tests/unit/test_self_refinement.py`
+  - added model-success and model-fallback tests
+
+#### Behavior added
+- self refinement can now be model-enhanced when local private model config is available
+- model output is constrained to a narrow proposal JSON shape
+- refinement remains proposal-before-apply; no direct model-driven mutation was added
+- deterministic fallback still guarantees the feature works without model access or under model failure
+
+#### Validation
+- Ran full test suite successfully
+- Result: `63 passed`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.
