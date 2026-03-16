@@ -4,11 +4,13 @@ from fastapi import HTTPException
 
 from app.services.lifecycle import LifecycleError
 from app.services.runtime_host import RuntimeHostError
+from app.services.scheduler import SchedulerError
 from app.services.skill_control import SkillControlError
+from app.services.supervisor import SupervisorError
 
 
 def map_domain_error(error: Exception) -> HTTPException:
-    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError)):
+    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError)):
         message = str(error)
         if "not found" in message.lower():
             return HTTPException(status_code=404, detail=message)

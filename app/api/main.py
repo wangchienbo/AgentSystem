@@ -8,11 +8,14 @@ from app.services.experience_store import ExperienceStore
 from app.services.demonstration_extractor import DemonstrationExtractor
 from app.services.lifecycle import AppLifecycleService, LifecycleError
 from app.services.runtime_host import AppRuntimeHostService, RuntimeHostError
+from app.services.scheduler import SchedulerService, SchedulerError
+from app.services.supervisor import SupervisorService, SupervisorError
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.demonstration import DemonstrationRecord
 from app.models.app_instance import AppInstance
+from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 
 from app.models.app_blueprint import AppBlueprint
@@ -52,6 +55,8 @@ experience_store = ExperienceStore()
 demonstration_extractor = DemonstrationExtractor()
 lifecycle = AppLifecycleService()
 runtime_host = AppRuntimeHostService(lifecycle=lifecycle)
+scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host)
+supervisor = SupervisorService(runtime_host=runtime_host)
 skill_control.register(
     SkillRegistryEntry(
         skill_id="core.skill.control",
@@ -225,4 +230,105 @@ def get_runtime_overview(app_instance_id: str) -> dict:
     try:
         return runtime_host.get_overview(app_instance_id).model_dump(mode="json")
     except (LifecycleError, RuntimeHostError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/schedules")
+def list_schedules(app_instance_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in scheduler.list_schedules(app_instance_id)]
+
+
+@app.post("/schedules")
+def create_schedule(record: ScheduleRecord) -> dict:
+    try:
+        return scheduler.register_schedule(record).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SchedulerError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/schedules/trigger/interval")
+def trigger_interval_schedules(payload: dict | None = None) -> list[dict]:
+    app_instance_id = None if payload is None else payload.get("app_instance_id")
+    try:
+        return [item.model_dump(mode="json") for item in scheduler.trigger_interval_schedules(app_instance_id)]
+    except (LifecycleError, RuntimeHostError, SchedulerError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/schedules/trigger/event")
+def trigger_event_schedules(payload: dict[str, str]) -> list[dict]:
+    try:
+        return [
+            item.model_dump(mode="json")
+            for item in scheduler.emit_event(
+                payload["event_name"],
+                payload.get("app_instance_id"),
+            )
+        ]
+    except (LifecycleError, RuntimeHostError, SchedulerError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/schedules/{schedule_id}/pause")
+def pause_schedule(schedule_id: str) -> dict:
+    try:
+        return scheduler.pause_schedule(schedule_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SchedulerError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/schedules/{schedule_id}/resume")
+def resume_schedule(schedule_id: str) -> dict:
+    try:
+        return scheduler.resume_schedule(schedule_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SchedulerError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/schedules/{schedule_id}/disable")
+def disable_schedule(schedule_id: str) -> dict:
+    try:
+        return scheduler.disable_schedule(schedule_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SchedulerError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/supervision/policies")
+def create_supervision_policy(policy: SupervisionPolicy) -> dict:
+    try:
+        return supervisor.register_policy(policy).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SupervisorError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/supervision/{app_instance_id}")
+def get_supervision_status(app_instance_id: str) -> dict:
+    try:
+        return supervisor.get_status(app_instance_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SupervisorError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/supervision/{app_instance_id}/observe-failure")
+def observe_failure(app_instance_id: str, payload: dict | None = None) -> dict:
+    reason = "" if payload is None else payload.get("reason", "")
+    try:
+        return supervisor.observe_failure(app_instance_id, reason=reason).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SupervisorError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/supervision/{app_instance_id}/attempt-restart")
+def attempt_restart(app_instance_id: str) -> dict:
+    try:
+        return supervisor.attempt_restart(app_instance_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SupervisorError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/supervision/{app_instance_id}/reset")
+def reset_supervision(app_instance_id: str) -> dict:
+    try:
+        return supervisor.reset(app_instance_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SupervisorError) as error:
         raise map_domain_error(error) from error
