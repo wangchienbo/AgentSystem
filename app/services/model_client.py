@@ -29,8 +29,15 @@ class OpenAIResponsesClient:
         if response.status_code >= 400:
             raise ModelClientError(f"Model probe failed: {response.status_code} {response.text[:300]}")
         content_type = response.headers.get("content-type", "")
-        if "application/json" in content_type.lower():
+        normalized = content_type.lower()
+        if "application/json" in normalized:
             return response.json()
+        if "text/event-stream" in normalized:
+            return {
+                "status_code": response.status_code,
+                "content_type": content_type,
+                "stream_preview": response.text[:500],
+            }
         return {
             "status_code": response.status_code,
             "content_type": content_type,

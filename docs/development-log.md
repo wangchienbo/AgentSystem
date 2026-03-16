@@ -679,6 +679,45 @@ Moved the default model configuration lookup path out of the repository so secre
 - Ran actual model probe via default external config path
 - Result: `/v1/responses` returned `MODEL_PROBE_OK`
 
+### Module: unified private YAML configuration
+
+Unified the local private model configuration into a single YAML file outside the repository.
+
+#### Updated
+- `pyproject.toml`
+  - added `PyYAML`
+- `app/models/model_config.py`
+  - added optional inline `api_key`
+- `app/services/model_config_loader.py`
+  - default private config path changed to `/root/.config/agentsystem/config.yaml`
+  - YAML `model:` section is now the primary config source
+  - legacy JSON/env private paths remain temporarily compatible for migration
+- `app/services/model_client.py`
+  - now tolerates event-stream probe responses
+- `README.md`
+  - updated local config docs for the YAML path
+- `docs/testing-detail.md`
+  - updated private config and probe notes
+- `tests/unit/test_model_config.py`
+  - rewritten for YAML-based config loading
+
+#### Added
+- `config/config.local.example.yaml`
+  - repository template for the private YAML structure
+
+#### Behavior added
+- project now prefers one private YAML file at `/root/.config/agentsystem/config.yaml`
+- the YAML file can carry the real API key locally without needing extra env files
+- loader still keeps env fallback and temporary legacy compatibility
+- probe now handles both JSON and SSE-style response bodies
+
+#### Validation
+- Installed `PyYAML` in the repo-local virtualenv
+- Ran full test suite successfully
+- Result: `59 passed`
+- Ran actual model probe using `/root/.config/agentsystem/config.yaml`
+- Result: endpoint reachable and returned SSE response events from `/v1/responses`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.
