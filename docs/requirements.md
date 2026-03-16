@@ -1,555 +1,357 @@
-# App OS 系统需求文档
+# AgentSystem / App OS Requirements
 
-## 1. 项目概述
+## 1. Purpose
 
-本项目目标是构建一个类似操作系统的应用管理与生成系统（以下简称 App OS）。
+AgentSystem aims to become an **App OS**: a system that can define, install, run, supervise, evolve, and persist AI-native applications as first-class long-lived objects.
 
-在该系统中：
-- 系统本身负责管理多个应用（App）
-- 每个功能以 App 的形式存在、安装、运行、修改和持久化
-- 用户可以通过系统内的 Builder App 创建、安装、修改其他 App
-- 系统优先使用确定性的基础模块（Foundation Modules）执行底层能力
-- 仅在需求澄清、复杂决策、语义分析、结构生成等高价值场景使用大模型能力（Intelligence Skills）
-
-本系统应基于成熟架构进行魔改和扩展，可参考并改造 OpenClaw 的运行时、会话、工具调度与多代理机制。
-
----
-
-## 2. 目标
-
-### 2.1 总体目标
-
-构建一个支持以下能力的 App OS：
-- 管理用户与应用
-- 持久化应用定义、运行状态和业务数据
-- 支持应用的创建、安装、运行、暂停、升级、修改和删除
-- 支持 Builder App 引导用户创建新 App
-- 支持多角色、多任务、多交互的 App 定义
-- 支持 Foundation Modules 与 Intelligence Skills 的分层调用
-- 保障应用稳定运行、可审计、可观测、可恢复
-
-### 2.2 架构目标
-
-系统必须满足：
-- App 为一等公民
-- App 必须是持久化对象，而非一次性执行流程
-- Builder 本身也是 App
-- 用户数据、应用数据、系统数据分层隔离
-- 默认优先使用 Foundation Modules，而非大模型
-- 仅在必要场景调用 Intelligence Skills
+The system should not be treated as a single assistant workflow runner. Instead, it should behave more like an operating system for apps:
+- apps are registered and installed
+- apps have runtime policy and lifecycle
+- apps own isolated data namespaces
+- apps can be long-running services or one-shot pipelines
+- runtime behavior can be reviewed into experience
+- experience can evolve into reusable skills
 
 ---
 
-## 3. 术语定义
+## 2. Product Goals
 
-### 3.1 Foundation Module
-指不依赖大模型、确定性执行的基础能力模块，包括但不限于：
-- 文件读写
-- 网络请求
-- 存储访问
-- 事件分发
-- 状态管理
-- 权限校验
-- 配置读取
-- 模板渲染
-- 数据转换
+### 2.1 Core goals
+The system must support:
+- defining apps as structured blueprints
+- registering and installing blueprints as app instances
+- managing app lifecycle and runtime state
+- separating app data, runtime state, system metadata, and skill assets
+- accepting user commands through a unified interaction interface
+- supporting both service apps and pipeline apps
+- supervising runtime behavior through schedule, health, restart, and event mechanisms
+- reviewing runtime practice into reusable experience
+- suggesting reusable skills from runtime experience
 
-### 3.2 Intelligence Skill
-指依赖大模型能力、用于语义理解、结构生成、复杂分析与决策支持的智能能力，包括但不限于：
-- 需求澄清
-- App Blueprint 生成
-- 角色建议
-- 工作流草案生成
-- 诊断与优化建议
-- 数据语义分析
-
-### 3.3 App
-系统中的一个持久化软件单元，具备：
-- 定义
-- 安装状态
-- 运行状态
-- 数据空间
-- 视图
-- 角色
-- 工作流
-
-### 3.4 Builder App
-系统内置的特殊 App，用于帮助用户创建、安装、修改和升级其他 App。
-
-### 3.5 App Blueprint
-App 的结构化定义，包括：
-- 目标
-- 角色
-- 任务
-- 交互
-- 工作流
-- 视图
-- 存储计划
-- 权限策略
-- 所需模块与技能
+### 2.2 Architectural goals
+The system should:
+- treat **App** as the main user-facing product unit
+- treat **Skill** as a reusable capability unit, not the default product unit
+- prefer deterministic modules over LLM use
+- use intelligent skills only for semantic, analytic, or generative steps
+- maintain explicit boundaries between:
+  - blueprint definition
+  - app installation
+  - runtime execution
+  - app data
+  - runtime state
+  - experience / skill assets
 
 ---
 
-## 4. 系统范围
+## 3. Key Definitions
 
-### 4.1 In Scope
+### 3.1 Module
+A deterministic foundation capability such as file, state, event, auth, or config operations.
 
-本期纳入范围：
-- App OS 内核与系统服务
-- App Registry
-- App Lifecycle 管理
-- App Definition / Blueprint 管理
-- Builder App
-- App Runtime
-- 多角色与任务交互模型
-- 用户/应用/系统数据管理
-- Foundation Modules 运行层
-- Intelligence Skills 运行层
-- 审计、日志、可观测性
-- 测试框架与模型调用验证
+### 3.2 Skill
+A reusable capability asset that may rely on rule logic or LLM reasoning. Skills can be versioned, replaced, disabled, and suggested from experience.
 
-### 4.2 Out of Scope（首期暂不做）
+### 3.3 App Blueprint
+A structured app definition template describing:
+- goal
+- roles
+- tasks
+- workflows
+- views
+- required modules
+- required skills
+- storage plan
+- runtime policy
 
-- 复杂 GUI 设计器
-- 大规模应用市场
-- 完整计费系统
-- 多云多区域部署
-- 高级自动化运营能力
+### 3.4 App Instance
+The installed lifecycle object derived from a blueprint. It owns:
+- lifecycle status
+- runtime policy
+- execution mode
+- owner
+- namespaces
+- runtime state
 
----
+### 3.5 Runtime Policy
+A structured policy describing:
+- execution mode (`service | pipeline`)
+- activation mode
+- restart policy
+- persistence level
+- idle strategy
 
-## 5. 系统分层
-
-### 5.1 Kernel Layer
-基于成熟运行时改造，负责：
-- session/runtime
-- 工具调度
-- agent/subagent 能力
-- 基础执行宿主
-
-### 5.2 System Services Layer
-包括：
-- User Management
-- App Registry
-- Lifecycle Manager
-- Storage Service
-- Config Service
-- Policy Service
-- Logging / Audit Service
-- Event Bus
-
-### 5.3 App Definition Layer
-负责：
-- Draft 管理
-- Blueprint 管理
-- Schema 校验
-- 结构化持久化
-
-### 5.4 Builder Layer
-负责：
-- 需求澄清
-- 反问补全
-- Blueprint 初稿生成
-- 安装与修改入口
-
-### 5.5 App Runtime Layer
-负责：
-- 工作流执行
-- 角色调度
-- 任务运行
-- 状态流转
-- 失败恢复
-
-### 5.6 Foundation Module Layer
-负责确定性能力：
-- File Module
-- Network Module
-- Storage Module
-- Event Module
-- Policy Module
-- State Module
-
-### 5.7 Intelligence Skill Layer
-负责智能能力：
-- Requirement Clarification Skill
-- Blueprint Generation Skill
-- Definition Diagnosis Skill
-- Data Analysis Skill
-
-### 5.8 View Layer
-负责：
-- 页面
-- 表单
-- 列表
-- 角色可见视图
-- 操作入口
-
-### 5.9 Storage Layer
-负责：
-- User Data
-- App Data
-- Runtime State
-- System Metadata
+### 3.6 Experience
+A structured record of useful operational knowledge extracted from documents, demonstrations, runtime, or human notes.
 
 ---
 
-## 6. 核心对象模型
+## 4. Scope
 
-系统至少应包含以下核心对象：
-- User
-- Tenant
-- AppBlueprint
-- AppInstance
-- AppVersion
-- Role
-- Task
-- Interaction
-- Workflow
-- WorkflowRun
-- View
-- Event
-- Policy
-- FoundationModule
-- IntelligenceSkill
-- StorageBinding
-- AppDataRecord
-- RuntimeState
-- AuditLog
+### 4.1 In scope
+Current project scope includes:
+- requirement routing
+- immutable skill control interface
+- experience store and skill blueprint store
+- demonstration extraction
+- app lifecycle management
+- runtime host
+- scheduler and supervisor
+- runtime persistence
+- app registry and installer
+- app data namespaces and data records
+- event bus and event subscriptions
+- practice review from runtime behavior
+- experience-to-skill suggestion flow
+
+### 4.2 Out of scope for current phase
+Not required for current milestone:
+- full GUI designer
+- rich multi-tenant admin panel
+- production-grade marketplace
+- full deployment / scaling architecture
+- advanced policy engine
+- complete workflow compiler
 
 ---
 
-## 7. App 生命周期要求
+## 5. Functional Requirements
 
-每个 App 至少支持以下状态：
-- draft
-- validating
-- compiled
-- installed
-- running
-- paused
-- stopped
-- failed
-- upgrading
-- archived
+### 5.1 Requirement intake
+The system must support routing user requirements into:
+- `app`
+- `skill`
+- `hybrid`
+- `unclear`
 
-每个 App 至少支持以下操作：
-- create draft
+It must also decide whether user demonstration is:
+- `required`
+- `optional`
+- `not_needed`
+- `clarify`
+
+### 5.2 Skill control
+The system must provide a stable human-controlled interface for:
+- listing skills
+- viewing a skill
+- replacing a skill version
+- rolling back a skill
+- enabling / disabling a skill
+- protecting immutable control interfaces
+
+### 5.3 Experience and skill assets
+The system must support:
+- storing `ExperienceRecord`
+- storing `SkillBlueprint`
+- linking experiences to skills
+- suggesting skills from experience
+
+### 5.4 Demonstration extraction
+The system must support transforming demonstration input into:
+- an experience record
+- a candidate skill blueprint
+
+### 5.5 App registration and installation
+The system must support:
+- registering a blueprint
+- listing registry entries
+- installing a blueprint into an app instance
+- carrying runtime policy from blueprint into instance
+
+### 5.6 App lifecycle
+Each app instance must support lifecycle states including:
+- `draft`
+- `validating`
+- `compiled`
+- `installed`
+- `running`
+- `paused`
+- `stopped`
+- `failed`
+- `upgrading`
+- `archived`
+
+Required lifecycle actions include:
 - validate
 - compile
 - install
 - start
-- stop
 - pause
-- update
-- rollback
+- resume
+- stop
+- fail
+- upgrade
 - archive
-- delete
+
+### 5.7 Runtime management
+The runtime layer must support:
+- runtime lease tracking
+- checkpoint generation
+- pending task queue
+- healthcheck
+- runtime overview
+
+### 5.8 Scheduling and supervision
+The system must support:
+- interval-trigger schedules
+- event-trigger schedules
+- supervision policies
+- failure observation
+- restart attempts
+- circuit-open protection
+
+### 5.9 Interaction gateway
+The system must expose a main command interface that:
+- matches user commands to app catalog entries
+- installs app instances through the installer flow
+- opens long-running service apps
+- executes one-shot pipeline apps
+- falls back to clarification when no app matches
+
+### 5.10 Data namespaces
+The system must create and manage explicit namespaces for:
+- `app_data`
+- `runtime_state`
+- `system_metadata`
+- `skill_assets`
+
+It must support listing namespaces and writing/reading data records.
+
+### 5.11 Event bus
+The system must support:
+- publishing internal events
+- recording event logs
+- registering subscriptions
+- triggering event schedules from published events
+
+### 5.12 Practice review
+The system must support reviewing a runtime practice episode by combining:
+- recent event log
+- data records
+
+and distilling them into an `ExperienceRecord`.
+
+### 5.13 Experience-to-skill suggestion
+The system must support generating a candidate `SkillBlueprint` from a stored `ExperienceRecord`, optionally persisting it.
 
 ---
 
-## 8. App 持久化要求
+## 6. Data Requirements
 
-### 8.1 定义持久化
-持久化 App Blueprint、角色、任务、视图、工作流、策略。
+### 6.1 Data separation
+The system must explicitly separate:
+- app business data
+- runtime execution state
+- system metadata
+- skill asset data
 
-### 8.2 实例持久化
-持久化已安装应用信息、所属用户、版本、绑定配置、授权信息。
+### 6.2 Persistence
+The system must persist at least:
+- app instances
+- lifecycle events
+- runtime leases
+- checkpoints
+- pending tasks
+- schedules
+- supervision policies and statuses
+- registry entries and blueprints
+- namespaces and data records
+- event logs and subscriptions
 
-### 8.3 运行态持久化
-持久化运行状态、待办任务、执行上下文、错误与恢复点。
-
-### 8.4 业务数据持久化
-持久化 App 业务数据、文件、记录、输出结果。
-
----
-
-## 9. 数据管理要求
-
-### 9.1 用户数据
-包括：
-- 用户资料
-- 用户设置
-- 用户文件
-- 用户偏好
-- 用户授权信息
-
-### 9.2 App 数据
-包括：
-- App 配置
-- App 状态
-- App 业务记录
-- App 文件和缓存
-
-### 9.3 系统数据
-包括：
-- 日志
-- 审计信息
-- Blueprint 索引
-- Runtime trace
-- Event 记录
-
-### 9.4 数据隔离
-必须支持：
-- 用户级隔离
-- App 级隔离
-- 系统级隐藏空间
-- Secret 独立管理
+### 6.3 Namespace provisioning
+Installing an app must provision its namespaces automatically.
 
 ---
 
-## 10. 角色与任务模型要求
+## 7. Execution Model Requirements
 
-### 10.1 角色类型
-系统至少支持：
-- human
-- agent
-- system
-- external
+### 7.1 Service apps
+A service app is a long-lived app that can:
+- be opened by user command
+- stay active across interactions
+- subscribe to events
+- run background schedules
+- be supervised and restarted
 
-### 10.2 角色属性
-每个角色至少具备：
-- name
-- type
-- responsibilities
-- permissions
-- visible_views
-- accessible_data
-- allowed_actions
-
-### 10.3 任务属性
-每个任务至少具备：
-- id
-- owner_role
-- trigger
-- input
-- output
-- success_condition
-- failure_policy
-- escalation_target
-
-### 10.4 交互属性
-每个交互至少具备：
-- source_role
-- target_role
-- interaction_type
-- payload_schema
-- expected_result
+### 7.2 Pipeline apps
+A pipeline app is a one-shot app that:
+- accepts a command or input
+- runs once
+- stops after finishing
+- may still retain its business data and result records
 
 ---
 
-## 11. Builder App 要求
+## 8. Intelligence Boundaries
 
-Builder App 必须支持：
-- 用户自然语言描述需求
-- 自动提问与需求补全
-- 生成 App Draft
-- 生成 App Blueprint
-- 校验定义冲突
-- 安装 App
-- 修改已安装 App
-- 升级 App
-- 查看生成与修改历史
+The system must prefer deterministic logic wherever possible.
+LLM-like intelligence should be used only for:
+- requirement clarification
+- blueprint generation
+- conflict diagnosis
+- workflow suggestions
+- role inference
+- semantic analysis of data or experience
 
-Builder App 应优先调用：
-- Foundation Modules 做结构化校验与持久化
-- Intelligence Skills 做语义理解与建议
-
----
-
-## 12. Foundation Modules 要求
-
-首期必须提供的 Foundation Modules：
-- file.read
-- file.write
-- file.list
-- file.stat
-- http.get
-- http.post
-- state.get
-- state.set
-- event.emit
-- event.subscribe
-- auth.check
-- config.get
-- config.set
-
-要求：
-- 确定性执行
-- 明确输入输出
-- 独立测试
-- 支持日志追踪
-- 支持权限控制
+The system should not rely on LLMs for:
+- basic state transitions
+- registry storage
+- namespace management
+- event delivery
+- lifecycle enforcement
 
 ---
 
-## 13. Intelligence Skills 要求
+## 9. Non-functional Requirements
 
-首期建议提供的智能技能：
-- requirement.clarify
-- blueprint.generate
-- definition.diagnose
-- workflow.suggest
-- role.infer
-- data.analyze
+### 9.1 Maintainability
+- schemas should remain explicit
+- service boundaries should be clear
+- features should be added as composable services
 
-要求：
-- 调用频率尽量低
-- 输出尽量结构化
-- 有失败兜底策略
-- 可被审计
-- 可配置模型参数
+### 9.2 Observability
+The system should make runtime behavior inspectable through:
+- event logs
+- lifecycle events
+- checkpoint and lease state
+- reviewable practice summaries
 
----
+### 9.3 Testability
+Core services should be covered by unit/integration tests.
 
-## 14. 大模型调用约束
-
-系统必须遵守以下原则：
-- 默认不用大模型
-- 能由 Foundation Modules 和规则完成的，不调用大模型
-- 仅在语义理解、复杂分析、结构生成、冲突诊断等场景调用大模型
-- 大模型输出必须尽量结构化，便于进入后续流程
-- 大模型能力应作为 Intelligence Skill 被统一封装
+### 9.4 Evolvability
+The system should support the evolution chain:
+- practice
+- experience
+- skill suggestion
+- future workflow/app refinement
 
 ---
 
-## 15. 稳定性要求
+## 10. Acceptance Criteria for Current Milestone
 
-系统必须支持：
-- App 稳定运行
-- 任务失败重试
-- 超时控制
-- 人工接管
-- 从检查点恢复
-- 审计和追踪
-- 配置与密钥隔离
-
----
-
-## 16. 非功能需求
-
-### 16.1 可维护性
-- 清晰分层
-- 明确 schema
-- 模块可替换
-
-### 16.2 可观测性
-- 应用日志
-- 工作流日志
-- 模块调用日志
-- 智能技能调用日志
-
-### 16.3 可扩展性
-- 支持新增 App 类型
-- 支持新增 Foundation Modules
-- 支持新增 Intelligence Skills
-
-### 16.4 可测试性
-- Foundation Modules 可单测
-- Blueprint 可校验
-- Workflow 可回放
-- Intelligence Skills 可做集成测试与评测
+Current milestone is considered complete if the system can:
+- route requirements
+- manage skill control safely
+- store experiences and skill blueprints
+- extract from demonstrations
+- register and install app blueprints
+- run lifecycle transitions
+- host runtime state
+- schedule and supervise apps
+- separate app data namespaces
+- publish and react to events
+- review runtime practice into experience
+- suggest skill blueprints from experience
+- pass automated tests for the above
 
 ---
 
-## 17. OpenClaw 改造方向
+## 11. Current Gap After This Milestone
 
-建议复用与改造：
-- session/runtime 作为基础执行上下文
-- tool dispatch 作为 Module/Skill 执行入口
-- subagent/session 作为角色代理与子任务执行机制
-- memory/context 作为澄清与运行辅助上下文
-
-建议新增：
-- App Registry
-- Lifecycle Manager
-- Builder App
-- App Definition Compiler
-- Storage Namespace 管理
-- App Runtime Host
-- Policy & Permission 服务
-
----
-
-## 18. MVP 范围
-
-首期 MVP 目标：
-- 实现 App OS 最小闭环
-- 支持 Builder App 创建其他 App
-- 支持 App Draft → Compile → Install → Run
-- 支持用户/App/系统数据隔离
-- 支持少量 Foundation Modules 与少量 Intelligence Skills
-- 支持日志、状态、失败恢复基础能力
-
-首期建议 App 类型：
-- 文件同步 App
-- 数据采集 App
-- 简单审批 App
-- Builder App
-
-
-## 9. Requirement Routing 要求
-
-系统必须支持将用户自然语言需求路由为：
-- app
-- skill
-- hybrid
-- unclear
-
-并给出是否应先让用户示范的判断：
-- required
-- optional
-- not_needed
-- clarify
-
-首期实现至少应输出结构化 `RequirementIntent`，包含：
-- raw_text
-- normalized_text
-- requirement_type
-- demonstration_decision
-- reason
-- extracted_keywords
-
-
-## 10. Human Override / Skill Control 要求
-
-系统必须提供一个稳定且不可随意自修改的人工 skill 接管接口，用于：
-- 读取全部 skill
-- 查看 skill 历史版本
-- 替换 skill
-- 回退 skill
-- 禁用 / 启用 skill
-- 检查 skill 依赖与影响范围
-
-该接口属于底层稳定接口的一部分，应默认以确定性逻辑实现，不依赖 LLM。
-
-接口设计一旦确定，应视为不可变更契约之一。
-
-
-## 11. Experience + Skill 资产化要求
-
-系统必须将经验（experience）与技能（skill）都作为一等资产管理。
-
-### ExperienceRecord
-用于承载显式经验，如文档、示范总结、运行复盘、人工备注。
-
-### SkillBlueprint
-用于承载程序化能力定义，如输入输出、步骤、目标、与经验的关联。
-
-系统应支持：
-- 存储 experience
-- 存储 skill blueprint
-- 将 experience 与 skill 建立引用关系
-- 基于 experience 推荐相关 skill
-
-
-## 12. Demonstration Extraction 要求
-
-系统必须支持接收用户示范（DemonstrationRecord），并将其提取为：
-- ExperienceRecord
-- SkillBlueprint
-
-至少应保留：
-- 示范目标
-- 操作步骤
-- 观察到的输入输出
-- 与新生成 skill 的关联关系
+The next major gaps are:
+- workflow execution modules tied to app data and event operations
+- contradiction / priority analysis for better decision focus
+- app refinement from suggested skills
+- stronger policy and permission model
+- production-grade persistence and recovery

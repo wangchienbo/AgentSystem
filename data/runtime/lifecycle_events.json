@@ -1,0 +1,353 @@
+{
+  "bp.workspace.assistant:data-api-user": [
+    {
+      "app_instance_id": "bp.workspace.assistant:data-api-user",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.136984Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:data-api-user",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.137451Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:data-api-user",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.138143Z"
+    }
+  ],
+  "app.api.event.001": [
+    {
+      "app_instance_id": "app.api.event.001",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.167450Z"
+    },
+    {
+      "app_instance_id": "app.api.event.001",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.170203Z"
+    },
+    {
+      "app_instance_id": "app.api.event.001",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.172766Z"
+    },
+    {
+      "app_instance_id": "app.api.event.001",
+      "event_type": "start",
+      "from_status": "installed",
+      "to_status": "running",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.175367Z"
+    }
+  ],
+  "app.workspace.assistant:qq-user": [
+    {
+      "app_instance_id": "app.workspace.assistant:qq-user",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.223756Z"
+    },
+    {
+      "app_instance_id": "app.workspace.assistant:qq-user",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.224281Z"
+    },
+    {
+      "app_instance_id": "app.workspace.assistant:qq-user",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.225397Z"
+    },
+    {
+      "app_instance_id": "app.workspace.assistant:qq-user",
+      "event_type": "start",
+      "from_status": "installed",
+      "to_status": "running",
+      "reason": "user open app",
+      "created_at": "2026-03-16T12:25:33.226993Z"
+    }
+  ],
+  "app.pipeline.executor:qq-user:run": [
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.231883Z"
+    },
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.232429Z"
+    },
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.233708Z"
+    },
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "start",
+      "from_status": "installed",
+      "to_status": "running",
+      "reason": "run pipeline",
+      "created_at": "2026-03-16T12:25:33.235145Z"
+    },
+    {
+      "app_instance_id": "app.pipeline.executor:qq-user:run",
+      "event_type": "stop",
+      "from_status": "running",
+      "to_status": "stopped",
+      "reason": "pipeline complete",
+      "created_at": "2026-03-16T12:25:33.237126Z"
+    }
+  ],
+  "app.api.001": [
+    {
+      "app_instance_id": "app.api.001",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.250784Z"
+    },
+    {
+      "app_instance_id": "app.api.001",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.253507Z"
+    },
+    {
+      "app_instance_id": "app.api.001",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.256109Z"
+    },
+    {
+      "app_instance_id": "app.api.001",
+      "event_type": "start",
+      "from_status": "installed",
+      "to_status": "running",
+      "reason": "boot app",
+      "created_at": "2026-03-16T12:25:33.258928Z"
+    }
+  ],
+  "app.api.002": [],
+  "bp.workspace.assistant:review-api-user": [
+    {
+      "app_instance_id": "bp.workspace.assistant:review-api-user",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.284883Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:review-api-user",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.287630Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:review-api-user",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.288340Z"
+    }
+  ],
+  "bp.workspace.assistant:proposal-review-user": [
+    {
+      "app_instance_id": "bp.workspace.assistant:proposal-review-user",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.311474Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:proposal-review-user",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.312167Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:proposal-review-user",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.312889Z"
+    }
+  ],
+  "bp.api.registry:api-user": [
+    {
+      "app_instance_id": "bp.api.registry:api-user",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.346359Z"
+    },
+    {
+      "app_instance_id": "bp.api.registry:api-user",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.347136Z"
+    },
+    {
+      "app_instance_id": "bp.api.registry:api-user",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.347903Z"
+    }
+  ],
+  "app.api.ops.001": [
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.361420Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.364526Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.367309Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "start",
+      "from_status": "installed",
+      "to_status": "running",
+      "reason": "",
+      "created_at": "2026-03-16T12:25:33.370293Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "fail",
+      "from_status": "running",
+      "to_status": "failed",
+      "reason": "api crash",
+      "created_at": "2026-03-16T12:25:33.382671Z"
+    },
+    {
+      "app_instance_id": "app.api.ops.001",
+      "event_type": "start",
+      "from_status": "failed",
+      "to_status": "running",
+      "reason": "supervisor restart",
+      "created_at": "2026-03-16T12:25:33.389380Z"
+    }
+  ],
+  "bp.workspace.assistant:self-refine-user": [
+    {
+      "app_instance_id": "bp.workspace.assistant:self-refine-user",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.401562Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:self-refine-user",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.402644Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:self-refine-user",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.403667Z"
+    }
+  ],
+  "bp.workspace.assistant:skill-suggest-user": [
+    {
+      "app_instance_id": "bp.workspace.assistant:skill-suggest-user",
+      "event_type": "validate",
+      "from_status": "draft",
+      "to_status": "validating",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.434957Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:skill-suggest-user",
+      "event_type": "compile",
+      "from_status": "validating",
+      "to_status": "compiled",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.435824Z"
+    },
+    {
+      "app_instance_id": "bp.workspace.assistant:skill-suggest-user",
+      "event_type": "install",
+      "from_status": "compiled",
+      "to_status": "installed",
+      "reason": "installer",
+      "created_at": "2026-03-16T12:25:33.436689Z"
+    }
+  ]
+}

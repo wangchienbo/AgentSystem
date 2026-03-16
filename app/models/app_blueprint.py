@@ -2,6 +2,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.runtime_policy import RuntimePolicy
+
 
 RoleType = Literal["human", "agent", "system", "external"]
 
@@ -70,3 +72,4 @@ class AppBlueprint(BaseModel):
     required_modules: list[str] = Field(default_factory=list)
     required_skills: list[str] = Field(default_factory=list)
     storage_plan: StoragePlan = Field(default_factory=StoragePlan)
+    runtime_policy: RuntimePolicy = Field(default_factory=RuntimePolicy)

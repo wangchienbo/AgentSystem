@@ -1,138 +1,267 @@
-# App OS 设计文档
+# AgentSystem / App OS Design
 
-## 1. 文档信息
+## 1. Design Intent
 
-- 项目名称：AgentSystem / App OS
-- 代码仓库：https://github.com/wangchienbo/AgentSystem
-- 当前工作目录：`/root/project`
-- 关联文档：
-  - `README.md`（需求文档）
-  - `TESTING.md`（测试文档）
+AgentSystem is designed as an **App OS** rather than a single assistant runtime.
+Its core job is to manage apps as long-lived system objects while allowing the system to learn from runtime practice and gradually improve its reusable capability layer.
 
-本文档基于当前需求整理，目标是输出一份逻辑完备、架构清晰、可直接进入实现阶段的系统设计方案。
-
----
-
-## 2. 设计目标
-
-系统目标不是构建单个应用，而是构建一个 **App OS（应用操作系统）**：
-- 系统负责管理多个 App
-- 每个功能作为 App 持久存在
-- App 支持创建、安装、运行、暂停、修改、升级、归档
-- 用户可通过 Builder App 创建和修改其他 App
-- 系统优先通过 Foundation Modules 完成底层确定性工作
-- 系统仅在语义理解、分析、规划、生成时调用 Intelligence Skills
-- 系统需支持稳定运行、数据隔离、可追踪和可恢复
+The current design direction is:
+- user interacts with apps through a unified gateway
+- apps are defined as blueprints, installed as instances, and governed by runtime policy
+- apps own separated namespaces for business and runtime data
+- apps can react to events and schedules
+- runtime behavior can be reviewed into experience
+- experience can be turned into candidate skills
 
 ---
 
-## 3. 核心设计原则
+## 2. Core Design Principles
 
-### 3.1 App 是一等公民
-系统管理的最小长期对象不是 workflow，而是 App。
+### 2.1 App is the main product object
+Users primarily interact with apps, not with low-level skills.
 
-### 3.2 Builder 也是 App
-创建应用的能力本身也被系统 App 化。
+### 2.2 Skill is a reusable capability asset
+Skills are versioned, replaceable, suggestible capability units. They are dependencies of apps and builders, not usually the top-level product unit.
 
-### 3.3 默认不用大模型
-能通过 Foundation Modules 和规则完成的，不调用大模型。
+### 2.3 Definition and instance are separate
+- blueprint = definition template
+- instance = installed lifecycle object
 
-### 3.4 Intelligence Skill 只用于高价值智能环节
-仅用于：
-- 需求澄清
-- Blueprint 生成
-- 角色推断
-- 诊断与优化建议
-- 数据语义分析
+### 2.4 Data and runtime are separate
+- app data persists with the app instance
+- runtime state persists only as needed for recovery and supervision
 
-### 3.5 持久化分层
-必须区分：
-- 用户数据
-- App 数据
-- Runtime 状态
-- 系统元数据
+### 2.5 Intelligence is selective
+The system should use deterministic services first, and use intelligence mainly for abstraction, suggestion, diagnosis, and generation.
 
-### 3.6 系统需要像 OS 一样可管理
-必须支持：
-- 注册
-- 安装
-- 启停
-- 升级
-- 回滚
-- 日志
-- 权限
-- 资源控制
+### 2.6 System should evolve from practice
+The intended evolutionary chain is:
+- practice
+- experience
+- skill suggestion
+- future workflow/app refinement
 
 ---
 
-## 4. 系统总体架构
+## 3. High-level Architecture
 
 ```text
-[ User / Web UI / Chat / API ]
-             |
-             v
-[ Builder App / App Views ]
-             |
-             v
-[ App Definition Layer ]
-             |
-             v
-[ App Lifecycle Manager ]
-             |
-             v
-[ App Runtime Layer ]
-      +------+------+
-      |             |
-      v             v
-[ Foundation Modules ]   [ Intelligence Skills ]
-      |             |
-      +------+------+
-             |
-             v
-[ Storage / Event / Policy / Logging ]
-             |
-             v
-[ Kernel / OpenClaw-inspired Runtime ]
+[ User / API / Chat Input ]
+            |
+            v
+[ Interaction Gateway ]
+            |
+            v
+[ App Catalog ] ----> [ App Registry ] ----> [ App Installer ]
+            |                                 |
+            |                                 v
+            |                          [ App Instance ]
+            |                                 |
+            v                                 v
+[ Lifecycle Manager ] <----> [ Runtime Host ] <----> [ Scheduler ]
+                                      |                  |
+                                      |                  v
+                                      |            [ Event Bus ]
+                                      |
+                                      v
+                              [ App Data Store ]
+                                      |
+                                      v
+                              [ Runtime Persistence ]
+
+[ Experience Store ] <---- [ Practice Review ] <---- [ Event Log + Data Records ]
+        |
+        v
+[ Skill Suggestion Service ]
 ```
 
 ---
 
-## 5. 分层设计
+## 4. Object Model
 
-### 5.1 Interface Layer
-负责：
-- 用户交互
-- App 使用入口
-- Builder App 入口
-- 管理控制台入口
-- API 入口
+## 4.1 Capability Layer
 
-输入形式：
-- Web 控制台
-- Chat 界面
-- API 调用
+### Module
+Deterministic building block such as file, state, event, auth, config, or network operations.
 
-### 5.2 App Definition Layer
-负责应用蓝图管理：
-- App Draft
-- App Blueprint
-- 角色定义
-- 任务定义
-- 交互定义
-- 视图定义
-- 存储计划
-- 所需模块与智能技能
+### Skill
+Reusable capability asset, versioned and controlled. Skills may be manually replaced, rolled back, enabled, disabled, or suggested from experience.
 
-### 5.3 Builder Layer
-负责：
-- 将用户自然语言需求转为结构化草稿
-- 提问补全缺失信息
-- 校验逻辑冲突
-- 生成可编译的 Blueprint
-- 修改现有 App 的定义
+## 4.2 Definition Layer
 
-### 5.4 Lifecycle Layer
-负责管理 App 状态：
+### RequirementIntent
+Structured routing output from user requirement intake.
+
+### DemonstrationRecord
+Observed user demonstration used for extraction.
+
+### AppBlueprint
+Defines:
+- goal
+- roles
+- tasks
+- workflows
+- views
+- required modules
+- required skills
+- storage plan
+- runtime policy
+
+### RuntimePolicy
+Defines:
+- execution mode (`service | pipeline`)
+- activation mode
+- restart policy
+- persistence level
+- idle strategy
+- restart limit
+
+## 4.3 Runtime Layer
+
+### AppInstance
+Installed lifecycle object containing:
+- blueprint id
+- owner user id
+- status
+- installed version
+- execution mode
+- runtime policy
+- data namespace root
+
+### LifecycleEvent
+Represents state transitions.
+
+### RuntimeLease
+Tracks current runtime health and heartbeat.
+
+### RuntimeCheckpoint
+Captures resumable runtime snapshots.
+
+### ScheduleRecord
+Defines interval or event-based task triggering.
+
+### SupervisionPolicy / SupervisionStatus
+Define restart behavior and current supervision state.
+
+### EventRecord / EventSubscription
+Represent internal system events and their subscriptions.
+
+## 4.4 Data / Evolution Layer
+
+### DataNamespace
+Represents an isolated namespace for:
+- app_data
+- runtime_state
+- system_metadata
+- skill_assets
+
+### DataRecord
+Structured record within a namespace.
+
+### ExperienceRecord
+Structured runtime, demonstration, or human knowledge asset.
+
+### SkillBlueprint
+Structured candidate reusable skill artifact.
+
+### PracticeReviewResult
+Structured output of reviewing recent runtime practice.
+
+### SkillSuggestionResult
+Structured output of turning experience into a candidate skill blueprint.
+
+---
+
+## 5. Layered Services
+
+## 5.1 Requirement Routing
+Current implementation uses a rule-driven `RequirementRouter` to classify user intent and decide whether demonstration is needed.
+
+## 5.2 Skill Control Interface
+`SkillControlService` acts as a protected human override layer for skill lifecycle control.
+
+## 5.3 Experience Store
+`ExperienceStore` is currently an in-memory asset store for:
+- experiences
+- skill blueprints
+
+It supports linking skill blueprints to related experiences.
+
+## 5.4 Demonstration Extraction
+`DemonstrationExtractor` converts demonstrations into:
+- an experience record
+- a skill blueprint
+
+## 5.5 App Registry and Installer
+`AppRegistryService` stores blueprint definitions.
+`AppInstallerService` converts blueprints into installable instances and provisions namespaces.
+
+## 5.6 Lifecycle and Runtime
+`AppLifecycleService` manages valid state transitions.
+`AppRuntimeHostService` manages runtime lease, checkpoint, pending tasks, and health updates.
+
+## 5.7 Scheduler and Supervisor
+`SchedulerService` manages interval and event schedules.
+`SupervisorService` manages failure observation, restart attempts, and circuit-open protection.
+
+## 5.8 Event Bus
+`EventBusService` records internal events, supports subscriptions, and triggers event schedules.
+
+## 5.9 App Data Store
+`AppDataStore` provisions and manages namespaces and records for apps and global skill assets.
+
+## 5.10 Interaction Gateway
+`InteractionGateway` is the main command entry point. It routes user commands to app catalog entries and triggers install/open/run flows.
+
+## 5.11 Practice Review
+`PracticeReviewService` reviews recent runtime events and data records, then distills them into an experience.
+
+## 5.12 Skill Suggestion
+`SkillSuggestionService` generates candidate reusable skill blueprints from stored experiences.
+
+---
+
+## 6. Main Runtime Flows
+
+## 6.1 User command -> service app
+1. user command enters interaction gateway
+2. catalog matches the app
+3. installer ensures the instance exists
+4. lifecycle ensures app reaches `installed`
+5. runtime host starts the service app
+6. app remains available for ongoing work
+
+## 6.2 User command -> pipeline app
+1. user command enters interaction gateway
+2. catalog matches a pipeline app
+3. installer ensures the instance exists
+4. runtime host starts the app
+5. task is enqueued
+6. runtime host stops the app after execution
+
+## 6.3 Runtime event -> event schedule
+1. event bus publishes an event
+2. scheduler locates matching event schedules
+3. pending task is enqueued into runtime host
+4. event is recorded in persistent log
+
+## 6.4 Runtime practice -> experience
+1. runtime generates event log and data records
+2. practice review inspects recent facts
+3. review generates an experience summary
+4. experience is stored for later reuse
+
+## 6.5 Experience -> suggested skill
+1. a stored experience is selected
+2. skill suggestion service generates a candidate skill blueprint
+3. suggestion may remain advisory or be persisted into the skill store
+
+---
+
+## 7. State and Lifecycle Design
+
+## 7.1 App lifecycle states
+Supported states:
 - draft
 - validating
 - compiled
@@ -144,438 +273,117 @@
 - upgrading
 - archived
 
-### 5.5 Runtime Layer
-负责：
-- workflow 执行
-- role/task 调度
-- event 响应
-- 模块调用
-- skill 调用
-- 失败恢复
-- checkpoint 记录
+## 7.2 App execution modes
+### Service app
+Used for long-running, event-aware, reopenable app instances.
 
-### 5.6 Foundation Module Layer
-负责所有非 LLM 基础能力：
-- file.read / file.write / file.list / file.stat
-- http.get / http.post
-- state.get / state.set
-- event.emit / event.subscribe
-- auth.check
-- config.get / config.set
+### Pipeline app
+Used for one-shot execution, after which runtime stops but data may remain.
 
-### 5.7 Intelligence Skill Layer
-负责少量模型能力：
-- requirement.clarify
-- blueprint.generate
-- definition.diagnose
-- role.infer
-- workflow.suggest
-- data.analyze
-
-### 5.8 Storage Layer
-负责持久化：
-- User Data
-- App Data
-- Runtime State
-- System Metadata
-- Logs / Audit / Trace
-
-### 5.9 Policy / Permission Layer
-负责：
-- 用户权限
-- 角色权限
-- App 权限
-- 模块可见性
-- 外部访问范围
-- 数据可见范围
-
-### 5.10 Event / Observability Layer
-负责：
-- 系统事件总线
-- App 生命周期事件
-- Runtime 事件
-- 审计日志
-- Workflow Trace
-- 模型调用记录
+## 7.3 Runtime supervision model
+The supervision model supports:
+- failure observation
+- restart attempts
+- restart caps
+- circuit-open protection
 
 ---
 
-## 6. 核心对象模型
+## 8. Data Design
 
-### 6.1 User
-```yaml
-id: string
-name: string
-tenant_id: string
-profile: object
-preferences: object
-```
+## 8.1 Namespace split
+Each installed app gets:
+- `app_data`
+- `runtime_state`
+- `system_metadata`
 
-### 6.2 AppBlueprint
-```yaml
-id: string
-name: string
-goal: string
-roles: Role[]
-tasks: Task[]
-interactions: Interaction[]
-workflows: Workflow[]
-views: View[]
-storage_plan: StoragePlan
-required_modules: string[]
-required_skills: string[]
-policies: Policy[]
-version: string
-```
+The system also maintains:
+- `global:skill_assets`
 
-### 6.3 AppInstance
-```yaml
-id: string
-blueprint_id: string
-owner_user_id: string
-status: string
-installed_version: string
-runtime_config: object
-data_namespace: string
-created_at: datetime
-updated_at: datetime
-```
+## 8.2 Persistence split
+Current file-based persistence stores:
+- app instances
+- lifecycle events
+- runtime leases
+- runtime checkpoints
+- runtime tasks
+- schedules
+- supervision state
+- registry entries
+- registry blueprints
+- namespaces
+- data records
+- event log
+- event subscriptions
 
-### 6.4 Role
-```yaml
-id: string
-name: string
-type: human|agent|system|external
-responsibilities: string[]
-permissions: string[]
-visible_views: string[]
-accessible_data: string[]
-allowed_actions: string[]
-```
-
-### 6.5 Task
-```yaml
-id: string
-owner_role: string
-trigger: string
-inputs: object
-outputs: object
-success_condition: string
-failure_policy: string
-escalation_target: string
-```
-
-### 6.6 Workflow
-```yaml
-id: string
-name: string
-steps: WorkflowStep[]
-triggers: string[]
-retry_policy: object
-checkpoint_policy: object
-```
-
-### 6.7 View
-```yaml
-id: string
-name: string
-type: page|form|list|detail|dashboard
-visible_roles: string[]
-components: object[]
-actions: object[]
-```
+## 8.3 Why this split matters
+This prevents app business data from being confused with ephemeral runtime state, and keeps skill assets from turning into hidden app data.
 
 ---
 
-## 7. App Builder 设计
+## 9. Intelligence / Evolution Design
 
-Builder App 是系统预装 App，职责包括：
-- 创建 App Draft
-- 需求澄清
-- Blueprint 生成
-- Blueprint 修改
-- App 安装
-- App 升级
-- App 结构诊断
+## 9.1 Demonstration to experience and skill
+Demonstration extraction is the first path from observed user behavior to reusable system assets.
 
-### 7.1 Builder 工作流
-1. 用户输入需求
-2. requirement.clarify 输出缺失点
-3. 用户补全信息
-4. blueprint.generate 生成蓝图初稿
-5. definition.diagnose 检查冲突
-6. compile Blueprint
-7. install App
-8. 返回可运行 App
+## 9.2 Practice review as runtime learning
+Practice review creates a feedback loop from actual runtime behavior to explicit experience records.
 
-### 7.2 Builder 的智能与非智能边界
-- Foundation Modules：持久化、schema 校验、状态更新、安装动作
-- Intelligence Skills：提问、推断、生成、诊断
+## 9.3 Experience to skill suggestion
+Skill suggestion turns explicit experience into reusable capability proposals without automatically mutating the system.
+
+This keeps a safe evolution boundary:
+- observe
+- summarize
+- suggest
+- optionally persist
+- future human or system approval can decide actual adoption
 
 ---
 
-## 8. 生命周期设计
+## 10. Safety and Control Boundaries
 
-### 8.1 状态流转
-```text
-draft -> validating -> compiled -> installed -> running
-                                   -> paused
-                                   -> stopped
-                                   -> failed
-running -> upgrading -> running
-running -> archived
-```
+### 10.1 Immutable human override
+The skill control surface should remain protected and deterministic.
 
-### 8.2 核心操作
-- create_draft
-- validate_draft
-- compile_blueprint
-- install_app
-- start_app
-- pause_app
-- stop_app
-- update_app
-- rollback_app
-- archive_app
+### 10.2 Suggestion is not direct mutation
+Practice review and skill suggestion should not silently rewrite core skills or app structure.
+
+### 10.3 Runtime services remain deterministic
+Lifecycle, installer, data provisioning, scheduling, and event dispatch should remain deterministic.
 
 ---
 
-## 9. 数据与存储设计
+## 11. Current Implemented Boundary Summary
 
-### 9.1 数据分层
-#### 用户数据
-- 用户资料
-- 用户配置
-- 用户文件
-- 用户偏好
-- 用户鉴权绑定
+At the current stage the codebase already implements a meaningful subset of the target design:
+- requirement routing
+- skill control
+- experience store
+- demonstration extraction
+- lifecycle manager
+- runtime host
+- scheduler
+- supervisor
+- interaction gateway
+- runtime persistence
+- app registry
+- installer
+- app data namespaces
+- event bus
+- practice review
+- experience-to-skill suggestion
 
-#### App 数据
-- App 配置
-- App 业务数据
-- App 输出记录
-- App 文件空间
-
-#### Runtime 数据
-- workflow run state
-- checkpoints
-- pending tasks
-- transient cache
-
-#### 系统元数据
-- registry
-- audit logs
-- traces
-- module/skill execution records
-- system events
-
-### 9.2 隔离原则
-- User Scope 隔离
-- App Scope 隔离
-- Runtime Scope 隔离
-- Secret 独立托管
+This means the project is no longer just schema scaffolding; it already contains an initial operating skeleton plus an early practice-driven evolution loop.
 
 ---
 
-## 10. Foundation Modules 设计
+## 12. Near-term Design Gaps
 
-首期模块：
-- `file.read`
-- `file.write`
-- `file.list`
-- `file.stat`
-- `http.get`
-- `http.post`
-- `state.get`
-- `state.set`
-- `event.emit`
-- `event.subscribe`
-- `auth.check`
-- `config.get`
-- `config.set`
-
-要求：
-- 确定性
-- 输入输出 schema 清晰
-- 独立单元测试
-- 可记录日志
-- 支持权限拦截
-
----
-
-## 11. Intelligence Skills 设计
-
-首期智能技能：
-- `requirement.clarify`
-- `blueprint.generate`
-- `definition.diagnose`
-- `role.infer`
-- `workflow.suggest`
-- `data.analyze`
-
-要求：
-- 尽量结构化输出
-- 支持模型配置切换
-- 支持失败兜底
-- 支持审计和重放
-
----
-
-## 12. 运行时设计
-
-### 12.1 Runtime 组成
-- Workflow Executor
-- Role Dispatcher
-- Event Listener
-- State Store
-- Module Executor
-- Skill Executor
-- Recovery Manager
-
-### 12.2 执行原则
-- 默认优先执行 Foundation Modules
-- 只有在必要节点调用 Intelligence Skills
-- 所有节点都应有日志、trace 和状态记录
-
-### 12.3 失败处理
-支持：
-- retry
-- compensation
-- escalation
-- human handoff
-- checkpoint restore
-
----
-
-## 13. 权限与安全设计
-
-### 13.1 权限维度
-- 用户对 App 的权限
-- 角色对 View 的权限
-- App 对 Module 的权限
-- App 对 Skill 的权限
-- App 对外部网络和文件系统的权限
-
-### 13.2 密钥策略
-- 通过环境变量或 secret store 注入
-- 不允许硬编码到仓库
-- 日志与测试报告不得回显完整密钥
-
----
-
-## 14. 基于 OpenClaw 的改造建议
-
-建议借鉴并改造：
-- session/runtime 作为任务执行宿主
-- tool dispatch 作为 Foundation Module / Skill 执行入口
-- subagents 作为角色代理执行机制
-- memory/context 作为澄清和运行上下文
-
-建议新增：
-- App Registry
-- Lifecycle Manager
-- Builder App
-- Blueprint Compiler
-- App Runtime Host
-- Storage Namespace 管理
-- Policy Service
-
----
-
-## 15. 实现路线建议
-
-### Phase 1：定义与存储
-- Blueprint schema
-- AppInstance schema
-- Role/Task/View schema
-- Storage namespace
-
-### Phase 2：基础运行时
-- Lifecycle manager
-- Foundation Modules executor
-- Runtime state persistence
-
-### Phase 3：Builder App
-- requirement clarification
-- blueprint generation
-- install flow
-
-### Phase 4：智能增强
-- definition diagnosis
-- role inference
-- workflow suggestion
-
-### Phase 5：可视化与运维
-- App views
-- logs / trace / audit dashboard
-
----
-
-## 16. 非功能要求
-
-- 可维护：分层清晰、schema 稳定
-- 可测试：模块、工作流、技能均可验证
-- 可观测：日志、trace、审计可查
-- 可扩展：后续能增加更多 App 类型和模块
-- 可恢复：支持中断恢复与版本回滚
-
----
-
-## 17. 结论
-
-本系统应被实现为一个 **以 App 为持久化一等公民的 App OS**。系统通过 Builder App 让用户持续创建和演化应用，通过 Foundation Modules 保证确定性执行，通过 Intelligence Skills 提供少量高价值智能能力，并通过生命周期、数据隔离、日志审计与恢复机制保障系统稳定运行。
-
-
-## 11. Requirement Router 模块
-
-首期新增 `RequirementRouter` 模块，负责：
-- 对用户输入做轻量规范化
-- 基于规则做 app / skill / hybrid / unclear 分类
-- 判断是否应优先进入示范流程
-- 输出结构化 `RequirementIntent` 供后续 Builder / Demonstration / Skill Generator 使用
-
-当前版本先采用规则引擎，后续再接入 LLM 增强。
-
-
-## 12. Skill Control Interface（不可变人工接管层）
-
-系统新增 `SkillControlService`，作为稳定人工接管接口，负责：
-- skill registry 管理
-- 技能读取
-- 技能替换
-- 技能回退
-- 技能禁用 / 启用
-
-该层被视为 immutable core 的一部分，主要用于防止系统自修改失控，并为人工调试和恢复提供安全入口。
-
-首期版本采用内存注册表模型，后续可扩展为持久化版本库与变更审计系统。
-
-
-## 13. API error mapping
-
-HTTP API 层应将领域错误稳定映射为明确状态码：
-- skill not found -> 404
-- immutable interface violation / invalid rollback -> 400
-- unknown internal failures -> 500
-
-这样人工调试接口可预测、可脚本化。
-
-
-## 14. Experience Store / Skill Blueprint Layer
-
-新增 `ExperienceStore` 作为轻量内存层，用于沉淀：
-- ExperienceRecord（显式经验）
-- SkillBlueprint（程序化能力定义）
-
-该层目标是将“经验 + skill”正式纳入系统骨架，使后续 Builder、Demonstration、Skill Generator 能围绕这两类资产演化。
-
-
-## 15. Demonstration Extractor
-
-新增 `DemonstrationExtractor`，负责把用户示范记录转成显式经验与 skill blueprint。
-
-首期版本采用规则型抽取：
-- 将示范标题/目标/步骤转成 ExperienceRecord 摘要
-- 将步骤、输入、输出转成 SkillBlueprint
-
-后续可叠加 LLM 做更强的规则归纳与步骤压缩。
+The next most important missing pieces are:
+- workflow execution that actually consumes modules and skills
+- app data operations as workflow primitives
+- contradiction / priority analysis for better focus
+- app/workflow refinement based on suggested skills
+- stronger permission and policy enforcement
+- durable production-grade persistence backends

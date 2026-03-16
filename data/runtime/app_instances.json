@@ -1,0 +1,206 @@
+{
+  "bp.workspace.assistant:data-api-user": {
+    "id": "bp.workspace.assistant:data-api-user",
+    "blueprint_id": "bp.workspace.assistant",
+    "owner_user_id": "data-api-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/data-api-user/apps/bp.workspace.assistant:data-api-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3
+    }
+  },
+  "app.api.event.001": {
+    "id": "app.api.event.001",
+    "blueprint_id": "bp.api.event.001",
+    "owner_user_id": "user.api",
+    "status": "running",
+    "installed_version": "0.1.0",
+    "data_namespace": "tenant/api/app.api.event.001",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3
+    }
+  },
+  "app.workspace.assistant:qq-user": {
+    "id": "app.workspace.assistant:qq-user",
+    "blueprint_id": "bp.workspace.assistant",
+    "owner_user_id": "qq-user",
+    "status": "running",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/qq-user/apps/app.workspace.assistant:qq-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3
+    }
+  },
+  "app.pipeline.executor:qq-user:run": {
+    "id": "app.pipeline.executor:qq-user:run",
+    "blueprint_id": "bp.pipeline.executor",
+    "owner_user_id": "qq-user",
+    "status": "stopped",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/qq-user/apps/app.pipeline.executor:qq-user:run",
+    "execution_mode": "pipeline",
+    "runtime_policy": {
+      "execution_mode": "pipeline",
+      "activation": "on_demand",
+      "restart_policy": "never",
+      "persistence_level": "standard",
+      "idle_strategy": "stop",
+      "max_restart_attempts": 3
+    }
+  },
+  "app.api.001": {
+    "id": "app.api.001",
+    "blueprint_id": "bp.api.001",
+    "owner_user_id": "user.api",
+    "status": "running",
+    "installed_version": "0.1.0",
+    "data_namespace": "tenant/api/app.api.001",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3
+    }
+  },
+  "app.api.002": {
+    "id": "app.api.002",
+    "blueprint_id": "bp.api.002",
+    "owner_user_id": "user.api",
+    "status": "draft",
+    "installed_version": "0.1.0",
+    "data_namespace": "tenant/api/app.api.002",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3
+    }
+  },
+  "bp.workspace.assistant:review-api-user": {
+    "id": "bp.workspace.assistant:review-api-user",
+    "blueprint_id": "bp.workspace.assistant",
+    "owner_user_id": "review-api-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/review-api-user/apps/bp.workspace.assistant:review-api-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3
+    }
+  },
+  "bp.workspace.assistant:proposal-review-user": {
+    "id": "bp.workspace.assistant:proposal-review-user",
+    "blueprint_id": "bp.workspace.assistant",
+    "owner_user_id": "proposal-review-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/proposal-review-user/apps/bp.workspace.assistant:proposal-review-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3
+    }
+  },
+  "bp.api.registry:api-user": {
+    "id": "bp.api.registry:api-user",
+    "blueprint_id": "bp.api.registry",
+    "owner_user_id": "api-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/api-user/apps/bp.api.registry:api-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3
+    }
+  },
+  "app.api.ops.001": {
+    "id": "app.api.ops.001",
+    "blueprint_id": "bp.api.ops.001",
+    "owner_user_id": "user.api",
+    "status": "running",
+    "installed_version": "0.1.0",
+    "data_namespace": "tenant/api/app.api.ops.001",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3
+    }
+  },
+  "bp.workspace.assistant:self-refine-user": {
+    "id": "bp.workspace.assistant:self-refine-user",
+    "blueprint_id": "bp.workspace.assistant",
+    "owner_user_id": "self-refine-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/self-refine-user/apps/bp.workspace.assistant:self-refine-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3
+    }
+  },
+  "bp.workspace.assistant:skill-suggest-user": {
+    "id": "bp.workspace.assistant:skill-suggest-user",
+    "blueprint_id": "bp.workspace.assistant",
+    "owner_user_id": "skill-suggest-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/skill-suggest-user/apps/bp.workspace.assistant:skill-suggest-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3
+    }
+  }
+}

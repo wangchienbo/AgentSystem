@@ -1,0 +1,26 @@
+{
+  "bp.workspace.assistant": {
+    "blueprint_id": "bp.workspace.assistant",
+    "name": "Workspace Assistant",
+    "version": "0.1.0",
+    "status": "registered",
+    "description": "长期运行的工作台助手 app",
+    "created_at": "2026-03-16T12:25:33.055026Z"
+  },
+  "bp.pipeline.executor": {
+    "blueprint_id": "bp.pipeline.executor",
+    "name": "Pipeline Executor",
+    "version": "0.1.0",
+    "status": "registered",
+    "description": "一次性流水线执行 app",
+    "created_at": "2026-03-16T12:25:33.055501Z"
+  },
+  "bp.api.registry": {
+    "blueprint_id": "bp.api.registry",
+    "name": "API Registry App",
+    "version": "0.1.0",
+    "status": "registered",
+    "description": "registry api flow",
+    "created_at": "2026-03-16T12:25:33.340391Z"
+  }
+}
