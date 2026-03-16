@@ -6,10 +6,13 @@ from app.services.requirement_router import RequirementRouter
 from app.services.skill_control import SkillControlService
 from app.services.experience_store import ExperienceStore
 from app.services.demonstration_extractor import DemonstrationExtractor
+from app.services.lifecycle import AppLifecycleService, LifecycleError
+from app.services.runtime_host import AppRuntimeHostService, RuntimeHostError
 from app.models.skill_control import SkillRegistryEntry, SkillVersion
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.demonstration import DemonstrationRecord
+from app.models.app_instance import AppInstance
 from app.services.skill_control import SkillControlError
 
 from app.models.app_blueprint import AppBlueprint
@@ -47,6 +50,8 @@ router = RequirementRouter()
 skill_control = SkillControlService()
 experience_store = ExperienceStore()
 demonstration_extractor = DemonstrationExtractor()
+lifecycle = AppLifecycleService()
+runtime_host = AppRuntimeHostService(lifecycle=lifecycle)
 skill_control.register(
     SkillRegistryEntry(
         skill_id="core.skill.control",
@@ -139,3 +144,85 @@ def extract_demonstration(record: DemonstrationRecord) -> dict:
         "experience": experience.model_dump(mode="json"),
         "skill_blueprint": skill.model_dump(mode="json"),
     }
+
+
+@app.get("/apps")
+def list_apps() -> list[dict]:
+    return [item.model_dump(mode="json") for item in lifecycle.list_instances()]
+
+
+@app.post("/apps")
+def create_app_instance(instance: AppInstance) -> dict:
+    runtime_host.register_instance(instance)
+    return instance.model_dump(mode="json")
+
+
+@app.get("/apps/{app_instance_id}")
+def get_app_instance(app_instance_id: str) -> dict:
+    try:
+        return lifecycle.get_instance(app_instance_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/apps/{app_instance_id}/events")
+def list_app_events(app_instance_id: str) -> list[dict]:
+    try:
+        return [item.model_dump(mode="json") for item in lifecycle.list_events(app_instance_id)]
+    except (LifecycleError, RuntimeHostError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/apps/{app_instance_id}/actions/{action}")
+def apply_app_action(app_instance_id: str, action: str, payload: dict | None = None) -> dict:
+    reason = (payload or {}).get("reason", "")
+    try:
+        if action == "validate":
+            return lifecycle.transition(app_instance_id, "validate", reason=reason).model_dump(mode="json")
+        if action == "compile":
+            return lifecycle.transition(app_instance_id, "compile", reason=reason).model_dump(mode="json")
+        if action == "install":
+            return lifecycle.transition(app_instance_id, "install", reason=reason).model_dump(mode="json")
+        if action == "upgrade":
+            return lifecycle.transition(app_instance_id, "upgrade", reason=reason).model_dump(mode="json")
+        if action == "archive":
+            return lifecycle.transition(app_instance_id, "archive", reason=reason).model_dump(mode="json")
+        if action == "start":
+            return runtime_host.start(app_instance_id, reason=reason).model_dump(mode="json")
+        if action == "pause":
+            return runtime_host.pause(app_instance_id, reason=reason).model_dump(mode="json")
+        if action == "resume":
+            return runtime_host.resume(app_instance_id, reason=reason).model_dump(mode="json")
+        if action == "stop":
+            return runtime_host.stop(app_instance_id, reason=reason).model_dump(mode="json")
+        if action == "fail":
+            return runtime_host.mark_failed(app_instance_id, reason=reason).model_dump(mode="json")
+        raise map_domain_error(LifecycleError(f"Unsupported app action: {action}"))
+    except (LifecycleError, RuntimeHostError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/apps/{app_instance_id}/tasks")
+def enqueue_runtime_task(app_instance_id: str, payload: dict[str, str]) -> dict:
+    try:
+        tasks = runtime_host.enqueue_task(app_instance_id, payload["task_name"])
+        return {"app_instance_id": app_instance_id, "pending_tasks": tasks}
+    except (LifecycleError, RuntimeHostError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/apps/{app_instance_id}/healthcheck")
+def healthcheck_app(app_instance_id: str, payload: dict[str, bool] | None = None) -> dict:
+    healthy = True if payload is None else payload.get("healthy", True)
+    try:
+        return runtime_host.healthcheck(app_instance_id, healthy=healthy).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/apps/{app_instance_id}/runtime")
+def get_runtime_overview(app_instance_id: str) -> dict:
+    try:
+        return runtime_host.get_overview(app_instance_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError) as error:
+        raise map_domain_error(error) from error
