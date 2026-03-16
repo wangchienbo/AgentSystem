@@ -555,6 +555,169 @@ Implemented the first review loop for self-refinement proposals so the system ca
 - Ran test suite successfully
 - Result: `54 passed`
 
+### Module: priority and contradiction analysis for self-refinement
+
+Implemented a first priority-analysis layer so the system can rank its own refinement proposals and identify the current main contradiction.
+
+#### Added
+- `app/models/priority_analysis.py`
+  - `PriorityAnalysisRequest`
+  - `PrioritizedProposal`
+  - `PriorityAnalysisResult`
+- `app/services/priority_analysis.py`
+  - proposal scoring
+  - main contradiction description
+  - recommended next action generation
+- `tests/unit/test_priority_analysis.py`
+  - priority analysis tests
+
+#### Updated
+- `app/api/main.py`
+  - added self-refinement priority analysis endpoint
+- `app/core/errors.py`
+  - added priority analysis error mapping
+
+#### API endpoints added
+- `POST /self-refinement/analyze-priority`
+
+#### Behavior added
+- system can now rank multiple refinement proposals by priority
+- ranking considers:
+  - target type impact
+  - risk level
+  - auto-apply eligibility
+  - amount of evidence
+- analysis also outputs:
+  - primary contradiction
+  - recommended next action
+
+#### Design value
+- the system no longer only produces proposals
+- it can now distinguish primary vs secondary refinement actions
+- this is the first step toward a structured “抓主要矛盾” capability in the runtime evolution loop
+
+#### Tests
+- validated:
+  - low-risk runtime policy proposal ranks ahead of workflow proposal when appropriate
+  - priority analysis API flow
+
+#### Validation
+- Reused local virtual environment: `.venv`
+- Cleaned transient `data/test-*` directories and `*.egg-info`
+- Ran test suite successfully
+- Result: `56 passed`
+
+### Module: local model configuration and connectivity probe
+
+Implemented the first project-level model access scaffolding so AgentSystem can connect to an OpenAI-compatible responses API independently of the host assistant runtime.
+
+#### Added
+- `app/models/model_config.py`
+  - local model configuration schema
+- `app/services/model_config_loader.py`
+  - local file / environment configuration loader
+  - API key resolution
+- `app/services/model_client.py`
+  - OpenAI-compatible `/v1/responses` probe client
+- `config/model.local.example.json`
+  - example local model configuration template
+- `.env.local.example`
+  - example environment variable template
+- `scripts/model_probe.py`
+  - minimal connectivity probe script
+- `tests/unit/test_model_config.py`
+  - model configuration loader tests
+
+#### Updated
+- `.gitignore`
+  - ignore `.env.local`
+  - ignore `config/model.local.json`
+- `README.md`
+  - added local model configuration section
+- `docs/testing-detail.md`
+  - recorded actual project-level model probe status
+
+#### Behavior added
+- project can now load model settings from a local gitignored config file or environment variables
+- project can now resolve API key by env var name
+- project can probe an OpenAI-compatible responses endpoint directly
+
+#### Validation
+- Ran unit tests successfully
+- Result: `59 passed`
+- Ran actual model probe against configured endpoint
+- Result: `/v1/responses` returned `MODEL_PROBE_OK`
+
+#### Security note
+- real API secret was written only to local gitignored files
+- no secret was added to tracked repository files or commits
+
+### Module: external private default path for model config
+
+Moved the default model configuration lookup path out of the repository so secrets no longer need to live under the project directory.
+
+#### Updated
+- `app/services/model_config_loader.py`
+  - default config path changed to `/root/.config/agentsystem/model.local.json`
+  - default env path changed to `/root/.config/agentsystem/model.local.env`
+  - loader now imports environment values from the private env file automatically
+- `README.md`
+  - updated local model configuration instructions
+- `docs/testing-detail.md`
+  - updated project-level model probe notes
+- `tests/unit/test_model_config.py`
+  - added validation for private env-file loading
+
+#### Behavior added
+- the project now prefers private configuration outside the repository by default
+- local model secrets can live in `/root/.config/agentsystem/` instead of the workspace
+- model probe works using the new default private path without requiring project-local secret files
+
+#### Validation
+- Ran full test suite successfully
+- Result: `60 passed`
+- Ran actual model probe via default external config path
+- Result: `/v1/responses` returned `MODEL_PROBE_OK`
+
+### Module: unified private YAML configuration
+
+Unified the local private model configuration into a single YAML file outside the repository.
+
+#### Updated
+- `pyproject.toml`
+  - added `PyYAML`
+- `app/models/model_config.py`
+  - added optional inline `api_key`
+- `app/services/model_config_loader.py`
+  - default private config path changed to `/root/.config/agentsystem/config.yaml`
+  - YAML `model:` section is now the primary config source
+  - legacy JSON/env private paths remain temporarily compatible for migration
+- `app/services/model_client.py`
+  - now tolerates event-stream probe responses
+- `README.md`
+  - updated local config docs for the YAML path
+- `docs/testing-detail.md`
+  - updated private config and probe notes
+- `tests/unit/test_model_config.py`
+  - rewritten for YAML-based config loading
+
+#### Added
+- `config/config.local.example.yaml`
+  - repository template for the private YAML structure
+
+#### Behavior added
+- project now prefers one private YAML file at `/root/.config/agentsystem/config.yaml`
+- the YAML file can carry the real API key locally without needing extra env files
+- loader still keeps env fallback and temporary legacy compatibility
+- probe now handles both JSON and SSE-style response bodies
+
+#### Validation
+- Installed `PyYAML` in the repo-local virtualenv
+- Ran full test suite successfully
+- Result: `59 passed`
+- Ran actual model probe using `/root/.config/agentsystem/config.yaml`
+- Result: endpoint reachable and returned SSE response events from `/v1/responses`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.

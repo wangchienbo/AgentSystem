@@ -1,0 +1,8 @@
+model:
+  provider: OpenAICompatible
+  wire_api: openai-responses
+  base_url: https://crs.ruinique.com
+  model: gpt-5.4
+  api_key: replace-with-your-real-key
+  api_key_env: OPENAI_API_KEY
+  timeout_seconds: 30.0

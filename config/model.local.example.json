@@ -1,0 +1,8 @@
+{
+  "provider": "OpenAICompatible",
+  "base_url": "https://crs.ruinique.com",
+  "wire_api": "openai-responses",
+  "model": "gpt-5.4",
+  "api_key_env": "OPENAI_API_KEY",
+  "timeout_seconds": 30.0
+}

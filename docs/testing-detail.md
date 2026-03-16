@@ -324,6 +324,30 @@ Content-Type: application/json
 目标：验证网关是否兼容旧接口
 主结论仍以 `/v1/responses` 为准。
 
+### 13.4 当前项目接入状态
+
+当前仓库已补充本地模型配置与联通脚手架：
+- `app/models/model_config.py`
+- `app/services/model_config_loader.py`
+- `app/services/model_client.py`
+- `scripts/model_probe.py`
+- `config/model.local.example.json`
+- `.env.local.example`
+
+默认私有配置路径位于仓库外：
+- `/root/.config/agentsystem/config.yaml`
+
+兼容旧私有路径（迁移期）：
+- `/root/.config/agentsystem/model.local.json`
+- `/root/.config/agentsystem/model.local.env`
+
+仓库内只保留模板：
+- `config/config.local.example.yaml`
+- `config/model.local.example.json`
+- `.env.local.example`
+
+已完成一次实际 `/v1/responses` 联通探测，返回 `MODEL_PROBE_OK`。
+
 ---
 
 ## 14. 验收标准
