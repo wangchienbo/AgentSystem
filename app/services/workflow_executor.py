@@ -9,6 +9,8 @@ from app.services.app_data_store import AppDataStore
 from app.services.app_registry import AppRegistryService
 from app.services.event_bus import EventBusService
 from app.services.lifecycle import AppLifecycleService
+from app.services.skill_runtime import SkillRuntimeError, SkillRuntimeService
+from app.models.skill_runtime import SkillExecutionRequest
 
 
 class WorkflowExecutorError(ValueError):
@@ -23,12 +25,14 @@ class WorkflowExecutorService:
         data_store: AppDataStore,
         event_bus: EventBusService,
         context_store: AppContextStore | None = None,
+        skill_runtime: SkillRuntimeService | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
         self._data_store = data_store
         self._event_bus = event_bus
         self._context_store = context_store
+        self._skill_runtime = skill_runtime
 
     def execute_primary_workflow(self, app_instance_id: str, trigger: str = "manual", inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
         return self.execute_workflow(app_instance_id=app_instance_id, workflow_id=None, trigger=trigger, inputs=inputs)
@@ -237,22 +241,66 @@ class WorkflowExecutorService:
             )
 
         if kind == "skill":
-            if self._context_store is not None:
-                self._context_store.append_entry(
-                    app_instance_id,
-                    section="open_loops",
-                    key=f"skill-step:{step_id}",
-                    value={"ref": ref, "config": config},
-                    tags=["workflow", "skill-step"],
+            if self._skill_runtime is None:
+                if self._context_store is not None:
+                    self._context_store.append_entry(
+                        app_instance_id,
+                        section="open_loops",
+                        key=f"skill-step:{step_id}",
+                        value={"ref": ref, "config": config},
+                        tags=["workflow", "skill-step"],
+                    )
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="skipped",
+                    detail={"reason": "skill execution placeholder", "ref": ref},
+                    output={"placeholder": "skill", "ref": ref},
                 )
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="skipped",
-                detail={"reason": "skill execution placeholder", "ref": ref},
-                output={"placeholder": "skill", "ref": ref},
-            )
+            try:
+                request = SkillExecutionRequest(
+                    skill_id=ref,
+                    app_instance_id=app_instance_id,
+                    workflow_id=workflow_id,
+                    step_id=step_id,
+                    inputs=inputs,
+                    config=config,
+                )
+                result = self._skill_runtime.execute(request)
+                if self._context_store is not None:
+                    self._context_store.append_entry(
+                        app_instance_id,
+                        section="artifacts",
+                        key=f"skill-result:{step_id}",
+                        value=result.output,
+                        tags=["workflow", "skill-step", ref],
+                    )
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="completed" if result.status == "completed" else "failed",
+                    detail={"skill_id": ref, "status": result.status},
+                    output=result.output,
+                )
+            except SkillRuntimeError:
+                if self._context_store is not None:
+                    self._context_store.append_entry(
+                        app_instance_id,
+                        section="open_loops",
+                        key=f"skill-step:{step_id}",
+                        value={"ref": ref, "config": config, "status": "unhandled"},
+                        tags=["workflow", "skill-step"],
+                    )
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="skipped",
+                    detail={"reason": "skill handler missing", "ref": ref},
+                    output={"placeholder": "skill", "ref": ref},
+                )
 
         return WorkflowStepExecution(
             step_id=step_id,

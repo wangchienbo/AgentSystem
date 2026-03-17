@@ -27,8 +27,10 @@ from app.services.model_skill_suggester import ModelSkillSuggester
 from app.services.model_self_refiner import ModelSelfRefiner
 from app.services.workflow_executor import WorkflowExecutorService, WorkflowExecutorError
 from app.services.workflow_subscription import WorkflowSubscriptionService, WorkflowSubscriptionError
+from app.services.skill_runtime import SkillRuntimeService, SkillRuntimeError
 from app.models.event_bus import EventSubscription
 from app.models.workflow_subscription import WorkflowEventSubscription
+from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
@@ -122,12 +124,26 @@ app_installer = AppInstallerService(
     context_store=app_context_store,
 )
 app_catalog = AppCatalogService()
+skill_runtime = SkillRuntimeService(store=runtime_store)
+
+
+def _demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+    payload = request.config.get("payload", request.inputs)
+    return SkillExecutionResult(
+        skill_id=request.skill_id,
+        status="completed",
+        output={"echo": payload, "step_id": request.step_id},
+    )
+
+
+skill_runtime.register_handler("skill.echo", _demo_echo_skill)
 workflow_executor = WorkflowExecutorService(
     registry=app_registry,
     lifecycle=lifecycle,
     data_store=app_data_store,
     event_bus=event_bus,
     context_store=app_context_store,
+    skill_runtime=skill_runtime,
 )
 workflow_subscription = WorkflowSubscriptionService(
     workflow_executor=workflow_executor,
@@ -574,6 +590,11 @@ def create_workflow_subscription(subscription: WorkflowEventSubscription) -> dic
         return workflow_subscription.subscribe(subscription).model_dump(mode="json")
     except WorkflowSubscriptionError as error:
         raise map_domain_error(error) from error
+
+
+@app.get("/skill-runtime/executions")
+def list_skill_runtime_executions() -> list[dict]:
+    return [item.model_dump(mode="json") for item in skill_runtime.list_executions()]
 
 
 @app.post("/practice/review")

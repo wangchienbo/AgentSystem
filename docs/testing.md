@@ -101,6 +101,7 @@ Covered behavior:
 - step output passing between deterministic workflow steps
 - conditional step execution and workflow output aggregation
 - event-triggered workflow subscription execution
+- minimal registered skill dispatch inside workflow execution
 
 ## 3.7 Interaction gateway
 Covered behavior:
