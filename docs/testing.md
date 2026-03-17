@@ -102,6 +102,7 @@ Covered behavior:
 - conditional step execution and workflow output aggregation
 - event-triggered workflow subscription execution
 - minimal registered skill dispatch inside workflow execution
+- skill input mapping and failure capture during workflow execution
 
 ## 3.7 Interaction gateway
 Covered behavior:

@@ -440,5 +440,5 @@ Current implementation note:
 - step-level conditional execution is supported through simple `when` checks
 - workflow execution returns an aggregated outputs summary for completed/skipped steps and step outputs
 - event-driven workflow subscriptions can now auto-trigger workflow execution from published internal events
-- `skill` steps now support a minimal dispatch contract through `SkillRuntimeService`, with registered handlers, structured request/result payloads, and execution persistence
+- `skill` steps now support a minimal dispatch contract through `SkillRuntimeService`, with registered handlers, structured request/result payloads, input mapping, failure capture, and execution persistence
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

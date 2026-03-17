@@ -259,21 +259,24 @@ class WorkflowExecutorService:
                     output={"placeholder": "skill", "ref": ref},
                 )
             try:
+                mapped_inputs = self._resolve_value(config.get("inputs", inputs), execution_context)
+                mapped_config = self._resolve_value(config, execution_context)
                 request = SkillExecutionRequest(
                     skill_id=ref,
                     app_instance_id=app_instance_id,
                     workflow_id=workflow_id,
                     step_id=step_id,
-                    inputs=inputs,
-                    config=config,
+                    inputs=mapped_inputs if isinstance(mapped_inputs, dict) else {"value": mapped_inputs},
+                    config=mapped_config if isinstance(mapped_config, dict) else {"value": mapped_config},
                 )
                 result = self._skill_runtime.execute(request)
                 if self._context_store is not None:
+                    target_section = "artifacts" if result.status == "completed" else "open_loops"
                     self._context_store.append_entry(
                         app_instance_id,
-                        section="artifacts",
+                        section=target_section,
                         key=f"skill-result:{step_id}",
-                        value=result.output,
+                        value={"output": result.output, "error": result.error, "status": result.status},
                         tags=["workflow", "skill-step", ref],
                     )
                 return WorkflowStepExecution(
@@ -281,7 +284,7 @@ class WorkflowExecutorService:
                     ref=ref,
                     kind=kind,
                     status="completed" if result.status == "completed" else "failed",
-                    detail={"skill_id": ref, "status": result.status},
+                    detail={"skill_id": ref, "status": result.status, "error": result.error},
                     output=result.output,
                 )
             except SkillRuntimeError:
@@ -345,4 +348,8 @@ class WorkflowExecutorService:
         if isinstance(value, dict) and "$from_inputs" in value:
             input_key = str(value["$from_inputs"])
             return execution_context.get("inputs", {}).get(input_key)
+        if isinstance(value, dict):
+            return {key: self._resolve_value(item, execution_context) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._resolve_value(item, execution_context) for item in value]
         return value

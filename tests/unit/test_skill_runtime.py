@@ -82,6 +82,76 @@ def test_skill_runtime_executes_registered_handler_inside_workflow() -> None:
     assert len(skill_runtime.list_executions()) == 1
 
 
+def test_skill_runtime_supports_input_mapping_and_failure_capture() -> None:
+    store = RuntimeStateStore(base_dir="data/test-skill-runtime-mapping")
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    data_store = AppDataStore(base_dir="data/test-skill-runtime-mapping-ns", store=store)
+    scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
+    event_bus = EventBusService(scheduler=scheduler, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    skill_runtime = SkillRuntimeService(store=store)
+
+    def mapping_handler(request: SkillExecutionRequest) -> SkillExecutionResult:
+        payload = request.inputs.get("payload", {})
+        if payload.get("mode") == "fail":
+            raise RuntimeError("forced failure")
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output={"seen": payload})
+
+    skill_runtime.register_handler("skill.map", mapping_handler)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    executor = WorkflowExecutorService(
+        registry=registry,
+        lifecycle=lifecycle,
+        data_store=data_store,
+        event_bus=event_bus,
+        context_store=context_store,
+        skill_runtime=skill_runtime,
+    )
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.skill.mapping",
+            name="Skill Mapping App",
+            goal="map inputs into skill calls",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.skill.mapping",
+                    "name": "skill mapping",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "seed", "kind": "module", "ref": "state.set", "config": {"key": "seed", "value": {"mode": "ok", "text": "mapped"}}},
+                        {"id": "call.skill", "kind": "skill", "ref": "skill.map", "config": {"inputs": {"payload": {"$from_step": "seed", "field": "value"}}}},
+                        {"id": "call.fail", "kind": "skill", "ref": "skill.map", "config": {"inputs": {"payload": {"mode": "fail"}}}},
+                    ],
+                }
+            ],
+            required_modules=["state.set"],
+            required_skills=["skill.map"],
+        )
+    )
+    install_result = installer.install_app("bp.skill.mapping", user_id="skill-mapping-user")
+
+    result = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.skill.mapping")
+
+    assert result.status == "partial"
+    assert result.steps[1].status == "completed"
+    assert result.steps[1].output["seen"]["text"] == "mapped"
+    assert result.steps[2].status == "failed"
+    assert "forced failure" in result.steps[2].detail["error"]
+    context = context_store.get_context(install_result.app_instance_id)
+    assert any(item.section == "open_loops" and item.key == "skill-result:call.fail" for item in context.entries)
+
+
 def test_skill_runtime_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

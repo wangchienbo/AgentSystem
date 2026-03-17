@@ -24,7 +24,15 @@ class SkillRuntimeService:
     def execute(self, request: SkillExecutionRequest) -> SkillExecutionResult:
         if request.skill_id not in self._handlers:
             raise SkillRuntimeError(f"Skill handler not found: {request.skill_id}")
-        result = self._handlers[request.skill_id](request)
+        try:
+            result = self._handlers[request.skill_id](request)
+        except Exception as error:  # noqa: BLE001
+            result = SkillExecutionResult(
+                skill_id=request.skill_id,
+                status="failed",
+                output={},
+                error=str(error),
+            )
         execution_key = f"{request.app_instance_id}:{request.workflow_id}:{request.step_id}:{request.skill_id}"
         self._executions[execution_key] = result
         self._persist()
