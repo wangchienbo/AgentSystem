@@ -104,6 +104,7 @@ Covered behavior:
 - minimal registered skill dispatch inside workflow execution
 - skill input mapping and failure capture during workflow execution
 - blueprint allowlist enforcement for workflow skill steps
+- workflow and skill observability APIs for history/failure inspection
 
 ## 3.7 Interaction gateway
 Covered behavior:

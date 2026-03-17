@@ -41,6 +41,9 @@ class SkillRuntimeService:
     def list_executions(self) -> list[SkillExecutionResult]:
         return list(self._executions.values())
 
+    def list_failures(self) -> list[SkillExecutionResult]:
+        return [item for item in self._executions.values() if item.status == "failed"]
+
     def _persist(self) -> None:
         if self._store is None:
             return

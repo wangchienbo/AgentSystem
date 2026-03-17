@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.models.workflow_execution import WorkflowExecutionResult, WorkflowStepExecution
+from app.services.runtime_state_store import RuntimeStateStore
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
 from app.services.app_registry import AppRegistryService
@@ -26,6 +27,7 @@ class WorkflowExecutorService:
         event_bus: EventBusService,
         context_store: AppContextStore | None = None,
         skill_runtime: SkillRuntimeService | None = None,
+        store: RuntimeStateStore | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -33,6 +35,8 @@ class WorkflowExecutorService:
         self._event_bus = event_bus
         self._context_store = context_store
         self._skill_runtime = skill_runtime
+        self._store = store
+        self._history: list[WorkflowExecutionResult] = []
 
     def execute_primary_workflow(self, app_instance_id: str, trigger: str = "manual", inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
         return self.execute_workflow(app_instance_id=app_instance_id, workflow_id=None, trigger=trigger, inputs=inputs)
@@ -134,7 +138,7 @@ class WorkflowExecutorService:
 
         workflow_outputs = self._build_workflow_outputs(execution_context, steps)
         completed_at = datetime.now(UTC)
-        return WorkflowExecutionResult(
+        result = WorkflowExecutionResult(
             app_instance_id=app_instance_id,
             blueprint_id=blueprint.id,
             workflow_id=workflow.id,
@@ -144,6 +148,9 @@ class WorkflowExecutorService:
             steps=steps,
             completed_at=completed_at,
         )
+        self._history.append(result)
+        self._persist_history()
+        return result
 
     def _execute_step(
         self,
@@ -351,6 +358,20 @@ class WorkflowExecutorService:
             "skipped_steps": skipped_steps,
             "step_outputs": execution_context.get("steps", {}),
         }
+
+    def list_history(self, app_instance_id: str | None = None) -> list[WorkflowExecutionResult]:
+        if app_instance_id is None:
+            return list(self._history)
+        return [item for item in self._history if item.app_instance_id == app_instance_id]
+
+    def list_recent_failures(self, app_instance_id: str | None = None) -> list[WorkflowExecutionResult]:
+        history = self.list_history(app_instance_id)
+        return [item for item in history if item.status == "partial" and any(step.status == "failed" for step in item.steps)]
+
+    def _persist_history(self) -> None:
+        if self._store is None:
+            return
+        self._store.save_collection("workflow_execution_history", self._history)
 
     def _resolve_value(self, value: Any, execution_context: dict[str, Any]) -> Any:
         if isinstance(value, dict) and "$from_step" in value:

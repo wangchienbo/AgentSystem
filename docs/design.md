@@ -441,4 +441,5 @@ Current implementation note:
 - workflow execution returns an aggregated outputs summary for completed/skipped steps and step outputs
 - event-driven workflow subscriptions can now auto-trigger workflow execution from published internal events
 - `skill` steps now support a minimal dispatch contract through `SkillRuntimeService`, with registered handlers, structured request/result payloads, input mapping, failure capture, execution persistence, and blueprint-declared allowlist enforcement
+- workflow and skill execution now expose basic observability surfaces: execution history, recent workflow failures, and skill failure listings
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

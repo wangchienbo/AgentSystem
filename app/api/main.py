@@ -144,6 +144,7 @@ workflow_executor = WorkflowExecutorService(
     event_bus=event_bus,
     context_store=app_context_store,
     skill_runtime=skill_runtime,
+    store=runtime_store,
 )
 workflow_subscription = WorkflowSubscriptionService(
     workflow_executor=workflow_executor,
@@ -439,6 +440,16 @@ def execute_primary_workflow(app_instance_id: str, payload: dict | None = None) 
         raise map_domain_error(error) from error
 
 
+@app.get("/workflows/history")
+def list_workflow_history(app_instance_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in workflow_executor.list_history(app_instance_id)]
+
+
+@app.get("/workflows/failures")
+def list_workflow_failures(app_instance_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in workflow_executor.list_recent_failures(app_instance_id)]
+
+
 @app.get("/runtime/persistence")
 def get_runtime_persistence_snapshot() -> dict:
     return {
@@ -595,6 +606,11 @@ def create_workflow_subscription(subscription: WorkflowEventSubscription) -> dic
 @app.get("/skill-runtime/executions")
 def list_skill_runtime_executions() -> list[dict]:
     return [item.model_dump(mode="json") for item in skill_runtime.list_executions()]
+
+
+@app.get("/skill-runtime/failures")
+def list_skill_runtime_failures() -> list[dict]:
+    return [item.model_dump(mode="json") for item in skill_runtime.list_failures()]
 
 
 @app.post("/practice/review")
