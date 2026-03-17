@@ -54,6 +54,7 @@ class WorkflowExecutorService:
 
         steps: list[WorkflowStepExecution] = []
         payload = inputs or {}
+        execution_context: dict[str, Any] = {"inputs": payload, "steps": {}}
 
         if self._context_store is not None:
             self._context_store.update_context(
@@ -70,7 +71,18 @@ class WorkflowExecutorService:
             )
 
         for step in workflow.steps:
-            steps.append(self._execute_step(app_instance_id, workflow.id, step.kind, step.id, step.ref, step.config, payload))
+            executed = self._execute_step(
+                app_instance_id,
+                workflow.id,
+                step.kind,
+                step.id,
+                step.ref,
+                step.config,
+                payload,
+                execution_context,
+            )
+            steps.append(executed)
+            execution_context["steps"][step.id] = executed.output
 
         if self._context_store is not None:
             self._context_store.append_entry(
@@ -123,10 +135,11 @@ class WorkflowExecutorService:
         ref: str,
         config: dict[str, Any],
         inputs: dict[str, Any],
+        execution_context: dict[str, Any],
     ) -> WorkflowStepExecution:
         if kind == "module" and ref == "state.set":
             key = str(config.get("key", f"workflow.{workflow_id}.{step_id}"))
-            value = config.get("value", inputs)
+            value = self._resolve_value(config.get("value", inputs), execution_context)
             record = self._data_store.put_record(
                 namespace_id=f"{app_instance_id}:app_data",
                 key=key,
@@ -139,6 +152,7 @@ class WorkflowExecutorService:
                 kind=kind,
                 status="completed",
                 detail={"record_id": record.record_id, "key": key},
+                output={"record_id": record.record_id, "key": key, "value": record.value},
             )
 
         if kind == "module" and ref == "state.get":
@@ -150,6 +164,7 @@ class WorkflowExecutorService:
                     kind=kind,
                     status="skipped",
                     detail={"reason": "missing key"},
+                    output={},
                 )
             records = self._data_store.list_records(f"{app_instance_id}:app_data")
             record = next((item for item in records if item.key == key), None)
@@ -167,15 +182,17 @@ class WorkflowExecutorService:
                 kind=kind,
                 status="completed" if record is not None else "skipped",
                 detail={"key": key, "found": record is not None},
+                output={} if record is None else {"key": key, "value": record.value},
             )
 
         if kind == "event":
             event_name = str(config.get("event_name", ref))
+            event_payload = self._resolve_value(config.get("payload", inputs), execution_context)
             result = self._event_bus.publish(
                 event_name=event_name,
                 source="workflow",
                 app_instance_id=app_instance_id,
-                payload={"workflow_id": workflow_id, "step_id": step_id, **inputs},
+                payload={"workflow_id": workflow_id, "step_id": step_id, **(event_payload if isinstance(event_payload, dict) else {"value": event_payload})},
             )
             return WorkflowStepExecution(
                 step_id=step_id,
@@ -183,6 +200,7 @@ class WorkflowExecutorService:
                 kind=kind,
                 status="completed",
                 detail={"event_id": result.event.event_id, "event_name": event_name},
+                output={"event_id": result.event.event_id, "event_name": event_name},
             )
 
         if kind == "human_task":
@@ -200,6 +218,7 @@ class WorkflowExecutorService:
                 kind=kind,
                 status="skipped",
                 detail={"reason": "human task placeholder", "ref": ref},
+                output={"placeholder": "human_task", "ref": ref},
             )
 
         if kind == "skill":
@@ -217,6 +236,7 @@ class WorkflowExecutorService:
                 kind=kind,
                 status="skipped",
                 detail={"reason": "skill execution placeholder", "ref": ref},
+                output={"placeholder": "skill", "ref": ref},
             )
 
         return WorkflowStepExecution(
@@ -225,4 +245,20 @@ class WorkflowExecutorService:
             kind=kind,
             status="skipped",
             detail={"reason": "unsupported step"},
+            output={},
         )
+
+    def _resolve_value(self, value: Any, execution_context: dict[str, Any]) -> Any:
+        if isinstance(value, dict) and "$from_step" in value:
+            step_id = str(value["$from_step"])
+            field = value.get("field")
+            step_output = execution_context.get("steps", {}).get(step_id, {})
+            if field is None:
+                return step_output
+            if isinstance(step_output, dict):
+                return step_output.get(str(field))
+            return None
+        if isinstance(value, dict) and "$from_inputs" in value:
+            input_key = str(value["$from_inputs"])
+            return execution_context.get("inputs", {}).get(input_key)
+        return value

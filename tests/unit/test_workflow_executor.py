@@ -151,6 +151,67 @@ def test_workflow_executor_supports_workflow_selection_and_placeholders() -> Non
     assert any(item.key == "skill-step:call.skill" for item in context.entries)
 
 
+def test_workflow_executor_passes_step_outputs_between_steps() -> None:
+    store = RuntimeStateStore(base_dir="data/test-workflow-step-outputs")
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    data_store = AppDataStore(base_dir="data/test-workflow-step-outputs-ns", store=store)
+    scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
+    event_bus = EventBusService(scheduler=scheduler, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    executor = WorkflowExecutorService(
+        registry=registry,
+        lifecycle=lifecycle,
+        data_store=data_store,
+        event_bus=event_bus,
+        context_store=context_store,
+    )
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.outputs",
+            name="Workflow Outputs App",
+            goal="pass outputs between steps",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.outputs",
+                    "name": "outputs",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "step.seed", "kind": "module", "ref": "state.set", "config": {"key": "seed", "value": {"message": "hello"}}},
+                        {"id": "step.read", "kind": "module", "ref": "state.get", "config": {"key": "seed"}},
+                        {"id": "step.copy", "kind": "module", "ref": "state.set", "config": {"key": "copied", "value": {"$from_step": "step.read", "field": "value"}}},
+                        {"id": "step.emit", "kind": "event", "ref": "workflow.outputs.done", "config": {"event_name": "workflow.outputs.done", "payload": {"$from_step": "step.copy", "field": "value"}}},
+                    ],
+                }
+            ],
+            required_modules=["state.get", "state.set"],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.outputs", user_id="workflow-output-user")
+
+    result = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.outputs")
+
+    assert result.status == "completed"
+    records = data_store.list_records(f"{install_result.app_instance_id}:app_data")
+    copied = next(item for item in records if item.key == "copied")
+    assert copied.value["message"] == "hello"
+    event = event_bus.list_events("workflow.outputs.done")[0]
+    assert event.payload["message"] == "hello"
+    assert result.steps[-1].output["event_name"] == "workflow.outputs.done"
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

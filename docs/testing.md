@@ -98,6 +98,7 @@ Covered behavior:
 - registry API flow
 - minimal workflow execution against deterministic primitives
 - workflow-id selection and placeholder handling for human_task / skill steps
+- step output passing between deterministic workflow steps
 
 ## 3.7 Interaction gateway
 Covered behavior:

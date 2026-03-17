@@ -14,6 +14,7 @@ class WorkflowStepExecution(BaseModel):
     kind: str = Field(..., min_length=1)
     status: WorkflowStepStatus
     detail: dict[str, Any] = Field(default_factory=dict)
+    output: dict[str, Any] = Field(default_factory=dict)
 
 
 class WorkflowExecutionResult(BaseModel):

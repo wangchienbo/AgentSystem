@@ -436,4 +436,5 @@ Current implementation note:
 - a minimal workflow executor now exists for workflow execution
 - it supports deterministic step skeletons for `state.set`, `state.get`, and event emission
 - it also includes placeholders for `human_task` and `skill` steps so workflows can preserve unresolved work in context
+- step outputs can now be passed into later steps through lightweight `$from_step` / `$from_inputs` references
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events
