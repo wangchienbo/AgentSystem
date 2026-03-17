@@ -8,6 +8,7 @@ class PrioritizedProposal(BaseModel):
     priority_score: int = Field(..., ge=0)
     rank: int = Field(..., ge=1)
     reason: str = Field(..., min_length=1)
+    context_signals: list[str] = Field(default_factory=list)
 
 
 class PriorityAnalysisRequest(BaseModel):
@@ -19,3 +20,4 @@ class PriorityAnalysisResult(BaseModel):
     primary_contradiction: str = Field(..., min_length=1)
     prioritized: list[PrioritizedProposal] = Field(default_factory=list)
     recommended_action: str = Field(..., min_length=1)
+    context_summary: str = ""

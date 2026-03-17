@@ -217,6 +217,11 @@ It supports linking skill blueprints to related experiences.
 `SchedulerService` manages interval and event schedules.
 `SupervisorService` manages failure observation, restart attempts, and circuit-open protection.
 
+Proposal review and priority analysis now also support context-aware operation:
+- review records can retain context-derived notes
+- proposal prioritization can consider open loops, decisions, constraints, and paused stage
+- contradiction and recommendation output can reflect app-local execution context
+
 ## 5.8 Event Bus
 `EventBusService` records internal events, supports subscriptions, and triggers event schedules.
 

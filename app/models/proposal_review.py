@@ -13,6 +13,7 @@ class ProposalReviewRecord(BaseModel):
     status: ProposalStatus = "proposed"
     reviewer: str = "system"
     note: str = ""
+    context_entry_count: int = 0
 
 
 class ProposalReviewRequest(BaseModel):

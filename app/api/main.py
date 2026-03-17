@@ -102,8 +102,15 @@ self_refinement = SelfRefinementService(
     model_self_refiner=model_self_refiner,
     context_store=app_context_store,
 )
-proposal_review = ProposalReviewService(lifecycle=lifecycle, store=runtime_store)
-priority_analysis = PriorityAnalysisService(proposal_review=proposal_review)
+proposal_review = ProposalReviewService(
+    lifecycle=lifecycle,
+    store=runtime_store,
+    context_store=app_context_store,
+)
+priority_analysis = PriorityAnalysisService(
+    proposal_review=proposal_review,
+    context_store=app_context_store,
+)
 app_installer = AppInstallerService(
     registry=app_registry,
     lifecycle=lifecycle,

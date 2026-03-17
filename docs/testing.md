@@ -88,6 +88,7 @@ Covered behavior:
 - restart logic
 - circuit-open protection
 - scheduler/supervisor API flow
+- proposal review / priority analysis context-aware scoring and review notes
 
 ## 3.6 Registry and installer
 Covered behavior:
