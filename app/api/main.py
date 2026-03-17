@@ -32,6 +32,7 @@ from app.services.context_compaction import ContextCompactionService, ContextCom
 from app.models.event_bus import EventSubscription
 from app.models.workflow_subscription import WorkflowEventSubscription
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
+from app.models.context_policy import ContextCompactionPolicy
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
@@ -133,7 +134,7 @@ def _demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
     return SkillExecutionResult(
         skill_id=request.skill_id,
         status="completed",
-        output={"echo": payload, "step_id": request.step_id},
+        output={"echo": payload, "inputs": request.inputs, "step_id": request.step_id},
     )
 
 
@@ -156,6 +157,7 @@ context_compaction = ContextCompactionService(
     workflow_executor=workflow_executor,
     store=runtime_store,
 )
+workflow_executor._context_compaction = context_compaction
 interaction_gateway = InteractionGateway(
     catalog=app_catalog,
     router=router,
@@ -553,6 +555,22 @@ def get_app_context_layers(app_instance_id: str) -> dict:
     try:
         return context_compaction.list_layers(app_instance_id)
     except (AppContextStoreError, ContextCompactionError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/app-contexts/{app_instance_id}/policy")
+def set_app_context_policy(app_instance_id: str, payload: dict) -> dict:
+    try:
+        return context_compaction.set_policy(
+            ContextCompactionPolicy(
+                app_instance_id=app_instance_id,
+                max_context_entries=payload.get("max_context_entries", 20),
+                compact_on_workflow_complete=payload.get("compact_on_workflow_complete", True),
+                compact_on_workflow_failure=payload.get("compact_on_workflow_failure", True),
+                compact_on_stage_change=payload.get("compact_on_stage_change", False),
+            )
+        ).model_dump(mode="json")
+    except ContextCompactionError as error:
         raise map_domain_error(error) from error
 
 

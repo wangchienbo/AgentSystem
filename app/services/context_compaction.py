@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from app.models.context_summary import ContextSummary
+from app.models.context_policy import ContextCompactionPolicy
 from app.services.app_context_store import AppContextStore
 from app.services.runtime_state_store import RuntimeStateStore
-from app.services.workflow_executor import WorkflowExecutorService
 
 
 class ContextCompactionError(ValueError):
@@ -14,13 +14,33 @@ class ContextCompactionService:
     def __init__(
         self,
         app_context_store: AppContextStore,
-        workflow_executor: WorkflowExecutorService,
+        workflow_executor,
         store: RuntimeStateStore | None = None,
     ) -> None:
         self._app_context_store = app_context_store
         self._workflow_executor = workflow_executor
         self._store = store
         self._summaries: dict[str, ContextSummary] = {}
+        self._policies: dict[str, ContextCompactionPolicy] = {}
+
+    def set_policy(self, policy: ContextCompactionPolicy) -> ContextCompactionPolicy:
+        self._policies[policy.app_instance_id] = policy
+        self._persist()
+        return policy
+
+    def get_policy(self, app_instance_id: str) -> ContextCompactionPolicy:
+        return self._policies.get(app_instance_id, ContextCompactionPolicy(app_instance_id=app_instance_id))
+
+    def should_compact(self, app_instance_id: str, event: str) -> bool:
+        policy = self.get_policy(app_instance_id)
+        context = self._app_context_store.get_context(app_instance_id)
+        if len(context.entries) >= policy.max_context_entries:
+            return True
+        if event == "workflow_complete" and policy.compact_on_workflow_complete:
+            return True
+        if event == "workflow_failure" and policy.compact_on_workflow_failure:
+            return True
+        return False
 
     def compact(self, app_instance_id: str) -> ContextSummary:
         context = self._app_context_store.get_context(app_instance_id)
@@ -85,3 +105,4 @@ class ContextCompactionService:
         if self._store is None:
             return
         self._store.save_mapping("context_summaries", self._summaries)
+        self._store.save_mapping("context_policies", self._policies)

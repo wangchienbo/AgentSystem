@@ -13,6 +13,7 @@ from app.services.event_bus import EventBusService
 from app.services.lifecycle import AppLifecycleService
 from app.services.skill_runtime import SkillRuntimeError, SkillRuntimeService
 from app.models.skill_runtime import SkillExecutionRequest
+from app.services.context_compaction import ContextCompactionService
 
 
 class WorkflowExecutorError(ValueError):
@@ -29,6 +30,7 @@ class WorkflowExecutorService:
         context_store: AppContextStore | None = None,
         skill_runtime: SkillRuntimeService | None = None,
         store: RuntimeStateStore | None = None,
+        context_compaction: ContextCompactionService | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -38,6 +40,7 @@ class WorkflowExecutorService:
         self._skill_runtime = skill_runtime
         self._store = store
         self._history: list[WorkflowExecutionResult] = []
+        self._context_compaction = context_compaction
 
     def execute_primary_workflow(self, app_instance_id: str, trigger: str = "manual", inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
         return self.execute_workflow(app_instance_id=app_instance_id, workflow_id=None, trigger=trigger, inputs=inputs)
@@ -151,6 +154,10 @@ class WorkflowExecutorService:
         )
         self._history.append(result)
         self._persist_history()
+        if self._context_compaction is not None:
+            event_name = "workflow_failure" if result.status == "partial" and any(step.status == "failed" for step in result.steps) else "workflow_complete"
+            if self._context_compaction.should_compact(app_instance_id, event_name):
+                self._context_compaction.compact(app_instance_id)
         return result
 
     def _execute_step(
@@ -286,12 +293,15 @@ class WorkflowExecutorService:
             try:
                 mapped_inputs = self._resolve_value(config.get("inputs", inputs), execution_context)
                 mapped_config = self._resolve_value(config, execution_context)
+                working_set = None
+                if self._context_compaction is not None:
+                    working_set = self._context_compaction.build_working_set(app_instance_id).model_dump(mode="json")
                 request = SkillExecutionRequest(
                     skill_id=ref,
                     app_instance_id=app_instance_id,
                     workflow_id=workflow_id,
                     step_id=step_id,
-                    inputs=mapped_inputs if isinstance(mapped_inputs, dict) else {"value": mapped_inputs},
+                    inputs=(mapped_inputs if isinstance(mapped_inputs, dict) else {"value": mapped_inputs}) | ({"working_set": working_set} if working_set is not None else {}),
                     config=mapped_config if isinstance(mapped_config, dict) else {"value": mapped_config},
                 )
                 result = self._skill_runtime.execute(request)
