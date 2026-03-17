@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.runtime import RuntimeOverview
+
 ContextStatus = Literal["active", "paused", "archived"]
 
 
@@ -21,9 +23,15 @@ class AppContextEntry(BaseModel):
 class AppSharedContext(BaseModel):
     app_instance_id: str = Field(..., min_length=1)
     app_name: str = Field(..., min_length=1)
+    owner_user_id: str = Field(default="unknown", min_length=1)
     description: str = Field(default="")
     status: ContextStatus = "active"
     current_goal: str = Field(default="")
     current_stage: str = Field(default="")
     entries: list[AppContextEntry] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AppContextRuntimeView(BaseModel):
+    context: AppSharedContext
+    runtime: RuntimeOverview | None = None

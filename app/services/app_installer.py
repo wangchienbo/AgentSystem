@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.models.app_instance import AppInstance
 from app.models.registry import AppInstallResult
+from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
 from app.services.app_registry import AppRegistryService
 from app.services.lifecycle import AppLifecycleService
@@ -19,11 +20,13 @@ class AppInstallerService:
         lifecycle: AppLifecycleService,
         runtime_host: AppRuntimeHostService,
         data_store: AppDataStore,
+        context_store: AppContextStore | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
         self._runtime_host = runtime_host
         self._data_store = data_store
+        self._context_store = context_store
 
     def install_app(self, blueprint_id: str, user_id: str, app_instance_id: str | None = None) -> AppInstallResult:
         blueprint = self._registry.get_blueprint(blueprint_id)
@@ -52,6 +55,17 @@ class AppInstallerService:
             self._lifecycle.transition(instance.id, "install", reason="installer")
 
         self._data_store.ensure_app_namespaces(instance.id, instance.owner_user_id)
+        if self._context_store is not None:
+            context = self._context_store.ensure_context(instance.id)
+            context.current_stage = self._lifecycle.get_instance(instance.id).status
+            if install_status == "installed" and not context.current_goal:
+                context.current_goal = blueprint.goal
+            self._context_store.update_context(
+                instance.id,
+                current_goal=context.current_goal,
+                current_stage=context.current_stage,
+                status="active",
+            )
 
         return AppInstallResult(
             app_instance_id=instance.id,

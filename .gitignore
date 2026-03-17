@@ -4,4 +4,6 @@ __pycache__/
 *.egg-info/
 .env.local
 config/model.local.json
+data/runtime/
 data/test-*/
+=*

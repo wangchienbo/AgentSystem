@@ -238,6 +238,13 @@ The control plane is not required for every app-internal execution step.
 ## 5.11 App Shared Context
 `AppContextStore` maintains app-local shared execution context so an app can continue internal work without routing every step through the control plane.
 
+The current implementation now binds shared context into install and interaction flows:
+- installer ensures a context exists when an app instance is provisioned
+- blueprint goal can seed the initial current goal
+- service-app open updates current stage/goal and records the latest user command as an open loop
+- pipeline execution records the latest run artifact and marks the context archived after completion
+- context inspection can optionally include runtime overview for joined operational debugging
+
 ## 5.12 Practice Review
 `PracticeReviewService` reviews recent runtime events and data records, then distills them into an experience.
 

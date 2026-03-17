@@ -112,9 +112,11 @@ Covered behavior:
 ## 3.9 App shared context
 Covered behavior:
 - context creation on first use
+- installer-seeded goal and owner identity
 - context stage/goal update
 - structured context entry append
-- app context API flow
+- joined context + runtime inspection API flow
+- interaction-driven context updates for service and pipeline apps
 
 ## 3.10 Event bus
 Covered behavior:
@@ -142,7 +144,7 @@ Covered behavior:
 
 At the time of this document update:
 - automated local test suite passes
-- current result: `50 passed`
+- current result: `65 passed`
 
 This indicates the implemented milestone is internally consistent at the current level of scope.
 
