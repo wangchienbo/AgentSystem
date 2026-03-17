@@ -378,3 +378,17 @@ The next major gaps are:
 - app refinement from suggested skills
 - stronger policy and permission model
 - production-grade persistence and recovery
+- layered context compaction and retrieval
+
+## 12. Layered Context Management
+
+To prevent context explosion, the system should manage execution context as layered memory instead of a single continuously growing prompt payload.
+
+Required capabilities:
+- maintain a minimal **working set** for the current execution scope
+- maintain a compact **task/app summary** separate from execution detail
+- preserve **execution detail** outside the prompt path for on-demand retrieval
+- support explicit or threshold-based context compaction
+- preserve decisions, constraints, open loops, artifacts, and current goal/stage during compaction
+- provide selective retrieval of deeper context only when required by the current execution node
+- support promotion of repeated patterns into long-term reusable experience

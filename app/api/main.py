@@ -28,6 +28,7 @@ from app.services.model_self_refiner import ModelSelfRefiner
 from app.services.workflow_executor import WorkflowExecutorService, WorkflowExecutorError
 from app.services.workflow_subscription import WorkflowSubscriptionService, WorkflowSubscriptionError
 from app.services.skill_runtime import SkillRuntimeService, SkillRuntimeError
+from app.services.context_compaction import ContextCompactionService, ContextCompactionError
 from app.models.event_bus import EventSubscription
 from app.models.workflow_subscription import WorkflowEventSubscription
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
@@ -147,6 +148,11 @@ workflow_executor = WorkflowExecutorService(
     store=runtime_store,
 )
 workflow_subscription = WorkflowSubscriptionService(
+    workflow_executor=workflow_executor,
+    store=runtime_store,
+)
+context_compaction = ContextCompactionService(
+    app_context_store=app_context_store,
     workflow_executor=workflow_executor,
     store=runtime_store,
 )
@@ -523,6 +529,30 @@ def append_app_context_entry(app_instance_id: str, payload: dict) -> dict:
             tags=payload.get("tags", []),
         ).model_dump(mode="json")
     except AppContextStoreError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/app-contexts/{app_instance_id}/compact")
+def compact_app_context(app_instance_id: str) -> dict:
+    try:
+        return context_compaction.compact(app_instance_id).model_dump(mode="json")
+    except (AppContextStoreError, ContextCompactionError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/app-contexts/{app_instance_id}/working-set")
+def get_app_working_set(app_instance_id: str) -> dict:
+    try:
+        return context_compaction.build_working_set(app_instance_id).model_dump(mode="json")
+    except (AppContextStoreError, ContextCompactionError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/app-contexts/{app_instance_id}/layers")
+def get_app_context_layers(app_instance_id: str) -> dict:
+    try:
+        return context_compaction.list_layers(app_instance_id)
+    except (AppContextStoreError, ContextCompactionError) as error:
         raise map_domain_error(error) from error
 
 

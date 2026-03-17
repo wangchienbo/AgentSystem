@@ -157,7 +157,7 @@ Covered behavior:
 
 At the time of this document update:
 - automated local test suite passes
-- current result: `65 passed`
+- current result: `78 passed`
 
 This indicates the implemented milestone is internally consistent at the current level of scope.
 
@@ -273,6 +273,7 @@ As the system evolves, the next test groups to add should be:
 4. policy and permission enforcement
 5. persistent backend compatibility tests
 6. longer-running service app recovery tests
+7. layered context compaction and working-set derivation tests
 
 ---
 

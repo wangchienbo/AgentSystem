@@ -431,6 +431,31 @@ The next most important missing pieces are:
 - app/workflow refinement based on suggested skills
 - stronger permission and policy enforcement
 - durable production-grade persistence backends
+- layered context compaction and retrieval
+
+## 13. Layered Context Architecture
+
+To avoid context explosion, runtime context should be split into layers instead of accumulated into one prompt-sized blob.
+
+### 13.1 Layers
+- **L0 Working Set**: current goal, stage, active constraints, current open loops, most recent critical outputs
+- **L1 Task/App Summary**: compact summary of progress, major decisions, unresolved issues, key artifacts
+- **L2 Execution Detail**: step/node-level details, logs, intermediate inputs/outputs, failure traces
+- **L3 Long-term Experience**: reusable lessons, patterns, and promoted operational knowledge
+
+### 13.2 Design Rules
+- prompts should prefer L0 + selected L1, not raw L2
+- L2 detail should remain queryable by reference rather than always loaded
+- compaction should preserve decisions, constraints, open loops, artifacts, and references
+- app/workflow execution history should serve as a primary detail source for compaction
+- app shared context should remain the active mutable layer, while summaries become derived state
+
+### 13.3 Minimal Implementation Plan
+- add `ContextCompactionService`
+- persist `context_summaries`
+- build a `working_set` view derived from app context + recent execution history
+- expose APIs for compaction, listing layers, and retrieving working set
+- keep detail in `app_contexts`, `workflow_execution_history`, and `skill_executions`
 
 Current implementation note:
 - a minimal workflow executor now exists for workflow execution
