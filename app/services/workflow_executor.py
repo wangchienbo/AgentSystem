@@ -71,6 +71,19 @@ class WorkflowExecutorService:
             )
 
         for step in workflow.steps:
+            if not self._should_run_step(step.config, execution_context):
+                skipped = WorkflowStepExecution(
+                    step_id=step.id,
+                    ref=step.ref,
+                    kind=step.kind,
+                    status="skipped",
+                    detail={"reason": "condition not met"},
+                    output={},
+                )
+                steps.append(skipped)
+                execution_context["steps"][step.id] = skipped.output
+                continue
+
             executed = self._execute_step(
                 app_instance_id,
                 workflow.id,
@@ -115,6 +128,7 @@ class WorkflowExecutorService:
                 tags=["workflow", "runtime-state"],
             )
 
+        workflow_outputs = self._build_workflow_outputs(execution_context, steps)
         completed_at = datetime.now(UTC)
         return WorkflowExecutionResult(
             app_instance_id=app_instance_id,
@@ -122,6 +136,7 @@ class WorkflowExecutorService:
             workflow_id=workflow.id,
             trigger=trigger,
             status=execution_status,
+            outputs=workflow_outputs,
             steps=steps,
             completed_at=completed_at,
         )
@@ -247,6 +262,27 @@ class WorkflowExecutorService:
             detail={"reason": "unsupported step"},
             output={},
         )
+
+    def _should_run_step(self, config: dict[str, Any], execution_context: dict[str, Any]) -> bool:
+        when = config.get("when")
+        if not isinstance(when, dict):
+            return True
+        actual = self._resolve_value(when.get("source"), execution_context)
+        expected = when.get("equals")
+        return actual == expected
+
+    def _build_workflow_outputs(
+        self,
+        execution_context: dict[str, Any],
+        steps: list[WorkflowStepExecution],
+    ) -> dict[str, Any]:
+        completed_steps = [step.step_id for step in steps if step.status == "completed"]
+        skipped_steps = [step.step_id for step in steps if step.status == "skipped"]
+        return {
+            "completed_steps": completed_steps,
+            "skipped_steps": skipped_steps,
+            "step_outputs": execution_context.get("steps", {}),
+        }
 
     def _resolve_value(self, value: Any, execution_context: dict[str, Any]) -> Any:
         if isinstance(value, dict) and "$from_step" in value:

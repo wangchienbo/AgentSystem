@@ -99,6 +99,7 @@ Covered behavior:
 - minimal workflow execution against deterministic primitives
 - workflow-id selection and placeholder handling for human_task / skill steps
 - step output passing between deterministic workflow steps
+- conditional step execution and workflow output aggregation
 
 ## 3.7 Interaction gateway
 Covered behavior:

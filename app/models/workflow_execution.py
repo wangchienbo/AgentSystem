@@ -23,6 +23,7 @@ class WorkflowExecutionResult(BaseModel):
     workflow_id: str = Field(..., min_length=1)
     trigger: str = Field(default="manual")
     status: Literal["completed", "partial"] = "completed"
+    outputs: dict[str, Any] = Field(default_factory=dict)
     steps: list[WorkflowStepExecution] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -437,4 +437,6 @@ Current implementation note:
 - it supports deterministic step skeletons for `state.set`, `state.get`, and event emission
 - it also includes placeholders for `human_task` and `skill` steps so workflows can preserve unresolved work in context
 - step outputs can now be passed into later steps through lightweight `$from_step` / `$from_inputs` references
+- step-level conditional execution is supported through simple `when` checks
+- workflow execution returns an aggregated outputs summary for completed/skipped steps and step outputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

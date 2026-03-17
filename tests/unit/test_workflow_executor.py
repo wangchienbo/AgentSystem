@@ -212,6 +212,70 @@ def test_workflow_executor_passes_step_outputs_between_steps() -> None:
     assert result.steps[-1].output["event_name"] == "workflow.outputs.done"
 
 
+def test_workflow_executor_supports_conditional_steps_and_outputs_summary() -> None:
+    store = RuntimeStateStore(base_dir="data/test-workflow-conditions")
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    data_store = AppDataStore(base_dir="data/test-workflow-conditions-ns", store=store)
+    scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
+    event_bus = EventBusService(scheduler=scheduler, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    executor = WorkflowExecutorService(
+        registry=registry,
+        lifecycle=lifecycle,
+        data_store=data_store,
+        event_bus=event_bus,
+        context_store=context_store,
+    )
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.conditions",
+            name="Workflow Condition App",
+            goal="support conditional execution",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.conditional",
+                    "name": "conditional",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "set.flag", "kind": "module", "ref": "state.set", "config": {"key": "flag", "value": {"enabled": True}}},
+                        {"id": "copy.enabled", "kind": "module", "ref": "state.set", "config": {"key": "copy-enabled", "value": {"$from_inputs": "payload"}, "when": {"source": {"$from_inputs": "run_copy"}, "equals": True}}},
+                        {"id": "copy.disabled", "kind": "module", "ref": "state.set", "config": {"key": "copy-disabled", "value": {"$from_inputs": "payload"}, "when": {"source": {"$from_inputs": "run_copy"}, "equals": False}}},
+                    ],
+                }
+            ],
+            required_modules=["state.set"],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.conditions", user_id="workflow-conditions-user")
+
+    result = executor.execute_workflow(
+        install_result.app_instance_id,
+        workflow_id="wf.conditional",
+        inputs={"run_copy": True, "payload": {"name": "demo"}},
+    )
+
+    assert result.status == "partial"
+    assert "copy.enabled" in result.outputs["completed_steps"]
+    assert "copy.disabled" in result.outputs["skipped_steps"]
+    assert "copy.enabled" in result.outputs["step_outputs"]
+    records = data_store.list_records(f"{install_result.app_instance_id}:app_data")
+    assert any(item.key == "copy-enabled" for item in records)
+    assert all(item.key != "copy-disabled" for item in records)
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",
