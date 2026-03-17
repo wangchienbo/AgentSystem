@@ -129,12 +129,14 @@ Covered behavior:
 ## 3.10 Practice review
 Covered behavior:
 - review runtime events and data records
+- fold app shared context into summary and tags
 - generate runtime experience record
 - review API flow
 
 ## 3.11 Skill suggestion
 Covered behavior:
 - generate candidate skill blueprint from experience
+- self-refinement can incorporate app shared context into proposal evidence
 - optional persistence into store
 - review -> experience -> skill suggestion API flow
 

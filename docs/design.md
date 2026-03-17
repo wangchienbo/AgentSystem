@@ -248,6 +248,11 @@ The current implementation now binds shared context into install and interaction
 ## 5.12 Practice Review
 `PracticeReviewService` reviews recent runtime events and data records, then distills them into an experience.
 
+The current implementation also folds app shared context into review output:
+- current goal and stage can enrich the practice summary
+- recent context entries can become review evidence and tags
+- the resulting experience can retain more app-local execution state instead of only event/data traces
+
 ## 5.12 Skill Suggestion
 `SkillSuggestionService` generates candidate reusable skill blueprints from stored experiences.
 
@@ -280,13 +285,15 @@ The current implementation now binds shared context into install and interaction
 ## 6.4 Runtime practice -> experience
 1. runtime generates event log and data records
 2. practice review inspects recent facts
-3. review generates an experience summary
-4. experience is stored for later reuse
+3. app shared context is joined as local execution evidence
+4. review generates an experience summary
+5. experience is stored for later reuse
 
 ## 6.5 Experience -> suggested skill
 1. a stored experience is selected
-2. skill suggestion service generates a candidate skill blueprint
-3. suggestion may remain advisory or be persisted into the skill store
+2. self-refinement can combine experience with app shared context to generate patch proposals
+3. skill suggestion service generates a candidate skill blueprint
+4. suggestion may remain advisory or be persisted into the skill store
 
 ---
 

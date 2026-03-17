@@ -31,4 +31,5 @@ class SelfRefinementRequest(BaseModel):
 class SelfRefinementResult(BaseModel):
     app_instance_id: str
     experience_id: str
+    context_entry_count: int = 0
     proposals: list[PatchProposal] = Field(default_factory=list)
