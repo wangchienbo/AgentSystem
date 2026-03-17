@@ -80,12 +80,17 @@ runtime_store = RuntimeStateStore()
 app_data_store = AppDataStore(store=runtime_store)
 app_data_store.ensure_skill_asset_namespace()
 lifecycle = AppLifecycleService(store=runtime_store)
-app_context_store = AppContextStore(lifecycle=lifecycle, store=runtime_store)
 runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
+app_context_store = AppContextStore(lifecycle=lifecycle, store=runtime_store, runtime_host=runtime_host)
 scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host, store=runtime_store)
 event_bus = EventBusService(scheduler=scheduler, store=runtime_store)
 supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
-practice_review = PracticeReviewService(event_bus=event_bus, data_store=app_data_store, experience_store=experience_store)
+practice_review = PracticeReviewService(
+    event_bus=event_bus,
+    data_store=app_data_store,
+    experience_store=experience_store,
+    context_store=app_context_store,
+)
 model_skill_suggester = ModelSkillSuggester()
 skill_suggestion = SkillSuggestionService(experience_store=experience_store, model_suggester=model_skill_suggester)
 app_registry = AppRegistryService(store=runtime_store)
@@ -95,10 +100,17 @@ self_refinement = SelfRefinementService(
     registry=app_registry,
     lifecycle=lifecycle,
     model_self_refiner=model_self_refiner,
+    context_store=app_context_store,
 )
 proposal_review = ProposalReviewService(lifecycle=lifecycle, store=runtime_store)
 priority_analysis = PriorityAnalysisService(proposal_review=proposal_review)
-app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host, data_store=app_data_store)
+app_installer = AppInstallerService(
+    registry=app_registry,
+    lifecycle=lifecycle,
+    runtime_host=runtime_host,
+    data_store=app_data_store,
+    context_store=app_context_store,
+)
 app_catalog = AppCatalogService()
 interaction_gateway = InteractionGateway(
     catalog=app_catalog,
@@ -106,6 +118,7 @@ interaction_gateway = InteractionGateway(
     lifecycle=lifecycle,
     runtime_host=runtime_host,
     installer=app_installer,
+    context_store=app_context_store,
 )
 skill_control.register(
     SkillRegistryEntry(
@@ -404,8 +417,14 @@ def list_app_contexts() -> list[dict]:
 
 
 @app.get("/app-contexts/{app_instance_id}")
-def get_app_context(app_instance_id: str) -> dict:
+def get_app_context(app_instance_id: str, include_runtime: bool = False) -> dict:
     try:
+        if include_runtime:
+            view = app_context_store.get_runtime_view(app_instance_id)
+            return {
+                "context": view["context"].model_dump(mode="json"),
+                "runtime": None if view["runtime"] is None else view["runtime"].model_dump(mode="json"),
+            }
         return app_context_store.get_context(app_instance_id).model_dump(mode="json")
     except AppContextStoreError as error:
         raise map_domain_error(error) from error

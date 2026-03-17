@@ -10,6 +10,7 @@ from app.services.app_catalog import AppCatalogService
 from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_registry import AppRegistryService
+from app.services.app_context_store import AppContextStore
 from app.services.interaction_gateway import InteractionGateway
 from app.services.lifecycle import AppLifecycleService
 from app.services.requirement_router import RequirementRouter
@@ -26,7 +27,14 @@ def test_interaction_gateway_opens_service_app() -> None:
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
     data_store = AppDataStore(base_dir="data/test-runtime-gateway-service-ns", store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
     catalog = AppCatalogService()
     registry.register_blueprint(
         AppBlueprint(
@@ -51,7 +59,7 @@ def test_interaction_gateway_opens_service_app() -> None:
             blueprint_id="bp.assistant",
         )
     )
-    gateway = InteractionGateway(catalog, RequirementRouter(), lifecycle, runtime, installer)
+    gateway = InteractionGateway(catalog, RequirementRouter(), lifecycle, runtime, installer, context_store)
 
     decision = gateway.handle_command(UserCommand(user_id="u1", text="请帮我打开助手"))
 
@@ -59,6 +67,10 @@ def test_interaction_gateway_opens_service_app() -> None:
     assert decision.execution_mode == "service"
     assert decision.app_instance_id == "app.assistant:u1"
     assert lifecycle.get_instance("app.assistant:u1").status == "running"
+    context = context_store.get_context("app.assistant:u1")
+    assert context.current_stage == "running"
+    assert context.current_goal == "请帮我打开助手"
+    assert context.entries[-1].key == "latest-user-command"
 
 
 def test_interaction_gateway_runs_pipeline_app() -> None:
@@ -67,7 +79,14 @@ def test_interaction_gateway_runs_pipeline_app() -> None:
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
     data_store = AppDataStore(base_dir="data/test-runtime-gateway-pipeline-ns", store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
     catalog = AppCatalogService()
     registry.register_blueprint(
         AppBlueprint(
@@ -92,7 +111,7 @@ def test_interaction_gateway_runs_pipeline_app() -> None:
             blueprint_id="bp.pipeline",
         )
     )
-    gateway = InteractionGateway(catalog, RequirementRouter(), lifecycle, runtime, installer)
+    gateway = InteractionGateway(catalog, RequirementRouter(), lifecycle, runtime, installer, context_store)
 
     decision = gateway.handle_command(UserCommand(user_id="u2", text="现在执行流水线"))
 
@@ -101,6 +120,10 @@ def test_interaction_gateway_runs_pipeline_app() -> None:
     assert decision.app_instance_id == "app.pipeline:u2:run"
     assert lifecycle.get_instance("app.pipeline:u2:run").status == "stopped"
     assert decision.pending_tasks == ["现在执行流水线"]
+    context = context_store.get_context("app.pipeline:u2:run")
+    assert context.current_stage == "stopped"
+    assert context.status == "archived"
+    assert context.entries[-1].key == "latest-pipeline-run"
 
 
 def test_interaction_gateway_clarifies_unknown_command() -> None:
@@ -109,8 +132,15 @@ def test_interaction_gateway_clarifies_unknown_command() -> None:
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
     data_store = AppDataStore(base_dir="data/test-runtime-gateway-clarify-ns", store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
-    gateway = InteractionGateway(AppCatalogService(), RequirementRouter(), lifecycle, runtime, installer)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    gateway = InteractionGateway(AppCatalogService(), RequirementRouter(), lifecycle, runtime, installer, context_store)
 
     decision = gateway.handle_command(UserCommand(user_id="u3", text="帮我搞个抽象战略平台"))
 

@@ -5,6 +5,7 @@ from app.models.app_blueprint import AppBlueprint
 from app.models.experience import ExperienceRecord
 from app.models.patch_proposal import PatchProposal, SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
+from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_registry import AppRegistryService
@@ -59,9 +60,26 @@ def test_self_refinement_generates_patch_proposals() -> None:
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     registry = AppRegistryService(store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
-    review_service = PracticeReviewService(event_bus=event_bus, data_store=data_store, experience_store=experience_store)
-    refinement_service = SelfRefinementService(experience_store=experience_store, registry=registry, lifecycle=lifecycle)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    review_service = PracticeReviewService(
+        event_bus=event_bus,
+        data_store=data_store,
+        experience_store=experience_store,
+        context_store=context_store,
+    )
+    refinement_service = SelfRefinementService(
+        experience_store=experience_store,
+        registry=registry,
+        lifecycle=lifecycle,
+        context_store=context_store,
+    )
 
     registry.register_blueprint(
         AppBlueprint(
@@ -79,6 +97,13 @@ def test_self_refinement_generates_patch_proposals() -> None:
     install_result = installer.install_app("bp.self.refinement", user_id="user.refine")
     app_instance_id = install_result.app_instance_id
 
+    context_store.append_entry(
+        app_instance_id=app_instance_id,
+        section="open_loops",
+        key="pending-review-followup",
+        value={"status": "open"},
+        tags=["followup"],
+    )
     event_bus.publish("runtime.reviewed", source="test", app_instance_id=app_instance_id)
     data_store.put_record(
         namespace_id=f"{app_instance_id}:app_data",
@@ -95,9 +120,12 @@ def test_self_refinement_generates_patch_proposals() -> None:
         )
     )
 
+    assert result.context_entry_count >= 1
     assert len(result.proposals) >= 2
     assert any(item.target_type == "runtime_policy" for item in result.proposals)
     assert any(item.target_type == "workflow" for item in result.proposals)
+    assert any(item.title == "Add open-loop triage step to workflow" for item in result.proposals)
+    assert any("context:open_loops" in item.evidence for item in result.proposals)
 
 
 
@@ -108,12 +136,20 @@ def test_self_refinement_uses_model_when_available() -> None:
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
     refinement_service = SelfRefinementService(
         experience_store=experience_store,
         registry=registry,
         lifecycle=lifecycle,
         model_self_refiner=StubModelSelfRefiner(),
+        context_store=context_store,
     )
 
     registry.register_blueprint(
@@ -154,12 +190,20 @@ def test_self_refinement_falls_back_when_model_fails() -> None:
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
     refinement_service = SelfRefinementService(
         experience_store=experience_store,
         registry=registry,
         lifecycle=lifecycle,
         model_self_refiner=StubModelSelfRefiner(should_fail=True),
+        context_store=context_store,
     )
 
     blueprint = AppBlueprint(
@@ -175,6 +219,13 @@ def test_self_refinement_falls_back_when_model_fails() -> None:
     )
     registry.register_blueprint(blueprint)
     install_result = installer.install_app("bp.self.refinement.fallback", user_id="fallback.user")
+    context_store.append_entry(
+        app_instance_id=install_result.app_instance_id,
+        section="open_loops",
+        key="fallback-review",
+        value={"needed": True},
+        tags=["fallback"],
+    )
     experience_store.add_experience(
         ExperienceRecord(
             experience_id="exp.model.self.2",
@@ -190,6 +241,7 @@ def test_self_refinement_falls_back_when_model_fails() -> None:
 
     assert any(item.target_type == "workflow" for item in result.proposals)
     assert any(item.target_type == "runtime_policy" for item in result.proposals)
+    assert any(item.title == "Add open-loop triage step to workflow" for item in result.proposals)
 
 
 
@@ -222,10 +274,16 @@ def test_self_refinement_api_flow() -> None:
     )
     experience_id = review_response.json()["experience"]["experience_id"]
 
+    client.post(
+        f"/app-contexts/{app_instance_id}/entries",
+        json={"section": "open_loops", "key": "api-followup", "value": {"needed": True}, "tags": ["followup"]},
+    )
+
     proposal_response = client.post(
         "/self-refinement/propose",
         json={"app_instance_id": app_instance_id, "experience_id": experience_id},
     )
     assert proposal_response.status_code == 200
+    assert proposal_response.json()["context_entry_count"] >= 1
     assert len(proposal_response.json()["proposals"]) >= 1
     assert proposal_response.json()["proposals"][0]["risk_level"] in {"low", "medium", "high"}

@@ -15,4 +15,5 @@ class PracticeReviewResult(BaseModel):
     app_instance_id: str
     event_count: int
     record_count: int
+    context_entry_count: int = 0
     experience: ExperienceRecord

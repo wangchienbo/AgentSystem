@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -15,13 +17,20 @@ client = TestClient(app)
 
 
 def test_app_context_store_create_update_and_append() -> None:
-    store = RuntimeStateStore(base_dir="data/test-app-context")
+    suffix = uuid.uuid4().hex
+    store = RuntimeStateStore(base_dir=f"data/test-app-context-{suffix}")
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
-    data_store = AppDataStore(base_dir="data/test-app-context-ns", store=store)
+    data_store = AppDataStore(base_dir=f"data/test-app-context-ns-{suffix}", store=store)
     registry = AppRegistryService(store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
-    context_store = AppContextStore(lifecycle=lifecycle, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
 
     registry.register_blueprint(
         AppBlueprint(
@@ -40,6 +49,8 @@ def test_app_context_store_create_update_and_append() -> None:
 
     context = context_store.ensure_context(app_instance_id)
     assert context.app_instance_id == app_instance_id
+    assert context.owner_user_id == "context-user"
+    assert context.current_goal == "test shared context"
 
     updated = context_store.update_context(app_instance_id, current_goal="finish analysis", current_stage="planning")
     assert updated.current_goal == "finish analysis"
@@ -83,3 +94,9 @@ def test_app_context_api_flow() -> None:
     assert get_response.status_code == 200
     assert get_response.json()["app_instance_id"] == app_instance_id
     assert len(get_response.json()["entries"]) >= 1
+
+    runtime_view_response = client.get(f"/app-contexts/{app_instance_id}?include_runtime=true")
+    assert runtime_view_response.status_code == 200
+    assert runtime_view_response.json()["context"]["app_instance_id"] == app_instance_id
+    assert runtime_view_response.json()["runtime"]["app_instance"]["id"] == app_instance_id
+    assert runtime_view_response.json()["runtime"]["lease"] is None

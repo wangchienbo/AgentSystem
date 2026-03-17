@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
 from app.models.practice_review import PracticeReviewRequest
+from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_registry import AppRegistryService
@@ -27,8 +28,20 @@ def test_practice_review_generates_experience() -> None:
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     registry = AppRegistryService(store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
-    review_service = PracticeReviewService(event_bus=event_bus, data_store=data_store, experience_store=experience_store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    review_service = PracticeReviewService(
+        event_bus=event_bus,
+        data_store=data_store,
+        experience_store=experience_store,
+        context_store=context_store,
+    )
 
     registry.register_blueprint(
         AppBlueprint(
@@ -45,6 +58,13 @@ def test_practice_review_generates_experience() -> None:
     install_result = installer.install_app("bp.practice.review", user_id="user.review")
     app_instance_id = install_result.app_instance_id
 
+    context_store.append_entry(
+        app_instance_id=app_instance_id,
+        section="open_loops",
+        key="await-human-confirmation",
+        value={"status": "pending"},
+        tags=["followup"],
+    )
     event_bus.publish("task.completed", source="test", app_instance_id=app_instance_id, payload={"ok": True})
     data_store.put_record(
         namespace_id=f"{app_instance_id}:app_data",
@@ -57,8 +77,12 @@ def test_practice_review_generates_experience() -> None:
 
     assert result.event_count == 1
     assert result.record_count >= 1
+    assert result.context_entry_count >= 1
     assert result.experience.source == "runtime"
     assert "task.completed" in result.experience.summary
+    assert "共享上下文" in result.experience.summary
+    assert "shared-context" in result.experience.tags
+    assert "open_loops" in result.experience.tags
     assert len(experience_store.list_experiences()) == 1
 
 
@@ -89,6 +113,11 @@ def test_practice_review_api_flow() -> None:
     )
     assert record_response.status_code == 200
 
+    client.post(
+        f"/app-contexts/{app_instance_id}/entries",
+        json={"section": "decisions", "key": "reply-style", "value": {"style": "brief"}, "tags": ["policy"]},
+    )
+
     review_response = client.post(
         "/practice/review",
         json={"app_instance_id": app_instance_id},
@@ -96,3 +125,5 @@ def test_practice_review_api_flow() -> None:
     assert review_response.status_code == 200
     assert review_response.json()["experience"]["source"] == "runtime"
     assert review_response.json()["event_count"] >= 1
+    assert review_response.json()["context_entry_count"] >= 1
+    assert "shared-context" in review_response.json()["experience"]["tags"]
