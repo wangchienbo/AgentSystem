@@ -100,6 +100,7 @@ Covered behavior:
 - workflow-id selection and placeholder handling for human_task / skill steps
 - step output passing between deterministic workflow steps
 - conditional step execution and workflow output aggregation
+- event-triggered workflow subscription execution
 
 ## 3.7 Interaction gateway
 Covered behavior:

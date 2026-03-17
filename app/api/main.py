@@ -26,7 +26,9 @@ from app.services.skill_suggestion import SkillSuggestionService, SkillSuggestio
 from app.services.model_skill_suggester import ModelSkillSuggester
 from app.services.model_self_refiner import ModelSelfRefiner
 from app.services.workflow_executor import WorkflowExecutorService, WorkflowExecutorError
+from app.services.workflow_subscription import WorkflowSubscriptionService, WorkflowSubscriptionError
 from app.models.event_bus import EventSubscription
+from app.models.workflow_subscription import WorkflowEventSubscription
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
@@ -126,6 +128,10 @@ workflow_executor = WorkflowExecutorService(
     data_store=app_data_store,
     event_bus=event_bus,
     context_store=app_context_store,
+)
+workflow_subscription = WorkflowSubscriptionService(
+    workflow_executor=workflow_executor,
+    store=runtime_store,
 )
 interaction_gateway = InteractionGateway(
     catalog=app_catalog,
@@ -527,13 +533,20 @@ def list_events(event_name: str | None = None) -> list[dict]:
 @app.post("/events/publish")
 def publish_event(payload: dict) -> dict:
     try:
-        return event_bus.publish(
+        result = event_bus.publish(
             event_name=payload["event_name"],
             source=payload.get("source", "system"),
             app_instance_id=payload.get("app_instance_id"),
             payload=payload.get("payload", {}),
-        ).model_dump(mode="json")
-    except EventBusError as error:
+        )
+        workflow_runs = workflow_subscription.trigger(
+            event_name=payload["event_name"],
+            payload=payload.get("payload", {}),
+        )
+        response = result.model_dump(mode="json")
+        response["workflow_runs"] = [item.model_dump(mode="json") for item in workflow_runs]
+        return response
+    except (EventBusError, WorkflowSubscriptionError, WorkflowExecutorError, AppRegistryError, LifecycleError) as error:
         raise map_domain_error(error) from error
 
 
@@ -547,6 +560,19 @@ def create_event_subscription(subscription: EventSubscription) -> dict:
     try:
         return event_bus.subscribe(subscription).model_dump(mode="json")
     except EventBusError as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/workflow-subscriptions")
+def list_workflow_subscriptions(event_name: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in workflow_subscription.list_subscriptions(event_name)]
+
+
+@app.post("/workflow-subscriptions")
+def create_workflow_subscription(subscription: WorkflowEventSubscription) -> dict:
+    try:
+        return workflow_subscription.subscribe(subscription).model_dump(mode="json")
+    except WorkflowSubscriptionError as error:
         raise map_domain_error(error) from error
 
 

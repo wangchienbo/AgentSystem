@@ -439,4 +439,5 @@ Current implementation note:
 - step outputs can now be passed into later steps through lightweight `$from_step` / `$from_inputs` references
 - step-level conditional execution is supported through simple `when` checks
 - workflow execution returns an aggregated outputs summary for completed/skipped steps and step outputs
+- event-driven workflow subscriptions can now auto-trigger workflow execution from published internal events
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events
