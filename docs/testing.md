@@ -105,6 +105,7 @@ Covered behavior:
 - skill input mapping and failure capture during workflow execution
 - blueprint allowlist enforcement for workflow skill steps
 - workflow and skill observability APIs for history/failure inspection
+- retry API for rerunning the latest failed workflow execution
 
 ## 3.7 Interaction gateway
 Covered behavior:

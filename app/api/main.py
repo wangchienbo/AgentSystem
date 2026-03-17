@@ -450,6 +450,14 @@ def list_workflow_failures(app_instance_id: str | None = None) -> list[dict]:
     return [item.model_dump(mode="json") for item in workflow_executor.list_recent_failures(app_instance_id)]
 
 
+@app.post("/apps/{app_instance_id}/workflows/retry-last-failure")
+def retry_last_failed_workflow(app_instance_id: str) -> dict:
+    try:
+        return workflow_executor.retry_last_failure(app_instance_id).model_dump(mode="json")
+    except (WorkflowExecutorError,) as error:
+        raise map_domain_error(error) from error
+
+
 @app.get("/runtime/persistence")
 def get_runtime_persistence_snapshot() -> dict:
     return {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
+from copy import deepcopy
 
 from app.models.workflow_execution import WorkflowExecutionResult, WorkflowStepExecution
 from app.services.runtime_state_store import RuntimeStateStore
@@ -354,6 +355,7 @@ class WorkflowExecutorService:
         completed_steps = [step.step_id for step in steps if step.status == "completed"]
         skipped_steps = [step.step_id for step in steps if step.status == "skipped"]
         return {
+            "inputs": execution_context.get("inputs", {}),
             "completed_steps": completed_steps,
             "skipped_steps": skipped_steps,
             "step_outputs": execution_context.get("steps", {}),
@@ -367,6 +369,19 @@ class WorkflowExecutorService:
     def list_recent_failures(self, app_instance_id: str | None = None) -> list[WorkflowExecutionResult]:
         history = self.list_history(app_instance_id)
         return [item for item in history if item.status == "partial" and any(step.status == "failed" for step in item.steps)]
+
+    def retry_last_failure(self, app_instance_id: str) -> WorkflowExecutionResult:
+        failures = self.list_recent_failures(app_instance_id)
+        if not failures:
+            raise WorkflowExecutorError(f"No failed workflow execution found for app instance: {app_instance_id}")
+        last = failures[-1]
+        retry_inputs = deepcopy(last.outputs.get("inputs", {})) if isinstance(last.outputs, dict) else {}
+        return self.execute_workflow(
+            app_instance_id=app_instance_id,
+            workflow_id=last.workflow_id,
+            trigger=f"retry:{last.trigger}",
+            inputs=retry_inputs if isinstance(retry_inputs, dict) else {},
+        )
 
     def _persist_history(self) -> None:
         if self._store is None:
