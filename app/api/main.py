@@ -25,6 +25,7 @@ from app.services.self_refinement import SelfRefinementService, SelfRefinementEr
 from app.services.skill_suggestion import SkillSuggestionService, SkillSuggestionError
 from app.services.model_skill_suggester import ModelSkillSuggester
 from app.services.model_self_refiner import ModelSelfRefiner
+from app.services.workflow_executor import WorkflowExecutorService, WorkflowExecutorError
 from app.models.event_bus import EventSubscription
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
@@ -119,6 +120,13 @@ app_installer = AppInstallerService(
     context_store=app_context_store,
 )
 app_catalog = AppCatalogService()
+workflow_executor = WorkflowExecutorService(
+    registry=app_registry,
+    lifecycle=lifecycle,
+    data_store=app_data_store,
+    event_bus=event_bus,
+    context_store=app_context_store,
+)
 interaction_gateway = InteractionGateway(
     catalog=app_catalog,
     router=router,
@@ -392,6 +400,19 @@ def handle_user_command(command: UserCommand) -> dict:
     try:
         return interaction_gateway.handle_command(command).model_dump(mode="json")
     except (LifecycleError, RuntimeHostError, AppCatalogError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/apps/{app_instance_id}/workflows/execute")
+def execute_primary_workflow(app_instance_id: str, payload: dict | None = None) -> dict:
+    try:
+        payload = payload or {}
+        return workflow_executor.execute_primary_workflow(
+            app_instance_id=app_instance_id,
+            trigger=payload.get("trigger", "manual"),
+            inputs=payload.get("inputs", {}),
+        ).model_dump(mode="json")
+    except (LifecycleError, WorkflowExecutorError, AppRegistryError) as error:
         raise map_domain_error(error) from error
 
 

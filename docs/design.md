@@ -425,9 +425,14 @@ This means the project is no longer just schema scaffolding; it already contains
 ## 12. Near-term Design Gaps
 
 The next most important missing pieces are:
-- workflow execution that actually consumes modules and skills
+- richer workflow execution beyond the current minimal deterministic executor
 - app data operations as workflow primitives
 - contradiction / priority analysis for better focus
 - app/workflow refinement based on suggested skills
 - stronger permission and policy enforcement
 - durable production-grade persistence backends
+
+Current implementation note:
+- a minimal workflow executor now exists for primary workflow execution
+- it supports deterministic step skeletons for `state.set`, `state.get`, and event emission
+- execution can write app data, append shared-context artifacts, and publish internal events

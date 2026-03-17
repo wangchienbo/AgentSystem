@@ -1,0 +1,136 @@
+from fastapi.testclient import TestClient
+
+from app.api.main import app
+from app.models.app_blueprint import AppBlueprint
+from app.services.app_context_store import AppContextStore
+from app.services.app_data_store import AppDataStore
+from app.services.app_installer import AppInstallerService
+from app.services.app_registry import AppRegistryService
+from app.services.event_bus import EventBusService
+from app.services.lifecycle import AppLifecycleService
+from app.services.runtime_host import AppRuntimeHostService
+from app.services.runtime_state_store import RuntimeStateStore
+from app.services.scheduler import SchedulerService
+from app.services.workflow_executor import WorkflowExecutorService
+
+
+client = TestClient(app)
+
+
+def test_workflow_executor_runs_state_and_event_steps() -> None:
+    store = RuntimeStateStore(base_dir="data/test-workflow-executor")
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    data_store = AppDataStore(base_dir="data/test-workflow-executor-ns", store=store)
+    scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
+    event_bus = EventBusService(scheduler=scheduler, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    executor = WorkflowExecutorService(
+        registry=registry,
+        lifecycle=lifecycle,
+        data_store=data_store,
+        event_bus=event_bus,
+        context_store=context_store,
+    )
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.exec",
+            name="Workflow Exec App",
+            goal="execute deterministic workflow",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.exec",
+                    "name": "exec",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "step.set", "kind": "module", "ref": "state.set", "config": {"key": "draft", "value": {"status": "ok"}}},
+                        {"id": "step.get", "kind": "module", "ref": "state.get", "config": {"key": "draft"}},
+                        {"id": "step.event", "kind": "event", "ref": "workflow.completed", "config": {"event_name": "workflow.completed"}},
+                    ],
+                }
+            ],
+            required_modules=["state.get", "state.set"],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.exec", user_id="workflow-user")
+
+    result = executor.execute_primary_workflow(install_result.app_instance_id, inputs={"source": "test"})
+
+    assert result.workflow_id == "wf.exec"
+    assert len(result.steps) == 3
+    records = data_store.list_records(f"{install_result.app_instance_id}:app_data")
+    assert any(item.key == "draft" for item in records)
+    events = event_bus.list_events("workflow.completed")
+    assert len(events) == 1
+    context = context_store.get_context(install_result.app_instance_id)
+    assert any(item.key.startswith("workflow-result:") for item in context.entries)
+
+
+def test_workflow_execution_api_flow() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.api",
+            "name": "Workflow API App",
+            "goal": "run workflow via api",
+            "roles": [],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.api.exec",
+                    "name": "api exec",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "set.settings", "kind": "module", "ref": "state.set", "config": {"key": "settings", "value": {"theme": "dark"}}},
+                        {"id": "emit.done", "kind": "event", "ref": "workflow.api.done", "config": {"event_name": "workflow.api.done"}},
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": ["state.set"],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.api/install",
+        json={"user_id": "workflow-api-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    execute_response = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"trigger": "api", "inputs": {"request_id": "r1"}},
+    )
+    assert execute_response.status_code == 200
+    assert execute_response.json()["workflow_id"] == "wf.api.exec"
+    assert len(execute_response.json()["steps"]) == 2
+
+    records_response = client.get(f"/data/namespaces/{app_instance_id}:app_data/records")
+    assert records_response.status_code == 200
+    assert any(item["key"] == "settings" for item in records_response.json())
+
+    events_response = client.get("/events", params={"event_name": "workflow.api.done"})
+    assert events_response.status_code == 200
+    assert any(item["app_instance_id"] == app_instance_id for item in events_response.json())
