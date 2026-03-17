@@ -31,12 +31,27 @@ class WorkflowExecutorService:
         self._context_store = context_store
 
     def execute_primary_workflow(self, app_instance_id: str, trigger: str = "manual", inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
+        return self.execute_workflow(app_instance_id=app_instance_id, workflow_id=None, trigger=trigger, inputs=inputs)
+
+    def execute_workflow(
+        self,
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        trigger: str = "manual",
+        inputs: dict[str, Any] | None = None,
+    ) -> WorkflowExecutionResult:
         instance = self._lifecycle.get_instance(app_instance_id)
         blueprint = self._registry.get_blueprint(instance.blueprint_id)
         if not blueprint.workflows:
             raise WorkflowExecutorError(f"No workflow defined for blueprint: {blueprint.id}")
 
-        workflow = blueprint.workflows[0]
+        workflow = blueprint.workflows[0] if workflow_id is None else next(
+            (item for item in blueprint.workflows if item.id == workflow_id),
+            None,
+        )
+        if workflow is None:
+            raise WorkflowExecutorError(f"Workflow not found: {workflow_id}")
+
         steps: list[WorkflowStepExecution] = []
         payload = inputs or {}
 
@@ -66,12 +81,35 @@ class WorkflowExecutorService:
                 tags=["workflow", "result"],
             )
 
+        execution_status = "completed" if all(step.status == "completed" for step in steps) else "partial"
+        result_record = self._data_store.put_record(
+            namespace_id=f"{app_instance_id}:runtime_state",
+            key=f"workflow_execution:{workflow.id}",
+            value={
+                "workflow_id": workflow.id,
+                "trigger": trigger,
+                "status": execution_status,
+                "steps": [step.model_dump(mode="json") for step in steps],
+            },
+            tags=["workflow", "execution", workflow.id],
+        )
+
+        if self._context_store is not None:
+            self._context_store.append_entry(
+                app_instance_id,
+                section="artifacts",
+                key=f"runtime-state:{workflow.id}",
+                value={"record_id": result_record.record_id, "status": execution_status},
+                tags=["workflow", "runtime-state"],
+            )
+
         completed_at = datetime.now(UTC)
         return WorkflowExecutionResult(
             app_instance_id=app_instance_id,
             blueprint_id=blueprint.id,
             workflow_id=workflow.id,
             trigger=trigger,
+            status=execution_status,
             steps=steps,
             completed_at=completed_at,
         )
@@ -145,6 +183,40 @@ class WorkflowExecutorService:
                 kind=kind,
                 status="completed",
                 detail={"event_id": result.event.event_id, "event_name": event_name},
+            )
+
+        if kind == "human_task":
+            if self._context_store is not None:
+                self._context_store.append_entry(
+                    app_instance_id,
+                    section="questions",
+                    key=f"human-task:{step_id}",
+                    value={"ref": ref, "config": config},
+                    tags=["workflow", "human-task"],
+                )
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="skipped",
+                detail={"reason": "human task placeholder", "ref": ref},
+            )
+
+        if kind == "skill":
+            if self._context_store is not None:
+                self._context_store.append_entry(
+                    app_instance_id,
+                    section="open_loops",
+                    key=f"skill-step:{step_id}",
+                    value={"ref": ref, "config": config},
+                    tags=["workflow", "skill-step"],
+                )
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="skipped",
+                detail={"reason": "skill execution placeholder", "ref": ref},
             )
 
         return WorkflowStepExecution(

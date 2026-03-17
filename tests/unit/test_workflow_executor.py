@@ -78,6 +78,79 @@ def test_workflow_executor_runs_state_and_event_steps() -> None:
     assert any(item.key.startswith("workflow-result:") for item in context.entries)
 
 
+def test_workflow_executor_supports_workflow_selection_and_placeholders() -> None:
+    store = RuntimeStateStore(base_dir="data/test-workflow-selection")
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    data_store = AppDataStore(base_dir="data/test-workflow-selection-ns", store=store)
+    scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
+    event_bus = EventBusService(scheduler=scheduler, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    executor = WorkflowExecutorService(
+        registry=registry,
+        lifecycle=lifecycle,
+        data_store=data_store,
+        event_bus=event_bus,
+        context_store=context_store,
+    )
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.select",
+            name="Workflow Select App",
+            goal="run selected workflow",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.primary",
+                    "name": "primary",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "set.primary", "kind": "module", "ref": "state.set", "config": {"key": "primary", "value": {"ok": True}}},
+                    ],
+                },
+                {
+                    "id": "wf.secondary",
+                    "name": "secondary",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "ask.human", "kind": "human_task", "ref": "human.review", "config": {"prompt": "please review"}},
+                        {"id": "call.skill", "kind": "skill", "ref": "skill.review", "config": {"mode": "draft"}},
+                    ],
+                },
+            ],
+            required_modules=["state.set"],
+            required_skills=["skill.review"],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.select", user_id="workflow-select-user")
+
+    result = executor.execute_workflow(
+        install_result.app_instance_id,
+        workflow_id="wf.secondary",
+        inputs={"topic": "selection"},
+    )
+
+    assert result.workflow_id == "wf.secondary"
+    assert result.status == "partial"
+    assert len(result.steps) == 2
+    assert all(step.status == "skipped" for step in result.steps)
+    runtime_records = data_store.list_records(f"{install_result.app_instance_id}:runtime_state")
+    assert any(item.key == "workflow_execution:wf.secondary" for item in runtime_records)
+    context = context_store.get_context(install_result.app_instance_id)
+    assert any(item.key == "human-task:ask.human" for item in context.entries)
+    assert any(item.key == "skill-step:call.skill" for item in context.entries)
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

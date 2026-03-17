@@ -97,6 +97,7 @@ Covered behavior:
 - runtime policy propagation to app instance
 - registry API flow
 - minimal workflow execution against deterministic primitives
+- workflow-id selection and placeholder handling for human_task / skill steps
 
 ## 3.7 Interaction gateway
 Covered behavior:

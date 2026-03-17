@@ -407,8 +407,9 @@ def handle_user_command(command: UserCommand) -> dict:
 def execute_primary_workflow(app_instance_id: str, payload: dict | None = None) -> dict:
     try:
         payload = payload or {}
-        return workflow_executor.execute_primary_workflow(
+        return workflow_executor.execute_workflow(
             app_instance_id=app_instance_id,
+            workflow_id=payload.get("workflow_id"),
             trigger=payload.get("trigger", "manual"),
             inputs=payload.get("inputs", {}),
         ).model_dump(mode="json")
