@@ -8,9 +8,11 @@ The system should not be treated as a single assistant workflow runner. Instead,
 - apps are registered and installed
 - apps have runtime policy and lifecycle
 - apps own isolated data namespaces
+- apps maintain app-local shared context for internal execution
 - apps can be long-running services or one-shot pipelines
 - runtime behavior can be reviewed into experience
 - experience can evolve into reusable skills
+- a user-facing control plane can observe and intervene without being required for every app-internal step
 
 ---
 
@@ -217,7 +219,28 @@ The system must create and manage explicit namespaces for:
 
 It must support listing namespaces and writing/reading data records.
 
-### 5.11 Event bus
+### 5.11 App shared context
+The system must support app-local shared context that is independent from the user-facing control AI context.
+
+Each app shared context must support at least:
+- app description
+- current goal
+- current stage
+- structured entries grouped by sections such as:
+  - `facts`
+  - `artifacts`
+  - `decisions`
+  - `questions`
+  - `constraints`
+  - `open_loops`
+
+The system must support:
+- creating app context automatically or on first use
+- updating app context stage and goal
+- appending structured context entries
+- listing and retrieving app contexts
+
+### 5.12 Event bus
 The system must support:
 - publishing internal events
 - recording event logs

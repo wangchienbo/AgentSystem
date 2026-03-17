@@ -12,6 +12,7 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService, SchedulerError
 from app.services.supervisor import SupervisorService, SupervisorError
 from app.services.app_catalog import AppCatalogService, AppCatalogError
+from app.services.app_context_store import AppContextStore, AppContextStoreError
 from app.services.app_data_store import AppDataStore, AppDataStoreError
 from app.services.app_registry import AppRegistryService, AppRegistryError
 from app.services.app_installer import AppInstallerService, AppInstallerError
@@ -22,6 +23,8 @@ from app.services.priority_analysis import PriorityAnalysisService, PriorityAnal
 from app.services.proposal_review import ProposalReviewService, ProposalReviewError
 from app.services.self_refinement import SelfRefinementService, SelfRefinementError
 from app.services.skill_suggestion import SkillSuggestionService, SkillSuggestionError
+from app.services.model_skill_suggester import ModelSkillSuggester
+from app.services.model_self_refiner import ModelSelfRefiner
 from app.models.event_bus import EventSubscription
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
@@ -77,14 +80,22 @@ runtime_store = RuntimeStateStore()
 app_data_store = AppDataStore(store=runtime_store)
 app_data_store.ensure_skill_asset_namespace()
 lifecycle = AppLifecycleService(store=runtime_store)
+app_context_store = AppContextStore(lifecycle=lifecycle, store=runtime_store)
 runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
 scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host, store=runtime_store)
 event_bus = EventBusService(scheduler=scheduler, store=runtime_store)
 supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
 practice_review = PracticeReviewService(event_bus=event_bus, data_store=app_data_store, experience_store=experience_store)
-skill_suggestion = SkillSuggestionService(experience_store=experience_store)
+model_skill_suggester = ModelSkillSuggester()
+skill_suggestion = SkillSuggestionService(experience_store=experience_store, model_suggester=model_skill_suggester)
 app_registry = AppRegistryService(store=runtime_store)
-self_refinement = SelfRefinementService(experience_store=experience_store, registry=app_registry, lifecycle=lifecycle)
+model_self_refiner = ModelSelfRefiner()
+self_refinement = SelfRefinementService(
+    experience_store=experience_store,
+    registry=app_registry,
+    lifecycle=lifecycle,
+    model_self_refiner=model_self_refiner,
+)
 proposal_review = ProposalReviewService(lifecycle=lifecycle, store=runtime_store)
 priority_analysis = PriorityAnalysisService(proposal_review=proposal_review)
 app_installer = AppInstallerService(registry=app_registry, lifecycle=lifecycle, runtime_host=runtime_host, data_store=app_data_store)
@@ -383,7 +394,47 @@ def get_runtime_persistence_snapshot() -> dict:
         "event_subscriptions": runtime_store.load_json("event_subscriptions", {}),
         "patch_proposals": runtime_store.load_json("patch_proposals", {}),
         "proposal_reviews": runtime_store.load_json("proposal_reviews", {}),
+        "app_contexts": runtime_store.load_json("app_contexts", {}),
     }
+
+
+@app.get("/app-contexts")
+def list_app_contexts() -> list[dict]:
+    return [item.model_dump(mode="json") for item in app_context_store.list_contexts()]
+
+
+@app.get("/app-contexts/{app_instance_id}")
+def get_app_context(app_instance_id: str) -> dict:
+    try:
+        return app_context_store.get_context(app_instance_id).model_dump(mode="json")
+    except AppContextStoreError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/app-contexts/{app_instance_id}")
+def update_app_context(app_instance_id: str, payload: dict) -> dict:
+    try:
+        return app_context_store.update_context(
+            app_instance_id=app_instance_id,
+            current_goal=payload.get("current_goal"),
+            current_stage=payload.get("current_stage"),
+        ).model_dump(mode="json")
+    except AppContextStoreError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/app-contexts/{app_instance_id}/entries")
+def append_app_context_entry(app_instance_id: str, payload: dict) -> dict:
+    try:
+        return app_context_store.append_entry(
+            app_instance_id=app_instance_id,
+            section=payload["section"],
+            key=payload["key"],
+            value=payload.get("value"),
+            tags=payload.get("tags", []),
+        ).model_dump(mode="json")
+    except AppContextStoreError as error:
+        raise map_domain_error(error) from error
 
 
 @app.get("/data/namespaces")

@@ -5,6 +5,9 @@ from app.models.patch_proposal import PatchProposal, SelfRefinementRequest, Self
 from app.services.app_registry import AppRegistryService
 from app.services.experience_store import ExperienceStore
 from app.services.lifecycle import AppLifecycleService
+from app.services.model_client import ModelClientError
+from app.services.model_config_loader import ModelConfigError
+from app.services.model_self_refiner import ModelSelfRefiner
 
 
 class SelfRefinementError(ValueError):
@@ -17,19 +20,24 @@ class SelfRefinementService:
         experience_store: ExperienceStore,
         registry: AppRegistryService,
         lifecycle: AppLifecycleService,
+        model_self_refiner: ModelSelfRefiner | None = None,
     ) -> None:
         self._experience_store = experience_store
         self._registry = registry
         self._lifecycle = lifecycle
+        self._model_self_refiner = model_self_refiner
 
     def propose(self, request: SelfRefinementRequest) -> SelfRefinementResult:
         experience = self._get_experience(request.experience_id)
         instance = self._lifecycle.get_instance(request.app_instance_id)
         blueprint = self._registry.get_blueprint(instance.blueprint_id)
 
-        proposals: list[PatchProposal] = []
-        proposals.extend(self._build_runtime_policy_proposals(instance.id, blueprint, experience.summary))
-        proposals.extend(self._build_workflow_proposals(instance.id, blueprint, experience.summary))
+        proposals = self._build_fallback_proposals(instance.id, blueprint, experience.summary)
+        if self._model_self_refiner and self._model_self_refiner.is_available():
+            try:
+                proposals = self._model_self_refiner.propose(instance.id, blueprint, experience)
+            except (ModelConfigError, ModelClientError, KeyError, TypeError, ValueError):
+                proposals = self._build_fallback_proposals(instance.id, blueprint, experience.summary)
 
         if not proposals:
             raise SelfRefinementError(f"No refinement proposal generated for {request.app_instance_id}")
@@ -45,6 +53,12 @@ class SelfRefinementService:
             if experience.experience_id == experience_id:
                 return experience
         raise SelfRefinementError(f"Experience not found: {experience_id}")
+
+    def _build_fallback_proposals(self, app_instance_id: str, blueprint: AppBlueprint, summary: str) -> list[PatchProposal]:
+        proposals: list[PatchProposal] = []
+        proposals.extend(self._build_runtime_policy_proposals(app_instance_id, blueprint, summary))
+        proposals.extend(self._build_workflow_proposals(app_instance_id, blueprint, summary))
+        return proposals
 
     def _build_runtime_policy_proposals(self, app_instance_id: str, blueprint: AppBlueprint, summary: str) -> list[PatchProposal]:
         proposals: list[PatchProposal] = []

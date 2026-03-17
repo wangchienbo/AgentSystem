@@ -718,6 +718,108 @@ Unified the local private model configuration into a single YAML file outside th
 - Ran actual model probe using `/root/.config/agentsystem/config.yaml`
 - Result: endpoint reachable and returned SSE response events from `/v1/responses`
 
+### Module: model-enhanced skill suggestion with deterministic fallback
+
+Added an optional model-backed skill suggestion layer while preserving the original deterministic synthesis path as a safe fallback.
+
+#### Added
+- `app/services/model_skill_suggester.py`
+  - generates constrained skill blueprint JSON from runtime experience via the configured responses API
+  - exposes availability checks so model enhancement stays optional
+
+#### Updated
+- `app/services/skill_suggestion.py`
+  - now supports injected model suggester
+  - still builds a deterministic rule-based suggestion first
+  - falls back to deterministic synthesis whenever model config or model output is invalid
+- `app/api/main.py`
+  - wires `ModelSkillSuggester` into the global `SkillSuggestionService`
+- `tests/unit/test_skill_suggestion.py`
+  - added model-success and model-fallback tests
+
+#### Behavior added
+- skill suggestion can now be model-enhanced when local private model config is available
+- model output is constrained to a narrow JSON blueprint shape
+- deterministic fallback still guarantees the feature works without model access or under model failure
+
+#### Validation
+- Ran full test suite successfully
+- Result: `61 passed`
+
+### Module: model-enhanced self refinement with constrained fallback
+
+Added an optional model-backed self-refinement proposal synthesizer while keeping the existing deterministic proposal path as the hard safety floor.
+
+#### Added
+- `app/services/model_self_refiner.py`
+  - generates constrained self-refinement proposal JSON via the configured responses API
+  - only targets proposal synthesis, not direct mutation
+  - exposes availability checks so model enhancement remains optional
+
+#### Updated
+- `app/services/self_refinement.py`
+  - now supports injected model self-refiner
+  - still builds deterministic runtime_policy/workflow proposals first
+  - falls back to deterministic proposals whenever model config or model output is invalid
+- `app/api/main.py`
+  - wires `ModelSelfRefiner` into the global `SelfRefinementService`
+- `tests/unit/test_self_refinement.py`
+  - added model-success and model-fallback tests
+
+#### Behavior added
+- self refinement can now be model-enhanced when local private model config is available
+- model output is constrained to a narrow proposal JSON shape
+- refinement remains proposal-before-apply; no direct model-driven mutation was added
+- deterministic fallback still guarantees the feature works without model access or under model failure
+
+#### Validation
+- Ran full test suite successfully
+- Result: `63 passed`
+
+### Module: app shared context model and control-plane boundary docs
+
+Added the first explicit app-local shared context model so apps can maintain internal execution context independently from the user-facing control plane.
+
+#### Added
+- `app/models/app_context.py`
+  - `AppSharedContext`
+  - `AppContextEntry`
+- `app/services/app_context_store.py`
+  - shared context creation
+  - context stage/goal update
+  - structured entry append
+  - persistence via runtime state store
+- `tests/unit/test_app_context_store.py`
+  - app context service and API tests
+
+#### Updated
+- `app/api/main.py`
+  - added app context APIs
+  - runtime persistence snapshot now includes `app_contexts`
+- `app/core/errors.py`
+  - added app context error mapping
+- `docs/requirements.md`
+  - documented app-local shared context and user-facing control plane boundary
+- `docs/design.md`
+  - documented control plane vs app runtime boundary and app shared context store
+- `docs/testing.md`
+  - added app shared context coverage to testing strategy
+
+#### API endpoints added
+- `GET /app-contexts`
+- `GET /app-contexts/{app_instance_id}`
+- `POST /app-contexts/{app_instance_id}`
+- `POST /app-contexts/{app_instance_id}/entries`
+
+#### Behavior added
+- apps can now maintain app-local shared context independently from the control-plane AI
+- app contexts can store structured facts, artifacts, decisions, questions, constraints, and open loops
+- the system can now expose app-level goal/stage state without forcing all internal execution back through the user-facing control plane
+
+#### Validation
+- Ran full test suite successfully
+- Result: `65 passed`
+
 ### Module: documentation consolidation for requirements, design, and testing
 
 Reorganized the project documents into a coherent set aligned with the current implemented architecture.

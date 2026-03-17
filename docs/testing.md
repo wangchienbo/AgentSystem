@@ -9,6 +9,7 @@ The testing goal is not only to validate isolated functions, but to verify that 
 - lifecycle and runtime management
 - scheduling and supervision
 - data namespace isolation
+- app-local shared context
 - event-driven runtime behavior
 - practice-to-experience distillation
 - experience-to-skill suggestion
@@ -108,7 +109,14 @@ Covered behavior:
 - record write/read behavior
 - namespace API flow
 
-## 3.9 Event bus
+## 3.9 App shared context
+Covered behavior:
+- context creation on first use
+- context stage/goal update
+- structured context entry append
+- app context API flow
+
+## 3.10 Event bus
 Covered behavior:
 - publish event
 - trigger event schedule

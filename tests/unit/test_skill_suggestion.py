@@ -10,6 +10,34 @@ from app.services.skill_suggestion import SkillSuggestionService
 client = TestClient(app)
 
 
+class StubModelSuggester:
+    def __init__(self, available: bool = True, should_fail: bool = False) -> None:
+        self._available = available
+        self._should_fail = should_fail
+
+    def is_available(self) -> bool:
+        return self._available
+
+    def suggest(self, experience: ExperienceRecord, fallback_skill_id: str):
+        if self._should_fail:
+            raise ValueError("model failed")
+        from app.models.skill_blueprint import SkillBlueprint
+
+        return SkillBlueprint(
+            skill_id=fallback_skill_id,
+            name="Model Suggested Skill",
+            goal=f"Use model synthesis for {experience.experience_id}",
+            inputs=["context", "experience_summary"],
+            outputs=["skill_blueprint"],
+            steps=[
+                "analyze the runtime experience",
+                "extract repeated strategy",
+                "return reusable skill blueprint",
+            ],
+            related_experience_ids=[experience.experience_id],
+        )
+
+
 def test_skill_suggestion_generates_blueprint() -> None:
     store = ExperienceStore()
     service = SkillSuggestionService(experience_store=store)
@@ -31,6 +59,45 @@ def test_skill_suggestion_generates_blueprint() -> None:
     assert len(result.suggestion.steps) >= 3
 
 
+
+def test_skill_suggestion_uses_model_when_available() -> None:
+    store = ExperienceStore()
+    service = SkillSuggestionService(experience_store=store, model_suggester=StubModelSuggester())
+    store.add_experience(
+        ExperienceRecord(
+            experience_id="exp.runtime.003",
+            title="Runtime review for planner",
+            summary="经常需要先提炼目标再生成动作计划。",
+            source="runtime",
+        )
+    )
+
+    result = service.suggest(SkillSuggestionRequest(experience_id="exp.runtime.003"))
+
+    assert result.suggestion.name == "Model Suggested Skill"
+    assert result.suggestion.outputs == ["skill_blueprint"]
+
+
+
+def test_skill_suggestion_falls_back_when_model_fails() -> None:
+    store = ExperienceStore()
+    service = SkillSuggestionService(experience_store=store, model_suggester=StubModelSuggester(should_fail=True))
+    store.add_experience(
+        ExperienceRecord(
+            experience_id="exp.runtime.004",
+            title="Runtime review for fallback",
+            summary="模型输出不稳定时仍需保留规则链路。",
+            source="runtime",
+        )
+    )
+
+    result = service.suggest(SkillSuggestionRequest(experience_id="exp.runtime.004"))
+
+    assert result.suggestion.name.startswith("Suggested Skill for")
+    assert any("apply rule distilled from experience" in step for step in result.suggestion.steps)
+
+
+
 def test_skill_suggestion_can_persist_blueprint() -> None:
     store = ExperienceStore()
     service = SkillSuggestionService(experience_store=store)
@@ -47,6 +114,7 @@ def test_skill_suggestion_can_persist_blueprint() -> None:
 
     assert result.persisted is True
     assert len(store.list_skill_blueprints()) == 1
+
 
 
 def test_skill_suggestion_api_flow() -> None:
