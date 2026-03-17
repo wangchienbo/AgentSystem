@@ -103,6 +103,7 @@ Covered behavior:
 - event-triggered workflow subscription execution
 - minimal registered skill dispatch inside workflow execution
 - skill input mapping and failure capture during workflow execution
+- blueprint allowlist enforcement for workflow skill steps
 
 ## 3.7 Interaction gateway
 Covered behavior:

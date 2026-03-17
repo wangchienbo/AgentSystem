@@ -152,6 +152,72 @@ def test_skill_runtime_supports_input_mapping_and_failure_capture() -> None:
     assert any(item.section == "open_loops" and item.key == "skill-result:call.fail" for item in context.entries)
 
 
+def test_skill_runtime_enforces_blueprint_skill_allowlist() -> None:
+    store = RuntimeStateStore(base_dir="data/test-skill-runtime-policy")
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    data_store = AppDataStore(base_dir="data/test-skill-runtime-policy-ns", store=store)
+    scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
+    event_bus = EventBusService(scheduler=scheduler, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    skill_runtime = SkillRuntimeService(store=store)
+
+    def echo_handler(request: SkillExecutionRequest) -> SkillExecutionResult:
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output={"ok": True})
+
+    skill_runtime.register_handler("skill.echo", echo_handler)
+    skill_runtime.register_handler("skill.blocked", echo_handler)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    executor = WorkflowExecutorService(
+        registry=registry,
+        lifecycle=lifecycle,
+        data_store=data_store,
+        event_bus=event_bus,
+        context_store=context_store,
+        skill_runtime=skill_runtime,
+    )
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.skill.policy",
+            name="Skill Policy App",
+            goal="enforce skill allowlist",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.skill.policy",
+                    "name": "skill policy",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "allowed", "kind": "skill", "ref": "skill.echo", "config": {}},
+                        {"id": "blocked", "kind": "skill", "ref": "skill.blocked", "config": {}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=["skill.echo"],
+        )
+    )
+    install_result = installer.install_app("bp.skill.policy", user_id="skill-policy-user")
+
+    result = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.skill.policy")
+
+    assert result.status == "partial"
+    assert result.steps[0].status == "completed"
+    assert result.steps[1].status == "failed"
+    assert "not declared in blueprint" in result.steps[1].detail["reason"]
+    context = context_store.get_context(install_result.app_instance_id)
+    assert any(item.section == "constraints" and item.key == "skill-policy:blocked" for item in context.entries)
+
+
 def test_skill_runtime_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

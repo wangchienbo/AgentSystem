@@ -241,6 +241,23 @@ class WorkflowExecutorService:
             )
 
         if kind == "skill":
+            if ref not in self._registry.get_blueprint(self._lifecycle.get_instance(app_instance_id).blueprint_id).required_skills:
+                if self._context_store is not None:
+                    self._context_store.append_entry(
+                        app_instance_id,
+                        section="constraints",
+                        key=f"skill-policy:{step_id}",
+                        value={"ref": ref, "status": "blocked", "reason": "skill not declared in blueprint"},
+                        tags=["workflow", "skill-policy"],
+                    )
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="failed",
+                    detail={"reason": "skill not declared in blueprint", "ref": ref},
+                    output={},
+                )
             if self._skill_runtime is None:
                 if self._context_store is not None:
                     self._context_store.append_entry(
