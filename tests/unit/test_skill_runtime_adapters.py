@@ -43,7 +43,7 @@ def test_skill_runtime_executes_callable_adapter_entry() -> None:
     assert result.output["ok"] is True
 
 
-def test_skill_runtime_rejects_unimplemented_script_adapter() -> None:
+def test_skill_runtime_executes_script_adapter_entry() -> None:
     runtime = SkillRuntimeService()
     entry = SkillRegistryEntry(
         skill_id="skill.script",
@@ -59,7 +59,7 @@ def test_skill_runtime_rejects_unimplemented_script_adapter() -> None:
             version="1.0.0",
             description="script adapter",
             runtime_adapter="script",
-            adapter=SkillAdapterSpec(kind="script", command=["python", "script.py"]),
+            adapter=SkillAdapterSpec(kind="script", command=["python3", "tests/fixtures/script_echo_skill.py"]),
             contract=SkillContractRef(),
             tags=["test"],
         ),
@@ -71,7 +71,10 @@ def test_skill_runtime_rejects_unimplemented_script_adapter() -> None:
         entry=entry,
     )
 
-    with pytest.raises(SkillRuntimeError):
-        runtime.execute(
-            SkillExecutionRequest(skill_id="skill.script", app_instance_id="app", workflow_id="wf", step_id="step")
-        )
+    result = runtime.execute(
+        SkillExecutionRequest(skill_id="skill.script", app_instance_id="app", workflow_id="wf", step_id="step", inputs={"text": "hello-script"})
+    )
+
+    assert result.status == "completed"
+    assert result.output["echo"] == "hello-script"
+    assert result.output["adapter"] == "script"

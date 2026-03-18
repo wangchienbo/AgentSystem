@@ -995,3 +995,24 @@ Added the first explicit adapter-spec layer so runtime adapter intent begins to 
 - runtime adapters should become first-class execution specs rather than opaque strings
 - adapter evolution can proceed incrementally without pretending unsupported adapters already work
 - explicit not-implemented behavior is better than silently treating every adapter like callable
+
+### Module: minimal script adapter execution
+
+Promoted the script adapter from placeholder status to a minimal runnable execution path.
+
+#### Implemented
+- `SkillRuntimeService` can now execute `script` adapters via local subprocess
+- request payload is serialized as JSON to stdin
+- script result is read as JSON from stdout and parsed into `SkillExecutionResult`
+- added a fixture script and adapter runtime unit coverage
+
+#### Current constraints
+- script execution is local-only
+- JSON stdin/stdout only
+- no streaming or interactive session support yet
+- fixed timeout for the initial implementation
+
+#### Design intent clarified
+- script adapter support should be real, not nominal
+- the first supported non-callable adapter should stay narrow and deterministic
+- JSON request/response envelopes are the foundation for future adapter expansion
