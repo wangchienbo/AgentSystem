@@ -33,16 +33,20 @@ Connectivity probe:
 
 ## Documentation
 
-See `docs/`:
+See:
+- `TOOLS.md` — project-local operator notes, common commands, paths, and gotchas
 - `docs/requirements.md`
 - `docs/design.md`
 - `docs/testing.md`
 - `docs/testing-detail.md`
+- `docs/development-log.md`
 
 ## Run
 
 ```bash
-pip install -e .
+python -m venv .venv
+. .venv/bin/activate
+pip install -e .[dev]
 uvicorn app.api.main:app --reload
-pytest
+pytest -q
 ```
