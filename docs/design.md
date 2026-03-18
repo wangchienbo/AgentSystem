@@ -364,46 +364,12 @@ App/workflow validation should additionally check:
 - misuse of build-only skills inside runtime execution paths
 - mismatch between app runtime profile and runtime-critical skill requirements
 
-## 5.16 Core skill design principles table
-To keep future system-skill design aligned, the platform should maintain a stable reference table describing which principles apply to which core skill categories.
+## 5.16 Core skill design principles reference
+The canonical core-skill design principles are maintained in:
 
-### Baseline principles
-The table should encode at least these design principles:
-- deterministic first
-- local-first
-- offline-capable when feasible
-- explicit network requirement
-- explicit intelligence requirement
-- explicit invocation default
-- strict machine-readable contract
-- orchestrator-mediated dispatch where applicable
+- `docs/skill-design-principles.md`
 
-### Core skill principle mapping
-| Skill / capability | Primary role | Runtime criticality | Must be local-first | Must avoid default intelligence | Needs strict contract | Notes |
-|---|---|---|---|---|---|---|
-| `system.app_config` | per-app deterministic config surface | required_runtime | yes | yes | yes | config must remain separate from context and runtime state |
-| `system.context` | app-local shared execution context | required_runtime | yes | yes | yes | should not silently invoke intelligence |
-| `system.state` | runtime state access and mutation | required_runtime | yes | yes | yes | optimized for workflow/runtime use |
-| `system.audit` | structured audit trail and execution records | required_runtime | yes | yes | yes | should record policy, failure, and invocation decisions |
-| `system.skill_runtime` | unified skill execution entry | required_runtime | yes | yes | yes | adapter-based dispatch, timeout/retry/trace enforcement |
-| `system.skill_registry` | skill metadata and version lookup | required_runtime | yes | yes | yes | source of truth for capability tags and manifests |
-| `system.skill_validator` | skill package validation | build_and_runtime_governance | yes | yes | yes | should reject invalid manifests/contracts/adapters |
-| `system.app_profile_resolver` | derive app runtime posture from skill set | build_and_runtime_governance | yes | yes | yes | build-only skills should not inflate runtime class |
-| `requirement.clarify` | builder assistance | build_only | not necessarily | no | yes | typically intelligent; should not become runtime-required by accident |
-| `blueprint.generate` | builder assistance | build_only | not necessarily | no | yes | typically intelligent and explicit-use |
-| `workflow.suggest` | builder/runtime optional assistance | build_only_or_optional_runtime | not necessarily | no | yes | should be carefully tagged if runtime-visible |
-| `self_refinement` | proposal generation | build_only_or_optional_runtime | not necessarily | no | yes | token spend and autonomy should remain governed |
-
-### Design checklist usage
-Whenever a new core skill is introduced, its design should be reviewed against this table and explicitly marked for:
-- build-time vs runtime role
-- network requirement
-- intelligence requirement
-- invocation posture
-- contract strictness
-- whether offline operation is expected
-
-This table is the canonical planning reference for future core-skill design.
+That document should be consulted before introducing new system-default skills, runtime-governance skills, or builder/intelligent platform skills.
 
 ## 5.17 Practice Review
 `PracticeReviewService` reviews recent runtime events and data records, then distills them into an experience.

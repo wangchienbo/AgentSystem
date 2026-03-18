@@ -363,15 +363,18 @@ App-level validation should check at least:
 - build-only skill leakage into runtime execution paths
 
 ### 5.20 Core skill principle reference
-The system documentation must maintain a canonical core-skill principle reference table for future platform-skill design.
+The system documentation must maintain a canonical core-skill principle reference document for future platform-skill design.
 
-That table must identify, for each core skill or core skill category:
+That reference must identify, for each core skill or core skill category:
 - primary role
 - runtime criticality
 - whether local-first behavior is required
 - whether default intelligence use is prohibited
 - whether strict machine-readable contracts are required
 - special design constraints or boundary notes
+
+The canonical document path is:
+- `docs/skill-design-principles.md`
 
 This reference should be consulted whenever new system-default or platform-governance skills are introduced.
 

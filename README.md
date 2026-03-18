@@ -36,7 +36,8 @@ Connectivity probe:
 See:
 - `TOOLS.md` — project-local operator notes, common commands, paths, and gotchas
 - `docs/requirements.md`
-- `docs/design.md` — includes the core skill design principles table in section `5.16`
+- `docs/design.md`
+- `docs/skill-design-principles.md` — canonical reference for future core-skill design
 - `docs/testing.md`
 - `docs/testing-detail.md`
 - `docs/development-log.md`

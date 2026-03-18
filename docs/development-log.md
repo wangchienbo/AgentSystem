@@ -892,23 +892,29 @@ Extended the documentation direction so skills are treated as runnable capabilit
 - skill contracts should be machine-readable for compile-time validation and safe composition
 - adapter diversity (callable/script/rpc/binary/frontend) should not break runtime governance or observability
 
-### Module: documentation update for core skill design principles table
+### Module: documentation update for dedicated skill design principles reference
 
-Added a canonical reference table describing how the main platform principles map onto core system-skill categories.
+Moved the core-skill principle table into its own dedicated document so future skill design has a stable, explicit reference point.
+
+#### Added
+- `docs/skill-design-principles.md`
+  - canonical reference for core skill design principles
+  - core-skill principle table
+  - design checklist for future core skills
 
 #### Updated
 - `docs/requirements.md`
-  - added a requirement for a maintained core-skill principle reference
+  - records the dedicated canonical reference path
 - `docs/design.md`
-  - added the core skill design principles table and checklist guidance
+  - now points to the standalone skill design principles document
 - `docs/testing.md`
-  - added future validation targets ensuring system-default skills stay aligned with the table
+  - references the standalone document in future validation targets
 - `README.md`
-  - documented the table location
+  - documents the dedicated skill design principles doc path
 - `TOOLS.md`
-  - recorded the table location for future implementation work
+  - records the dedicated doc path for future implementation work
 
 #### Design intent clarified
-- future core skills should be reviewed against one canonical principle table
-- the table should be the first reference when designing new system-default skills
+- future core skills should be reviewed against one dedicated canonical reference document
+- the skill design principles should remain stable and discoverable outside the broader architecture doc
 - core skill roles, locality, intelligence posture, and contract strictness should stay explicit
