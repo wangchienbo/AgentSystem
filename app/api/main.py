@@ -44,7 +44,7 @@ from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
-from app.models.skill_control import SkillRegistryEntry, SkillVersion
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.demonstration import DemonstrationRecord
@@ -194,6 +194,101 @@ skill_runtime.register_handler("system.app_config", _system_app_config_skill)
 skill_runtime.register_handler("system.state", _system_state_skill)
 skill_runtime.register_handler("system.audit", _system_audit_skill)
 skill_runtime.register_handler("system.context", _system_context_skill)
+
+skill_control.register(
+    SkillRegistryEntry(
+        skill_id="skill.echo",
+        name="Demo Echo Skill",
+        active_version="1.0.0",
+        versions=[SkillVersion(version="1.0.0", content="demo echo handler")],
+        dependencies=[],
+        capability_profile=SkillCapabilityProfile(
+            intelligence_level="L0_deterministic",
+            network_requirement="N0_none",
+            runtime_criticality="C1_optional_runtime",
+            execution_locality="local",
+            invocation_default="automatic",
+            risk_level="R0_safe_read",
+        ),
+        runtime_adapter="callable",
+    )
+)
+skill_control.register(
+    SkillRegistryEntry(
+        skill_id="system.app_config",
+        name="System App Config",
+        immutable_interface=True,
+        active_version="1.0.0",
+        versions=[SkillVersion(version="1.0.0", content="system app config handler")],
+        dependencies=[],
+        capability_profile=SkillCapabilityProfile(
+            intelligence_level="L0_deterministic",
+            network_requirement="N0_none",
+            runtime_criticality="C2_required_runtime",
+            execution_locality="local",
+            invocation_default="automatic",
+            risk_level="R1_local_write",
+        ),
+        runtime_adapter="callable",
+    )
+)
+skill_control.register(
+    SkillRegistryEntry(
+        skill_id="system.state",
+        name="System State",
+        immutable_interface=True,
+        active_version="1.0.0",
+        versions=[SkillVersion(version="1.0.0", content="system state handler")],
+        dependencies=[],
+        capability_profile=SkillCapabilityProfile(
+            intelligence_level="L0_deterministic",
+            network_requirement="N0_none",
+            runtime_criticality="C2_required_runtime",
+            execution_locality="local",
+            invocation_default="automatic",
+            risk_level="R1_local_write",
+        ),
+        runtime_adapter="callable",
+    )
+)
+skill_control.register(
+    SkillRegistryEntry(
+        skill_id="system.audit",
+        name="System Audit",
+        immutable_interface=True,
+        active_version="1.0.0",
+        versions=[SkillVersion(version="1.0.0", content="system audit handler")],
+        dependencies=[],
+        capability_profile=SkillCapabilityProfile(
+            intelligence_level="L0_deterministic",
+            network_requirement="N0_none",
+            runtime_criticality="C2_required_runtime",
+            execution_locality="local",
+            invocation_default="automatic",
+            risk_level="R1_local_write",
+        ),
+        runtime_adapter="callable",
+    )
+)
+skill_control.register(
+    SkillRegistryEntry(
+        skill_id="system.context",
+        name="System Context",
+        immutable_interface=True,
+        active_version="1.0.0",
+        versions=[SkillVersion(version="1.0.0", content="system context handler")],
+        dependencies=[],
+        capability_profile=SkillCapabilityProfile(
+            intelligence_level="L0_deterministic",
+            network_requirement="N0_none",
+            runtime_criticality="C2_required_runtime",
+            execution_locality="local",
+            invocation_default="automatic",
+            risk_level="R1_local_write",
+        ),
+        runtime_adapter="callable",
+    )
+)
 workflow_executor = WorkflowExecutorService(
     registry=app_registry,
     lifecycle=lifecycle,
@@ -229,6 +324,15 @@ skill_control.register(
         active_version="1.0.0",
         versions=[SkillVersion(version="1.0.0", content="protected control surface")],
         dependencies=[],
+        capability_profile=SkillCapabilityProfile(
+            intelligence_level="L0_deterministic",
+            network_requirement="N0_none",
+            runtime_criticality="build_and_runtime_governance",
+            execution_locality="local",
+            invocation_default="automatic",
+            risk_level="R1_local_write",
+        ),
+        runtime_adapter="callable",
     )
 )
 app_registry.register_blueprint(

@@ -1,6 +1,6 @@
 import pytest
 
-from app.models.skill_control import SkillRegistryEntry, SkillVersion
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.services.skill_control import SkillControlError, SkillControlService
 
 
@@ -12,6 +12,15 @@ def build_entry(skill_id: str = "router.skill", immutable: bool = False) -> Skil
         active_version="1.0.0",
         versions=[SkillVersion(version="1.0.0", content="initial")],
         dependencies=["experience.index"],
+        capability_profile=SkillCapabilityProfile(
+            intelligence_level="L1_assisted",
+            network_requirement="N0_none",
+            runtime_criticality="C0_build_only",
+            execution_locality="local",
+            invocation_default="ask_user",
+            risk_level="R0_safe_read",
+        ),
+        runtime_adapter="callable",
     )
 
 
@@ -23,6 +32,7 @@ def test_list_and_get_skills() -> None:
 
     assert len(skills) == 1
     assert service.get_skill("router.skill").active_version == "1.0.0"
+    assert service.get_skill("router.skill").capability_profile.intelligence_level == "L1_assisted"
 
 
 def test_replace_skill_creates_new_active_version() -> None:

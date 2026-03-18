@@ -918,3 +918,28 @@ Moved the core-skill principle table into its own dedicated document so future s
 - future core skills should be reviewed against one dedicated canonical reference document
 - the skill design principles should remain stable and discoverable outside the broader architecture doc
 - core skill roles, locality, intelligence posture, and contract strictness should stay explicit
+
+## 2026-03-18
+
+### Module: minimal skill metadata and capability profile registration
+
+Started moving skills from symbolic names toward structured runtime metadata.
+
+#### Implemented
+- extended `SkillRegistryEntry` with:
+  - `capability_profile`
+  - `runtime_adapter`
+- introduced `SkillCapabilityProfile` with:
+  - intelligence level
+  - network requirement
+  - runtime criticality
+  - execution locality
+  - invocation default
+  - risk level
+- registered built-in system skills and `skill.echo` with explicit capability metadata in the API bootstrap layer
+- added test coverage verifying skill metadata is exposed through the skill listing API
+
+#### Design intent clarified
+- skills should no longer be treated as names only once they become runtime-visible
+- capability metadata should be present before full manifest/contract work begins
+- built-in system skills should model the same metadata shape expected of future skills
