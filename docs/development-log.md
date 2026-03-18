@@ -1016,3 +1016,15 @@ Promoted the script adapter from placeholder status to a minimal runnable execut
 - script adapter support should be real, not nominal
 - the first supported non-callable adapter should stay narrow and deterministic
 - JSON request/response envelopes are the foundation for future adapter expansion
+
+### Module: context runtime view serialization hardening
+
+Identified a hang during pytest shutdown around context/runtime-view serialization and made the context skill return path more defensive.
+
+#### Implemented
+- hardened `list_runtime_view` to return plain JSON-friendly dict payloads
+- added a targeted regression test for JSON serialization of context runtime views
+
+#### Design intent clarified
+- system skill outputs should be aggressively normalized to JSON-friendly payloads
+- runtime/view helper paths should avoid leaking nested model objects into higher-level serialization
