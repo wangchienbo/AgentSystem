@@ -62,6 +62,7 @@ def test_rollback_skill_switches_active_version() -> None:
     entry = build_entry()
     entry.versions.append(SkillVersion(version="1.1.0", content="updated"))
     entry.active_version = "1.1.0"
+    entry.manifest.version = "1.1.0"
     service.register(entry)
 
     result = service.rollback_skill("router.skill", "1.0.0")
@@ -80,6 +81,15 @@ def test_disable_and_enable_skill() -> None:
 
     assert disabled.status == "disabled"
     assert enabled.status == "active"
+
+
+def test_register_rejects_inconsistent_manifest() -> None:
+    service = SkillControlService()
+    entry = build_entry()
+    entry.manifest.version = "9.9.9"
+
+    with pytest.raises(SkillControlError):
+        service.register(entry)
 
 
 def test_immutable_skill_cannot_be_modified() -> None:

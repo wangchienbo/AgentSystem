@@ -959,3 +959,22 @@ Added a minimal manifest layer so registered skills begin to expose package-styl
 - manifest/contract evolution should be gradual and backward compatible
 - capability tags and manifest structure should coexist during migration
 - runtime-visible system skills should expose both operational metadata and package-style identity
+
+### Module: minimal manifest validation on skill registration
+
+Added the first validator layer so manifest structure begins to participate in registration-time checks.
+
+#### Implemented
+- introduced `SkillManifestValidatorService`
+- registration now validates manifest consistency when a manifest is present
+- validator currently checks:
+  - manifest skill id matches registry entry skill id
+  - manifest name matches registry name
+  - manifest version matches active version
+  - manifest runtime adapter matches registry runtime adapter
+- added validator-focused unit tests and a negative registration test
+
+#### Design intent clarified
+- manifest data should not be passive metadata only
+- validation should be incremental and preserve backward compatibility for entries without manifests
+- registration-time checks are the first step toward fuller skill package validation

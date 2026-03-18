@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.models.skill_control import SkillMutationResult, SkillRegistryEntry, SkillVersion
+from app.services.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
 
 
 class SkillControlError(ValueError):
@@ -8,10 +9,15 @@ class SkillControlError(ValueError):
 
 
 class SkillControlService:
-    def __init__(self) -> None:
+    def __init__(self, manifest_validator: SkillManifestValidatorService | None = None) -> None:
         self._skills: dict[str, SkillRegistryEntry] = {}
+        self._manifest_validator = manifest_validator or SkillManifestValidatorService()
 
     def register(self, entry: SkillRegistryEntry) -> SkillRegistryEntry:
+        try:
+            self._manifest_validator.validate(entry)
+        except SkillManifestValidationError as error:
+            raise SkillControlError(str(error)) from error
         self._skills[entry.skill_id] = entry
         return entry
 
