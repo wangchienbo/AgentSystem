@@ -36,6 +36,9 @@ The system should:
 - treat **Skill** as a reusable capability unit, not the default product unit
 - prefer deterministic modules over LLM use
 - use intelligent skills only for semantic, analytic, or generative steps
+- distinguish network availability from intelligence availability
+- treat intelligence invocation as a governed runtime policy decision rather than a default behavior whenever a model is reachable
+- infer app runtime class and startup behavior from skill metadata instead of requiring users to manually choose low-level capability profiles
 - maintain explicit boundaries between:
   - blueprint definition
   - app installation
@@ -53,6 +56,14 @@ A deterministic foundation capability such as file, state, event, auth, or confi
 
 ### 3.2 Skill
 A reusable capability asset that may rely on rule logic or LLM reasoning. Skills can be versioned, replaced, disabled, and suggested from experience.
+
+Each skill should also support internal capability metadata so the system can classify:
+- intelligence level
+- network requirement
+- runtime criticality (`build_only | optional_runtime | required_runtime`)
+- execution locality (`local | hybrid | remote`)
+- invocation default (`automatic | ask_user | explicit_only`)
+- risk level
 
 ### 3.3 App Blueprint
 A structured app definition template describing:
@@ -82,6 +93,9 @@ A structured policy describing:
 - restart policy
 - persistence level
 - idle strategy
+- network behavior
+- intelligence behavior
+- invocation governance for optional intelligent steps
 
 ### 3.6 Experience
 A structured record of useful operational knowledge extracted from documents, demonstrations, runtime, or human notes.
@@ -219,7 +233,63 @@ The system must create and manage explicit namespaces for:
 
 It must support listing namespaces and writing/reading data records.
 
-### 5.11 App shared context
+### 5.11 System default skills and app configuration
+Each installed app must receive a minimal built-in system skill set that does not depend on external intelligence or network availability.
+
+The current expected baseline includes:
+- `system.app_config`
+- `system.context`
+- `system.state`
+- `system.audit`
+
+The system must support a per-app configuration surface controlled through `system.app_config` for:
+- config read
+- config write
+- config patch
+- config delete
+- default initialization
+- schema validation
+- config change history
+
+The platform should inject these system skills during installation rather than requiring end users to declare them manually.
+
+### 5.12 Skill classification and app profile resolution
+The system must classify skills internally from their declared or inferred capability metadata.
+
+It must support deriving an app-level runtime profile from the installed skill set, including at least:
+- highest runtime intelligence level among active runtime skills
+- runtime network requirement (`none | optional | required`)
+- offline capability
+- default startup class
+- default intelligent invocation posture
+
+The app-level runtime profile should be inferred by the platform and should not require end users to manually assign technical runtime classes.
+
+### 5.13 Offline capability and direct start
+The system must distinguish:
+- network availability
+- intelligence availability
+- intelligent invocation policy
+
+An app that does not require intelligence for runtime execution should be able to start directly without AI mediation.
+
+The system must support at least these runtime outcomes:
+- fully direct start for deterministic/offline-capable apps
+- direct start with optional intelligent enhancement
+- intelligent start only when runtime-critical skills require it
+
+### 5.14 Intelligent invocation governance
+The system must avoid calling intelligent skills by default merely because model access is configured.
+
+It must prefer deterministic execution first and only invoke intelligence when:
+- the step requires it
+- the runtime policy allows it
+- the cost / token policy allows it
+- user confirmation is obtained when required by policy
+
+The system should support a default ask-before-intelligence posture for optional or token-spending intelligent steps.
+
+### 5.15 App shared context
 The system must support app-local shared context that is independent from the user-facing control AI context.
 
 Each app shared context must support at least:
@@ -240,21 +310,66 @@ The system must support:
 - appending structured context entries
 - listing and retrieving app contexts
 
-### 5.12 Event bus
+### 5.16 Event bus
 The system must support:
 - publishing internal events
 - recording event logs
 - registering subscriptions
 - triggering event schedules from published events
 
-### 5.12 Practice review
+### 5.17 Skill packaging, contracts, and runtime adapters
+The system must treat a skill as a runnable capability package rather than only a symbolic dependency name.
+
+Each skill should support a machine-readable package/manifest describing at least:
+- identity and version
+- capability metadata
+- runtime adapter type
+- input/output/error contracts
+- dependency declarations
+- validation assets/examples
+
+The runtime adapter model should support at least these execution styles:
+- in-process callable
+- local script with structured input/output
+- RPC service
+- binary executable
+- frontend or human-interaction adapter where applicable
+
+### 5.18 Skill orchestration and dispatch
+The system must support orchestrated skill execution through a unified runtime surface.
+
+The platform should prefer orchestrator-mediated skill dispatch over uncontrolled skill-to-skill direct calls so it can enforce:
+- input/output validation
+- timeout policy
+- retry policy
+- observability and audit
+- network / intelligence invocation governance
+- dependency and permission checks
+
+### 5.19 Skill and app validation
+The system must validate both skills and apps before runtime activation.
+
+Skill-level validation should check at least:
+- manifest completeness
+- contract/schema validity
+- runtime adapter resolvability
+- compatibility between declared capability tags and actual execution form
+
+App-level validation should check at least:
+- required skill existence
+- workflow step / skill contract compatibility
+- input/output mapping compatibility between steps
+- consistency between app runtime posture and runtime-capable skill set
+- build-only skill leakage into runtime execution paths
+
+### 5.20 Practice review
 The system must support reviewing a runtime practice episode by combining:
 - recent event log
 - data records
 
 and distilling them into an `ExperienceRecord`.
 
-### 5.13 Experience-to-skill suggestion
+### 5.21 Experience-to-skill suggestion
 The system must support generating a candidate `SkillBlueprint` from a stored `ExperienceRecord`, optionally persisting it.
 
 ---

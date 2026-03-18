@@ -10,6 +10,8 @@ The testing goal is not only to validate isolated functions, but to verify that 
 - scheduling and supervision
 - data namespace isolation
 - app-local shared context
+- app configuration and default system skills
+- skill classification and app-profile resolution
 - event-driven runtime behavior
 - practice-to-experience distillation
 - experience-to-skill suggestion
@@ -157,7 +159,7 @@ Covered behavior:
 
 At the time of this document update:
 - automated local test suite passes
-- current result: `78 passed`
+- current result: `81 passed`
 
 This indicates the implemented milestone is internally consistent at the current level of scope.
 
@@ -210,6 +212,24 @@ Required checks:
 - runtime practice becomes experience
 - experience becomes skill suggestion
 - persistence option works as expected
+
+## 5.8 Capability-classification and invocation-governance tests
+Required checks:
+- deterministic system skills are injected for every app install
+- app config surface is initialized and isolated per app
+- runtime profile is resolved from runtime-capable skills rather than build-only skills
+- offline-capable apps can direct-start without intelligence availability
+- optional intelligent steps respect ask-before-intelligence policy
+- network availability and intelligence availability are evaluated independently
+
+## 5.9 Skill package / contract / adapter validation tests
+Required checks:
+- skill manifests are rejected when required metadata or contract references are missing
+- input/output examples satisfy declared schemas
+- callable/script/rpc/binary adapter declarations resolve correctly
+- declared capability tags remain consistent with runtime form
+- workflow skill steps fail validation when upstream/downstream contracts do not align
+- build-only skills are rejected from runtime execution paths
 
 ---
 
