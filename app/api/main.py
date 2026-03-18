@@ -2,53 +2,36 @@ from fastapi import FastAPI
 
 from app.core.errors import map_domain_error
 
-from app.services.requirement_router import RequirementRouter
-from app.services.skill_control import SkillControlService
-from app.services.experience_store import ExperienceStore
-from app.services.demonstration_extractor import DemonstrationExtractor
-from app.services.lifecycle import AppLifecycleService, LifecycleError
-from app.services.runtime_host import AppRuntimeHostService, RuntimeHostError
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.scheduler import SchedulerService, SchedulerError
-from app.services.supervisor import SupervisorService, SupervisorError
-from app.services.app_catalog import AppCatalogService, AppCatalogError
-from app.services.app_context_store import AppContextStore, AppContextStoreError
-from app.services.app_data_store import AppDataStore, AppDataStoreError
-from app.services.app_registry import AppRegistryService, AppRegistryError
-from app.services.app_installer import AppInstallerService, AppInstallerError
-from app.services.app_config_service import AppConfigService, AppConfigError
-from app.services.system_skill_service import SystemAuditService, SystemStateService
-from app.services.context_skill_service import ContextSkillService
-from app.services.app_profile_resolver import AppProfileResolverService
-from app.services.system_skill_registry import register_builtin_handlers, register_builtin_skills
-from app.services.event_bus import EventBusService, EventBusError
-from app.services.interaction_gateway import InteractionGateway
-from app.services.practice_review import PracticeReviewService, PracticeReviewError
-from app.services.priority_analysis import PriorityAnalysisService, PriorityAnalysisError
-from app.services.proposal_review import ProposalReviewService, ProposalReviewError
-from app.services.self_refinement import SelfRefinementService, SelfRefinementError
-from app.services.skill_suggestion import SkillSuggestionService, SkillSuggestionError
-from app.services.model_skill_suggester import ModelSkillSuggester
-from app.services.model_self_refiner import ModelSelfRefiner
-from app.services.workflow_executor import WorkflowExecutorService, WorkflowExecutorError
-from app.services.workflow_subscription import WorkflowSubscriptionService, WorkflowSubscriptionError
-from app.services.skill_runtime import SkillRuntimeService, SkillRuntimeError
-from app.services.context_compaction import ContextCompactionService, ContextCompactionError
+from app.bootstrap.runtime import build_runtime
+from app.bootstrap.skills import bootstrap_builtin_skills
+from app.services.lifecycle import LifecycleError
+from app.services.runtime_host import RuntimeHostError
+from app.services.scheduler import SchedulerError
+from app.services.supervisor import SupervisorError
+from app.services.app_catalog import AppCatalogError
+from app.services.app_context_store import AppContextStoreError
+from app.services.app_data_store import AppDataStoreError
+from app.services.app_registry import AppRegistryError
+from app.services.app_installer import AppInstallerError
+from app.services.app_config_service import AppConfigError
+from app.services.event_bus import EventBusError
+from app.services.practice_review import PracticeReviewError
+from app.services.priority_analysis import PriorityAnalysisError
+from app.services.proposal_review import ProposalReviewError
+from app.services.self_refinement import SelfRefinementError
+from app.services.skill_suggestion import SkillSuggestionError
+from app.services.workflow_executor import WorkflowExecutorError
+from app.services.workflow_subscription import WorkflowSubscriptionError
+from app.services.skill_runtime import SkillRuntimeError
+from app.services.context_compaction import ContextCompactionError
 from app.models.event_bus import EventSubscription
 from app.models.workflow_subscription import WorkflowEventSubscription
-from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.context_policy import ContextCompactionPolicy
-from app.models.app_config import AppConfigRequest
-from app.models.system_skill import SystemAuditRequest, SystemStateRequest
-from app.models.context_skill import ContextSkillRequest
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
-from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
-from app.models.skill_manifest import SkillManifest, SkillContractRef
-from app.models.skill_adapter import SkillAdapterSpec
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.demonstration import DemonstrationRecord
@@ -89,151 +72,38 @@ def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
     }
 
 
-router = RequirementRouter()
-skill_control = SkillControlService()
-app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
-experience_store = ExperienceStore()
-demonstration_extractor = DemonstrationExtractor()
-runtime_store = RuntimeStateStore()
-app_data_store = AppDataStore(store=runtime_store)
-app_data_store.ensure_skill_asset_namespace()
-app_config_service = AppConfigService(data_store=app_data_store, store=runtime_store)
-system_state_service = SystemStateService(data_store=app_data_store, store=runtime_store)
-system_audit_service = SystemAuditService(data_store=app_data_store, store=runtime_store)
-lifecycle = AppLifecycleService(store=runtime_store)
-runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
-app_context_store = AppContextStore(lifecycle=lifecycle, store=runtime_store, runtime_host=runtime_host)
-scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host, store=runtime_store)
-event_bus = EventBusService(scheduler=scheduler, store=runtime_store)
-supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
-context_skill_service = ContextSkillService(context_store=app_context_store)
-practice_review = PracticeReviewService(
-    event_bus=event_bus,
-    data_store=app_data_store,
-    experience_store=experience_store,
-    context_store=app_context_store,
-)
-model_skill_suggester = ModelSkillSuggester()
-skill_suggestion = SkillSuggestionService(experience_store=experience_store, model_suggester=model_skill_suggester)
-app_registry = AppRegistryService(store=runtime_store)
-model_self_refiner = ModelSelfRefiner()
-self_refinement = SelfRefinementService(
-    experience_store=experience_store,
-    registry=app_registry,
-    lifecycle=lifecycle,
-    model_self_refiner=model_self_refiner,
-    context_store=app_context_store,
-)
-proposal_review = ProposalReviewService(
-    lifecycle=lifecycle,
-    store=runtime_store,
-    context_store=app_context_store,
-)
-priority_analysis = PriorityAnalysisService(
-    proposal_review=proposal_review,
-    context_store=app_context_store,
-)
-app_installer = AppInstallerService(
-    registry=app_registry,
-    lifecycle=lifecycle,
-    runtime_host=runtime_host,
-    data_store=app_data_store,
-    context_store=app_context_store,
-    app_config_service=app_config_service,
-    app_profile_resolver=app_profile_resolver,
-)
-app_catalog = AppCatalogService()
-skill_runtime = SkillRuntimeService(store=runtime_store)
+services = build_runtime()
+router = services["router"]
+skill_control = services["skill_control"]
+experience_store = services["experience_store"]
+demonstration_extractor = services["demonstration_extractor"]
+runtime_store = services["runtime_store"]
+app_data_store = services["app_data_store"]
+app_config_service = services["app_config_service"]
+system_state_service = services["system_state_service"]
+system_audit_service = services["system_audit_service"]
+lifecycle = services["lifecycle"]
+runtime_host = services["runtime_host"]
+app_context_store = services["app_context_store"]
+scheduler = services["scheduler"]
+event_bus = services["event_bus"]
+supervisor = services["supervisor"]
+context_skill_service = services["context_skill_service"]
+practice_review = services["practice_review"]
+skill_suggestion = services["skill_suggestion"]
+app_registry = services["app_registry"]
+self_refinement = services["self_refinement"]
+proposal_review = services["proposal_review"]
+priority_analysis = services["priority_analysis"]
+app_installer = services["app_installer"]
+app_catalog = services["app_catalog"]
+skill_runtime = services["skill_runtime"]
+workflow_executor = services["workflow_executor"]
+workflow_subscription = services["workflow_subscription"]
+context_compaction = services["context_compaction"]
+interaction_gateway = services["interaction_gateway"]
 
-
-def _demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
-    payload = request.config.get("payload", request.inputs)
-    return SkillExecutionResult(
-        skill_id=request.skill_id,
-        status="completed",
-        output={"echo": payload, "inputs": request.inputs, "step_id": request.step_id},
-    )
-
-
-def _system_app_config_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
-    config_request = AppConfigRequest(**request.inputs)
-    result = app_config_service.execute(request.app_instance_id, config_request)
-    return SkillExecutionResult(
-        skill_id=request.skill_id,
-        status="completed",
-        output=result.model_dump(mode="json"),
-    )
-
-
-def _system_state_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
-    state_request = SystemStateRequest(**request.inputs)
-    result = system_state_service.execute(request.app_instance_id, state_request)
-    return SkillExecutionResult(
-        skill_id=request.skill_id,
-        status="completed",
-        output=result.model_dump(mode="json"),
-    )
-
-
-def _system_audit_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
-    audit_request = SystemAuditRequest(**request.inputs)
-    result = system_audit_service.record(request.app_instance_id, audit_request)
-    return SkillExecutionResult(
-        skill_id=request.skill_id,
-        status="completed",
-        output=result.model_dump(mode="json"),
-    )
-
-
-def _system_context_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
-    context_request = ContextSkillRequest(**request.inputs)
-    result = context_skill_service.execute(request.app_instance_id, context_request)
-    return SkillExecutionResult(
-        skill_id=request.skill_id,
-        status="completed",
-        output=result,
-    )
-
-
-register_builtin_skills(skill_control)
-register_builtin_handlers(
-    skill_runtime,
-    {
-        "skill.echo": _demo_echo_skill,
-        "system.app_config": _system_app_config_skill,
-        "system.state": _system_state_skill,
-        "system.audit": _system_audit_skill,
-        "system.context": _system_context_skill,
-    },
-    skill_control,
-)
-workflow_executor = WorkflowExecutorService(
-    registry=app_registry,
-    lifecycle=lifecycle,
-    data_store=app_data_store,
-    event_bus=event_bus,
-    context_store=app_context_store,
-    skill_runtime=skill_runtime,
-    store=runtime_store,
-)
-workflow_subscription = WorkflowSubscriptionService(
-    workflow_executor=workflow_executor,
-    store=runtime_store,
-)
-context_compaction = ContextCompactionService(
-    app_context_store=app_context_store,
-    workflow_executor=workflow_executor,
-    store=runtime_store,
-)
-workflow_executor._context_compaction = context_compaction
-interaction_gateway = InteractionGateway(
-    catalog=app_catalog,
-    router=router,
-    lifecycle=lifecycle,
-    runtime_host=runtime_host,
-    installer=app_installer,
-    context_store=app_context_store,
-)
+bootstrap_builtin_skills(skill_runtime, services)
 app_registry.register_blueprint(
     AppBlueprint(
         id="bp.workspace.assistant",

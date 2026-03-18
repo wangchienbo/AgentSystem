@@ -1042,3 +1042,20 @@ Reduced duplication in the API bootstrap layer by extracting built-in skill regi
 #### Design intent clarified
 - bootstrap wiring should stay readable as the number of built-in skills grows
 - system skill definitions should be centralized to reduce drift between metadata and handler registration
+
+### Module: bootstrap extraction for runtime construction and built-in handlers
+
+Further reduced `app/api/main.py` complexity by extracting service construction and built-in handler assembly into dedicated bootstrap modules.
+
+#### Added
+- `app/bootstrap/runtime.py`
+- `app/bootstrap/skills.py`
+
+#### Implemented
+- moved service graph construction into `build_runtime()`
+- moved built-in handler creation/wiring into `bootstrap_builtin_skills()`
+- reduced `main.py` to mostly composition and route declarations
+
+#### Design intent clarified
+- runtime bootstrap and API route declaration should evolve independently
+- service graph construction should be centralized for easier future refactors and testing
