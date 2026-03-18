@@ -978,3 +978,20 @@ Added the first validator layer so manifest structure begins to participate in r
 - manifest data should not be passive metadata only
 - validation should be incremental and preserve backward compatibility for entries without manifests
 - registration-time checks are the first step toward fuller skill package validation
+
+### Module: minimal runtime adapter model
+
+Added the first explicit adapter-spec layer so runtime adapter intent begins to exist separately from plain string labels.
+
+#### Implemented
+- introduced `SkillAdapterSpec`
+- extended `SkillManifest` with `adapter`
+- validator now checks adapter-kind alignment with runtime adapter
+- `SkillRuntimeService` now distinguishes callable vs script adapters
+- script adapters are recognized but intentionally fail with a clear not-implemented error
+- added unit coverage for callable execution and script-adapter rejection
+
+#### Design intent clarified
+- runtime adapters should become first-class execution specs rather than opaque strings
+- adapter evolution can proceed incrementally without pretending unsupported adapters already work
+- explicit not-implemented behavior is better than silently treating every adapter like callable

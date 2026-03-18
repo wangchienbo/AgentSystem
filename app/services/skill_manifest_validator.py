@@ -20,6 +20,12 @@ class SkillManifestValidatorService:
             raise SkillManifestValidationError("Manifest version must match active_version")
         if manifest.runtime_adapter != entry.runtime_adapter:
             raise SkillManifestValidationError("Manifest runtime_adapter must match registry runtime_adapter")
+        if manifest.adapter.kind != manifest.runtime_adapter:
+            raise SkillManifestValidationError("Manifest adapter kind must match manifest runtime_adapter")
+        if manifest.runtime_adapter == "callable" and not isinstance(manifest.adapter.entry, str):
+            raise SkillManifestValidationError("Callable adapter entry must be a string")
+        if manifest.runtime_adapter == "script" and not isinstance(manifest.adapter.command, list):
+            raise SkillManifestValidationError("Script adapter command must be a list")
         contract = manifest.contract
         if not isinstance(contract.input_schema_ref, str) or not isinstance(contract.output_schema_ref, str) or not isinstance(contract.error_schema_ref, str):
             raise SkillManifestValidationError("Manifest contract refs must be strings")

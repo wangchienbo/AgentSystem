@@ -2,6 +2,7 @@ import pytest
 
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillContractRef, SkillManifest
+from app.models.skill_adapter import SkillAdapterSpec
 from app.services.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
 
 
@@ -20,6 +21,7 @@ def build_entry() -> SkillRegistryEntry:
             version="1.0.0",
             description="validator test",
             runtime_adapter="callable",
+            adapter=SkillAdapterSpec(kind="callable", entry="app.handlers:test"),
             contract=SkillContractRef(input_schema_ref="", output_schema_ref="", error_schema_ref=""),
             tags=["system"],
         ),

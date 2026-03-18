@@ -47,6 +47,7 @@ from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillManifest, SkillContractRef
+from app.models.skill_adapter import SkillAdapterSpec
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.demonstration import DemonstrationRecord
@@ -221,6 +222,7 @@ skill_control.register(
             version="1.0.0",
             description="Simple deterministic echo skill",
             runtime_adapter="callable",
+            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_demo_echo_skill"),
             contract=SkillContractRef(),
             tags=["demo", "deterministic"],
         ),
@@ -249,6 +251,7 @@ skill_control.register(
             version="1.0.0",
             description="Deterministic per-app configuration access",
             runtime_adapter="callable",
+            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_app_config_skill"),
             contract=SkillContractRef(),
             tags=["system", "config"],
         ),
@@ -277,6 +280,7 @@ skill_control.register(
             version="1.0.0",
             description="Deterministic runtime state access",
             runtime_adapter="callable",
+            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_state_skill"),
             contract=SkillContractRef(),
             tags=["system", "state"],
         ),
@@ -305,6 +309,7 @@ skill_control.register(
             version="1.0.0",
             description="Structured audit trail recording",
             runtime_adapter="callable",
+            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_audit_skill"),
             contract=SkillContractRef(),
             tags=["system", "audit"],
         ),
@@ -333,6 +338,7 @@ skill_control.register(
             version="1.0.0",
             description="Deterministic shared context access",
             runtime_adapter="callable",
+            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_context_skill"),
             contract=SkillContractRef(),
             tags=["system", "context"],
         ),
@@ -388,6 +394,7 @@ skill_control.register(
             version="1.0.0",
             description="Protected control surface for skill lifecycle",
             runtime_adapter="callable",
+            adapter=SkillAdapterSpec(kind="callable", entry="app.services.skill_control:SkillControlService"),
             contract=SkillContractRef(),
             tags=["system", "governance"],
         ),
