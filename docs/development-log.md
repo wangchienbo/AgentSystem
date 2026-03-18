@@ -1075,3 +1075,25 @@ Moved demo blueprint registration and catalog seeding out of `app/api/main.py` s
 #### Design intent clarified
 - sample/demo bootstrapping should remain easy to find without cluttering API route definitions
 - bootstrap data and runtime wiring should stay separated from route implementation details
+
+### Module: organize system skill services under a dedicated directory
+
+Grouped the platform default skill implementations into a clearer service subtree while keeping old import paths as compatibility wrappers.
+
+#### Added
+- `app/services/system_skills/app_config.py`
+- `app/services/system_skills/state_audit.py`
+- `app/services/system_skills/context.py`
+- `app/services/system_skills/README.md`
+
+#### Updated
+- `app/services/app_config_service.py`
+- `app/services/system_skill_service.py`
+- `app/services/context_skill_service.py`
+  - now act as thin compatibility exports
+- `TOOLS.md`
+  - notes the new system-skill directory layout
+
+#### Design intent clarified
+- default system skills should be easy to find as one family of services
+- migration should preserve existing imports while improving layout

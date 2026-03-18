@@ -105,3 +105,4 @@ Recommended git flow:
 - Top-level `/root/project/README.md` may be absent; the active README is the repo-local one in this project.
 - `pytest` may not exist in the host shell unless `.venv` is activated first.
 - `data/runtime/*.json` modifications may just reflect execution/test activity rather than unfinished source work.
+- System-skill implementations are now grouped under `app/services/system_skills/`; keep wrappers in the old paths only for import compatibility during migration.
