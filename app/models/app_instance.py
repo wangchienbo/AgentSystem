@@ -28,3 +28,5 @@ class AppInstance(BaseModel):
     data_namespace: str
     execution_mode: Literal["service", "pipeline"] = "service"
     runtime_policy: RuntimePolicy = Field(default_factory=RuntimePolicy)
+    system_skills: list[str] = Field(default_factory=list)
+    resolved_skills: list[str] = Field(default_factory=list)

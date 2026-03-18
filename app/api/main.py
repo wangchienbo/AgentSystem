@@ -16,6 +16,7 @@ from app.services.app_context_store import AppContextStore, AppContextStoreError
 from app.services.app_data_store import AppDataStore, AppDataStoreError
 from app.services.app_registry import AppRegistryService, AppRegistryError
 from app.services.app_installer import AppInstallerService, AppInstallerError
+from app.services.app_config_service import AppConfigService, AppConfigError
 from app.services.event_bus import EventBusService, EventBusError
 from app.services.interaction_gateway import InteractionGateway
 from app.services.practice_review import PracticeReviewService, PracticeReviewError
@@ -33,6 +34,7 @@ from app.models.event_bus import EventSubscription
 from app.models.workflow_subscription import WorkflowEventSubscription
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.context_policy import ContextCompactionPolicy
+from app.models.app_config import AppConfigRequest
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
@@ -86,6 +88,7 @@ demonstration_extractor = DemonstrationExtractor()
 runtime_store = RuntimeStateStore()
 app_data_store = AppDataStore(store=runtime_store)
 app_data_store.ensure_skill_asset_namespace()
+app_config_service = AppConfigService(data_store=app_data_store, store=runtime_store)
 lifecycle = AppLifecycleService(store=runtime_store)
 runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
 app_context_store = AppContextStore(lifecycle=lifecycle, store=runtime_store, runtime_host=runtime_host)
@@ -124,6 +127,7 @@ app_installer = AppInstallerService(
     runtime_host=runtime_host,
     data_store=app_data_store,
     context_store=app_context_store,
+    app_config_service=app_config_service,
 )
 app_catalog = AppCatalogService()
 skill_runtime = SkillRuntimeService(store=runtime_store)
@@ -138,7 +142,18 @@ def _demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
     )
 
 
+def _system_app_config_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+    config_request = AppConfigRequest(**request.inputs)
+    result = app_config_service.execute(request.app_instance_id, config_request)
+    return SkillExecutionResult(
+        skill_id=request.skill_id,
+        status="completed",
+        output=result.model_dump(mode="json"),
+    )
+
+
 skill_runtime.register_handler("skill.echo", _demo_echo_skill)
+skill_runtime.register_handler("system.app_config", _system_app_config_skill)
 workflow_executor = WorkflowExecutorService(
     registry=app_registry,
     lifecycle=lifecycle,

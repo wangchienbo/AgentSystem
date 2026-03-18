@@ -8,6 +8,7 @@ from app.services.app_registry import AppRegistryService
 from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
+from app.services.app_config_service import AppConfigService
 
 
 client = TestClient(app)
@@ -49,7 +50,8 @@ def test_installer_creates_instance_with_runtime_policy() -> None:
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     data_store = AppDataStore(base_dir="data/test-installer-ns", store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
+    app_config = AppConfigService(data_store=data_store, store=store)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store, app_config_service=app_config)
     registry.register_blueprint(build_blueprint(execution_mode="pipeline"))
 
     result = installer.install_app("bp.test.registry", user_id="user.install")
@@ -58,6 +60,10 @@ def test_installer_creates_instance_with_runtime_policy() -> None:
     assert result.status == "installed"
     assert instance.execution_mode == "pipeline"
     assert instance.runtime_policy.execution_mode == "pipeline"
+    assert "system.app_config" in instance.system_skills
+    assert "system.app_config" in instance.resolved_skills
+    snapshot = app_config.get_snapshot(result.app_instance_id)
+    assert snapshot.values["app"]["blueprint_id"] == "bp.test.registry"
 
 
 def test_registry_and_install_api_flow() -> None:
