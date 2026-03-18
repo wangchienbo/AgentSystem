@@ -918,3 +918,80 @@ Moved the core-skill principle table into its own dedicated document so future s
 - future core skills should be reviewed against one dedicated canonical reference document
 - the skill design principles should remain stable and discoverable outside the broader architecture doc
 - core skill roles, locality, intelligence posture, and contract strictness should stay explicit
+
+## 2026-03-18
+
+### Module: minimal skill metadata and capability profile registration
+
+Started moving skills from symbolic names toward structured runtime metadata.
+
+#### Implemented
+- extended `SkillRegistryEntry` with:
+  - `capability_profile`
+  - `runtime_adapter`
+- introduced `SkillCapabilityProfile` with:
+  - intelligence level
+  - network requirement
+  - runtime criticality
+  - execution locality
+  - invocation default
+  - risk level
+- registered built-in system skills and `skill.echo` with explicit capability metadata in the API bootstrap layer
+- added test coverage verifying skill metadata is exposed through the skill listing API
+
+#### Design intent clarified
+- skills should no longer be treated as names only once they become runtime-visible
+- capability metadata should be present before full manifest/contract work begins
+- built-in system skills should model the same metadata shape expected of future skills
+
+### Module: minimal skill manifest and contract references
+
+Added a minimal manifest layer so registered skills begin to expose package-style structure in addition to capability tags.
+
+#### Implemented
+- introduced `SkillManifest`
+- introduced `SkillContractRef`
+- extended `SkillRegistryEntry` with optional `manifest`
+- registered built-in system skills and demo skill with minimal manifests
+- added tests verifying manifests are exposed via the skill listing API
+
+#### Design intent clarified
+- manifest/contract evolution should be gradual and backward compatible
+- capability tags and manifest structure should coexist during migration
+- runtime-visible system skills should expose both operational metadata and package-style identity
+
+### Module: minimal manifest validation on skill registration
+
+Added the first validator layer so manifest structure begins to participate in registration-time checks.
+
+#### Implemented
+- introduced `SkillManifestValidatorService`
+- registration now validates manifest consistency when a manifest is present
+- validator currently checks:
+  - manifest skill id matches registry entry skill id
+  - manifest name matches registry name
+  - manifest version matches active version
+  - manifest runtime adapter matches registry runtime adapter
+- added validator-focused unit tests and a negative registration test
+
+#### Design intent clarified
+- manifest data should not be passive metadata only
+- validation should be incremental and preserve backward compatibility for entries without manifests
+- registration-time checks are the first step toward fuller skill package validation
+
+### Module: minimal runtime adapter model
+
+Added the first explicit adapter-spec layer so runtime adapter intent begins to exist separately from plain string labels.
+
+#### Implemented
+- introduced `SkillAdapterSpec`
+- extended `SkillManifest` with `adapter`
+- validator now checks adapter-kind alignment with runtime adapter
+- `SkillRuntimeService` now distinguishes callable vs script adapters
+- script adapters are recognized but intentionally fail with a clear not-implemented error
+- added unit coverage for callable execution and script-adapter rejection
+
+#### Design intent clarified
+- runtime adapters should become first-class execution specs rather than opaque strings
+- adapter evolution can proceed incrementally without pretending unsupported adapters already work
+- explicit not-implemented behavior is better than silently treating every adapter like callable

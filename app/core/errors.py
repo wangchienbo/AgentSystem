@@ -6,9 +6,12 @@ from app.services.app_catalog import AppCatalogError
 from app.services.app_context_store import AppContextStoreError
 from app.services.app_data_store import AppDataStoreError
 from app.services.app_installer import AppInstallerError
+from app.services.app_config_service import AppConfigError
 from app.services.app_registry import AppRegistryError
 from app.services.event_bus import EventBusError
 from app.services.lifecycle import LifecycleError
+from app.services.system_skill_service import SystemSkillError
+from app.services.context_skill_service import ContextSkillError
 from app.services.practice_review import PracticeReviewError
 from app.services.priority_analysis import PriorityAnalysisError
 from app.services.proposal_review import ProposalReviewError
@@ -16,12 +19,13 @@ from app.services.runtime_host import RuntimeHostError
 from app.services.scheduler import SchedulerError
 from app.services.self_refinement import SelfRefinementError
 from app.services.skill_control import SkillControlError
+from app.services.skill_manifest_validator import SkillManifestValidationError
 from app.services.skill_suggestion import SkillSuggestionError
 from app.services.supervisor import SupervisorError
 
 
 def map_domain_error(error: Exception) -> HTTPException:
-    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, AppContextStoreError, EventBusError, PracticeReviewError, SkillSuggestionError, SelfRefinementError, ProposalReviewError, PriorityAnalysisError)):
+    if isinstance(error, (SkillControlError, SkillManifestValidationError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, AppContextStoreError, AppConfigError, SystemSkillError, ContextSkillError, EventBusError, PracticeReviewError, SkillSuggestionError, SelfRefinementError, ProposalReviewError, PriorityAnalysisError)):
         message = str(error)
         if "not found" in message.lower():
             return HTTPException(status_code=404, detail=message)

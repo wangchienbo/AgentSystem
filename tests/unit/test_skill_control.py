@@ -1,6 +1,7 @@
 import pytest
 
-from app.models.skill_control import SkillRegistryEntry, SkillVersion
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
+from app.models.skill_manifest import SkillManifest, SkillContractRef
 from app.services.skill_control import SkillControlError, SkillControlService
 
 
@@ -12,6 +13,24 @@ def build_entry(skill_id: str = "router.skill", immutable: bool = False) -> Skil
         active_version="1.0.0",
         versions=[SkillVersion(version="1.0.0", content="initial")],
         dependencies=["experience.index"],
+        capability_profile=SkillCapabilityProfile(
+            intelligence_level="L1_assisted",
+            network_requirement="N0_none",
+            runtime_criticality="C0_build_only",
+            execution_locality="local",
+            invocation_default="ask_user",
+            risk_level="R0_safe_read",
+        ),
+        runtime_adapter="callable",
+        manifest=SkillManifest(
+            skill_id=skill_id,
+            name="Requirement Router",
+            version="1.0.0",
+            description="builder assistance",
+            runtime_adapter="callable",
+            contract=SkillContractRef(),
+            tags=["builder"],
+        ),
     )
 
 
@@ -23,6 +42,8 @@ def test_list_and_get_skills() -> None:
 
     assert len(skills) == 1
     assert service.get_skill("router.skill").active_version == "1.0.0"
+    assert service.get_skill("router.skill").capability_profile.intelligence_level == "L1_assisted"
+    assert service.get_skill("router.skill").manifest is not None
 
 
 def test_replace_skill_creates_new_active_version() -> None:
@@ -41,6 +62,7 @@ def test_rollback_skill_switches_active_version() -> None:
     entry = build_entry()
     entry.versions.append(SkillVersion(version="1.1.0", content="updated"))
     entry.active_version = "1.1.0"
+    entry.manifest.version = "1.1.0"
     service.register(entry)
 
     result = service.rollback_skill("router.skill", "1.0.0")
@@ -59,6 +81,15 @@ def test_disable_and_enable_skill() -> None:
 
     assert disabled.status == "disabled"
     assert enabled.status == "active"
+
+
+def test_register_rejects_inconsistent_manifest() -> None:
+    service = SkillControlService()
+    entry = build_entry()
+    entry.manifest.version = "9.9.9"
+
+    with pytest.raises(SkillControlError):
+        service.register(entry)
 
 
 def test_immutable_skill_cannot_be_modified() -> None:
