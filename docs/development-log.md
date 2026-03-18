@@ -1028,3 +1028,17 @@ Identified a hang during pytest shutdown around context/runtime-view serializati
 #### Design intent clarified
 - system skill outputs should be aggressively normalized to JSON-friendly payloads
 - runtime/view helper paths should avoid leaking nested model objects into higher-level serialization
+
+### Module: bootstrap cleanup for built-in skill registration
+
+Reduced duplication in the API bootstrap layer by extracting built-in skill registration and handler wiring into a dedicated helper module.
+
+#### Implemented
+- added `app/services/system_skill_registry.py`
+- moved built-in skill registry entry construction into shared helper functions
+- moved built-in handler registration into a shared helper
+- reduced repeated manifest/capability boilerplate in `app/api/main.py`
+
+#### Design intent clarified
+- bootstrap wiring should stay readable as the number of built-in skills grows
+- system skill definitions should be centralized to reduce drift between metadata and handler registration

@@ -20,6 +20,7 @@ from app.services.app_config_service import AppConfigService, AppConfigError
 from app.services.system_skill_service import SystemAuditService, SystemStateService
 from app.services.context_skill_service import ContextSkillService
 from app.services.app_profile_resolver import AppProfileResolverService
+from app.services.system_skill_registry import register_builtin_handlers, register_builtin_skills
 from app.services.event_bus import EventBusService, EventBusError
 from app.services.interaction_gateway import InteractionGateway
 from app.services.practice_review import PracticeReviewService, PracticeReviewError
@@ -194,155 +195,17 @@ def _system_context_skill(request: SkillExecutionRequest) -> SkillExecutionResul
     )
 
 
-skill_runtime.register_handler("skill.echo", _demo_echo_skill)
-skill_runtime.register_handler("system.app_config", _system_app_config_skill)
-skill_runtime.register_handler("system.state", _system_state_skill)
-skill_runtime.register_handler("system.audit", _system_audit_skill)
-skill_runtime.register_handler("system.context", _system_context_skill)
-
-skill_control.register(
-    SkillRegistryEntry(
-        skill_id="skill.echo",
-        name="Demo Echo Skill",
-        active_version="1.0.0",
-        versions=[SkillVersion(version="1.0.0", content="demo echo handler")],
-        dependencies=[],
-        capability_profile=SkillCapabilityProfile(
-            intelligence_level="L0_deterministic",
-            network_requirement="N0_none",
-            runtime_criticality="C1_optional_runtime",
-            execution_locality="local",
-            invocation_default="automatic",
-            risk_level="R0_safe_read",
-        ),
-        runtime_adapter="callable",
-        manifest=SkillManifest(
-            skill_id="skill.echo",
-            name="Demo Echo Skill",
-            version="1.0.0",
-            description="Simple deterministic echo skill",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_demo_echo_skill"),
-            contract=SkillContractRef(),
-            tags=["demo", "deterministic"],
-        ),
-    )
-)
-skill_control.register(
-    SkillRegistryEntry(
-        skill_id="system.app_config",
-        name="System App Config",
-        immutable_interface=True,
-        active_version="1.0.0",
-        versions=[SkillVersion(version="1.0.0", content="system app config handler")],
-        dependencies=[],
-        capability_profile=SkillCapabilityProfile(
-            intelligence_level="L0_deterministic",
-            network_requirement="N0_none",
-            runtime_criticality="C2_required_runtime",
-            execution_locality="local",
-            invocation_default="automatic",
-            risk_level="R1_local_write",
-        ),
-        runtime_adapter="callable",
-        manifest=SkillManifest(
-            skill_id="system.app_config",
-            name="System App Config",
-            version="1.0.0",
-            description="Deterministic per-app configuration access",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_app_config_skill"),
-            contract=SkillContractRef(),
-            tags=["system", "config"],
-        ),
-    )
-)
-skill_control.register(
-    SkillRegistryEntry(
-        skill_id="system.state",
-        name="System State",
-        immutable_interface=True,
-        active_version="1.0.0",
-        versions=[SkillVersion(version="1.0.0", content="system state handler")],
-        dependencies=[],
-        capability_profile=SkillCapabilityProfile(
-            intelligence_level="L0_deterministic",
-            network_requirement="N0_none",
-            runtime_criticality="C2_required_runtime",
-            execution_locality="local",
-            invocation_default="automatic",
-            risk_level="R1_local_write",
-        ),
-        runtime_adapter="callable",
-        manifest=SkillManifest(
-            skill_id="system.state",
-            name="System State",
-            version="1.0.0",
-            description="Deterministic runtime state access",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_state_skill"),
-            contract=SkillContractRef(),
-            tags=["system", "state"],
-        ),
-    )
-)
-skill_control.register(
-    SkillRegistryEntry(
-        skill_id="system.audit",
-        name="System Audit",
-        immutable_interface=True,
-        active_version="1.0.0",
-        versions=[SkillVersion(version="1.0.0", content="system audit handler")],
-        dependencies=[],
-        capability_profile=SkillCapabilityProfile(
-            intelligence_level="L0_deterministic",
-            network_requirement="N0_none",
-            runtime_criticality="C2_required_runtime",
-            execution_locality="local",
-            invocation_default="automatic",
-            risk_level="R1_local_write",
-        ),
-        runtime_adapter="callable",
-        manifest=SkillManifest(
-            skill_id="system.audit",
-            name="System Audit",
-            version="1.0.0",
-            description="Structured audit trail recording",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_audit_skill"),
-            contract=SkillContractRef(),
-            tags=["system", "audit"],
-        ),
-    )
-)
-skill_control.register(
-    SkillRegistryEntry(
-        skill_id="system.context",
-        name="System Context",
-        immutable_interface=True,
-        active_version="1.0.0",
-        versions=[SkillVersion(version="1.0.0", content="system context handler")],
-        dependencies=[],
-        capability_profile=SkillCapabilityProfile(
-            intelligence_level="L0_deterministic",
-            network_requirement="N0_none",
-            runtime_criticality="C2_required_runtime",
-            execution_locality="local",
-            invocation_default="automatic",
-            risk_level="R1_local_write",
-        ),
-        runtime_adapter="callable",
-        manifest=SkillManifest(
-            skill_id="system.context",
-            name="System Context",
-            version="1.0.0",
-            description="Deterministic shared context access",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_context_skill"),
-            contract=SkillContractRef(),
-            tags=["system", "context"],
-        ),
-    )
+register_builtin_skills(skill_control)
+register_builtin_handlers(
+    skill_runtime,
+    {
+        "skill.echo": _demo_echo_skill,
+        "system.app_config": _system_app_config_skill,
+        "system.state": _system_state_skill,
+        "system.audit": _system_audit_skill,
+        "system.context": _system_context_skill,
+    },
+    skill_control,
 )
 workflow_executor = WorkflowExecutorService(
     registry=app_registry,
@@ -370,35 +233,6 @@ interaction_gateway = InteractionGateway(
     runtime_host=runtime_host,
     installer=app_installer,
     context_store=app_context_store,
-)
-skill_control.register(
-    SkillRegistryEntry(
-        skill_id="core.skill.control",
-        name="Human Skill Control Interface",
-        immutable_interface=True,
-        active_version="1.0.0",
-        versions=[SkillVersion(version="1.0.0", content="protected control surface")],
-        dependencies=[],
-        capability_profile=SkillCapabilityProfile(
-            intelligence_level="L0_deterministic",
-            network_requirement="N0_none",
-            runtime_criticality="build_and_runtime_governance",
-            execution_locality="local",
-            invocation_default="automatic",
-            risk_level="R1_local_write",
-        ),
-        runtime_adapter="callable",
-        manifest=SkillManifest(
-            skill_id="core.skill.control",
-            name="Human Skill Control Interface",
-            version="1.0.0",
-            description="Protected control surface for skill lifecycle",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.services.skill_control:SkillControlService"),
-            contract=SkillContractRef(),
-            tags=["system", "governance"],
-        ),
-    )
 )
 app_registry.register_blueprint(
     AppBlueprint(
