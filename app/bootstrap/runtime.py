@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from app.services.app_catalog import AppCatalogService
-from app.services.app_config_service import AppConfigService
+from app.services.system_skills.app_config import AppConfigService
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.app_registry import AppRegistryService
 from app.services.context_compaction import ContextCompactionService
-from app.services.context_skill_service import ContextSkillService
+from app.services.system_skills.context import ContextSkillService
 from app.services.demonstration_extractor import DemonstrationExtractor
 from app.services.event_bus import EventBusService
 from app.services.experience_store import ExperienceStore
@@ -28,7 +28,7 @@ from app.services.skill_control import SkillControlService
 from app.services.skill_runtime import SkillRuntimeService
 from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
-from app.services.system_skill_service import SystemAuditService, SystemStateService
+from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
 from app.services.workflow_executor import WorkflowExecutorService
 from app.services.workflow_subscription import WorkflowSubscriptionService
 

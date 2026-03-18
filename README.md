@@ -38,6 +38,7 @@ See:
 - `docs/requirements.md`
 - `docs/design.md`
 - `docs/skill-design-principles.md` — canonical reference for future core-skill design
+- `docs/code-structure.md` — lightweight map of bootstrap/runtime/system-skill layout
 - `docs/testing.md`
 - `docs/testing-detail.md`
 - `docs/development-log.md`

@@ -1097,3 +1097,22 @@ Grouped the platform default skill implementations into a clearer service subtre
 #### Design intent clarified
 - default system skills should be easy to find as one family of services
 - migration should preserve existing imports while improving layout
+
+### Module: internal import cleanup and code-structure note
+
+Started switching internal wiring toward the new `app/services/system_skills/` package and added a lightweight structure guide for future development.
+
+#### Added
+- `docs/code-structure.md`
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - now imports system-skill implementations from the new package directly
+- `README.md`
+  - points to `docs/code-structure.md`
+- `TOOLS.md`
+  - points to `docs/code-structure.md`
+
+#### Design intent clarified
+- the new system-skill package should become the primary import target over time
+- a small structure map is useful while the codebase is still actively being reorganized
