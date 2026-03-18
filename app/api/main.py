@@ -25,7 +25,14 @@ from app.services.self_refinement import SelfRefinementService, SelfRefinementEr
 from app.services.skill_suggestion import SkillSuggestionService, SkillSuggestionError
 from app.services.model_skill_suggester import ModelSkillSuggester
 from app.services.model_self_refiner import ModelSelfRefiner
+from app.services.workflow_executor import WorkflowExecutorService, WorkflowExecutorError
+from app.services.workflow_subscription import WorkflowSubscriptionService, WorkflowSubscriptionError
+from app.services.skill_runtime import SkillRuntimeService, SkillRuntimeError
+from app.services.context_compaction import ContextCompactionService, ContextCompactionError
 from app.models.event_bus import EventSubscription
+from app.models.workflow_subscription import WorkflowEventSubscription
+from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
+from app.models.context_policy import ContextCompactionPolicy
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
@@ -102,8 +109,15 @@ self_refinement = SelfRefinementService(
     model_self_refiner=model_self_refiner,
     context_store=app_context_store,
 )
-proposal_review = ProposalReviewService(lifecycle=lifecycle, store=runtime_store)
-priority_analysis = PriorityAnalysisService(proposal_review=proposal_review)
+proposal_review = ProposalReviewService(
+    lifecycle=lifecycle,
+    store=runtime_store,
+    context_store=app_context_store,
+)
+priority_analysis = PriorityAnalysisService(
+    proposal_review=proposal_review,
+    context_store=app_context_store,
+)
 app_installer = AppInstallerService(
     registry=app_registry,
     lifecycle=lifecycle,
@@ -112,6 +126,38 @@ app_installer = AppInstallerService(
     context_store=app_context_store,
 )
 app_catalog = AppCatalogService()
+skill_runtime = SkillRuntimeService(store=runtime_store)
+
+
+def _demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+    payload = request.config.get("payload", request.inputs)
+    return SkillExecutionResult(
+        skill_id=request.skill_id,
+        status="completed",
+        output={"echo": payload, "inputs": request.inputs, "step_id": request.step_id},
+    )
+
+
+skill_runtime.register_handler("skill.echo", _demo_echo_skill)
+workflow_executor = WorkflowExecutorService(
+    registry=app_registry,
+    lifecycle=lifecycle,
+    data_store=app_data_store,
+    event_bus=event_bus,
+    context_store=app_context_store,
+    skill_runtime=skill_runtime,
+    store=runtime_store,
+)
+workflow_subscription = WorkflowSubscriptionService(
+    workflow_executor=workflow_executor,
+    store=runtime_store,
+)
+context_compaction = ContextCompactionService(
+    app_context_store=app_context_store,
+    workflow_executor=workflow_executor,
+    store=runtime_store,
+)
+workflow_executor._context_compaction = context_compaction
 interaction_gateway = InteractionGateway(
     catalog=app_catalog,
     router=router,
@@ -388,6 +434,38 @@ def handle_user_command(command: UserCommand) -> dict:
         raise map_domain_error(error) from error
 
 
+@app.post("/apps/{app_instance_id}/workflows/execute")
+def execute_primary_workflow(app_instance_id: str, payload: dict | None = None) -> dict:
+    try:
+        payload = payload or {}
+        return workflow_executor.execute_workflow(
+            app_instance_id=app_instance_id,
+            workflow_id=payload.get("workflow_id"),
+            trigger=payload.get("trigger", "manual"),
+            inputs=payload.get("inputs", {}),
+        ).model_dump(mode="json")
+    except (LifecycleError, WorkflowExecutorError, AppRegistryError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/workflows/history")
+def list_workflow_history(app_instance_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in workflow_executor.list_history(app_instance_id)]
+
+
+@app.get("/workflows/failures")
+def list_workflow_failures(app_instance_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in workflow_executor.list_recent_failures(app_instance_id)]
+
+
+@app.post("/apps/{app_instance_id}/workflows/retry-last-failure")
+def retry_last_failed_workflow(app_instance_id: str) -> dict:
+    try:
+        return workflow_executor.retry_last_failure(app_instance_id).model_dump(mode="json")
+    except (WorkflowExecutorError,) as error:
+        raise map_domain_error(error) from error
+
+
 @app.get("/runtime/persistence")
 def get_runtime_persistence_snapshot() -> dict:
     return {
@@ -456,6 +534,46 @@ def append_app_context_entry(app_instance_id: str, payload: dict) -> dict:
         raise map_domain_error(error) from error
 
 
+@app.post("/app-contexts/{app_instance_id}/compact")
+def compact_app_context(app_instance_id: str) -> dict:
+    try:
+        return context_compaction.compact(app_instance_id).model_dump(mode="json")
+    except (AppContextStoreError, ContextCompactionError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/app-contexts/{app_instance_id}/working-set")
+def get_app_working_set(app_instance_id: str) -> dict:
+    try:
+        return context_compaction.build_working_set(app_instance_id).model_dump(mode="json")
+    except (AppContextStoreError, ContextCompactionError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/app-contexts/{app_instance_id}/layers")
+def get_app_context_layers(app_instance_id: str) -> dict:
+    try:
+        return context_compaction.list_layers(app_instance_id)
+    except (AppContextStoreError, ContextCompactionError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/app-contexts/{app_instance_id}/policy")
+def set_app_context_policy(app_instance_id: str, payload: dict) -> dict:
+    try:
+        return context_compaction.set_policy(
+            ContextCompactionPolicy(
+                app_instance_id=app_instance_id,
+                max_context_entries=payload.get("max_context_entries", 20),
+                compact_on_workflow_complete=payload.get("compact_on_workflow_complete", True),
+                compact_on_workflow_failure=payload.get("compact_on_workflow_failure", True),
+                compact_on_stage_change=payload.get("compact_on_stage_change", False),
+            )
+        ).model_dump(mode="json")
+    except ContextCompactionError as error:
+        raise map_domain_error(error) from error
+
+
 @app.get("/data/namespaces")
 def list_data_namespaces(app_instance_id: str | None = None) -> list[dict]:
     return [item.model_dump(mode="json") for item in app_data_store.list_namespaces(app_instance_id)]
@@ -498,13 +616,20 @@ def list_events(event_name: str | None = None) -> list[dict]:
 @app.post("/events/publish")
 def publish_event(payload: dict) -> dict:
     try:
-        return event_bus.publish(
+        result = event_bus.publish(
             event_name=payload["event_name"],
             source=payload.get("source", "system"),
             app_instance_id=payload.get("app_instance_id"),
             payload=payload.get("payload", {}),
-        ).model_dump(mode="json")
-    except EventBusError as error:
+        )
+        workflow_runs = workflow_subscription.trigger(
+            event_name=payload["event_name"],
+            payload=payload.get("payload", {}),
+        )
+        response = result.model_dump(mode="json")
+        response["workflow_runs"] = [item.model_dump(mode="json") for item in workflow_runs]
+        return response
+    except (EventBusError, WorkflowSubscriptionError, WorkflowExecutorError, AppRegistryError, LifecycleError) as error:
         raise map_domain_error(error) from error
 
 
@@ -519,6 +644,29 @@ def create_event_subscription(subscription: EventSubscription) -> dict:
         return event_bus.subscribe(subscription).model_dump(mode="json")
     except EventBusError as error:
         raise map_domain_error(error) from error
+
+
+@app.get("/workflow-subscriptions")
+def list_workflow_subscriptions(event_name: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in workflow_subscription.list_subscriptions(event_name)]
+
+
+@app.post("/workflow-subscriptions")
+def create_workflow_subscription(subscription: WorkflowEventSubscription) -> dict:
+    try:
+        return workflow_subscription.subscribe(subscription).model_dump(mode="json")
+    except WorkflowSubscriptionError as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/skill-runtime/executions")
+def list_skill_runtime_executions() -> list[dict]:
+    return [item.model_dump(mode="json") for item in skill_runtime.list_executions()]
+
+
+@app.get("/skill-runtime/failures")
+def list_skill_runtime_failures() -> list[dict]:
+    return [item.model_dump(mode="json") for item in skill_runtime.list_failures()]
 
 
 @app.post("/practice/review")

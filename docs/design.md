@@ -35,6 +35,11 @@ Skills are versioned, replaceable, suggestible capability units. They are depend
 ### 2.5 Intelligence is selective
 The system should use deterministic services first, and use intelligence mainly for abstraction, suggestion, diagnosis, and generation.
 
+Network reachability and intelligence availability are separate concerns:
+- an app may have network but should still avoid intelligent calls by default
+- an app may be offline-capable while still carrying optional intelligent enhancements
+- intelligent invocation should be governed by policy, not by mere model availability
+
 ### 2.6 System should evolve from practice
 The intended evolutionary chain is:
 - practice
@@ -92,6 +97,21 @@ Deterministic building block such as file, state, event, auth, config, or networ
 ### Skill
 Reusable capability asset, versioned and controlled. Skills may be manually replaced, rolled back, enabled, disabled, or suggested from experience.
 
+Each skill should also carry capability tags used by the platform for automatic classification and runtime governance:
+- intelligence level (`L0_deterministic | L1_assisted | L2_semantic | L3_autonomous`)
+- network requirement (`N0_none | N1_optional | N2_required`)
+- runtime criticality (`C0_build_only | C1_optional_runtime | C2_required_runtime`)
+- execution locality (`local | hybrid | remote`)
+- invocation default (`automatic | ask_user | explicit_only`)
+- risk level
+
+A skill should evolve toward a package model that includes:
+- metadata / manifest
+- machine-readable input/output/error contracts
+- one or more runtime adapters
+- dependency declarations
+- examples and validation assets
+
 ## 4.2 Definition Layer
 
 ### RequirementIntent
@@ -120,6 +140,9 @@ Defines:
 - persistence level
 - idle strategy
 - restart limit
+- network behavior
+- intelligence behavior
+- invocation governance for optional intelligent steps
 
 ## 4.3 Runtime Layer
 
@@ -209,6 +232,13 @@ It supports linking skill blueprints to related experiences.
 `AppRegistryService` stores blueprint definitions.
 `AppInstallerService` converts blueprints into installable instances and provisions namespaces.
 
+The intended next-step installer behavior is:
+- inject a mandatory deterministic system skill baseline for every app
+- initialize app configuration records and defaults
+- classify runtime skills from capability tags
+- resolve an app runtime profile from the installed skill set
+- determine whether direct start, optional-intelligence start, or intelligence-required start is appropriate
+
 ## 5.6 Lifecycle and Runtime
 `AppLifecycleService` manages valid state transitions.
 `AppRuntimeHostService` manages runtime lease, checkpoint, pending tasks, and health updates.
@@ -216,6 +246,11 @@ It supports linking skill blueprints to related experiences.
 ## 5.7 Scheduler and Supervisor
 `SchedulerService` manages interval and event schedules.
 `SupervisorService` manages failure observation, restart attempts, and circuit-open protection.
+
+Proposal review and priority analysis now also support context-aware operation:
+- review records can retain context-derived notes
+- proposal prioritization can consider open loops, decisions, constraints, and paused stage
+- contradiction and recommendation output can reflect app-local execution context
 
 ## 5.8 Event Bus
 `EventBusService` records internal events, supports subscriptions, and triggers event schedules.
@@ -226,6 +261,9 @@ It supports linking skill blueprints to related experiences.
 ## 5.10 Interaction Gateway / Control Plane Boundary
 `InteractionGateway` is the main command entry point for the user-facing control plane.
 It routes user commands to app catalog entries and triggers install/open/run flows.
+
+The user-facing layer should not require users to manually pick low-level technical runtime classes such as offline-capable, intelligence-optional, or direct-start mode.
+Instead, the control plane should expose the resolved app behavior after platform inference.
 
 The control plane is responsible for:
 - user-facing interaction
@@ -238,6 +276,8 @@ The control plane is not required for every app-internal execution step.
 ## 5.11 App Shared Context
 `AppContextStore` maintains app-local shared execution context so an app can continue internal work without routing every step through the control plane.
 
+Alongside context, each app should also have a deterministic app-configuration surface exposed through a built-in `system.app_config` skill. This config surface should be separate from runtime state and separate from app-local reasoning context.
+
 The current implementation now binds shared context into install and interaction flows:
 - installer ensures a context exists when an app instance is provisioned
 - blueprint goal can seed the initial current goal
@@ -245,7 +285,93 @@ The current implementation now binds shared context into install and interaction
 - pipeline execution records the latest run artifact and marks the context archived after completion
 - context inspection can optionally include runtime overview for joined operational debugging
 
-## 5.12 Practice Review
+## 5.12 Skill classification, runtime profile resolution, and invocation governance
+The intended platform direction is to classify skills internally and aggregate them into an app runtime profile.
+
+### Skill classification
+A future `SkillClassificationService` should infer or validate capability tags from skill declarations, dependencies, and execution traits.
+
+### App profile resolution
+A future `AppProfileResolver` should aggregate runtime-capable skills and determine:
+- highest runtime intelligence level
+- runtime network requirement
+- offline capability
+- direct-start support
+- default ask-before-intelligence behavior
+
+Build-only skills should influence builder flows but should not inflate runtime classification for apps that no longer depend on intelligence once installed.
+
+### Invocation governance
+At runtime, the system should evaluate in order:
+1. whether a step can be completed deterministically
+2. whether network is required and available
+3. whether intelligence is required and available
+4. whether policy requires user confirmation before spending intelligence resources
+
+This allows the platform to distinguish:
+- no network
+- no intelligence
+- intelligence available but not worth invoking automatically
+
+## 5.13 Skill package, contract, and adapter model
+A skill should be treated as a runnable capability package rather than only a named dependency.
+
+### Skill package shape
+A future skill package should include at least:
+- manifest metadata (`id`, `name`, `version`, purpose, category)
+- capability tags
+- runtime adapter declaration
+- input/output/error schema references
+- dependency declarations (modules, skills, binaries, services)
+- validation examples and optional healthcheck metadata
+
+### Runtime adapters
+The runtime layer should support multiple adapter types behind one execution contract:
+- `callable` for in-process deterministic handlers
+- `script` for local script execution with structured JSON input/output
+- `rpc` for local or remote services
+- `binary` for compiled executables or tools
+- `frontend` / human-interaction adapters where user interaction is the execution surface
+
+### Unified execution envelope
+Regardless of adapter, skill execution should converge on a common request/response envelope so workflow orchestration, policy enforcement, observability, and retry remain uniform.
+
+## 5.14 Skill orchestration and dispatch
+Skill execution should be orchestrator-mediated by default.
+
+The platform should prefer workflow/runtime dispatch over uncontrolled skill-to-skill direct calling so it can uniformly apply:
+- schema validation
+- timeout and retry handling
+- audit and tracing
+- permission checks
+- network and intelligence policies
+- cost/token governance
+
+Direct skill-to-skill dependencies may still be declared, but dependency resolution should remain visible to the orchestrator/runtime layer.
+
+## 5.15 Skill validation and compile-time checking
+A future `SkillValidationService` should validate skill packages before they become active runtime capabilities.
+
+Validation should cover at least:
+- manifest completeness
+- schema correctness
+- adapter resolvability
+- consistency between capability tags and actual runtime form
+- compatibility between declared dependencies and the execution environment
+
+App/workflow validation should additionally check:
+- step input/output compatibility
+- misuse of build-only skills inside runtime execution paths
+- mismatch between app runtime profile and runtime-critical skill requirements
+
+## 5.16 Core skill design principles reference
+The canonical core-skill design principles are maintained in:
+
+- `docs/skill-design-principles.md`
+
+That document should be consulted before introducing new system-default skills, runtime-governance skills, or builder/intelligent platform skills.
+
+## 5.17 Practice Review
 `PracticeReviewService` reviews recent runtime events and data records, then distills them into an experience.
 
 The current implementation also folds app shared context into review output:
@@ -253,7 +379,7 @@ The current implementation also folds app shared context into review output:
 - recent context entries can become review evidence and tags
 - the resulting experience can retain more app-local execution state instead of only event/data traces
 
-## 5.12 Skill Suggestion
+## 5.18 Skill Suggestion
 `SkillSuggestionService` generates candidate reusable skill blueprints from stored experiences.
 
 ---
@@ -420,9 +546,47 @@ This means the project is no longer just schema scaffolding; it already contains
 ## 12. Near-term Design Gaps
 
 The next most important missing pieces are:
-- workflow execution that actually consumes modules and skills
+- richer workflow execution beyond the current minimal deterministic executor
 - app data operations as workflow primitives
 - contradiction / priority analysis for better focus
 - app/workflow refinement based on suggested skills
 - stronger permission and policy enforcement
 - durable production-grade persistence backends
+- layered context compaction and retrieval
+
+## 13. Layered Context Architecture
+
+To avoid context explosion, runtime context should be split into layers instead of accumulated into one prompt-sized blob.
+
+### 13.1 Layers
+- **L0 Working Set**: current goal, stage, active constraints, current open loops, most recent critical outputs
+- **L1 Task/App Summary**: compact summary of progress, major decisions, unresolved issues, key artifacts
+- **L2 Execution Detail**: step/node-level details, logs, intermediate inputs/outputs, failure traces
+- **L3 Long-term Experience**: reusable lessons, patterns, and promoted operational knowledge
+
+### 13.2 Design Rules
+- prompts should prefer L0 + selected L1, not raw L2
+- L2 detail should remain queryable by reference rather than always loaded
+- compaction should preserve decisions, constraints, open loops, artifacts, and references
+- app/workflow execution history should serve as a primary detail source for compaction
+- app shared context should remain the active mutable layer, while summaries become derived state
+
+### 13.3 Minimal Implementation Plan
+- add `ContextCompactionService`
+- persist `context_summaries`
+- build a `working_set` view derived from app context + recent execution history
+- expose APIs for compaction, listing layers, and retrieving working set
+- keep detail in `app_contexts`, `workflow_execution_history`, and `skill_executions`
+
+Current implementation note:
+- a minimal workflow executor now exists for workflow execution
+- it supports deterministic step skeletons for `state.set`, `state.get`, and event emission
+- it also includes placeholders for `human_task` and `skill` steps so workflows can preserve unresolved work in context
+- step outputs can now be passed into later steps through lightweight `$from_step` / `$from_inputs` references
+- step-level conditional execution is supported through simple `when` checks
+- workflow execution returns an aggregated outputs summary for completed/skipped steps and step outputs
+- event-driven workflow subscriptions can now auto-trigger workflow execution from published internal events
+- `skill` steps now support a minimal dispatch contract through `SkillRuntimeService`, with registered handlers, structured request/result payloads, input mapping, failure capture, execution persistence, and blueprint-declared allowlist enforcement
+- workflow and skill execution now expose basic observability surfaces: execution history, recent workflow failures, and skill failure listings
+- recent failed workflow executions can now be retried directly from stored execution history and inputs
+- execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

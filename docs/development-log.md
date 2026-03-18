@@ -844,3 +844,77 @@ Reorganized the project documents into a coherent set aligned with the current i
 #### Validation
 - Ran full test suite after documentation update
 - Result: `50 passed`
+
+## 2026-03-18
+
+### Module: documentation update for system skills, app config, and runtime capability inference
+
+Documented the next-step platform direction for deterministic system defaults, app configuration, skill capability tags, and automatic runtime-profile inference.
+
+#### Updated
+- `docs/requirements.md`
+  - added requirements for built-in system skills
+  - added per-app deterministic config surface expectations
+  - added skill classification and app-profile resolution requirements
+  - added direct-start/offline-capable behavior requirements
+  - added intelligence invocation governance requirements
+- `docs/design.md`
+  - separated network availability from intelligence availability
+  - described capability-tagged skills and runtime profile aggregation
+  - documented app-config as a built-in system capability
+  - documented policy-driven ask-before-intelligence behavior
+- `docs/testing.md`
+  - updated suite status to `81 passed`
+  - added future test coverage targets for capability classification, direct start, and invocation governance
+
+#### Design intent clarified
+- users should not manually choose low-level runtime classes for apps
+- the platform should infer app runtime posture from skill metadata
+- runtime build-time skills and runtime skills should remain distinct
+- optional intelligence should not automatically consume user tokens
+- no-network and no-intelligence are separate runtime conditions
+
+### Module: documentation update for skill package contracts and runtime adapters
+
+Extended the documentation direction so skills are treated as runnable capability packages with explicit contracts, adapters, and validation rules.
+
+#### Updated
+- `docs/requirements.md`
+  - added requirements for skill packaging, skill contracts, runtime adapters, and app/skill validation
+- `docs/design.md`
+  - documented skill package shape, unified execution envelope, runtime adapter model, orchestrator-mediated dispatch, and compile-time validation expectations
+- `docs/testing.md`
+  - added future validation targets for manifest/schema/adapter checking and runtime/build-time skill separation
+
+#### Design intent clarified
+- skills should be packaged as structured runtime units rather than symbolic names only
+- skill execution should flow through a unified runtime/orchestrator surface
+- skill contracts should be machine-readable for compile-time validation and safe composition
+- adapter diversity (callable/script/rpc/binary/frontend) should not break runtime governance or observability
+
+### Module: documentation update for dedicated skill design principles reference
+
+Moved the core-skill principle table into its own dedicated document so future skill design has a stable, explicit reference point.
+
+#### Added
+- `docs/skill-design-principles.md`
+  - canonical reference for core skill design principles
+  - core-skill principle table
+  - design checklist for future core skills
+
+#### Updated
+- `docs/requirements.md`
+  - records the dedicated canonical reference path
+- `docs/design.md`
+  - now points to the standalone skill design principles document
+- `docs/testing.md`
+  - references the standalone document in future validation targets
+- `README.md`
+  - documents the dedicated skill design principles doc path
+- `TOOLS.md`
+  - records the dedicated doc path for future implementation work
+
+#### Design intent clarified
+- future core skills should be reviewed against one dedicated canonical reference document
+- the skill design principles should remain stable and discoverable outside the broader architecture doc
+- core skill roles, locality, intelligence posture, and contract strictness should stay explicit

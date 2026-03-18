@@ -10,6 +10,8 @@ The testing goal is not only to validate isolated functions, but to verify that 
 - scheduling and supervision
 - data namespace isolation
 - app-local shared context
+- app configuration and default system skills
+- skill classification and app-profile resolution
 - event-driven runtime behavior
 - practice-to-experience distillation
 - experience-to-skill suggestion
@@ -88,6 +90,7 @@ Covered behavior:
 - restart logic
 - circuit-open protection
 - scheduler/supervisor API flow
+- proposal review / priority analysis context-aware scoring and review notes
 
 ## 3.6 Registry and installer
 Covered behavior:
@@ -95,6 +98,16 @@ Covered behavior:
 - install flow
 - runtime policy propagation to app instance
 - registry API flow
+- minimal workflow execution against deterministic primitives
+- workflow-id selection and placeholder handling for human_task / skill steps
+- step output passing between deterministic workflow steps
+- conditional step execution and workflow output aggregation
+- event-triggered workflow subscription execution
+- minimal registered skill dispatch inside workflow execution
+- skill input mapping and failure capture during workflow execution
+- blueprint allowlist enforcement for workflow skill steps
+- workflow and skill observability APIs for history/failure inspection
+- retry API for rerunning the latest failed workflow execution
 
 ## 3.7 Interaction gateway
 Covered behavior:
@@ -146,7 +159,7 @@ Covered behavior:
 
 At the time of this document update:
 - automated local test suite passes
-- current result: `65 passed`
+- current result: `81 passed`
 
 This indicates the implemented milestone is internally consistent at the current level of scope.
 
@@ -199,6 +212,31 @@ Required checks:
 - runtime practice becomes experience
 - experience becomes skill suggestion
 - persistence option works as expected
+
+## 5.8 Capability-classification and invocation-governance tests
+Required checks:
+- deterministic system skills are injected for every app install
+- app config surface is initialized and isolated per app
+- runtime profile is resolved from runtime-capable skills rather than build-only skills
+- offline-capable apps can direct-start without intelligence availability
+- optional intelligent steps respect ask-before-intelligence policy
+- network availability and intelligence availability are evaluated independently
+
+## 5.9 Skill package / contract / adapter validation tests
+Required checks:
+- skill manifests are rejected when required metadata or contract references are missing
+- input/output examples satisfy declared schemas
+- callable/script/rpc/binary adapter declarations resolve correctly
+- declared capability tags remain consistent with runtime form
+- workflow skill steps fail validation when upstream/downstream contracts do not align
+- build-only skills are rejected from runtime execution paths
+
+## 5.10 Core skill principle reference tests
+Required checks:
+- every system-default skill is represented in `docs/skill-design-principles.md`
+- system-default skills declared as local-first do not depend on remote-only adapters
+- skills marked as no-default-intelligence do not declare implicit intelligent execution paths
+- future governance skills remain classified with explicit runtime criticality and contract strictness
 
 ---
 
@@ -262,6 +300,7 @@ As the system evolves, the next test groups to add should be:
 4. policy and permission enforcement
 5. persistent backend compatibility tests
 6. longer-running service app recovery tests
+7. layered context compaction and working-set derivation tests
 
 ---
 
