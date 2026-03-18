@@ -18,6 +18,7 @@ from app.services.app_registry import AppRegistryService, AppRegistryError
 from app.services.app_installer import AppInstallerService, AppInstallerError
 from app.services.app_config_service import AppConfigService, AppConfigError
 from app.services.system_skill_service import SystemAuditService, SystemStateService
+from app.services.context_skill_service import ContextSkillService
 from app.services.event_bus import EventBusService, EventBusError
 from app.services.interaction_gateway import InteractionGateway
 from app.services.practice_review import PracticeReviewService, PracticeReviewError
@@ -37,6 +38,7 @@ from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.context_policy import ContextCompactionPolicy
 from app.models.app_config import AppConfigRequest
 from app.models.system_skill import SystemAuditRequest, SystemStateRequest
+from app.models.context_skill import ContextSkillRequest
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
@@ -99,6 +101,7 @@ app_context_store = AppContextStore(lifecycle=lifecycle, store=runtime_store, ru
 scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime_host, store=runtime_store)
 event_bus = EventBusService(scheduler=scheduler, store=runtime_store)
 supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
+context_skill_service = ContextSkillService(context_store=app_context_store)
 practice_review = PracticeReviewService(
     event_bus=event_bus,
     data_store=app_data_store,
@@ -176,10 +179,21 @@ def _system_audit_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
     )
 
 
+def _system_context_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+    context_request = ContextSkillRequest(**request.inputs)
+    result = context_skill_service.execute(request.app_instance_id, context_request)
+    return SkillExecutionResult(
+        skill_id=request.skill_id,
+        status="completed",
+        output=result,
+    )
+
+
 skill_runtime.register_handler("skill.echo", _demo_echo_skill)
 skill_runtime.register_handler("system.app_config", _system_app_config_skill)
 skill_runtime.register_handler("system.state", _system_state_skill)
 skill_runtime.register_handler("system.audit", _system_audit_skill)
+skill_runtime.register_handler("system.context", _system_context_skill)
 workflow_executor = WorkflowExecutorService(
     registry=app_registry,
     lifecycle=lifecycle,

@@ -11,6 +11,7 @@ from app.services.app_registry import AppRegistryError
 from app.services.event_bus import EventBusError
 from app.services.lifecycle import LifecycleError
 from app.services.system_skill_service import SystemSkillError
+from app.services.context_skill_service import ContextSkillError
 from app.services.practice_review import PracticeReviewError
 from app.services.priority_analysis import PriorityAnalysisError
 from app.services.proposal_review import ProposalReviewError
@@ -23,7 +24,7 @@ from app.services.supervisor import SupervisorError
 
 
 def map_domain_error(error: Exception) -> HTTPException:
-    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, AppContextStoreError, AppConfigError, SystemSkillError, EventBusError, PracticeReviewError, SkillSuggestionError, SelfRefinementError, ProposalReviewError, PriorityAnalysisError)):
+    if isinstance(error, (SkillControlError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, AppContextStoreError, AppConfigError, SystemSkillError, ContextSkillError, EventBusError, PracticeReviewError, SkillSuggestionError, SelfRefinementError, ProposalReviewError, PriorityAnalysisError)):
         message = str(error)
         if "not found" in message.lower():
             return HTTPException(status_code=404, detail=message)
