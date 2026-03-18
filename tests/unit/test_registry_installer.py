@@ -9,6 +9,9 @@ from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.app_config_service import AppConfigService
+from app.services.app_profile_resolver import AppProfileResolverService
+from app.services.skill_control import SkillControlService
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 
 
 client = TestClient(app)
@@ -51,7 +54,29 @@ def test_installer_creates_instance_with_runtime_policy() -> None:
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     data_store = AppDataStore(base_dir="data/test-installer-ns", store=store)
     app_config = AppConfigService(data_store=data_store, store=store)
-    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store, app_config_service=app_config)
+    skill_control = SkillControlService()
+    for skill_id in ["system.app_config", "system.context", "system.state", "system.audit"]:
+        skill_control.register(
+            SkillRegistryEntry(
+                skill_id=skill_id,
+                name=skill_id,
+                immutable_interface=True,
+                active_version="1.0.0",
+                versions=[SkillVersion(version="1.0.0", content=skill_id)],
+                dependencies=[],
+                capability_profile=SkillCapabilityProfile(
+                    intelligence_level="L0_deterministic",
+                    network_requirement="N0_none",
+                    runtime_criticality="C2_required_runtime",
+                    execution_locality="local",
+                    invocation_default="automatic",
+                    risk_level="R1_local_write",
+                ),
+                runtime_adapter="callable",
+            )
+        )
+    resolver = AppProfileResolverService(skill_control=skill_control)
+    installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store, app_config_service=app_config, app_profile_resolver=resolver)
     registry.register_blueprint(build_blueprint(execution_mode="pipeline"))
 
     result = installer.install_app("bp.test.registry", user_id="user.install")
@@ -62,8 +87,11 @@ def test_installer_creates_instance_with_runtime_policy() -> None:
     assert instance.runtime_policy.execution_mode == "pipeline"
     assert "system.app_config" in instance.system_skills
     assert "system.app_config" in instance.resolved_skills
+    assert instance.runtime_profile.runtime_intelligence_level == "L0_deterministic"
+    assert instance.runtime_profile.offline_capable is True
     snapshot = app_config.get_snapshot(result.app_instance_id)
     assert snapshot.values["app"]["blueprint_id"] == "bp.test.registry"
+    assert snapshot.values["runtime"]["runtime_profile"]["offline_capable"] is True
 
 
 def test_registry_and_install_api_flow() -> None:

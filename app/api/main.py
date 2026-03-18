@@ -19,6 +19,7 @@ from app.services.app_installer import AppInstallerService, AppInstallerError
 from app.services.app_config_service import AppConfigService, AppConfigError
 from app.services.system_skill_service import SystemAuditService, SystemStateService
 from app.services.context_skill_service import ContextSkillService
+from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.event_bus import EventBusService, EventBusError
 from app.services.interaction_gateway import InteractionGateway
 from app.services.practice_review import PracticeReviewService, PracticeReviewError
@@ -87,6 +88,7 @@ def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
 
 router = RequirementRouter()
 skill_control = SkillControlService()
+app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
 experience_store = ExperienceStore()
 demonstration_extractor = DemonstrationExtractor()
 runtime_store = RuntimeStateStore()
@@ -135,6 +137,7 @@ app_installer = AppInstallerService(
     data_store=app_data_store,
     context_store=app_context_store,
     app_config_service=app_config_service,
+    app_profile_resolver=app_profile_resolver,
 )
 app_catalog = AppCatalogService()
 skill_runtime = SkillRuntimeService(store=runtime_store)

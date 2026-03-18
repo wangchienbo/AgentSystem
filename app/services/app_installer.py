@@ -8,6 +8,7 @@ from app.services.app_registry import AppRegistryService
 from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.app_config_service import AppConfigService
+from app.services.app_profile_resolver import AppProfileResolverService
 
 
 class AppInstallerError(ValueError):
@@ -31,6 +32,7 @@ class AppInstallerService:
         data_store: AppDataStore,
         context_store: AppContextStore | None = None,
         app_config_service: AppConfigService | None = None,
+        app_profile_resolver: AppProfileResolverService | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -38,6 +40,7 @@ class AppInstallerService:
         self._data_store = data_store
         self._context_store = context_store
         self._app_config_service = app_config_service
+        self._app_profile_resolver = app_profile_resolver
 
     def install_app(self, blueprint_id: str, user_id: str, app_instance_id: str | None = None) -> AppInstallResult:
         blueprint = self._registry.get_blueprint(blueprint_id)
@@ -48,6 +51,7 @@ class AppInstallerService:
             install_status = "upgraded"
         except Exception:
             resolved_skills = list(dict.fromkeys([*DEFAULT_SYSTEM_SKILLS, *blueprint.required_skills]))
+            runtime_profile = self._app_profile_resolver.resolve(resolved_skills) if self._app_profile_resolver is not None else None
             instance = AppInstance(
                 id=instance_id,
                 blueprint_id=blueprint.id,
@@ -59,6 +63,7 @@ class AppInstallerService:
                 runtime_policy=blueprint.runtime_policy,
                 system_skills=list(DEFAULT_SYSTEM_SKILLS),
                 resolved_skills=resolved_skills,
+                runtime_profile=runtime_profile.model_dump() if runtime_profile is not None else {},
             )
             self._runtime_host.register_instance(instance)
             install_status = "installed"
@@ -72,7 +77,13 @@ class AppInstallerService:
         if self._app_config_service is not None:
             self._app_config_service.ensure_initialized(
                 instance.id,
-                defaults={"app": {"id": instance.id, "blueprint_id": blueprint.id}, "runtime": {"execution_mode": instance.execution_mode}},
+                defaults={
+                    "app": {"id": instance.id, "blueprint_id": blueprint.id},
+                    "runtime": {
+                        "execution_mode": instance.execution_mode,
+                        "runtime_profile": instance.runtime_profile.model_dump(mode="json"),
+                    },
+                },
             )
         if self._context_store is not None:
             context = self._context_store.ensure_context(instance.id)

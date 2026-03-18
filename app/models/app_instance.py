@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.models.runtime_policy import RuntimePolicy
+from app.models.app_profile import AppRuntimeProfile
 
 
 AppStatus = Literal[
@@ -30,3 +31,4 @@ class AppInstance(BaseModel):
     runtime_policy: RuntimePolicy = Field(default_factory=RuntimePolicy)
     system_skills: list[str] = Field(default_factory=list)
     resolved_skills: list[str] = Field(default_factory=list)
+    runtime_profile: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)
