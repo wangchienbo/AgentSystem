@@ -4,6 +4,7 @@ from app.core.errors import map_domain_error
 
 from app.bootstrap.runtime import build_runtime
 from app.bootstrap.skills import bootstrap_builtin_skills
+from app.bootstrap.catalog import bootstrap_demo_catalog
 from app.services.lifecycle import LifecycleError
 from app.services.runtime_host import RuntimeHostError
 from app.services.scheduler import SchedulerError
@@ -34,14 +35,14 @@ from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
+from app.models.app_blueprint import AppBlueprint
 from app.models.demonstration import DemonstrationRecord
 from app.models.app_instance import AppInstance
-from app.models.interaction import AppCatalogEntry, UserCommand
+from app.models.interaction import UserCommand
 from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 
-from app.models.app_blueprint import AppBlueprint
 
 app = FastAPI(title="AgentSystem App OS", version="0.1.0")
 
@@ -104,64 +105,7 @@ context_compaction = services["context_compaction"]
 interaction_gateway = services["interaction_gateway"]
 
 bootstrap_builtin_skills(skill_runtime, services)
-app_registry.register_blueprint(
-    AppBlueprint(
-        id="bp.workspace.assistant",
-        name="Workspace Assistant",
-        goal="长期运行的工作台助手 app",
-        roles=[],
-        tasks=[],
-        workflows=[{"id": "wf.assistant", "name": "assistant loop", "triggers": ["manual"], "steps": []}],
-        required_modules=["state.get"],
-        required_skills=["requirement.clarify"],
-        runtime_policy={
-            "execution_mode": "service",
-            "activation": "on_demand",
-            "restart_policy": "on_failure",
-            "persistence_level": "full",
-            "idle_strategy": "keep_alive",
-        },
-    )
-)
-app_registry.register_blueprint(
-    AppBlueprint(
-        id="bp.pipeline.executor",
-        name="Pipeline Executor",
-        goal="一次性流水线执行 app",
-        roles=[],
-        tasks=[],
-        workflows=[{"id": "wf.pipeline", "name": "pipeline run", "triggers": ["manual"], "steps": []}],
-        required_modules=["state.set"],
-        required_skills=["workflow.suggest"],
-        runtime_policy={
-            "execution_mode": "pipeline",
-            "activation": "on_demand",
-            "restart_policy": "never",
-            "persistence_level": "standard",
-            "idle_strategy": "stop",
-        },
-    )
-)
-app_catalog.register(
-    AppCatalogEntry(
-        app_id="app.workspace.assistant",
-        name="Workspace Assistant",
-        description="长期运行的工作台助手 app",
-        execution_mode="service",
-        trigger_phrases=["打开助手", "assistant", "workspace assistant", "打开工作台"],
-        blueprint_id="bp.workspace.assistant",
-    )
-)
-app_catalog.register(
-    AppCatalogEntry(
-        app_id="app.pipeline.executor",
-        name="Pipeline Executor",
-        description="一次性流水线执行 app",
-        execution_mode="pipeline",
-        trigger_phrases=["执行流水线", "pipeline", "run pipeline", "跑一下流程"],
-        blueprint_id="bp.pipeline.executor",
-    )
-)
+bootstrap_demo_catalog(app_registry, app_catalog)
 
 @app.post("/route-requirement")
 def route_requirement(payload: dict[str, str]) -> dict:

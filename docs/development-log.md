@@ -1059,3 +1059,19 @@ Further reduced `app/api/main.py` complexity by extracting service construction 
 #### Design intent clarified
 - runtime bootstrap and API route declaration should evolve independently
 - service graph construction should be centralized for easier future refactors and testing
+
+### Module: demo catalog/bootstrap extraction
+
+Moved demo blueprint registration and catalog seeding out of `app/api/main.py` so the entry file keeps shrinking toward route-only composition.
+
+#### Added
+- `app/bootstrap/catalog.py`
+
+#### Implemented
+- extracted built-in demo app blueprint registration
+- extracted built-in catalog entry registration
+- reduced direct bootstrap noise in `main.py`
+
+#### Design intent clarified
+- sample/demo bootstrapping should remain easy to find without cluttering API route definitions
+- bootstrap data and runtime wiring should stay separated from route implementation details
