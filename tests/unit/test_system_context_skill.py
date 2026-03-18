@@ -17,7 +17,7 @@ from app.services.workflow_executor import WorkflowExecutorService
 
 
 def test_system_context_skill_executes_through_runtime() -> None:
-    store = RuntimeStateStore(base_dir="data/test-system-context-skill")
+    store = RuntimeStateStore(base_dir="data/test-system-context-skill-isolated")
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)

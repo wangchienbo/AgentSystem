@@ -13,6 +13,7 @@ It is intentionally practical and non-authoritative: README and docs remain the 
 - `docs/requirements.md` — current milestone requirements and boundaries
 - `docs/design.md` — architecture and object model
 - `docs/skill-design-principles.md` — canonical reference for future core-skill design
+- `docs/code-structure.md` — quick map of bootstrap/runtime/system-skill layout
 - `docs/testing.md` — test strategy and coverage map
 - `docs/testing-detail.md` — detailed test notes and environment-specific validation
 - `docs/development-log.md` — chronological implementation log
@@ -105,3 +106,4 @@ Recommended git flow:
 - Top-level `/root/project/README.md` may be absent; the active README is the repo-local one in this project.
 - `pytest` may not exist in the host shell unless `.venv` is activated first.
 - `data/runtime/*.json` modifications may just reflect execution/test activity rather than unfinished source work.
+- System-skill implementations are now grouped under `app/services/system_skills/`; keep wrappers in the old paths only for import compatibility during migration.

@@ -995,3 +995,124 @@ Added the first explicit adapter-spec layer so runtime adapter intent begins to 
 - runtime adapters should become first-class execution specs rather than opaque strings
 - adapter evolution can proceed incrementally without pretending unsupported adapters already work
 - explicit not-implemented behavior is better than silently treating every adapter like callable
+
+### Module: minimal script adapter execution
+
+Promoted the script adapter from placeholder status to a minimal runnable execution path.
+
+#### Implemented
+- `SkillRuntimeService` can now execute `script` adapters via local subprocess
+- request payload is serialized as JSON to stdin
+- script result is read as JSON from stdout and parsed into `SkillExecutionResult`
+- added a fixture script and adapter runtime unit coverage
+
+#### Current constraints
+- script execution is local-only
+- JSON stdin/stdout only
+- no streaming or interactive session support yet
+- fixed timeout for the initial implementation
+
+#### Design intent clarified
+- script adapter support should be real, not nominal
+- the first supported non-callable adapter should stay narrow and deterministic
+- JSON request/response envelopes are the foundation for future adapter expansion
+
+### Module: context runtime view serialization hardening
+
+Identified a hang during pytest shutdown around context/runtime-view serialization and made the context skill return path more defensive.
+
+#### Implemented
+- hardened `list_runtime_view` to return plain JSON-friendly dict payloads
+- added a targeted regression test for JSON serialization of context runtime views
+
+#### Design intent clarified
+- system skill outputs should be aggressively normalized to JSON-friendly payloads
+- runtime/view helper paths should avoid leaking nested model objects into higher-level serialization
+
+### Module: bootstrap cleanup for built-in skill registration
+
+Reduced duplication in the API bootstrap layer by extracting built-in skill registration and handler wiring into a dedicated helper module.
+
+#### Implemented
+- added `app/services/system_skill_registry.py`
+- moved built-in skill registry entry construction into shared helper functions
+- moved built-in handler registration into a shared helper
+- reduced repeated manifest/capability boilerplate in `app/api/main.py`
+
+#### Design intent clarified
+- bootstrap wiring should stay readable as the number of built-in skills grows
+- system skill definitions should be centralized to reduce drift between metadata and handler registration
+
+### Module: bootstrap extraction for runtime construction and built-in handlers
+
+Further reduced `app/api/main.py` complexity by extracting service construction and built-in handler assembly into dedicated bootstrap modules.
+
+#### Added
+- `app/bootstrap/runtime.py`
+- `app/bootstrap/skills.py`
+
+#### Implemented
+- moved service graph construction into `build_runtime()`
+- moved built-in handler creation/wiring into `bootstrap_builtin_skills()`
+- reduced `main.py` to mostly composition and route declarations
+
+#### Design intent clarified
+- runtime bootstrap and API route declaration should evolve independently
+- service graph construction should be centralized for easier future refactors and testing
+
+### Module: demo catalog/bootstrap extraction
+
+Moved demo blueprint registration and catalog seeding out of `app/api/main.py` so the entry file keeps shrinking toward route-only composition.
+
+#### Added
+- `app/bootstrap/catalog.py`
+
+#### Implemented
+- extracted built-in demo app blueprint registration
+- extracted built-in catalog entry registration
+- reduced direct bootstrap noise in `main.py`
+
+#### Design intent clarified
+- sample/demo bootstrapping should remain easy to find without cluttering API route definitions
+- bootstrap data and runtime wiring should stay separated from route implementation details
+
+### Module: organize system skill services under a dedicated directory
+
+Grouped the platform default skill implementations into a clearer service subtree while keeping old import paths as compatibility wrappers.
+
+#### Added
+- `app/services/system_skills/app_config.py`
+- `app/services/system_skills/state_audit.py`
+- `app/services/system_skills/context.py`
+- `app/services/system_skills/README.md`
+
+#### Updated
+- `app/services/app_config_service.py`
+- `app/services/system_skill_service.py`
+- `app/services/context_skill_service.py`
+  - now act as thin compatibility exports
+- `TOOLS.md`
+  - notes the new system-skill directory layout
+
+#### Design intent clarified
+- default system skills should be easy to find as one family of services
+- migration should preserve existing imports while improving layout
+
+### Module: internal import cleanup and code-structure note
+
+Started switching internal wiring toward the new `app/services/system_skills/` package and added a lightweight structure guide for future development.
+
+#### Added
+- `docs/code-structure.md`
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - now imports system-skill implementations from the new package directly
+- `README.md`
+  - points to `docs/code-structure.md`
+- `TOOLS.md`
+  - points to `docs/code-structure.md`
+
+#### Design intent clarified
+- the new system-skill package should become the primary import target over time
+- a small structure map is useful while the codebase is still actively being reorganized
