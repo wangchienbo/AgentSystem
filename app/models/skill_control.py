@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.skill_manifest import SkillManifest
+
 SkillStatus = Literal["active", "disabled", "rollback_ready"]
 SkillIntelligenceLevel = Literal["L0_deterministic", "L1_assisted", "L2_semantic", "L3_autonomous"]
 SkillNetworkRequirement = Literal["N0_none", "N1_optional", "N2_required"]
@@ -39,6 +41,7 @@ class SkillRegistryEntry(BaseModel):
     dependencies: list[str] = Field(default_factory=list)
     capability_profile: SkillCapabilityProfile = Field(default_factory=SkillCapabilityProfile)
     runtime_adapter: str = Field(default="callable", min_length=1)
+    manifest: SkillManifest | None = None
 
 
 class SkillMutationResult(BaseModel):

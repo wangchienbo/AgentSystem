@@ -1,6 +1,7 @@
 import pytest
 
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
+from app.models.skill_manifest import SkillManifest, SkillContractRef
 from app.services.skill_control import SkillControlError, SkillControlService
 
 
@@ -21,6 +22,15 @@ def build_entry(skill_id: str = "router.skill", immutable: bool = False) -> Skil
             risk_level="R0_safe_read",
         ),
         runtime_adapter="callable",
+        manifest=SkillManifest(
+            skill_id=skill_id,
+            name="Requirement Router",
+            version="1.0.0",
+            description="builder assistance",
+            runtime_adapter="callable",
+            contract=SkillContractRef(),
+            tags=["builder"],
+        ),
     )
 
 
@@ -33,6 +43,7 @@ def test_list_and_get_skills() -> None:
     assert len(skills) == 1
     assert service.get_skill("router.skill").active_version == "1.0.0"
     assert service.get_skill("router.skill").capability_profile.intelligence_level == "L1_assisted"
+    assert service.get_skill("router.skill").manifest is not None
 
 
 def test_replace_skill_creates_new_active_version() -> None:

@@ -943,3 +943,19 @@ Started moving skills from symbolic names toward structured runtime metadata.
 - skills should no longer be treated as names only once they become runtime-visible
 - capability metadata should be present before full manifest/contract work begins
 - built-in system skills should model the same metadata shape expected of future skills
+
+### Module: minimal skill manifest and contract references
+
+Added a minimal manifest layer so registered skills begin to expose package-style structure in addition to capability tags.
+
+#### Implemented
+- introduced `SkillManifest`
+- introduced `SkillContractRef`
+- extended `SkillRegistryEntry` with optional `manifest`
+- registered built-in system skills and demo skill with minimal manifests
+- added tests verifying manifests are exposed via the skill listing API
+
+#### Design intent clarified
+- manifest/contract evolution should be gradual and backward compatible
+- capability tags and manifest structure should coexist during migration
+- runtime-visible system skills should expose both operational metadata and package-style identity

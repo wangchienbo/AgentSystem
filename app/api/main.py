@@ -46,6 +46,7 @@ from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
+from app.models.skill_manifest import SkillManifest, SkillContractRef
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.demonstration import DemonstrationRecord
@@ -214,6 +215,15 @@ skill_control.register(
             risk_level="R0_safe_read",
         ),
         runtime_adapter="callable",
+        manifest=SkillManifest(
+            skill_id="skill.echo",
+            name="Demo Echo Skill",
+            version="1.0.0",
+            description="Simple deterministic echo skill",
+            runtime_adapter="callable",
+            contract=SkillContractRef(),
+            tags=["demo", "deterministic"],
+        ),
     )
 )
 skill_control.register(
@@ -233,6 +243,15 @@ skill_control.register(
             risk_level="R1_local_write",
         ),
         runtime_adapter="callable",
+        manifest=SkillManifest(
+            skill_id="system.app_config",
+            name="System App Config",
+            version="1.0.0",
+            description="Deterministic per-app configuration access",
+            runtime_adapter="callable",
+            contract=SkillContractRef(),
+            tags=["system", "config"],
+        ),
     )
 )
 skill_control.register(
@@ -252,6 +271,15 @@ skill_control.register(
             risk_level="R1_local_write",
         ),
         runtime_adapter="callable",
+        manifest=SkillManifest(
+            skill_id="system.state",
+            name="System State",
+            version="1.0.0",
+            description="Deterministic runtime state access",
+            runtime_adapter="callable",
+            contract=SkillContractRef(),
+            tags=["system", "state"],
+        ),
     )
 )
 skill_control.register(
@@ -271,6 +299,15 @@ skill_control.register(
             risk_level="R1_local_write",
         ),
         runtime_adapter="callable",
+        manifest=SkillManifest(
+            skill_id="system.audit",
+            name="System Audit",
+            version="1.0.0",
+            description="Structured audit trail recording",
+            runtime_adapter="callable",
+            contract=SkillContractRef(),
+            tags=["system", "audit"],
+        ),
     )
 )
 skill_control.register(
@@ -290,6 +327,15 @@ skill_control.register(
             risk_level="R1_local_write",
         ),
         runtime_adapter="callable",
+        manifest=SkillManifest(
+            skill_id="system.context",
+            name="System Context",
+            version="1.0.0",
+            description="Deterministic shared context access",
+            runtime_adapter="callable",
+            contract=SkillContractRef(),
+            tags=["system", "context"],
+        ),
     )
 )
 workflow_executor = WorkflowExecutorService(
@@ -336,6 +382,15 @@ skill_control.register(
             risk_level="R1_local_write",
         ),
         runtime_adapter="callable",
+        manifest=SkillManifest(
+            skill_id="core.skill.control",
+            name="Human Skill Control Interface",
+            version="1.0.0",
+            description="Protected control surface for skill lifecycle",
+            runtime_adapter="callable",
+            contract=SkillContractRef(),
+            tags=["system", "governance"],
+        ),
     )
 )
 app_registry.register_blueprint(
