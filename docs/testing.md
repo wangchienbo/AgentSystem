@@ -231,6 +231,13 @@ Required checks:
 - workflow skill steps fail validation when upstream/downstream contracts do not align
 - build-only skills are rejected from runtime execution paths
 
+## 5.10 Core skill principle reference tests
+Required checks:
+- every system-default skill is represented in the core-skill principle reference
+- system-default skills declared as local-first do not depend on remote-only adapters
+- skills marked as no-default-intelligence do not declare implicit intelligent execution paths
+- future governance skills remain classified with explicit runtime criticality and contract strictness
+
 ---
 
 ## 6. API-level Validation Targets

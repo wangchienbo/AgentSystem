@@ -362,14 +362,27 @@ App-level validation should check at least:
 - consistency between app runtime posture and runtime-capable skill set
 - build-only skill leakage into runtime execution paths
 
-### 5.20 Practice review
+### 5.20 Core skill principle reference
+The system documentation must maintain a canonical core-skill principle reference table for future platform-skill design.
+
+That table must identify, for each core skill or core skill category:
+- primary role
+- runtime criticality
+- whether local-first behavior is required
+- whether default intelligence use is prohibited
+- whether strict machine-readable contracts are required
+- special design constraints or boundary notes
+
+This reference should be consulted whenever new system-default or platform-governance skills are introduced.
+
+### 5.21 Practice review
 The system must support reviewing a runtime practice episode by combining:
 - recent event log
 - data records
 
 and distilling them into an `ExperienceRecord`.
 
-### 5.21 Experience-to-skill suggestion
+### 5.22 Experience-to-skill suggestion
 The system must support generating a candidate `SkillBlueprint` from a stored `ExperienceRecord`, optionally persisting it.
 
 ---

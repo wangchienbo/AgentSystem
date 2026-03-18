@@ -12,6 +12,7 @@ It is intentionally practical and non-authoritative: README and docs remain the 
 - `README.md` — project overview and quick start
 - `docs/requirements.md` — current milestone requirements and boundaries
 - `docs/design.md` — architecture and object model
+  - core skill design principles table: section `5.16`
 - `docs/testing.md` — test strategy and coverage map
 - `docs/testing-detail.md` — detailed test notes and environment-specific validation
 - `docs/development-log.md` — chronological implementation log
