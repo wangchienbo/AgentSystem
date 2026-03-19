@@ -1182,3 +1182,29 @@ Extended the `tmp_path` migration to additional file-backed tests in the refinem
 #### Design intent clarified
 - refinement and registry tests should be isolated from previously persisted runtime JSON just like workflow/runtime tests
 - test stability improvements should be applied consistently across subsystems rather than only around the originally failing area
+
+### Module: finish tmp_path migration for remaining file-backed unit tests
+
+Completed another pass over the remaining fixed `data/test-*` unit tests to reduce state leakage across repeated runs.
+
+#### Updated
+- `tests/unit/test_proposal_review.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_workflow_subscription.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_app_config_service.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_app_data_store.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_practice_review.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_context_runtime_view_serialization.py`
+  - aligned the new serialization regression tests with pytest `tmp_path`
+
+#### Validation
+- Ran focused regression suite successfully
+- Result: `13 passed`
+
+#### Design intent clarified
+- all new and recently touched file-backed unit tests should default to isolated temporary roots
+- regression tests added during bug fixing should follow the same isolation rules as the rest of the suite

@@ -1,12 +1,14 @@
+from pathlib import Path
+
 from app.models.app_config import AppConfigRequest
 from app.services.app_config_service import AppConfigService
 from app.services.app_data_store import AppDataStore
 from app.services.runtime_state_store import RuntimeStateStore
 
 
-def test_app_config_service_initializes_and_mutates_values() -> None:
-    store = RuntimeStateStore(base_dir="data/test-app-config")
-    data_store = AppDataStore(base_dir="data/test-app-config-ns", store=store)
+def test_app_config_service_initializes_and_mutates_values(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "app-config-store"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "app-config-ns"), store=store)
     data_store.ensure_app_namespaces("app.config.test", "user.config")
     service = AppConfigService(data_store=data_store, store=store)
 

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import json
 
 from app.models.app_instance import AppInstance
@@ -9,8 +11,8 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 
 
-def test_context_runtime_view_is_json_serializable() -> None:
-    store = RuntimeStateStore(base_dir="data/test-context-runtime-view")
+def test_context_runtime_view_is_json_serializable(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "context-runtime-view-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -50,8 +52,8 @@ def test_context_runtime_view_is_json_serializable() -> None:
     assert payload["runtime"]["latest_checkpoint"]["app_instance_id"] == instance.id
 
 
-def test_context_runtime_view_falls_back_to_context_only_when_runtime_unavailable() -> None:
-    store = RuntimeStateStore(base_dir="data/test-context-runtime-view-no-runtime")
+def test_context_runtime_view_falls_back_to_context_only_when_runtime_unavailable(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "context-runtime-view-no-runtime-store"))
     lifecycle = AppLifecycleService(store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=None)
     skill = ContextSkillService(context_store=context_store)
