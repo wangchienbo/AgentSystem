@@ -68,7 +68,9 @@ class WorkflowExecutorService:
         payload = inputs or {}
         execution_context: dict[str, Any] = {"inputs": payload, "steps": {}}
 
+        previous_stage = None
         if self._context_store is not None:
+            previous_stage = self._context_store.ensure_context(app_instance_id).current_stage
             self._context_store.update_context(
                 app_instance_id,
                 current_stage=f"workflow:{workflow.id}",
@@ -155,9 +157,11 @@ class WorkflowExecutorService:
         self._history.append(result)
         self._persist_history()
         if self._context_compaction is not None:
+            if previous_stage is not None and previous_stage != f"workflow:{workflow.id}" and self._context_compaction.should_compact(app_instance_id, "stage_change"):
+                self._context_compaction.compact(app_instance_id, reason="stage_change")
             event_name = "workflow_failure" if result.status == "partial" and any(step.status == "failed" for step in result.steps) else "workflow_complete"
             if self._context_compaction.should_compact(app_instance_id, event_name):
-                self._context_compaction.compact(app_instance_id)
+                self._context_compaction.compact(app_instance_id, reason=event_name)
         return result
 
     def _execute_step(

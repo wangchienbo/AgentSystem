@@ -1221,3 +1221,31 @@ Cleaned up repository hygiene around generated runtime JSON snapshots under `dat
 - these files are execution byproducts, not source artifacts
 - keeping them tracked causes constant dirty working trees after local runs and tests
 - removing them from version control reduces noisy diffs and accidental snapshot churn in commits
+
+### Module: complete persisted layered-context compaction baseline
+
+Tightened the existing context-compaction path into a more durable layered-context baseline instead of a one-session-only helper.
+
+#### Updated
+- `app/services/context_compaction.py`
+  - loads persisted summaries/policies on startup
+  - supports `stage_change` policy checks in addition to workflow completion/failure
+  - enriches summary/working-set metadata with workflow and skill execution references
+  - reports skill execution counts in layer detail metadata
+- `app/services/workflow_executor.py`
+  - triggers policy-driven compaction on workflow stage changes
+- `app/api/main.py`
+  - exposes `context_summaries` and `context_policies` in runtime persistence snapshots
+- `tests/unit/test_context_compaction.py`
+  - validates persisted summary/policy reload
+- `tests/unit/test_context_policy.py`
+  - validates stage-change auto compaction and runtime snapshot exposure
+
+#### Validation
+- Ran focused regression suite successfully
+- Result: `14 passed`
+
+#### Design intent clarified
+- layered context should survive runtime restarts instead of resetting to in-memory-only state
+- context compaction policy should govern stage transitions as well as workflow completion/failure
+- working-set views should point toward deeper workflow/skill detail rather than pretending summaries are self-sufficient

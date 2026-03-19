@@ -301,6 +301,9 @@ As the system evolves, the next test groups to add should be:
 5. persistent backend compatibility tests
 6. longer-running service app recovery tests
 7. layered context compaction and working-set derivation tests
+   - summary/policy persistence and reload
+   - auto compaction on stage change
+   - working-set/detail views include workflow and skill execution references
 
 ---
 

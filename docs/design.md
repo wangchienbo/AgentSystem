@@ -579,6 +579,10 @@ To avoid context explosion, runtime context should be split into layers instead 
 - keep detail in `app_contexts`, `workflow_execution_history`, and `skill_executions`
 
 Current implementation note:
+- context compaction summaries and policies are now persisted and reloaded through the runtime state store
+- working-set and summary metadata now include recent workflow/skill references for selective deep retrieval
+- policy-driven auto compaction can now trigger on workflow completion, workflow failure, and stage change
+- runtime persistence inspection now exposes `context_summaries` and `context_policies`
 - a minimal workflow executor now exists for workflow execution
 - it supports deterministic step skeletons for `state.set`, `state.get`, and event emission
 - it also includes placeholders for `human_task` and `skill` steps so workflows can preserve unresolved work in context

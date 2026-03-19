@@ -36,6 +36,70 @@ def test_context_policy_and_auto_compaction_flow() -> None:
     assert layers_response.json()["layers"]["summary"] is not None
 
 
+def test_context_policy_compacts_on_stage_change_and_persists_runtime_snapshot() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.context.stage.change",
+            "name": "Context Stage Change App",
+            "goal": "exercise stage-change compaction",
+            "roles": [],
+            "tasks": [],
+            "workflows": [
+                {"id": "wf.alpha", "name": "alpha", "triggers": ["manual"], "steps": []},
+                {"id": "wf.beta", "name": "beta", "triggers": ["manual"], "steps": []},
+            ],
+            "views": [],
+            "required_modules": [],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.context.stage.change/install",
+        json={"user_id": "context-stage-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    policy_response = client.post(
+        f"/app-contexts/{app_instance_id}/policy",
+        json={"compact_on_workflow_complete": False, "compact_on_workflow_failure": False, "compact_on_stage_change": True},
+    )
+    assert policy_response.status_code == 200
+    assert policy_response.json()["compact_on_stage_change"] is True
+
+    first_execute = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.alpha", "trigger": "api", "inputs": {"topic": "alpha"}},
+    )
+    assert first_execute.status_code == 200
+
+    second_execute = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.beta", "trigger": "api", "inputs": {"topic": "beta"}},
+    )
+    assert second_execute.status_code == 200
+
+    layers_response = client.get(f"/app-contexts/{app_instance_id}/layers")
+    assert layers_response.status_code == 200
+    assert layers_response.json()["layers"]["summary"] is not None
+    assert layers_response.json()["layers"]["summary"]["metadata"]["compact_reason"] == "stage_change"
+
+    persistence_response = client.get("/runtime/persistence")
+    assert persistence_response.status_code == 200
+    assert app_instance_id in persistence_response.json()["context_summaries"]
+    assert app_instance_id in persistence_response.json()["context_policies"]
+
+
 def test_skill_execution_receives_working_set() -> None:
     register_response = client.post(
         "/registry/apps",
@@ -90,3 +154,8 @@ def test_skill_execution_receives_working_set() -> None:
     assert working_set_response.status_code == 200
     assert working_set_response.json()["layer"] == "working_set"
     assert "be-brief" in working_set_response.json()["decisions"]
+    assert working_set_response.json()["metadata"]["skill_execution_count"] >= 1
+
+    layers_response = client.get(f"/app-contexts/{app_instance_id}/layers")
+    assert layers_response.status_code == 200
+    assert layers_response.json()["layers"]["detail"]["skill_execution_count"] >= 1

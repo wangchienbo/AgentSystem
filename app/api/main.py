@@ -358,6 +358,8 @@ def get_runtime_persistence_snapshot() -> dict:
         "patch_proposals": runtime_store.load_json("patch_proposals", {}),
         "proposal_reviews": runtime_store.load_json("proposal_reviews", {}),
         "app_contexts": runtime_store.load_json("app_contexts", {}),
+        "context_summaries": runtime_store.load_json("context_summaries", {}),
+        "context_policies": runtime_store.load_json("context_policies", {}),
     }
 
 

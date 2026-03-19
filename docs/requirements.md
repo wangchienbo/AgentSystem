@@ -520,6 +520,8 @@ Required capabilities:
 - maintain a compact **task/app summary** separate from execution detail
 - preserve **execution detail** outside the prompt path for on-demand retrieval
 - support explicit or threshold-based context compaction
+- support policy-driven automatic compaction on workflow completion, failure, and stage change
+- persist compaction summaries and policies so layered context survives runtime restarts
 - preserve decisions, constraints, open loops, artifacts, and current goal/stage during compaction
 - provide selective retrieval of deeper context only when required by the current execution node
 - support promotion of repeated patterns into long-term reusable experience
