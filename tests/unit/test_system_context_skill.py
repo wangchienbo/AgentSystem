@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.models.app_blueprint import AppBlueprint
 from app.models.context_skill import ContextSkillRequest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
@@ -16,12 +18,12 @@ from app.services.skill_runtime import SkillRuntimeService
 from app.services.workflow_executor import WorkflowExecutorService
 
 
-def test_system_context_skill_executes_through_runtime() -> None:
-    store = RuntimeStateStore(base_dir="data/test-system-context-skill-isolated")
+def test_system_context_skill_executes_through_runtime(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-system-context-skill-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "namespaces"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -83,3 +85,4 @@ def test_system_context_skill_executes_through_runtime() -> None:
     assert any(item["key"] == "fact-1" for item in result.steps[2].output["entries"])
     runtime_view = context_skill.execute(install_result.app_instance_id, ContextSkillRequest(operation="list_runtime_view"))
     assert runtime_view["context"]["app_instance_id"] == install_result.app_instance_id
+    assert runtime_view["runtime"] is not None

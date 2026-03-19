@@ -1116,3 +1116,23 @@ Started switching internal wiring toward the new `app/services/system_skills/` p
 #### Design intent clarified
 - the new system-skill package should become the primary import target over time
 - a small structure map is useful while the codebase is still actively being reorganized
+
+### Module: stabilize system.context runtime-view tests
+
+Hardened the system-context test path so runtime-view validation no longer depends on reused on-disk test directories.
+
+#### Updated
+- `app/services/app_context_store.py`
+  - added the missing `LifecycleError` import used by runtime-view fallback handling
+- `tests/unit/test_context_runtime_view_serialization.py`
+  - expanded coverage for both runtime-present and runtime-unavailable serialization paths
+- `tests/unit/test_system_context_skill.py`
+  - switched test storage paths to pytest-managed `tmp_path` directories to avoid cross-run state pollution
+
+#### Validation
+- Ran targeted regression tests successfully
+- Result: `3 passed`
+
+#### Design intent clarified
+- file-backed runtime tests should isolate their storage roots per test run
+- system skill serialization tests should cover both happy-path and fallback-path payload shapes
