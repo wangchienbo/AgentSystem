@@ -1391,3 +1391,24 @@ Pushed compile-time validation one step further so workflow checks can reason ab
 #### Design intent clarified
 - compile-time compatibility should begin to reason about upstream and downstream schemas, not only reference existence
 - the first useful compatibility pass can be field-level and conservative before evolving into fuller graph/type inference
+
+### Module: add usable API-first end-to-end flow and schema-ize builtin system skills
+
+Shifted part of the validation work toward actual usability by adding an API-first end-to-end flow and bringing builtin system skills into the schema-first contract path.
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - registers minimal input/output/error schemas for `system.context` and `system.app_config`
+  - aligns builtin input schemas with runtime-injected `working_set` payloads
+- `app/services/system_skill_registry.py`
+  - adds contract refs for builtin `system.context` and `system.app_config` manifests
+- `tests/e2e/test_api_usable_flow.py`
+  - adds an API-first usable flow covering blueprint registration, install, context/policy updates, workflow execution, runtime/context inspection, and invalid-flow rejection
+
+#### Validation
+- Ran usable API-first regression slice successfully
+- Result: `17 passed`
+
+#### Design intent clarified
+- builtin system skills should participate in the same schema-first runtime path as other skills
+- usable-alpha confidence should come from end-to-end API flows, not only isolated unit tests

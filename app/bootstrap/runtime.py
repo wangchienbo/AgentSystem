@@ -40,6 +40,91 @@ def build_runtime() -> dict[str, object]:
     router = RequirementRouter()
     skill_control = SkillControlService()
     schema_registry = SchemaRegistryService()
+    schema_registry.register(
+        "schema://system.app_config/input",
+        {
+            "type": "object",
+            "properties": {
+                "operation": {"type": "string", "enum": ["get", "set", "patch", "delete", "list"]},
+                "key": {"type": "string"},
+                "value": {},
+                "config_schema": {"type": "object"},
+                "working_set": {"type": "object"},
+            },
+            "required": ["operation"],
+            "additionalProperties": False,
+        },
+    )
+    schema_registry.register(
+        "schema://system.app_config/output",
+        {
+            "type": "object",
+            "properties": {
+                "app_instance_id": {"type": "string"},
+                "operation": {"type": "string"},
+                "values": {"type": "object"},
+                "key": {"type": "string"},
+                "value": {},
+                "history_count": {"type": "integer"},
+            },
+            "required": ["app_instance_id", "operation", "values", "key", "history_count"],
+            "additionalProperties": True,
+        },
+    )
+    schema_registry.register(
+        "schema://system.app_config/error",
+        {
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+            "required": ["message"],
+            "additionalProperties": False,
+        },
+    )
+    schema_registry.register(
+        "schema://system.context/input",
+        {
+            "type": "object",
+            "properties": {
+                "operation": {"type": "string", "enum": ["get", "update", "append", "list_runtime_view"]},
+                "current_goal": {"type": "string"},
+                "current_stage": {"type": "string"},
+                "status": {"type": "string"},
+                "section": {"type": "string"},
+                "key": {"type": "string"},
+                "value": {},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "include_runtime": {"type": "boolean"},
+                "working_set": {"type": "object"},
+            },
+            "required": ["operation"],
+            "additionalProperties": False,
+        },
+    )
+    schema_registry.register(
+        "schema://system.context/output",
+        {
+            "type": "object",
+            "properties": {
+                "app_instance_id": {"type": "string"},
+                "current_goal": {"type": "string"},
+                "current_stage": {"type": "string"},
+                "status": {"type": "string"},
+                "entries": {"type": "array"},
+                "context": {"type": "object"},
+                "runtime": {},
+            },
+            "additionalProperties": True,
+        },
+    )
+    schema_registry.register(
+        "schema://system.context/error",
+        {
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+            "required": ["message"],
+            "additionalProperties": False,
+        },
+    )
     skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)
     blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
