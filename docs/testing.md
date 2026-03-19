@@ -159,7 +159,7 @@ Covered behavior:
 
 At the time of this document update:
 - automated local test suite passes
-- current result: `81 passed`
+- current result: `31 passed` for the latest focused validation/runtime regression slice, with additional focused green runs covering context compaction and file-backed test isolation work
 
 This indicates the implemented milestone is internally consistent at the current level of scope.
 
@@ -225,13 +225,17 @@ Required checks:
 ## 5.9 Skill package / contract / adapter validation tests
 Required checks:
 - skill manifests are rejected when required metadata or contract references are missing
+- contract/schema refs resolve through one authoritative registry/source
 - input/output examples satisfy declared schemas
 - callable/script/rpc/binary adapter declarations resolve correctly
+- adapter resolvability is tested separately from contract/schema validity
 - declared capability tags remain consistent with runtime form
 - workflow skill steps fail validation when upstream/downstream contracts do not align
 - workflow skill steps referencing undeclared skills are rejected
 - required skills missing from the registry are rejected before install
 - build-only skills are rejected from runtime execution paths
+- dispatched skill inputs are rejected before execution when they violate the declared request contract
+- returned outputs/errors are rejected or flagged when they violate the declared response contract
 
 ## 5.10 Core skill principle reference tests
 Required checks:

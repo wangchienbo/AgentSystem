@@ -1273,9 +1273,27 @@ Introduced a first stricter validation layer so obviously invalid app blueprints
   - updates install API fixture to match stricter validation rules
 
 #### Validation
-- Ran focused validation/profile/installer regression suite successfully
-- Result: `12 passed`
+- Ran focused validation/profile/installer/runtime regression suite successfully
+- Result: `31 passed`
 
 #### Design intent clarified
 - invalid runtime-skill wiring should fail before install rather than surfacing only during workflow execution
 - build-only capability tags must have real enforcement value, not just documentation value
+
+### Module: align contract/validation design with schema-first runtime direction
+
+Refined the design documents after reviewing OpenClaw's schema-first patterns so the next contract-validation work has a clearer target shape.
+
+#### Updated
+- `docs/requirements.md`
+  - clarifies that machine-readable contracts/schemas should be the single source of truth for validation and runtime envelopes
+- `docs/design.md`
+  - separates package validation, compile-time workflow validation, and runtime envelope validation
+  - clarifies that adapter executability and contract validity are different dimensions
+- `docs/testing.md`
+  - adds schema-registry, pre-dispatch input validation, and post-dispatch output/error validation expectations
+
+#### Design intent clarified
+- schema/contract definitions should drive validation first, then runtime execution
+- runtime envelope violations should be treated differently from adapter/runtime failures
+- future contract validation should reuse one authoritative schema source instead of parallel ad-hoc checks

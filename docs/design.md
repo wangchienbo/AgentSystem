@@ -326,6 +326,11 @@ A future skill package should include at least:
 - dependency declarations (modules, skills, binaries, services)
 - validation examples and optional healthcheck metadata
 
+The intended direction is schema-first:
+- machine-readable contract/schema definitions should be the authoritative source for runtime envelopes
+- adapter declarations should describe how execution happens, not redefine payload shapes independently
+- future inspection/debugging surfaces should reuse the same contract source instead of inventing parallel representations
+
 ### Runtime adapters
 The runtime layer should support multiple adapter types behind one execution contract:
 - `callable` for in-process deterministic handlers
@@ -353,17 +358,38 @@ Direct skill-to-skill dependencies may still be declared, but dependency resolut
 ## 5.15 Skill validation and compile-time checking
 A future `SkillValidationService` should validate skill packages before they become active runtime capabilities.
 
-Validation should cover at least:
+Validation should be treated as three connected layers rather than one undifferentiated check:
+
+### Package validation
+Runs before a skill becomes active or installable.
+It should cover at least:
 - manifest completeness
 - schema correctness
 - adapter resolvability
 - consistency between capability tags and actual runtime form
 - compatibility between declared dependencies and the execution environment
 
-App/workflow validation should additionally check:
-- step input/output compatibility
+### Compile-time app/workflow validation
+Runs before app install or runtime activation.
+It should cover at least:
+- required skill existence
+- workflow step / skill contract compatibility
+- input/output mapping compatibility between steps
 - misuse of build-only skills inside runtime execution paths
 - mismatch between app runtime profile and runtime-critical skill requirements
+
+### Runtime envelope validation
+Runs at dispatch boundaries even after compile-time checks pass.
+It should cover at least:
+- request/input payload validation before adapter execution
+- response/output/error validation after adapter execution
+- adapter/runtime failures being distinguished from contract violations
+
+This separation follows a stricter schema-first model:
+- contract validity and adapter executability are different dimensions
+- invalid packages should be blocked before activation
+- invalid workflow wiring should be blocked before install/start
+- invalid runtime payloads should fail as envelope violations rather than silently poisoning downstream steps
 
 ## 5.16 Core skill design principles reference
 The canonical core-skill design principles are maintained in:

@@ -333,6 +333,11 @@ Each skill should support a machine-readable package/manifest describing at leas
 - dependency declarations
 - validation assets/examples
 
+The machine-readable contract/schema layer should act as the single source of truth for:
+- compile-time validation
+- runtime request/response envelope validation
+- future inspection, debugging, and UI/schema-driven tooling
+
 The runtime adapter model should support at least these execution styles:
 - in-process callable
 - local script with structured input/output
@@ -359,6 +364,11 @@ Skill-level validation should check at least:
 - contract/schema validity
 - runtime adapter resolvability
 - compatibility between declared capability tags and actual execution form
+
+Validation should be layered rather than treated as one flat pass:
+- package validation before a skill becomes active or installable
+- compile-time app/workflow validation before runtime activation
+- runtime envelope validation for dispatched inputs and returned outputs/errors
 
 App-level validation should check at least:
 - required skill existence
