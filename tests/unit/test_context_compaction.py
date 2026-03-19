@@ -15,9 +15,42 @@ from app.services.runtime_state_store import RuntimeStateStore
 client = TestClient(app)
 
 
+def _register_context_app(blueprint_id: str) -> None:
+    response = client.post(
+        "/registry/apps",
+        json={
+            "id": blueprint_id,
+            "name": "Context Test App",
+            "goal": "exercise context compaction",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.context",
+                    "name": "context workflow",
+                    "triggers": ["manual"],
+                    "steps": [],
+                }
+            ],
+            "views": [],
+            "required_modules": [],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert response.status_code == 200
+
+
 def test_context_compaction_api_flow() -> None:
+    _register_context_app("bp.context.compaction.api")
     install_response = client.post(
-        "/registry/apps/bp.workspace.assistant/install",
+        "/registry/apps/bp.context.compaction.api/install",
         json={"user_id": "context-compaction-user"},
     )
     assert install_response.status_code == 200

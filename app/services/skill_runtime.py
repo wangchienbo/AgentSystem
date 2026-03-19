@@ -7,6 +7,7 @@ from typing import Callable
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.skill_control import SkillRegistryEntry
 from app.services.runtime_state_store import RuntimeStateStore
+from app.services.schema_registry import SchemaRegistryError, SchemaRegistryService
 
 SkillHandler = Callable[[SkillExecutionRequest], SkillExecutionResult]
 
@@ -15,11 +16,16 @@ class SkillRuntimeError(ValueError):
     pass
 
 
+class SkillContractViolationError(SkillRuntimeError):
+    pass
+
+
 class SkillRuntimeService:
-    def __init__(self, store: RuntimeStateStore | None = None) -> None:
+    def __init__(self, store: RuntimeStateStore | None = None, schema_registry: SchemaRegistryService | None = None) -> None:
         self._handlers: dict[str, SkillHandler] = {}
         self._entries: dict[str, SkillRegistryEntry] = {}
         self._store = store
+        self._schema_registry = schema_registry
         self._executions: dict[str, SkillExecutionResult] = {}
 
     def register_handler(self, skill_id: str, handler: SkillHandler, entry: SkillRegistryEntry | None = None) -> None:
@@ -30,14 +36,24 @@ class SkillRuntimeService:
     def execute(self, request: SkillExecutionRequest) -> SkillExecutionResult:
         if request.skill_id not in self._handlers:
             raise SkillRuntimeError(f"Skill handler not found: {request.skill_id}")
-        adapter_kind = self._entries.get(request.skill_id).runtime_adapter if request.skill_id in self._entries else "callable"
+        entry = self._entries.get(request.skill_id)
+        adapter_kind = entry.runtime_adapter if entry is not None else "callable"
         if adapter_kind not in {"callable", "script"}:
             raise SkillRuntimeError(f"Unsupported skill runtime adapter: {adapter_kind}")
         try:
+            self._validate_request_contract(request, entry)
             if adapter_kind == "script":
                 result = self._execute_script(request)
             else:
                 result = self._handlers[request.skill_id](request)
+            self._validate_result_contract(result, entry)
+        except SkillContractViolationError as error:
+            result = SkillExecutionResult(
+                skill_id=request.skill_id,
+                status="failed",
+                output={},
+                error=f"contract violation: {error}",
+            )
         except Exception as error:  # noqa: BLE001
             result = SkillExecutionResult(
                 skill_id=request.skill_id,
@@ -79,6 +95,32 @@ class SkillRuntimeService:
 
     def list_failures(self) -> list[SkillExecutionResult]:
         return [item for item in self._executions.values() if item.status == "failed"]
+
+    def _validate_request_contract(self, request: SkillExecutionRequest, entry: SkillRegistryEntry | None) -> None:
+        if self._schema_registry is None or entry is None or entry.manifest is None:
+            return
+        schema_ref = entry.manifest.contract.input_schema_ref
+        if not schema_ref:
+            return
+        try:
+            self._schema_registry.validate(schema_ref, request.inputs)
+        except SchemaRegistryError as error:
+            raise SkillContractViolationError(f"input contract failed for {request.skill_id}: {error}") from error
+
+    def _validate_result_contract(self, result: SkillExecutionResult, entry: SkillRegistryEntry | None) -> None:
+        if self._schema_registry is None or entry is None or entry.manifest is None:
+            return
+        contract = entry.manifest.contract
+        if result.status == "completed" and contract.output_schema_ref:
+            try:
+                self._schema_registry.validate(contract.output_schema_ref, result.output)
+            except SchemaRegistryError as error:
+                raise SkillContractViolationError(f"output contract failed for {result.skill_id}: {error}") from error
+        if result.status == "failed" and contract.error_schema_ref:
+            try:
+                self._schema_registry.validate(contract.error_schema_ref, {"message": result.error})
+            except SchemaRegistryError as error:
+                raise SkillContractViolationError(f"error contract failed for {result.skill_id}: {error}") from error
 
     def _persist(self) -> None:
         if self._store is None:

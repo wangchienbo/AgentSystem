@@ -1323,3 +1323,25 @@ Started the schema-first contract implementation by introducing a minimal schema
 #### Design intent clarified
 - contract refs should fail early when they point to nothing
 - schema resolution should become a reusable service rather than ad-hoc string checks in validators
+
+### Module: enforce input/output contracts in skill runtime dispatch
+
+Extended the schema-first path from manifest validation into actual runtime dispatch boundaries.
+
+#### Updated
+- `app/services/skill_runtime.py`
+  - validates request inputs against declared input contract refs before handler execution
+  - validates completed outputs against declared output contract refs after handler execution
+  - distinguishes contract violations from ordinary runtime failures through dedicated error text
+- `app/bootstrap/runtime.py`
+  - injects the shared schema registry into the skill runtime service
+- `tests/unit/test_skill_runtime.py`
+  - adds invalid-input and invalid-output contract regression coverage while preserving existing workflow execution paths
+
+#### Validation
+- Ran focused runtime/manifest/blueprint regression suite successfully
+- Result: `14 passed`
+
+#### Design intent clarified
+- request/response contracts should be enforced at dispatch boundaries, not only during package validation
+- runtime contract violations should surface as envelope failures rather than opaque handler exceptions

@@ -95,7 +95,7 @@ def build_runtime() -> dict[str, object]:
         blueprint_validation=blueprint_validation,
     )
     app_catalog = AppCatalogService()
-    skill_runtime = SkillRuntimeService(store=runtime_store)
+    skill_runtime = SkillRuntimeService(store=runtime_store, schema_registry=schema_registry)
     workflow_executor = WorkflowExecutorService(
         registry=app_registry,
         lifecycle=lifecycle,
