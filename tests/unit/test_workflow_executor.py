@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -17,12 +19,12 @@ from app.services.workflow_executor import WorkflowExecutorService
 client = TestClient(app)
 
 
-def test_workflow_executor_runs_state_and_event_steps() -> None:
-    store = RuntimeStateStore(base_dir="data/test-workflow-executor")
+def test_workflow_executor_runs_state_and_event_steps(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "workflow-executor-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-workflow-executor-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "workflow-executor-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -78,12 +80,12 @@ def test_workflow_executor_runs_state_and_event_steps() -> None:
     assert any(item.key.startswith("workflow-result:") for item in context.entries)
 
 
-def test_workflow_executor_supports_workflow_selection_and_placeholders() -> None:
-    store = RuntimeStateStore(base_dir="data/test-workflow-selection")
+def test_workflow_executor_supports_workflow_selection_and_placeholders(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "workflow-selection-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-workflow-selection-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "workflow-selection-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -151,12 +153,12 @@ def test_workflow_executor_supports_workflow_selection_and_placeholders() -> Non
     assert any(item.key == "skill-step:call.skill" for item in context.entries)
 
 
-def test_workflow_executor_passes_step_outputs_between_steps() -> None:
-    store = RuntimeStateStore(base_dir="data/test-workflow-step-outputs")
+def test_workflow_executor_passes_step_outputs_between_steps(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "workflow-step-outputs-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-workflow-step-outputs-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "workflow-step-outputs-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -212,12 +214,12 @@ def test_workflow_executor_passes_step_outputs_between_steps() -> None:
     assert result.steps[-1].output["event_name"] == "workflow.outputs.done"
 
 
-def test_workflow_executor_supports_conditional_steps_and_outputs_summary() -> None:
-    store = RuntimeStateStore(base_dir="data/test-workflow-conditions")
+def test_workflow_executor_supports_conditional_steps_and_outputs_summary(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "workflow-conditions-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-workflow-conditions-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "workflow-conditions-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)

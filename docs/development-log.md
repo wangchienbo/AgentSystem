@@ -1136,3 +1136,27 @@ Hardened the system-context test path so runtime-view validation no longer depen
 #### Design intent clarified
 - file-backed runtime tests should isolate their storage roots per test run
 - system skill serialization tests should cover both happy-path and fallback-path payload shapes
+
+### Module: isolate workflow and system-skill tests from on-disk state reuse
+
+Continued converting file-backed unit tests away from fixed `data/test-*` directories so repeated local runs do not inherit stale runtime JSON state.
+
+#### Updated
+- `tests/unit/test_workflow_executor.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_skill_runtime.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_interaction_gateway.py`
+  - switched file-backed stores and persistence checks to pytest `tmp_path`
+- `tests/unit/test_system_app_config_skill.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_system_state_and_audit_skills.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+
+#### Validation
+- Ran focused regression suite successfully
+- Result: `19 passed`
+
+#### Design intent clarified
+- unit tests that exercise the JSON file runtime store should use unique temporary roots by default
+- repeated local/CI runs should not depend on manual cleanup of prior `data/test-*` artifacts

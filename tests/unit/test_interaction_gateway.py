@@ -21,12 +21,12 @@ from app.services.runtime_state_store import RuntimeStateStore
 client = TestClient(app)
 
 
-def test_interaction_gateway_opens_service_app() -> None:
-    store = RuntimeStateStore(base_dir="data/test-runtime-gateway-service")
+def test_interaction_gateway_opens_service_app(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-gateway-service-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-runtime-gateway-service-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "runtime-gateway-service-ns"), store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
     installer = AppInstallerService(
         registry=registry,
@@ -73,12 +73,12 @@ def test_interaction_gateway_opens_service_app() -> None:
     assert context.entries[-1].key == "latest-user-command"
 
 
-def test_interaction_gateway_runs_pipeline_app() -> None:
-    store = RuntimeStateStore(base_dir="data/test-runtime-gateway-pipeline")
+def test_interaction_gateway_runs_pipeline_app(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-gateway-pipeline-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-runtime-gateway-pipeline-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "runtime-gateway-pipeline-ns"), store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
     installer = AppInstallerService(
         registry=registry,
@@ -126,12 +126,12 @@ def test_interaction_gateway_runs_pipeline_app() -> None:
     assert context.entries[-1].key == "latest-pipeline-run"
 
 
-def test_interaction_gateway_clarifies_unknown_command() -> None:
-    store = RuntimeStateStore(base_dir="data/test-runtime-gateway-clarify")
+def test_interaction_gateway_clarifies_unknown_command(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-gateway-clarify-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-runtime-gateway-clarify-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "runtime-gateway-clarify-ns"), store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
     installer = AppInstallerService(
         registry=registry,
@@ -148,9 +148,9 @@ def test_interaction_gateway_clarifies_unknown_command() -> None:
     assert "未命中已登记 app" in decision.message
 
 
-def test_runtime_state_store_persists_files() -> None:
-    base_dir = "data/test-runtime-persistence"
-    store = RuntimeStateStore(base_dir=base_dir)
+def test_runtime_state_store_persists_files(tmp_path: Path) -> None:
+    base_dir = tmp_path / "runtime-persistence-store"
+    store = RuntimeStateStore(base_dir=str(base_dir))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     runtime.register_instance(

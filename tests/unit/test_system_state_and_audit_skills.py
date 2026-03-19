@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.system_skill import SystemAuditRequest, SystemStateRequest
@@ -16,12 +18,12 @@ from app.services.system_skill_service import SystemAuditService, SystemStateSer
 from app.services.workflow_executor import WorkflowExecutorService
 
 
-def test_system_state_and_audit_skills_execute_through_runtime() -> None:
-    store = RuntimeStateStore(base_dir="data/test-system-state-audit")
+def test_system_state_and_audit_skills_execute_through_runtime(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-system-state-audit-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "namespaces"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)

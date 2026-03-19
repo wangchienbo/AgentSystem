@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -19,12 +21,12 @@ from app.services.workflow_executor import WorkflowExecutorService
 client = TestClient(app)
 
 
-def test_skill_runtime_executes_registered_handler_inside_workflow() -> None:
-    store = RuntimeStateStore(base_dir="data/test-skill-runtime")
+def test_skill_runtime_executes_registered_handler_inside_workflow(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "skill-runtime-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-skill-runtime-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "skill-runtime-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -82,12 +84,12 @@ def test_skill_runtime_executes_registered_handler_inside_workflow() -> None:
     assert len(skill_runtime.list_executions()) == 1
 
 
-def test_skill_runtime_supports_input_mapping_and_failure_capture() -> None:
-    store = RuntimeStateStore(base_dir="data/test-skill-runtime-mapping")
+def test_skill_runtime_supports_input_mapping_and_failure_capture(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "skill-runtime-mapping-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-skill-runtime-mapping-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "skill-runtime-mapping-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -152,12 +154,12 @@ def test_skill_runtime_supports_input_mapping_and_failure_capture() -> None:
     assert any(item.section == "open_loops" and item.key == "skill-result:call.fail" for item in context.entries)
 
 
-def test_skill_runtime_enforces_blueprint_skill_allowlist() -> None:
-    store = RuntimeStateStore(base_dir="data/test-skill-runtime-policy")
+def test_skill_runtime_enforces_blueprint_skill_allowlist(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "skill-runtime-policy-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-skill-runtime-policy-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "skill-runtime-policy-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
