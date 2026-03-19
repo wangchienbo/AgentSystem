@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -24,9 +26,9 @@ from app.services.self_refinement import SelfRefinementService
 client = TestClient(app)
 
 
-def test_priority_analysis_ranks_runtime_policy_first_when_low_risk() -> None:
-    store = RuntimeStateStore(base_dir="data/test-priority-analysis")
-    data_store = AppDataStore(base_dir="data/test-priority-analysis-ns", store=store)
+def test_priority_analysis_ranks_runtime_policy_first_when_low_risk(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "priority-analysis-store"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "priority-analysis-ns"), store=store)
     experience_store = ExperienceStore()
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)

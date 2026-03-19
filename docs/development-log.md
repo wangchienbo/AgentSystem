@@ -1160,3 +1160,25 @@ Continued converting file-backed unit tests away from fixed `data/test-*` direct
 #### Design intent clarified
 - unit tests that exercise the JSON file runtime store should use unique temporary roots by default
 - repeated local/CI runs should not depend on manual cleanup of prior `data/test-*` artifacts
+
+### Module: isolate refinement and registry/event tests from persistent test state
+
+Extended the `tmp_path` migration to additional file-backed tests in the refinement, registry, and event areas.
+
+#### Updated
+- `tests/unit/test_self_refinement.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_priority_analysis.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_registry_installer.py`
+  - switched file-backed stores and installer namespaces to pytest `tmp_path`
+- `tests/unit/test_event_bus.py`
+  - switched file-backed runtime store to pytest `tmp_path`
+
+#### Validation
+- Ran focused regression suite successfully
+- Result: `13 passed`
+
+#### Design intent clarified
+- refinement and registry tests should be isolated from previously persisted runtime JSON just like workflow/runtime tests
+- test stability improvements should be applied consistently across subsystems rather than only around the originally failing area

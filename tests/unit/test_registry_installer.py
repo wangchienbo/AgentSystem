@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -37,8 +39,8 @@ def build_blueprint(execution_mode: str = "service") -> AppBlueprint:
     )
 
 
-def test_registry_registers_blueprint() -> None:
-    store = RuntimeStateStore(base_dir="data/test-registry")
+def test_registry_registers_blueprint(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "registry-store"))
     registry = AppRegistryService(store=store)
 
     entry = registry.register_blueprint(build_blueprint(), description="registry test")
@@ -47,12 +49,12 @@ def test_registry_registers_blueprint() -> None:
     assert registry.get_blueprint("bp.test.registry").runtime_policy.execution_mode == "service"
 
 
-def test_installer_creates_instance_with_runtime_policy() -> None:
-    store = RuntimeStateStore(base_dir="data/test-installer")
+def test_installer_creates_instance_with_runtime_policy(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "installer-store"))
     registry = AppRegistryService(store=store)
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
-    data_store = AppDataStore(base_dir="data/test-installer-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "installer-ns"), store=store)
     app_config = AppConfigService(data_store=data_store, store=store)
     skill_control = SkillControlService()
     for skill_id in ["system.app_config", "system.context", "system.state", "system.audit"]:
