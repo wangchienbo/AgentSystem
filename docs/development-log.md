@@ -1369,3 +1369,25 @@ Extended blueprint validation so some obvious workflow wiring errors are rejecte
 #### Design intent clarified
 - compile-time validation should catch obvious workflow wiring mistakes before install/start
 - runtime schema enforcement should complement, not replace, static workflow checks
+
+### Module: validate prior skill output schemas against downstream inputs
+
+Pushed compile-time validation one step further so workflow checks can reason about simple skill-to-skill schema wiring, not only missing fields and bad references.
+
+#### Updated
+- `app/services/blueprint_validation.py`
+  - tracks prior skill-step output schemas when manifests declare them
+  - validates `$from_step` field mappings against downstream skill input field schemas
+  - rejects simple type mismatches between prior skill outputs and downstream input contracts
+- `tests/unit/test_blueprint_validation.py`
+  - adds regression coverage for incompatible prior-skill output to downstream input mappings
+
+#### Validation
+- Ran focused blueprint/schema/runtime regression suite successfully
+- Result: `17 passed`
+- Ran broader install/workflow/runtime regression suite successfully
+- Result: `32 passed`
+
+#### Design intent clarified
+- compile-time compatibility should begin to reason about upstream and downstream schemas, not only reference existence
+- the first useful compatibility pass can be field-level and conservative before evolving into fuller graph/type inference

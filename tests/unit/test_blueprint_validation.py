@@ -24,7 +24,13 @@ from app.services.skill_validation import SkillValidationService
 client = TestClient(app)
 
 
-def _register_skill(skill_control: SkillControlService, skill_id: str, criticality: str = "C2_required_runtime", input_ref: str = "") -> None:
+def _register_skill(
+    skill_control: SkillControlService,
+    skill_id: str,
+    criticality: str = "C2_required_runtime",
+    input_ref: str = "",
+    output_ref: str = "",
+) -> None:
     skill_control.register(
         SkillRegistryEntry(
             skill_id=skill_id,
@@ -49,9 +55,9 @@ def _register_skill(skill_control: SkillControlService, skill_id: str, criticali
                 description="validation test",
                 runtime_adapter="callable",
                 adapter=SkillAdapterSpec(kind="callable", entry=f"handlers:{skill_id}"),
-                contract=SkillContractRef(input_schema_ref=input_ref, output_schema_ref="", error_schema_ref=""),
+                contract=SkillContractRef(input_schema_ref=input_ref, output_schema_ref=output_ref, error_schema_ref=""),
                 tags=["test"],
-            ) if input_ref else None,
+            ) if input_ref or output_ref else None,
         )
     )
 
@@ -189,6 +195,46 @@ def test_blueprint_validation_rejects_missing_required_input_field() -> None:
     result = validation.validate(blueprint)
     assert result["ok"] is False
     assert any("missing required input field: mode" in item for item in result["errors"])
+
+
+def test_blueprint_validation_rejects_incompatible_prior_skill_output_mapping() -> None:
+    schema_registry = SchemaRegistryService()
+    schema_registry.register(
+        "schema://skill.producer/output",
+        {"type": "object", "properties": {"count": {"type": "integer"}}, "required": ["count"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://skill.consumer/input",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    skill_control = SkillControlService()
+    _register_skill(skill_control, "skill.producer", output_ref="schema://skill.producer/output")
+    _register_skill(skill_control, "skill.consumer", input_ref="schema://skill.consumer/input")
+    validation = BlueprintValidationService(SkillValidationService(skill_control=skill_control, schema_registry=schema_registry))
+
+    blueprint = AppBlueprint(
+        id="bp.invalid.output-input-mismatch",
+        name="Invalid Output Input Mismatch",
+        goal="fail validation",
+        roles=[{"id": "r1", "name": "agent", "type": "agent"}],
+        tasks=[],
+        workflows=[{
+            "id": "wf.invalid",
+            "name": "invalid",
+            "triggers": ["manual"],
+            "steps": [
+                {"id": "produce", "kind": "skill", "ref": "skill.producer", "config": {}},
+                {"id": "consume", "kind": "skill", "ref": "skill.consumer", "config": {"inputs": {"message": {"$from_step": "produce", "field": "count"}}}},
+            ],
+        }],
+        views=[],
+        required_modules=[],
+        required_skills=["skill.producer", "skill.consumer"],
+    )
+
+    result = validation.validate(blueprint)
+    assert result["ok"] is False
+    assert any("maps incompatible schema" in item for item in result["errors"])
 
 
 def test_installer_rejects_invalid_blueprint_with_missing_skill(tmp_path: Path) -> None:

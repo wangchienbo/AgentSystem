@@ -28,6 +28,7 @@ class BlueprintValidationService:
 
         for workflow in blueprint.workflows:
             previous_step_ids: list[str] = []
+            prior_skill_output_schemas: dict[str, dict[str, Any]] = {}
             for step in workflow.steps:
                 if step.kind != "skill":
                     previous_step_ids.append(step.id)
@@ -39,7 +40,22 @@ class BlueprintValidationService:
                     continue
                 try:
                     entry = self._skill_validation.get_runtime_skill_entry(step.ref)
-                    errors.extend(self._validate_skill_step_contracts(workflow.id, step.id, step.config.get("inputs", {}), previous_step_ids, entry.manifest.contract.input_schema_ref if entry.manifest is not None else ""))
+                    input_schema_ref = entry.manifest.contract.input_schema_ref if entry.manifest is not None else ""
+                    output_schema_ref = entry.manifest.contract.output_schema_ref if entry.manifest is not None else ""
+                    errors.extend(
+                        self._validate_skill_step_contracts(
+                            workflow.id,
+                            step.id,
+                            step.config.get("inputs", {}),
+                            previous_step_ids,
+                            prior_skill_output_schemas,
+                            input_schema_ref,
+                        )
+                    )
+                    if output_schema_ref:
+                        schema_registry = getattr(self._skill_validation._manifest_validator, "_schema_registry", None)
+                        if schema_registry is not None:
+                            prior_skill_output_schemas[step.id] = schema_registry.resolve(output_schema_ref)
                 except SkillValidationError as error:
                     errors.append(str(error))
                 previous_step_ids.append(step.id)
@@ -75,15 +91,16 @@ class BlueprintValidationService:
         step_id: str,
         inputs: dict[str, Any],
         previous_step_ids: list[str],
+        prior_skill_output_schemas: dict[str, dict[str, Any]],
         input_schema_ref: str,
     ) -> list[str]:
         errors: list[str] = []
         if not input_schema_ref:
-            errors.extend(self._validate_references(workflow_id, step_id, inputs, previous_step_ids, None))
+            errors.extend(self._validate_references(workflow_id, step_id, inputs, previous_step_ids, prior_skill_output_schemas, None))
             return errors
         schema_registry = getattr(self._skill_validation._manifest_validator, "_schema_registry", None)
         schema = None if schema_registry is None else schema_registry.resolve(input_schema_ref)
-        errors.extend(self._validate_references(workflow_id, step_id, inputs, previous_step_ids, schema))
+        errors.extend(self._validate_references(workflow_id, step_id, inputs, previous_step_ids, prior_skill_output_schemas, schema))
         if isinstance(schema, dict) and schema.get("type") == "object":
             required = schema.get("required", [])
             properties = schema.get("properties", {})
@@ -102,19 +119,28 @@ class BlueprintValidationService:
         step_id: str,
         value: Any,
         previous_step_ids: list[str],
+        prior_skill_output_schemas: dict[str, dict[str, Any]],
         schema: dict[str, Any] | None,
         path: str = "",
     ) -> list[str]:
         errors: list[str] = []
         if isinstance(value, dict) and "$from_step" in value:
             source_step = str(value["$from_step"])
+            source_field = value.get("field")
             if source_step not in previous_step_ids:
                 errors.append(f"Workflow step {workflow_id}:{step_id} references unknown or future step: {source_step}")
+                return errors
             if schema is not None and path:
                 properties = schema.get("properties", {}) if schema.get("type") == "object" else {}
                 top_field = path.split(".")[0]
+                target_schema = properties.get(top_field)
                 if top_field not in properties and schema.get("additionalProperties", True) is False:
                     errors.append(f"Workflow step {workflow_id}:{step_id} maps into undeclared input field: {top_field}")
+                source_schema = self._resolve_source_schema(prior_skill_output_schemas.get(source_step), source_field)
+                if target_schema is not None and source_schema is not None and not self._schemas_compatible(source_schema, target_schema):
+                    errors.append(
+                        f"Workflow step {workflow_id}:{step_id} maps incompatible schema from {source_step}.{source_field or '<output>'} into {top_field}"
+                    )
             return errors
         if isinstance(value, dict) and "$from_inputs" in value:
             if schema is not None and path:
@@ -126,8 +152,24 @@ class BlueprintValidationService:
         if isinstance(value, dict):
             for key, item in value.items():
                 next_path = key if not path else f"{path}.{key}"
-                errors.extend(self._validate_references(workflow_id, step_id, item, previous_step_ids, schema, next_path))
+                errors.extend(self._validate_references(workflow_id, step_id, item, previous_step_ids, prior_skill_output_schemas, schema, next_path))
         elif isinstance(value, list):
             for item in value:
-                errors.extend(self._validate_references(workflow_id, step_id, item, previous_step_ids, schema, path))
+                errors.extend(self._validate_references(workflow_id, step_id, item, previous_step_ids, prior_skill_output_schemas, schema, path))
         return errors
+
+    def _resolve_source_schema(self, schema: dict[str, Any] | None, field: str | None) -> dict[str, Any] | None:
+        if schema is None:
+            return None
+        if not field:
+            return schema
+        if schema.get("type") != "object":
+            return None
+        return schema.get("properties", {}).get(str(field))
+
+    def _schemas_compatible(self, source_schema: dict[str, Any], target_schema: dict[str, Any]) -> bool:
+        source_type = source_schema.get("type")
+        target_type = target_schema.get("type")
+        if source_type is None or target_type is None:
+            return True
+        return source_type == target_type
