@@ -253,6 +253,11 @@ The system must support a per-app configuration surface controlled through `syst
 
 The platform should inject these system skills during installation rather than requiring end users to declare them manually.
 
+The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
+- workflow skill steps referencing undeclared skills
+- required skills missing from the registry
+- build-only skills leaking into runtime workflow execution paths
+
 ### 5.12 Skill classification and app profile resolution
 The system must classify skills internally from their declared or inferred capability metadata.
 

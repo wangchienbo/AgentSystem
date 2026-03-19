@@ -103,7 +103,7 @@ def test_registry_and_install_api_flow() -> None:
             "id": "bp.api.registry",
             "name": "API Registry App",
             "goal": "registry api flow",
-            "roles": [],
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
             "tasks": [],
             "workflows": [{"id": "wf.api", "name": "api flow", "triggers": ["manual"], "steps": []}],
             "views": [],

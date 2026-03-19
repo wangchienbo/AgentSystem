@@ -1249,3 +1249,33 @@ Tightened the existing context-compaction path into a more durable layered-conte
 - layered context should survive runtime restarts instead of resetting to in-memory-only state
 - context compaction policy should govern stage transitions as well as workflow completion/failure
 - working-set views should point toward deeper workflow/skill detail rather than pretending summaries are self-sufficient
+
+### Module: add deterministic blueprint and runtime-skill validation baseline
+
+Introduced a first stricter validation layer so obviously invalid app blueprints are rejected before install instead of failing later during runtime execution.
+
+#### Added
+- `app/services/skill_validation.py`
+  - validates skill existence and blocks build-only skills from runtime workflow execution
+- `app/services/blueprint_validation.py`
+  - validates required skills, workflow skill declarations, and runtime-step skill usage
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires blueprint/skill validation into the runtime service graph
+- `app/services/app_installer.py`
+  - runs blueprint validation before provisioning app instances
+- `app/api/main.py`
+  - upgrades `/blueprints/validate` from a placeholder shape-check to structured blueprint validation
+- `tests/unit/test_blueprint_validation.py`
+  - covers undeclared workflow skills, missing required skills, build-only runtime leaks, and installer rejection
+- `tests/unit/test_registry_installer.py`
+  - updates install API fixture to match stricter validation rules
+
+#### Validation
+- Ran focused validation/profile/installer regression suite successfully
+- Result: `12 passed`
+
+#### Design intent clarified
+- invalid runtime-skill wiring should fail before install rather than surfacing only during workflow execution
+- build-only capability tags must have real enforcement value, not just documentation value

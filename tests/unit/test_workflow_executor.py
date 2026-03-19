@@ -285,7 +285,7 @@ def test_workflow_execution_api_flow() -> None:
             "id": "bp.workflow.api",
             "name": "Workflow API App",
             "goal": "run workflow via api",
-            "roles": [],
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
             "tasks": [],
             "workflows": [
                 {

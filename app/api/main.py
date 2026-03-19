@@ -59,18 +59,7 @@ def version() -> dict[str, str]:
 
 @app.post("/blueprints/validate")
 def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
-    missing = []
-    if not blueprint.roles:
-        missing.append("roles")
-    if not blueprint.workflows:
-        missing.append("workflows")
-    if not blueprint.required_modules:
-        missing.append("required_modules")
-    return {
-        "ok": len(missing) == 0,
-        "missing": missing,
-        "blueprint_id": blueprint.id,
-    }
+    return blueprint_validation.validate(blueprint)
 
 
 services = build_runtime()
@@ -103,6 +92,7 @@ workflow_executor = services["workflow_executor"]
 workflow_subscription = services["workflow_subscription"]
 context_compaction = services["context_compaction"]
 interaction_gateway = services["interaction_gateway"]
+blueprint_validation = services["blueprint_validation"]
 
 bootstrap_builtin_skills(skill_runtime, services)
 bootstrap_demo_catalog(app_registry, app_catalog)

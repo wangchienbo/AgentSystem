@@ -229,6 +229,8 @@ Required checks:
 - callable/script/rpc/binary adapter declarations resolve correctly
 - declared capability tags remain consistent with runtime form
 - workflow skill steps fail validation when upstream/downstream contracts do not align
+- workflow skill steps referencing undeclared skills are rejected
+- required skills missing from the registry are rejected before install
 - build-only skills are rejected from runtime execution paths
 
 ## 5.10 Core skill principle reference tests

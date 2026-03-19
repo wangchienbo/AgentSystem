@@ -9,6 +9,8 @@ from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.app_registry import AppRegistryService
 from app.services.context_compaction import ContextCompactionService
 from app.services.system_skills.context import ContextSkillService
+from app.services.blueprint_validation import BlueprintValidationService
+from app.services.skill_validation import SkillValidationService
 from app.services.demonstration_extractor import DemonstrationExtractor
 from app.services.event_bus import EventBusService
 from app.services.experience_store import ExperienceStore
@@ -36,6 +38,8 @@ from app.services.workflow_subscription import WorkflowSubscriptionService
 def build_runtime() -> dict[str, object]:
     router = RequirementRouter()
     skill_control = SkillControlService()
+    skill_validation = SkillValidationService(skill_control=skill_control)
+    blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
     experience_store = ExperienceStore()
     demonstration_extractor = DemonstrationExtractor()
@@ -86,6 +90,7 @@ def build_runtime() -> dict[str, object]:
         context_store=app_context_store,
         app_config_service=app_config_service,
         app_profile_resolver=app_profile_resolver,
+        blueprint_validation=blueprint_validation,
     )
     app_catalog = AppCatalogService()
     skill_runtime = SkillRuntimeService(store=runtime_store)

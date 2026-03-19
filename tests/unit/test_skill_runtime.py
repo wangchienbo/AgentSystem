@@ -227,7 +227,7 @@ def test_skill_runtime_api_flow() -> None:
             "id": "bp.skill.runtime.api",
             "name": "Skill Runtime API App",
             "goal": "run a real skill step",
-            "roles": [],
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
             "tasks": [],
             "workflows": [
                 {

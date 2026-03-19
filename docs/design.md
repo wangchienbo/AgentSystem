@@ -238,6 +238,7 @@ The intended next-step installer behavior is:
 - classify runtime skills from capability tags
 - resolve an app runtime profile from the installed skill set
 - determine whether direct start, optional-intelligence start, or intelligence-required start is appropriate
+- reject blueprints that deterministically violate runtime-skill validation rules before provisioning instances
 
 ## 5.6 Lifecycle and Runtime
 `AppLifecycleService` manages valid state transitions.
