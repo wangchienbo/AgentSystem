@@ -8,6 +8,7 @@ from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.skill_control import SkillRegistryEntry
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.schema_registry import SchemaRegistryError, SchemaRegistryService
+from app.services.model_client import ModelClientError
 
 SkillHandler = Callable[[SkillExecutionRequest], SkillExecutionResult]
 
@@ -53,6 +54,24 @@ class SkillRuntimeService:
                 status="failed",
                 output={},
                 error=f"contract violation: {error}",
+                error_detail={
+                    "kind": "contract_violation",
+                    "message": str(error),
+                    "retryable": False,
+                },
+            )
+        except ModelClientError as error:
+            result = SkillExecutionResult(
+                skill_id=request.skill_id,
+                status="failed",
+                output={},
+                error=str(error),
+                error_detail={
+                    "kind": "model_client_error",
+                    "message": str(error),
+                    "retryable": error.retryable,
+                    "status_code": error.status_code,
+                },
             )
         except Exception as error:  # noqa: BLE001
             result = SkillExecutionResult(
@@ -60,6 +79,11 @@ class SkillRuntimeService:
                 status="failed",
                 output={},
                 error=str(error),
+                error_detail={
+                    "kind": "runtime_error",
+                    "message": str(error),
+                    "retryable": False,
+                },
             )
         execution_key = f"{request.app_instance_id}:{request.workflow_id}:{request.step_id}:{request.skill_id}"
         self._executions[execution_key] = result

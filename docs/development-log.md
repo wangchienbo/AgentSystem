@@ -1434,3 +1434,29 @@ Added a builtin external model probe skill and proved it through an end-to-end w
 #### Design intent clarified
 - external APIs should be consumed through the same skill-runtime and schema-validation path as builtin/internal capabilities
 - proving real connectivity through an E2E workflow is more meaningful than isolated direct client probes
+
+### Module: add structured runtime error envelopes for skill execution failures
+
+Improved failure observability so runtime and external-model problems are easier to inspect through both skill execution records and workflow step details.
+
+#### Updated
+- `app/models/skill_runtime.py`
+  - adds structured `error_detail` alongside the legacy string error field
+- `app/services/model_client.py`
+  - preserves upstream status code and retryability on model-client failures
+- `app/services/skill_runtime.py`
+  - emits structured error envelopes for contract violations, model client errors, and generic runtime failures
+- `app/services/workflow_executor.py`
+  - passes `error_detail` through into failed workflow step detail payloads
+- `tests/unit/test_skill_runtime.py`
+  - validates structured contract violation envelopes
+- `tests/unit/test_skill_runtime_adapters.py`
+  - validates structured model-client failure envelopes
+
+#### Validation
+- Ran runtime/error/external-flow regression slices successfully
+- Result: focused suites green including external-model E2E and adapter/runtime tests
+
+#### Design intent clarified
+- failure paths should be machine-readable enough for debugging and future retry/policy logic
+- external API failures should preserve status/retryability metadata instead of collapsing into opaque strings

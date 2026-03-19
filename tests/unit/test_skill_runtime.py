@@ -286,6 +286,8 @@ def test_skill_runtime_rejects_invalid_input_contract_before_execution(tmp_path:
     assert result.status == "failed"
     assert "contract violation" in result.error
     assert "input contract failed" in result.error
+    assert result.error_detail["kind"] == "contract_violation"
+    assert result.error_detail["retryable"] is False
 
 
 def test_skill_runtime_rejects_invalid_output_contract_after_execution(tmp_path: Path) -> None:
@@ -324,6 +326,7 @@ def test_skill_runtime_rejects_invalid_output_contract_after_execution(tmp_path:
     assert result.status == "failed"
     assert "contract violation" in result.error
     assert "output contract failed" in result.error
+    assert result.error_detail["kind"] == "contract_violation"
 
 
 def test_skill_runtime_api_flow() -> None:

@@ -323,7 +323,12 @@ class WorkflowExecutorService:
                     ref=ref,
                     kind=kind,
                     status="completed" if result.status == "completed" else "failed",
-                    detail={"skill_id": ref, "status": result.status, "error": result.error},
+                    detail={
+                        "skill_id": ref,
+                        "status": result.status,
+                        "error": result.error,
+                        "error_detail": result.error_detail,
+                    },
                     output=result.output,
                 )
             except SkillRuntimeError:
