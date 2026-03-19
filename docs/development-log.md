@@ -1208,3 +1208,16 @@ Completed another pass over the remaining fixed `data/test-*` unit tests to redu
 #### Design intent clarified
 - all new and recently touched file-backed unit tests should default to isolated temporary roots
 - regression tests added during bug fixing should follow the same isolation rules as the rest of the suite
+
+### Module: stop tracking generated runtime snapshots
+
+Cleaned up repository hygiene around generated runtime JSON snapshots under `data/runtime/`.
+
+#### Updated
+- removed tracked `data/runtime/*` files from git index while preserving them locally
+- kept `.gitignore` as the source of truth for excluding generated runtime state
+
+#### Why
+- these files are execution byproducts, not source artifacts
+- keeping them tracked causes constant dirty working trees after local runs and tests
+- removing them from version control reduces noisy diffs and accidental snapshot churn in commits
