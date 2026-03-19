@@ -25,6 +25,7 @@ from app.services.requirement_router import RequirementRouter
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
+from app.services.schema_registry import SchemaRegistryService
 from app.services.self_refinement import SelfRefinementService
 from app.services.skill_control import SkillControlService
 from app.services.skill_runtime import SkillRuntimeService
@@ -38,7 +39,8 @@ from app.services.workflow_subscription import WorkflowSubscriptionService
 def build_runtime() -> dict[str, object]:
     router = RequirementRouter()
     skill_control = SkillControlService()
-    skill_validation = SkillValidationService(skill_control=skill_control)
+    schema_registry = SchemaRegistryService()
+    skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)
     blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
     experience_store = ExperienceStore()

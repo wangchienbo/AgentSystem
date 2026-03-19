@@ -1297,3 +1297,29 @@ Refined the design documents after reviewing OpenClaw's schema-first patterns so
 - schema/contract definitions should drive validation first, then runtime execution
 - runtime envelope violations should be treated differently from adapter/runtime failures
 - future contract validation should reuse one authoritative schema source instead of parallel ad-hoc checks
+
+### Module: add schema registry baseline for skill contract refs
+
+Started the schema-first contract implementation by introducing a minimal schema registry and wiring manifest validation through it.
+
+#### Added
+- `app/services/schema_registry.py`
+  - provides schema registration, resolution, and minimal JSON-schema-style payload validation helpers
+
+#### Updated
+- `app/services/skill_manifest_validator.py`
+  - now verifies non-empty contract refs can be resolved through the schema registry
+- `app/services/skill_validation.py`
+  - can share the same schema-aware manifest validator path
+- `app/bootstrap/runtime.py`
+  - instantiates a shared schema registry for runtime wiring
+- `tests/unit/test_skill_manifest_validator.py`
+  - adds coverage for registered and missing contract refs
+
+#### Validation
+- Ran focused manifest/validation/profile regression suite successfully
+- Result: `11 passed`
+
+#### Design intent clarified
+- contract refs should fail early when they point to nothing
+- schema resolution should become a reusable service rather than ad-hoc string checks in validators

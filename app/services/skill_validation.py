@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.models.skill_control import SkillRegistryEntry
 from app.services.skill_control import SkillControlError, SkillControlService
 from app.services.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
+from app.services.schema_registry import SchemaRegistryService
 
 
 class SkillValidationError(ValueError):
@@ -14,9 +15,10 @@ class SkillValidationService:
         self,
         skill_control: SkillControlService,
         manifest_validator: SkillManifestValidatorService | None = None,
+        schema_registry: SchemaRegistryService | None = None,
     ) -> None:
         self._skill_control = skill_control
-        self._manifest_validator = manifest_validator or SkillManifestValidatorService()
+        self._manifest_validator = manifest_validator or SkillManifestValidatorService(schema_registry=schema_registry)
 
     def validate_skill_exists(self, skill_id: str) -> SkillRegistryEntry:
         try:
