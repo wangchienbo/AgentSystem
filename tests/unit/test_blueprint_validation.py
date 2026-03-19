@@ -4,7 +4,9 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
+from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
+from app.models.skill_manifest import SkillContractRef, SkillManifest
 from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerError, AppInstallerService
 from app.services.app_profile_resolver import AppProfileResolverService
@@ -14,6 +16,7 @@ from app.services.blueprint_validation import BlueprintValidationService
 from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
+from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_control import SkillControlService
 from app.services.skill_validation import SkillValidationService
 
@@ -21,7 +24,7 @@ from app.services.skill_validation import SkillValidationService
 client = TestClient(app)
 
 
-def _register_skill(skill_control: SkillControlService, skill_id: str, criticality: str = "C2_required_runtime") -> None:
+def _register_skill(skill_control: SkillControlService, skill_id: str, criticality: str = "C2_required_runtime", input_ref: str = "") -> None:
     skill_control.register(
         SkillRegistryEntry(
             skill_id=skill_id,
@@ -39,6 +42,16 @@ def _register_skill(skill_control: SkillControlService, skill_id: str, criticali
                 risk_level="R1_local_write",
             ),
             runtime_adapter="callable",
+            manifest=SkillManifest(
+                skill_id=skill_id,
+                name=skill_id,
+                version="1.0.0",
+                description="validation test",
+                runtime_adapter="callable",
+                adapter=SkillAdapterSpec(kind="callable", entry=f"handlers:{skill_id}"),
+                contract=SkillContractRef(input_schema_ref=input_ref, output_schema_ref="", error_schema_ref=""),
+                tags=["test"],
+            ) if input_ref else None,
         )
     )
 
@@ -107,6 +120,75 @@ def test_blueprint_validation_rejects_build_only_runtime_skill(tmp_path: Path) -
     result = validation.validate(blueprint)
     assert result["ok"] is False
     assert any("Build-only skill cannot be used in runtime workflow steps" in item for item in result["errors"])
+
+
+def test_blueprint_validation_rejects_unknown_or_future_from_step_reference() -> None:
+    schema_registry = SchemaRegistryService()
+    schema_registry.register(
+        "schema://skill.map/input",
+        {"type": "object", "properties": {"payload": {"type": "object"}}, "required": ["payload"], "additionalProperties": False},
+    )
+    skill_control = SkillControlService()
+    _register_skill(skill_control, "skill.map", input_ref="schema://skill.map/input")
+    validation = BlueprintValidationService(SkillValidationService(skill_control=skill_control, schema_registry=schema_registry))
+
+    blueprint = AppBlueprint(
+        id="bp.invalid.future-step",
+        name="Invalid Future Step",
+        goal="fail validation",
+        roles=[{"id": "r1", "name": "agent", "type": "agent"}],
+        tasks=[],
+        workflows=[{
+            "id": "wf.invalid",
+            "name": "invalid",
+            "triggers": ["manual"],
+            "steps": [
+                {"id": "call", "kind": "skill", "ref": "skill.map", "config": {"inputs": {"payload": {"$from_step": "later", "field": "value"}}}},
+                {"id": "later", "kind": "module", "ref": "state.set", "config": {"key": "x", "value": {"ok": True}}},
+            ],
+        }],
+        views=[],
+        required_modules=["state.set"],
+        required_skills=["skill.map"],
+    )
+
+    result = validation.validate(blueprint)
+    assert result["ok"] is False
+    assert any("unknown or future step" in item for item in result["errors"])
+
+
+def test_blueprint_validation_rejects_missing_required_input_field() -> None:
+    schema_registry = SchemaRegistryService()
+    schema_registry.register(
+        "schema://skill.map/input",
+        {"type": "object", "properties": {"payload": {"type": "object"}, "mode": {"type": "string"}}, "required": ["payload", "mode"], "additionalProperties": False},
+    )
+    skill_control = SkillControlService()
+    _register_skill(skill_control, "skill.map", input_ref="schema://skill.map/input")
+    validation = BlueprintValidationService(SkillValidationService(skill_control=skill_control, schema_registry=schema_registry))
+
+    blueprint = AppBlueprint(
+        id="bp.invalid.missing-input",
+        name="Invalid Missing Input",
+        goal="fail validation",
+        roles=[{"id": "r1", "name": "agent", "type": "agent"}],
+        tasks=[],
+        workflows=[{
+            "id": "wf.invalid",
+            "name": "invalid",
+            "triggers": ["manual"],
+            "steps": [
+                {"id": "call", "kind": "skill", "ref": "skill.map", "config": {"inputs": {"payload": {"value": 1}}}},
+            ],
+        }],
+        views=[],
+        required_modules=[],
+        required_skills=["skill.map"],
+    )
+
+    result = validation.validate(blueprint)
+    assert result["ok"] is False
+    assert any("missing required input field: mode" in item for item in result["errors"])
 
 
 def test_installer_rejects_invalid_blueprint_with_missing_skill(tmp_path: Path) -> None:

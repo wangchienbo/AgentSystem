@@ -36,3 +36,6 @@ class SkillValidationService:
         if entry.capability_profile.runtime_criticality == "C0_build_only":
             raise SkillValidationError(f"Build-only skill cannot be used in runtime workflow steps: {skill_id}")
         return entry
+
+    def get_runtime_skill_entry(self, skill_id: str) -> SkillRegistryEntry:
+        return self.validate_runtime_skill(skill_id)

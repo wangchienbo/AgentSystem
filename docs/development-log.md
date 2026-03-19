@@ -1345,3 +1345,27 @@ Extended the schema-first path from manifest validation into actual runtime disp
 #### Design intent clarified
 - request/response contracts should be enforced at dispatch boundaries, not only during package validation
 - runtime contract violations should surface as envelope failures rather than opaque handler exceptions
+
+### Module: add compile-time workflow contract compatibility checks
+
+Extended blueprint validation so some obvious workflow wiring errors are rejected before install instead of waiting for runtime execution.
+
+#### Updated
+- `app/services/blueprint_validation.py`
+  - checks that `$from_step` references only point to prior workflow steps
+  - checks required input fields against declared skill input contracts when compile-time payloads are statically visible
+  - checks mapped fields against declared input schema properties when additional properties are disallowed
+- `app/services/skill_validation.py`
+  - exposes runtime-skill entries for validation-time contract inspection
+- `tests/unit/test_blueprint_validation.py`
+  - adds regression coverage for future-step references and missing required input fields
+
+#### Validation
+- Ran focused blueprint/runtime regression suite successfully
+- Result: `16 passed`
+- Ran broader install/workflow/runtime regression suite successfully
+- Result: `31 passed`
+
+#### Design intent clarified
+- compile-time validation should catch obvious workflow wiring mistakes before install/start
+- runtime schema enforcement should complement, not replace, static workflow checks
