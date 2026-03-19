@@ -1412,3 +1412,25 @@ Shifted part of the validation work toward actual usability by adding an API-fir
 #### Design intent clarified
 - builtin system skills should participate in the same schema-first runtime path as other skills
 - usable-alpha confidence should come from end-to-end API flows, not only isolated unit tests
+
+### Module: connect external model API through builtin skill runtime path
+
+Added a builtin external model probe skill and proved it through an end-to-end workflow that uses the configured OpenAI-compatible Responses API.
+
+#### Updated
+- `app/services/system_skill_registry.py`
+  - registers builtin `model.responses.probe` with capability metadata and schema-backed contract refs
+- `app/bootstrap/runtime.py`
+  - registers input/output/error schemas for `model.responses.probe`
+- `app/bootstrap/skills.py`
+  - wires `model.responses.probe` to `OpenAIResponsesClient` via the existing model config loader
+- `tests/e2e/test_external_model_api_flow.py`
+  - adds an external API end-to-end flow that registers an app, installs it, executes the model probe workflow, and asserts returned model/provider metadata
+
+#### Validation
+- Ran external-model + usable-flow + validation/runtime regression slice successfully
+- Result: `16 passed`
+
+#### Design intent clarified
+- external APIs should be consumed through the same skill-runtime and schema-validation path as builtin/internal capabilities
+- proving real connectivity through an E2E workflow is more meaningful than isolated direct client probes

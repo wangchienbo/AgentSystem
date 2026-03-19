@@ -125,6 +125,40 @@ def build_runtime() -> dict[str, object]:
             "additionalProperties": False,
         },
     )
+    schema_registry.register(
+        "schema://model.responses.probe/input",
+        {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "working_set": {"type": "object"},
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+    )
+    schema_registry.register(
+        "schema://model.responses.probe/output",
+        {
+            "type": "object",
+            "properties": {
+                "provider": {"type": "string"},
+                "model": {"type": "string"},
+                "result": {"type": "object"},
+            },
+            "required": ["provider", "model", "result"],
+            "additionalProperties": True,
+        },
+    )
+    schema_registry.register(
+        "schema://model.responses.probe/error",
+        {
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+            "required": ["message"],
+            "additionalProperties": False,
+        },
+    )
     skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)
     blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
