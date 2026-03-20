@@ -94,6 +94,21 @@ Extended the generated-skill path so the interface flow can also install and exe
 - focused generated-skill regression passes
 - result: `13 passed`
 
+### Module: generated skill roadmap and phased delivery plan
+
+Captured the next-step implementation order for generated skill/app self-iteration so future work can proceed as a staged roadmap instead of ad-hoc feature growth.
+
+#### Added
+- `docs/generated-skill-roadmap.md`
+  - current baseline
+  - phase ordering
+  - acceptance criteria per phase
+  - suggested validation cases
+  - immediate next 3 tasks
+
+#### Validation
+- roadmap reflects the currently proven generated script-skill baseline and the known framework gaps exposed by real-skill validation
+
 
 ## 2026-03-16
 
