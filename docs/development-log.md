@@ -94,6 +94,39 @@ Extended the generated-skill path so the interface flow can also install and exe
 - focused generated-skill regression passes
 - result: `13 passed`
 
+### Module: retry advice for generated skill diagnostics
+
+Extended the structured diagnostics baseline into a first retry/recovery contract so failed generated-skill flows can produce suggested correction payloads.
+
+#### Added
+- `app/services/skill_retry_advisor.py`
+  - converts structured diagnostics into suggested retry requests
+- retry-advice API route:
+  - `POST /skills/diagnose-retry`
+
+#### Updated
+- `app/models/skill_diagnostics.py`
+  - diagnostics can now carry `suggested_retry_request`
+  - added retry advice request/response models
+- `app/services/skill_factory.py`
+  - create-phase diagnostics now include suggested retry payloads
+- `app/api/main.py`
+  - install/execute diagnostics now include suggested retry payloads where applicable
+- `tests/unit/test_skill_diagnostics_api.py`
+  - validates retry suggestion payloads through the API
+- `docs/requirements.md`
+  - records retry advice requirement
+- `docs/design.md`
+  - documents suggested retry requests in diagnostics
+- `docs/testing.md`
+  - records retry-advice coverage
+- `docs/generated-skill-roadmap.md`
+  - marks Phase 3 acceptance criteria for retry payloads as complete
+
+#### Validation
+- focused diagnostics + retry regression passes
+- result: `4 passed`
+
 ### Module: generated skill persistence and reload baseline
 
 Implemented the first durability slice for generated skills so API-created script skills can persist as assets and be reloaded into a rebuilt runtime.

@@ -262,6 +262,8 @@ The platform should expose an API-first path for generated skills so the system 
 - assemble one or more registered skills into an app blueprint
 - optionally install and execute the generated app path as part of the same interface flow
 - persist generated skill assets so they can be reloaded after runtime restart
+- return structured diagnostics for generated skill create/install/execute failures so retries can be guided programmatically
+- expose retry advice / suggested correction payloads so generated skill failures can feed the next iteration directly
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

@@ -100,10 +100,10 @@ Without persistence/reload, generated skills are closer to session artifacts tha
 - bootstrap reload path in `app/bootstrap/runtime.py`
 
 ### Acceptance criteria
-- a generated script skill survives process restart
-- registry can distinguish generated assets from built-ins
-- reload restores manifest/contract/runtime registration correctly
-- focused persistence/reload tests pass
+- [x] a generated script skill survives process restart
+- [ ] registry can distinguish generated assets from built-ins
+- [x] reload restores manifest/contract/runtime registration correctly
+- [x] focused persistence/reload tests pass
 
 ### Suggested validation skill
 - reuse `skill.text.slugify`
@@ -133,10 +133,10 @@ This is the clearest missing capability for ordinary deterministic skills.
 - runtime registration/reload helpers
 
 ### Acceptance criteria
-- interface can create a callable skill with a real handler implementation artifact
-- callable skill smoke test executes without manual source editing
-- generated callable skill can be used in generated app install-run flow
-- focused callable generation regression passes
+- [x] interface can create a callable skill with a real handler implementation artifact
+- [x] callable skill smoke test executes without manual source editing
+- [x] generated callable skill can be used in generated app install-run flow
+- [x] focused callable generation regression passes
 
 ### Suggested validation skill
 - deterministic metadata formatter
@@ -167,10 +167,10 @@ This is the minimum needed for self-iteration rather than manual debugging.
 - workflow/install validation surfaces
 
 ### Acceptance criteria
-- failing generated skill requests produce structured diagnostics
-- contract errors, adapter errors, install errors, and runtime errors are distinguishable
-- retry payload examples can be derived from failure responses
-- tests verify diagnostic shapes for at least 3 failure classes
+- [x] failing generated skill requests produce structured diagnostics
+- [x] contract errors, adapter errors, install errors, and runtime errors are distinguishable
+- [x] retry payload examples can be derived from failure responses
+- [x] tests verify diagnostic shapes for at least 3 failure classes
 
 ### Suggested validation cases
 - missing script command

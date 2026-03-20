@@ -5,7 +5,9 @@ from copy import deepcopy
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_control import SkillRegistryEntry
 from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult
+from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
+from app.services.generated_callable_materializer import GeneratedCallableMaterializer, GeneratedCallableMaterializerError
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_authoring import SkillAuthoringService
@@ -17,6 +19,20 @@ class SkillFactoryError(ValueError):
     pass
 
 
+def _diagnostic(stage: str, kind: str, message: str, *, retryable: bool = False, hint: str = "", details: dict | None = None, suggested_retry_request: dict | None = None) -> SkillDiagnosticError:
+    return SkillDiagnosticError(
+        SkillDiagnostic(
+            stage=stage,
+            kind=kind,
+            message=message,
+            retryable=retryable,
+            hint=hint,
+            details=details or {},
+            suggested_retry_request=suggested_retry_request or {},
+        )
+    )
+
+
 class SkillFactoryService:
     def __init__(
         self,
@@ -26,22 +42,55 @@ class SkillFactoryService:
         schema_registry: SchemaRegistryService,
         authoring: SkillAuthoringService | None = None,
         generated_assets: GeneratedSkillAssetStore | None = None,
+        callable_materializer: GeneratedCallableMaterializer | None = None,
     ) -> None:
         self._skill_control = skill_control
         self._skill_runtime = skill_runtime
         self._schema_registry = schema_registry
         self._authoring = authoring or SkillAuthoringService()
         self._generated_assets = generated_assets
+        self._callable_materializer = callable_materializer or GeneratedCallableMaterializer()
 
     def create_skill(self, request: SkillCreationRequest) -> SkillCreationResult:
         schema_refs = self._register_contracts(request)
         if request.adapter_kind == "callable":
-            if not request.handler_entry:
-                raise SkillFactoryError("Callable skill creation requires handler_entry")
+            handler_entry = request.handler_entry
+            if not handler_entry:
+                if not request.generation_operation:
+                    raise _diagnostic(
+                        "create",
+                        "invalid_request",
+                        "Callable skill creation requires handler_entry or generation_operation",
+                        hint="Provide handler_entry or a supported generation_operation.",
+                        details={"skill_id": request.skill_id, "adapter_kind": request.adapter_kind},
+                        suggested_retry_request={
+                            "skill_id": request.skill_id,
+                            "adapter_kind": request.adapter_kind,
+                            "generation_operation": "normalize_object_keys",
+                        },
+                    )
+                try:
+                    handler_entry = self._callable_materializer.materialize_handler(
+                        skill_id=request.skill_id,
+                        operation=request.generation_operation,
+                    )
+                except GeneratedCallableMaterializerError as error:
+                    raise _diagnostic(
+                        "create",
+                        "callable_generation_error",
+                        str(error),
+                        hint="Use a supported callable generation operation.",
+                        details={"skill_id": request.skill_id, "generation_operation": request.generation_operation},
+                        suggested_retry_request={
+                            "skill_id": request.skill_id,
+                            "adapter_kind": request.adapter_kind,
+                            "generation_operation": "normalize_object_keys",
+                        },
+                    ) from error
             entry = self._authoring.build_callable_entry(
                 skill_id=request.skill_id,
                 name=request.name,
-                handler_entry=request.handler_entry,
+                handler_entry=handler_entry,
                 description=request.description,
                 input_schema_ref=schema_refs["input"],
                 output_schema_ref=schema_refs["output"],
@@ -52,10 +101,31 @@ class SkillFactoryService:
             )
             if request.skill_id not in {item.skill_id for item in self._skill_control.list_skills()}:
                 self._skill_control.register(entry)
-            self._skill_runtime.register_handler(request.skill_id, self._missing_callable_stub, entry=entry)
+            try:
+                handler = self._callable_materializer.load_handler(handler_entry)
+            except GeneratedCallableMaterializerError as error:
+                raise _diagnostic(
+                    "register",
+                    "adapter_error",
+                    str(error),
+                    hint="Check generated callable file path and handler function name.",
+                    details={"skill_id": request.skill_id, "handler_entry": handler_entry},
+                ) from error
+            self._skill_runtime.register_handler(request.skill_id, handler, entry=entry)
         else:
             if not request.command:
-                raise SkillFactoryError("Script skill creation requires command")
+                raise _diagnostic(
+                    "create",
+                    "invalid_request",
+                    "Script skill creation requires command",
+                    hint="Provide a script command list for script-backed skills.",
+                    details={"skill_id": request.skill_id, "adapter_kind": request.adapter_kind},
+                    suggested_retry_request={
+                        "skill_id": request.skill_id,
+                        "adapter_kind": request.adapter_kind,
+                        "command": ["python3", "path/to/generated_skill.py"],
+                    },
+                )
             entry = self._authoring.build_script_entry(
                 skill_id=request.skill_id,
                 name=request.name,
@@ -170,7 +240,11 @@ class SkillFactoryService:
             if entry.runtime_adapter == "script":
                 self._skill_runtime.register_handler(entry.skill_id, self._script_placeholder, entry=entry)
             else:
-                self._skill_runtime.register_handler(entry.skill_id, self._missing_callable_stub, entry=entry)
+                try:
+                    handler = self._callable_materializer.load_handler(entry.manifest.adapter.entry if entry.manifest is not None else "")
+                except GeneratedCallableMaterializerError as error:
+                    raise SkillFactoryError(str(error)) from error
+                self._skill_runtime.register_handler(entry.skill_id, handler, entry=entry)
             restored += 1
         return restored
 
