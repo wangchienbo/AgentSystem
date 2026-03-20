@@ -112,6 +112,11 @@ A skill should evolve toward a package model that includes:
 - dependency declarations
 - examples and validation assets
 
+To make normal skill authoring viable for self-iteration, the platform now also treats skill packaging as a first-class builder concern:
+- `SkillAuthoringService` can generate consistent registry entries for callable and script skills
+- built-in skills should use the same authoring path as normal skills where possible
+- tests should verify authoring output separately from runtime execution so skill authors can localize failures faster
+
 ## 4.2 Definition Layer
 
 ### RequirementIntent

@@ -1,5 +1,35 @@
 # Development Log
 
+## 2026-03-20
+
+### Module: skill authoring scaffold for self-iterating normal skills
+
+Added a small authoring helper layer so ordinary deterministic/script skills can be created through a consistent packaging path instead of repeating registry + manifest boilerplate by hand.
+
+#### Added
+- `app/services/skill_authoring.py`
+  - `SkillAuthoringSpec`
+  - `SkillAuthoringService`
+  - helper builders for callable and script-backed skills
+- `tests/unit/test_skill_authoring.py`
+  - validates callable entry generation
+  - validates script entry generation
+  - validates capability/dependency preservation
+
+#### Updated
+- `app/services/system_skill_registry.py`
+  - built-in skills now build manifests through the same authoring helper path used for ordinary skills
+- `docs/requirements.md`
+  - documented need for a low-friction normal-skill authoring path
+- `docs/design.md`
+  - documented authoring service as part of skill packaging
+- `docs/testing.md`
+  - recorded authoring-helper coverage in the current test matrix
+
+#### Validation
+- planned focused regression: skill authoring + system skill registry + runtime adapter tests
+
+
 ## 2026-03-16
 
 ### Module: lifecycle manager and runtime host

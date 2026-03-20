@@ -253,6 +253,8 @@ The system must support a per-app configuration surface controlled through `syst
 
 The platform should inject these system skills during installation rather than requiring end users to declare them manually.
 
+The platform should also provide a low-friction authoring path for normal skills so skill creation does not require hand-assembling registry/manifest boilerplate for every deterministic or script-backed capability.
+
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills
 - required skills missing from the registry

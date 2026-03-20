@@ -64,6 +64,7 @@ Covered behavior:
 - enable / disable
 - immutable protection
 - API error mapping
+- authoring helpers can generate consistent callable/script skill registry entries
 
 ## 3.3 Experience store and demonstration extraction
 Covered behavior:
