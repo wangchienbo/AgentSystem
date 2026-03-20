@@ -94,6 +94,34 @@ Extended the generated-skill path so the interface flow can also install and exe
 - focused generated-skill regression passes
 - result: `13 passed`
 
+### Module: generated skill persistence and reload baseline
+
+Implemented the first durability slice for generated skills so API-created script skills can persist as assets and be reloaded into a rebuilt runtime.
+
+#### Added
+- `app/services/generated_skill_assets.py`
+  - persists generated skill assets into `global:skill_assets`
+  - lists generated assets for reload
+- `tests/unit/test_generated_skill_persistence.py`
+  - validates create -> persist -> rebuild runtime -> reload -> execute
+
+#### Updated
+- `app/services/skill_factory.py`
+  - persists generated skill metadata/assets on creation
+  - can reload generated skills back into registry/runtime
+- `app/bootstrap/runtime.py`
+  - wires generated asset store and reload on bootstrap
+- `docs/requirements.md`
+  - records persistence/reload requirement for generated skills
+- `docs/design.md`
+  - documents durable generated skill asset behavior
+- `docs/testing.md`
+  - records reload regression coverage
+
+#### Validation
+- focused persistence/generated-skill regression passes
+- result: `5 passed`
+
 ### Module: generated skill roadmap and phased delivery plan
 
 Captured the next-step implementation order for generated skill/app self-iteration so future work can proceed as a staged roadmap instead of ad-hoc feature growth.

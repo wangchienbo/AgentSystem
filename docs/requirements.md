@@ -261,6 +261,7 @@ The platform should expose an API-first path for generated skills so the system 
 - execute a smoke test immediately
 - assemble one or more registered skills into an app blueprint
 - optionally install and execute the generated app path as part of the same interface flow
+- persist generated skill assets so they can be reloaded after runtime restart
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

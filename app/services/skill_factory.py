@@ -3,8 +3,10 @@ from __future__ import annotations
 from copy import deepcopy
 
 from app.models.app_blueprint import AppBlueprint
+from app.models.skill_control import SkillRegistryEntry
 from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult
 from app.models.skill_runtime import SkillExecutionRequest
+from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_authoring import SkillAuthoringService
 from app.services.skill_control import SkillControlService
@@ -23,11 +25,13 @@ class SkillFactoryService:
         skill_runtime: SkillRuntimeService,
         schema_registry: SchemaRegistryService,
         authoring: SkillAuthoringService | None = None,
+        generated_assets: GeneratedSkillAssetStore | None = None,
     ) -> None:
         self._skill_control = skill_control
         self._skill_runtime = skill_runtime
         self._schema_registry = schema_registry
         self._authoring = authoring or SkillAuthoringService()
+        self._generated_assets = generated_assets
 
     def create_skill(self, request: SkillCreationRequest) -> SkillCreationResult:
         schema_refs = self._register_contracts(request)
@@ -78,6 +82,8 @@ class SkillFactoryService:
                 config={},
             )
         )
+        if self._generated_assets is not None:
+            self._generated_assets.persist_generated_skill(request=request, schema_refs=schema_refs, entry=entry)
         return SkillCreationResult(
             skill_id=request.skill_id,
             schema_refs=schema_refs,
@@ -141,6 +147,32 @@ class SkillFactoryService:
         self._schema_registry.register(refs["output"], request.schemas.output or {"type": "object"})
         self._schema_registry.register(refs["error"], request.schemas.error or {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": True})
         return refs
+
+    def reload_generated_skills(self) -> int:
+        if self._generated_assets is None:
+            return 0
+        restored = 0
+        for asset in self._generated_assets.list_generated_assets():
+            entry = SkillRegistryEntry.model_validate(asset["entry"])
+            contract = entry.manifest.contract if entry.manifest is not None else None
+            schemas = asset.get("schemas", {})
+            if contract is not None:
+                if contract.input_schema_ref and schemas.get("input"):
+                    self._schema_registry.register(contract.input_schema_ref, schemas["input"])
+                if contract.output_schema_ref and schemas.get("output"):
+                    self._schema_registry.register(contract.output_schema_ref, schemas["output"])
+                if contract.error_schema_ref and schemas.get("error"):
+                    self._schema_registry.register(contract.error_schema_ref, schemas["error"])
+            try:
+                self._skill_control.get_skill(entry.skill_id)
+            except Exception:
+                self._skill_control.register(entry)
+            if entry.runtime_adapter == "script":
+                self._skill_runtime.register_handler(entry.skill_id, self._script_placeholder, entry=entry)
+            else:
+                self._skill_runtime.register_handler(entry.skill_id, self._missing_callable_stub, entry=entry)
+            restored += 1
+        return restored
 
     @staticmethod
     def _missing_callable_stub(request: SkillExecutionRequest):

@@ -67,6 +67,7 @@ Covered behavior:
 - authoring helpers can generate consistent callable/script skill registry entries
 - API-driven skill creation can register a generated skill, smoke-test it, and assemble it into an app blueprint
 - generated skill flows can also install and execute a blueprint-built app, including a non-trivial script skill that performs real text normalization instead of a pure echo fixture
+- generated script skill assets can persist and reload into a rebuilt runtime and still execute correctly
 
 ## 3.3 Experience store and demonstration extraction
 Covered behavior:

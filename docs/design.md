@@ -123,6 +123,7 @@ The next packaging layer now starts to exist as an API-facing factory path:
 - the newly created skill is immediately smoke-tested through the runtime
 - registered skills can be assembled into a minimal app blueprint through an interface instead of hand-written blueprint editing
 - the generated app path can also be installed and executed immediately, which makes contract mismatches in the authoring path visible early
+- generated skills should persist as assets and be reloaded into registry/runtime on bootstrap so the path becomes durable rather than session-only
 
 ## 4.2 Definition Layer
 

@@ -14,6 +14,7 @@ from app.services.skill_validation import SkillValidationService
 from app.services.demonstration_extractor import DemonstrationExtractor
 from app.services.event_bus import EventBusService
 from app.services.experience_store import ExperienceStore
+from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.interaction_gateway import InteractionGateway
 from app.services.lifecycle import AppLifecycleService
 from app.services.model_self_refiner import ModelSelfRefiner
@@ -216,10 +217,12 @@ def build_runtime() -> dict[str, object]:
     )
     app_catalog = AppCatalogService()
     skill_runtime = SkillRuntimeService(store=runtime_store, schema_registry=schema_registry)
+    generated_skill_assets = GeneratedSkillAssetStore(app_data_store)
     skill_factory = SkillFactoryService(
         skill_control=skill_control,
         skill_runtime=skill_runtime,
         schema_registry=schema_registry,
+        generated_assets=generated_skill_assets,
     )
     workflow_executor = WorkflowExecutorService(
         registry=app_registry,
@@ -248,5 +251,6 @@ def build_runtime() -> dict[str, object]:
         installer=app_installer,
         context_store=app_context_store,
     )
+    skill_factory.reload_generated_skills()
 
     return locals()
