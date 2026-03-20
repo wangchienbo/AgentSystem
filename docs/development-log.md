@@ -29,6 +29,40 @@ Added a small authoring helper layer so ordinary deterministic/script skills can
 #### Validation
 - planned focused regression: skill authoring + system skill registry + runtime adapter tests
 
+### Module: API-first generated skill creation and app assembly
+
+Implemented a first minimal interface-driven path for creating a skill, registering schemas/contracts, smoke-executing the skill through runtime, and assembling registered skills into a generated app blueprint.
+
+#### Added
+- `app/models/skill_creation.py`
+  - API request/response models for generated skills and app assembly
+- `app/services/skill_factory.py`
+  - `SkillFactoryService`
+  - contract registration during creation
+  - runtime smoke-test execution after creation
+  - app-blueprint assembly from registered skills
+- `tests/unit/test_skill_factory_api.py`
+  - verifies `/skills/create` for generated script skills
+  - verifies smoke execution result
+  - verifies `/apps/from-skills` blueprint assembly and registry insertion
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires `SkillFactoryService` into runtime services
+- `app/api/main.py`
+  - adds `/skills/create`
+  - adds `/apps/from-skills`
+- `docs/requirements.md`
+  - records API-first generated skill requirements
+- `docs/design.md`
+  - documents skill factory packaging/execution path
+- `docs/testing.md`
+  - records API-driven skill creation coverage
+
+#### Validation
+- focused API/authoring/runtime regression passes
+- result: `12 passed`
+
 
 ## 2026-03-16
 

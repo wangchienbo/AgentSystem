@@ -33,6 +33,7 @@ from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
+from app.models.skill_creation import AppFromSkillsRequest, SkillCreationRequest
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.app_blueprint import AppBlueprint
@@ -88,6 +89,7 @@ priority_analysis = services["priority_analysis"]
 app_installer = services["app_installer"]
 app_catalog = services["app_catalog"]
 skill_runtime = services["skill_runtime"]
+skill_factory = services["skill_factory"]
 workflow_executor = services["workflow_executor"]
 workflow_subscription = services["workflow_subscription"]
 context_compaction = services["context_compaction"]
@@ -144,6 +146,25 @@ def enable_skill(skill_id: str) -> dict:
     try:
         return skill_control.enable_skill(skill_id).model_dump(mode="json")
     except SkillControlError as error:
+        raise map_domain_error(error) from error
+
+@app.post("/skills/create")
+def create_skill(request: SkillCreationRequest) -> dict:
+    try:
+        return skill_factory.create_skill(request).model_dump(mode="json")
+    except (SkillControlError, SkillRuntimeError, ValueError) as error:
+        raise map_domain_error(error) from error
+
+@app.post("/apps/from-skills")
+def create_app_from_skills(request: AppFromSkillsRequest) -> dict:
+    try:
+        blueprint, result = skill_factory.build_blueprint_from_skills(request)
+        app_registry.register_blueprint(blueprint)
+        return {
+            "blueprint": blueprint.model_dump(mode="json"),
+            "result": result.model_dump(mode="json"),
+        }
+    except (AppRegistryError, ValueError) as error:
         raise map_domain_error(error) from error
 
 @app.get("/experiences")

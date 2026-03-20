@@ -117,6 +117,12 @@ To make normal skill authoring viable for self-iteration, the platform now also 
 - built-in skills should use the same authoring path as normal skills where possible
 - tests should verify authoring output separately from runtime execution so skill authors can localize failures faster
 
+The next packaging layer now starts to exist as an API-facing factory path:
+- `SkillFactoryService` can create a skill from an API request
+- skill contracts are registered into the schema registry during creation
+- the newly created skill is immediately smoke-tested through the runtime
+- registered skills can be assembled into a minimal app blueprint through an interface instead of hand-written blueprint editing
+
 ## 4.2 Definition Layer
 
 ### RequirementIntent

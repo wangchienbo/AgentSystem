@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.services.skill_authoring import SkillAuthoringService
 from app.services.skill_control import SkillControlService

@@ -28,6 +28,7 @@ from app.services.scheduler import SchedulerService
 from app.services.schema_registry import SchemaRegistryService
 from app.services.self_refinement import SelfRefinementService
 from app.services.skill_control import SkillControlService
+from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
 from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
@@ -215,6 +216,11 @@ def build_runtime() -> dict[str, object]:
     )
     app_catalog = AppCatalogService()
     skill_runtime = SkillRuntimeService(store=runtime_store, schema_registry=schema_registry)
+    skill_factory = SkillFactoryService(
+        skill_control=skill_control,
+        skill_runtime=skill_runtime,
+        schema_registry=schema_registry,
+    )
     workflow_executor = WorkflowExecutorService(
         registry=app_registry,
         lifecycle=lifecycle,

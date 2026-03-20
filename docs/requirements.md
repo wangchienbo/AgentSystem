@@ -255,6 +255,12 @@ The platform should inject these system skills during installation rather than r
 
 The platform should also provide a low-friction authoring path for normal skills so skill creation does not require hand-assembling registry/manifest boilerplate for every deterministic or script-backed capability.
 
+The platform should expose an API-first path for generated skills so the system can:
+- create a skill definition through an interface
+- register the skill into the runtime/governance layer
+- execute a smoke test immediately
+- assemble one or more registered skills into an app blueprint
+
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills
 - required skills missing from the registry

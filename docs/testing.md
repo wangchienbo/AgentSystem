@@ -65,6 +65,7 @@ Covered behavior:
 - immutable protection
 - API error mapping
 - authoring helpers can generate consistent callable/script skill registry entries
+- API-driven skill creation can register a generated skill, smoke-test it, and assemble it into an app blueprint
 
 ## 3.3 Experience store and demonstration extraction
 Covered behavior:
