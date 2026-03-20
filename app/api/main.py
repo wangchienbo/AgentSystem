@@ -33,7 +33,7 @@ from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
-from app.models.skill_creation import AppFromSkillsRequest, SkillCreationRequest
+from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, SkillCreationRequest
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.app_blueprint import AppBlueprint
@@ -165,6 +165,27 @@ def create_app_from_skills(request: AppFromSkillsRequest) -> dict:
             "result": result.model_dump(mode="json"),
         }
     except (AppRegistryError, ValueError) as error:
+        raise map_domain_error(error) from error
+
+@app.post("/apps/from-skills/install-run")
+def create_install_and_run_app_from_skills(request: AppFromSkillsInstallRunRequest) -> dict:
+    try:
+        blueprint, result = skill_factory.build_blueprint_from_skills(request)
+        app_registry.register_blueprint(blueprint)
+        install = app_installer.install_app(blueprint_id=blueprint.id, user_id=request.user_id)
+        execution = workflow_executor.execute_workflow(
+            app_instance_id=install.app_instance_id,
+            workflow_id=result.workflow_id,
+            trigger=request.trigger,
+            inputs=request.workflow_inputs,
+        )
+        return {
+            "blueprint": blueprint.model_dump(mode="json"),
+            "result": result.model_dump(mode="json"),
+            "install": install.model_dump(mode="json"),
+            "execution": execution.model_dump(mode="json"),
+        }
+    except (AppRegistryError, AppInstallerError, LifecycleError, RuntimeHostError, WorkflowExecutorError, ValueError) as error:
         raise map_domain_error(error) from error
 
 @app.get("/experiences")

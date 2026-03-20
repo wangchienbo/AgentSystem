@@ -112,3 +112,130 @@ def test_create_app_blueprint_from_generated_skills_via_api() -> None:
     blueprints = client.get("/registry/apps")
     assert blueprints.status_code == 200
     assert any(item["blueprint_id"] == "bp.generated.skill.app" for item in blueprints.json())
+
+
+def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
+    create_skill = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.script.install.run",
+            "name": "Generated Install Run Skill",
+            "description": "used by install-run flow",
+            "adapter_kind": "script",
+            "command": ["python3", "tests/fixtures/script_echo_skill.py"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "echo": {"type": "string"},
+                        "adapter": {"type": "string"},
+                    },
+                    "required": ["echo", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "smoke_test_inputs": {"text": "run-skill"},
+        },
+    )
+    assert create_skill.status_code == 200
+
+    response = client.post(
+        "/apps/from-skills/install-run",
+        json={
+            "blueprint_id": "bp.generated.install.run",
+            "name": "Generated Install Run App",
+            "goal": "install and execute generated skill app",
+            "skill_ids": ["skill.script.install.run"],
+            "workflow_id": "wf.generated.install.run",
+            "user_id": "generated-user",
+            "step_inputs": {
+                "skill.1": {"text": "installed-run"}
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["install"]["blueprint_id"] == "bp.generated.install.run"
+    assert payload["execution"]["status"] == "completed"
+    assert payload["execution"]["steps"][0]["status"] == "completed"
+    assert payload["execution"]["steps"][0]["output"]["adapter"] == "script"
+
+
+def test_create_real_slugify_skill_and_run_generated_app() -> None:
+    create_skill = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.text.slugify",
+            "name": "Text Slugify Skill",
+            "description": "normalize human titles into stable slugs",
+            "adapter_kind": "script",
+            "command": ["python3", "tests/fixtures/script_slugify_skill.py"],
+            "tags": ["text", "normalization", "real-skill"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "source_text": {"type": "string"},
+                        "slug": {"type": "string"},
+                        "length": {"type": "integer"},
+                        "adapter": {"type": "string"},
+                    },
+                    "required": ["source_text", "slug", "length", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "smoke_test_inputs": {"text": "Hello, Agent System 2026!"},
+        },
+    )
+    assert create_skill.status_code == 200
+    create_payload = create_skill.json()
+    assert create_payload["smoke_test"]["status"] == "completed"
+    assert create_payload["smoke_test"]["output"]["slug"] == "hello-agent-system-2026"
+    assert create_payload["smoke_test"]["output"]["adapter"] == "script"
+
+    response = client.post(
+        "/apps/from-skills/install-run",
+        json={
+            "blueprint_id": "bp.text.slugify.app",
+            "name": "Text Slugify App",
+            "goal": "turn user-facing titles into storage-safe slugs",
+            "skill_ids": ["skill.text.slugify"],
+            "workflow_id": "wf.text.slugify.app",
+            "user_id": "slug-user",
+            "step_inputs": {
+                "skill.1": {"text": "A Better App OS, For Real"}
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["install"]["blueprint_id"] == "bp.text.slugify.app"
+    assert payload["execution"]["status"] == "completed"
+    assert payload["execution"]["steps"][0]["output"]["slug"] == "a-better-app-os-for-real"
+    assert payload["execution"]["steps"][0]["output"]["length"] == len("a-better-app-os-for-real")

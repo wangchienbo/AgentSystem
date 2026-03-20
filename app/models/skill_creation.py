@@ -49,3 +49,10 @@ class AppFromSkillsResult(BaseModel):
     workflow_id: str
     required_skills: list[str] = Field(default_factory=list)
     created_steps: list[str] = Field(default_factory=list)
+
+
+class AppFromSkillsInstallRunRequest(AppFromSkillsRequest):
+    user_id: str = Field(..., min_length=1)
+    workflow_inputs: dict[str, Any] = Field(default_factory=dict)
+    step_inputs: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    trigger: str = Field(default="manual")

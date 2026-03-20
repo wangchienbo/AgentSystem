@@ -63,6 +63,37 @@ Implemented a first minimal interface-driven path for creating a skill, register
 - focused API/authoring/runtime regression passes
 - result: `12 passed`
 
+### Module: generated app install/run validation and real script skill verification
+
+Extended the generated-skill path so the interface flow can also install and execute the generated app immediately, then validated the path with a more realistic script skill instead of only an echo-style fixture.
+
+#### Added
+- `tests/fixtures/script_slugify_skill.py`
+  - a real script-backed text normalization skill that generates storage-safe slugs
+
+#### Updated
+- `app/models/skill_creation.py`
+  - install/run request now supports step-level inputs
+- `app/api/main.py`
+  - adds `/apps/from-skills/install-run`
+- `app/services/skill_factory.py`
+  - generated app blueprints now include a minimal role
+  - generated step inputs can be attached during app assembly
+  - generated input schemas auto-allow runtime `working_set` injection
+- `tests/unit/test_skill_factory_api.py`
+  - validates create -> assemble -> install -> run
+  - validates a more realistic `skill.text.slugify` script skill end-to-end
+- `docs/requirements.md`
+  - records optional install+execute flow in generated skill path
+- `docs/design.md`
+  - documents early visibility of generated app execution mismatches
+- `docs/testing.md`
+  - records non-trivial generated skill coverage
+
+#### Validation
+- focused generated-skill regression passes
+- result: `13 passed`
+
 
 ## 2026-03-16
 

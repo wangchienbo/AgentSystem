@@ -122,6 +122,7 @@ The next packaging layer now starts to exist as an API-facing factory path:
 - skill contracts are registered into the schema registry during creation
 - the newly created skill is immediately smoke-tested through the runtime
 - registered skills can be assembled into a minimal app blueprint through an interface instead of hand-written blueprint editing
+- the generated app path can also be installed and executed immediately, which makes contract mismatches in the authoring path visible early
 
 ## 4.2 Definition Layer
 

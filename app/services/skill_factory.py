@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult
 from app.models.skill_runtime import SkillExecutionRequest
@@ -89,6 +91,7 @@ class SkillFactoryService:
             raise SkillFactoryError(f"Skills not found for app assembly: {', '.join(missing)}")
         steps = []
         created_steps = []
+        step_inputs = getattr(request, "step_inputs", {})
         for index, skill_id in enumerate(request.skill_ids, start=1):
             step_id = f"skill.{index}"
             steps.append(
@@ -96,7 +99,7 @@ class SkillFactoryService:
                     "id": step_id,
                     "kind": "skill",
                     "ref": skill_id,
-                    "config": {"inputs": {}},
+                    "config": {"inputs": step_inputs.get(step_id, {})},
                 }
             )
             created_steps.append(step_id)
@@ -104,7 +107,7 @@ class SkillFactoryService:
             id=request.blueprint_id,
             name=request.name,
             goal=request.goal,
-            roles=[],
+            roles=[{"id": "generated.agent", "name": "Generated Agent", "type": "agent"}],
             tasks=[],
             workflows=[
                 {
@@ -130,7 +133,11 @@ class SkillFactoryService:
             "output": f"schema://{request.skill_id}/output",
             "error": f"schema://{request.skill_id}/error",
         }
-        self._schema_registry.register(refs["input"], request.schemas.input or {"type": "object"})
+        input_schema = deepcopy(request.schemas.input or {"type": "object"})
+        if input_schema.get("type") == "object":
+            properties = input_schema.setdefault("properties", {})
+            properties.setdefault("working_set", {"type": "object"})
+        self._schema_registry.register(refs["input"], input_schema)
         self._schema_registry.register(refs["output"], request.schemas.output or {"type": "object"})
         self._schema_registry.register(refs["error"], request.schemas.error or {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": True})
         return refs
