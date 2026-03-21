@@ -20,4 +20,5 @@ class SkillExecutionResult(BaseModel):
     status: str = Field(default="completed")
     output: dict[str, Any] = Field(default_factory=dict)
     error: str = ""
+    error_detail: dict[str, Any] = Field(default_factory=dict)
     executed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -19,12 +21,12 @@ from app.services.workflow_subscription import WorkflowSubscriptionService
 client = TestClient(app)
 
 
-def test_workflow_subscription_triggers_execution_on_event() -> None:
-    store = RuntimeStateStore(base_dir="data/test-workflow-subscription")
+def test_workflow_subscription_triggers_execution_on_event(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "workflow-subscription-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-workflow-subscription-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "workflow-subscription-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)

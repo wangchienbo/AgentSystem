@@ -9,9 +9,12 @@ from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.app_registry import AppRegistryService
 from app.services.context_compaction import ContextCompactionService
 from app.services.system_skills.context import ContextSkillService
+from app.services.blueprint_validation import BlueprintValidationService
+from app.services.skill_validation import SkillValidationService
 from app.services.demonstration_extractor import DemonstrationExtractor
 from app.services.event_bus import EventBusService
 from app.services.experience_store import ExperienceStore
+from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.interaction_gateway import InteractionGateway
 from app.services.lifecycle import AppLifecycleService
 from app.services.model_self_refiner import ModelSelfRefiner
@@ -23,8 +26,10 @@ from app.services.requirement_router import RequirementRouter
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
+from app.services.schema_registry import SchemaRegistryService
 from app.services.self_refinement import SelfRefinementService
 from app.services.skill_control import SkillControlService
+from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
 from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
@@ -36,6 +41,128 @@ from app.services.workflow_subscription import WorkflowSubscriptionService
 def build_runtime() -> dict[str, object]:
     router = RequirementRouter()
     skill_control = SkillControlService()
+    schema_registry = SchemaRegistryService()
+    schema_registry.register(
+        "schema://system.app_config/input",
+        {
+            "type": "object",
+            "properties": {
+                "operation": {"type": "string", "enum": ["get", "set", "patch", "delete", "list"]},
+                "key": {"type": "string"},
+                "value": {},
+                "config_schema": {"type": "object"},
+                "working_set": {"type": "object"},
+            },
+            "required": ["operation"],
+            "additionalProperties": False,
+        },
+    )
+    schema_registry.register(
+        "schema://system.app_config/output",
+        {
+            "type": "object",
+            "properties": {
+                "app_instance_id": {"type": "string"},
+                "operation": {"type": "string"},
+                "values": {"type": "object"},
+                "key": {"type": "string"},
+                "value": {},
+                "history_count": {"type": "integer"},
+            },
+            "required": ["app_instance_id", "operation", "values", "key", "history_count"],
+            "additionalProperties": True,
+        },
+    )
+    schema_registry.register(
+        "schema://system.app_config/error",
+        {
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+            "required": ["message"],
+            "additionalProperties": False,
+        },
+    )
+    schema_registry.register(
+        "schema://system.context/input",
+        {
+            "type": "object",
+            "properties": {
+                "operation": {"type": "string", "enum": ["get", "update", "append", "list_runtime_view"]},
+                "current_goal": {"type": "string"},
+                "current_stage": {"type": "string"},
+                "status": {"type": "string"},
+                "section": {"type": "string"},
+                "key": {"type": "string"},
+                "value": {},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "include_runtime": {"type": "boolean"},
+                "working_set": {"type": "object"},
+            },
+            "required": ["operation"],
+            "additionalProperties": False,
+        },
+    )
+    schema_registry.register(
+        "schema://system.context/output",
+        {
+            "type": "object",
+            "properties": {
+                "app_instance_id": {"type": "string"},
+                "current_goal": {"type": "string"},
+                "current_stage": {"type": "string"},
+                "status": {"type": "string"},
+                "entries": {"type": "array"},
+                "context": {"type": "object"},
+                "runtime": {},
+            },
+            "additionalProperties": True,
+        },
+    )
+    schema_registry.register(
+        "schema://system.context/error",
+        {
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+            "required": ["message"],
+            "additionalProperties": False,
+        },
+    )
+    schema_registry.register(
+        "schema://model.responses.probe/input",
+        {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "working_set": {"type": "object"},
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+    )
+    schema_registry.register(
+        "schema://model.responses.probe/output",
+        {
+            "type": "object",
+            "properties": {
+                "provider": {"type": "string"},
+                "model": {"type": "string"},
+                "result": {"type": "object"},
+            },
+            "required": ["provider", "model", "result"],
+            "additionalProperties": True,
+        },
+    )
+    schema_registry.register(
+        "schema://model.responses.probe/error",
+        {
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+            "required": ["message"],
+            "additionalProperties": False,
+        },
+    )
+    skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)
+    blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
     experience_store = ExperienceStore()
     demonstration_extractor = DemonstrationExtractor()
@@ -86,9 +213,17 @@ def build_runtime() -> dict[str, object]:
         context_store=app_context_store,
         app_config_service=app_config_service,
         app_profile_resolver=app_profile_resolver,
+        blueprint_validation=blueprint_validation,
     )
     app_catalog = AppCatalogService()
-    skill_runtime = SkillRuntimeService(store=runtime_store)
+    skill_runtime = SkillRuntimeService(store=runtime_store, schema_registry=schema_registry)
+    generated_skill_assets = GeneratedSkillAssetStore(app_data_store)
+    skill_factory = SkillFactoryService(
+        skill_control=skill_control,
+        skill_runtime=skill_runtime,
+        schema_registry=schema_registry,
+        generated_assets=generated_skill_assets,
+    )
     workflow_executor = WorkflowExecutorService(
         registry=app_registry,
         lifecycle=lifecycle,
@@ -116,5 +251,6 @@ def build_runtime() -> dict[str, object]:
         installer=app_installer,
         context_store=app_context_store,
     )
+    skill_factory.reload_generated_skills()
 
     return locals()

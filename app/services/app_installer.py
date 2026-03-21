@@ -9,6 +9,7 @@ from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.app_config_service import AppConfigService
 from app.services.app_profile_resolver import AppProfileResolverService
+from app.services.blueprint_validation import BlueprintValidationError, BlueprintValidationService
 
 
 class AppInstallerError(ValueError):
@@ -33,6 +34,7 @@ class AppInstallerService:
         context_store: AppContextStore | None = None,
         app_config_service: AppConfigService | None = None,
         app_profile_resolver: AppProfileResolverService | None = None,
+        blueprint_validation: BlueprintValidationService | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -41,9 +43,15 @@ class AppInstallerService:
         self._context_store = context_store
         self._app_config_service = app_config_service
         self._app_profile_resolver = app_profile_resolver
+        self._blueprint_validation = blueprint_validation
 
     def install_app(self, blueprint_id: str, user_id: str, app_instance_id: str | None = None) -> AppInstallResult:
         blueprint = self._registry.get_blueprint(blueprint_id)
+        if self._blueprint_validation is not None:
+            try:
+                self._blueprint_validation.require_valid(blueprint)
+            except BlueprintValidationError as error:
+                raise AppInstallerError(str(error)) from error
         instance_id = app_instance_id or f"{blueprint_id}:{user_id}"
 
         try:

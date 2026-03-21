@@ -112,6 +112,25 @@ A skill should evolve toward a package model that includes:
 - dependency declarations
 - examples and validation assets
 
+To make normal skill authoring viable for self-iteration, the platform now also treats skill packaging as a first-class builder concern:
+- `SkillAuthoringService` can generate consistent registry entries for callable and script skills
+- built-in skills should use the same authoring path as normal skills where possible
+- tests should verify authoring output separately from runtime execution so skill authors can localize failures faster
+
+The next packaging layer now starts to exist as an API-facing factory path:
+- `SkillFactoryService` can create a skill from an API request
+- skill contracts are registered into the schema registry during creation
+- the newly created skill is immediately smoke-tested through the runtime
+- registered skills can be assembled into a minimal app blueprint through an interface instead of hand-written blueprint editing
+- the generated app path can also be installed and executed immediately, which makes contract mismatches in the authoring path visible early
+- generated app assembly now supports step-level inputs plus explicit step mapping declarations so multi-step generated apps can be composed without hand-editing blueprints
+- generated mappings are compiled into the same declarative workflow reference shape already understood by runtime execution (`$from_step` / `$from_inputs`) instead of introducing a separate execution path
+- generated mapping targets may point into nested downstream object fields, which keeps the API-facing assembly surface compact while preserving schema-first workflow validation
+- generated mappings may also carry lightweight assembly-time transforms/defaults (for example lowercase/uppercase/stringify/wrap-object and literal/default injection) so common app-composition cleanup can happen without inventing a separate workflow DSL
+- generated skills should persist as assets and be reloaded into registry/runtime on bootstrap so the path becomes durable rather than session-only
+- generated skill failures should surface as structured diagnostics with stage/kind/hint metadata instead of only raw error strings
+- structured diagnostics should be able to carry a suggested retry request so failure handling can flow into the next generation attempt
+
 ## 4.2 Definition Layer
 
 ### RequirementIntent
@@ -238,6 +257,7 @@ The intended next-step installer behavior is:
 - classify runtime skills from capability tags
 - resolve an app runtime profile from the installed skill set
 - determine whether direct start, optional-intelligence start, or intelligence-required start is appropriate
+- reject blueprints that deterministically violate runtime-skill validation rules before provisioning instances
 
 ## 5.6 Lifecycle and Runtime
 `AppLifecycleService` manages valid state transitions.
@@ -325,6 +345,11 @@ A future skill package should include at least:
 - dependency declarations (modules, skills, binaries, services)
 - validation examples and optional healthcheck metadata
 
+The intended direction is schema-first:
+- machine-readable contract/schema definitions should be the authoritative source for runtime envelopes
+- adapter declarations should describe how execution happens, not redefine payload shapes independently
+- future inspection/debugging surfaces should reuse the same contract source instead of inventing parallel representations
+
 ### Runtime adapters
 The runtime layer should support multiple adapter types behind one execution contract:
 - `callable` for in-process deterministic handlers
@@ -352,17 +377,38 @@ Direct skill-to-skill dependencies may still be declared, but dependency resolut
 ## 5.15 Skill validation and compile-time checking
 A future `SkillValidationService` should validate skill packages before they become active runtime capabilities.
 
-Validation should cover at least:
+Validation should be treated as three connected layers rather than one undifferentiated check:
+
+### Package validation
+Runs before a skill becomes active or installable.
+It should cover at least:
 - manifest completeness
 - schema correctness
 - adapter resolvability
 - consistency between capability tags and actual runtime form
 - compatibility between declared dependencies and the execution environment
 
-App/workflow validation should additionally check:
-- step input/output compatibility
+### Compile-time app/workflow validation
+Runs before app install or runtime activation.
+It should cover at least:
+- required skill existence
+- workflow step / skill contract compatibility
+- input/output mapping compatibility between steps
 - misuse of build-only skills inside runtime execution paths
 - mismatch between app runtime profile and runtime-critical skill requirements
+
+### Runtime envelope validation
+Runs at dispatch boundaries even after compile-time checks pass.
+It should cover at least:
+- request/input payload validation before adapter execution
+- response/output/error validation after adapter execution
+- adapter/runtime failures being distinguished from contract violations
+
+This separation follows a stricter schema-first model:
+- contract validity and adapter executability are different dimensions
+- invalid packages should be blocked before activation
+- invalid workflow wiring should be blocked before install/start
+- invalid runtime payloads should fail as envelope violations rather than silently poisoning downstream steps
 
 ## 5.16 Core skill design principles reference
 The canonical core-skill design principles are maintained in:
@@ -579,6 +625,10 @@ To avoid context explosion, runtime context should be split into layers instead 
 - keep detail in `app_contexts`, `workflow_execution_history`, and `skill_executions`
 
 Current implementation note:
+- context compaction summaries and policies are now persisted and reloaded through the runtime state store
+- working-set and summary metadata now include recent workflow/skill references for selective deep retrieval
+- policy-driven auto compaction can now trigger on workflow completion, workflow failure, and stage change
+- runtime persistence inspection now exposes `context_summaries` and `context_policies`
 - a minimal workflow executor now exists for workflow execution
 - it supports deterministic step skeletons for `state.set`, `state.get`, and event emission
 - it also includes placeholders for `human_task` and `skill` steps so workflows can preserve unresolved work in context

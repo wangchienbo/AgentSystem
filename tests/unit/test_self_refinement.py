@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -51,9 +53,9 @@ class StubModelSelfRefiner:
         ]
 
 
-def test_self_refinement_generates_patch_proposals() -> None:
-    store = RuntimeStateStore(base_dir="data/test-self-refinement")
-    data_store = AppDataStore(base_dir="data/test-self-refinement-ns", store=store)
+def test_self_refinement_generates_patch_proposals(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "self-refinement-store"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "self-refinement-ns"), store=store)
     experience_store = ExperienceStore()
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
@@ -129,9 +131,9 @@ def test_self_refinement_generates_patch_proposals() -> None:
 
 
 
-def test_self_refinement_uses_model_when_available() -> None:
-    store = RuntimeStateStore(base_dir="data/test-self-refinement-model")
-    data_store = AppDataStore(base_dir="data/test-self-refinement-model-ns", store=store)
+def test_self_refinement_uses_model_when_available(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "self-refinement-model-store"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "self-refinement-model-ns"), store=store)
     experience_store = ExperienceStore()
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
@@ -183,9 +185,9 @@ def test_self_refinement_uses_model_when_available() -> None:
 
 
 
-def test_self_refinement_falls_back_when_model_fails() -> None:
-    store = RuntimeStateStore(base_dir="data/test-self-refinement-fallback")
-    data_store = AppDataStore(base_dir="data/test-self-refinement-fallback-ns", store=store)
+def test_self_refinement_falls_back_when_model_fails(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "self-refinement-fallback-store"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "self-refinement-fallback-ns"), store=store)
     experience_store = ExperienceStore()
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)

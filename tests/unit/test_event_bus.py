@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -24,8 +26,8 @@ def build_instance() -> AppInstance:
     )
 
 
-def test_event_bus_publish_triggers_event_schedule() -> None:
-    store = RuntimeStateStore(base_dir="data/test-event-bus")
+def test_event_bus_publish_triggers_event_schedule(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "event-bus-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)

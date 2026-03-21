@@ -33,6 +33,9 @@ from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
+from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, SkillCreationRequest
+from app.services.skill_factory import SkillFactoryError
+from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.app_blueprint import AppBlueprint
@@ -42,9 +45,11 @@ from app.models.interaction import UserCommand
 from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
+from app.services.skill_retry_advisor import SkillRetryAdvisorService
 
 
 app = FastAPI(title="AgentSystem App OS", version="0.1.0")
+retry_advisor = SkillRetryAdvisorService()
 
 
 @app.get("/health")
@@ -59,18 +64,7 @@ def version() -> dict[str, str]:
 
 @app.post("/blueprints/validate")
 def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
-    missing = []
-    if not blueprint.roles:
-        missing.append("roles")
-    if not blueprint.workflows:
-        missing.append("workflows")
-    if not blueprint.required_modules:
-        missing.append("required_modules")
-    return {
-        "ok": len(missing) == 0,
-        "missing": missing,
-        "blueprint_id": blueprint.id,
-    }
+    return blueprint_validation.validate(blueprint)
 
 
 services = build_runtime()
@@ -99,10 +93,12 @@ priority_analysis = services["priority_analysis"]
 app_installer = services["app_installer"]
 app_catalog = services["app_catalog"]
 skill_runtime = services["skill_runtime"]
+skill_factory = services["skill_factory"]
 workflow_executor = services["workflow_executor"]
 workflow_subscription = services["workflow_subscription"]
 context_compaction = services["context_compaction"]
 interaction_gateway = services["interaction_gateway"]
+blueprint_validation = services["blueprint_validation"]
 
 bootstrap_builtin_skills(skill_runtime, services)
 bootstrap_demo_catalog(app_registry, app_catalog)
@@ -154,6 +150,97 @@ def enable_skill(skill_id: str) -> dict:
     try:
         return skill_control.enable_skill(skill_id).model_dump(mode="json")
     except SkillControlError as error:
+        raise map_domain_error(error) from error
+
+@app.post("/skills/create")
+def create_skill(request: SkillCreationRequest) -> dict:
+    try:
+        return skill_factory.create_skill(request).model_dump(mode="json")
+    except (SkillDiagnosticError, SkillControlError, SkillRuntimeError, ValueError) as error:
+        raise map_domain_error(error) from error
+
+@app.post("/skills/diagnose-retry")
+def diagnose_retry(request: SkillRetryAdviceRequest) -> dict:
+    return retry_advisor.build_retry_advice(request.diagnostic).model_dump(mode="json")
+
+@app.post("/apps/from-skills")
+def create_app_from_skills(request: AppFromSkillsRequest) -> dict:
+    try:
+        blueprint, result = skill_factory.build_blueprint_from_skills(request)
+        app_registry.register_blueprint(blueprint)
+        return {
+            "blueprint": blueprint.model_dump(mode="json"),
+            "result": result.model_dump(mode="json"),
+        }
+    except (SkillDiagnosticError, AppRegistryError, SkillFactoryError, ValueError) as error:
+        raise map_domain_error(error) from error
+
+@app.post("/apps/from-skills/install-run")
+def create_install_and_run_app_from_skills(request: AppFromSkillsInstallRunRequest) -> dict:
+    try:
+        blueprint, result = skill_factory.build_blueprint_from_skills(request)
+        app_registry.register_blueprint(blueprint)
+        install = app_installer.install_app(blueprint_id=blueprint.id, user_id=request.user_id)
+        execution = workflow_executor.execute_workflow(
+            app_instance_id=install.app_instance_id,
+            workflow_id=result.workflow_id,
+            trigger=request.trigger,
+            inputs=request.workflow_inputs,
+        )
+        if execution.status != "completed":
+            first_failure = next((step for step in execution.steps if step.status == "failed"), None)
+            raise SkillDiagnosticError(
+                SkillDiagnostic(
+                    stage="execute",
+                    kind="contract_violation" if first_failure and "contract" in str(first_failure.detail).lower() else "execution_error",
+                    message="Generated app execution did not complete successfully",
+                    retryable=False,
+                    hint="Check the failing step detail and align generated inputs/contracts before retrying.",
+                    details={
+                        "workflow_id": result.workflow_id,
+                        "app_instance_id": install.app_instance_id,
+                        "failed_step": None if first_failure is None else first_failure.model_dump(mode="json"),
+                    },
+                    suggested_retry_request={
+                        "workflow_id": result.workflow_id,
+                        "app_instance_id": install.app_instance_id,
+                        "step_inputs": {
+                            first_failure.step_id if first_failure is not None else "skill.1": {
+                                "text": "replace-with-valid-input"
+                            }
+                        },
+                    },
+                )
+            )
+        return {
+            "blueprint": blueprint.model_dump(mode="json"),
+            "result": result.model_dump(mode="json"),
+            "install": install.model_dump(mode="json"),
+            "execution": execution.model_dump(mode="json"),
+        }
+    except (AppInstallerError, LifecycleError, RuntimeHostError, WorkflowExecutorError) as error:
+        raise map_domain_error(
+            SkillDiagnosticError(
+                SkillDiagnostic(
+                    stage="install",
+                    kind="install_error",
+                    message=str(error),
+                    retryable=False,
+                    hint="Check generated blueprint wiring, required inputs, and install preconditions before retrying.",
+                    details={"blueprint_id": request.blueprint_id, "workflow_id": request.workflow_id},
+                    suggested_retry_request={
+                        "blueprint_id": request.blueprint_id,
+                        "workflow_id": request.workflow_id,
+                        "step_inputs": {
+                            "skill.1": {
+                                "text": "replace-with-valid-input"
+                            }
+                        },
+                    },
+                )
+            )
+        ) from error
+    except (SkillDiagnosticError, AppRegistryError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
 
 @app.get("/experiences")
@@ -358,6 +445,8 @@ def get_runtime_persistence_snapshot() -> dict:
         "patch_proposals": runtime_store.load_json("patch_proposals", {}),
         "proposal_reviews": runtime_store.load_json("proposal_reviews", {}),
         "app_contexts": runtime_store.load_json("app_contexts", {}),
+        "context_summaries": runtime_store.load_json("context_summaries", {}),
+        "context_policies": runtime_store.load_json("context_policies", {}),
     }
 
 

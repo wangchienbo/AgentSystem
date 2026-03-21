@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -19,9 +21,9 @@ from app.services.scheduler import SchedulerService
 client = TestClient(app)
 
 
-def test_practice_review_generates_experience() -> None:
-    store = RuntimeStateStore(base_dir="data/test-practice-review")
-    data_store = AppDataStore(base_dir="data/test-practice-review-ns", store=store)
+def test_practice_review_generates_experience(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "practice-review-store"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "practice-review-ns"), store=store)
     experience_store = ExperienceStore()
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)

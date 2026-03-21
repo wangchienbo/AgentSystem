@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
-from app.models.skill_manifest import SkillContractRef, SkillManifest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
+from app.services.skill_authoring import SkillAuthoringService
 from app.services.skill_control import SkillControlService
 from app.services.skill_runtime import SkillRuntimeService
 
 SkillHandler = Callable[[SkillExecutionRequest], SkillExecutionResult]
+
+
+authoring = SkillAuthoringService()
 
 
 SYSTEM_SKILL_SPECS: dict[str, dict] = {
@@ -26,16 +28,22 @@ SYSTEM_SKILL_SPECS: dict[str, dict] = {
             invocation_default="automatic",
             risk_level="R0_safe_read",
         ),
-        "manifest": SkillManifest(
+        "manifest": authoring.build_callable_entry(
             skill_id="skill.echo",
             name="Demo Echo Skill",
-            version="1.0.0",
+            handler_entry="app.api.main:_demo_echo_skill",
             description="Simple deterministic echo skill",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_demo_echo_skill"),
-            contract=SkillContractRef(),
             tags=["demo", "deterministic"],
-        ),
+            capability_profile=SkillCapabilityProfile(
+                intelligence_level="L0_deterministic",
+                network_requirement="N0_none",
+                runtime_criticality="C1_optional_runtime",
+                execution_locality="local",
+                invocation_default="automatic",
+                risk_level="R0_safe_read",
+            ),
+            content="demo echo handler",
+        ).manifest,
     },
     "system.app_config": {
         "name": "System App Config",
@@ -50,16 +58,26 @@ SYSTEM_SKILL_SPECS: dict[str, dict] = {
             invocation_default="automatic",
             risk_level="R1_local_write",
         ),
-        "manifest": SkillManifest(
+        "manifest": authoring.build_callable_entry(
             skill_id="system.app_config",
             name="System App Config",
-            version="1.0.0",
+            handler_entry="app.api.main:_system_app_config_skill",
             description="Deterministic per-app configuration access",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_app_config_skill"),
-            contract=SkillContractRef(),
+            input_schema_ref="schema://system.app_config/input",
+            output_schema_ref="schema://system.app_config/output",
+            error_schema_ref="schema://system.app_config/error",
             tags=["system", "config"],
-        ),
+            immutable_interface=True,
+            capability_profile=SkillCapabilityProfile(
+                intelligence_level="L0_deterministic",
+                network_requirement="N0_none",
+                runtime_criticality="C2_required_runtime",
+                execution_locality="local",
+                invocation_default="automatic",
+                risk_level="R1_local_write",
+            ),
+            content="system app config handler",
+        ).manifest,
     },
     "system.state": {
         "name": "System State",
@@ -74,16 +92,23 @@ SYSTEM_SKILL_SPECS: dict[str, dict] = {
             invocation_default="automatic",
             risk_level="R1_local_write",
         ),
-        "manifest": SkillManifest(
+        "manifest": authoring.build_callable_entry(
             skill_id="system.state",
             name="System State",
-            version="1.0.0",
+            handler_entry="app.api.main:_system_state_skill",
             description="Deterministic runtime state access",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_state_skill"),
-            contract=SkillContractRef(),
             tags=["system", "state"],
-        ),
+            immutable_interface=True,
+            capability_profile=SkillCapabilityProfile(
+                intelligence_level="L0_deterministic",
+                network_requirement="N0_none",
+                runtime_criticality="C2_required_runtime",
+                execution_locality="local",
+                invocation_default="automatic",
+                risk_level="R1_local_write",
+            ),
+            content="system state handler",
+        ).manifest,
     },
     "system.audit": {
         "name": "System Audit",
@@ -98,16 +123,23 @@ SYSTEM_SKILL_SPECS: dict[str, dict] = {
             invocation_default="automatic",
             risk_level="R1_local_write",
         ),
-        "manifest": SkillManifest(
+        "manifest": authoring.build_callable_entry(
             skill_id="system.audit",
             name="System Audit",
-            version="1.0.0",
+            handler_entry="app.api.main:_system_audit_skill",
             description="Structured audit trail recording",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_audit_skill"),
-            contract=SkillContractRef(),
             tags=["system", "audit"],
-        ),
+            immutable_interface=True,
+            capability_profile=SkillCapabilityProfile(
+                intelligence_level="L0_deterministic",
+                network_requirement="N0_none",
+                runtime_criticality="C2_required_runtime",
+                execution_locality="local",
+                invocation_default="automatic",
+                risk_level="R1_local_write",
+            ),
+            content="system audit handler",
+        ).manifest,
     },
     "system.context": {
         "name": "System Context",
@@ -122,16 +154,60 @@ SYSTEM_SKILL_SPECS: dict[str, dict] = {
             invocation_default="automatic",
             risk_level="R1_local_write",
         ),
-        "manifest": SkillManifest(
+        "manifest": authoring.build_callable_entry(
             skill_id="system.context",
             name="System Context",
-            version="1.0.0",
+            handler_entry="app.api.main:_system_context_skill",
             description="Deterministic shared context access",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.api.main:_system_context_skill"),
-            contract=SkillContractRef(),
+            input_schema_ref="schema://system.context/input",
+            output_schema_ref="schema://system.context/output",
+            error_schema_ref="schema://system.context/error",
             tags=["system", "context"],
+            immutable_interface=True,
+            capability_profile=SkillCapabilityProfile(
+                intelligence_level="L0_deterministic",
+                network_requirement="N0_none",
+                runtime_criticality="C2_required_runtime",
+                execution_locality="local",
+                invocation_default="automatic",
+                risk_level="R1_local_write",
+            ),
+            content="system context handler",
+        ).manifest,
+    },
+    "model.responses.probe": {
+        "name": "Model Responses Probe",
+        "immutable_interface": True,
+        "version": "1.0.0",
+        "content": "external model probe handler",
+        "capability_profile": SkillCapabilityProfile(
+            intelligence_level="L1_assisted",
+            network_requirement="N2_required",
+            runtime_criticality="C1_optional_runtime",
+            execution_locality="remote",
+            invocation_default="automatic",
+            risk_level="R2_network_call",
         ),
+        "manifest": authoring.build_callable_entry(
+            skill_id="model.responses.probe",
+            name="Model Responses Probe",
+            handler_entry="app.bootstrap.skills:model_responses_probe_skill",
+            description="Calls an OpenAI-compatible responses API and returns a normalized probe result",
+            input_schema_ref="schema://model.responses.probe/input",
+            output_schema_ref="schema://model.responses.probe/output",
+            error_schema_ref="schema://model.responses.probe/error",
+            tags=["model", "external", "probe"],
+            immutable_interface=True,
+            capability_profile=SkillCapabilityProfile(
+                intelligence_level="L1_assisted",
+                network_requirement="N2_required",
+                runtime_criticality="C1_optional_runtime",
+                execution_locality="remote",
+                invocation_default="automatic",
+                risk_level="R2_network_call",
+            ),
+            content="external model probe handler",
+        ).manifest,
     },
     "core.skill.control": {
         "name": "Human Skill Control Interface",
@@ -146,16 +222,23 @@ SYSTEM_SKILL_SPECS: dict[str, dict] = {
             invocation_default="automatic",
             risk_level="R1_local_write",
         ),
-        "manifest": SkillManifest(
+        "manifest": authoring.build_callable_entry(
             skill_id="core.skill.control",
             name="Human Skill Control Interface",
-            version="1.0.0",
+            handler_entry="app.services.skill_control:SkillControlService",
             description="Protected control surface for skill lifecycle",
-            runtime_adapter="callable",
-            adapter=SkillAdapterSpec(kind="callable", entry="app.services.skill_control:SkillControlService"),
-            contract=SkillContractRef(),
             tags=["system", "governance"],
-        ),
+            immutable_interface=True,
+            capability_profile=SkillCapabilityProfile(
+                intelligence_level="L0_deterministic",
+                network_requirement="N0_none",
+                runtime_criticality="build_and_runtime_governance",
+                execution_locality="local",
+                invocation_default="automatic",
+                risk_level="R1_local_write",
+            ),
+            content="protected control surface",
+        ).manifest,
     },
 }
 

@@ -1,5 +1,252 @@
 # Development Log
 
+## 2026-03-21
+
+### Module: generated mapping transforms and defaults
+
+Extended generated app composition with lightweight transform/default support so common multi-step wiring cleanup can be expressed directly in the API-facing assembly request.
+
+#### Updated
+- `app/models/skill_creation.py`
+  - `StepMappingDefinition` now supports `transform` and `default_value`
+- `app/services/skill_factory.py`
+  - compiles mapping defaults and literal injections into workflow-native reference objects
+  - validates supported transform set during generated app assembly
+- `app/services/workflow_executor.py`
+  - resolves generated mapping transforms/defaults at execution time through the existing workflow reference path
+- `app/services/blueprint_validation.py`
+  - validates literal/default mapping compatibility against downstream schemas
+- `tests/unit/test_skill_factory_api.py`
+  - covers a two-step generated app flow using uppercase/lowercase transforms and literal default injection
+- `tests/unit/test_skill_diagnostics_api.py`
+  - rejects unsupported transform requests as client-facing 400 errors
+
+#### Validation
+- focused generated app transform/default regressions added for supported and unsupported mapping declarations
+
+### Module: runtime snapshot JSON fault tolerance
+
+Hardened runtime snapshot loading so empty or malformed JSON files no longer crash bootstrap, API import, or tests that rely on file-backed runtime state.
+
+#### Updated
+- `app/services/runtime_state_store.py`
+  - `load_json()` now falls back to the caller-provided default when a snapshot file is unreadable, empty, or malformed
+  - invalid snapshot files are quarantined under `data/runtime/corrupted/` (or the active runtime-store base dir) instead of being left in place to repeatedly break startup
+- `tests/unit/test_context_runtime_view_serialization.py`
+  - adds regression coverage for empty and malformed runtime snapshot files
+
+#### Validation
+- targeted runtime-store fault-tolerance regression added for empty and invalid JSON snapshots
+
+### Module: generated multi-step app mapping support
+
+Extended the API-first generated app path so generated skills can be composed into multi-step apps through explicit mapping declarations instead of only static per-step input blobs.
+
+#### Added
+- `app/models/skill_creation.py`
+  - `StepMappingDefinition`
+  - request support for `step_inputs` and `step_mappings` on generated app assembly
+- `tests/unit/test_skill_factory_api.py`
+  - validates a real two-step generated app flow using script + callable skills with explicit step/output and workflow-input mappings
+- `tests/unit/test_skill_diagnostics_api.py`
+  - validates malformed generated-app mapping requests are rejected as 400-level API errors
+
+#### Updated
+- `app/services/skill_factory.py`
+  - compiles generated mapping declarations into workflow-native `$from_step` / `$from_inputs` references
+  - supports nested target-field mapping into downstream input payloads
+  - rejects malformed or unknown-step mapping declarations during app assembly
+- `app/services/blueprint_validation.py`
+  - resolves nested target paths during compile-time schema compatibility checks
+  - avoids false mismatches when mappings target nested object fields rather than top-level fields only
+- `app/api/main.py`
+  - surfaces `SkillFactoryError` from generated app assembly/install-run as mapped API errors
+- `app/core/errors.py`
+  - maps `SkillFactoryError` into ordinary client-facing domain errors instead of leaking 500s
+- `docs/requirements.md`
+  - records generated multi-step app mapping requirements
+- `docs/design.md`
+  - documents generated mapping compilation into workflow-native references
+- `docs/testing.md`
+  - records multi-step mapping coverage and malformed-request diagnostics
+
+#### Validation
+- focused regression passes:
+  - `test_create_multi_step_generated_app_with_step_mappings`
+  - `test_app_from_skills_rejects_invalid_step_mapping_request`
+  - `test_blueprint_validation_rejects_incompatible_prior_skill_output_mapping`
+
+## 2026-03-20
+
+### Module: skill authoring scaffold for self-iterating normal skills
+
+Added a small authoring helper layer so ordinary deterministic/script skills can be created through a consistent packaging path instead of repeating registry + manifest boilerplate by hand.
+
+#### Added
+- `app/services/skill_authoring.py`
+  - `SkillAuthoringSpec`
+  - `SkillAuthoringService`
+  - helper builders for callable and script-backed skills
+- `tests/unit/test_skill_authoring.py`
+  - validates callable entry generation
+  - validates script entry generation
+  - validates capability/dependency preservation
+
+#### Updated
+- `app/services/system_skill_registry.py`
+  - built-in skills now build manifests through the same authoring helper path used for ordinary skills
+- `docs/requirements.md`
+  - documented need for a low-friction normal-skill authoring path
+- `docs/design.md`
+  - documented authoring service as part of skill packaging
+- `docs/testing.md`
+  - recorded authoring-helper coverage in the current test matrix
+
+#### Validation
+- planned focused regression: skill authoring + system skill registry + runtime adapter tests
+
+### Module: API-first generated skill creation and app assembly
+
+Implemented a first minimal interface-driven path for creating a skill, registering schemas/contracts, smoke-executing the skill through runtime, and assembling registered skills into a generated app blueprint.
+
+#### Added
+- `app/models/skill_creation.py`
+  - API request/response models for generated skills and app assembly
+- `app/services/skill_factory.py`
+  - `SkillFactoryService`
+  - contract registration during creation
+  - runtime smoke-test execution after creation
+  - app-blueprint assembly from registered skills
+- `tests/unit/test_skill_factory_api.py`
+  - verifies `/skills/create` for generated script skills
+  - verifies smoke execution result
+  - verifies `/apps/from-skills` blueprint assembly and registry insertion
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires `SkillFactoryService` into runtime services
+- `app/api/main.py`
+  - adds `/skills/create`
+  - adds `/apps/from-skills`
+- `docs/requirements.md`
+  - records API-first generated skill requirements
+- `docs/design.md`
+  - documents skill factory packaging/execution path
+- `docs/testing.md`
+  - records API-driven skill creation coverage
+
+#### Validation
+- focused API/authoring/runtime regression passes
+- result: `12 passed`
+
+### Module: generated app install/run validation and real script skill verification
+
+Extended the generated-skill path so the interface flow can also install and execute the generated app immediately, then validated the path with a more realistic script skill instead of only an echo-style fixture.
+
+#### Added
+- `tests/fixtures/script_slugify_skill.py`
+  - a real script-backed text normalization skill that generates storage-safe slugs
+
+#### Updated
+- `app/models/skill_creation.py`
+  - install/run request now supports step-level inputs
+- `app/api/main.py`
+  - adds `/apps/from-skills/install-run`
+- `app/services/skill_factory.py`
+  - generated app blueprints now include a minimal role
+  - generated step inputs can be attached during app assembly
+  - generated input schemas auto-allow runtime `working_set` injection
+- `tests/unit/test_skill_factory_api.py`
+  - validates create -> assemble -> install -> run
+  - validates a more realistic `skill.text.slugify` script skill end-to-end
+- `docs/requirements.md`
+  - records optional install+execute flow in generated skill path
+- `docs/design.md`
+  - documents early visibility of generated app execution mismatches
+- `docs/testing.md`
+  - records non-trivial generated skill coverage
+
+#### Validation
+- focused generated-skill regression passes
+- result: `13 passed`
+
+### Module: retry advice for generated skill diagnostics
+
+Extended the structured diagnostics baseline into a first retry/recovery contract so failed generated-skill flows can produce suggested correction payloads.
+
+#### Added
+- `app/services/skill_retry_advisor.py`
+  - converts structured diagnostics into suggested retry requests
+- retry-advice API route:
+  - `POST /skills/diagnose-retry`
+
+#### Updated
+- `app/models/skill_diagnostics.py`
+  - diagnostics can now carry `suggested_retry_request`
+  - added retry advice request/response models
+- `app/services/skill_factory.py`
+  - create-phase diagnostics now include suggested retry payloads
+- `app/api/main.py`
+  - install/execute diagnostics now include suggested retry payloads where applicable
+- `tests/unit/test_skill_diagnostics_api.py`
+  - validates retry suggestion payloads through the API
+- `docs/requirements.md`
+  - records retry advice requirement
+- `docs/design.md`
+  - documents suggested retry requests in diagnostics
+- `docs/testing.md`
+  - records retry-advice coverage
+- `docs/generated-skill-roadmap.md`
+  - marks Phase 3 acceptance criteria for retry payloads as complete
+
+#### Validation
+- focused diagnostics + retry regression passes
+- result: `4 passed`
+
+### Module: generated skill persistence and reload baseline
+
+Implemented the first durability slice for generated skills so API-created script skills can persist as assets and be reloaded into a rebuilt runtime.
+
+#### Added
+- `app/services/generated_skill_assets.py`
+  - persists generated skill assets into `global:skill_assets`
+  - lists generated assets for reload
+- `tests/unit/test_generated_skill_persistence.py`
+  - validates create -> persist -> rebuild runtime -> reload -> execute
+
+#### Updated
+- `app/services/skill_factory.py`
+  - persists generated skill metadata/assets on creation
+  - can reload generated skills back into registry/runtime
+- `app/bootstrap/runtime.py`
+  - wires generated asset store and reload on bootstrap
+- `docs/requirements.md`
+  - records persistence/reload requirement for generated skills
+- `docs/design.md`
+  - documents durable generated skill asset behavior
+- `docs/testing.md`
+  - records reload regression coverage
+
+#### Validation
+- focused persistence/generated-skill regression passes
+- result: `5 passed`
+
+### Module: generated skill roadmap and phased delivery plan
+
+Captured the next-step implementation order for generated skill/app self-iteration so future work can proceed as a staged roadmap instead of ad-hoc feature growth.
+
+#### Added
+- `docs/generated-skill-roadmap.md`
+  - current baseline
+  - phase ordering
+  - acceptance criteria per phase
+  - suggested validation cases
+  - immediate next 3 tasks
+
+#### Validation
+- roadmap reflects the currently proven generated script-skill baseline and the known framework gaps exposed by real-skill validation
+
+
 ## 2026-03-16
 
 ### Module: lifecycle manager and runtime host
@@ -1116,3 +1363,347 @@ Started switching internal wiring toward the new `app/services/system_skills/` p
 #### Design intent clarified
 - the new system-skill package should become the primary import target over time
 - a small structure map is useful while the codebase is still actively being reorganized
+
+### Module: stabilize system.context runtime-view tests
+
+Hardened the system-context test path so runtime-view validation no longer depends on reused on-disk test directories.
+
+#### Updated
+- `app/services/app_context_store.py`
+  - added the missing `LifecycleError` import used by runtime-view fallback handling
+- `tests/unit/test_context_runtime_view_serialization.py`
+  - expanded coverage for both runtime-present and runtime-unavailable serialization paths
+- `tests/unit/test_system_context_skill.py`
+  - switched test storage paths to pytest-managed `tmp_path` directories to avoid cross-run state pollution
+
+#### Validation
+- Ran targeted regression tests successfully
+- Result: `3 passed`
+
+#### Design intent clarified
+- file-backed runtime tests should isolate their storage roots per test run
+- system skill serialization tests should cover both happy-path and fallback-path payload shapes
+
+### Module: isolate workflow and system-skill tests from on-disk state reuse
+
+Continued converting file-backed unit tests away from fixed `data/test-*` directories so repeated local runs do not inherit stale runtime JSON state.
+
+#### Updated
+- `tests/unit/test_workflow_executor.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_skill_runtime.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_interaction_gateway.py`
+  - switched file-backed stores and persistence checks to pytest `tmp_path`
+- `tests/unit/test_system_app_config_skill.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_system_state_and_audit_skills.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+
+#### Validation
+- Ran focused regression suite successfully
+- Result: `19 passed`
+
+#### Design intent clarified
+- unit tests that exercise the JSON file runtime store should use unique temporary roots by default
+- repeated local/CI runs should not depend on manual cleanup of prior `data/test-*` artifacts
+
+### Module: isolate refinement and registry/event tests from persistent test state
+
+Extended the `tmp_path` migration to additional file-backed tests in the refinement, registry, and event areas.
+
+#### Updated
+- `tests/unit/test_self_refinement.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_priority_analysis.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_registry_installer.py`
+  - switched file-backed stores and installer namespaces to pytest `tmp_path`
+- `tests/unit/test_event_bus.py`
+  - switched file-backed runtime store to pytest `tmp_path`
+
+#### Validation
+- Ran focused regression suite successfully
+- Result: `13 passed`
+
+#### Design intent clarified
+- refinement and registry tests should be isolated from previously persisted runtime JSON just like workflow/runtime tests
+- test stability improvements should be applied consistently across subsystems rather than only around the originally failing area
+
+### Module: finish tmp_path migration for remaining file-backed unit tests
+
+Completed another pass over the remaining fixed `data/test-*` unit tests to reduce state leakage across repeated runs.
+
+#### Updated
+- `tests/unit/test_proposal_review.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_workflow_subscription.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_app_config_service.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_app_data_store.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_practice_review.py`
+  - switched file-backed stores and namespaces to pytest `tmp_path`
+- `tests/unit/test_context_runtime_view_serialization.py`
+  - aligned the new serialization regression tests with pytest `tmp_path`
+
+#### Validation
+- Ran focused regression suite successfully
+- Result: `13 passed`
+
+#### Design intent clarified
+- all new and recently touched file-backed unit tests should default to isolated temporary roots
+- regression tests added during bug fixing should follow the same isolation rules as the rest of the suite
+
+### Module: stop tracking generated runtime snapshots
+
+Cleaned up repository hygiene around generated runtime JSON snapshots under `data/runtime/`.
+
+#### Updated
+- removed tracked `data/runtime/*` files from git index while preserving them locally
+- kept `.gitignore` as the source of truth for excluding generated runtime state
+
+#### Why
+- these files are execution byproducts, not source artifacts
+- keeping them tracked causes constant dirty working trees after local runs and tests
+- removing them from version control reduces noisy diffs and accidental snapshot churn in commits
+
+### Module: complete persisted layered-context compaction baseline
+
+Tightened the existing context-compaction path into a more durable layered-context baseline instead of a one-session-only helper.
+
+#### Updated
+- `app/services/context_compaction.py`
+  - loads persisted summaries/policies on startup
+  - supports `stage_change` policy checks in addition to workflow completion/failure
+  - enriches summary/working-set metadata with workflow and skill execution references
+  - reports skill execution counts in layer detail metadata
+- `app/services/workflow_executor.py`
+  - triggers policy-driven compaction on workflow stage changes
+- `app/api/main.py`
+  - exposes `context_summaries` and `context_policies` in runtime persistence snapshots
+- `tests/unit/test_context_compaction.py`
+  - validates persisted summary/policy reload
+- `tests/unit/test_context_policy.py`
+  - validates stage-change auto compaction and runtime snapshot exposure
+
+#### Validation
+- Ran focused regression suite successfully
+- Result: `14 passed`
+
+#### Design intent clarified
+- layered context should survive runtime restarts instead of resetting to in-memory-only state
+- context compaction policy should govern stage transitions as well as workflow completion/failure
+- working-set views should point toward deeper workflow/skill detail rather than pretending summaries are self-sufficient
+
+### Module: add deterministic blueprint and runtime-skill validation baseline
+
+Introduced a first stricter validation layer so obviously invalid app blueprints are rejected before install instead of failing later during runtime execution.
+
+#### Added
+- `app/services/skill_validation.py`
+  - validates skill existence and blocks build-only skills from runtime workflow execution
+- `app/services/blueprint_validation.py`
+  - validates required skills, workflow skill declarations, and runtime-step skill usage
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires blueprint/skill validation into the runtime service graph
+- `app/services/app_installer.py`
+  - runs blueprint validation before provisioning app instances
+- `app/api/main.py`
+  - upgrades `/blueprints/validate` from a placeholder shape-check to structured blueprint validation
+- `tests/unit/test_blueprint_validation.py`
+  - covers undeclared workflow skills, missing required skills, build-only runtime leaks, and installer rejection
+- `tests/unit/test_registry_installer.py`
+  - updates install API fixture to match stricter validation rules
+
+#### Validation
+- Ran focused validation/profile/installer/runtime regression suite successfully
+- Result: `31 passed`
+
+#### Design intent clarified
+- invalid runtime-skill wiring should fail before install rather than surfacing only during workflow execution
+- build-only capability tags must have real enforcement value, not just documentation value
+
+### Module: align contract/validation design with schema-first runtime direction
+
+Refined the design documents after reviewing OpenClaw's schema-first patterns so the next contract-validation work has a clearer target shape.
+
+#### Updated
+- `docs/requirements.md`
+  - clarifies that machine-readable contracts/schemas should be the single source of truth for validation and runtime envelopes
+- `docs/design.md`
+  - separates package validation, compile-time workflow validation, and runtime envelope validation
+  - clarifies that adapter executability and contract validity are different dimensions
+- `docs/testing.md`
+  - adds schema-registry, pre-dispatch input validation, and post-dispatch output/error validation expectations
+
+#### Design intent clarified
+- schema/contract definitions should drive validation first, then runtime execution
+- runtime envelope violations should be treated differently from adapter/runtime failures
+- future contract validation should reuse one authoritative schema source instead of parallel ad-hoc checks
+
+### Module: add schema registry baseline for skill contract refs
+
+Started the schema-first contract implementation by introducing a minimal schema registry and wiring manifest validation through it.
+
+#### Added
+- `app/services/schema_registry.py`
+  - provides schema registration, resolution, and minimal JSON-schema-style payload validation helpers
+
+#### Updated
+- `app/services/skill_manifest_validator.py`
+  - now verifies non-empty contract refs can be resolved through the schema registry
+- `app/services/skill_validation.py`
+  - can share the same schema-aware manifest validator path
+- `app/bootstrap/runtime.py`
+  - instantiates a shared schema registry for runtime wiring
+- `tests/unit/test_skill_manifest_validator.py`
+  - adds coverage for registered and missing contract refs
+
+#### Validation
+- Ran focused manifest/validation/profile regression suite successfully
+- Result: `11 passed`
+
+#### Design intent clarified
+- contract refs should fail early when they point to nothing
+- schema resolution should become a reusable service rather than ad-hoc string checks in validators
+
+### Module: enforce input/output contracts in skill runtime dispatch
+
+Extended the schema-first path from manifest validation into actual runtime dispatch boundaries.
+
+#### Updated
+- `app/services/skill_runtime.py`
+  - validates request inputs against declared input contract refs before handler execution
+  - validates completed outputs against declared output contract refs after handler execution
+  - distinguishes contract violations from ordinary runtime failures through dedicated error text
+- `app/bootstrap/runtime.py`
+  - injects the shared schema registry into the skill runtime service
+- `tests/unit/test_skill_runtime.py`
+  - adds invalid-input and invalid-output contract regression coverage while preserving existing workflow execution paths
+
+#### Validation
+- Ran focused runtime/manifest/blueprint regression suite successfully
+- Result: `14 passed`
+
+#### Design intent clarified
+- request/response contracts should be enforced at dispatch boundaries, not only during package validation
+- runtime contract violations should surface as envelope failures rather than opaque handler exceptions
+
+### Module: add compile-time workflow contract compatibility checks
+
+Extended blueprint validation so some obvious workflow wiring errors are rejected before install instead of waiting for runtime execution.
+
+#### Updated
+- `app/services/blueprint_validation.py`
+  - checks that `$from_step` references only point to prior workflow steps
+  - checks required input fields against declared skill input contracts when compile-time payloads are statically visible
+  - checks mapped fields against declared input schema properties when additional properties are disallowed
+- `app/services/skill_validation.py`
+  - exposes runtime-skill entries for validation-time contract inspection
+- `tests/unit/test_blueprint_validation.py`
+  - adds regression coverage for future-step references and missing required input fields
+
+#### Validation
+- Ran focused blueprint/runtime regression suite successfully
+- Result: `16 passed`
+- Ran broader install/workflow/runtime regression suite successfully
+- Result: `31 passed`
+
+#### Design intent clarified
+- compile-time validation should catch obvious workflow wiring mistakes before install/start
+- runtime schema enforcement should complement, not replace, static workflow checks
+
+### Module: validate prior skill output schemas against downstream inputs
+
+Pushed compile-time validation one step further so workflow checks can reason about simple skill-to-skill schema wiring, not only missing fields and bad references.
+
+#### Updated
+- `app/services/blueprint_validation.py`
+  - tracks prior skill-step output schemas when manifests declare them
+  - validates `$from_step` field mappings against downstream skill input field schemas
+  - rejects simple type mismatches between prior skill outputs and downstream input contracts
+- `tests/unit/test_blueprint_validation.py`
+  - adds regression coverage for incompatible prior-skill output to downstream input mappings
+
+#### Validation
+- Ran focused blueprint/schema/runtime regression suite successfully
+- Result: `17 passed`
+- Ran broader install/workflow/runtime regression suite successfully
+- Result: `32 passed`
+
+#### Design intent clarified
+- compile-time compatibility should begin to reason about upstream and downstream schemas, not only reference existence
+- the first useful compatibility pass can be field-level and conservative before evolving into fuller graph/type inference
+
+### Module: add usable API-first end-to-end flow and schema-ize builtin system skills
+
+Shifted part of the validation work toward actual usability by adding an API-first end-to-end flow and bringing builtin system skills into the schema-first contract path.
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - registers minimal input/output/error schemas for `system.context` and `system.app_config`
+  - aligns builtin input schemas with runtime-injected `working_set` payloads
+- `app/services/system_skill_registry.py`
+  - adds contract refs for builtin `system.context` and `system.app_config` manifests
+- `tests/e2e/test_api_usable_flow.py`
+  - adds an API-first usable flow covering blueprint registration, install, context/policy updates, workflow execution, runtime/context inspection, and invalid-flow rejection
+
+#### Validation
+- Ran usable API-first regression slice successfully
+- Result: `17 passed`
+
+#### Design intent clarified
+- builtin system skills should participate in the same schema-first runtime path as other skills
+- usable-alpha confidence should come from end-to-end API flows, not only isolated unit tests
+
+### Module: connect external model API through builtin skill runtime path
+
+Added a builtin external model probe skill and proved it through an end-to-end workflow that uses the configured OpenAI-compatible Responses API.
+
+#### Updated
+- `app/services/system_skill_registry.py`
+  - registers builtin `model.responses.probe` with capability metadata and schema-backed contract refs
+- `app/bootstrap/runtime.py`
+  - registers input/output/error schemas for `model.responses.probe`
+- `app/bootstrap/skills.py`
+  - wires `model.responses.probe` to `OpenAIResponsesClient` via the existing model config loader
+- `tests/e2e/test_external_model_api_flow.py`
+  - adds an external API end-to-end flow that registers an app, installs it, executes the model probe workflow, and asserts returned model/provider metadata
+
+#### Validation
+- Ran external-model + usable-flow + validation/runtime regression slice successfully
+- Result: `16 passed`
+
+#### Design intent clarified
+- external APIs should be consumed through the same skill-runtime and schema-validation path as builtin/internal capabilities
+- proving real connectivity through an E2E workflow is more meaningful than isolated direct client probes
+
+### Module: add structured runtime error envelopes for skill execution failures
+
+Improved failure observability so runtime and external-model problems are easier to inspect through both skill execution records and workflow step details.
+
+#### Updated
+- `app/models/skill_runtime.py`
+  - adds structured `error_detail` alongside the legacy string error field
+- `app/services/model_client.py`
+  - preserves upstream status code and retryability on model-client failures
+- `app/services/skill_runtime.py`
+  - emits structured error envelopes for contract violations, model client errors, and generic runtime failures
+- `app/services/workflow_executor.py`
+  - passes `error_detail` through into failed workflow step detail payloads
+- `tests/unit/test_skill_runtime.py`
+  - validates structured contract violation envelopes
+- `tests/unit/test_skill_runtime_adapters.py`
+  - validates structured model-client failure envelopes
+
+#### Validation
+- Ran runtime/error/external-flow regression slices successfully
+- Result: focused suites green including external-model E2E and adapter/runtime tests
+
+#### Design intent clarified
+- failure paths should be machine-readable enough for debugging and future retry/policy logic
+- external API failures should preserve status/retryability metadata instead of collapsing into opaque strings

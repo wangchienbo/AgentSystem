@@ -28,9 +28,9 @@ def build_blueprint() -> AppBlueprint:
     )
 
 
-def test_app_data_store_creates_namespaces() -> None:
-    store = RuntimeStateStore(base_dir="data/test-app-data-store")
-    data_store = AppDataStore(base_dir="data/test-app-data-ns", store=store)
+def test_app_data_store_creates_namespaces(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "app-data-store-root"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "app-data-ns"), store=store)
 
     namespaces = data_store.ensure_app_namespaces("app.data.001", "user.data")
     skill_assets = data_store.ensure_skill_asset_namespace()
@@ -40,12 +40,12 @@ def test_app_data_store_creates_namespaces() -> None:
     assert skill_assets.namespace_type == "skill_assets"
 
 
-def test_installer_provisions_namespaces() -> None:
-    store = RuntimeStateStore(base_dir="data/test-app-data-installer")
+def test_installer_provisions_namespaces(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "app-data-installer-store"))
     registry = AppRegistryService(store=store)
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
-    data_store = AppDataStore(base_dir="data/test-app-data-installer-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "app-data-installer-ns"), store=store)
     installer = AppInstallerService(registry=registry, lifecycle=lifecycle, runtime_host=runtime, data_store=data_store)
     registry.register_blueprint(build_blueprint())
 
@@ -56,9 +56,9 @@ def test_installer_provisions_namespaces() -> None:
     assert Path(namespaces[0].path).exists()
 
 
-def test_put_and_list_data_records() -> None:
-    store = RuntimeStateStore(base_dir="data/test-app-data-records")
-    data_store = AppDataStore(base_dir="data/test-app-data-records-ns", store=store)
+def test_put_and_list_data_records(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "app-data-records-store"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "app-data-records-ns"), store=store)
     data_store.ensure_app_namespaces("app.data.002", "user.data")
 
     record = data_store.put_record(

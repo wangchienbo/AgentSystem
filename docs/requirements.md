@@ -253,6 +253,28 @@ The system must support a per-app configuration surface controlled through `syst
 
 The platform should inject these system skills during installation rather than requiring end users to declare them manually.
 
+The platform should also provide a low-friction authoring path for normal skills so skill creation does not require hand-assembling registry/manifest boilerplate for every deterministic or script-backed capability.
+
+The platform should expose an API-first path for generated skills so the system can:
+- create a skill definition through an interface
+- register the skill into the runtime/governance layer
+- execute a smoke test immediately
+- assemble one or more registered skills into an app blueprint
+- support generated multi-step app assembly through step-level inputs and explicit mapping declarations
+- compile explicit generated mappings into the same workflow reference model used by runtime execution (`$from_step` / `$from_inputs`)
+- allow generated apps to map prior step outputs and workflow-level inputs into nested downstream input fields
+- support lightweight generated mapping transforms/defaults for common assembly cases without requiring manual blueprint edits
+- reject invalid generated mapping declarations before install when the request references unknown generated steps, malformed mapping sources, or unsupported transforms
+- optionally install and execute the generated app path as part of the same interface flow
+- persist generated skill assets so they can be reloaded after runtime restart
+- return structured diagnostics for generated skill create/install/execute failures so retries can be guided programmatically
+- expose retry advice / suggested correction payloads so generated skill failures can feed the next iteration directly
+
+The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
+- workflow skill steps referencing undeclared skills
+- required skills missing from the registry
+- build-only skills leaking into runtime workflow execution paths
+
 ### 5.12 Skill classification and app profile resolution
 The system must classify skills internally from their declared or inferred capability metadata.
 
@@ -328,6 +350,11 @@ Each skill should support a machine-readable package/manifest describing at leas
 - dependency declarations
 - validation assets/examples
 
+The machine-readable contract/schema layer should act as the single source of truth for:
+- compile-time validation
+- runtime request/response envelope validation
+- future inspection, debugging, and UI/schema-driven tooling
+
 The runtime adapter model should support at least these execution styles:
 - in-process callable
 - local script with structured input/output
@@ -354,6 +381,11 @@ Skill-level validation should check at least:
 - contract/schema validity
 - runtime adapter resolvability
 - compatibility between declared capability tags and actual execution form
+
+Validation should be layered rather than treated as one flat pass:
+- package validation before a skill becomes active or installable
+- compile-time app/workflow validation before runtime activation
+- runtime envelope validation for dispatched inputs and returned outputs/errors
 
 App-level validation should check at least:
 - required skill existence
@@ -520,6 +552,8 @@ Required capabilities:
 - maintain a compact **task/app summary** separate from execution detail
 - preserve **execution detail** outside the prompt path for on-demand retrieval
 - support explicit or threshold-based context compaction
+- support policy-driven automatic compaction on workflow completion, failure, and stage change
+- persist compaction summaries and policies so layered context survives runtime restarts
 - preserve decisions, constraints, open loops, artifacts, and current goal/stage during compaction
 - provide selective retrieval of deeper context only when required by the current execution node
 - support promotion of repeated patterns into long-term reusable experience

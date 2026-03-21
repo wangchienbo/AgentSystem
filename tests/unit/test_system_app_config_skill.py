@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.models.app_blueprint import AppBlueprint
 from app.models.app_config import AppConfigRequest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
@@ -15,12 +17,12 @@ from app.services.skill_runtime import SkillRuntimeService
 from app.services.workflow_executor import WorkflowExecutorService
 
 
-def test_system_app_config_skill_executes_through_skill_runtime() -> None:
-    store = RuntimeStateStore(base_dir="data/test-system-app-config-skill")
+def test_system_app_config_skill_executes_through_skill_runtime(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-system-app-config-skill-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "namespaces"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)

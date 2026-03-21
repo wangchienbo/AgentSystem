@@ -1,7 +1,12 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
+from app.models.skill_adapter import SkillAdapterSpec
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
+from app.models.skill_manifest import SkillContractRef, SkillManifest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
@@ -12,6 +17,7 @@ from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
+from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_runtime import SkillRuntimeService
 from app.services.workflow_executor import WorkflowExecutorService
 
@@ -19,12 +25,38 @@ from app.services.workflow_executor import WorkflowExecutorService
 client = TestClient(app)
 
 
-def test_skill_runtime_executes_registered_handler_inside_workflow() -> None:
-    store = RuntimeStateStore(base_dir="data/test-skill-runtime")
+def _manifest_entry(skill_id: str, input_ref: str = "", output_ref: str = "", error_ref: str = "") -> SkillRegistryEntry:
+    return SkillRegistryEntry(
+        skill_id=skill_id,
+        name=skill_id,
+        active_version="1.0.0",
+        versions=[SkillVersion(version="1.0.0", content=skill_id)],
+        dependencies=[],
+        capability_profile=SkillCapabilityProfile(),
+        runtime_adapter="callable",
+        manifest=SkillManifest(
+            skill_id=skill_id,
+            name=skill_id,
+            version="1.0.0",
+            description="runtime contract test",
+            runtime_adapter="callable",
+            adapter=SkillAdapterSpec(kind="callable", entry=f"handlers:{skill_id}"),
+            contract=SkillContractRef(
+                input_schema_ref=input_ref,
+                output_schema_ref=output_ref,
+                error_schema_ref=error_ref,
+            ),
+            tags=["test"],
+        ),
+    )
+
+
+def test_skill_runtime_executes_registered_handler_inside_workflow(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "skill-runtime-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-skill-runtime-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "skill-runtime-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -55,7 +87,7 @@ def test_skill_runtime_executes_registered_handler_inside_workflow() -> None:
             id="bp.skill.runtime",
             name="Skill Runtime App",
             goal="execute skill steps",
-            roles=[],
+            roles=[{"id": "r1", "name": "agent", "type": "agent"}],
             tasks=[],
             workflows=[
                 {
@@ -82,12 +114,12 @@ def test_skill_runtime_executes_registered_handler_inside_workflow() -> None:
     assert len(skill_runtime.list_executions()) == 1
 
 
-def test_skill_runtime_supports_input_mapping_and_failure_capture() -> None:
-    store = RuntimeStateStore(base_dir="data/test-skill-runtime-mapping")
+def test_skill_runtime_supports_input_mapping_and_failure_capture(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "skill-runtime-mapping-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-skill-runtime-mapping-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "skill-runtime-mapping-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -121,7 +153,7 @@ def test_skill_runtime_supports_input_mapping_and_failure_capture() -> None:
             id="bp.skill.mapping",
             name="Skill Mapping App",
             goal="map inputs into skill calls",
-            roles=[],
+            roles=[{"id": "r1", "name": "agent", "type": "agent"}],
             tasks=[],
             workflows=[
                 {
@@ -152,12 +184,12 @@ def test_skill_runtime_supports_input_mapping_and_failure_capture() -> None:
     assert any(item.section == "open_loops" and item.key == "skill-result:call.fail" for item in context.entries)
 
 
-def test_skill_runtime_enforces_blueprint_skill_allowlist() -> None:
-    store = RuntimeStateStore(base_dir="data/test-skill-runtime-policy")
+def test_skill_runtime_enforces_blueprint_skill_allowlist(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "skill-runtime-policy-store"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
     registry = AppRegistryService(store=store)
-    data_store = AppDataStore(base_dir="data/test-skill-runtime-policy-ns", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "skill-runtime-policy-ns"), store=store)
     scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
     event_bus = EventBusService(scheduler=scheduler, store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
@@ -189,7 +221,7 @@ def test_skill_runtime_enforces_blueprint_skill_allowlist() -> None:
             id="bp.skill.policy",
             name="Skill Policy App",
             goal="enforce skill allowlist",
-            roles=[],
+            roles=[{"id": "r1", "name": "agent", "type": "agent"}],
             tasks=[],
             workflows=[
                 {
@@ -218,6 +250,85 @@ def test_skill_runtime_enforces_blueprint_skill_allowlist() -> None:
     assert any(item.section == "constraints" and item.key == "skill-policy:blocked" for item in context.entries)
 
 
+def test_skill_runtime_rejects_invalid_input_contract_before_execution(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "skill-runtime-input-contract-store"))
+    schema_registry = SchemaRegistryService()
+    schema_registry.register(
+        "schema://skill.contract/input",
+        {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://skill.contract/output",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    skill_runtime = SkillRuntimeService(store=store, schema_registry=schema_registry)
+
+    def handler(request: SkillExecutionRequest) -> SkillExecutionResult:
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output={"message": "ok"})
+
+    skill_runtime.register_handler(
+        "skill.contract",
+        handler,
+        entry=_manifest_entry("skill.contract", input_ref="schema://skill.contract/input", output_ref="schema://skill.contract/output"),
+    )
+
+    result = skill_runtime.execute(
+        SkillExecutionRequest(
+            skill_id="skill.contract",
+            app_instance_id="app-1",
+            workflow_id="wf-1",
+            step_id="step-1",
+            inputs={"count": 1},
+            config={},
+        )
+    )
+
+    assert result.status == "failed"
+    assert "contract violation" in result.error
+    assert "input contract failed" in result.error
+    assert result.error_detail["kind"] == "contract_violation"
+    assert result.error_detail["retryable"] is False
+
+
+def test_skill_runtime_rejects_invalid_output_contract_after_execution(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "skill-runtime-output-contract-store"))
+    schema_registry = SchemaRegistryService()
+    schema_registry.register(
+        "schema://skill.contract/input",
+        {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://skill.contract/output",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    skill_runtime = SkillRuntimeService(store=store, schema_registry=schema_registry)
+
+    def handler(request: SkillExecutionRequest) -> SkillExecutionResult:
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output={"ok": True})
+
+    skill_runtime.register_handler(
+        "skill.contract",
+        handler,
+        entry=_manifest_entry("skill.contract", input_ref="schema://skill.contract/input", output_ref="schema://skill.contract/output"),
+    )
+
+    result = skill_runtime.execute(
+        SkillExecutionRequest(
+            skill_id="skill.contract",
+            app_instance_id="app-1",
+            workflow_id="wf-1",
+            step_id="step-1",
+            inputs={"text": "hello"},
+            config={},
+        )
+    )
+
+    assert result.status == "failed"
+    assert "contract violation" in result.error
+    assert "output contract failed" in result.error
+    assert result.error_detail["kind"] == "contract_violation"
+
+
 def test_skill_runtime_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",
@@ -225,7 +336,7 @@ def test_skill_runtime_api_flow() -> None:
             "id": "bp.skill.runtime.api",
             "name": "Skill Runtime API App",
             "goal": "run a real skill step",
-            "roles": [],
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
             "tasks": [],
             "workflows": [
                 {

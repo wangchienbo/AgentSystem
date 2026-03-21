@@ -1,9 +1,0 @@
-{
-  "app.api.ops.001": {
-    "policy_id": "sup.api.001",
-    "app_instance_id": "app.api.ops.001",
-    "max_restart_attempts": 2,
-    "restart_on_failure": true,
-    "open_circuit_after_failures": 3
-  }
-}

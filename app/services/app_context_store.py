@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from app.models.app_context import AppContextEntry, AppSharedContext
 from app.services.runtime_host import AppRuntimeHostService, RuntimeHostError
-from app.services.lifecycle import AppLifecycleService
+from app.services.lifecycle import AppLifecycleService, LifecycleError
 from app.services.runtime_state_store import RuntimeStateStore
 
 

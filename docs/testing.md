@@ -64,6 +64,15 @@ Covered behavior:
 - enable / disable
 - immutable protection
 - API error mapping
+- authoring helpers can generate consistent callable/script skill registry entries
+- API-driven skill creation can register a generated skill, smoke-test it, and assemble it into an app blueprint
+- generated skill flows can also install and execute a blueprint-built app, including a non-trivial script skill that performs real text normalization instead of a pure echo fixture
+- generated script skill assets can persist and reload into a rebuilt runtime and still execute correctly
+- generated skill API failures return structured diagnostics for invalid request, callable generation failure, install/execute failure classes, and malformed generated-app mapping requests
+- generated skill diagnostics can be converted into suggested retry payloads through the retry-advice API
+- generated app assembly can chain multiple skills through explicit step mappings, including mapping prior step outputs and workflow inputs into nested downstream payload fields
+- generated app assembly also covers lightweight transform/default mapping behavior for common composition cleanup paths
+- compile-time validation now distinguishes legitimate nested mapping targets from true output/input schema mismatches
 
 ## 3.3 Experience store and demonstration extraction
 Covered behavior:
@@ -159,7 +168,7 @@ Covered behavior:
 
 At the time of this document update:
 - automated local test suite passes
-- current result: `81 passed`
+- current result: `31 passed` for the latest focused validation/runtime regression slice, with additional focused green runs covering context compaction and file-backed test isolation work
 
 This indicates the implemented milestone is internally consistent at the current level of scope.
 
@@ -225,11 +234,17 @@ Required checks:
 ## 5.9 Skill package / contract / adapter validation tests
 Required checks:
 - skill manifests are rejected when required metadata or contract references are missing
+- contract/schema refs resolve through one authoritative registry/source
 - input/output examples satisfy declared schemas
 - callable/script/rpc/binary adapter declarations resolve correctly
+- adapter resolvability is tested separately from contract/schema validity
 - declared capability tags remain consistent with runtime form
 - workflow skill steps fail validation when upstream/downstream contracts do not align
+- workflow skill steps referencing undeclared skills are rejected
+- required skills missing from the registry are rejected before install
 - build-only skills are rejected from runtime execution paths
+- dispatched skill inputs are rejected before execution when they violate the declared request contract
+- returned outputs/errors are rejected or flagged when they violate the declared response contract
 
 ## 5.10 Core skill principle reference tests
 Required checks:
@@ -301,6 +316,9 @@ As the system evolves, the next test groups to add should be:
 5. persistent backend compatibility tests
 6. longer-running service app recovery tests
 7. layered context compaction and working-set derivation tests
+   - summary/policy persistence and reload
+   - auto compaction on stage change
+   - working-set/detail views include workflow and skill execution references
 
 ---
 

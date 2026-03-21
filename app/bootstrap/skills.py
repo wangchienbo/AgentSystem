@@ -4,6 +4,8 @@ from app.models.app_config import AppConfigRequest
 from app.models.context_skill import ContextSkillRequest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.system_skill import SystemAuditRequest, SystemStateRequest
+from app.services.model_client import OpenAIResponsesClient
+from app.services.model_config_loader import ModelConfigLoader
 from app.services.skill_runtime import SkillRuntimeService
 from app.services.system_skill_registry import register_builtin_handlers, register_builtin_skills
 
@@ -42,12 +44,29 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
         result = context_skill_service.execute(request.app_instance_id, context_request)
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=result)
 
+    def model_responses_probe_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+        loader = ModelConfigLoader()
+        config = loader.load()
+        api_key = loader.resolve_api_key(config)
+        client = OpenAIResponsesClient(config=config, api_key=api_key)
+        result = client.probe(request.inputs["prompt"])
+        return SkillExecutionResult(
+            skill_id=request.skill_id,
+            status="completed",
+            output={
+                "provider": config.provider,
+                "model": config.model,
+                "result": result,
+            },
+        )
+
     return {
         "skill.echo": demo_echo_skill,
         "system.app_config": system_app_config_skill,
         "system.state": system_state_skill,
         "system.audit": system_audit_skill,
         "system.context": system_context_skill,
+        "model.responses.probe": model_responses_probe_skill,
     }
 
 
