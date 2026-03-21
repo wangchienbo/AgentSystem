@@ -393,6 +393,102 @@ def test_create_multi_step_generated_app_with_transform_and_default_mapping() ->
     assert normalized["priority"] == 7
 
 
+def test_generated_app_returns_mapping_suggestions_for_safe_schema_matches() -> None:
+    create_producer = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.producer.suggest",
+            "name": "Suggest Producer",
+            "adapter_kind": "script",
+            "command": ["python3", "tests/fixtures/script_slugify_skill.py"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "slug": {"type": "string"},
+                        "source_text": {"type": "string"},
+                        "length": {"type": "integer"},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["slug", "source_text", "length", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False
+                }
+            },
+            "smoke_test_inputs": {"text": "Hello Suggest"}
+        }
+    )
+    assert create_producer.status_code == 200
+
+    create_consumer = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.consumer.suggest",
+            "name": "Suggest Consumer",
+            "adapter_kind": "callable",
+            "generation_operation": "normalize_object_keys",
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {
+                        "slug": {"type": "string"},
+                        "source_text": {"type": "string"},
+                        "missing_field": {"type": "string"}
+                    },
+                    "required": ["slug", "source_text", "missing_field"],
+                    "additionalProperties": False
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "normalized": {"type": "object"},
+                        "top_level_keys": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["normalized", "top_level_keys", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False
+                }
+            },
+            "smoke_test_inputs": {"slug": "x", "source_text": "y", "missing_field": "z"}
+        }
+    )
+    assert create_consumer.status_code == 200
+
+    response = client.post(
+        "/apps/from-skills",
+        json={
+            "blueprint_id": "bp.generated.suggest",
+            "name": "Generated Suggest App",
+            "goal": "return mapping suggestions",
+            "skill_ids": ["skill.producer.suggest", "skill.consumer.suggest"],
+            "workflow_id": "wf.generated.suggest"
+        }
+    )
+    assert response.status_code == 200
+    payload = response.json()["result"]
+    suggested = payload["suggested_mappings"]
+    assert any(item["target_field"] == "slug" and item["field"] == "slug" for item in suggested)
+    assert any(item["target_field"] == "source_text" and item["field"] == "source_text" for item in suggested)
+    assert payload["unresolved_inputs"]["skill.2"] == ["missing_field"]
+
+
 def test_create_real_slugify_skill_and_run_generated_app() -> None:
     create_skill = client.post(
         "/skills/create",

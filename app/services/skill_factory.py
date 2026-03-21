@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_control import SkillRegistryEntry
-from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult, StepMappingDefinition
+from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult, StepMappingDefinition, SuggestedStepMapping
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
 from app.services.generated_callable_materializer import GeneratedCallableMaterializer, GeneratedCallableMaterializerError
@@ -167,6 +167,8 @@ class SkillFactoryService:
             raise SkillFactoryError(f"Skills not found for app assembly: {', '.join(missing)}")
         steps = []
         created_steps = []
+        suggested_mappings: list[SuggestedStepMapping] = []
+        unresolved_inputs: dict[str, list[str]] = {}
         step_inputs = getattr(request, "step_inputs", {})
         step_mappings = getattr(request, "step_mappings", {})
         known_step_ids = {f"skill.{index}" for index, _skill_id in enumerate(request.skill_ids, start=1)}
@@ -178,6 +180,20 @@ class SkillFactoryService:
         for index, skill_id in enumerate(request.skill_ids, start=1):
             step_id = f"skill.{index}"
             compiled_inputs = deepcopy(step_inputs.get(step_id, {}))
+            explicit_target_fields = {mapping.target_field for mapping in step_mappings.get(step_id, [])}
+            prior_skill_id = request.skill_ids[index - 2] if index > 1 else ""
+            if prior_skill_id:
+                suggestions, unresolved = self._suggest_step_mappings(
+                    step_id=step_id,
+                    source_step_id=f"skill.{index - 1}",
+                    source_skill_id=prior_skill_id,
+                    target_skill_id=skill_id,
+                    existing_inputs=compiled_inputs,
+                    explicit_target_fields=explicit_target_fields,
+                )
+                suggested_mappings.extend(suggestions)
+                if unresolved:
+                    unresolved_inputs[step_id] = unresolved
             for mapping in step_mappings.get(step_id, []):
                 self._apply_step_mapping(compiled_inputs, mapping)
             steps.append(
@@ -211,7 +227,115 @@ class SkillFactoryService:
             workflow_id=request.workflow_id,
             required_skills=list(request.skill_ids),
             created_steps=created_steps,
+            suggested_mappings=suggested_mappings,
+            unresolved_inputs=unresolved_inputs,
         )
+
+    def _suggest_step_mappings(
+        self,
+        *,
+        step_id: str,
+        source_step_id: str,
+        source_skill_id: str,
+        target_skill_id: str,
+        existing_inputs: dict,
+        explicit_target_fields: set[str],
+    ) -> tuple[list[SuggestedStepMapping], list[str]]:
+        source_entry = self._skill_control.get_skill(source_skill_id)
+        target_entry = self._skill_control.get_skill(target_skill_id)
+        source_contract = source_entry.manifest.contract if source_entry.manifest is not None else None
+        target_contract = target_entry.manifest.contract if target_entry.manifest is not None else None
+        if source_contract is None or target_contract is None or not source_contract.output_schema_ref or not target_contract.input_schema_ref:
+            return [], []
+        source_schema = self._schema_registry.resolve(source_contract.output_schema_ref)
+        target_schema = self._schema_registry.resolve(target_contract.input_schema_ref)
+        source_fields = self._flatten_object_schema(source_schema)
+        target_fields = self._flatten_object_schema(target_schema)
+        if not source_fields or not target_fields:
+            return [], []
+        suggestions: list[SuggestedStepMapping] = []
+        unresolved: list[str] = []
+        existing_top_fields = set(existing_inputs.keys())
+        for target_field, target_field_schema in target_fields.items():
+            if target_field in explicit_target_fields or target_field.split(".")[0] in existing_top_fields:
+                continue
+            required = self._is_required_field(target_schema, target_field)
+            best = None
+            for source_field, source_field_schema in source_fields.items():
+                if not self._schemas_compatible(source_field_schema, target_field_schema):
+                    continue
+                confidence = self._mapping_confidence(source_field, target_field)
+                if confidence is None:
+                    continue
+                score = 2 if confidence == "high" else 1
+                if best is None or score > best[0]:
+                    best = (score, confidence, source_field)
+            if best is not None:
+                _score, confidence, source_field = best
+                suggestions.append(
+                    SuggestedStepMapping(
+                        step_id=step_id,
+                        target_field=target_field,
+                        from_step=source_step_id,
+                        field=source_field,
+                        confidence=confidence,
+                        reason="schema name/type match",
+                    )
+                )
+            elif required:
+                unresolved.append(target_field)
+        return suggestions, unresolved
+
+    def _flatten_object_schema(self, schema: dict | None, prefix: str = "") -> dict[str, dict]:
+        if not isinstance(schema, dict) or schema.get("type") != "object":
+            return {}
+        result: dict[str, dict] = {}
+        for key, child in schema.get("properties", {}).items():
+            path = key if not prefix else f"{prefix}.{key}"
+            if isinstance(child, dict):
+                result[path] = child
+                if child.get("type") == "object":
+                    result.update(self._flatten_object_schema(child, path))
+        return result
+
+    def _is_required_field(self, schema: dict | None, path: str) -> bool:
+        if not isinstance(schema, dict):
+            return False
+        current = schema
+        parts = path.split(".")
+        for index, part in enumerate(parts):
+            required = current.get("required", []) if isinstance(current, dict) else []
+            if part not in required:
+                return False
+            properties = current.get("properties", {}) if isinstance(current, dict) else {}
+            child = properties.get(part)
+            if child is None:
+                return False
+            if index == len(parts) - 1:
+                return True
+            current = child
+        return False
+
+    def _normalize_field_name(self, value: str) -> str:
+        return "".join(ch for ch in value.lower() if ch.isalnum())
+
+    def _mapping_confidence(self, source_field: str, target_field: str) -> str | None:
+        if source_field == target_field:
+            return "high"
+        if self._normalize_field_name(source_field) == self._normalize_field_name(target_field):
+            return "medium"
+        return None
+
+    def _schemas_compatible(self, source_schema: dict, target_schema: dict) -> bool:
+        source_type = source_schema.get("type") if isinstance(source_schema, dict) else None
+        target_type = target_schema.get("type") if isinstance(target_schema, dict) else None
+        if source_type is None or target_type is None:
+            return True
+        if source_type == target_type:
+            return True
+        if source_type == "integer" and target_type == "number":
+            return True
+        return False
 
     def _apply_step_mapping(self, compiled_inputs: dict, mapping: StepMappingDefinition) -> None:
         if not mapping.from_step and not mapping.from_inputs and mapping.default_value is None:

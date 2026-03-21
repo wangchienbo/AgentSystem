@@ -2,6 +2,29 @@
 
 ## 2026-03-21
 
+### Module: generated mapping suggestions
+
+Added conservative schema-based mapping suggestion support to generated app assembly so adjacent-step field matches can be surfaced without automatically rewriting user intent.
+
+#### Updated
+- `app/models/skill_creation.py`
+  - `AppFromSkillsResult` now returns `suggested_mappings` and `unresolved_inputs`
+- `app/services/skill_factory.py`
+  - computes safe adjacent-step mapping suggestions from output/input schema matches
+  - reports unresolved required downstream inputs when no safe prior-step source exists
+  - keeps explicit user mappings authoritative and suggestion-only logic non-invasive
+- `tests/unit/test_skill_factory_api.py`
+  - covers suggested mapping and unresolved-input reporting for generated app assembly
+- `docs/requirements.md`
+  - records schema-based suggestion/unresolved-input expectations for generated apps
+- `docs/design.md`
+  - documents conservative non-auto-applied suggestion behavior
+- `docs/testing.md`
+  - records API coverage for generated mapping suggestions
+
+#### Validation
+- focused generated app suggestion regressions pass alongside existing explicit mapping and transform/default flows
+
 ### Module: generated mapping transforms and defaults
 
 Extended generated app composition with lightweight transform/default support so common multi-step wiring cleanup can be expressed directly in the API-facing assembly request.
