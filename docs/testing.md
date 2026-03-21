@@ -68,8 +68,10 @@ Covered behavior:
 - API-driven skill creation can register a generated skill, smoke-test it, and assemble it into an app blueprint
 - generated skill flows can also install and execute a blueprint-built app, including a non-trivial script skill that performs real text normalization instead of a pure echo fixture
 - generated script skill assets can persist and reload into a rebuilt runtime and still execute correctly
-- generated skill API failures return structured diagnostics for invalid request, callable generation failure, and install/execute failure classes
+- generated skill API failures return structured diagnostics for invalid request, callable generation failure, install/execute failure classes, and malformed generated-app mapping requests
 - generated skill diagnostics can be converted into suggested retry payloads through the retry-advice API
+- generated app assembly can chain multiple skills through explicit step mappings, including mapping prior step outputs and workflow inputs into nested downstream payload fields
+- compile-time validation now distinguishes legitimate nested mapping targets from true output/input schema mismatches
 
 ## 3.3 Experience store and demonstration extraction
 Covered behavior:

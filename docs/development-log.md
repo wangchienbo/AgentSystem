@@ -1,5 +1,45 @@
 # Development Log
 
+## 2026-03-21
+
+### Module: generated multi-step app mapping support
+
+Extended the API-first generated app path so generated skills can be composed into multi-step apps through explicit mapping declarations instead of only static per-step input blobs.
+
+#### Added
+- `app/models/skill_creation.py`
+  - `StepMappingDefinition`
+  - request support for `step_inputs` and `step_mappings` on generated app assembly
+- `tests/unit/test_skill_factory_api.py`
+  - validates a real two-step generated app flow using script + callable skills with explicit step/output and workflow-input mappings
+- `tests/unit/test_skill_diagnostics_api.py`
+  - validates malformed generated-app mapping requests are rejected as 400-level API errors
+
+#### Updated
+- `app/services/skill_factory.py`
+  - compiles generated mapping declarations into workflow-native `$from_step` / `$from_inputs` references
+  - supports nested target-field mapping into downstream input payloads
+  - rejects malformed or unknown-step mapping declarations during app assembly
+- `app/services/blueprint_validation.py`
+  - resolves nested target paths during compile-time schema compatibility checks
+  - avoids false mismatches when mappings target nested object fields rather than top-level fields only
+- `app/api/main.py`
+  - surfaces `SkillFactoryError` from generated app assembly/install-run as mapped API errors
+- `app/core/errors.py`
+  - maps `SkillFactoryError` into ordinary client-facing domain errors instead of leaking 500s
+- `docs/requirements.md`
+  - records generated multi-step app mapping requirements
+- `docs/design.md`
+  - documents generated mapping compilation into workflow-native references
+- `docs/testing.md`
+  - records multi-step mapping coverage and malformed-request diagnostics
+
+#### Validation
+- focused regression passes:
+  - `test_create_multi_step_generated_app_with_step_mappings`
+  - `test_app_from_skills_rejects_invalid_step_mapping_request`
+  - `test_blueprint_validation_rejects_incompatible_prior_skill_output_mapping`
+
 ## 2026-03-20
 
 ### Module: skill authoring scaffold for self-iterating normal skills
