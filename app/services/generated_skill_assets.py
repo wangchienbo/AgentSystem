@@ -29,6 +29,7 @@ class GeneratedSkillAssetStore:
                 "name": request.name,
                 "description": request.description,
                 "adapter_kind": request.adapter_kind,
+                "generation_operation": request.generation_operation,
                 "handler_entry": request.handler_entry,
                 "command": list(request.command),
                 "tags": list(request.tags),
