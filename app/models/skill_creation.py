@@ -42,6 +42,8 @@ class StepMappingDefinition(BaseModel):
     from_inputs: str = Field(default="")
     field: str = Field(default="")
     target_field: str = Field(..., min_length=1)
+    transform: str = Field(default="")
+    default_value: Any | None = None
 
 
 class AppFromSkillsRequest(BaseModel):

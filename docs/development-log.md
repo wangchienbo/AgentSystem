@@ -2,6 +2,28 @@
 
 ## 2026-03-21
 
+### Module: generated mapping transforms and defaults
+
+Extended generated app composition with lightweight transform/default support so common multi-step wiring cleanup can be expressed directly in the API-facing assembly request.
+
+#### Updated
+- `app/models/skill_creation.py`
+  - `StepMappingDefinition` now supports `transform` and `default_value`
+- `app/services/skill_factory.py`
+  - compiles mapping defaults and literal injections into workflow-native reference objects
+  - validates supported transform set during generated app assembly
+- `app/services/workflow_executor.py`
+  - resolves generated mapping transforms/defaults at execution time through the existing workflow reference path
+- `app/services/blueprint_validation.py`
+  - validates literal/default mapping compatibility against downstream schemas
+- `tests/unit/test_skill_factory_api.py`
+  - covers a two-step generated app flow using uppercase/lowercase transforms and literal default injection
+- `tests/unit/test_skill_diagnostics_api.py`
+  - rejects unsupported transform requests as client-facing 400 errors
+
+#### Validation
+- focused generated app transform/default regressions added for supported and unsupported mapping declarations
+
 ### Module: runtime snapshot JSON fault tolerance
 
 Hardened runtime snapshot loading so empty or malformed JSON files no longer crash bootstrap, API import, or tests that rely on file-backed runtime state.

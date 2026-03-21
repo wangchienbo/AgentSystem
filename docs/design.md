@@ -126,6 +126,7 @@ The next packaging layer now starts to exist as an API-facing factory path:
 - generated app assembly now supports step-level inputs plus explicit step mapping declarations so multi-step generated apps can be composed without hand-editing blueprints
 - generated mappings are compiled into the same declarative workflow reference shape already understood by runtime execution (`$from_step` / `$from_inputs`) instead of introducing a separate execution path
 - generated mapping targets may point into nested downstream object fields, which keeps the API-facing assembly surface compact while preserving schema-first workflow validation
+- generated mappings may also carry lightweight assembly-time transforms/defaults (for example lowercase/uppercase/stringify/wrap-object and literal/default injection) so common app-composition cleanup can happen without inventing a separate workflow DSL
 - generated skills should persist as assets and be reloaded into registry/runtime on bootstrap so the path becomes durable rather than session-only
 - generated skill failures should surface as structured diagnostics with stage/kind/hint metadata instead of only raw error strings
 - structured diagnostics should be able to carry a suggested retry request so failure handling can flow into the next generation attempt

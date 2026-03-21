@@ -408,20 +408,37 @@ class WorkflowExecutorService:
         self._store.save_collection("workflow_execution_history", self._history)
 
     def _resolve_value(self, value: Any, execution_context: dict[str, Any]) -> Any:
+        if isinstance(value, dict) and "$literal" in value:
+            return self._apply_transform(value.get("$literal"), value.get("transform"))
         if isinstance(value, dict) and "$from_step" in value:
             step_id = str(value["$from_step"])
             field = value.get("field")
             step_output = execution_context.get("steps", {}).get(step_id, {})
-            if field is None:
-                return step_output
-            if isinstance(step_output, dict):
-                return step_output.get(str(field))
-            return None
+            resolved = step_output if field is None else (step_output.get(str(field)) if isinstance(step_output, dict) else None)
+            if resolved is None and "default" in value:
+                resolved = value.get("default")
+            return self._apply_transform(resolved, value.get("transform"))
         if isinstance(value, dict) and "$from_inputs" in value:
             input_key = str(value["$from_inputs"])
-            return execution_context.get("inputs", {}).get(input_key)
+            resolved = execution_context.get("inputs", {}).get(input_key)
+            if resolved is None and "default" in value:
+                resolved = value.get("default")
+            return self._apply_transform(resolved, value.get("transform"))
         if isinstance(value, dict):
             return {key: self._resolve_value(item, execution_context) for key, item in value.items()}
         if isinstance(value, list):
             return [self._resolve_value(item, execution_context) for item in value]
+        return value
+
+    def _apply_transform(self, value: Any, transform: Any) -> Any:
+        if not transform or value is None:
+            return value
+        if transform == "lowercase":
+            return str(value).lower()
+        if transform == "uppercase":
+            return str(value).upper()
+        if transform == "stringify":
+            return str(value)
+        if transform == "wrap_object":
+            return {"value": value}
         return value

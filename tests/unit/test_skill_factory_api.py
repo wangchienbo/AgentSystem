@@ -283,6 +283,116 @@ def test_create_multi_step_generated_app_with_step_mappings() -> None:
     assert payload["execution"]["steps"][1]["output"]["normalized"]["source_title"] == "A Better App OS, For Real"
 
 
+def test_create_multi_step_generated_app_with_transform_and_default_mapping() -> None:
+    create_slugify = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.text.slugify.transform",
+            "name": "Text Slugify Transform Skill",
+            "adapter_kind": "script",
+            "command": ["python3", "tests/fixtures/script_slugify_skill.py"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "source_text": {"type": "string"},
+                        "slug": {"type": "string"},
+                        "length": {"type": "integer"},
+                        "adapter": {"type": "string"},
+                    },
+                    "required": ["source_text", "slug", "length", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "smoke_test_inputs": {"text": "Hello Transform"},
+        },
+    )
+    assert create_slugify.status_code == 200
+
+    create_normalize = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.object.normalize_keys.transform",
+            "name": "Normalize Object Keys Transform Skill",
+            "adapter_kind": "callable",
+            "generation_operation": "normalize_object_keys",
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {
+                        "payload": {"type": "object"}
+                    },
+                    "required": ["payload"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "normalized": {"type": "object"},
+                        "top_level_keys": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"},
+                    },
+                    "required": ["normalized", "top_level_keys", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "smoke_test_inputs": {"payload": {"Display Name": "Agent System", "Mode": "default", "Priority": 1}},
+        },
+    )
+    assert create_normalize.status_code == 200
+
+    response = client.post(
+        "/apps/from-skills/install-run",
+        json={
+            "blueprint_id": "bp.generated.transform.default",
+            "name": "Generated Transform Default App",
+            "goal": "apply transform and default mappings during generated app assembly",
+            "skill_ids": ["skill.text.slugify.transform", "skill.object.normalize_keys.transform"],
+            "workflow_id": "wf.generated.transform.default",
+            "user_id": "transform-user",
+            "step_inputs": {
+                "skill.1": {"text": "A Better App OS, For Real"}
+            },
+            "step_mappings": {
+                "skill.2": [
+                    {"from_step": "skill.1", "field": "slug", "target_field": "payload.Generated Slug", "transform": "uppercase"},
+                    {"from_inputs": "mode", "target_field": "payload.Mode", "transform": "lowercase", "default_value": "standard"},
+                    {"target_field": "payload.Priority", "default_value": 7}
+                ]
+            },
+            "workflow_inputs": {
+                "mode": "FAST"
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["execution"]["status"] == "completed"
+    normalized = payload["execution"]["steps"][1]["output"]["normalized"]
+    assert normalized["generated_slug"] == "A-BETTER-APP-OS-FOR-REAL"
+    assert normalized["mode"] == "fast"
+    assert normalized["priority"] == 7
+
+
 def test_create_real_slugify_skill_and_run_generated_app() -> None:
     create_skill = client.post(
         "/skills/create",

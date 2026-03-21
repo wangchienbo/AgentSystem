@@ -124,6 +124,15 @@ class BlueprintValidationService:
         path: str = "",
     ) -> list[str]:
         errors: list[str] = []
+        if isinstance(value, dict) and "$literal" in value:
+            if schema is not None and path:
+                target_schema = self._resolve_target_schema(schema, path)
+                literal_schema = self._infer_literal_schema(value.get("$literal"))
+                if target_schema is None and not self._target_path_allowed(schema, path):
+                    errors.append(f"Workflow step {workflow_id}:{step_id} maps literal into undeclared input field: {path}")
+                elif target_schema is not None and literal_schema is not None and not self._schemas_compatible(literal_schema, target_schema):
+                    errors.append(f"Workflow step {workflow_id}:{step_id} maps incompatible literal into {path}")
+            return errors
         if isinstance(value, dict) and "$from_step" in value:
             source_step = str(value["$from_step"])
             source_field = value.get("field")
@@ -192,9 +201,30 @@ class BlueprintValidationService:
             return bool(current.get("additionalProperties", True))
         return True
 
+    def _infer_literal_schema(self, value: Any) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return {"type": "boolean"}
+        if isinstance(value, int) and not isinstance(value, bool):
+            return {"type": "integer"}
+        if isinstance(value, float):
+            return {"type": "number"}
+        if isinstance(value, str):
+            return {"type": "string"}
+        if isinstance(value, list):
+            return {"type": "array"}
+        if isinstance(value, dict):
+            return {"type": "object"}
+        return None
+
     def _schemas_compatible(self, source_schema: dict[str, Any], target_schema: dict[str, Any]) -> bool:
         source_type = source_schema.get("type")
         target_type = target_schema.get("type")
         if source_type is None or target_type is None:
             return True
-        return source_type == target_type
+        if source_type == target_type:
+            return True
+        if source_type == "integer" and target_type == "number":
+            return True
+        return False

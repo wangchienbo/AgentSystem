@@ -263,7 +263,8 @@ The platform should expose an API-first path for generated skills so the system 
 - support generated multi-step app assembly through step-level inputs and explicit mapping declarations
 - compile explicit generated mappings into the same workflow reference model used by runtime execution (`$from_step` / `$from_inputs`)
 - allow generated apps to map prior step outputs and workflow-level inputs into nested downstream input fields
-- reject invalid generated mapping declarations before install when the request references unknown generated steps or malformed mapping sources
+- support lightweight generated mapping transforms/defaults for common assembly cases without requiring manual blueprint edits
+- reject invalid generated mapping declarations before install when the request references unknown generated steps, malformed mapping sources, or unsupported transforms
 - optionally install and execute the generated app path as part of the same interface flow
 - persist generated skill assets so they can be reloaded after runtime restart
 - return structured diagnostics for generated skill create/install/execute failures so retries can be guided programmatically

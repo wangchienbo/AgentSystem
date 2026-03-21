@@ -214,17 +214,27 @@ class SkillFactoryService:
         )
 
     def _apply_step_mapping(self, compiled_inputs: dict, mapping: StepMappingDefinition) -> None:
-        if not mapping.from_step and not mapping.from_inputs:
-            raise SkillFactoryError(f"Step mapping for target '{mapping.target_field}' requires from_step or from_inputs")
+        if not mapping.from_step and not mapping.from_inputs and mapping.default_value is None:
+            raise SkillFactoryError(f"Step mapping for target '{mapping.target_field}' requires from_step, from_inputs, or default_value")
         if mapping.from_step and mapping.from_inputs:
             raise SkillFactoryError(f"Step mapping for target '{mapping.target_field}' cannot set both from_step and from_inputs")
-        reference: dict[str, str] = {}
-        if mapping.from_step:
-            reference["$from_step"] = mapping.from_step
-        if mapping.from_inputs:
-            reference["$from_inputs"] = mapping.from_inputs
-        if mapping.field:
-            reference["field"] = mapping.field
+        if mapping.transform and mapping.transform not in {"lowercase", "uppercase", "stringify", "wrap_object"}:
+            raise SkillFactoryError(f"Unsupported transform '{mapping.transform}' for target '{mapping.target_field}'")
+        reference: dict[str, object]
+        if mapping.default_value is not None and not mapping.from_step and not mapping.from_inputs:
+            reference = {"$literal": mapping.default_value}
+        else:
+            reference = {}
+            if mapping.from_step:
+                reference["$from_step"] = mapping.from_step
+            if mapping.from_inputs:
+                reference["$from_inputs"] = mapping.from_inputs
+            if mapping.field:
+                reference["field"] = mapping.field
+            if mapping.default_value is not None:
+                reference["default"] = mapping.default_value
+        if mapping.transform:
+            reference["transform"] = mapping.transform
         cursor = compiled_inputs
         parts = mapping.target_field.split(".")
         for part in parts[:-1]:

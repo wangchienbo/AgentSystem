@@ -71,6 +71,7 @@ Covered behavior:
 - generated skill API failures return structured diagnostics for invalid request, callable generation failure, install/execute failure classes, and malformed generated-app mapping requests
 - generated skill diagnostics can be converted into suggested retry payloads through the retry-advice API
 - generated app assembly can chain multiple skills through explicit step mappings, including mapping prior step outputs and workflow inputs into nested downstream payload fields
+- generated app assembly also covers lightweight transform/default mapping behavior for common composition cleanup paths
 - compile-time validation now distinguishes legitimate nested mapping targets from true output/input schema mismatches
 
 ## 3.3 Experience store and demonstration extraction
