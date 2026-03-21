@@ -2,6 +2,28 @@
 
 ## 2026-03-21
 
+### Module: auto-applied high-confidence generated mappings
+
+Extended generated app assembly so high-confidence adjacent-step mapping suggestions are compiled into workflow inputs automatically when no explicit user wiring already occupies the target.
+
+#### Updated
+- `app/services/skill_factory.py`
+  - auto-applies high-confidence suggested mappings into compiled step inputs before explicit mappings are layered on top
+  - preserves explicit `step_mappings` and hand-authored `step_inputs` as higher-priority sources of truth
+- `app/services/generated_callable_materializer.py`
+  - adds a lightweight `echo_object_keys` generated callable operation for top-level input wiring validation
+- `tests/unit/test_skill_factory_api.py`
+  - validates install-run succeeds through auto-applied schema-safe mappings without hand-authored wiring
+- `docs/requirements.md`
+  - records auto-apply behavior for high-confidence safe mappings
+- `docs/design.md`
+  - documents conservative auto-apply boundaries
+- `docs/testing.md`
+  - records install-run coverage for auto-applied mapping suggestions
+
+#### Validation
+- focused generated app auto-apply regression added alongside explicit mapping/suggestion regressions
+
 ### Module: generated mapping suggestions
 
 Added conservative schema-based mapping suggestion support to generated app assembly so adjacent-step field matches can be surfaced without automatically rewriting user intent.

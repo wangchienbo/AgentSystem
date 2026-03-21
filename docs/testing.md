@@ -73,6 +73,7 @@ Covered behavior:
 - generated app assembly can chain multiple skills through explicit step mappings, including mapping prior step outputs and workflow inputs into nested downstream payload fields
 - generated app assembly also covers lightweight transform/default mapping behavior for common composition cleanup paths
 - generated app assembly returns schema-based mapping suggestions and unresolved required downstream inputs for safe adjacent-step matches
+- install-run coverage verifies high-confidence suggestions are auto-applied without breaking explicit mapping flows
 - compile-time validation now distinguishes legitimate nested mapping targets from true output/input schema mismatches
 
 ## 3.3 Experience store and demonstration extraction

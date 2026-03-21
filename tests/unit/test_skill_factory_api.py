@@ -489,6 +489,105 @@ def test_generated_app_returns_mapping_suggestions_for_safe_schema_matches() -> 
     assert payload["unresolved_inputs"]["skill.2"] == ["missing_field"]
 
 
+def test_generated_app_auto_applies_high_confidence_suggestions_on_install_run() -> None:
+    create_producer = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.producer.auto",
+            "name": "Auto Producer",
+            "adapter_kind": "script",
+            "command": ["python3", "tests/fixtures/script_slugify_skill.py"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "slug": {"type": "string"},
+                        "source_text": {"type": "string"},
+                        "length": {"type": "integer"},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["slug", "source_text", "length", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False
+                }
+            },
+            "smoke_test_inputs": {"text": "Hello Auto"}
+        }
+    )
+    assert create_producer.status_code == 200
+
+    create_consumer = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.consumer.auto",
+            "name": "Auto Consumer",
+            "adapter_kind": "callable",
+            "generation_operation": "echo_object_keys",
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {
+                        "slug": {"type": "string"},
+                        "source_text": {"type": "string"}
+                    },
+                    "required": ["slug", "source_text"],
+                    "additionalProperties": False
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "echoed": {"type": "object"},
+                        "top_level_keys": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["echoed", "top_level_keys", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False
+                }
+            },
+            "smoke_test_inputs": {"slug": "x", "source_text": "y"}
+        }
+    )
+    assert create_consumer.status_code == 200
+
+    response = client.post(
+        "/apps/from-skills/install-run",
+        json={
+            "blueprint_id": "bp.generated.auto.apply",
+            "name": "Generated Auto Apply App",
+            "goal": "auto apply safe suggestions",
+            "skill_ids": ["skill.producer.auto", "skill.consumer.auto"],
+            "workflow_id": "wf.generated.auto.apply",
+            "user_id": "auto-user",
+            "step_inputs": {
+                "skill.1": {"text": "A Better App OS, For Real"}
+            }
+        }
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    echoed = payload["execution"]["steps"][1]["output"]["echoed"]
+    assert echoed["slug"] == "a-better-app-os-for-real"
+    assert echoed["source_text"] == "A Better App OS, For Real"
+    assert any(item["target_field"] == "slug" and item["confidence"] == "high" for item in payload["result"]["suggested_mappings"])
+
+
 def test_create_real_slugify_skill_and_run_generated_app() -> None:
     create_skill = client.post(
         "/skills/create",

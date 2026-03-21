@@ -191,6 +191,7 @@ class SkillFactoryService:
                     existing_inputs=compiled_inputs,
                     explicit_target_fields=explicit_target_fields,
                 )
+                self._apply_suggested_mappings(compiled_inputs, suggestions)
                 suggested_mappings.extend(suggestions)
                 if unresolved:
                     unresolved_inputs[step_id] = unresolved
@@ -285,6 +286,19 @@ class SkillFactoryService:
             elif required:
                 unresolved.append(target_field)
         return suggestions, unresolved
+
+    def _apply_suggested_mappings(self, compiled_inputs: dict, suggestions: list[SuggestedStepMapping]) -> None:
+        for suggestion in suggestions:
+            if suggestion.confidence != "high":
+                continue
+            self._apply_step_mapping(
+                compiled_inputs,
+                StepMappingDefinition(
+                    from_step=suggestion.from_step,
+                    field=suggestion.field,
+                    target_field=suggestion.target_field,
+                ),
+            )
 
     def _flatten_object_schema(self, schema: dict | None, prefix: str = "") -> dict[str, dict]:
         if not isinstance(schema, dict) or schema.get("type") != "object":

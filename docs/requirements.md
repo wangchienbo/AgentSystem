@@ -265,6 +265,7 @@ The platform should expose an API-first path for generated skills so the system 
 - allow generated apps to map prior step outputs and workflow-level inputs into nested downstream input fields
 - support lightweight generated mapping transforms/defaults for common assembly cases without requiring manual blueprint edits
 - provide schema-based mapping suggestions for generated multi-step apps so safe upstream/downstream field matches can be surfaced before users hand-author mappings
+- auto-apply high-confidence generated mapping suggestions when they do not conflict with explicit mappings or manually supplied step inputs
 - report unresolved required downstream inputs when generated app assembly cannot infer safe prior-step mappings
 - reject invalid generated mapping declarations before install when the request references unknown generated steps, malformed mapping sources, or unsupported transforms
 - optionally install and execute the generated app path as part of the same interface flow
