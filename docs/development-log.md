@@ -2,6 +2,20 @@
 
 ## 2026-03-21
 
+### Module: runtime snapshot JSON fault tolerance
+
+Hardened runtime snapshot loading so empty or malformed JSON files no longer crash bootstrap, API import, or tests that rely on file-backed runtime state.
+
+#### Updated
+- `app/services/runtime_state_store.py`
+  - `load_json()` now falls back to the caller-provided default when a snapshot file is unreadable, empty, or malformed
+  - invalid snapshot files are quarantined under `data/runtime/corrupted/` (or the active runtime-store base dir) instead of being left in place to repeatedly break startup
+- `tests/unit/test_context_runtime_view_serialization.py`
+  - adds regression coverage for empty and malformed runtime snapshot files
+
+#### Validation
+- targeted runtime-store fault-tolerance regression added for empty and invalid JSON snapshots
+
 ### Module: generated multi-step app mapping support
 
 Extended the API-first generated app path so generated skills can be composed into multi-step apps through explicit mapping declarations instead of only static per-step input blobs.
