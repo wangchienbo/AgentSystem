@@ -174,6 +174,115 @@ def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
     assert payload["execution"]["steps"][0]["output"]["adapter"] == "script"
 
 
+def test_create_multi_step_generated_app_with_step_mappings() -> None:
+    create_slugify = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.text.slugify.chain",
+            "name": "Text Slugify Chain Skill",
+            "description": "normalize human titles into stable slugs",
+            "adapter_kind": "script",
+            "command": ["python3", "tests/fixtures/script_slugify_skill.py"],
+            "tags": ["text", "normalization", "real-skill"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "source_text": {"type": "string"},
+                        "slug": {"type": "string"},
+                        "length": {"type": "integer"},
+                        "adapter": {"type": "string"},
+                    },
+                    "required": ["source_text", "slug", "length", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "smoke_test_inputs": {"text": "Hello, Agent System 2026!"},
+        },
+    )
+    assert create_slugify.status_code == 200
+
+    create_normalize = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.object.normalize_keys.chain",
+            "name": "Normalize Object Keys Chain Skill",
+            "description": "normalize object keys into stable keys",
+            "adapter_kind": "callable",
+            "generation_operation": "normalize_object_keys",
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"payload": {"type": "object"}},
+                    "required": ["payload"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "normalized": {"type": "object"},
+                        "top_level_keys": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"},
+                    },
+                    "required": ["normalized", "top_level_keys", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "smoke_test_inputs": {"payload": {"Display Name": "Agent System"}},
+        },
+    )
+    assert create_normalize.status_code == 200
+
+    response = client.post(
+        "/apps/from-skills/install-run",
+        json={
+            "blueprint_id": "bp.generated.multi.step",
+            "name": "Generated Multi Step App",
+            "goal": "chain generated skills through explicit mappings",
+            "skill_ids": ["skill.text.slugify.chain", "skill.object.normalize_keys.chain"],
+            "workflow_id": "wf.generated.multi.step",
+            "user_id": "multi-step-user",
+            "step_inputs": {
+                "skill.1": {"text": "A Better App OS, For Real"}
+            },
+            "step_mappings": {
+                "skill.2": [
+                    {"from_step": "skill.1", "field": "slug", "target_field": "payload.Generated Slug"},
+                    {"from_inputs": "title", "target_field": "payload.Source Title"}
+                ]
+            },
+            "workflow_inputs": {
+                "title": "A Better App OS, For Real"
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["execution"]["status"] == "completed"
+    assert payload["execution"]["steps"][0]["output"]["slug"] == "a-better-app-os-for-real"
+    assert payload["execution"]["steps"][1]["output"]["normalized"]["generated_slug"] == "a-better-app-os-for-real"
+    assert payload["execution"]["steps"][1]["output"]["normalized"]["source_title"] == "A Better App OS, For Real"
+
+
 def test_create_real_slugify_skill_and_run_generated_app() -> None:
     create_skill = client.post(
         "/skills/create",

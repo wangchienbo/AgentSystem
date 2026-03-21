@@ -19,6 +19,7 @@ class SkillCreationRequest(BaseModel):
     name: str = Field(..., min_length=1)
     description: str = Field(default="")
     adapter_kind: Literal["callable", "script"] = "script"
+    generation_operation: str = Field(default="")
     handler_entry: str = Field(default="")
     command: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
@@ -36,12 +37,21 @@ class SkillCreationResult(BaseModel):
     smoke_test: SkillExecutionResult
 
 
+class StepMappingDefinition(BaseModel):
+    from_step: str = Field(default="")
+    from_inputs: str = Field(default="")
+    field: str = Field(default="")
+    target_field: str = Field(..., min_length=1)
+
+
 class AppFromSkillsRequest(BaseModel):
     blueprint_id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
     goal: str = Field(default="run generated skills")
     skill_ids: list[str] = Field(default_factory=list)
     workflow_id: str = Field(default="wf.generated")
+    step_inputs: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    step_mappings: dict[str, list[StepMappingDefinition]] = Field(default_factory=dict)
 
 
 class AppFromSkillsResult(BaseModel):
@@ -54,5 +64,4 @@ class AppFromSkillsResult(BaseModel):
 class AppFromSkillsInstallRunRequest(AppFromSkillsRequest):
     user_id: str = Field(..., min_length=1)
     workflow_inputs: dict[str, Any] = Field(default_factory=dict)
-    step_inputs: dict[str, dict[str, Any]] = Field(default_factory=dict)
     trigger: str = Field(default="manual")

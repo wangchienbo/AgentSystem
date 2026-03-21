@@ -114,6 +114,28 @@ def test_install_run_contract_failure_returns_structured_execute_diagnostic() ->
     assert payload["suggested_retry_request"]
 
 
+def test_app_from_skills_rejects_invalid_step_mapping_request() -> None:
+    response = client.post(
+        "/apps/from-skills",
+        json={
+            "blueprint_id": "bp.invalid.mapping.request",
+            "name": "Invalid Mapping Request",
+            "goal": "trigger invalid mapping diagnostic",
+            "skill_ids": ["system.context"],
+            "workflow_id": "wf.invalid.mapping.request",
+            "step_mappings": {
+                "skill.1": [
+                    {"target_field": "payload.value"}
+                ]
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    payload = response.json()["detail"]
+    assert "requires from_step or from_inputs" in payload.lower()
+
+
 def test_diagnose_retry_returns_suggested_request() -> None:
     response = client.post(
         "/skills/diagnose-retry",

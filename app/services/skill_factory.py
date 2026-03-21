@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_control import SkillRegistryEntry
-from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult
+from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult, StepMappingDefinition
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
 from app.services.generated_callable_materializer import GeneratedCallableMaterializer, GeneratedCallableMaterializerError
@@ -168,14 +168,24 @@ class SkillFactoryService:
         steps = []
         created_steps = []
         step_inputs = getattr(request, "step_inputs", {})
+        step_mappings = getattr(request, "step_mappings", {})
+        known_step_ids = {f"skill.{index}" for index, _skill_id in enumerate(request.skill_ids, start=1)}
+        for mapped_step_id, mappings in step_mappings.items():
+            if mapped_step_id not in known_step_ids:
+                raise SkillFactoryError(f"Step mappings reference unknown generated step: {mapped_step_id}")
+            for mapping in mappings:
+                self._apply_step_mapping({}, mapping)
         for index, skill_id in enumerate(request.skill_ids, start=1):
             step_id = f"skill.{index}"
+            compiled_inputs = deepcopy(step_inputs.get(step_id, {}))
+            for mapping in step_mappings.get(step_id, []):
+                self._apply_step_mapping(compiled_inputs, mapping)
             steps.append(
                 {
                     "id": step_id,
                     "kind": "skill",
                     "ref": skill_id,
-                    "config": {"inputs": step_inputs.get(step_id, {})},
+                    "config": {"inputs": compiled_inputs},
                 }
             )
             created_steps.append(step_id)
@@ -202,6 +212,30 @@ class SkillFactoryService:
             required_skills=list(request.skill_ids),
             created_steps=created_steps,
         )
+
+    def _apply_step_mapping(self, compiled_inputs: dict, mapping: StepMappingDefinition) -> None:
+        if not mapping.from_step and not mapping.from_inputs:
+            raise SkillFactoryError(f"Step mapping for target '{mapping.target_field}' requires from_step or from_inputs")
+        if mapping.from_step and mapping.from_inputs:
+            raise SkillFactoryError(f"Step mapping for target '{mapping.target_field}' cannot set both from_step and from_inputs")
+        reference: dict[str, str] = {}
+        if mapping.from_step:
+            reference["$from_step"] = mapping.from_step
+        if mapping.from_inputs:
+            reference["$from_inputs"] = mapping.from_inputs
+        if mapping.field:
+            reference["field"] = mapping.field
+        cursor = compiled_inputs
+        parts = mapping.target_field.split(".")
+        for part in parts[:-1]:
+            next_value = cursor.get(part)
+            if next_value is None:
+                next_value = {}
+                cursor[part] = next_value
+            if not isinstance(next_value, dict):
+                raise SkillFactoryError(f"Step mapping target path '{mapping.target_field}' collides with non-object field '{part}'")
+            cursor = next_value
+        cursor[parts[-1]] = reference
 
     def _register_contracts(self, request: SkillCreationRequest) -> dict[str, str]:
         refs = {

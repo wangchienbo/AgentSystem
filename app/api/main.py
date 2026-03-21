@@ -34,6 +34,7 @@ from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, SkillCreationRequest
+from app.services.skill_factory import SkillFactoryError
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
@@ -171,7 +172,7 @@ def create_app_from_skills(request: AppFromSkillsRequest) -> dict:
             "blueprint": blueprint.model_dump(mode="json"),
             "result": result.model_dump(mode="json"),
         }
-    except (SkillDiagnosticError, AppRegistryError, ValueError) as error:
+    except (SkillDiagnosticError, AppRegistryError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
 
 @app.post("/apps/from-skills/install-run")
@@ -239,7 +240,7 @@ def create_install_and_run_app_from_skills(request: AppFromSkillsInstallRunReque
                 )
             )
         ) from error
-    except (SkillDiagnosticError, AppRegistryError, ValueError) as error:
+    except (SkillDiagnosticError, AppRegistryError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
 
 @app.get("/experiences")

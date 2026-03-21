@@ -131,23 +131,18 @@ class BlueprintValidationService:
                 errors.append(f"Workflow step {workflow_id}:{step_id} references unknown or future step: {source_step}")
                 return errors
             if schema is not None and path:
-                properties = schema.get("properties", {}) if schema.get("type") == "object" else {}
-                top_field = path.split(".")[0]
-                target_schema = properties.get(top_field)
-                if top_field not in properties and schema.get("additionalProperties", True) is False:
-                    errors.append(f"Workflow step {workflow_id}:{step_id} maps into undeclared input field: {top_field}")
+                target_schema = self._resolve_target_schema(schema, path)
+                if target_schema is None and not self._target_path_allowed(schema, path):
+                    errors.append(f"Workflow step {workflow_id}:{step_id} maps into undeclared input field: {path}")
                 source_schema = self._resolve_source_schema(prior_skill_output_schemas.get(source_step), source_field)
                 if target_schema is not None and source_schema is not None and not self._schemas_compatible(source_schema, target_schema):
                     errors.append(
-                        f"Workflow step {workflow_id}:{step_id} maps incompatible schema from {source_step}.{source_field or '<output>'} into {top_field}"
+                        f"Workflow step {workflow_id}:{step_id} maps incompatible schema from {source_step}.{source_field or '<output>'} into {path}"
                     )
             return errors
         if isinstance(value, dict) and "$from_inputs" in value:
-            if schema is not None and path:
-                properties = schema.get("properties", {}) if schema.get("type") == "object" else {}
-                top_field = path.split(".")[0]
-                if top_field not in properties and schema.get("additionalProperties", True) is False:
-                    errors.append(f"Workflow step {workflow_id}:{step_id} maps external inputs into undeclared field: {top_field}")
+            if schema is not None and path and not self._target_path_allowed(schema, path):
+                errors.append(f"Workflow step {workflow_id}:{step_id} maps external inputs into undeclared field: {path}")
             return errors
         if isinstance(value, dict):
             for key, item in value.items():
@@ -166,6 +161,36 @@ class BlueprintValidationService:
         if schema.get("type") != "object":
             return None
         return schema.get("properties", {}).get(str(field))
+
+    def _resolve_target_schema(self, schema: dict[str, Any] | None, path: str) -> dict[str, Any] | None:
+        if schema is None:
+            return None
+        current = schema
+        for part in path.split("."):
+            if current.get("type") != "object":
+                return None
+            properties = current.get("properties", {})
+            if part in properties:
+                current = properties[part]
+                continue
+            if current.get("additionalProperties", True):
+                return None
+            return None
+        return current
+
+    def _target_path_allowed(self, schema: dict[str, Any] | None, path: str) -> bool:
+        if schema is None:
+            return True
+        current = schema
+        for part in path.split("."):
+            if current.get("type") != "object":
+                return False
+            properties = current.get("properties", {})
+            if part in properties:
+                current = properties[part]
+                continue
+            return bool(current.get("additionalProperties", True))
+        return True
 
     def _schemas_compatible(self, source_schema: dict[str, Any], target_schema: dict[str, Any]) -> bool:
         source_type = source_schema.get("type")
