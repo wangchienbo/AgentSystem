@@ -35,6 +35,7 @@ from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
 from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
 from app.services.workflow_executor import WorkflowExecutorService
+from app.services.workflow_observability import WorkflowObservabilityService
 from app.services.workflow_subscription import WorkflowSubscriptionService
 
 
@@ -237,6 +238,7 @@ def build_runtime() -> dict[str, object]:
         workflow_executor=workflow_executor,
         store=runtime_store,
     )
+    workflow_observability = WorkflowObservabilityService(workflow_executor=workflow_executor)
     context_compaction = ContextCompactionService(
         app_context_store=app_context_store,
         workflow_executor=workflow_executor,

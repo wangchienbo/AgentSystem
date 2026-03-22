@@ -1868,3 +1868,26 @@ Moved diagnostics/recovery aggregation logic into the workflow service so API ha
 #### Design intent clarified
 - aggregation rules for workflow diagnostics should live close to workflow execution history, not be copy-pasted across API handlers
 - dashboard clients should be able to request one overview payload instead of stitching diagnostics and latest-recovery calls together
+
+### Module: split workflow observability into a dedicated service and add health summary models
+
+Took the next structural step by separating workflow observability from workflow execution, then formalized the overview payload with explicit models and health-summary fields.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds explicit diagnostics / recovery / health / overview models
+- `app/services/workflow_observability.py`
+  - adds dedicated observability aggregation service for history filtering, diagnostics, recovery, health, and overview composition
+- `app/bootstrap/runtime.py`
+  - wires the new workflow observability service into runtime construction
+- `app/api/main.py`
+  - switches diagnostics/recovery/overview endpoints to the new observability service and returns model-backed payloads
+- `tests/unit/test_workflow_executor.py`
+  - extends overview coverage with explicit health summary assertions
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the new model-backed overview path.
+
+#### Design intent clarified
+- workflow execution and workflow observability are related but distinct concerns and should not continue to accrete inside one service class
+- operator-facing health/status fields should be first-class contract elements, not conventions inferred ad hoc from raw diagnostic payloads

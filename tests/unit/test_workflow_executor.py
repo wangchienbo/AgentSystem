@@ -732,6 +732,11 @@ def test_workflow_overview_api_aggregates_diagnostics_and_recovery() -> None:
     assert overview["latest_recovery"] is not None
     assert overview["latest_recovery"]["workflow_id"] == "wf.overview"
     assert overview["latest_recovery"]["unchanged_failed_step_ids"] == ["blocked.skill"]
+    assert overview["health"]["health_status"] == "failing"
+    assert overview["health"]["severity"] == "critical"
+    assert overview["health"]["unresolved_failure_count"] == 1
+    assert overview["health"]["latest_failed_step_ids"] == ["blocked.skill"]
+    assert overview["health"]["has_recent_retry"] is True
 
 
 

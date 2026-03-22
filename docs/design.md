@@ -645,6 +645,7 @@ Current implementation note:
 - retrying the latest failed workflow now returns structured before/after comparison metadata so operators can see whether status changed and which failed steps were resolved, unchanged, or newly introduced
 - workflow diagnostics can now aggregate latest execution, latest true failure, latest retry, and a lightweight recovery-state summary for operator-facing failure panels
 - diagnostics can also be narrowed to one failed step path, and a dedicated latest-recovery view exposes the newest retry outcome in a UI-friendly shape
-- diagnostics/recovery aggregation logic now lives in the workflow service instead of being duplicated in the API layer, and `/workflows/overview` exposes a combined response for operator dashboards
+- diagnostics/recovery aggregation logic is now separated into a dedicated workflow observability service instead of being duplicated in the API layer or mixed into execution code, and `/workflows/overview` exposes a combined response for operator dashboards
+- workflow overview now includes a first-class health summary (`health_status`, `severity`, unresolved failure count, latest failed steps, retry presence) so dashboards can render status without inferring it client-side
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

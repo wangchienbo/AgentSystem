@@ -96,6 +96,7 @@ skill_runtime = services["skill_runtime"]
 skill_factory = services["skill_factory"]
 workflow_executor = services["workflow_executor"]
 workflow_subscription = services["workflow_subscription"]
+workflow_observability = services["workflow_observability"]
 context_compaction = services["context_compaction"]
 interaction_gateway = services["interaction_gateway"]
 blueprint_validation = services["blueprint_validation"]
@@ -449,31 +450,26 @@ def get_workflow_diagnostics(
     workflow_id: str | None = None,
     failed_step_id: str | None = None,
 ) -> dict:
-    return workflow_executor.get_diagnostics_summary(
+    return workflow_observability.get_diagnostics_summary(
         app_instance_id=app_instance_id,
         workflow_id=workflow_id,
         failed_step_id=failed_step_id,
-    )
+    ).model_dump(mode="json")
 
 
 @app.get("/workflows/latest-recovery")
 def get_latest_workflow_recovery(app_instance_id: str, workflow_id: str | None = None) -> dict:
-    return {"recovery": workflow_executor.get_latest_recovery_summary(app_instance_id, workflow_id=workflow_id)}
+    recovery = workflow_observability.get_latest_recovery_summary(app_instance_id, workflow_id=workflow_id)
+    return {"recovery": None if recovery is None else recovery.model_dump(mode="json")}
 
 
 @app.get("/workflows/overview")
 def get_workflow_overview(app_instance_id: str, workflow_id: str | None = None, failed_step_id: str | None = None) -> dict:
-    return {
-        "diagnostics": workflow_executor.get_diagnostics_summary(
-            app_instance_id=app_instance_id,
-            workflow_id=workflow_id,
-            failed_step_id=failed_step_id,
-        ),
-        "latest_recovery": workflow_executor.get_latest_recovery_summary(
-            app_instance_id=app_instance_id,
-            workflow_id=workflow_id,
-        ),
-    }
+    return workflow_observability.get_overview(
+        app_instance_id=app_instance_id,
+        workflow_id=workflow_id,
+        failed_step_id=failed_step_id,
+    ).model_dump(mode="json")
 
 
 @app.get("/runtime/persistence")
