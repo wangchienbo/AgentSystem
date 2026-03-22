@@ -492,6 +492,26 @@ def list_workflow_observability_history(
     ]
 
 
+@app.get("/workflows/timeline")
+def list_workflow_timeline(
+    app_instance_id: str,
+    workflow_id: str | None = None,
+    failed_step_id: str | None = None,
+    limit: int | None = None,
+    unresolved_only: bool = False,
+) -> list[dict]:
+    return [
+        item.model_dump(mode="json")
+        for item in workflow_observability.list_timeline_events(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            limit=limit,
+            unresolved_only=unresolved_only,
+        )
+    ]
+
+
 @app.get("/runtime/persistence")
 def get_runtime_persistence_snapshot() -> dict:
     return {

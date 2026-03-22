@@ -124,6 +124,7 @@ Covered behavior:
 - workflow health status rules for healthy / failing / unknown transitions
 - dedicated observability service tests covering overview aggregation and health classification independent of the executor API tests, including recovering-state behavior
 - observability history queries covering recent-N and unresolved-only filtering behavior
+- timeline event summaries covering failure/retry flow normalization
 
 ## 3.7 Interaction gateway
 Covered behavior:

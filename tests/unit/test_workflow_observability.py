@@ -211,6 +211,50 @@ def test_workflow_observability_history_supports_limit_and_unresolved_filters() 
 
 
 
+def test_workflow_timeline_events_summarize_failure_and_retry_flow() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-timeline")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.timeline",
+            name="Workflow Observability Timeline App",
+            goal="summarize timeline events",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.timeline",
+                    "name": "obs timeline",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.timeline", user_id="obs-timeline-user")
+
+    executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.timeline")
+    executor.retry_last_failure(install_result.app_instance_id)
+
+    timeline = observability.list_timeline_events(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.timeline",
+        limit=2,
+    )
+
+    assert len(timeline) == 2
+    assert timeline[0].event_kind in {"retry", "failure"}
+    assert timeline[0].workflow_id == "wf.obs.timeline"
+    assert timeline[0].summary
+    assert timeline[1].event_kind in {"retry", "failure"}
+    assert timeline[1].summary
+
+
+
 def test_workflow_observability_reports_healthy_and_unknown_states() -> None:
     registry, installer, executor, observability = _build_runtime("workflow-observability-states")
 

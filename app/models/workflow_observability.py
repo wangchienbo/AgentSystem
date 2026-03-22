@@ -48,6 +48,17 @@ class WorkflowHealthSummary(BaseModel):
     last_transition: str = "unknown"
 
 
+class WorkflowTimelineEvent(BaseModel):
+    app_instance_id: str
+    workflow_id: str
+    event_kind: Literal["failure", "retry", "recovery", "completed", "partial"]
+    status: Literal["completed", "partial"]
+    completed_at: str
+    failed_step_ids: list[str] = Field(default_factory=list)
+    summary: str
+    retry_of_completed_at: str | None = None
+
+
 class WorkflowOverview(BaseModel):
     diagnostics: WorkflowDiagnosticsSummary
     latest_recovery: WorkflowRecoverySummary | None = None

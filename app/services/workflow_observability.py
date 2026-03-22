@@ -9,6 +9,7 @@ from app.models.workflow_observability import (
     WorkflowOverview,
     WorkflowRecoveryState,
     WorkflowRecoverySummary,
+    WorkflowTimelineEvent,
 )
 
 
@@ -170,6 +171,23 @@ class WorkflowObservabilityService:
             unresolved_only=unresolved_only,
         )
 
+    def list_timeline_events(
+        self,
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        limit: int | None = None,
+        unresolved_only: bool = False,
+    ) -> list[WorkflowTimelineEvent]:
+        history = self.list_observability_history(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            limit=limit,
+            unresolved_only=unresolved_only,
+        )
+        return [self._to_timeline_event(item) for item in history]
+
     def _matches_failed_step(self, item: WorkflowExecutionResult, failed_step_id: str) -> bool:
         if failed_step_id in item.failed_step_ids:
             return True
@@ -177,6 +195,20 @@ class WorkflowObservabilityService:
         if comparison is None:
             return False
         return failed_step_id in self._iter_retry_step_ids(comparison)
+
+    def _to_timeline_event(self, item: WorkflowExecutionResult) -> WorkflowTimelineEvent:
+        comparison = item.retry_comparison
+        event_kind = self._classify_timeline_event_kind(item)
+        return WorkflowTimelineEvent(
+            app_instance_id=item.app_instance_id,
+            workflow_id=item.workflow_id,
+            event_kind=event_kind,
+            status=item.status,
+            completed_at=item.completed_at.isoformat(),
+            failed_step_ids=list(item.failed_step_ids),
+            summary=self._build_timeline_summary(item, event_kind),
+            retry_of_completed_at=None if item.retry_of_completed_at is None else item.retry_of_completed_at.isoformat(),
+        )
 
     def _is_unresolved(self, item: WorkflowExecutionResult) -> bool:
         if item.status == "partial" and item.failed_step_ids:
@@ -187,6 +219,31 @@ class WorkflowObservabilityService:
         return comparison.retried_status == "partial" and bool(
             comparison.unchanged_failed_step_ids or comparison.newly_failed_step_ids
         )
+
+    def _classify_timeline_event_kind(self, item: WorkflowExecutionResult) -> Literal["failure", "retry", "recovery", "completed", "partial"]:
+        comparison = item.retry_comparison
+        if comparison is not None and comparison.previous_status == "partial" and comparison.retried_status == "completed":
+            return "recovery"
+        if comparison is not None:
+            return "retry"
+        if item.status == "partial" and item.failed_step_ids:
+            return "failure"
+        if item.status == "completed":
+            return "completed"
+        return "partial"
+
+    def _build_timeline_summary(self, item: WorkflowExecutionResult, event_kind: str) -> str:
+        if event_kind == "recovery":
+            resolved = item.retry_comparison.resolved_failed_step_ids if item.retry_comparison is not None else []
+            return f"Recovered workflow with {len(resolved)} resolved failed step(s)"
+        if event_kind == "retry":
+            unchanged = item.retry_comparison.unchanged_failed_step_ids if item.retry_comparison is not None else []
+            return f"Retried workflow; {len(unchanged)} failed step(s) still unresolved"
+        if event_kind == "failure":
+            return f"Workflow failed with {len(item.failed_step_ids)} failed step(s)"
+        if event_kind == "completed":
+            return "Workflow completed successfully"
+        return "Workflow ended partial without explicit failed steps"
 
     def _count_unresolved_failures(self, recovery_state: WorkflowRecoveryState | None) -> int:
         if recovery_state is None:

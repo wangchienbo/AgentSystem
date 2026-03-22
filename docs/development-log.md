@@ -1962,3 +1962,24 @@ Expanded the observability query surface so clients can fetch focused execution 
 #### Design intent clarified
 - timeline and dashboard consumers often need the newest interesting slice, not an unbounded workflow execution dump
 - unresolved-only filtering should be a first-class server-side capability so clients do not each reinvent failure-state heuristics
+
+### Module: add compact workflow timeline summaries
+
+Kept pushing the observability framework toward dashboard-readiness by introducing a timeline feed that turns raw execution records into compact event cards.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowTimelineEvent`
+- `app/services/workflow_observability.py`
+  - adds timeline event normalization and summary generation
+- `app/api/main.py`
+  - adds `/workflows/timeline`
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for failure/retry timeline summaries
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the timeline summary path.
+
+#### Design intent clarified
+- dashboard/activity-stream consumers should read compact, normalized event cards instead of reconstructing semantic events from full execution payloads
+- timeline summaries should encode the important operator signal (failure, retry, recovery, completion) close to the service layer so every client sees the same story
