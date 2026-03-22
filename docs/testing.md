@@ -126,6 +126,7 @@ Covered behavior:
 - observability history queries covering recent-N and unresolved-only filtering behavior
 - timeline event summaries covering failure/retry flow normalization
 - timeline pagination/windowing behavior covering `since` and cursor-based fetches
+- shared observability filter model coverage to keep query semantics aligned across service/API surfaces
 
 ## 3.7 Interaction gateway
 Covered behavior:

@@ -46,6 +46,7 @@ from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 from app.services.skill_retry_advisor import SkillRetryAdvisorService
+from app.models.workflow_observability import WorkflowObservabilityFilter
 
 
 app = FastAPI(title="AgentSystem App OS", version="0.1.0")
@@ -450,10 +451,15 @@ def get_workflow_diagnostics(
     workflow_id: str | None = None,
     failed_step_id: str | None = None,
 ) -> dict:
-    return workflow_observability.get_diagnostics_summary(
+    filters = WorkflowObservabilityFilter(
         app_instance_id=app_instance_id,
         workflow_id=workflow_id,
         failed_step_id=failed_step_id,
+    )
+    return workflow_observability.get_diagnostics_summary(
+        app_instance_id=filters.app_instance_id,
+        workflow_id=filters.workflow_id,
+        failed_step_id=filters.failed_step_id,
     ).model_dump(mode="json")
 
 
@@ -465,10 +471,15 @@ def get_latest_workflow_recovery(app_instance_id: str, workflow_id: str | None =
 
 @app.get("/workflows/overview")
 def get_workflow_overview(app_instance_id: str, workflow_id: str | None = None, failed_step_id: str | None = None) -> dict:
-    return workflow_observability.get_overview(
+    filters = WorkflowObservabilityFilter(
         app_instance_id=app_instance_id,
         workflow_id=workflow_id,
         failed_step_id=failed_step_id,
+    )
+    return workflow_observability.get_overview(
+        app_instance_id=filters.app_instance_id,
+        workflow_id=filters.workflow_id,
+        failed_step_id=filters.failed_step_id,
     ).model_dump(mode="json")
 
 
@@ -479,15 +490,28 @@ def list_workflow_observability_history(
     failed_step_id: str | None = None,
     limit: int | None = None,
     unresolved_only: bool = False,
+    since: str | None = None,
+    cursor: str | None = None,
 ) -> list[dict]:
+    filters = WorkflowObservabilityFilter(
+        app_instance_id=app_instance_id,
+        workflow_id=workflow_id,
+        failed_step_id=failed_step_id,
+        limit=limit,
+        unresolved_only=unresolved_only,
+        since=since,
+        cursor=cursor,
+    )
     return [
         item.model_dump(mode="json")
         for item in workflow_observability.list_observability_history(
-            app_instance_id=app_instance_id,
-            workflow_id=workflow_id,
-            failed_step_id=failed_step_id,
-            limit=limit,
-            unresolved_only=unresolved_only,
+            app_instance_id=filters.app_instance_id,
+            workflow_id=filters.workflow_id,
+            failed_step_id=filters.failed_step_id,
+            limit=filters.limit,
+            unresolved_only=filters.unresolved_only,
+            since=filters.since,
+            cursor=filters.cursor,
         )
     ]
 
@@ -502,7 +526,7 @@ def list_workflow_timeline(
     since: str | None = None,
     cursor: str | None = None,
 ) -> dict:
-    return workflow_observability.list_timeline_events(
+    filters = WorkflowObservabilityFilter(
         app_instance_id=app_instance_id,
         workflow_id=workflow_id,
         failed_step_id=failed_step_id,
@@ -510,6 +534,15 @@ def list_workflow_timeline(
         unresolved_only=unresolved_only,
         since=since,
         cursor=cursor,
+    )
+    return workflow_observability.list_timeline_events(
+        app_instance_id=filters.app_instance_id,
+        workflow_id=filters.workflow_id,
+        failed_step_id=filters.failed_step_id,
+        limit=filters.limit,
+        unresolved_only=filters.unresolved_only,
+        since=filters.since,
+        cursor=filters.cursor,
     ).model_dump(mode="json")
 
 

@@ -282,6 +282,7 @@ The platform should expose an API-first path for generated skills so the system 
 - support observability-history queries with recent-N and unresolved-only filtering so timeline consumers can fetch focused slices instead of full workflow history dumps
 - expose a compact workflow timeline feed with normalized event kinds and summaries for dashboard/activity-stream consumers
 - support timeline time-window queries and cursor pagination so observability UIs can incrementally load activity without replaying full history
+- define a shared observability filter contract so diagnostics/history/timeline surfaces expose consistent query semantics
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

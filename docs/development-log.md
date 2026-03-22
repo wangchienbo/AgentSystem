@@ -2005,3 +2005,24 @@ Rounded out the observability feed so it can behave like a real activity stream 
 #### Design intent clarified
 - observability feeds should support incremental loading and time-window refreshes as first-class capabilities, not afterthought client-side list trimming
 - a paged timeline response is a better long-term contract for UI consumers than an unbounded array
+
+### Module: add shared observability filter model
+
+Kept tightening the framework by introducing an explicit filter contract for observability queries so service and API layers stay aligned as the query surface grows.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowObservabilityFilter`
+- `app/services/workflow_observability.py`
+  - switches history filtering to consume the shared filter model
+- `app/api/main.py`
+  - normalizes diagnostics/history/timeline parameter handling through the shared filter model
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for filter-model-driven history queries
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the shared filter contract.
+
+#### Design intent clarified
+- once observability queries gain multiple knobs, an explicit filter model is safer than hand-copying parameter lists across each handler
+- consistent query semantics matter as much as payload shape when you want dashboard and operator tooling to remain predictable

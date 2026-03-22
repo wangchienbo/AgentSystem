@@ -64,6 +64,16 @@ class WorkflowTimelinePage(BaseModel):
     next_cursor: str | None = None
 
 
+class WorkflowObservabilityFilter(BaseModel):
+    app_instance_id: str
+    workflow_id: str | None = None
+    failed_step_id: str | None = None
+    limit: int | None = None
+    unresolved_only: bool = False
+    since: str | None = None
+    cursor: str | None = None
+
+
 class WorkflowOverview(BaseModel):
     diagnostics: WorkflowDiagnosticsSummary
     latest_recovery: WorkflowRecoverySummary | None = None

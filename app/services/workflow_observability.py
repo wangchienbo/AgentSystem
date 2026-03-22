@@ -7,6 +7,7 @@ from app.models.workflow_execution import WorkflowExecutionResult
 from app.models.workflow_observability import (
     WorkflowDiagnosticsSummary,
     WorkflowHealthSummary,
+    WorkflowObservabilityFilter,
     WorkflowOverview,
     WorkflowRecoveryState,
     WorkflowRecoverySummary,
@@ -29,32 +30,23 @@ class WorkflowObservabilityService:
     def __init__(self, workflow_executor) -> None:
         self._workflow_executor = workflow_executor
 
-    def filter_history(
-        self,
-        app_instance_id: str,
-        workflow_id: str | None = None,
-        failed_step_id: str | None = None,
-        limit: int | None = None,
-        unresolved_only: bool = False,
-        since: str | None = None,
-        cursor: str | None = None,
-    ) -> list[WorkflowExecutionResult]:
-        history = self._workflow_executor.list_history(app_instance_id)
-        if workflow_id is not None:
-            history = [item for item in history if item.workflow_id == workflow_id]
-        if failed_step_id is not None:
-            history = [item for item in history if self._matches_failed_step(item, failed_step_id)]
-        if unresolved_only:
+    def filter_history(self, filters: WorkflowObservabilityFilter) -> list[WorkflowExecutionResult]:
+        history = self._workflow_executor.list_history(filters.app_instance_id)
+        if filters.workflow_id is not None:
+            history = [item for item in history if item.workflow_id == filters.workflow_id]
+        if filters.failed_step_id is not None:
+            history = [item for item in history if self._matches_failed_step(item, filters.failed_step_id)]
+        if filters.unresolved_only:
             history = [item for item in history if self._is_unresolved(item)]
-        if since is not None:
-            since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+        if filters.since is not None:
+            since_dt = datetime.fromisoformat(filters.since.replace("Z", "+00:00"))
             history = [item for item in history if item.completed_at >= since_dt]
         history = sorted(history, key=lambda item: item.completed_at, reverse=True)
-        if cursor is not None:
-            cursor_dt = datetime.fromisoformat(cursor.replace("Z", "+00:00"))
+        if filters.cursor is not None:
+            cursor_dt = datetime.fromisoformat(filters.cursor.replace("Z", "+00:00"))
             history = [item for item in history if item.completed_at < cursor_dt]
-        if limit is not None:
-            history = history[:limit]
+        if filters.limit is not None:
+            history = history[: filters.limit]
         return history
 
     def get_diagnostics_summary(
@@ -63,7 +55,13 @@ class WorkflowObservabilityService:
         workflow_id: str | None = None,
         failed_step_id: str | None = None,
     ) -> WorkflowDiagnosticsSummary:
-        history = self.filter_history(app_instance_id, workflow_id=workflow_id, failed_step_id=failed_step_id)
+        history = self.filter_history(
+            WorkflowObservabilityFilter(
+                app_instance_id=app_instance_id,
+                workflow_id=workflow_id,
+                failed_step_id=failed_step_id,
+            )
+        )
         latest_execution = max(history, key=lambda item: item.completed_at) if history else None
         failures = [item for item in history if item.status == "partial" and item.failed_step_ids]
         latest_failure = max(failures, key=lambda item: item.completed_at) if failures else None
@@ -87,7 +85,12 @@ class WorkflowObservabilityService:
         )
 
     def get_latest_recovery_summary(self, app_instance_id: str, workflow_id: str | None = None) -> WorkflowRecoverySummary | None:
-        history = self.filter_history(app_instance_id, workflow_id=workflow_id)
+        history = self.filter_history(
+            WorkflowObservabilityFilter(
+                app_instance_id=app_instance_id,
+                workflow_id=workflow_id,
+            )
+        )
         retries = [item for item in history if item.retry_comparison is not None]
         latest_retry = max(retries, key=lambda item: item.completed_at) if retries else None
         if latest_retry is None or latest_retry.retry_comparison is None:
@@ -176,13 +179,15 @@ class WorkflowObservabilityService:
         cursor: str | None = None,
     ) -> list[WorkflowExecutionResult]:
         return self.filter_history(
-            app_instance_id=app_instance_id,
-            workflow_id=workflow_id,
-            failed_step_id=failed_step_id,
-            limit=limit,
-            unresolved_only=unresolved_only,
-            since=since,
-            cursor=cursor,
+            WorkflowObservabilityFilter(
+                app_instance_id=app_instance_id,
+                workflow_id=workflow_id,
+                failed_step_id=failed_step_id,
+                limit=limit,
+                unresolved_only=unresolved_only,
+                since=since,
+                cursor=cursor,
+            )
         )
 
     def list_timeline_events(

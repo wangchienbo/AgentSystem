@@ -12,6 +12,7 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.workflow_executor import WorkflowExecutorService
 from app.services.workflow_observability import WorkflowObservabilityService
+from app.models.workflow_observability import WorkflowObservabilityFilter
 
 
 def _build_runtime(prefix: str):
@@ -309,6 +310,50 @@ def test_workflow_timeline_supports_since_and_cursor_pagination() -> None:
     )
     assert len(recent.items) >= 1
     assert any(item.workflow_id == second.workflow_id for item in recent.items)
+
+
+
+def test_workflow_observability_filter_model_drives_history_queries() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-filter-model")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.filter-model",
+            name="Workflow Observability Filter Model App",
+            goal="drive history queries from filter model",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.filter-model",
+                    "name": "obs filter model",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.filter-model", user_id="obs-filter-model-user")
+
+    executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.filter-model")
+    executor.retry_last_failure(install_result.app_instance_id)
+
+    filters = WorkflowObservabilityFilter(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.filter-model",
+        failed_step_id="blocked.skill",
+        limit=1,
+        unresolved_only=True,
+    )
+    history = observability.filter_history(filters)
+
+    assert len(history) == 1
+    assert history[0].workflow_id == "wf.obs.filter-model"
+    assert history[0].status == "partial"
 
 
 
