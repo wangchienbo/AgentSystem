@@ -644,5 +644,6 @@ Current implementation note:
 - workflow execution results now carry explicit `failed_step_ids` so failure review and future policy/retry tooling can identify the exact blocked steps without re-scanning every step payload
 - retrying the latest failed workflow now returns structured before/after comparison metadata so operators can see whether status changed and which failed steps were resolved, unchanged, or newly introduced
 - workflow diagnostics can now aggregate latest execution, latest true failure, latest retry, and a lightweight recovery-state summary for operator-facing failure panels
+- diagnostics can also be narrowed to one failed step path, and a dedicated latest-recovery view exposes the newest retry outcome in a UI-friendly shape
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

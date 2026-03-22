@@ -575,6 +575,99 @@ def test_workflow_diagnostics_api_returns_latest_failure_and_retry_summary() -> 
 
 
 
+def test_workflow_diagnostics_supports_failed_step_filter_and_latest_recovery() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.diagnostics.filter",
+            "name": "Workflow Diagnostics Filter App",
+            "goal": "filter diagnostics and summarize latest recovery",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.diagnostics.filter",
+                    "name": "diagnostics filter",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": [],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.diagnostics.filter/install",
+        json={"user_id": "workflow-diagnostics-filter-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    execute_response = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.diagnostics.filter", "trigger": "api", "inputs": {}},
+    )
+    assert execute_response.status_code == 200
+
+    retry_response = client.post(f"/apps/{app_instance_id}/workflows/retry-last-failure")
+    assert retry_response.status_code == 200
+
+    diagnostics_response = client.get(
+        "/workflows/diagnostics",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.diagnostics.filter",
+            "failed_step_id": "blocked.skill",
+        },
+    )
+    assert diagnostics_response.status_code == 200
+    payload = diagnostics_response.json()
+    assert payload["latest_failure"] is not None
+    assert payload["latest_failure"]["failed_step_ids"] == ["blocked.skill"]
+    assert payload["latest_retry"] is not None
+    assert payload["latest_retry"]["retry_comparison"]["unchanged_failed_step_ids"] == ["blocked.skill"]
+
+    empty_diagnostics = client.get(
+        "/workflows/diagnostics",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.diagnostics.filter",
+            "failed_step_id": "other.step",
+        },
+    )
+    assert empty_diagnostics.status_code == 200
+    assert empty_diagnostics.json() == {
+        "latest_execution": None,
+        "latest_failure": None,
+        "latest_retry": None,
+        "recovery_state": None,
+    }
+
+    latest_recovery = client.get(
+        "/workflows/latest-recovery",
+        params={"app_instance_id": app_instance_id, "workflow_id": "wf.diagnostics.filter"},
+    )
+    assert latest_recovery.status_code == 200
+    recovery = latest_recovery.json()["recovery"]
+    assert recovery is not None
+    assert recovery["workflow_id"] == "wf.diagnostics.filter"
+    assert recovery["still_failing"] is True
+    assert recovery["unchanged_failed_step_ids"] == ["blocked.skill"]
+
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

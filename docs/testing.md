@@ -120,7 +120,7 @@ Covered behavior:
 - workflow and skill observability APIs for history/failure/latest inspection, including failure filtering by workflow id and failed step id
 - workflow execution results include explicit `failed_step_ids` for failure targeting and regression assertions
 - retry API for rerunning the latest failed workflow execution with structured before/after comparison metadata
-- workflow diagnostics API for summarizing latest execution/failure/retry state per app/workflow
+- workflow diagnostics API for summarizing latest execution/failure/retry state per app/workflow, including failed-step filtering and latest-recovery summaries
 
 ## 3.7 Interaction gateway
 Covered behavior:

@@ -1830,3 +1830,21 @@ Added a lightweight aggregated diagnostics view so operator-facing tooling can i
 #### Design intent clarified
 - operator-facing diagnostics should expose a compact recovery summary instead of forcing clients to reconstruct state from several low-level endpoints
 - recovery panels should distinguish latest execution from latest true failure and latest retry attempt
+
+### Module: add failed-step diagnostics filtering and latest recovery endpoint
+
+Refined the diagnostics surface so clients can focus on one failed step path and query the newest retry outcome through a lighter dedicated endpoint.
+
+#### Updated
+- `app/api/main.py`
+  - extends `/workflows/diagnostics` with `failed_step_id` filtering
+  - adds `/workflows/latest-recovery` for a compact latest retry/recovery summary
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for failed-step diagnostics filtering and latest-recovery output
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for both new diagnostics paths.
+
+#### Design intent clarified
+- diagnostics consumers should be able to zoom into one failed-step path without post-filtering whole workflow histories client-side
+- recovery dashboards benefit from a dedicated latest-recovery view instead of unpacking the full diagnostics payload every time
