@@ -272,6 +272,15 @@ The platform should expose an API-first path for generated skills so the system 
 - persist generated skill assets so they can be reloaded after runtime restart
 - return structured diagnostics for generated skill create/install/execute failures so retries can be guided programmatically
 - expose retry advice / suggested correction payloads so generated skill failures can feed the next iteration directly
+- expose latest workflow execution lookup plus explicit failed-step identifiers so operators and future policy loops can inspect the newest result without manually diffing full history
+- allow workflow failure inspection to filter by workflow id and failed step id so debugging/retry surfaces can target one broken path instead of loading every partial execution
+- include retry comparison metadata in retried workflow results so operators can tell what changed between the failed execution and the retry without diffing two full payloads manually
+- provide a workflow diagnostics view that summarizes latest execution, latest failure, latest retry, and recovery state for one app/workflow path
+- allow diagnostics to narrow by failed step id and expose a lighter latest-recovery summary for recovery panels or operator dashboards
+- provide a combined workflow overview response and keep aggregation logic centralized in services so future UI/API surfaces do not fork recovery logic
+- expose a first-class workflow health summary with stable fields for status/severity/unresolved failures so operator dashboards do not need to reverse-engineer health from raw execution records
+- support observability-history queries with recent-N and unresolved-only filtering so timeline consumers can fetch focused slices instead of full workflow history dumps
+- expose a compact workflow timeline feed with normalized event kinds and summaries for dashboard/activity-stream consumers
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

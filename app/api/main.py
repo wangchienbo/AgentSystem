@@ -96,6 +96,7 @@ skill_runtime = services["skill_runtime"]
 skill_factory = services["skill_factory"]
 workflow_executor = services["workflow_executor"]
 workflow_subscription = services["workflow_subscription"]
+workflow_observability = services["workflow_observability"]
 context_compaction = services["context_compaction"]
 interaction_gateway = services["interaction_gateway"]
 blueprint_validation = services["blueprint_validation"]
@@ -413,8 +414,26 @@ def list_workflow_history(app_instance_id: str | None = None) -> list[dict]:
 
 
 @app.get("/workflows/failures")
-def list_workflow_failures(app_instance_id: str | None = None) -> list[dict]:
-    return [item.model_dump(mode="json") for item in workflow_executor.list_recent_failures(app_instance_id)]
+def list_workflow_failures(
+    app_instance_id: str | None = None,
+    workflow_id: str | None = None,
+    failed_step_id: str | None = None,
+) -> list[dict]:
+    failures = workflow_executor.list_recent_failures(app_instance_id)
+    if workflow_id is not None:
+        failures = [item for item in failures if item.workflow_id == workflow_id]
+    if failed_step_id is not None:
+        failures = [item for item in failures if failed_step_id in item.failed_step_ids]
+    return [item.model_dump(mode="json") for item in failures]
+
+
+@app.get("/workflows/latest")
+def get_latest_workflow_execution(app_instance_id: str | None = None) -> dict:
+    history = workflow_executor.list_history(app_instance_id)
+    if not history:
+        return {"execution": None}
+    latest = max(history, key=lambda item: item.completed_at)
+    return {"execution": latest.model_dump(mode="json")}
 
 
 @app.post("/apps/{app_instance_id}/workflows/retry-last-failure")
@@ -423,6 +442,74 @@ def retry_last_failed_workflow(app_instance_id: str) -> dict:
         return workflow_executor.retry_last_failure(app_instance_id).model_dump(mode="json")
     except (WorkflowExecutorError,) as error:
         raise map_domain_error(error) from error
+
+
+@app.get("/workflows/diagnostics")
+def get_workflow_diagnostics(
+    app_instance_id: str,
+    workflow_id: str | None = None,
+    failed_step_id: str | None = None,
+) -> dict:
+    return workflow_observability.get_diagnostics_summary(
+        app_instance_id=app_instance_id,
+        workflow_id=workflow_id,
+        failed_step_id=failed_step_id,
+    ).model_dump(mode="json")
+
+
+@app.get("/workflows/latest-recovery")
+def get_latest_workflow_recovery(app_instance_id: str, workflow_id: str | None = None) -> dict:
+    recovery = workflow_observability.get_latest_recovery_summary(app_instance_id, workflow_id=workflow_id)
+    return {"recovery": None if recovery is None else recovery.model_dump(mode="json")}
+
+
+@app.get("/workflows/overview")
+def get_workflow_overview(app_instance_id: str, workflow_id: str | None = None, failed_step_id: str | None = None) -> dict:
+    return workflow_observability.get_overview(
+        app_instance_id=app_instance_id,
+        workflow_id=workflow_id,
+        failed_step_id=failed_step_id,
+    ).model_dump(mode="json")
+
+
+@app.get("/workflows/observability-history")
+def list_workflow_observability_history(
+    app_instance_id: str,
+    workflow_id: str | None = None,
+    failed_step_id: str | None = None,
+    limit: int | None = None,
+    unresolved_only: bool = False,
+) -> list[dict]:
+    return [
+        item.model_dump(mode="json")
+        for item in workflow_observability.list_observability_history(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            limit=limit,
+            unresolved_only=unresolved_only,
+        )
+    ]
+
+
+@app.get("/workflows/timeline")
+def list_workflow_timeline(
+    app_instance_id: str,
+    workflow_id: str | None = None,
+    failed_step_id: str | None = None,
+    limit: int | None = None,
+    unresolved_only: bool = False,
+) -> list[dict]:
+    return [
+        item.model_dump(mode="json")
+        for item in workflow_observability.list_timeline_events(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            limit=limit,
+            unresolved_only=unresolved_only,
+        )
+    ]
 
 
 @app.get("/runtime/persistence")

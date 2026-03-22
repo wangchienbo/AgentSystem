@@ -117,8 +117,14 @@ Covered behavior:
 - minimal registered skill dispatch inside workflow execution
 - skill input mapping and failure capture during workflow execution
 - blueprint allowlist enforcement for workflow skill steps
-- workflow and skill observability APIs for history/failure inspection
-- retry API for rerunning the latest failed workflow execution
+- workflow and skill observability APIs for history/failure/latest inspection, including failure filtering by workflow id and failed step id
+- workflow execution results include explicit `failed_step_ids` for failure targeting and regression assertions
+- retry API for rerunning the latest failed workflow execution with structured before/after comparison metadata
+- workflow diagnostics API for summarizing latest execution/failure/retry state per app/workflow, including failed-step filtering, latest-recovery summaries, combined overview responses, and health-summary fields
+- workflow health status rules for healthy / failing / unknown transitions
+- dedicated observability service tests covering overview aggregation and health classification independent of the executor API tests, including recovering-state behavior
+- observability history queries covering recent-N and unresolved-only filtering behavior
+- timeline event summaries covering failure/retry flow normalization
 
 ## 3.7 Interaction gateway
 Covered behavior:

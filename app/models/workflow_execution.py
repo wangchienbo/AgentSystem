@@ -17,6 +17,16 @@ class WorkflowStepExecution(BaseModel):
     output: dict[str, Any] = Field(default_factory=dict)
 
 
+class WorkflowRetryComparison(BaseModel):
+    previous_status: Literal["completed", "partial"]
+    retried_status: Literal["completed", "partial"]
+    previous_failed_step_ids: list[str] = Field(default_factory=list)
+    retried_failed_step_ids: list[str] = Field(default_factory=list)
+    resolved_failed_step_ids: list[str] = Field(default_factory=list)
+    newly_failed_step_ids: list[str] = Field(default_factory=list)
+    unchanged_failed_step_ids: list[str] = Field(default_factory=list)
+
+
 class WorkflowExecutionResult(BaseModel):
     app_instance_id: str = Field(..., min_length=1)
     blueprint_id: str = Field(..., min_length=1)
@@ -27,3 +37,6 @@ class WorkflowExecutionResult(BaseModel):
     steps: list[WorkflowStepExecution] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    failed_step_ids: list[str] = Field(default_factory=list)
+    retry_of_completed_at: datetime | None = None
+    retry_comparison: WorkflowRetryComparison | None = None

@@ -639,6 +639,18 @@ Current implementation note:
 - workflow execution returns an aggregated outputs summary for completed/skipped steps and step outputs
 - event-driven workflow subscriptions can now auto-trigger workflow execution from published internal events
 - `skill` steps now support a minimal dispatch contract through `SkillRuntimeService`, with registered handlers, structured request/result payloads, input mapping, failure capture, execution persistence, and blueprint-declared allowlist enforcement
-- workflow and skill execution now expose basic observability surfaces: execution history, recent workflow failures, and skill failure listings
+- workflow and skill execution now expose basic observability surfaces: execution history, filtered failure inspection, latest execution lookup, and skill failure listings
+- workflow failure inspection can now be narrowed by app instance, workflow id, and failed step id for faster operator triage
+- workflow execution results now carry explicit `failed_step_ids` so failure review and future policy/retry tooling can identify the exact blocked steps without re-scanning every step payload
+- retrying the latest failed workflow now returns structured before/after comparison metadata so operators can see whether status changed and which failed steps were resolved, unchanged, or newly introduced
+- workflow diagnostics can now aggregate latest execution, latest true failure, latest retry, and a lightweight recovery-state summary for operator-facing failure panels
+- diagnostics can also be narrowed to one failed step path, and a dedicated latest-recovery view exposes the newest retry outcome in a UI-friendly shape
+- diagnostics/recovery aggregation logic is now separated into a dedicated workflow observability service instead of being duplicated in the API layer or mixed into execution code, and `/workflows/overview` exposes a combined response for operator dashboards
+- workflow overview now includes a first-class health summary (`health_status`, `severity`, unresolved failure count, latest failed steps, retry presence) so dashboards can render status without inferring it client-side
+- health rules now explicitly distinguish `healthy`, `failing`, and `unknown` (partial-without-failed-steps) states, avoiding ambiguous dashboard status inference
+- health/severity classification is now centralized inside the observability service, making future additions like `recovering` rule changes or dashboard severities easier to evolve safely
+- observability health classification now follows a small explicit rule table, which makes state additions and severity tuning less error-prone than growing nested conditionals
+- observability queries now support recent-N and unresolved-only history retrieval, which is a better fit for dashboards/timelines than forcing clients to slice the full execution history themselves
+- timeline-style observability summaries are now exposed as compact event cards (failure / retry / recovery / completed / partial) so UI surfaces do not need to transform full execution payloads just to render an incident feed
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

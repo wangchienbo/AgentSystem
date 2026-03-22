@@ -1752,3 +1752,234 @@ Improved failure observability so runtime and external-model problems are easier
 #### Design intent clarified
 - failure paths should be machine-readable enough for debugging and future retry/policy logic
 - external API failures should preserve status/retryability metadata instead of collapsing into opaque strings
+
+### Module: add latest workflow execution lookup and failed-step observability
+
+Pushed workflow observability a bit further so operators and future policy loops can see the newest execution directly and identify failed steps without re-scanning the full step list.
+
+#### Updated
+- `app/models/workflow_execution.py`
+  - adds `failed_step_ids` to workflow execution results
+- `app/services/workflow_executor.py`
+  - populates failed-step ids when assembling execution results
+- `app/api/main.py`
+  - adds `/workflows/latest` for newest execution lookup with optional app-instance filtering
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for latest execution lookup and result payload shape
+- `tests/unit/test_workflow_execution_failure_observability.py`
+  - adds failure-observability coverage for blocked skill steps
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added/updated deterministic tests for the changed observability path.
+
+#### Design intent clarified
+- operators should not need to manually scan full workflow history just to inspect the newest execution
+- workflow-level failure summaries should expose exact failed step ids so future retry, UI, and policy layers can target the right step quickly
+
+### Module: add filtered workflow failure inspection and ignore generated runtime assets
+
+Extended the workflow observability path so failure triage can focus on one broken workflow/step, and cleaned up repo hygiene so generated runtime assets stop showing up as stray changes.
+
+#### Updated
+- `app/api/main.py`
+  - extends `/workflows/failures` with optional `workflow_id` and `failed_step_id` filters
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for filtered workflow failure inspection
+- `.gitignore`
+  - ignores `data/generated_callable_skills/` alongside other runtime/generated artifacts
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the new filtering behavior.
+
+#### Design intent clarified
+- failure inspection should support targeted triage by workflow path and failed step, not only broad history listing
+- generated runtime skill assets are execution byproducts and should not pollute normal source-control status
+
+### Module: add retry comparison metadata for failed workflow re-execution
+
+Extended retry observability so re-running the latest failed workflow now reports what changed instead of only returning another raw execution payload.
+
+#### Updated
+- `app/models/workflow_execution.py`
+  - adds `WorkflowRetryComparison`, `retry_of_completed_at`, and `retry_comparison`
+- `app/services/workflow_executor.py`
+  - enriches retry results with before/after failed-step and status comparison data
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for retry comparison payloads
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the retry comparison path.
+
+#### Design intent clarified
+- retry should be an observable recovery action, not just another execution entry with implicit meaning
+- operators and future policy logic should be able to compare failure vs retry outcomes without manually diffing two workflow records
+
+### Module: add workflow diagnostics summary API
+
+Added a lightweight aggregated diagnostics view so operator-facing tooling can inspect one workflow path without stitching together history, failures, and retry payloads by hand.
+
+#### Updated
+- `app/api/main.py`
+  - adds `/workflows/diagnostics` to summarize latest execution, latest failure, latest retry, and recovery-state flags
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for diagnostics summary behavior on a still-failing retry path
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the diagnostics path.
+
+#### Design intent clarified
+- operator-facing diagnostics should expose a compact recovery summary instead of forcing clients to reconstruct state from several low-level endpoints
+- recovery panels should distinguish latest execution from latest true failure and latest retry attempt
+
+### Module: add failed-step diagnostics filtering and latest recovery endpoint
+
+Refined the diagnostics surface so clients can focus on one failed step path and query the newest retry outcome through a lighter dedicated endpoint.
+
+#### Updated
+- `app/api/main.py`
+  - extends `/workflows/diagnostics` with `failed_step_id` filtering
+  - adds `/workflows/latest-recovery` for a compact latest retry/recovery summary
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for failed-step diagnostics filtering and latest-recovery output
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for both new diagnostics paths.
+
+#### Design intent clarified
+- diagnostics consumers should be able to zoom into one failed-step path without post-filtering whole workflow histories client-side
+- recovery dashboards benefit from a dedicated latest-recovery view instead of unpacking the full diagnostics payload every time
+
+### Module: centralize workflow diagnostics aggregation and add overview API
+
+Moved diagnostics/recovery aggregation logic into the workflow service so API handlers stop reimplementing the same selection rules, then exposed a combined overview response for dashboard-style consumers.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - adds centralized history filtering, diagnostics-summary aggregation, and latest-recovery summary helpers
+- `app/api/main.py`
+  - simplifies diagnostics/recovery endpoints to use service helpers
+  - adds `/workflows/overview` as a combined diagnostics + recovery response
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for the overview response shape
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the service-backed overview path.
+
+#### Design intent clarified
+- aggregation rules for workflow diagnostics should live close to workflow execution history, not be copy-pasted across API handlers
+- dashboard clients should be able to request one overview payload instead of stitching diagnostics and latest-recovery calls together
+
+### Module: split workflow observability into a dedicated service and add health summary models
+
+Took the next structural step by separating workflow observability from workflow execution, then formalized the overview payload with explicit models and health-summary fields.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds explicit diagnostics / recovery / health / overview models
+- `app/services/workflow_observability.py`
+  - adds dedicated observability aggregation service for history filtering, diagnostics, recovery, health, and overview composition
+- `app/bootstrap/runtime.py`
+  - wires the new workflow observability service into runtime construction
+- `app/api/main.py`
+  - switches diagnostics/recovery/overview endpoints to the new observability service and returns model-backed payloads
+- `tests/unit/test_workflow_executor.py`
+  - extends overview coverage with explicit health summary assertions
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the new model-backed overview path.
+
+#### Design intent clarified
+- workflow execution and workflow observability are related but distinct concerns and should not continue to accrete inside one service class
+- operator-facing health/status fields should be first-class contract elements, not conventions inferred ad hoc from raw diagnostic payloads
+
+### Module: remove duplicate observability helpers from executor and harden health-state coverage
+
+Completed the structural split by deleting leftover observability aggregation helpers from the executor and adding explicit tests for healthy vs unknown health-state outcomes.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - removes duplicate observability helper methods now owned by the dedicated observability service
+- `tests/unit/test_workflow_executor.py`
+  - adds health-summary coverage for completed workflows (`healthy`) and partial-without-failure workflows (`unknown`)
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the health-state transitions.
+
+#### Design intent clarified
+- once observability is extracted, the executor should keep only execution/retry concerns instead of retaining stale read-model helpers
+- health summaries should have tested semantics for non-error partial states, not only obvious failure cases
+
+### Module: add dedicated workflow observability tests and centralize health classification rules
+
+Continued the refactor by moving observability verification into its own test module and extracting health/severity rule decisions into explicit helper methods inside the observability service.
+
+#### Updated
+- `app/services/workflow_observability.py`
+  - centralizes unresolved-failure counting and health/severity classification helpers
+- `tests/unit/test_workflow_observability.py`
+  - adds dedicated service-level tests for failing, healthy, and unknown workflow observability states
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the observability classification rules.
+
+#### Design intent clarified
+- observability logic should be testable directly at the service layer without routing every scenario through API-heavy executor tests
+- health classification should be a named rule path, not inline conditional glue scattered across summary assembly
+
+### Module: introduce explicit health-rule mapping and recovering-state coverage
+
+Pushed the observability structure one step further by making health classification read from an explicit rule table and by adding service-level coverage for the recovering state.
+
+#### Updated
+- `app/services/workflow_observability.py`
+  - adds an explicit health-rule table and uses it when classifying health/severity/transition outputs
+- `tests/unit/test_workflow_observability.py`
+  - adds a recovering-state scenario verifying resolved retry behavior produces the expected health summary
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the recovering-state classification path.
+
+#### Design intent clarified
+- state/severity mapping should be easy to inspect and extend without reopening nested conditionals every time a dashboard status rule changes
+- recovering is a distinct operator-facing state and deserves explicit test coverage, not just implied support through generic retry metadata
+
+### Module: add observability history slicing with recent-N and unresolved-only filters
+
+Expanded the observability query surface so clients can fetch focused execution slices for dashboard timelines instead of always reconstructing views from the full history.
+
+#### Updated
+- `app/services/workflow_observability.py`
+  - extends history filtering with `limit` and `unresolved_only`
+  - adds `list_observability_history()` for focused observability slices
+- `app/api/main.py`
+  - adds `/workflows/observability-history`
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for recent-N and unresolved-only history queries
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the new history slicing path.
+
+#### Design intent clarified
+- timeline and dashboard consumers often need the newest interesting slice, not an unbounded workflow execution dump
+- unresolved-only filtering should be a first-class server-side capability so clients do not each reinvent failure-state heuristics
+
+### Module: add compact workflow timeline summaries
+
+Kept pushing the observability framework toward dashboard-readiness by introducing a timeline feed that turns raw execution records into compact event cards.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowTimelineEvent`
+- `app/services/workflow_observability.py`
+  - adds timeline event normalization and summary generation
+- `app/api/main.py`
+  - adds `/workflows/timeline`
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for failure/retry timeline summaries
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the timeline summary path.
+
+#### Design intent clarified
+- dashboard/activity-stream consumers should read compact, normalized event cards instead of reconstructing semantic events from full execution payloads
+- timeline summaries should encode the important operator signal (failure, retry, recovery, completion) close to the service layer so every client sees the same story
