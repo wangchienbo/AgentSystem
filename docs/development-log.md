@@ -1813,3 +1813,20 @@ Extended retry observability so re-running the latest failed workflow now report
 #### Design intent clarified
 - retry should be an observable recovery action, not just another execution entry with implicit meaning
 - operators and future policy logic should be able to compare failure vs retry outcomes without manually diffing two workflow records
+
+### Module: add workflow diagnostics summary API
+
+Added a lightweight aggregated diagnostics view so operator-facing tooling can inspect one workflow path without stitching together history, failures, and retry payloads by hand.
+
+#### Updated
+- `app/api/main.py`
+  - adds `/workflows/diagnostics` to summarize latest execution, latest failure, latest retry, and recovery-state flags
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for diagnostics summary behavior on a still-failing retry path
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the diagnostics path.
+
+#### Design intent clarified
+- operator-facing diagnostics should expose a compact recovery summary instead of forcing clients to reconstruct state from several low-level endpoints
+- recovery panels should distinguish latest execution from latest true failure and latest retry attempt

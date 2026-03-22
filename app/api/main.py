@@ -443,6 +443,34 @@ def retry_last_failed_workflow(app_instance_id: str) -> dict:
         raise map_domain_error(error) from error
 
 
+@app.get("/workflows/diagnostics")
+def get_workflow_diagnostics(app_instance_id: str, workflow_id: str | None = None) -> dict:
+    history = workflow_executor.list_history(app_instance_id)
+    if workflow_id is not None:
+        history = [item for item in history if item.workflow_id == workflow_id]
+    latest_execution = max(history, key=lambda item: item.completed_at) if history else None
+    failures = [item for item in history if item.status == "partial" and item.failed_step_ids]
+    latest_failure = max(failures, key=lambda item: item.completed_at) if failures else None
+    retries = [item for item in history if item.retry_comparison is not None]
+    latest_retry = max(retries, key=lambda item: item.completed_at) if retries else None
+    recovery_state = None
+    if latest_retry is not None and latest_retry.retry_comparison is not None:
+        comparison = latest_retry.retry_comparison
+        recovery_state = {
+            "recovered": comparison.previous_status == "partial" and comparison.retried_status == "completed",
+            "still_failing": comparison.retried_status == "partial",
+            "resolved_failed_step_ids": comparison.resolved_failed_step_ids,
+            "unchanged_failed_step_ids": comparison.unchanged_failed_step_ids,
+            "newly_failed_step_ids": comparison.newly_failed_step_ids,
+        }
+    return {
+        "latest_execution": None if latest_execution is None else latest_execution.model_dump(mode="json"),
+        "latest_failure": None if latest_failure is None else latest_failure.model_dump(mode="json"),
+        "latest_retry": None if latest_retry is None else latest_retry.model_dump(mode="json"),
+        "recovery_state": recovery_state,
+    }
+
+
 @app.get("/runtime/persistence")
 def get_runtime_persistence_snapshot() -> dict:
     return {

@@ -275,6 +275,7 @@ The platform should expose an API-first path for generated skills so the system 
 - expose latest workflow execution lookup plus explicit failed-step identifiers so operators and future policy loops can inspect the newest result without manually diffing full history
 - allow workflow failure inspection to filter by workflow id and failed step id so debugging/retry surfaces can target one broken path instead of loading every partial execution
 - include retry comparison metadata in retried workflow results so operators can tell what changed between the failed execution and the retry without diffing two full payloads manually
+- provide a workflow diagnostics view that summarizes latest execution, latest failure, latest retry, and recovery state for one app/workflow path
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills
