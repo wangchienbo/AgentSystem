@@ -1983,3 +1983,88 @@ Kept pushing the observability framework toward dashboard-readiness by introduci
 #### Design intent clarified
 - dashboard/activity-stream consumers should read compact, normalized event cards instead of reconstructing semantic events from full execution payloads
 - timeline summaries should encode the important operator signal (failure, retry, recovery, completion) close to the service layer so every client sees the same story
+
+### Module: add timeline windowing and cursor pagination
+
+Rounded out the observability feed so it can behave like a real activity stream rather than a static list snapshot.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowTimelinePage`
+- `app/services/workflow_observability.py`
+  - extends history/timeline queries with `since` and `cursor`
+  - returns paged timeline results with `next_cursor`
+- `app/api/main.py`
+  - updates `/workflows/timeline` to return a page response instead of a bare list
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for `since` windows and cursor-style pagination
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the timeline paging path.
+
+#### Design intent clarified
+- observability feeds should support incremental loading and time-window refreshes as first-class capabilities, not afterthought client-side list trimming
+- a paged timeline response is a better long-term contract for UI consumers than an unbounded array
+
+### Module: add shared observability filter model
+
+Kept tightening the framework by introducing an explicit filter contract for observability queries so service and API layers stay aligned as the query surface grows.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowObservabilityFilter`
+- `app/services/workflow_observability.py`
+  - switches history filtering to consume the shared filter model
+- `app/api/main.py`
+  - normalizes diagnostics/history/timeline parameter handling through the shared filter model
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for filter-model-driven history queries
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the shared filter contract.
+
+#### Design intent clarified
+- once observability queries gain multiple knobs, an explicit filter model is safer than hand-copying parameter lists across each handler
+- consistent query semantics matter as much as payload shape when you want dashboard and operator tooling to remain predictable
+
+### Module: add observability API contract coverage and formalize history time-window filtering
+
+Closed the next consistency gap by testing the API layer against the shared filter semantics and extending history queries to support the same time-window behavior as timeline feeds.
+
+#### Updated
+- `tests/unit/test_workflow_executor.py`
+  - adds API contract coverage for shared observability filter semantics across diagnostics/history/timeline endpoints
+- `tests/unit/test_workflow_observability.py`
+  - extends service-level history coverage with `since` time-window filtering
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API/service regression coverage for shared filter semantics and history windowing.
+
+#### Design intent clarified
+- it is not enough for services to share a filter model; the exposed HTTP surfaces should be checked for semantic alignment too
+- history and timeline query surfaces should evolve together so clients do not face subtle capability mismatches
+
+### Module: align observability-history with paged timeline contracts and centralize API filter construction
+
+Tightened the framework contract by making history responses page-shaped like timeline responses and by removing repeated filter-object assembly from the API handlers.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowHistoryPage`
+- `app/services/workflow_observability.py`
+  - returns paged history results with `next_cursor`
+  - reuses paged history when building timeline pages
+- `app/api/main.py`
+  - adds a small `build_workflow_observability_filter()` helper
+  - switches `/workflows/observability-history` to return a page response
+- `tests/unit/test_workflow_executor.py`
+  - updates API contract coverage for paged history responses
+- `tests/unit/test_workflow_observability.py`
+  - updates service-level history assertions for page-shaped responses
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; updated deterministic API/service coverage for the shared paged-history contract.
+
+#### Design intent clarified
+- history and timeline should feel like sibling query surfaces, not two independently shaped APIs that happen to expose similar data
+- even small repeated request-construction code in API handlers becomes drift risk once the query contract keeps growing

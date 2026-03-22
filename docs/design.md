@@ -652,5 +652,9 @@ Current implementation note:
 - observability health classification now follows a small explicit rule table, which makes state additions and severity tuning less error-prone than growing nested conditionals
 - observability queries now support recent-N and unresolved-only history retrieval, which is a better fit for dashboards/timelines than forcing clients to slice the full execution history themselves
 - timeline-style observability summaries are now exposed as compact event cards (failure / retry / recovery / completed / partial) so UI surfaces do not need to transform full execution payloads just to render an incident feed
+- timeline queries now support `since` windows and cursor-style pagination so the observability layer can back activity feeds without forcing clients to pull and sort the entire history each time
+- observability queries now share an explicit filter model so API handlers and service logic stop drifting in which query knobs they support
+- API contract coverage now checks that diagnostics/history/timeline honor the same filter semantics, and observability-history formally supports time-window filtering alongside unresolved/recent slicing
+- history and timeline now share the same page-style response shape, and API-side filter construction is centralized through a small helper instead of repeated inline parameter assembly
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

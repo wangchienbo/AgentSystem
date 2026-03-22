@@ -12,6 +12,7 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.workflow_executor import WorkflowExecutorService
 from app.services.workflow_observability import WorkflowObservabilityService
+from app.models.workflow_observability import WorkflowObservabilityFilter
 
 
 def _build_runtime(prefix: str):
@@ -192,22 +193,31 @@ def test_workflow_observability_history_supports_limit_and_unresolved_filters() 
     first = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.history")
     second = executor.retry_last_failure(install_result.app_instance_id)
 
+    since_filtered = observability.list_observability_history(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.history",
+        since=first.completed_at.isoformat(),
+    )
+    assert len(since_filtered.items) >= 1
+    assert any(item.workflow_id == second.workflow_id for item in since_filtered.items)
+
     limited = observability.list_observability_history(
         app_instance_id=install_result.app_instance_id,
         workflow_id="wf.obs.history",
         limit=1,
     )
-    assert len(limited) == 1
-    assert limited[0].completed_at >= first.completed_at
+    assert len(limited.items) == 1
+    assert limited.items[0].completed_at >= first.completed_at
+    assert limited.next_cursor is not None
 
     unresolved = observability.list_observability_history(
         app_instance_id=install_result.app_instance_id,
         workflow_id="wf.obs.history",
         unresolved_only=True,
     )
-    assert len(unresolved) >= 1
-    assert all(item.status == "partial" or (item.retry_comparison is not None and item.retry_comparison.retried_status == "partial") for item in unresolved)
-    assert any(item.workflow_id == second.workflow_id for item in unresolved)
+    assert len(unresolved.items) >= 1
+    assert all(item.status == "partial" or (item.retry_comparison is not None and item.retry_comparison.retried_status == "partial") for item in unresolved.items)
+    assert any(item.workflow_id == second.workflow_id for item in unresolved.items)
 
 
 
@@ -252,6 +262,107 @@ def test_workflow_timeline_events_summarize_failure_and_retry_flow() -> None:
     assert timeline[0].summary
     assert timeline[1].event_kind in {"retry", "failure"}
     assert timeline[1].summary
+
+
+
+def test_workflow_timeline_supports_since_and_cursor_pagination() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-pagination")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.pagination",
+            name="Workflow Observability Pagination App",
+            goal="page workflow timeline",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.pagination",
+                    "name": "obs pagination",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.pagination", user_id="obs-pagination-user")
+
+    first = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.pagination")
+    second = executor.retry_last_failure(install_result.app_instance_id)
+
+    page1 = observability.list_timeline_events(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.pagination",
+        limit=1,
+    )
+    assert len(page1.items) == 1
+    assert page1.next_cursor is not None
+
+    page2 = observability.list_timeline_events(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.pagination",
+        limit=1,
+        cursor=page1.next_cursor,
+    )
+    assert len(page2.items) <= 1
+    if page2.items:
+        assert page2.items[0].completed_at < page1.items[0].completed_at
+
+    recent = observability.list_timeline_events(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.pagination",
+        since=first.completed_at.isoformat(),
+    )
+    assert len(recent.items) >= 1
+    assert any(item.workflow_id == second.workflow_id for item in recent.items)
+
+
+
+def test_workflow_observability_filter_model_drives_history_queries() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-filter-model")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.filter-model",
+            name="Workflow Observability Filter Model App",
+            goal="drive history queries from filter model",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.filter-model",
+                    "name": "obs filter model",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.filter-model", user_id="obs-filter-model-user")
+
+    executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.filter-model")
+    executor.retry_last_failure(install_result.app_instance_id)
+
+    filters = WorkflowObservabilityFilter(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.filter-model",
+        failed_step_id="blocked.skill",
+        limit=1,
+        unresolved_only=True,
+    )
+    history = observability.filter_history(filters)
+
+    assert len(history) == 1
+    assert history[0].workflow_id == "wf.obs.filter-model"
+    assert history[0].status == "partial"
 
 
 
