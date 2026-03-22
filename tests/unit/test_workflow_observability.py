@@ -193,6 +193,14 @@ def test_workflow_observability_history_supports_limit_and_unresolved_filters() 
     first = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.history")
     second = executor.retry_last_failure(install_result.app_instance_id)
 
+    since_filtered = observability.list_observability_history(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.history",
+        since=first.completed_at.isoformat(),
+    )
+    assert len(since_filtered) >= 1
+    assert any(item.workflow_id == second.workflow_id for item in since_filtered)
+
     limited = observability.list_observability_history(
         app_instance_id=install_result.app_instance_id,
         workflow_id="wf.obs.history",

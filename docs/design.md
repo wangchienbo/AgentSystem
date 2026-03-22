@@ -654,5 +654,6 @@ Current implementation note:
 - timeline-style observability summaries are now exposed as compact event cards (failure / retry / recovery / completed / partial) so UI surfaces do not need to transform full execution payloads just to render an incident feed
 - timeline queries now support `since` windows and cursor-style pagination so the observability layer can back activity feeds without forcing clients to pull and sort the entire history each time
 - observability queries now share an explicit filter model so API handlers and service logic stop drifting in which query knobs they support
+- API contract coverage now checks that diagnostics/history/timeline honor the same filter semantics, and observability-history formally supports time-window filtering alongside unresolved/recent slicing
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

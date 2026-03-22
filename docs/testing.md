@@ -127,6 +127,7 @@ Covered behavior:
 - timeline event summaries covering failure/retry flow normalization
 - timeline pagination/windowing behavior covering `since` and cursor-based fetches
 - shared observability filter model coverage to keep query semantics aligned across service/API surfaces
+- API contract tests verifying diagnostics/history/timeline respect the same observability filter semantics
 
 ## 3.7 Interaction gateway
 Covered behavior:

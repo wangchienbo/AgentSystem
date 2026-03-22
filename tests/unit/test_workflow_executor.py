@@ -869,6 +869,101 @@ def test_workflow_overview_reports_unknown_for_partial_without_failed_steps() ->
 
 
 
+def test_workflow_api_contracts_share_observability_filter_semantics() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.api.contracts",
+            "name": "Workflow API Contracts App",
+            "goal": "verify observability api filter semantics",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.api.contracts",
+                    "name": "api contracts",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": [],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.api.contracts/install",
+        json={"user_id": "workflow-api-contract-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    first_execute = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.api.contracts", "trigger": "api", "inputs": {}},
+    )
+    assert first_execute.status_code == 200
+    first_completed_at = first_execute.json()["completed_at"]
+
+    retry_response = client.post(f"/apps/{app_instance_id}/workflows/retry-last-failure")
+    assert retry_response.status_code == 200
+
+    diagnostics = client.get(
+        "/workflows/diagnostics",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.api.contracts",
+            "failed_step_id": "blocked.skill",
+        },
+    )
+    assert diagnostics.status_code == 200
+    assert diagnostics.json()["latest_failure"]["failed_step_ids"] == ["blocked.skill"]
+
+    history = client.get(
+        "/workflows/observability-history",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.api.contracts",
+            "failed_step_id": "blocked.skill",
+            "since": first_completed_at,
+            "unresolved_only": True,
+            "limit": 1,
+        },
+    )
+    assert history.status_code == 200
+    history_payload = history.json()
+    assert len(history_payload) == 1
+    assert history_payload[0]["workflow_id"] == "wf.api.contracts"
+
+    timeline = client.get(
+        "/workflows/timeline",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.api.contracts",
+            "failed_step_id": "blocked.skill",
+            "since": first_completed_at,
+            "limit": 1,
+        },
+    )
+    assert timeline.status_code == 200
+    timeline_payload = timeline.json()
+    assert len(timeline_payload["items"]) == 1
+    assert timeline_payload["items"][0]["workflow_id"] == "wf.api.contracts"
+    assert timeline_payload["next_cursor"] is not None
+
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

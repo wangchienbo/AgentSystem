@@ -2026,3 +2026,20 @@ Kept tightening the framework by introducing an explicit filter contract for obs
 #### Design intent clarified
 - once observability queries gain multiple knobs, an explicit filter model is safer than hand-copying parameter lists across each handler
 - consistent query semantics matter as much as payload shape when you want dashboard and operator tooling to remain predictable
+
+### Module: add observability API contract coverage and formalize history time-window filtering
+
+Closed the next consistency gap by testing the API layer against the shared filter semantics and extending history queries to support the same time-window behavior as timeline feeds.
+
+#### Updated
+- `tests/unit/test_workflow_executor.py`
+  - adds API contract coverage for shared observability filter semantics across diagnostics/history/timeline endpoints
+- `tests/unit/test_workflow_observability.py`
+  - extends service-level history coverage with `since` time-window filtering
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API/service regression coverage for shared filter semantics and history windowing.
+
+#### Design intent clarified
+- it is not enough for services to share a filter model; the exposed HTTP surfaces should be checked for semantic alignment too
+- history and timeline query surfaces should evolve together so clients do not face subtle capability mismatches
