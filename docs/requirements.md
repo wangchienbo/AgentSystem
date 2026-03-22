@@ -287,6 +287,7 @@ The platform should expose an API-first path for generated skills so the system 
 - keep history and timeline response contracts aligned around paged results so clients can consume both surfaces with fewer special cases
 - include lightweight page metadata (counts/window/cursor state) so dashboards can present feed context without computing it independently
 - expose aggregate workflow observability totals so operator dashboards can render summary cards without scanning full history/timeline feeds
+- provide a single dashboard-oriented observability payload that bundles health/overview, aggregate stats, and a recent activity slice
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

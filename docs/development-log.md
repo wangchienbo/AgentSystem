@@ -2113,3 +2113,26 @@ Rounded out the operator read-model by adding aggregate observability totals so 
 #### Design intent clarified
 - operator dashboards often need both feed-style detail and card-style aggregate stats; one should not require reconstructing the other client-side
 - aggregate stats should respect the same filtering concepts as the rest of the observability framework so summary cards and feeds remain coherent
+
+### Module: add dashboard-oriented observability summary
+
+Added a higher-level operator read model so dashboards can fetch one coherent payload instead of stitching overview, stats, and recent timeline calls together on the client side.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowDashboardSummary`
+- `app/services/workflow_observability.py`
+  - adds `get_dashboard_summary()` to bundle overview, stats, and recent timeline
+- `app/api/main.py`
+  - adds `/workflows/dashboard`
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for the dashboard summary payload
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for combined dashboard composition
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API/service coverage for the dashboard read-model path.
+
+#### Design intent clarified
+- once observability data is rich enough, clients benefit from a composed read model that reflects operator needs directly instead of forcing repeated orchestration calls
+- the dashboard summary should remain a thin composition over existing observability primitives so lower-level query surfaces stay reusable and testable

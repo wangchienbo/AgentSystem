@@ -658,5 +658,6 @@ Current implementation note:
 - history and timeline now share the same page-style response shape, and API-side filter construction is centralized through a small helper instead of repeated inline parameter assembly
 - paged observability responses now carry lightweight metadata (`returned_count`, `unresolved_count`, `has_more`, `window_since`, `next_cursor`) so dashboard clients can render state without re-deriving feed stats client-side
 - an aggregate stats summary is now available for workflow observability, giving operator-facing surfaces totals for executions, failures, retries, recoveries, unresolved states, and latest activity time
+- a dashboard-style read model now combines overview, stats, and recent timeline into one higher-level payload for operator surfaces that want one coherent summary call
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

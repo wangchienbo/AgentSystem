@@ -584,6 +584,29 @@ def get_workflow_stats(
     ).model_dump(mode="json")
 
 
+@app.get("/workflows/dashboard")
+def get_workflow_dashboard(
+    app_instance_id: str,
+    workflow_id: str | None = None,
+    failed_step_id: str | None = None,
+    since: str | None = None,
+    timeline_limit: int = 5,
+) -> dict:
+    filters = build_workflow_observability_filter(
+        app_instance_id=app_instance_id,
+        workflow_id=workflow_id,
+        failed_step_id=failed_step_id,
+        since=since,
+    )
+    return workflow_observability.get_dashboard_summary(
+        app_instance_id=filters.app_instance_id,
+        workflow_id=filters.workflow_id,
+        failed_step_id=filters.failed_step_id,
+        since=filters.since,
+        timeline_limit=timeline_limit,
+    ).model_dump(mode="json")
+
+
 @app.get("/runtime/persistence")
 def get_runtime_persistence_snapshot() -> dict:
     return {

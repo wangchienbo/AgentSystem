@@ -5,6 +5,7 @@ from typing import Iterable, Literal
 
 from app.models.workflow_execution import WorkflowExecutionResult
 from app.models.workflow_observability import (
+    WorkflowDashboardSummary,
     WorkflowDiagnosticsSummary,
     WorkflowHealthSummary,
     WorkflowHistoryPage,
@@ -263,6 +264,38 @@ class WorkflowObservabilityService:
             total_partial_without_failed_steps=total_partial_without_failed_steps,
             unresolved_executions=unresolved_executions,
             latest_event_at=latest_event_at,
+        )
+
+    def get_dashboard_summary(
+        self,
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        since: str | None = None,
+        timeline_limit: int = 5,
+    ) -> WorkflowDashboardSummary:
+        overview = self.get_overview(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+        )
+        stats = self.get_stats_summary(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            since=since,
+        )
+        recent_timeline = self.list_timeline_events(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            limit=timeline_limit,
+            since=since,
+        )
+        return WorkflowDashboardSummary(
+            overview=overview,
+            stats=stats,
+            recent_timeline=recent_timeline,
         )
 
     def _matches_failed_step(self, item: WorkflowExecutionResult, failed_step_id: str) -> bool:

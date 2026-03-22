@@ -1037,6 +1037,73 @@ def test_workflow_stats_api_returns_aggregate_observability_totals() -> None:
 
 
 
+def test_workflow_dashboard_api_returns_operator_read_model() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.api.dashboard",
+            "name": "Workflow API Dashboard App",
+            "goal": "verify workflow dashboard api",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.api.dashboard",
+                    "name": "api dashboard",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": [],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.api.dashboard/install",
+        json={"user_id": "workflow-api-dashboard-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    execute_response = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.api.dashboard", "trigger": "api", "inputs": {}},
+    )
+    assert execute_response.status_code == 200
+
+    retry_response = client.post(f"/apps/{app_instance_id}/workflows/retry-last-failure")
+    assert retry_response.status_code == 200
+
+    dashboard_response = client.get(
+        "/workflows/dashboard",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.api.dashboard",
+            "failed_step_id": "blocked.skill",
+            "timeline_limit": 2,
+        },
+    )
+    assert dashboard_response.status_code == 200
+    dashboard = dashboard_response.json()
+    assert dashboard["overview"]["health"]["health_status"] == "failing"
+    assert dashboard["stats"]["total_executions"] >= 2
+    assert dashboard["recent_timeline"]["meta"]["returned_count"] >= 1
+    assert len(dashboard["recent_timeline"]["items"]) >= 1
+
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

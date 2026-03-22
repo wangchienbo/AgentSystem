@@ -98,6 +98,12 @@ class WorkflowStatsSummary(BaseModel):
     latest_event_at: str | None = None
 
 
+class WorkflowDashboardSummary(BaseModel):
+    overview: WorkflowOverview
+    stats: WorkflowStatsSummary
+    recent_timeline: WorkflowTimelinePage
+
+
 class WorkflowOverview(BaseModel):
     diagnostics: WorkflowDiagnosticsSummary
     latest_recovery: WorkflowRecoverySummary | None = None

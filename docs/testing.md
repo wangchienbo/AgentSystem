@@ -131,6 +131,7 @@ Covered behavior:
 - page-shape coverage for observability-history so it stays aligned with timeline pagination semantics
 - page metadata coverage for history/timeline responses (counts, cursors, window info)
 - aggregate stats coverage for workflow observability totals
+- dashboard summary coverage for combined overview/stats/timeline operator read models
 
 ## 3.7 Interaction gateway
 Covered behavior:

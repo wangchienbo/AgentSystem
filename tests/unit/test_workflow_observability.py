@@ -414,6 +414,49 @@ def test_workflow_stats_summary_aggregates_operator_totals() -> None:
 
 
 
+def test_workflow_dashboard_summary_combines_overview_stats_and_timeline() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-dashboard")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.dashboard",
+            name="Workflow Observability Dashboard App",
+            goal="compose dashboard summary",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.dashboard",
+                    "name": "obs dashboard",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.dashboard", user_id="obs-dashboard-user")
+
+    executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.dashboard")
+    executor.retry_last_failure(install_result.app_instance_id)
+
+    dashboard = observability.get_dashboard_summary(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.dashboard",
+        failed_step_id="blocked.skill",
+        timeline_limit=2,
+    )
+
+    assert dashboard.overview.health.health_status == "failing"
+    assert dashboard.stats.total_executions >= 2
+    assert dashboard.recent_timeline.meta.returned_count >= 1
+    assert len(dashboard.recent_timeline.items) >= 1
+
+
+
 def test_workflow_observability_reports_healthy_and_unknown_states() -> None:
     registry, installer, executor, observability = _build_runtime("workflow-observability-states")
 
