@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Iterable, Literal
 
 from app.models.workflow_execution import WorkflowExecutionResult
 from app.models.workflow_observability import (
@@ -10,6 +10,10 @@ from app.models.workflow_observability import (
     WorkflowRecoveryState,
     WorkflowRecoverySummary,
 )
+
+
+HealthStatus = Literal["healthy", "failing", "recovering", "unknown"]
+HealthSeverity = Literal["info", "warning", "critical"]
 
 
 class WorkflowObservabilityService:
@@ -90,33 +94,20 @@ class WorkflowObservabilityService:
             failed_step_id=failed_step_id,
         )
         latest_execution = diagnostics.latest_execution
-        latest_failure = diagnostics.latest_failure
         latest_retry = diagnostics.latest_retry
         recovery_state = diagnostics.recovery_state
 
         if latest_execution is None:
             return WorkflowHealthSummary()
 
-        unresolved_failure_count = 0 if recovery_state is None else len(recovery_state.unchanged_failed_step_ids) + len(recovery_state.newly_failed_step_ids)
-        latest_failed_step_ids = [] if latest_execution is None else list(latest_execution.failed_step_ids)
+        unresolved_failure_count = self._count_unresolved_failures(recovery_state)
+        latest_failed_step_ids = list(latest_execution.failed_step_ids)
         has_recent_retry = latest_retry is not None
-
-        if recovery_state is not None and recovery_state.recovered:
-            health_status = "recovering"
-            severity = "warning"
-            last_transition = "failure->recovered"
-        elif latest_execution.status == "partial" and latest_failed_step_ids:
-            health_status = "failing"
-            severity = "critical"
-            last_transition = "failure" if latest_retry is None else "failure->retry-partial"
-        elif latest_execution.status == "completed":
-            health_status = "healthy"
-            severity = "info"
-            last_transition = "completed"
-        else:
-            health_status = "unknown"
-            severity = "warning" if latest_failure is not None else "info"
-            last_transition = "partial-without-failed-steps"
+        health_status, severity, last_transition = self._classify_health(
+            latest_execution=latest_execution,
+            recovery_state=recovery_state,
+            has_recent_retry=has_recent_retry,
+        )
 
         return WorkflowHealthSummary(
             health_status=health_status,
@@ -157,6 +148,26 @@ class WorkflowObservabilityService:
         if comparison is None:
             return False
         return failed_step_id in self._iter_retry_step_ids(comparison)
+
+    def _count_unresolved_failures(self, recovery_state: WorkflowRecoveryState | None) -> int:
+        if recovery_state is None:
+            return 0
+        return len(recovery_state.unchanged_failed_step_ids) + len(recovery_state.newly_failed_step_ids)
+
+    def _classify_health(
+        self,
+        latest_execution: WorkflowExecutionResult,
+        recovery_state: WorkflowRecoveryState | None,
+        has_recent_retry: bool,
+    ) -> tuple[HealthStatus, HealthSeverity, str]:
+        latest_failed_step_ids = list(latest_execution.failed_step_ids)
+        if recovery_state is not None and recovery_state.recovered:
+            return "recovering", "warning", "failure->recovered"
+        if latest_execution.status == "partial" and latest_failed_step_ids:
+            return "failing", "critical", ("failure->retry-partial" if has_recent_retry else "failure")
+        if latest_execution.status == "completed":
+            return "healthy", "info", "completed"
+        return "unknown", "info", "partial-without-failed-steps"
 
     def _iter_retry_step_ids(self, comparison) -> Iterable[str]:
         yield from comparison.previous_failed_step_ids

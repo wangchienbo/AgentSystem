@@ -1908,3 +1908,20 @@ Completed the structural split by deleting leftover observability aggregation he
 #### Design intent clarified
 - once observability is extracted, the executor should keep only execution/retry concerns instead of retaining stale read-model helpers
 - health summaries should have tested semantics for non-error partial states, not only obvious failure cases
+
+### Module: add dedicated workflow observability tests and centralize health classification rules
+
+Continued the refactor by moving observability verification into its own test module and extracting health/severity rule decisions into explicit helper methods inside the observability service.
+
+#### Updated
+- `app/services/workflow_observability.py`
+  - centralizes unresolved-failure counting and health/severity classification helpers
+- `tests/unit/test_workflow_observability.py`
+  - adds dedicated service-level tests for failing, healthy, and unknown workflow observability states
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the observability classification rules.
+
+#### Design intent clarified
+- observability logic should be testable directly at the service layer without routing every scenario through API-heavy executor tests
+- health classification should be a named rule path, not inline conditional glue scattered across summary assembly
