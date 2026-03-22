@@ -413,8 +413,17 @@ def list_workflow_history(app_instance_id: str | None = None) -> list[dict]:
 
 
 @app.get("/workflows/failures")
-def list_workflow_failures(app_instance_id: str | None = None) -> list[dict]:
-    return [item.model_dump(mode="json") for item in workflow_executor.list_recent_failures(app_instance_id)]
+def list_workflow_failures(
+    app_instance_id: str | None = None,
+    workflow_id: str | None = None,
+    failed_step_id: str | None = None,
+) -> list[dict]:
+    failures = workflow_executor.list_recent_failures(app_instance_id)
+    if workflow_id is not None:
+        failures = [item for item in failures if item.workflow_id == workflow_id]
+    if failed_step_id is not None:
+        failures = [item for item in failures if failed_step_id in item.failed_step_ids]
+    return [item.model_dump(mode="json") for item in failures]
 
 
 @app.get("/workflows/latest")

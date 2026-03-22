@@ -341,6 +341,94 @@ def test_workflow_latest_api_returns_newest_execution() -> None:
 
 
 
+def test_workflow_failures_api_supports_workflow_and_failed_step_filters() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.failure.filters",
+            "name": "Workflow Failure Filters App",
+            "goal": "filter workflow failures",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.failure.filtered",
+                    "name": "failure filtered",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                },
+                {
+                    "id": "wf.success.other",
+                    "name": "success other",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "set.ok", "kind": "module", "ref": "state.set", "config": {"key": "ok", "value": {"done": True}}},
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": ["state.set"],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.failure.filters/install",
+        json={"user_id": "workflow-failure-filter-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    failure_execute = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.failure.filtered", "trigger": "api", "inputs": {}},
+    )
+    assert failure_execute.status_code == 200
+    assert failure_execute.json()["failed_step_ids"] == ["blocked.skill"]
+
+    success_execute = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.success.other", "trigger": "api", "inputs": {}},
+    )
+    assert success_execute.status_code == 200
+
+    filtered_response = client.get(
+        "/workflows/failures",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.failure.filtered",
+            "failed_step_id": "blocked.skill",
+        },
+    )
+    assert filtered_response.status_code == 200
+    filtered = filtered_response.json()
+    assert len(filtered) == 1
+    assert filtered[0]["workflow_id"] == "wf.failure.filtered"
+    assert filtered[0]["failed_step_ids"] == ["blocked.skill"]
+
+    empty_response = client.get(
+        "/workflows/failures",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.success.other",
+            "failed_step_id": "blocked.skill",
+        },
+    )
+    assert empty_response.status_code == 200
+    assert empty_response.json() == []
+
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

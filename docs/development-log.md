@@ -1775,3 +1775,22 @@ Pushed workflow observability a bit further so operators and future policy loops
 #### Design intent clarified
 - operators should not need to manually scan full workflow history just to inspect the newest execution
 - workflow-level failure summaries should expose exact failed step ids so future retry, UI, and policy layers can target the right step quickly
+
+### Module: add filtered workflow failure inspection and ignore generated runtime assets
+
+Extended the workflow observability path so failure triage can focus on one broken workflow/step, and cleaned up repo hygiene so generated runtime assets stop showing up as stray changes.
+
+#### Updated
+- `app/api/main.py`
+  - extends `/workflows/failures` with optional `workflow_id` and `failed_step_id` filters
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for filtered workflow failure inspection
+- `.gitignore`
+  - ignores `data/generated_callable_skills/` alongside other runtime/generated artifacts
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the new filtering behavior.
+
+#### Design intent clarified
+- failure inspection should support targeted triage by workflow path and failed step, not only broad history listing
+- generated runtime skill assets are execution byproducts and should not pollute normal source-control status
