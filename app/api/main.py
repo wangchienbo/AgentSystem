@@ -499,17 +499,18 @@ def list_workflow_timeline(
     failed_step_id: str | None = None,
     limit: int | None = None,
     unresolved_only: bool = False,
-) -> list[dict]:
-    return [
-        item.model_dump(mode="json")
-        for item in workflow_observability.list_timeline_events(
-            app_instance_id=app_instance_id,
-            workflow_id=workflow_id,
-            failed_step_id=failed_step_id,
-            limit=limit,
-            unresolved_only=unresolved_only,
-        )
-    ]
+    since: str | None = None,
+    cursor: str | None = None,
+) -> dict:
+    return workflow_observability.list_timeline_events(
+        app_instance_id=app_instance_id,
+        workflow_id=workflow_id,
+        failed_step_id=failed_step_id,
+        limit=limit,
+        unresolved_only=unresolved_only,
+        since=since,
+        cursor=cursor,
+    ).model_dump(mode="json")
 
 
 @app.get("/runtime/persistence")

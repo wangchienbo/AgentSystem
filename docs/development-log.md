@@ -1983,3 +1983,25 @@ Kept pushing the observability framework toward dashboard-readiness by introduci
 #### Design intent clarified
 - dashboard/activity-stream consumers should read compact, normalized event cards instead of reconstructing semantic events from full execution payloads
 - timeline summaries should encode the important operator signal (failure, retry, recovery, completion) close to the service layer so every client sees the same story
+
+### Module: add timeline windowing and cursor pagination
+
+Rounded out the observability feed so it can behave like a real activity stream rather than a static list snapshot.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowTimelinePage`
+- `app/services/workflow_observability.py`
+  - extends history/timeline queries with `since` and `cursor`
+  - returns paged timeline results with `next_cursor`
+- `app/api/main.py`
+  - updates `/workflows/timeline` to return a page response instead of a bare list
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for `since` windows and cursor-style pagination
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the timeline paging path.
+
+#### Design intent clarified
+- observability feeds should support incremental loading and time-window refreshes as first-class capabilities, not afterthought client-side list trimming
+- a paged timeline response is a better long-term contract for UI consumers than an unbounded array

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Iterable, Literal
 
 from app.models.workflow_execution import WorkflowExecutionResult
@@ -10,6 +11,7 @@ from app.models.workflow_observability import (
     WorkflowRecoveryState,
     WorkflowRecoverySummary,
     WorkflowTimelineEvent,
+    WorkflowTimelinePage,
 )
 
 
@@ -34,6 +36,8 @@ class WorkflowObservabilityService:
         failed_step_id: str | None = None,
         limit: int | None = None,
         unresolved_only: bool = False,
+        since: str | None = None,
+        cursor: str | None = None,
     ) -> list[WorkflowExecutionResult]:
         history = self._workflow_executor.list_history(app_instance_id)
         if workflow_id is not None:
@@ -42,7 +46,13 @@ class WorkflowObservabilityService:
             history = [item for item in history if self._matches_failed_step(item, failed_step_id)]
         if unresolved_only:
             history = [item for item in history if self._is_unresolved(item)]
+        if since is not None:
+            since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            history = [item for item in history if item.completed_at >= since_dt]
         history = sorted(history, key=lambda item: item.completed_at, reverse=True)
+        if cursor is not None:
+            cursor_dt = datetime.fromisoformat(cursor.replace("Z", "+00:00"))
+            history = [item for item in history if item.completed_at < cursor_dt]
         if limit is not None:
             history = history[:limit]
         return history
@@ -162,6 +172,8 @@ class WorkflowObservabilityService:
         failed_step_id: str | None = None,
         limit: int | None = None,
         unresolved_only: bool = False,
+        since: str | None = None,
+        cursor: str | None = None,
     ) -> list[WorkflowExecutionResult]:
         return self.filter_history(
             app_instance_id=app_instance_id,
@@ -169,6 +181,8 @@ class WorkflowObservabilityService:
             failed_step_id=failed_step_id,
             limit=limit,
             unresolved_only=unresolved_only,
+            since=since,
+            cursor=cursor,
         )
 
     def list_timeline_events(
@@ -178,15 +192,21 @@ class WorkflowObservabilityService:
         failed_step_id: str | None = None,
         limit: int | None = None,
         unresolved_only: bool = False,
-    ) -> list[WorkflowTimelineEvent]:
+        since: str | None = None,
+        cursor: str | None = None,
+    ) -> WorkflowTimelinePage:
         history = self.list_observability_history(
             app_instance_id=app_instance_id,
             workflow_id=workflow_id,
             failed_step_id=failed_step_id,
             limit=limit,
             unresolved_only=unresolved_only,
+            since=since,
+            cursor=cursor,
         )
-        return [self._to_timeline_event(item) for item in history]
+        items = [self._to_timeline_event(item) for item in history]
+        next_cursor = items[-1].completed_at if limit is not None and len(items) == limit else None
+        return WorkflowTimelinePage(items=items, next_cursor=next_cursor)
 
     def _matches_failed_step(self, item: WorkflowExecutionResult, failed_step_id: str) -> bool:
         if failed_step_id in item.failed_step_ids:

@@ -255,6 +255,63 @@ def test_workflow_timeline_events_summarize_failure_and_retry_flow() -> None:
 
 
 
+def test_workflow_timeline_supports_since_and_cursor_pagination() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-pagination")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.pagination",
+            name="Workflow Observability Pagination App",
+            goal="page workflow timeline",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.pagination",
+                    "name": "obs pagination",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.pagination", user_id="obs-pagination-user")
+
+    first = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.pagination")
+    second = executor.retry_last_failure(install_result.app_instance_id)
+
+    page1 = observability.list_timeline_events(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.pagination",
+        limit=1,
+    )
+    assert len(page1.items) == 1
+    assert page1.next_cursor is not None
+
+    page2 = observability.list_timeline_events(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.pagination",
+        limit=1,
+        cursor=page1.next_cursor,
+    )
+    assert len(page2.items) <= 1
+    if page2.items:
+        assert page2.items[0].completed_at < page1.items[0].completed_at
+
+    recent = observability.list_timeline_events(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.pagination",
+        since=first.completed_at.isoformat(),
+    )
+    assert len(recent.items) >= 1
+    assert any(item.workflow_id == second.workflow_id for item in recent.items)
+
+
+
 def test_workflow_observability_reports_healthy_and_unknown_states() -> None:
     registry, installer, executor, observability = _build_runtime("workflow-observability-states")
 

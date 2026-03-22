@@ -59,6 +59,11 @@ class WorkflowTimelineEvent(BaseModel):
     retry_of_completed_at: str | None = None
 
 
+class WorkflowTimelinePage(BaseModel):
+    items: list[WorkflowTimelineEvent] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
 class WorkflowOverview(BaseModel):
     diagnostics: WorkflowDiagnosticsSummary
     latest_recovery: WorkflowRecoverySummary | None = None
