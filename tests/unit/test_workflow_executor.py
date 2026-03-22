@@ -429,6 +429,85 @@ def test_workflow_failures_api_supports_workflow_and_failed_step_filters() -> No
 
 
 
+def test_retry_last_failure_returns_comparison_details() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.retry.compare",
+            "name": "Workflow Retry Compare App",
+            "goal": "compare retry results",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.retry.compare",
+                    "name": "retry compare",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {
+                            "id": "set.maybe",
+                            "kind": "module",
+                            "ref": "state.set",
+                            "config": {
+                                "key": "maybe",
+                                "value": {"ok": True},
+                                "when": {"source": {"$from_inputs": "allow_write", "default": False}, "equals": True}
+                            },
+                        },
+                        {
+                            "id": "read.maybe",
+                            "kind": "module",
+                            "ref": "state.get",
+                            "config": {"key": "maybe"},
+                        },
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": ["state.set", "state.get"],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.retry.compare/install",
+        json={"user_id": "workflow-retry-compare-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    first_execute = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.retry.compare", "trigger": "api", "inputs": {"allow_write": False}},
+    )
+    assert first_execute.status_code == 200
+    first = first_execute.json()
+    assert first["status"] == "partial"
+    assert first["failed_step_ids"] == []
+
+    retry_response = client.post(f"/apps/{app_instance_id}/workflows/retry-last-failure")
+    assert retry_response.status_code == 200
+    retried = retry_response.json()
+    assert retried["trigger"] == "retry:api"
+    assert retried["retry_comparison"]["previous_status"] == "partial"
+    assert retried["retry_comparison"]["retried_status"] == "partial"
+    assert retried["retry_comparison"]["previous_failed_step_ids"] == []
+    assert retried["retry_comparison"]["retried_failed_step_ids"] == []
+    assert retried["retry_comparison"]["unchanged_failed_step_ids"] == []
+    assert retried["retry_comparison"]["resolved_failed_step_ids"] == []
+    assert retried["retry_comparison"]["newly_failed_step_ids"] == []
+    assert retried["retry_of_completed_at"] is not None
+
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

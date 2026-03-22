@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 from copy import deepcopy
 
-from app.models.workflow_execution import WorkflowExecutionResult, WorkflowStepExecution
+from app.models.workflow_execution import WorkflowExecutionResult, WorkflowRetryComparison, WorkflowStepExecution
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
@@ -396,12 +396,28 @@ class WorkflowExecutorService:
             raise WorkflowExecutorError(f"No failed workflow execution found for app instance: {app_instance_id}")
         last = failures[-1]
         retry_inputs = deepcopy(last.outputs.get("inputs", {})) if isinstance(last.outputs, dict) else {}
-        return self.execute_workflow(
+        retried = self.execute_workflow(
             app_instance_id=app_instance_id,
             workflow_id=last.workflow_id,
             trigger=f"retry:{last.trigger}",
             inputs=retry_inputs if isinstance(retry_inputs, dict) else {},
         )
+        previous_failed = set(last.failed_step_ids)
+        retried_failed = set(retried.failed_step_ids)
+        retried.retry_of_completed_at = last.completed_at
+        retried.retry_comparison = WorkflowRetryComparison(
+            previous_status=last.status,
+            retried_status=retried.status,
+            previous_failed_step_ids=list(last.failed_step_ids),
+            retried_failed_step_ids=list(retried.failed_step_ids),
+            resolved_failed_step_ids=sorted(previous_failed - retried_failed),
+            newly_failed_step_ids=sorted(retried_failed - previous_failed),
+            unchanged_failed_step_ids=sorted(previous_failed & retried_failed),
+        )
+        if self._history:
+            self._history[-1] = retried
+            self._persist_history()
+        return retried
 
     def _persist_history(self) -> None:
         if self._store is None:

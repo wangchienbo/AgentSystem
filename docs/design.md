@@ -642,5 +642,6 @@ Current implementation note:
 - workflow and skill execution now expose basic observability surfaces: execution history, filtered failure inspection, latest execution lookup, and skill failure listings
 - workflow failure inspection can now be narrowed by app instance, workflow id, and failed step id for faster operator triage
 - workflow execution results now carry explicit `failed_step_ids` so failure review and future policy/retry tooling can identify the exact blocked steps without re-scanning every step payload
+- retrying the latest failed workflow now returns structured before/after comparison metadata so operators can see whether status changed and which failed steps were resolved, unchanged, or newly introduced
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

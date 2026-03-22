@@ -119,7 +119,7 @@ Covered behavior:
 - blueprint allowlist enforcement for workflow skill steps
 - workflow and skill observability APIs for history/failure/latest inspection, including failure filtering by workflow id and failed step id
 - workflow execution results include explicit `failed_step_ids` for failure targeting and regression assertions
-- retry API for rerunning the latest failed workflow execution
+- retry API for rerunning the latest failed workflow execution with structured before/after comparison metadata
 
 ## 3.7 Interaction gateway
 Covered behavior:

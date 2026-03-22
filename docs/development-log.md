@@ -1794,3 +1794,22 @@ Extended the workflow observability path so failure triage can focus on one brok
 #### Design intent clarified
 - failure inspection should support targeted triage by workflow path and failed step, not only broad history listing
 - generated runtime skill assets are execution byproducts and should not pollute normal source-control status
+
+### Module: add retry comparison metadata for failed workflow re-execution
+
+Extended retry observability so re-running the latest failed workflow now reports what changed instead of only returning another raw execution payload.
+
+#### Updated
+- `app/models/workflow_execution.py`
+  - adds `WorkflowRetryComparison`, `retry_of_completed_at`, and `retry_comparison`
+- `app/services/workflow_executor.py`
+  - enriches retry results with before/after failed-step and status comparison data
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for retry comparison payloads
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the retry comparison path.
+
+#### Design intent clarified
+- retry should be an observable recovery action, not just another execution entry with implicit meaning
+- operators and future policy logic should be able to compare failure vs retry outcomes without manually diffing two workflow records
