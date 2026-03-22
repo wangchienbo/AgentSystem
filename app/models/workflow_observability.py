@@ -87,6 +87,17 @@ class WorkflowObservabilityFilter(BaseModel):
     cursor: str | None = None
 
 
+class WorkflowStatsSummary(BaseModel):
+    total_executions: int = 0
+    total_failures: int = 0
+    total_retries: int = 0
+    total_recoveries: int = 0
+    total_completed: int = 0
+    total_partial_without_failed_steps: int = 0
+    unresolved_executions: int = 0
+    latest_event_at: str | None = None
+
+
 class WorkflowOverview(BaseModel):
     diagnostics: WorkflowDiagnosticsSummary
     latest_recovery: WorkflowRecoverySummary | None = None

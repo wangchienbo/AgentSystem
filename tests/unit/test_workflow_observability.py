@@ -371,6 +371,49 @@ def test_workflow_observability_filter_model_drives_history_queries() -> None:
 
 
 
+def test_workflow_stats_summary_aggregates_operator_totals() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-stats")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.stats",
+            name="Workflow Observability Stats App",
+            goal="aggregate workflow stats",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.stats",
+                    "name": "obs stats",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.stats", user_id="obs-stats-user")
+
+    executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.stats")
+    executor.retry_last_failure(install_result.app_instance_id)
+
+    stats = observability.get_stats_summary(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.stats",
+        failed_step_id="blocked.skill",
+    )
+
+    assert stats.total_executions >= 2
+    assert stats.total_failures >= 1
+    assert stats.total_retries >= 1
+    assert stats.unresolved_executions >= 1
+    assert stats.latest_event_at is not None
+
+
+
 def test_workflow_observability_reports_healthy_and_unknown_states() -> None:
     registry, installer, executor, observability = _build_runtime("workflow-observability-states")
 

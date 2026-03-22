@@ -2090,3 +2090,26 @@ Improved the framework’s read-model quality by adding lightweight metadata to 
 #### Design intent clarified
 - page responses are more useful when they carry enough context for UI consumers to render feed state without additional bookkeeping calls
 - metadata should stay lightweight and derived from server-side query knowledge, not force clients to reverse-engineer pagination and unresolved counts from raw item arrays
+
+### Module: add aggregate workflow observability stats
+
+Rounded out the operator read-model by adding aggregate observability totals so dashboards can render summary cards without fetching and counting every history/timeline record themselves.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowStatsSummary`
+- `app/services/workflow_observability.py`
+  - adds `get_stats_summary()` for aggregate workflow observability totals
+- `app/api/main.py`
+  - adds `/workflows/stats`
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for aggregate observability stats
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for stats aggregation
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API/service coverage for aggregate observability totals.
+
+#### Design intent clarified
+- operator dashboards often need both feed-style detail and card-style aggregate stats; one should not require reconstructing the other client-side
+- aggregate stats should respect the same filtering concepts as the rest of the observability framework so summary cards and feeds remain coherent

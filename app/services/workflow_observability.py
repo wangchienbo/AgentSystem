@@ -13,6 +13,7 @@ from app.models.workflow_observability import (
     WorkflowPageMeta,
     WorkflowRecoveryState,
     WorkflowRecoverySummary,
+    WorkflowStatsSummary,
     WorkflowTimelineEvent,
     WorkflowTimelinePage,
 )
@@ -224,6 +225,45 @@ class WorkflowObservabilityService:
         )
         items = [self._to_timeline_event(item) for item in history_page.items]
         return WorkflowTimelinePage(items=items, meta=history_page.meta)
+
+    def get_stats_summary(
+        self,
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        since: str | None = None,
+    ) -> WorkflowStatsSummary:
+        history = self.filter_history(
+            WorkflowObservabilityFilter(
+                app_instance_id=app_instance_id,
+                workflow_id=workflow_id,
+                failed_step_id=failed_step_id,
+                since=since,
+            )
+        )
+        latest_event_at = history[0].completed_at.isoformat() if history else None
+        total_failures = sum(1 for item in history if item.status == "partial" and item.failed_step_ids)
+        total_retries = sum(1 for item in history if item.retry_comparison is not None)
+        total_recoveries = sum(
+            1
+            for item in history
+            if item.retry_comparison is not None
+            and item.retry_comparison.previous_status == "partial"
+            and item.retry_comparison.retried_status == "completed"
+        )
+        total_completed = sum(1 for item in history if item.status == "completed")
+        total_partial_without_failed_steps = sum(1 for item in history if item.status == "partial" and not item.failed_step_ids)
+        unresolved_executions = sum(1 for item in history if self._is_unresolved(item))
+        return WorkflowStatsSummary(
+            total_executions=len(history),
+            total_failures=total_failures,
+            total_retries=total_retries,
+            total_recoveries=total_recoveries,
+            total_completed=total_completed,
+            total_partial_without_failed_steps=total_partial_without_failed_steps,
+            unresolved_executions=unresolved_executions,
+            latest_event_at=latest_event_at,
+        )
 
     def _matches_failed_step(self, item: WorkflowExecutionResult, failed_step_id: str) -> bool:
         if failed_step_id in item.failed_step_ids:

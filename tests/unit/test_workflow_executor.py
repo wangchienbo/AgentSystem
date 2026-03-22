@@ -970,6 +970,73 @@ def test_workflow_api_contracts_share_observability_filter_semantics() -> None:
 
 
 
+def test_workflow_stats_api_returns_aggregate_observability_totals() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.api.stats",
+            "name": "Workflow API Stats App",
+            "goal": "verify workflow stats api",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.api.stats",
+                    "name": "api stats",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": [],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.api.stats/install",
+        json={"user_id": "workflow-api-stats-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    execute_response = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.api.stats", "trigger": "api", "inputs": {}},
+    )
+    assert execute_response.status_code == 200
+
+    retry_response = client.post(f"/apps/{app_instance_id}/workflows/retry-last-failure")
+    assert retry_response.status_code == 200
+
+    stats_response = client.get(
+        "/workflows/stats",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.api.stats",
+            "failed_step_id": "blocked.skill",
+        },
+    )
+    assert stats_response.status_code == 200
+    stats = stats_response.json()
+    assert stats["total_executions"] >= 2
+    assert stats["total_failures"] >= 1
+    assert stats["total_retries"] >= 1
+    assert stats["unresolved_executions"] >= 1
+    assert stats["latest_event_at"] is not None
+
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",
