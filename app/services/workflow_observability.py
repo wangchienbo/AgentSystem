@@ -17,6 +17,12 @@ HealthSeverity = Literal["info", "warning", "critical"]
 
 
 class WorkflowObservabilityService:
+    _HEALTH_RULES: tuple[dict[str, str], ...] = (
+        {"health_status": "recovering", "severity": "warning", "last_transition": "failure->recovered"},
+        {"health_status": "failing", "severity": "critical", "last_transition": "failure"},
+        {"health_status": "healthy", "severity": "info", "last_transition": "completed"},
+        {"health_status": "unknown", "severity": "info", "last_transition": "partial-without-failed-steps"},
+    )
     def __init__(self, workflow_executor) -> None:
         self._workflow_executor = workflow_executor
 
@@ -162,12 +168,17 @@ class WorkflowObservabilityService:
     ) -> tuple[HealthStatus, HealthSeverity, str]:
         latest_failed_step_ids = list(latest_execution.failed_step_ids)
         if recovery_state is not None and recovery_state.recovered:
-            return "recovering", "warning", "failure->recovered"
+            rule = self._HEALTH_RULES[0]
+            return rule["health_status"], rule["severity"], rule["last_transition"]
         if latest_execution.status == "partial" and latest_failed_step_ids:
-            return "failing", "critical", ("failure->retry-partial" if has_recent_retry else "failure")
+            rule = self._HEALTH_RULES[1]
+            last_transition = "failure->retry-partial" if has_recent_retry else rule["last_transition"]
+            return rule["health_status"], rule["severity"], last_transition
         if latest_execution.status == "completed":
-            return "healthy", "info", "completed"
-        return "unknown", "info", "partial-without-failed-steps"
+            rule = self._HEALTH_RULES[2]
+            return rule["health_status"], rule["severity"], rule["last_transition"]
+        rule = self._HEALTH_RULES[3]
+        return rule["health_status"], rule["severity"], rule["last_transition"]
 
     def _iter_retry_step_ids(self, comparison) -> Iterable[str]:
         yield from comparison.previous_failed_step_ids

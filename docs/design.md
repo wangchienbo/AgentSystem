@@ -649,5 +649,6 @@ Current implementation note:
 - workflow overview now includes a first-class health summary (`health_status`, `severity`, unresolved failure count, latest failed steps, retry presence) so dashboards can render status without inferring it client-side
 - health rules now explicitly distinguish `healthy`, `failing`, and `unknown` (partial-without-failed-steps) states, avoiding ambiguous dashboard status inference
 - health/severity classification is now centralized inside the observability service, making future additions like `recovering` rule changes or dashboard severities easier to evolve safely
+- observability health classification now follows a small explicit rule table, which makes state additions and severity tuning less error-prone than growing nested conditionals
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

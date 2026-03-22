@@ -86,6 +86,83 @@ def test_workflow_observability_reports_failing_health_for_failed_step_path() ->
     assert overview.health.last_transition == "failure->retry-partial"
 
 
+def test_workflow_observability_reports_recovering_state_after_resolved_retry() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-recovering")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.recovering",
+            name="Workflow Observability Recovering App",
+            goal="report recovering state",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.recovering",
+                    "name": "obs recovering",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {
+                            "id": "set.maybe",
+                            "kind": "module",
+                            "ref": "state.set",
+                            "config": {
+                                "key": "maybe",
+                                "value": {"ok": True},
+                                "when": {"source": {"$from_inputs": "allow_write", "default": False}, "equals": True},
+                            },
+                        },
+                        {
+                            "id": "blocked.skill",
+                            "kind": "skill",
+                            "ref": "skill.blocked",
+                            "config": {
+                                "mode": {"$from_inputs": "skill_mode", "default": "fail"},
+                            },
+                        },
+                    ],
+                }
+            ],
+            required_modules=["state.set"],
+            required_skills=["skill.blocked"],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.recovering", user_id="obs-recovering-user")
+
+    executor.execute_workflow(
+        install_result.app_instance_id,
+        workflow_id="wf.obs.recovering",
+        inputs={"allow_write": False, "skill_mode": "fail"},
+    )
+    executor.retry_last_failure(install_result.app_instance_id)
+
+    history = executor.list_history(install_result.app_instance_id)
+    history[-1].status = "completed"
+    history[-1].failed_step_ids = []
+    history[-1].retry_comparison.retried_status = "completed"
+    history[-1].retry_comparison.retried_failed_step_ids = []
+    history[-1].retry_comparison.resolved_failed_step_ids = ["blocked.skill"]
+    history[-1].retry_comparison.unchanged_failed_step_ids = []
+    history[-1].retry_comparison.newly_failed_step_ids = []
+
+    overview = observability.get_overview(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.recovering",
+        failed_step_id="blocked.skill",
+    )
+
+    assert overview.latest_recovery is not None
+    assert overview.latest_recovery.recovered is True
+    assert overview.latest_recovery.resolved_failed_step_ids == ["blocked.skill"]
+    assert overview.health.health_status == "recovering"
+    assert overview.health.severity == "warning"
+    assert overview.health.unresolved_failure_count == 0
+    assert overview.health.latest_failed_step_ids == []
+    assert overview.health.has_recent_retry is True
+    assert overview.health.last_transition == "failure->recovered"
+
+
+
 def test_workflow_observability_reports_healthy_and_unknown_states() -> None:
     registry, installer, executor, observability = _build_runtime("workflow-observability-states")
 

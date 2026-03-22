@@ -1925,3 +1925,20 @@ Continued the refactor by moving observability verification into its own test mo
 #### Design intent clarified
 - observability logic should be testable directly at the service layer without routing every scenario through API-heavy executor tests
 - health classification should be a named rule path, not inline conditional glue scattered across summary assembly
+
+### Module: introduce explicit health-rule mapping and recovering-state coverage
+
+Pushed the observability structure one step further by making health classification read from an explicit rule table and by adding service-level coverage for the recovering state.
+
+#### Updated
+- `app/services/workflow_observability.py`
+  - adds an explicit health-rule table and uses it when classifying health/severity/transition outputs
+- `tests/unit/test_workflow_observability.py`
+  - adds a recovering-state scenario verifying resolved retry behavior produces the expected health summary
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the recovering-state classification path.
+
+#### Design intent clarified
+- state/severity mapping should be easy to inspect and extend without reopening nested conditionals every time a dashboard status rule changes
+- recovering is a distinct operator-facing state and deserves explicit test coverage, not just implied support through generic retry metadata
