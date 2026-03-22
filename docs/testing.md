@@ -117,7 +117,8 @@ Covered behavior:
 - minimal registered skill dispatch inside workflow execution
 - skill input mapping and failure capture during workflow execution
 - blueprint allowlist enforcement for workflow skill steps
-- workflow and skill observability APIs for history/failure inspection
+- workflow and skill observability APIs for history/failure/latest inspection
+- workflow execution results include explicit `failed_step_ids` for failure targeting and regression assertions
 - retry API for rerunning the latest failed workflow execution
 
 ## 3.7 Interaction gateway

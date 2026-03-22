@@ -417,6 +417,15 @@ def list_workflow_failures(app_instance_id: str | None = None) -> list[dict]:
     return [item.model_dump(mode="json") for item in workflow_executor.list_recent_failures(app_instance_id)]
 
 
+@app.get("/workflows/latest")
+def get_latest_workflow_execution(app_instance_id: str | None = None) -> dict:
+    history = workflow_executor.list_history(app_instance_id)
+    if not history:
+        return {"execution": None}
+    latest = max(history, key=lambda item: item.completed_at)
+    return {"execution": latest.model_dump(mode="json")}
+
+
 @app.post("/apps/{app_instance_id}/workflows/retry-last-failure")
 def retry_last_failed_workflow(app_instance_id: str) -> dict:
     try:

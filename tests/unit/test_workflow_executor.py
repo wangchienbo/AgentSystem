@@ -146,6 +146,7 @@ def test_workflow_executor_supports_workflow_selection_and_placeholders(tmp_path
     assert result.status == "partial"
     assert len(result.steps) == 2
     assert all(step.status == "skipped" for step in result.steps)
+    assert result.failed_step_ids == []
     runtime_records = data_store.list_records(f"{install_result.app_instance_id}:runtime_state")
     assert any(item.key == "workflow_execution:wf.secondary" for item in runtime_records)
     context = context_store.get_context(install_result.app_instance_id)
@@ -276,6 +277,68 @@ def test_workflow_executor_supports_conditional_steps_and_outputs_summary(tmp_pa
     records = data_store.list_records(f"{install_result.app_instance_id}:app_data")
     assert any(item.key == "copy-enabled" for item in records)
     assert all(item.key != "copy-disabled" for item in records)
+
+
+def test_workflow_latest_api_returns_newest_execution() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.latest",
+            "name": "Workflow Latest App",
+            "goal": "inspect latest workflow execution",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.latest.exec",
+                    "name": "latest exec",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "set.latest", "kind": "module", "ref": "state.set", "config": {"key": "latest", "value": {"$from_inputs": "payload"}}},
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": ["state.set"],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.latest/install",
+        json={"user_id": "workflow-latest-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    first_execute = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"trigger": "api", "inputs": {"payload": {"version": 1}}},
+    )
+    assert first_execute.status_code == 200
+
+    second_execute = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"trigger": "api", "inputs": {"payload": {"version": 2}}},
+    )
+    assert second_execute.status_code == 200
+
+    latest_response = client.get("/workflows/latest", params={"app_instance_id": app_instance_id})
+    assert latest_response.status_code == 200
+    latest = latest_response.json()["execution"]
+    assert latest is not None
+    assert latest["workflow_id"] == "wf.latest.exec"
+    assert latest["outputs"]["inputs"]["payload"]["version"] == 2
+    assert latest["failed_step_ids"] == []
+
 
 
 def test_workflow_execution_api_flow() -> None:

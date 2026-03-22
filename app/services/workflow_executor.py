@@ -153,6 +153,7 @@ class WorkflowExecutorService:
             outputs=workflow_outputs,
             steps=steps,
             completed_at=completed_at,
+            failed_step_ids=[step.step_id for step in steps if step.status == "failed"],
         )
         self._history.append(result)
         self._persist_history()

@@ -1752,3 +1752,26 @@ Improved failure observability so runtime and external-model problems are easier
 #### Design intent clarified
 - failure paths should be machine-readable enough for debugging and future retry/policy logic
 - external API failures should preserve status/retryability metadata instead of collapsing into opaque strings
+
+### Module: add latest workflow execution lookup and failed-step observability
+
+Pushed workflow observability a bit further so operators and future policy loops can see the newest execution directly and identify failed steps without re-scanning the full step list.
+
+#### Updated
+- `app/models/workflow_execution.py`
+  - adds `failed_step_ids` to workflow execution results
+- `app/services/workflow_executor.py`
+  - populates failed-step ids when assembling execution results
+- `app/api/main.py`
+  - adds `/workflows/latest` for newest execution lookup with optional app-instance filtering
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for latest execution lookup and result payload shape
+- `tests/unit/test_workflow_execution_failure_observability.py`
+  - adds failure-observability coverage for blocked skill steps
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added/updated deterministic tests for the changed observability path.
+
+#### Design intent clarified
+- operators should not need to manually scan full workflow history just to inspect the newest execution
+- workflow-level failure summaries should expose exact failed step ids so future retry, UI, and policy layers can target the right step quickly
