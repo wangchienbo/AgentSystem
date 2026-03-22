@@ -19,11 +19,15 @@ class GeneratedCallableMaterializer:
         self._base_path.mkdir(parents=True, exist_ok=True)
 
     def materialize_handler(self, *, skill_id: str, operation: str) -> str:
-        if operation != "normalize_object_keys":
-            raise GeneratedCallableMaterializerError(f"Unsupported callable generation operation: {operation}")
         module_name = skill_id.replace(".", "_")
         file_path = self._base_path / f"{module_name}.py"
-        file_path.write_text(self._render_normalize_object_keys(skill_id), encoding="utf-8")
+        if operation == "normalize_object_keys":
+            content = self._render_normalize_object_keys(skill_id)
+        elif operation == "echo_object_keys":
+            content = self._render_echo_object_keys(skill_id)
+        else:
+            raise GeneratedCallableMaterializerError(f"Unsupported callable generation operation: {operation}")
+        file_path.write_text(content, encoding="utf-8")
         return f"{file_path}:{'handle'}"
 
     def load_handler(self, handler_entry: str) -> Callable[[SkillExecutionRequest], SkillExecutionResult]:
@@ -78,6 +82,26 @@ def handle(request: SkillExecutionRequest) -> SkillExecutionResult:
         output={{
             "normalized": normalized,
             "top_level_keys": sorted(list(normalized.keys())) if isinstance(normalized, dict) else [],
+            "adapter": "callable",
+        }},
+    )
+'''
+
+    @staticmethod
+    def _render_echo_object_keys(skill_id: str) -> str:
+        return f'''from __future__ import annotations
+
+from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
+
+
+def handle(request: SkillExecutionRequest) -> SkillExecutionResult:
+    echoed = {{key: value for key, value in request.inputs.items() if key != "working_set"}}
+    return SkillExecutionResult(
+        skill_id="{skill_id}",
+        status="completed",
+        output={{
+            "echoed": echoed,
+            "top_level_keys": sorted(list(echoed.keys())),
             "adapter": "callable",
         }},
     )

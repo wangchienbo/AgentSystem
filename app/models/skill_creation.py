@@ -56,11 +56,22 @@ class AppFromSkillsRequest(BaseModel):
     step_mappings: dict[str, list[StepMappingDefinition]] = Field(default_factory=dict)
 
 
+class SuggestedStepMapping(BaseModel):
+    step_id: str
+    target_field: str
+    from_step: str = Field(default="")
+    field: str = Field(default="")
+    confidence: Literal["high", "medium"] = "high"
+    reason: str = Field(default="")
+
+
 class AppFromSkillsResult(BaseModel):
     blueprint_id: str
     workflow_id: str
     required_skills: list[str] = Field(default_factory=list)
     created_steps: list[str] = Field(default_factory=list)
+    suggested_mappings: list[SuggestedStepMapping] = Field(default_factory=list)
+    unresolved_inputs: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class AppFromSkillsInstallRunRequest(AppFromSkillsRequest):
