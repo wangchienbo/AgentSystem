@@ -668,6 +668,73 @@ def test_workflow_diagnostics_supports_failed_step_filter_and_latest_recovery() 
 
 
 
+def test_workflow_overview_api_aggregates_diagnostics_and_recovery() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.overview",
+            "name": "Workflow Overview App",
+            "goal": "aggregate diagnostics and latest recovery",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.overview",
+                    "name": "overview",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": [],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.overview/install",
+        json={"user_id": "workflow-overview-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    execute_response = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.overview", "trigger": "api", "inputs": {}},
+    )
+    assert execute_response.status_code == 200
+
+    retry_response = client.post(f"/apps/{app_instance_id}/workflows/retry-last-failure")
+    assert retry_response.status_code == 200
+
+    overview_response = client.get(
+        "/workflows/overview",
+        params={
+            "app_instance_id": app_instance_id,
+            "workflow_id": "wf.overview",
+            "failed_step_id": "blocked.skill",
+        },
+    )
+    assert overview_response.status_code == 200
+    overview = overview_response.json()
+    assert overview["diagnostics"]["latest_failure"] is not None
+    assert overview["diagnostics"]["latest_failure"]["failed_step_ids"] == ["blocked.skill"]
+    assert overview["latest_recovery"] is not None
+    assert overview["latest_recovery"]["workflow_id"] == "wf.overview"
+    assert overview["latest_recovery"]["unchanged_failed_step_ids"] == ["blocked.skill"]
+
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",

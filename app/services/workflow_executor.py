@@ -386,9 +386,85 @@ class WorkflowExecutorService:
             return list(self._history)
         return [item for item in self._history if item.app_instance_id == app_instance_id]
 
+    def filter_history(
+        self,
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+    ) -> list[WorkflowExecutionResult]:
+        history = self.list_history(app_instance_id)
+        if workflow_id is not None:
+            history = [item for item in history if item.workflow_id == workflow_id]
+        if failed_step_id is not None:
+            history = [
+                item
+                for item in history
+                if failed_step_id in item.failed_step_ids
+                or (
+                    item.retry_comparison is not None
+                    and (
+                        failed_step_id in item.retry_comparison.previous_failed_step_ids
+                        or failed_step_id in item.retry_comparison.retried_failed_step_ids
+                        or failed_step_id in item.retry_comparison.resolved_failed_step_ids
+                        or failed_step_id in item.retry_comparison.unchanged_failed_step_ids
+                        or failed_step_id in item.retry_comparison.newly_failed_step_ids
+                    )
+                )
+            ]
+        return history
+
     def list_recent_failures(self, app_instance_id: str | None = None) -> list[WorkflowExecutionResult]:
         history = self.list_history(app_instance_id)
         return [item for item in history if item.status == "partial" and any(step.status == "failed" for step in item.steps)]
+
+    def get_diagnostics_summary(
+        self,
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+    ) -> dict[str, Any]:
+        history = self.filter_history(app_instance_id, workflow_id=workflow_id, failed_step_id=failed_step_id)
+        latest_execution = max(history, key=lambda item: item.completed_at) if history else None
+        failures = [item for item in history if item.status == "partial" and item.failed_step_ids]
+        latest_failure = max(failures, key=lambda item: item.completed_at) if failures else None
+        retries = [item for item in history if item.retry_comparison is not None]
+        latest_retry = max(retries, key=lambda item: item.completed_at) if retries else None
+        recovery_state = None
+        if latest_retry is not None and latest_retry.retry_comparison is not None:
+            comparison = latest_retry.retry_comparison
+            recovery_state = {
+                "recovered": comparison.previous_status == "partial" and comparison.retried_status == "completed",
+                "still_failing": comparison.retried_status == "partial",
+                "resolved_failed_step_ids": comparison.resolved_failed_step_ids,
+                "unchanged_failed_step_ids": comparison.unchanged_failed_step_ids,
+                "newly_failed_step_ids": comparison.newly_failed_step_ids,
+            }
+        return {
+            "latest_execution": None if latest_execution is None else latest_execution.model_dump(mode="json"),
+            "latest_failure": None if latest_failure is None else latest_failure.model_dump(mode="json"),
+            "latest_retry": None if latest_retry is None else latest_retry.model_dump(mode="json"),
+            "recovery_state": recovery_state,
+        }
+
+    def get_latest_recovery_summary(self, app_instance_id: str, workflow_id: str | None = None) -> dict[str, Any] | None:
+        history = self.filter_history(app_instance_id, workflow_id=workflow_id)
+        retries = [item for item in history if item.retry_comparison is not None]
+        latest_retry = max(retries, key=lambda item: item.completed_at) if retries else None
+        if latest_retry is None or latest_retry.retry_comparison is None:
+            return None
+        comparison = latest_retry.retry_comparison
+        return {
+            "workflow_id": latest_retry.workflow_id,
+            "retried_at": latest_retry.completed_at.isoformat(),
+            "retry_of_completed_at": None if latest_retry.retry_of_completed_at is None else latest_retry.retry_of_completed_at.isoformat(),
+            "recovered": comparison.previous_status == "partial" and comparison.retried_status == "completed",
+            "still_failing": comparison.retried_status == "partial",
+            "previous_failed_step_ids": comparison.previous_failed_step_ids,
+            "retried_failed_step_ids": comparison.retried_failed_step_ids,
+            "resolved_failed_step_ids": comparison.resolved_failed_step_ids,
+            "unchanged_failed_step_ids": comparison.unchanged_failed_step_ids,
+            "newly_failed_step_ids": comparison.newly_failed_step_ids,
+        }
 
     def retry_last_failure(self, app_instance_id: str) -> WorkflowExecutionResult:
         failures = self.list_recent_failures(app_instance_id)

@@ -277,6 +277,7 @@ The platform should expose an API-first path for generated skills so the system 
 - include retry comparison metadata in retried workflow results so operators can tell what changed between the failed execution and the retry without diffing two full payloads manually
 - provide a workflow diagnostics view that summarizes latest execution, latest failure, latest retry, and recovery state for one app/workflow path
 - allow diagnostics to narrow by failed step id and expose a lighter latest-recovery summary for recovery panels or operator dashboards
+- provide a combined workflow overview response and keep aggregation logic centralized in services so future UI/API surfaces do not fork recovery logic
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

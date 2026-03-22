@@ -1848,3 +1848,23 @@ Refined the diagnostics surface so clients can focus on one failed step path and
 #### Design intent clarified
 - diagnostics consumers should be able to zoom into one failed-step path without post-filtering whole workflow histories client-side
 - recovery dashboards benefit from a dedicated latest-recovery view instead of unpacking the full diagnostics payload every time
+
+### Module: centralize workflow diagnostics aggregation and add overview API
+
+Moved diagnostics/recovery aggregation logic into the workflow service so API handlers stop reimplementing the same selection rules, then exposed a combined overview response for dashboard-style consumers.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - adds centralized history filtering, diagnostics-summary aggregation, and latest-recovery summary helpers
+- `app/api/main.py`
+  - simplifies diagnostics/recovery endpoints to use service helpers
+  - adds `/workflows/overview` as a combined diagnostics + recovery response
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for the overview response shape
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the service-backed overview path.
+
+#### Design intent clarified
+- aggregation rules for workflow diagnostics should live close to workflow execution history, not be copy-pasted across API handlers
+- dashboard clients should be able to request one overview payload instead of stitching diagnostics and latest-recovery calls together
