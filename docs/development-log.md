@@ -1891,3 +1891,20 @@ Took the next structural step by separating workflow observability from workflow
 #### Design intent clarified
 - workflow execution and workflow observability are related but distinct concerns and should not continue to accrete inside one service class
 - operator-facing health/status fields should be first-class contract elements, not conventions inferred ad hoc from raw diagnostic payloads
+
+### Module: remove duplicate observability helpers from executor and harden health-state coverage
+
+Completed the structural split by deleting leftover observability aggregation helpers from the executor and adding explicit tests for healthy vs unknown health-state outcomes.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - removes duplicate observability helper methods now owned by the dedicated observability service
+- `tests/unit/test_workflow_executor.py`
+  - adds health-summary coverage for completed workflows (`healthy`) and partial-without-failure workflows (`unknown`)
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API regression coverage for the health-state transitions.
+
+#### Design intent clarified
+- once observability is extracted, the executor should keep only execution/retry concerns instead of retaining stale read-model helpers
+- health summaries should have tested semantics for non-error partial states, not only obvious failure cases

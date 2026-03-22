@@ -740,6 +740,135 @@ def test_workflow_overview_api_aggregates_diagnostics_and_recovery() -> None:
 
 
 
+def test_workflow_overview_reports_healthy_status_for_completed_workflow() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.health.healthy",
+            "name": "Workflow Healthy Health App",
+            "goal": "report healthy workflow state",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.health.healthy",
+                    "name": "health healthy",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "set.ok", "kind": "module", "ref": "state.set", "config": {"key": "ok", "value": {"done": True}}},
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": ["state.set"],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.health.healthy/install",
+        json={"user_id": "workflow-health-healthy-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    execute_response = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.health.healthy", "trigger": "api", "inputs": {}},
+    )
+    assert execute_response.status_code == 200
+
+    overview_response = client.get(
+        "/workflows/overview",
+        params={"app_instance_id": app_instance_id, "workflow_id": "wf.health.healthy"},
+    )
+    assert overview_response.status_code == 200
+    health = overview_response.json()["health"]
+    assert health["health_status"] == "healthy"
+    assert health["severity"] == "info"
+    assert health["unresolved_failure_count"] == 0
+    assert health["latest_failed_step_ids"] == []
+    assert health["has_recent_retry"] is False
+    assert health["last_transition"] == "completed"
+
+
+
+def test_workflow_overview_reports_unknown_for_partial_without_failed_steps() -> None:
+    register_response = client.post(
+        "/registry/apps",
+        json={
+            "id": "bp.workflow.health.unknown",
+            "name": "Workflow Unknown Health App",
+            "goal": "report unknown workflow state when partial has no failed steps",
+            "roles": [{"id": "r1", "name": "agent", "type": "agent"}],
+            "tasks": [],
+            "workflows": [
+                {
+                    "id": "wf.health.unknown",
+                    "name": "health unknown",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {
+                            "id": "read.missing",
+                            "kind": "module",
+                            "ref": "state.get",
+                            "config": {"key": "missing"},
+                        },
+                    ],
+                }
+            ],
+            "views": [],
+            "required_modules": ["state.get"],
+            "required_skills": [],
+            "runtime_policy": {
+                "execution_mode": "service",
+                "activation": "on_demand",
+                "restart_policy": "on_failure",
+                "persistence_level": "full",
+                "idle_strategy": "keep_alive"
+            }
+        },
+    )
+    assert register_response.status_code == 200
+
+    install_response = client.post(
+        "/registry/apps/bp.workflow.health.unknown/install",
+        json={"user_id": "workflow-health-unknown-user"},
+    )
+    assert install_response.status_code == 200
+    app_instance_id = install_response.json()["app_instance_id"]
+
+    execute_response = client.post(
+        f"/apps/{app_instance_id}/workflows/execute",
+        json={"workflow_id": "wf.health.unknown", "trigger": "api", "inputs": {}},
+    )
+    assert execute_response.status_code == 200
+    assert execute_response.json()["status"] == "partial"
+    assert execute_response.json()["failed_step_ids"] == []
+
+    overview_response = client.get(
+        "/workflows/overview",
+        params={"app_instance_id": app_instance_id, "workflow_id": "wf.health.unknown"},
+    )
+    assert overview_response.status_code == 200
+    health = overview_response.json()["health"]
+    assert health["health_status"] == "unknown"
+    assert health["severity"] == "info"
+    assert health["unresolved_failure_count"] == 0
+    assert health["latest_failed_step_ids"] == []
+    assert health["has_recent_retry"] is False
+    assert health["last_transition"] == "partial-without-failed-steps"
+
+
+
 def test_workflow_execution_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",
