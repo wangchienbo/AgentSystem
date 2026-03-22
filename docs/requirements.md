@@ -279,6 +279,7 @@ The platform should expose an API-first path for generated skills so the system 
 - allow diagnostics to narrow by failed step id and expose a lighter latest-recovery summary for recovery panels or operator dashboards
 - provide a combined workflow overview response and keep aggregation logic centralized in services so future UI/API surfaces do not fork recovery logic
 - expose a first-class workflow health summary with stable fields for status/severity/unresolved failures so operator dashboards do not need to reverse-engineer health from raw execution records
+- support observability-history queries with recent-N and unresolved-only filtering so timeline consumers can fetch focused slices instead of full workflow history dumps
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

@@ -1942,3 +1942,23 @@ Pushed the observability structure one step further by making health classificat
 #### Design intent clarified
 - state/severity mapping should be easy to inspect and extend without reopening nested conditionals every time a dashboard status rule changes
 - recovering is a distinct operator-facing state and deserves explicit test coverage, not just implied support through generic retry metadata
+
+### Module: add observability history slicing with recent-N and unresolved-only filters
+
+Expanded the observability query surface so clients can fetch focused execution slices for dashboard timelines instead of always reconstructing views from the full history.
+
+#### Updated
+- `app/services/workflow_observability.py`
+  - extends history filtering with `limit` and `unresolved_only`
+  - adds `list_observability_history()` for focused observability slices
+- `app/api/main.py`
+  - adds `/workflows/observability-history`
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for recent-N and unresolved-only history queries
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic service-level coverage for the new history slicing path.
+
+#### Design intent clarified
+- timeline and dashboard consumers often need the newest interesting slice, not an unbounded workflow execution dump
+- unresolved-only filtering should be a first-class server-side capability so clients do not each reinvent failure-state heuristics

@@ -123,6 +123,7 @@ Covered behavior:
 - workflow diagnostics API for summarizing latest execution/failure/retry state per app/workflow, including failed-step filtering, latest-recovery summaries, combined overview responses, and health-summary fields
 - workflow health status rules for healthy / failing / unknown transitions
 - dedicated observability service tests covering overview aggregation and health classification independent of the executor API tests, including recovering-state behavior
+- observability history queries covering recent-N and unresolved-only filtering behavior
 
 ## 3.7 Interaction gateway
 Covered behavior:

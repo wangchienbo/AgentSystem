@@ -31,12 +31,19 @@ class WorkflowObservabilityService:
         app_instance_id: str,
         workflow_id: str | None = None,
         failed_step_id: str | None = None,
+        limit: int | None = None,
+        unresolved_only: bool = False,
     ) -> list[WorkflowExecutionResult]:
         history = self._workflow_executor.list_history(app_instance_id)
         if workflow_id is not None:
             history = [item for item in history if item.workflow_id == workflow_id]
         if failed_step_id is not None:
             history = [item for item in history if self._matches_failed_step(item, failed_step_id)]
+        if unresolved_only:
+            history = [item for item in history if self._is_unresolved(item)]
+        history = sorted(history, key=lambda item: item.completed_at, reverse=True)
+        if limit is not None:
+            history = history[:limit]
         return history
 
     def get_diagnostics_summary(
@@ -147,6 +154,22 @@ class WorkflowObservabilityService:
             health=health,
         )
 
+    def list_observability_history(
+        self,
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        limit: int | None = None,
+        unresolved_only: bool = False,
+    ) -> list[WorkflowExecutionResult]:
+        return self.filter_history(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            limit=limit,
+            unresolved_only=unresolved_only,
+        )
+
     def _matches_failed_step(self, item: WorkflowExecutionResult, failed_step_id: str) -> bool:
         if failed_step_id in item.failed_step_ids:
             return True
@@ -154,6 +177,16 @@ class WorkflowObservabilityService:
         if comparison is None:
             return False
         return failed_step_id in self._iter_retry_step_ids(comparison)
+
+    def _is_unresolved(self, item: WorkflowExecutionResult) -> bool:
+        if item.status == "partial" and item.failed_step_ids:
+            return True
+        comparison = item.retry_comparison
+        if comparison is None:
+            return False
+        return comparison.retried_status == "partial" and bool(
+            comparison.unchanged_failed_step_ids or comparison.newly_failed_step_ids
+        )
 
     def _count_unresolved_failures(self, recovery_state: WorkflowRecoveryState | None) -> int:
         if recovery_state is None:

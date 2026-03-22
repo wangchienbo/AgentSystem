@@ -163,6 +163,54 @@ def test_workflow_observability_reports_recovering_state_after_resolved_retry() 
 
 
 
+def test_workflow_observability_history_supports_limit_and_unresolved_filters() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-history")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.history",
+            name="Workflow Observability History App",
+            goal="query observability history",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.history",
+                    "name": "obs history",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.history", user_id="obs-history-user")
+
+    first = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.history")
+    second = executor.retry_last_failure(install_result.app_instance_id)
+
+    limited = observability.list_observability_history(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.history",
+        limit=1,
+    )
+    assert len(limited) == 1
+    assert limited[0].completed_at >= first.completed_at
+
+    unresolved = observability.list_observability_history(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.history",
+        unresolved_only=True,
+    )
+    assert len(unresolved) >= 1
+    assert all(item.status == "partial" or (item.retry_comparison is not None and item.retry_comparison.retried_status == "partial") for item in unresolved)
+    assert any(item.workflow_id == second.workflow_id for item in unresolved)
+
+
+
 def test_workflow_observability_reports_healthy_and_unknown_states() -> None:
     registry, installer, executor, observability = _build_runtime("workflow-observability-states")
 
