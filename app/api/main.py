@@ -46,31 +46,11 @@ from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 from app.services.skill_retry_advisor import SkillRetryAdvisorService
-from app.models.workflow_observability import WorkflowObservabilityFilter
+from app.api.workflow_observability import build_workflow_observability_filter
 
 
 app = FastAPI(title="AgentSystem App OS", version="0.1.0")
 retry_advisor = SkillRetryAdvisorService()
-
-
-def build_workflow_observability_filter(
-    app_instance_id: str,
-    workflow_id: str | None = None,
-    failed_step_id: str | None = None,
-    limit: int | None = None,
-    unresolved_only: bool = False,
-    since: str | None = None,
-    cursor: str | None = None,
-) -> WorkflowObservabilityFilter:
-    return WorkflowObservabilityFilter(
-        app_instance_id=app_instance_id,
-        workflow_id=workflow_id,
-        failed_step_id=failed_step_id,
-        limit=limit,
-        unresolved_only=unresolved_only,
-        since=since,
-        cursor=cursor,
-    )
 
 
 @app.get("/health")

@@ -2136,3 +2136,24 @@ Added a higher-level operator read model so dashboards can fetch one coherent pa
 #### Design intent clarified
 - once observability data is rich enough, clients benefit from a composed read model that reflects operator needs directly instead of forcing repeated orchestration calls
 - the dashboard summary should remain a thin composition over existing observability primitives so lower-level query surfaces stay reusable and testable
+
+### Module: split observability helpers and API filter construction into dedicated modules
+
+Started the next cleanup pass by moving low-level observability filtering/classification helpers and API filter construction out of the large service/main files.
+
+#### Updated
+- `app/services/workflow_observability_helpers.py`
+  - extracts history filtering, health classification, unresolved counting, and retry step iteration helpers
+- `app/api/workflow_observability.py`
+  - extracts workflow observability filter construction from `main.py`
+- `app/services/workflow_observability.py`
+  - now delegates low-level helper logic instead of owning every concern directly
+- `app/api/main.py`
+  - now imports the dedicated observability filter builder instead of defining it inline
+
+#### Validation
+- Public API/service contracts were preserved while moving helper logic into dedicated modules; existing regression coverage remains the guardrail in this environment.
+
+#### Design intent clarified
+- once a sub-framework reaches this size, readability and future change safety improve by separating request-building and low-level helper logic from the primary orchestration layer
+- module extraction should reduce file bloat without forcing a breaking change in the public observability contract

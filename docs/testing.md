@@ -132,6 +132,7 @@ Covered behavior:
 - page metadata coverage for history/timeline responses (counts, cursors, window info)
 - aggregate stats coverage for workflow observability totals
 - dashboard summary coverage for combined overview/stats/timeline operator read models
+- modular helper/query split should preserve existing observability regression coverage without changing public contract behavior
 
 ## 3.7 Interaction gateway
 Covered behavior:
