@@ -656,5 +656,6 @@ Current implementation note:
 - observability queries now share an explicit filter model so API handlers and service logic stop drifting in which query knobs they support
 - API contract coverage now checks that diagnostics/history/timeline honor the same filter semantics, and observability-history formally supports time-window filtering alongside unresolved/recent slicing
 - history and timeline now share the same page-style response shape, and API-side filter construction is centralized through a small helper instead of repeated inline parameter assembly
+- paged observability responses now carry lightweight metadata (`returned_count`, `unresolved_count`, `has_more`, `window_since`, `next_cursor`) so dashboard clients can render state without re-deriving feed stats client-side
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

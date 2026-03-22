@@ -10,6 +10,7 @@ from app.models.workflow_observability import (
     WorkflowHistoryPage,
     WorkflowObservabilityFilter,
     WorkflowOverview,
+    WorkflowPageMeta,
     WorkflowRecoveryState,
     WorkflowRecoverySummary,
     WorkflowTimelineEvent,
@@ -191,7 +192,16 @@ class WorkflowObservabilityService:
             )
         )
         next_cursor = history[-1].completed_at.isoformat() if limit is not None and len(history) == limit else None
-        return WorkflowHistoryPage(items=history, next_cursor=next_cursor)
+        return WorkflowHistoryPage(
+            items=history,
+            meta=WorkflowPageMeta(
+                returned_count=len(history),
+                unresolved_count=sum(1 for item in history if self._is_unresolved(item)),
+                has_more=next_cursor is not None,
+                window_since=since,
+                next_cursor=next_cursor,
+            ),
+        )
 
     def list_timeline_events(
         self,
@@ -213,7 +223,7 @@ class WorkflowObservabilityService:
             cursor=cursor,
         )
         items = [self._to_timeline_event(item) for item in history_page.items]
-        return WorkflowTimelinePage(items=items, next_cursor=history_page.next_cursor)
+        return WorkflowTimelinePage(items=items, meta=history_page.meta)
 
     def _matches_failed_step(self, item: WorkflowExecutionResult, failed_step_id: str) -> bool:
         if failed_step_id in item.failed_step_ids:

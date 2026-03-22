@@ -285,6 +285,7 @@ The platform should expose an API-first path for generated skills so the system 
 - define a shared observability filter contract so diagnostics/history/timeline surfaces expose consistent query semantics
 - support time-window filtering on observability-history in addition to timeline feeds so history and feed views remain consistent
 - keep history and timeline response contracts aligned around paged results so clients can consume both surfaces with fewer special cases
+- include lightweight page metadata (counts/window/cursor state) so dashboards can present feed context without computing it independently
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

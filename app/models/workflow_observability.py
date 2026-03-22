@@ -59,14 +59,22 @@ class WorkflowTimelineEvent(BaseModel):
     retry_of_completed_at: str | None = None
 
 
+class WorkflowPageMeta(BaseModel):
+    returned_count: int = 0
+    unresolved_count: int = 0
+    has_more: bool = False
+    window_since: str | None = None
+    next_cursor: str | None = None
+
+
 class WorkflowTimelinePage(BaseModel):
     items: list[WorkflowTimelineEvent] = Field(default_factory=list)
-    next_cursor: str | None = None
+    meta: WorkflowPageMeta = Field(default_factory=WorkflowPageMeta)
 
 
 class WorkflowHistoryPage(BaseModel):
     items: list[WorkflowExecutionResult] = Field(default_factory=list)
-    next_cursor: str | None = None
+    meta: WorkflowPageMeta = Field(default_factory=WorkflowPageMeta)
 
 
 class WorkflowObservabilityFilter(BaseModel):

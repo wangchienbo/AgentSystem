@@ -129,6 +129,7 @@ Covered behavior:
 - shared observability filter model coverage to keep query semantics aligned across service/API surfaces
 - API contract tests verifying diagnostics/history/timeline respect the same observability filter semantics
 - page-shape coverage for observability-history so it stays aligned with timeline pagination semantics
+- page metadata coverage for history/timeline responses (counts, cursors, window info)
 
 ## 3.7 Interaction gateway
 Covered behavior:

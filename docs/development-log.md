@@ -2068,3 +2068,25 @@ Tightened the framework contract by making history responses page-shaped like ti
 #### Design intent clarified
 - history and timeline should feel like sibling query surfaces, not two independently shaped APIs that happen to expose similar data
 - even small repeated request-construction code in API handlers becomes drift risk once the query contract keeps growing
+
+### Module: add observability page metadata for dashboard consumers
+
+Improved the framework’s read-model quality by adding lightweight metadata to paged history/timeline responses so clients can reason about feed state without re-deriving everything themselves.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowPageMeta`
+  - updates history/timeline page models to include `meta`
+- `app/services/workflow_observability.py`
+  - populates returned-count, unresolved-count, window, has-more, and next-cursor metadata
+- `tests/unit/test_workflow_executor.py`
+  - extends API contract checks for page metadata
+- `tests/unit/test_workflow_observability.py`
+  - extends service-level page assertions for metadata behavior
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API/service coverage for paged observability metadata.
+
+#### Design intent clarified
+- page responses are more useful when they carry enough context for UI consumers to render feed state without additional bookkeeping calls
+- metadata should stay lightweight and derived from server-side query knowledge, not force clients to reverse-engineer pagination and unresolved counts from raw item arrays

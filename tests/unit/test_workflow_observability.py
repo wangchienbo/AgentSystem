@@ -208,7 +208,9 @@ def test_workflow_observability_history_supports_limit_and_unresolved_filters() 
     )
     assert len(limited.items) == 1
     assert limited.items[0].completed_at >= first.completed_at
-    assert limited.next_cursor is not None
+    assert limited.meta.returned_count == 1
+    assert limited.meta.has_more is True
+    assert limited.meta.next_cursor is not None
 
     unresolved = observability.list_observability_history(
         app_instance_id=install_result.app_instance_id,
@@ -216,6 +218,7 @@ def test_workflow_observability_history_supports_limit_and_unresolved_filters() 
         unresolved_only=True,
     )
     assert len(unresolved.items) >= 1
+    assert unresolved.meta.unresolved_count >= 1
     assert all(item.status == "partial" or (item.retry_comparison is not None and item.retry_comparison.retried_status == "partial") for item in unresolved.items)
     assert any(item.workflow_id == second.workflow_id for item in unresolved.items)
 
@@ -300,13 +303,14 @@ def test_workflow_timeline_supports_since_and_cursor_pagination() -> None:
         limit=1,
     )
     assert len(page1.items) == 1
-    assert page1.next_cursor is not None
+    assert page1.meta.returned_count == 1
+    assert page1.meta.next_cursor is not None
 
     page2 = observability.list_timeline_events(
         app_instance_id=install_result.app_instance_id,
         workflow_id="wf.obs.pagination",
         limit=1,
-        cursor=page1.next_cursor,
+        cursor=page1.meta.next_cursor,
     )
     assert len(page2.items) <= 1
     if page2.items:
@@ -318,6 +322,7 @@ def test_workflow_timeline_supports_since_and_cursor_pagination() -> None:
         since=first.completed_at.isoformat(),
     )
     assert len(recent.items) >= 1
+    assert recent.meta.window_since == first.completed_at.isoformat()
     assert any(item.workflow_id == second.workflow_id for item in recent.items)
 
 

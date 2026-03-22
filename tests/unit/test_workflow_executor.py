@@ -945,7 +945,10 @@ def test_workflow_api_contracts_share_observability_filter_semantics() -> None:
     history_payload = history.json()
     assert len(history_payload["items"]) == 1
     assert history_payload["items"][0]["workflow_id"] == "wf.api.contracts"
-    assert history_payload["next_cursor"] is not None
+    assert history_payload["meta"]["returned_count"] == 1
+    assert history_payload["meta"]["unresolved_count"] >= 1
+    assert history_payload["meta"]["has_more"] is True
+    assert history_payload["meta"]["next_cursor"] is not None
 
     timeline = client.get(
         "/workflows/timeline",
@@ -961,7 +964,9 @@ def test_workflow_api_contracts_share_observability_filter_semantics() -> None:
     timeline_payload = timeline.json()
     assert len(timeline_payload["items"]) == 1
     assert timeline_payload["items"][0]["workflow_id"] == "wf.api.contracts"
-    assert timeline_payload["next_cursor"] is not None
+    assert timeline_payload["meta"]["returned_count"] == 1
+    assert timeline_payload["meta"]["has_more"] is True
+    assert timeline_payload["meta"]["next_cursor"] is not None
 
 
 
