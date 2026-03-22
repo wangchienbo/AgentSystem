@@ -64,6 +64,11 @@ class WorkflowTimelinePage(BaseModel):
     next_cursor: str | None = None
 
 
+class WorkflowHistoryPage(BaseModel):
+    items: list[WorkflowExecutionResult] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
 class WorkflowObservabilityFilter(BaseModel):
     app_instance_id: str
     workflow_id: str | None = None

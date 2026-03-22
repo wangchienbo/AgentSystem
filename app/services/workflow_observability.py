@@ -7,6 +7,7 @@ from app.models.workflow_execution import WorkflowExecutionResult
 from app.models.workflow_observability import (
     WorkflowDiagnosticsSummary,
     WorkflowHealthSummary,
+    WorkflowHistoryPage,
     WorkflowObservabilityFilter,
     WorkflowOverview,
     WorkflowRecoveryState,
@@ -177,8 +178,8 @@ class WorkflowObservabilityService:
         unresolved_only: bool = False,
         since: str | None = None,
         cursor: str | None = None,
-    ) -> list[WorkflowExecutionResult]:
-        return self.filter_history(
+    ) -> WorkflowHistoryPage:
+        history = self.filter_history(
             WorkflowObservabilityFilter(
                 app_instance_id=app_instance_id,
                 workflow_id=workflow_id,
@@ -189,6 +190,8 @@ class WorkflowObservabilityService:
                 cursor=cursor,
             )
         )
+        next_cursor = history[-1].completed_at.isoformat() if limit is not None and len(history) == limit else None
+        return WorkflowHistoryPage(items=history, next_cursor=next_cursor)
 
     def list_timeline_events(
         self,
@@ -200,7 +203,7 @@ class WorkflowObservabilityService:
         since: str | None = None,
         cursor: str | None = None,
     ) -> WorkflowTimelinePage:
-        history = self.list_observability_history(
+        history_page = self.list_observability_history(
             app_instance_id=app_instance_id,
             workflow_id=workflow_id,
             failed_step_id=failed_step_id,
@@ -209,9 +212,8 @@ class WorkflowObservabilityService:
             since=since,
             cursor=cursor,
         )
-        items = [self._to_timeline_event(item) for item in history]
-        next_cursor = items[-1].completed_at if limit is not None and len(items) == limit else None
-        return WorkflowTimelinePage(items=items, next_cursor=next_cursor)
+        items = [self._to_timeline_event(item) for item in history_page.items]
+        return WorkflowTimelinePage(items=items, next_cursor=history_page.next_cursor)
 
     def _matches_failed_step(self, item: WorkflowExecutionResult, failed_step_id: str) -> bool:
         if failed_step_id in item.failed_step_ids:

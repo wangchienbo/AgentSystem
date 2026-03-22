@@ -198,25 +198,26 @@ def test_workflow_observability_history_supports_limit_and_unresolved_filters() 
         workflow_id="wf.obs.history",
         since=first.completed_at.isoformat(),
     )
-    assert len(since_filtered) >= 1
-    assert any(item.workflow_id == second.workflow_id for item in since_filtered)
+    assert len(since_filtered.items) >= 1
+    assert any(item.workflow_id == second.workflow_id for item in since_filtered.items)
 
     limited = observability.list_observability_history(
         app_instance_id=install_result.app_instance_id,
         workflow_id="wf.obs.history",
         limit=1,
     )
-    assert len(limited) == 1
-    assert limited[0].completed_at >= first.completed_at
+    assert len(limited.items) == 1
+    assert limited.items[0].completed_at >= first.completed_at
+    assert limited.next_cursor is not None
 
     unresolved = observability.list_observability_history(
         app_instance_id=install_result.app_instance_id,
         workflow_id="wf.obs.history",
         unresolved_only=True,
     )
-    assert len(unresolved) >= 1
-    assert all(item.status == "partial" or (item.retry_comparison is not None and item.retry_comparison.retried_status == "partial") for item in unresolved)
-    assert any(item.workflow_id == second.workflow_id for item in unresolved)
+    assert len(unresolved.items) >= 1
+    assert all(item.status == "partial" or (item.retry_comparison is not None and item.retry_comparison.retried_status == "partial") for item in unresolved.items)
+    assert any(item.workflow_id == second.workflow_id for item in unresolved.items)
 
 
 

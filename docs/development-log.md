@@ -2043,3 +2043,28 @@ Closed the next consistency gap by testing the API layer against the shared filt
 #### Design intent clarified
 - it is not enough for services to share a filter model; the exposed HTTP surfaces should be checked for semantic alignment too
 - history and timeline query surfaces should evolve together so clients do not face subtle capability mismatches
+
+### Module: align observability-history with paged timeline contracts and centralize API filter construction
+
+Tightened the framework contract by making history responses page-shaped like timeline responses and by removing repeated filter-object assembly from the API handlers.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowHistoryPage`
+- `app/services/workflow_observability.py`
+  - returns paged history results with `next_cursor`
+  - reuses paged history when building timeline pages
+- `app/api/main.py`
+  - adds a small `build_workflow_observability_filter()` helper
+  - switches `/workflows/observability-history` to return a page response
+- `tests/unit/test_workflow_executor.py`
+  - updates API contract coverage for paged history responses
+- `tests/unit/test_workflow_observability.py`
+  - updates service-level history assertions for page-shaped responses
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; updated deterministic API/service coverage for the shared paged-history contract.
+
+#### Design intent clarified
+- history and timeline should feel like sibling query surfaces, not two independently shaped APIs that happen to expose similar data
+- even small repeated request-construction code in API handlers becomes drift risk once the query contract keeps growing

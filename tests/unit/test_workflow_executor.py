@@ -943,8 +943,9 @@ def test_workflow_api_contracts_share_observability_filter_semantics() -> None:
     )
     assert history.status_code == 200
     history_payload = history.json()
-    assert len(history_payload) == 1
-    assert history_payload[0]["workflow_id"] == "wf.api.contracts"
+    assert len(history_payload["items"]) == 1
+    assert history_payload["items"][0]["workflow_id"] == "wf.api.contracts"
+    assert history_payload["next_cursor"] is not None
 
     timeline = client.get(
         "/workflows/timeline",
