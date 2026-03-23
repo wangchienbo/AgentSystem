@@ -353,7 +353,9 @@ class SkillFactoryService:
 
     def _apply_step_mapping(self, compiled_inputs: dict, mapping: StepMappingDefinition) -> None:
         if not mapping.from_step and not mapping.from_inputs and mapping.default_value is None:
-            raise SkillFactoryError(f"Step mapping for target '{mapping.target_field}' requires from_step, from_inputs, or default_value")
+            raise SkillFactoryError(
+                f"Step mapping for target '{mapping.target_field}' requires from_step or from_inputs (or default_value for literal injection)"
+            )
         if mapping.from_step and mapping.from_inputs:
             raise SkillFactoryError(f"Step mapping for target '{mapping.target_field}' cannot set both from_step and from_inputs")
         if mapping.transform and mapping.transform not in {"lowercase", "uppercase", "stringify", "wrap_object"}:

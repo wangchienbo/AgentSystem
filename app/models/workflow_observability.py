@@ -71,6 +71,15 @@ class WorkflowTimelinePage(BaseModel):
     items: list[WorkflowTimelineEvent] = Field(default_factory=list)
     meta: WorkflowPageMeta = Field(default_factory=WorkflowPageMeta)
 
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __getitem__(self, index: int) -> WorkflowTimelineEvent:
+        return self.items[index]
+
+    def __iter__(self):
+        return iter(self.items)
+
 
 class WorkflowHistoryPage(BaseModel):
     items: list[WorkflowExecutionResult] = Field(default_factory=list)

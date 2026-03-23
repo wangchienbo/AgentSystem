@@ -133,6 +133,9 @@ Covered behavior:
 - aggregate stats coverage for workflow observability totals
 - dashboard summary coverage for combined overview/stats/timeline operator read models
 - modular helper/query split should preserve existing observability regression coverage without changing public contract behavior
+- install/runtime regression coverage now verifies relaxed install-time blueprint validation separately from strict `/blueprints/validate` checks so demo apps and runtime-partial workflows stay installable without weakening operator-facing validation
+- retry and observability regression coverage now treats `partial` as the canonical retry candidate state, including cases with and without explicit failed step ids
+- timeline regression coverage now protects both paginated response metadata and list-like compatibility access on the timeline page model
 
 ## 3.7 Interaction gateway
 Covered behavior:

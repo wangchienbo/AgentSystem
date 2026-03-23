@@ -132,6 +132,9 @@ The next packaging layer now starts to exist as an API-facing factory path:
 - generated skills should persist as assets and be reloaded into registry/runtime on bootstrap so the path becomes durable rather than session-only
 - generated skill failures should surface as structured diagnostics with stage/kind/hint metadata instead of only raw error strings
 - structured diagnostics should be able to carry a suggested retry request so failure handling can flow into the next generation attempt
+- blueprint validation now has two semantics: strict validation for explicit operator/API checks, and a relaxed install-time path that still validates declared dependencies/contracts while allowing intentionally partial runtime workflows and demo catalog blueprints to install without every step skill being predeclared or prebootstrapped
+- retry semantics now treat the latest `partial` execution as the canonical retry target so workflow recovery and observability remain aligned even when a partial run has no explicit failed step ids
+- paginated workflow timeline responses should preserve backward-compatible list-like access (`len`, iteration, indexing) at the service model layer even though the public contract is page-shaped
 
 ## 4.2 Definition Layer
 

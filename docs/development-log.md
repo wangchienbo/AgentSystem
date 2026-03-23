@@ -1,5 +1,34 @@
 # Development Log
 
+## 2026-03-23
+
+### Module: workflow observability closure and install-time validation split
+
+Closed the main workflow observability integration loop by reconciling retry semantics, timeline compatibility, demo blueprint installability, and strict-vs-relaxed blueprint validation behavior.
+
+#### Updated
+- `app/bootstrap/catalog.py`
+  - made demo catalog blueprints self-consistent under current bootstrap assumptions by providing minimal roles and removing optional undeclared required-skill dependencies from the default workspace/pipeline blueprints
+- `app/services/blueprint_validation.py`
+  - split validation behavior into strict operator-facing validation and relaxed install-time validation
+  - strict `/blueprints/validate` still reports missing `roles` and undeclared runtime skills
+  - install-time validation now enforces declared dependencies/contracts without blocking intentionally partial runtime workflows that reference undeclared step skills
+- `app/services/workflow_executor.py`
+  - retry now targets the latest `partial` execution rather than only executions surfaced through the recent-failure helper
+- `app/models/workflow_observability.py`
+  - timeline page model now preserves list-like compatibility (`len`, iteration, indexing) while retaining paginated page metadata
+- `app/services/skill_factory.py`
+  - clarified invalid step-mapping diagnostics so client-visible error text matches retry-guidance expectations
+- `docs/design.md`
+  - documented the strict-vs-relaxed validation split, partial-as-retry-target semantics, and timeline compatibility expectations
+- `docs/testing.md`
+  - recorded regression coverage for the validation split, partial retry semantics, and timeline page compatibility
+
+#### Validation
+- focused regressions pass for blueprint validation, observability APIs, and workflow executor flows
+- full local suite passes
+- result: `155 passed`
+
 ## 2026-03-21
 
 ### Module: auto-applied high-confidence generated mappings
