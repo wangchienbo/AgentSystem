@@ -94,6 +94,7 @@ proposal_review = services["proposal_review"]
 priority_analysis = services["priority_analysis"]
 refinement_loop = services["refinement_loop"]
 refinement_memory = services["refinement_memory"]
+refinement_rollout = services["refinement_rollout"]
 app_installer = services["app_installer"]
 app_catalog = services["app_catalog"]
 skill_runtime = services["skill_runtime"]
@@ -883,6 +884,20 @@ def list_refinement_rollout_queue(app_instance_id: str | None = None, hypothesis
 @app.get("/self-refinement/overview")
 def get_refinement_overview(app_instance_id: str) -> dict:
     return refinement_memory.build_overview(app_instance_id).model_dump(mode="json")
+
+
+@app.post("/self-refinement/rollout-queue/{queue_id}/{action}")
+def transition_refinement_rollout_queue(queue_id: str, action: str, payload: dict | None = None) -> dict:
+    payload = payload or {}
+    try:
+        return refinement_rollout.transition(
+            queue_id=queue_id,
+            action=action,
+            reviewer=payload.get("reviewer", "system"),
+            note=payload.get("note", ""),
+        ).model_dump(mode="json")
+    except (ValueError, ProposalReviewError) as error:
+        raise map_domain_error(error) from error
 
 
 @app.get("/schedules")

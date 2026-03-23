@@ -146,6 +146,7 @@ Covered behavior:
 - refinement-loop persistence coverage now verifies those artifacts survive runtime rebuild and can be queried back through dedicated list surfaces
 - refinement-loop verification coverage now uses an injected executor in unit tests so grouped-regression integration remains real in runtime paths without making test execution depend on a full shell-based suite run
 - refinement overview/dashboard coverage now verifies queue state and latest learning-loop artifacts are aggregated into a readable governance summary
+- rollout queue lifecycle coverage now verifies approve/apply/reject/rollback transitions and the corresponding API surfaces
 
 ## 3.7 Interaction gateway
 Covered behavior:

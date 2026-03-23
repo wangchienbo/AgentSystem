@@ -56,6 +56,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - persist those refinement-loop objects through the runtime store and expose query surfaces so system learning remains visible across process rebuilds
 - keep verification execution pluggable: runtime paths may invoke real grouped regression, while tests should be able to inject a bounded executor so learning-loop regression coverage stays fast and deterministic
 - treat rollout as a governable queue, not only an immediate promote/hold judgment; queue items and overview read models should make the learning loop operationally visible
+- rollout queue items should support explicit lifecycle transitions (approve/apply/reject/rollback) so refinement promotion is operationally governed rather than hidden in one-off side effects
 
 ---
 

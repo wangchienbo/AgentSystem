@@ -30,6 +30,7 @@ from app.services.schema_registry import SchemaRegistryService
 from app.services.self_refinement import SelfRefinementService
 from app.services.refinement_loop import RefinementLoopService
 from app.services.refinement_memory import RefinementMemoryStore
+from app.services.refinement_rollout import RefinementRolloutService
 from app.services.skill_control import SkillControlService
 from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
@@ -213,6 +214,10 @@ def build_runtime() -> dict[str, object]:
         proposal_review=proposal_review,
         priority_analysis=priority_analysis,
         memory=refinement_memory,
+    )
+    refinement_rollout = RefinementRolloutService(
+        memory=refinement_memory,
+        proposal_review=proposal_review,
     )
     app_installer = AppInstallerService(
         registry=app_registry,

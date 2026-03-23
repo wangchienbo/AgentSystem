@@ -19,6 +19,7 @@ from app.services.priority_analysis import PriorityAnalysisService
 from app.services.proposal_review import ProposalReviewService
 from app.services.refinement_loop import RefinementLoopService
 from app.services.refinement_memory import RefinementMemoryStore
+from app.services.refinement_rollout import RefinementRolloutService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
@@ -39,9 +40,9 @@ def stub_verification_executor(_runner_path: str) -> StubCompletedProcess:
     return StubCompletedProcess(returncode=0, stdout="grouped regression passed")
 
 
-def test_refinement_overview_tracks_queue_and_latest_items(tmp_path: Path) -> None:
-    store = RuntimeStateStore(base_dir=str(tmp_path / "refinement-overview-store"))
-    data_store = AppDataStore(base_dir=str(tmp_path / "refinement-overview-ns"), store=store)
+def test_refinement_rollout_queue_lifecycle(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "refinement-rollout-store"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "refinement-rollout-ns"), store=store)
     experience_store = ExperienceStore()
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
@@ -77,36 +78,37 @@ def test_refinement_overview_tracks_queue_and_latest_items(tmp_path: Path) -> No
         memory=memory,
         verification_executor=stub_verification_executor,
     )
+    rollout = RefinementRolloutService(memory=memory, proposal_review=proposal_service)
 
     registry.register_blueprint(
         AppBlueprint(
-            id="bp.refinement.overview",
-            name="Refinement Overview App",
-            goal="measure refinement governance state",
+            id="bp.refinement.rollout",
+            name="Refinement Rollout App",
+            goal="exercise rollout queue lifecycle",
             roles=[],
             tasks=[],
-            workflows=[{"id": "wf.overview", "name": "overview", "triggers": ["manual"], "steps": []}],
+            workflows=[{"id": "wf.rollout", "name": "rollout", "triggers": ["manual"], "steps": []}],
             required_modules=["state.get"],
             required_skills=[],
             runtime_policy={"execution_mode": "service", "idle_strategy": "suspend"},
         )
     )
-    install = installer.install_app("bp.refinement.overview", user_id="overview-user")
+    install = installer.install_app("bp.refinement.rollout", user_id="rollout-user")
     app_instance_id = install.app_instance_id
 
     context_store.append_entry(
         app_instance_id=app_instance_id,
         section="open_loops",
-        key="overview-followup",
+        key="rollout-followup",
         value={"needed": True},
-        tags=["overview"],
+        tags=["rollout"],
     )
     event_bus.publish("runtime.reviewed", source="test", app_instance_id=app_instance_id)
     data_store.put_record(
         namespace_id=f"{app_instance_id}:app_data",
-        key="overview-log",
-        value={"status": "needs refinement"},
-        tags=["overview"],
+        key="rollout-log",
+        value={"status": "needs governance"},
+        tags=["rollout"],
     )
     review = review_service.review(PracticeReviewRequest(app_instance_id=app_instance_id))
     proposals = refinement_service.propose(
@@ -114,23 +116,20 @@ def test_refinement_overview_tracks_queue_and_latest_items(tmp_path: Path) -> No
     )
     proposal_service.register_proposals(proposals)
     result = loop.run(RefinementLoopRequest(app_instance_id=app_instance_id, experience_id=review.experience.experience_id))
+    queue_item = result.queue_item
+    assert queue_item is not None
 
-    overview = memory.build_overview(app_instance_id)
-    assert overview.app_instance_id == app_instance_id
-    assert overview.hypothesis_count >= 1
-    assert overview.verification_count >= 1
-    assert overview.decision_count >= 1
-    assert overview.queue_count >= 1
-    assert overview.latest_hypothesis is not None
-    assert overview.latest_verification is not None
-    assert overview.latest_decision is not None
-    assert overview.latest_queue_item is not None
-    assert overview.latest_queue_item.queue_id == result.queue_item.queue_id
+    if queue_item.status == "queued":
+        approved = rollout.transition(queue_item.queue_id, "approve", reviewer="tester", note="approved for manual apply")
+        assert approved.status == "approved"
+        rejected = rollout.transition(approved.queue_id, "reject", reviewer="tester", note="rejected after review")
+        assert rejected.status == "rejected"
+    else:
+        rolled_back = rollout.transition(queue_item.queue_id, "rollback", reviewer="tester", note="rolled back after apply")
+        assert rolled_back.status == "rolled_back"
 
 
-def test_refinement_overview_api_surface() -> None:
-    response = client.get("/self-refinement/overview", params={"app_instance_id": "app.missing"})
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["app_instance_id"] == "app.missing"
-    assert payload["hypothesis_count"] >= 0
+def test_refinement_rollout_queue_api_surfaces() -> None:
+    queue_response = client.get("/self-refinement/rollout-queue")
+    assert queue_response.status_code == 200
+    assert isinstance(queue_response.json(), list)

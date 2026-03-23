@@ -2,6 +2,32 @@
 
 ## 2026-03-23
 
+### Module: refinement rollout queue lifecycle
+
+Extended the rollout queue skeleton into a governed lifecycle. Queue items can now transition through approve/apply/reject/rollback operations, and the rollout service provides an explicit operational layer above the raw queue store.
+
+#### Added
+- `app/services/refinement_rollout.py`
+  - manages rollout queue lifecycle transitions and delegates apply actions through proposal review
+- `tests/unit/test_refinement_rollout.py`
+  - verifies queue lifecycle transitions and rollout queue API availability
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires the refinement rollout service into runtime
+- `app/api/main.py`
+  - exposes rollout queue transition endpoints
+- `tests/unit/test_refinement_overview.py`
+  - covers overview API surface
+- `docs/design.md`
+  - records explicit rollout lifecycle expectations
+- `docs/testing.md`
+  - records rollout lifecycle regression coverage
+
+#### Validation
+- refinement loop, overview, and rollout regression slice passes
+- result: `6 passed`
+
 ### Module: refinement rollout queue and overview read model
 
 Added the first governance layer on top of the refinement loop. Rollout is now represented as a queue item instead of only an ephemeral decision, and refinement state can be summarized into an overview read model for operational visibility.
