@@ -2,6 +2,36 @@
 
 ## 2026-03-23
 
+### Module: generated-app durability and grouped regression runner
+
+Added the next layer of system-level guardrails: generated apps now have an explicit runtime-rebuild durability regression, and the project now has a stable grouped regression runner so full validation does not depend on a single long-lived pytest process.
+
+#### Added
+- `tests/unit/test_generated_app_durability.py`
+  - verifies a generated app blueprint remains executable after runtime rebuild when generated skills are reloaded, the blueprint is re-registered, and app namespaces are reprovisioned
+- `scripts/run_test_groups.sh`
+  - runs the test suite in stable grouped slices (`core`, `runtime`, `context_data`, `workflows`, `intelligence`, `generated`, `operator_paths`) to avoid environment timeout issues during monolithic suite runs
+
+#### Updated
+- `docs/requirements.md`
+  - documents a disciplined observation -> synthesis -> experiment -> verification improvement loop for practical system intelligence
+- `docs/design.md`
+  - reframes evolution from practice as an evidence-bound investigate -> hypothesize -> test -> rollout loop
+- `docs/testing.md`
+  - records generated-app durability coverage and grouped regression execution strategy
+
+#### Validation
+- focused durability/operator regression slice passes
+- result: `6 passed`
+- grouped regression runner passes all groups:
+  - `core`: 24 passed
+  - `runtime`: 31 passed
+  - `context_data`: 18 passed
+  - `workflows`: 30 passed
+  - `intelligence`: 15 passed
+  - `generated`: 28 passed
+  - `operator_paths`: 11 passed
+
 ### Module: API golden path and generated-skill durability guardrails
 
 Added the next layer of regression guardrails above the earlier service/bootstrap coverage: one test now exercises the main operator flow strictly through the public API surface, and another verifies generated script skills remain durable across runtime rebuilds.

@@ -47,6 +47,12 @@ The intended evolutionary chain is:
 - skill suggestion
 - future workflow/app refinement
 
+This should be treated as a disciplined world-model loop rather than a purely verbal planning loop:
+- investigate reality through runtime signals, user corrections, and concrete outcomes
+- transform observations into explicit contradictions, hypotheses, and proposed changes
+- test those changes in bounded workflows before wider rollout
+- keep revision tied to evidence, not only narrative plausibility
+
 ---
 
 ## 3. High-level Architecture

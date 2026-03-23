@@ -140,6 +140,8 @@ Covered behavior:
 - golden-path integration coverage now locks the main operator flow from registry/catalog wiring through interaction open, workflow execution, retry, diagnostics, overview, and dashboard summaries
 - API-level golden-path coverage now protects the same operator flow through the public FastAPI surface, not only service-level integration helpers
 - generated-skill durability smoke coverage now verifies persisted generated script skills reload after runtime rebuild and still execute through the runtime adapter path
+- generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
+- grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
 
 ## 3.7 Interaction gateway
 Covered behavior:

@@ -39,6 +39,7 @@ The system should:
 - distinguish network availability from intelligence availability
 - treat intelligence invocation as a governed runtime policy decision rather than a default behavior whenever a model is reachable
 - infer app runtime class and startup behavior from skill metadata instead of requiring users to manually choose low-level capability profiles
+- make intelligence improve through a disciplined loop of observation -> synthesis -> experiment -> verification -> rollout rather than one-shot prompt improvisation
 - maintain explicit boundaries between:
   - blueprint definition
   - app installation
@@ -250,6 +251,13 @@ The system must support a per-app configuration surface controlled through `syst
 - default initialization
 - schema validation
 - config change history
+
+The system should gradually evolve a practical intelligence loop for app behavior improvement:
+- observe real runtime behavior and user intervention
+- summarize contradictions, failures, and repeated work into structured experience
+- derive candidate changes to skill/app behavior from those experiences
+- validate candidate changes through smoke tests, golden paths, and grouped regression slices before promotion
+- preserve the difference between hypotheses, approved changes, and deployed behavior
 
 The platform should inject these system skills during installation rather than requiring end users to declare them manually.
 
