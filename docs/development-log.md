@@ -2,6 +2,32 @@
 
 ## 2026-03-23
 
+### Module: refinement dashboard history and failed-hypothesis archive
+
+Added the next learning-layer read model on top of refinement governance. The system now preserves failed hypotheses as first-class records and exposes dashboard/history views so recent learning activity is readable, not just stored as disconnected lists.
+
+#### Added
+- `tests/unit/test_refinement_dashboard.py`
+  - verifies failed-hypothesis archival and dashboard/history aggregation
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `FailedHypothesisRecord` and `RefinementDashboard`
+- `app/services/refinement_memory.py`
+  - persists failed hypotheses, builds dashboard/history views, and extends overview counts with negative-learning state
+- `app/services/refinement_loop.py`
+  - archives failed hypotheses when verification fails
+- `app/api/main.py`
+  - exposes refinement dashboard and failed-hypotheses endpoints
+- `docs/design.md`
+  - documents failed-hypothesis preservation and dashboard visibility expectations
+- `docs/testing.md`
+  - records dashboard/history regression coverage
+
+#### Validation
+- refinement overview, dashboard, and rollout regression slice passes
+- result: `6 passed`
+
 ### Module: refinement rollout queue lifecycle
 
 Extended the rollout queue skeleton into a governed lifecycle. Queue items can now transition through approve/apply/reject/rollback operations, and the rollout service provides an explicit operational layer above the raw queue store.

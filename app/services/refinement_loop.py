@@ -5,6 +5,7 @@ import subprocess
 
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.refinement_loop import (
+    FailedHypothesisRecord,
     RefinementExperiment,
     RefinementHypothesis,
     RefinementLoopRequest,
@@ -81,6 +82,17 @@ class RefinementLoopService:
         )
 
         verification = self._memory.add_verification(self._verify_proposal(request.app_instance_id, hypothesis.hypothesis_id, proposal))
+        if verification.outcome == "failed":
+            self._memory.add_failed_hypothesis(
+                FailedHypothesisRecord(
+                    record_id=f"failed.{request.app_instance_id}.{len(self._memory.list_failed_hypotheses(app_instance_id=request.app_instance_id)) + 1}",
+                    hypothesis_id=hypothesis.hypothesis_id,
+                    app_instance_id=request.app_instance_id,
+                    contradiction=analysis.primary_contradiction,
+                    reason=verification.summary,
+                    disproven_assumption=hypothesis.hypothesis,
+                )
+            )
 
         rollout_status = "promote" if verification.outcome == "passed" else "hold"
         rollout_reason = (

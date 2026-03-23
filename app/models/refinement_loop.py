@@ -68,6 +68,16 @@ class RolloutQueueItem(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class FailedHypothesisRecord(BaseModel):
+    record_id: str = Field(..., min_length=1)
+    hypothesis_id: str = Field(..., min_length=1)
+    app_instance_id: str = Field(..., min_length=1)
+    contradiction: str = Field(..., min_length=1)
+    reason: str = Field(..., min_length=1)
+    disproven_assumption: str = Field(..., min_length=1)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class RefinementOverview(BaseModel):
     app_instance_id: str = Field(..., min_length=1)
     hypothesis_count: int = 0
@@ -81,10 +91,21 @@ class RefinementOverview(BaseModel):
     queue_count: int = 0
     queued_count: int = 0
     applied_count: int = 0
+    failed_hypothesis_count: int = 0
     latest_hypothesis: RefinementHypothesis | None = None
     latest_verification: VerificationResult | None = None
     latest_decision: RolloutDecision | None = None
     latest_queue_item: RolloutQueueItem | None = None
+    latest_failed_hypothesis: FailedHypothesisRecord | None = None
+
+
+class RefinementDashboard(BaseModel):
+    overview: RefinementOverview
+    recent_hypotheses: list[RefinementHypothesis] = Field(default_factory=list)
+    recent_verifications: list[VerificationResult] = Field(default_factory=list)
+    recent_decisions: list[RolloutDecision] = Field(default_factory=list)
+    recent_queue_items: list[RolloutQueueItem] = Field(default_factory=list)
+    recent_failed_hypotheses: list[FailedHypothesisRecord] = Field(default_factory=list)
 
 
 class RefinementLoopRequest(BaseModel):

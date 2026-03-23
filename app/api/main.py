@@ -886,6 +886,16 @@ def get_refinement_overview(app_instance_id: str) -> dict:
     return refinement_memory.build_overview(app_instance_id).model_dump(mode="json")
 
 
+@app.get("/self-refinement/dashboard")
+def get_refinement_dashboard(app_instance_id: str, limit: int = 5) -> dict:
+    return refinement_memory.build_dashboard(app_instance_id, limit=limit).model_dump(mode="json")
+
+
+@app.get("/self-refinement/failed-hypotheses")
+def list_failed_hypotheses(app_instance_id: str | None = None, hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_failed_hypotheses(app_instance_id, hypothesis_id)]
+
+
 @app.post("/self-refinement/rollout-queue/{queue_id}/{action}")
 def transition_refinement_rollout_queue(queue_id: str, action: str, payload: dict | None = None) -> dict:
     payload = payload or {}
