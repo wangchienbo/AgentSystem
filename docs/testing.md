@@ -138,6 +138,8 @@ Covered behavior:
 - timeline regression coverage now protects both paginated response metadata and list-like compatibility access on the timeline page model
 - bootstrap smoke coverage now verifies built-in skill registration, demo catalog registration, and installability of default workspace/pipeline blueprints in a fresh runtime
 - golden-path integration coverage now locks the main operator flow from registry/catalog wiring through interaction open, workflow execution, retry, diagnostics, overview, and dashboard summaries
+- API-level golden-path coverage now protects the same operator flow through the public FastAPI surface, not only service-level integration helpers
+- generated-skill durability smoke coverage now verifies persisted generated script skills reload after runtime rebuild and still execute through the runtime adapter path
 
 ## 3.7 Interaction gateway
 Covered behavior:

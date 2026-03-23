@@ -2,6 +2,25 @@
 
 ## 2026-03-23
 
+### Module: API golden path and generated-skill durability guardrails
+
+Added the next layer of regression guardrails above the earlier service/bootstrap coverage: one test now exercises the main operator flow strictly through the public API surface, and another verifies generated script skills remain durable across runtime rebuilds.
+
+#### Added
+- `tests/unit/test_api_golden_path.py`
+  - verifies registry -> install -> execute -> retry -> diagnostics -> overview -> dashboard through FastAPI endpoints
+- `tests/unit/test_generated_skill_durability.py`
+  - verifies persisted generated script skills reload after runtime rebuild and still execute successfully
+
+#### Updated
+- `docs/testing.md`
+  - records API-level golden-path coverage and generated-skill durability smoke coverage
+
+#### Validation
+- targeted regression slice passes for the new API/durability tests plus prior bootstrap/golden-path coverage
+- result: `5 passed`
+- note: full-suite reruns in this environment were interrupted by external SIGTERM timeout rather than assertion failures
+
 ### Module: bootstrap smoke and golden-path integration guardrails
 
 Added regression guardrails for the two most important framework-level paths: fresh-runtime bootstrap/demo installability and the main operator golden path through interaction, workflow execution, retry, and observability.
