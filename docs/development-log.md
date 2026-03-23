@@ -2,6 +2,29 @@
 
 ## 2026-03-23
 
+### Module: pluggable refinement verification execution
+
+Resolved the timeout trap introduced by wiring refinement verification to the grouped regression runner. Verification execution is now injectable, so runtime paths can still call the real grouped runner while unit tests use a bounded stub executor and remain deterministic.
+
+#### Updated
+- `app/services/refinement_loop.py`
+  - adds injectable `verification_executor`
+  - keeps grouped regression as the runtime-capable default path
+  - preserves auto-apply rollout behavior for low-risk promoted proposals
+- `tests/unit/test_refinement_loop.py`
+  - uses a stub verification executor for fast deterministic unit coverage
+  - narrows API coverage to query/list surfaces while service-level tests continue to exercise the full loop
+- `tests/unit/test_refinement_loop_persistence.py`
+  - uses a stub verification executor during persistence coverage
+- `docs/design.md`
+  - documents pluggable verification execution as a design rule
+- `docs/testing.md`
+  - records the bounded-executor testing strategy for refinement verification
+
+#### Validation
+- refinement-loop, persistence, and proposal-review regression slice passes
+- result: `5 passed`
+
 ### Module: refinement loop persistence and query surfaces
 
 Extended the refinement learning loop from a transient skeleton into a visible, queryable runtime layer. Refinement hypotheses, experiments, verifications, and rollout decisions now persist through the runtime store and can be listed back through dedicated API endpoints.

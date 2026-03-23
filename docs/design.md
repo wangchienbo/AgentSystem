@@ -54,6 +54,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - keep revision tied to evidence, not only narrative plausibility
 - record the loop as first-class system objects (hypothesis, experiment, verification result, rollout decision) so refinement is inspectable rather than hidden inside one-shot proposal text
 - persist those refinement-loop objects through the runtime store and expose query surfaces so system learning remains visible across process rebuilds
+- keep verification execution pluggable: runtime paths may invoke real grouped regression, while tests should be able to inject a bounded executor so learning-loop regression coverage stays fast and deterministic
 
 ---
 

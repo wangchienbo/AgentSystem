@@ -22,6 +22,17 @@ from app.services.scheduler import SchedulerService
 from app.services.self_refinement import SelfRefinementService
 
 
+class StubCompletedProcess:
+    def __init__(self, returncode: int = 0, stdout: str = "ok", stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def stub_verification_executor(_runner_path: str) -> StubCompletedProcess:
+    return StubCompletedProcess(returncode=0, stdout="grouped regression passed")
+
+
 def test_refinement_loop_persists_across_runtime_rebuild(tmp_path: Path) -> None:
     store = RuntimeStateStore(base_dir=str(tmp_path / "refinement-persist-store"))
     data_store = AppDataStore(base_dir=str(tmp_path / "refinement-persist-ns"), store=store)
@@ -58,6 +69,7 @@ def test_refinement_loop_persists_across_runtime_rebuild(tmp_path: Path) -> None
         proposal_review=proposal_service,
         priority_analysis=analyzer,
         memory=memory,
+        verification_executor=stub_verification_executor,
     )
 
     registry.register_blueprint(

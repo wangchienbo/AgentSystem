@@ -31,6 +31,7 @@ class RefinementExperiment(BaseModel):
     app_instance_id: str = Field(..., min_length=1)
     workflow_id: str = Field(default="")
     validation_plan: list[str] = Field(default_factory=list)
+    validation_mode: str = Field(default="checklist")
     status: ExperimentStatus = "planned"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -43,6 +44,7 @@ class VerificationResult(BaseModel):
     summary: str = Field(..., min_length=1)
     passed_checks: list[str] = Field(default_factory=list)
     failed_checks: list[str] = Field(default_factory=list)
+    execution_reference: str = Field(default="")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

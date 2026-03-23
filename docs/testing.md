@@ -144,6 +144,7 @@ Covered behavior:
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
 - refinement-loop coverage now verifies the system can carry a prioritized refinement proposal into explicit hypothesis / experiment / verification / rollout objects through both service and API paths
 - refinement-loop persistence coverage now verifies those artifacts survive runtime rebuild and can be queried back through dedicated list surfaces
+- refinement-loop verification coverage now uses an injected executor in unit tests so grouped-regression integration remains real in runtime paths without making test execution depend on a full shell-based suite run
 
 ## 3.7 Interaction gateway
 Covered behavior:
