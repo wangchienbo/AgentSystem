@@ -148,6 +148,7 @@ Covered behavior:
 - refinement overview/dashboard coverage now verifies queue state and latest learning-loop artifacts are aggregated into a readable governance summary
 - rollout queue lifecycle coverage now verifies approve/apply/reject/rollback transitions and the corresponding API surfaces
 - refinement dashboard/history coverage now verifies failed-hypothesis archiving plus recent-hypothesis / verification / decision / queue read models and related API surfaces
+- failure-aware refinement coverage now verifies repeated hypotheses are marked with repeat risk, linked to prior failed hypotheses, and gated from naive promotion even when later validation passes
 
 ## 3.7 Interaction gateway
 Covered behavior:

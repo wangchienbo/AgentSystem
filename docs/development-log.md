@@ -2,6 +2,32 @@
 
 ## 2026-03-23
 
+### Module: failure-aware refinement gating
+
+Connected negative learning history back into the refinement decision process. The system now analyzes previously failed hypotheses before forming a new hypothesis, marks repeated attempts with repeat-risk metadata, and prevents naive promotion when a strategy resembles a disproven path.
+
+#### Added
+- `app/services/refinement_failure_analysis.py`
+  - scores failure similarity and produces repeat-risk / gating metadata
+- `tests/unit/test_refinement_failure_awareness.py`
+  - verifies failed-hypothesis history raises repeat risk and blocks promotion on repeated strategies
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds repeat-risk / related-failure metadata on hypotheses and gating metadata on verification results
+- `app/services/refinement_loop.py`
+  - consults failed-hypothesis history before forming hypotheses and gates promotion when repeat risk is not low
+- `tests/unit/test_refinement_dashboard.py`
+  - validates repeat-risk visibility in dashboard history
+- `docs/design.md`
+  - documents failure-aware refinement gating
+- `docs/testing.md`
+  - records repeated-hypothesis gating coverage
+
+#### Validation
+- failure-awareness, dashboard, and refinement-loop regression slice passes
+- result: `5 passed`
+
 ### Module: refinement dashboard history and failed-hypothesis archive
 
 Added the next learning-layer read model on top of refinement governance. The system now preserves failed hypotheses as first-class records and exposes dashboard/history views so recent learning activity is readable, not just stored as disconnected lists.

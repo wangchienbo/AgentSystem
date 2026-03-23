@@ -16,6 +16,7 @@ from app.models.refinement_loop import (
 )
 from app.services.priority_analysis import PriorityAnalysisRequest, PriorityAnalysisService
 from app.services.proposal_review import ProposalReviewService
+from app.services.refinement_failure_analysis import RefinementFailureAnalysisService
 from app.services.refinement_memory import RefinementMemoryStore
 
 
@@ -31,12 +32,14 @@ class RefinementLoopService:
         memory: RefinementMemoryStore | None = None,
         regression_runner: str = "/root/project/AgentSystem/scripts/run_test_groups.sh",
         verification_executor=None,
+        failure_analysis: RefinementFailureAnalysisService | None = None,
     ) -> None:
         self._proposal_review = proposal_review
         self._priority_analysis = priority_analysis
         self._memory = memory or RefinementMemoryStore()
         self._regression_runner = regression_runner
         self._verification_executor = verification_executor or self._run_regression_command
+        self._failure_analysis = failure_analysis or RefinementFailureAnalysisService()
 
     @property
     def memory(self) -> RefinementMemoryStore:
@@ -55,6 +58,11 @@ class RefinementLoopService:
         if proposal is None:
             raise RefinementLoopError(f"Proposal not found for prioritized item: {top.proposal_id}")
 
+        failure_awareness = self._failure_analysis.analyze(
+            contradiction=analysis.primary_contradiction,
+            proposal=proposal,
+            failed_hypotheses=self._memory.list_failed_hypotheses(app_instance_id=request.app_instance_id),
+        )
         hypothesis = self._memory.add_hypothesis(
             RefinementHypothesis(
                 hypothesis_id=f"hyp.{request.app_instance_id}.{len(self._memory.list_hypotheses(request.app_instance_id)) + 1}",
@@ -65,7 +73,10 @@ class RefinementLoopService:
                 hypothesis=f"If proposal {proposal.proposal_id} is applied in a bounded validation path, the current main contradiction should weaken.",
                 expected_change=proposal.expected_benefit,
                 evidence=list(proposal.evidence),
-                status="approved" if proposal.auto_apply_allowed and proposal.risk_level == "low" else "proposed",
+                repeat_risk=failure_awareness.repeat_risk,
+                related_failed_hypothesis_ids=failure_awareness.related_failed_hypothesis_ids,
+                novelty_note=failure_awareness.novelty_note,
+                status="approved" if proposal.auto_apply_allowed and proposal.risk_level == "low" and failure_awareness.repeat_risk == "low" else "proposed",
             )
         )
         validation_mode = "grouped_regression" if Path(self._regression_runner).exists() else "checklist"
@@ -81,7 +92,15 @@ class RefinementLoopService:
             )
         )
 
-        verification = self._memory.add_verification(self._verify_proposal(request.app_instance_id, hypothesis.hypothesis_id, proposal))
+        verification = self._memory.add_verification(
+            self._verify_proposal(
+                request.app_instance_id,
+                hypothesis.hypothesis_id,
+                proposal,
+                failure_awareness.gating_reason,
+                hypothesis.repeat_risk,
+            )
+        )
         if verification.outcome == "failed":
             self._memory.add_failed_hypothesis(
                 FailedHypothesisRecord(
@@ -94,7 +113,7 @@ class RefinementLoopService:
                 )
             )
 
-        rollout_status = "promote" if verification.outcome == "passed" else "hold"
+        rollout_status = "promote" if verification.outcome == "passed" and hypothesis.repeat_risk == "low" else "hold"
         rollout_reason = (
             f"Promote proposal {proposal.proposal_id} into the next rollout window."
             if rollout_status == "promote"
@@ -145,7 +164,7 @@ class RefinementLoopService:
             queue_item=queue_item,
         )
 
-    def _verify_proposal(self, app_instance_id: str, hypothesis_id: str, proposal) -> VerificationResult:
+    def _verify_proposal(self, app_instance_id: str, hypothesis_id: str, proposal, gating_reason: str, repeat_risk: str) -> VerificationResult:
         verification_id = f"verify.{app_instance_id}.{len(self._memory.list_verifications(hypothesis_id)) + 1}"
         if Path(self._regression_runner).exists():
             result = self._verification_executor(self._regression_runner)
@@ -160,6 +179,8 @@ class RefinementLoopService:
                     passed_checks=list(proposal.validation_checklist) or ["grouped regression runner"],
                     failed_checks=[],
                     execution_reference="grouped_regression:passed",
+                    failure_aware=repeat_risk != "low",
+                    gating_reason=gating_reason,
                 )
             return VerificationResult(
                 verification_id=verification_id,
@@ -170,6 +191,8 @@ class RefinementLoopService:
                 passed_checks=[],
                 failed_checks=list(proposal.validation_checklist) or [output[-200:]],
                 execution_reference="grouped_regression:failed",
+                failure_aware=repeat_risk != "low",
+                gating_reason=gating_reason,
             )
 
         passed_checks = list(proposal.validation_checklist[: max(1, len(proposal.validation_checklist) - 1)])
@@ -186,6 +209,8 @@ class RefinementLoopService:
             passed_checks=passed_checks,
             failed_checks=failed_checks,
             execution_reference="checklist:bounded",
+            failure_aware=repeat_risk != "low",
+            gating_reason=gating_reason,
         )
 
     def _run_regression_command(self, runner_path: str):

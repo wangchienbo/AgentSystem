@@ -22,6 +22,9 @@ class RefinementHypothesis(BaseModel):
     hypothesis: str = Field(..., min_length=1)
     expected_change: str = Field(..., min_length=1)
     evidence: list[str] = Field(default_factory=list)
+    repeat_risk: str = Field(default="low")
+    related_failed_hypothesis_ids: list[str] = Field(default_factory=list)
+    novelty_note: str = ""
     status: HypothesisStatus = "proposed"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -46,6 +49,8 @@ class VerificationResult(BaseModel):
     passed_checks: list[str] = Field(default_factory=list)
     failed_checks: list[str] = Field(default_factory=list)
     execution_reference: str = Field(default="")
+    failure_aware: bool = False
+    gating_reason: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
