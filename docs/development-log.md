@@ -2,6 +2,26 @@
 
 ## 2026-03-23
 
+### Module: bootstrap smoke and golden-path integration guardrails
+
+Added regression guardrails for the two most important framework-level paths: fresh-runtime bootstrap/demo installability and the main operator golden path through interaction, workflow execution, retry, and observability.
+
+#### Added
+- `tests/unit/test_bootstrap_smoke.py`
+  - verifies built-in skill registration and demo catalog registration in a fresh runtime
+  - verifies default workspace/pipeline demo blueprints remain installable after bootstrap
+- `tests/unit/test_golden_path_integration.py`
+  - exercises registry/catalog wiring, interaction-driven app open, workflow execution, retry, diagnostics, overview, and dashboard summary flow in one integrated test
+
+#### Updated
+- `docs/testing.md`
+  - records bootstrap smoke coverage and golden-path operator coverage as regression guardrails
+
+#### Validation
+- targeted new regressions pass
+- full local suite passes
+- result: `158 passed`
+
 ### Module: workflow observability closure and install-time validation split
 
 Closed the main workflow observability integration loop by reconciling retry semantics, timeline compatibility, demo blueprint installability, and strict-vs-relaxed blueprint validation behavior.

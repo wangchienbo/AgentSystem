@@ -136,6 +136,8 @@ Covered behavior:
 - install/runtime regression coverage now verifies relaxed install-time blueprint validation separately from strict `/blueprints/validate` checks so demo apps and runtime-partial workflows stay installable without weakening operator-facing validation
 - retry and observability regression coverage now treats `partial` as the canonical retry candidate state, including cases with and without explicit failed step ids
 - timeline regression coverage now protects both paginated response metadata and list-like compatibility access on the timeline page model
+- bootstrap smoke coverage now verifies built-in skill registration, demo catalog registration, and installability of default workspace/pipeline blueprints in a fresh runtime
+- golden-path integration coverage now locks the main operator flow from registry/catalog wiring through interaction open, workflow execution, retry, diagnostics, overview, and dashboard summaries
 
 ## 3.7 Interaction gateway
 Covered behavior:
