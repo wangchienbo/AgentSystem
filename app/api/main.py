@@ -875,6 +875,16 @@ def list_refinement_decisions(hypothesis_id: str | None = None) -> list[dict]:
     return [item.model_dump(mode="json") for item in refinement_memory.list_decisions(hypothesis_id)]
 
 
+@app.get("/self-refinement/rollout-queue")
+def list_refinement_rollout_queue(app_instance_id: str | None = None, hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_queue(app_instance_id, hypothesis_id)]
+
+
+@app.get("/self-refinement/overview")
+def get_refinement_overview(app_instance_id: str) -> dict:
+    return refinement_memory.build_overview(app_instance_id).model_dump(mode="json")
+
+
 @app.get("/schedules")
 def list_schedules(app_instance_id: str | None = None) -> list[dict]:
     return [item.model_dump(mode="json") for item in scheduler.list_schedules(app_instance_id)]

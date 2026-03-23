@@ -10,6 +10,7 @@ HypothesisStatus = Literal["proposed", "approved", "rejected", "superseded"]
 ExperimentStatus = Literal["planned", "running", "completed", "aborted"]
 VerificationOutcome = Literal["passed", "failed", "inconclusive"]
 RolloutDecisionStatus = Literal["promote", "hold", "reject"]
+RolloutQueueStatus = Literal["queued", "approved", "applied", "rejected", "rolled_back"]
 
 
 class RefinementHypothesis(BaseModel):
@@ -57,6 +58,35 @@ class RolloutDecision(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class RolloutQueueItem(BaseModel):
+    queue_id: str = Field(..., min_length=1)
+    hypothesis_id: str = Field(..., min_length=1)
+    proposal_id: str = Field(..., min_length=1)
+    app_instance_id: str = Field(..., min_length=1)
+    status: RolloutQueueStatus = "queued"
+    note: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class RefinementOverview(BaseModel):
+    app_instance_id: str = Field(..., min_length=1)
+    hypothesis_count: int = 0
+    unresolved_hypothesis_count: int = 0
+    verification_count: int = 0
+    passed_verification_count: int = 0
+    failed_verification_count: int = 0
+    decision_count: int = 0
+    promote_count: int = 0
+    hold_count: int = 0
+    queue_count: int = 0
+    queued_count: int = 0
+    applied_count: int = 0
+    latest_hypothesis: RefinementHypothesis | None = None
+    latest_verification: VerificationResult | None = None
+    latest_decision: RolloutDecision | None = None
+    latest_queue_item: RolloutQueueItem | None = None
+
+
 class RefinementLoopRequest(BaseModel):
     app_instance_id: str = Field(..., min_length=1)
     experience_id: str = Field(..., min_length=1)
@@ -70,3 +100,4 @@ class RefinementLoopResult(BaseModel):
     experiment: RefinementExperiment
     verification: VerificationResult
     rollout: RolloutDecision
+    queue_item: RolloutQueueItem | None = None

@@ -2,6 +2,34 @@
 
 ## 2026-03-23
 
+### Module: refinement rollout queue and overview read model
+
+Added the first governance layer on top of the refinement loop. Rollout is now represented as a queue item instead of only an ephemeral decision, and refinement state can be summarized into an overview read model for operational visibility.
+
+#### Added
+- `tests/unit/test_refinement_overview.py`
+  - verifies queue state and latest learning-loop artifacts are aggregated into the overview read model
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `RolloutQueueItem`, `RefinementOverview`, and queue attachment on loop results
+- `app/services/refinement_memory.py`
+  - persists rollout queue items and builds per-app overview summaries
+- `app/services/refinement_loop.py`
+  - emits rollout queue items during loop execution and marks auto-applied promotions accordingly
+- `app/api/main.py`
+  - exposes rollout queue and refinement overview endpoints
+- `tests/unit/test_refinement_loop.py`
+  - validates queue emission and queue/list API coverage
+- `docs/design.md`
+  - documents rollout governance and overview visibility expectations
+- `docs/testing.md`
+  - records refinement overview/dashboard coverage
+
+#### Validation
+- refinement loop, persistence, and overview regression slice passes
+- result: `4 passed`
+
 ### Module: pluggable refinement verification execution
 
 Resolved the timeout trap introduced by wiring refinement verification to the grouped regression runner. Verification execution is now injectable, so runtime paths can still call the real grouped runner while unit tests use a bounded stub executor and remain deterministic.

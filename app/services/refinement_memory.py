@@ -3,7 +3,9 @@ from __future__ import annotations
 from app.models.refinement_loop import (
     RefinementExperiment,
     RefinementHypothesis,
+    RefinementOverview,
     RolloutDecision,
+    RolloutQueueItem,
     VerificationResult,
 )
 from app.services.runtime_state_store import RuntimeStateStore
@@ -16,6 +18,7 @@ class RefinementMemoryStore:
         self._experiments: dict[str, RefinementExperiment] = {}
         self._verifications: dict[str, VerificationResult] = {}
         self._decisions: dict[str, RolloutDecision] = {}
+        self._queue: dict[str, RolloutQueueItem] = {}
         self._load()
 
     def add_hypothesis(self, item: RefinementHypothesis) -> RefinementHypothesis:
@@ -35,6 +38,11 @@ class RefinementMemoryStore:
 
     def add_decision(self, item: RolloutDecision) -> RolloutDecision:
         self._decisions[item.decision_id] = item
+        self._persist()
+        return item
+
+    def add_queue_item(self, item: RolloutQueueItem) -> RolloutQueueItem:
+        self._queue[item.queue_id] = item
         self._persist()
         return item
 
@@ -62,6 +70,43 @@ class RefinementMemoryStore:
             items = [item for item in items if item.hypothesis_id == hypothesis_id]
         return items
 
+    def list_queue(self, app_instance_id: str | None = None, hypothesis_id: str | None = None) -> list[RolloutQueueItem]:
+        items = list(self._queue.values())
+        if app_instance_id is not None:
+            items = [item for item in items if item.app_instance_id == app_instance_id]
+        if hypothesis_id is not None:
+            items = [item for item in items if item.hypothesis_id == hypothesis_id]
+        return items
+
+    def build_overview(self, app_instance_id: str) -> RefinementOverview:
+        hypotheses = self.list_hypotheses(app_instance_id)
+        hypothesis_ids = {item.hypothesis_id for item in hypotheses}
+        verifications = [item for item in self._verifications.values() if item.hypothesis_id in hypothesis_ids]
+        decisions = [item for item in self._decisions.values() if item.hypothesis_id in hypothesis_ids]
+        queue_items = self.list_queue(app_instance_id=app_instance_id)
+        latest_hypothesis = max(hypotheses, key=lambda item: item.created_at) if hypotheses else None
+        latest_verification = max(verifications, key=lambda item: item.created_at) if verifications else None
+        latest_decision = max(decisions, key=lambda item: item.created_at) if decisions else None
+        latest_queue_item = max(queue_items, key=lambda item: item.created_at) if queue_items else None
+        return RefinementOverview(
+            app_instance_id=app_instance_id,
+            hypothesis_count=len(hypotheses),
+            unresolved_hypothesis_count=sum(1 for item in hypotheses if item.status in {"proposed", "approved"}),
+            verification_count=len(verifications),
+            passed_verification_count=sum(1 for item in verifications if item.outcome == "passed"),
+            failed_verification_count=sum(1 for item in verifications if item.outcome == "failed"),
+            decision_count=len(decisions),
+            promote_count=sum(1 for item in decisions if item.status == "promote"),
+            hold_count=sum(1 for item in decisions if item.status == "hold"),
+            queue_count=len(queue_items),
+            queued_count=sum(1 for item in queue_items if item.status == "queued"),
+            applied_count=sum(1 for item in queue_items if item.status == "applied"),
+            latest_hypothesis=latest_hypothesis,
+            latest_verification=latest_verification,
+            latest_decision=latest_decision,
+            latest_queue_item=latest_queue_item,
+        )
+
     def _persist(self) -> None:
         if self._store is None:
             return
@@ -69,6 +114,7 @@ class RefinementMemoryStore:
         self._store.save_mapping("refinement_experiments", self._experiments)
         self._store.save_mapping("refinement_verifications", self._verifications)
         self._store.save_mapping("refinement_decisions", self._decisions)
+        self._store.save_mapping("refinement_queue", self._queue)
 
     def _load(self) -> None:
         if self._store is None:
@@ -88,4 +134,8 @@ class RefinementMemoryStore:
         self._decisions = {
             key: RolloutDecision.model_validate(value)
             for key, value in self._store.load_json("refinement_decisions", {}).items()
+        }
+        self._queue = {
+            key: RolloutQueueItem.model_validate(value)
+            for key, value in self._store.load_json("refinement_queue", {}).items()
         }

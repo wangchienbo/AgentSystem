@@ -10,6 +10,7 @@ from app.models.refinement_loop import (
     RefinementLoopRequest,
     RefinementLoopResult,
     RolloutDecision,
+    RolloutQueueItem,
     VerificationResult,
 )
 from app.services.priority_analysis import PriorityAnalysisRequest, PriorityAnalysisService
@@ -96,6 +97,8 @@ class RefinementLoopService:
                 reason=rollout_reason,
             )
         )
+        queue_status = "queued"
+        queue_note = rollout.reason
         if rollout.status == "promote" and proposal.auto_apply_allowed and proposal.risk_level == "low":
             self._proposal_review.review(
                 ProposalReviewRequest(
@@ -105,6 +108,20 @@ class RefinementLoopService:
                     note=f"auto-applied after {verification.execution_reference or verification.summary}",
                 )
             )
+            queue_status = "applied"
+            queue_note = f"auto-applied after {verification.execution_reference or verification.summary}"
+        elif rollout.status == "reject":
+            queue_status = "rejected"
+        queue_item = self._memory.add_queue_item(
+            RolloutQueueItem(
+                queue_id=f"queue.{request.app_instance_id}.{len(self._memory.list_queue(app_instance_id=request.app_instance_id)) + 1}",
+                hypothesis_id=hypothesis.hypothesis_id,
+                proposal_id=proposal.proposal_id,
+                app_instance_id=request.app_instance_id,
+                status=queue_status,
+                note=queue_note,
+            )
+        )
         return RefinementLoopResult(
             app_instance_id=request.app_instance_id,
             experience_id=request.experience_id,
@@ -113,6 +130,7 @@ class RefinementLoopService:
             experiment=experiment,
             verification=verification,
             rollout=rollout,
+            queue_item=queue_item,
         )
 
     def _verify_proposal(self, app_instance_id: str, hypothesis_id: str, proposal) -> VerificationResult:
