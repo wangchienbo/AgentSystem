@@ -2,6 +2,34 @@
 
 ## 2026-03-23
 
+### Module: refinement learning loop skeleton
+
+Added the first explicit domain layer for turning runtime contradiction analysis into inspectable improvement actions. The system can now convert prioritized refinement proposals into hypothesis, experiment, verification, and rollout objects through a dedicated service/API path.
+
+#### Added
+- `app/models/refinement_loop.py`
+  - defines `RefinementHypothesis`, `RefinementExperiment`, `VerificationResult`, `RolloutDecision`, and the loop request/result contracts
+- `app/services/refinement_memory.py`
+  - in-memory store for refinement loop objects
+- `app/services/refinement_loop.py`
+  - converts prioritized proposals into bounded refinement loop artifacts and rollout recommendations
+- `tests/unit/test_refinement_loop.py`
+  - covers both service-level and API-level refinement loop flow
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires refinement memory + refinement loop service into the runtime
+- `app/api/main.py`
+  - exposes `/self-refinement/loop`
+- `docs/design.md`
+  - documents hypothesis/experiment/verification/rollout as first-class refinement objects
+- `docs/testing.md`
+  - records refinement-loop coverage
+
+#### Validation
+- refinement-loop, self-refinement, and priority-analysis regression slice passes
+- result: `8 passed`
+
 ### Module: generated-app durability and grouped regression runner
 
 Added the next layer of system-level guardrails: generated apps now have an explicit runtime-rebuild durability regression, and the project now has a stable grouped regression runner so full validation does not depend on a single long-lived pytest process.

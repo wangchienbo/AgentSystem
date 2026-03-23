@@ -28,6 +28,8 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.schema_registry import SchemaRegistryService
 from app.services.self_refinement import SelfRefinementService
+from app.services.refinement_loop import RefinementLoopService
+from app.services.refinement_memory import RefinementMemoryStore
 from app.services.skill_control import SkillControlService
 from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
@@ -205,6 +207,12 @@ def build_runtime() -> dict[str, object]:
     priority_analysis = PriorityAnalysisService(
         proposal_review=proposal_review,
         context_store=app_context_store,
+    )
+    refinement_memory = RefinementMemoryStore()
+    refinement_loop = RefinementLoopService(
+        proposal_review=proposal_review,
+        priority_analysis=priority_analysis,
+        memory=refinement_memory,
     )
     app_installer = AppInstallerService(
         registry=app_registry,

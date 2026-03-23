@@ -142,6 +142,7 @@ Covered behavior:
 - generated-skill durability smoke coverage now verifies persisted generated script skills reload after runtime rebuild and still execute through the runtime adapter path
 - generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
+- refinement-loop coverage now verifies the system can carry a prioritized refinement proposal into explicit hypothesis / experiment / verification / rollout objects through both service and API paths
 
 ## 3.7 Interaction gateway
 Covered behavior:

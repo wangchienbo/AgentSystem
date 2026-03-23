@@ -32,6 +32,7 @@ from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
+from app.models.refinement_loop import RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError
@@ -91,6 +92,7 @@ app_registry = services["app_registry"]
 self_refinement = services["self_refinement"]
 proposal_review = services["proposal_review"]
 priority_analysis = services["priority_analysis"]
+refinement_loop = services["refinement_loop"]
 app_installer = services["app_installer"]
 app_catalog = services["app_catalog"]
 skill_runtime = services["skill_runtime"]
@@ -841,6 +843,14 @@ def analyze_self_refinement_priority(request: PriorityAnalysisRequest) -> dict:
     try:
         return priority_analysis.analyze(request).model_dump(mode="json")
     except PriorityAnalysisError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/self-refinement/loop")
+def run_self_refinement_loop(request: RefinementLoopRequest) -> dict:
+    try:
+        return refinement_loop.run(request).model_dump(mode="json")
+    except (PriorityAnalysisError, ProposalReviewError, ValueError) as error:
         raise map_domain_error(error) from error
 
 

@@ -52,6 +52,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - transform observations into explicit contradictions, hypotheses, and proposed changes
 - test those changes in bounded workflows before wider rollout
 - keep revision tied to evidence, not only narrative plausibility
+- record the loop as first-class system objects (hypothesis, experiment, verification result, rollout decision) so refinement is inspectable rather than hidden inside one-shot proposal text
 
 ---
 
