@@ -208,7 +208,7 @@ def build_runtime() -> dict[str, object]:
         proposal_review=proposal_review,
         context_store=app_context_store,
     )
-    refinement_memory = RefinementMemoryStore()
+    refinement_memory = RefinementMemoryStore(store=runtime_store)
     refinement_loop = RefinementLoopService(
         proposal_review=proposal_review,
         priority_analysis=priority_analysis,

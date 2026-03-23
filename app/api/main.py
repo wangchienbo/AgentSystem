@@ -93,6 +93,7 @@ self_refinement = services["self_refinement"]
 proposal_review = services["proposal_review"]
 priority_analysis = services["priority_analysis"]
 refinement_loop = services["refinement_loop"]
+refinement_memory = services["refinement_memory"]
 app_installer = services["app_installer"]
 app_catalog = services["app_catalog"]
 skill_runtime = services["skill_runtime"]
@@ -852,6 +853,26 @@ def run_self_refinement_loop(request: RefinementLoopRequest) -> dict:
         return refinement_loop.run(request).model_dump(mode="json")
     except (PriorityAnalysisError, ProposalReviewError, ValueError) as error:
         raise map_domain_error(error) from error
+
+
+@app.get("/self-refinement/hypotheses")
+def list_refinement_hypotheses(app_instance_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_hypotheses(app_instance_id)]
+
+
+@app.get("/self-refinement/experiments")
+def list_refinement_experiments(hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_experiments(hypothesis_id)]
+
+
+@app.get("/self-refinement/verifications")
+def list_refinement_verifications(hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_verifications(hypothesis_id)]
+
+
+@app.get("/self-refinement/decisions")
+def list_refinement_decisions(hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_decisions(hypothesis_id)]
 
 
 @app.get("/schedules")

@@ -163,3 +163,19 @@ def test_refinement_loop_api_flow() -> None:
     assert payload["hypothesis"]["experience_id"] == experience_id
     assert payload["experiment"]["status"] == "completed"
     assert payload["rollout"]["status"] in {"promote", "hold"}
+
+    hypotheses_response = client.get("/self-refinement/hypotheses", params={"app_instance_id": app_instance_id})
+    assert hypotheses_response.status_code == 200
+    assert any(item["hypothesis_id"] == payload["hypothesis"]["hypothesis_id"] for item in hypotheses_response.json())
+
+    experiments_response = client.get("/self-refinement/experiments", params={"hypothesis_id": payload["hypothesis"]["hypothesis_id"]})
+    assert experiments_response.status_code == 200
+    assert experiments_response.json()[0]["status"] == "completed"
+
+    verifications_response = client.get("/self-refinement/verifications", params={"hypothesis_id": payload["hypothesis"]["hypothesis_id"]})
+    assert verifications_response.status_code == 200
+    assert verifications_response.json()[0]["outcome"] in {"passed", "inconclusive"}
+
+    decisions_response = client.get("/self-refinement/decisions", params={"hypothesis_id": payload["hypothesis"]["hypothesis_id"]})
+    assert decisions_response.status_code == 200
+    assert decisions_response.json()[0]["status"] in {"promote", "hold"}

@@ -2,6 +2,32 @@
 
 ## 2026-03-23
 
+### Module: refinement loop persistence and query surfaces
+
+Extended the refinement learning loop from a transient skeleton into a visible, queryable runtime layer. Refinement hypotheses, experiments, verifications, and rollout decisions now persist through the runtime store and can be listed back through dedicated API endpoints.
+
+#### Added
+- `tests/unit/test_refinement_loop_persistence.py`
+  - verifies refinement-loop artifacts survive runtime rebuild and remain queryable
+
+#### Updated
+- `app/services/refinement_memory.py`
+  - persists and reloads hypotheses / experiments / verifications / decisions through `RuntimeStateStore`
+- `app/bootstrap/runtime.py`
+  - wires refinement memory against the runtime store
+- `app/api/main.py`
+  - exposes list endpoints for hypotheses, experiments, verifications, and rollout decisions
+- `tests/unit/test_refinement_loop.py`
+  - validates the new query endpoints after loop execution
+- `docs/design.md`
+  - records persistence/query expectations for refinement-loop artifacts
+- `docs/testing.md`
+  - records persistence/query regression coverage for the refinement loop
+
+#### Validation
+- refinement-loop, persistence, self-refinement, and priority-analysis regression slice passes
+- result: `9 passed`
+
 ### Module: refinement learning loop skeleton
 
 Added the first explicit domain layer for turning runtime contradiction analysis into inspectable improvement actions. The system can now convert prioritized refinement proposals into hypothesis, experiment, verification, and rollout objects through a dedicated service/API path.
