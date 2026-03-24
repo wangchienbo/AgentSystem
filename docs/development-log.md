@@ -30,6 +30,30 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: governance-aware blueprint materialization policy
+
+Started turning blueprint safety metadata into active materialization policy by blocking shell/script materialization for low-risk blueprints whose safety profile explicitly disallows shell behavior.
+
+#### Updated
+- `app/api/main.py`
+  - blueprint materialization now enforces a baseline policy block for shell/script materialization when `SkillBlueprint.safety_profile.allow_shell=false`
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - verifies low-risk blueprints are rejected from shell/script materialization with a structured `policy_blocked` diagnostic
+- `docs/requirements.md`
+  - records baseline materialization-policy enforcement requirement
+- `docs/design.md`
+  - documents safety metadata as active materialization policy rather than passive annotation
+- `docs/testing.md`
+  - records blueprint materialization policy coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with active materialization-policy behavior
+- `docs/system-relationship-map.md`
+  - marks blueprint safety metadata as affecting materialization permission, not only downstream defaults
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py`
+- result: `2 passed`
+
 ### Module: end-to-end propagation of safety defaults into registered skills
 
 Extended blueprint materialization so callers can now verify that governance-aware safety defaults propagated all the way into the final registered skill artifact, not just the intermediate creation request.

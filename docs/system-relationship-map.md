@@ -429,6 +429,8 @@ graph TD
     F --> T20[tests/unit/test_skill_blueprint_safety_defaults.py]
     F --> T21[tests/unit/test_skill_blueprint_materialization_api.py]
 
+> Policy note: blueprint materialization now consumes safety metadata as active policy, not just propagation metadata. Changes to `SkillBlueprint.safety_profile` can therefore affect whether materialization is allowed at all.
+
 > Materialization note: blueprint materialization now surfaces the final registered skill state, so changes in manifest/capability propagation should be treated as affecting not just request construction but end-to-end generated skill artifacts.
     F --> T16[tests/unit/test_skill_policy_diagnostics_api.py]
     F --> T17[tests/unit/test_skill_risk_policy.py]

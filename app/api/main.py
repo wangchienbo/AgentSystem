@@ -294,6 +294,26 @@ def add_skill_blueprint(blueprint: SkillBlueprint) -> dict:
 def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterializationRequest) -> dict:
     try:
         blueprint = experience_store.get_skill_blueprint(skill_id)
+        safety_profile = blueprint.safety_profile or {}
+        if (
+            request.adapter_kind == "script"
+            and request.command
+            and request.command[0] in {"bash", "sh"}
+            and safety_profile.get("allow_shell") is False
+        ):
+            raise SkillDiagnosticError(
+                stage="materialize",
+                kind="policy_blocked",
+                message=f"Skill blueprint '{skill_id}' is gated from shell materialization by safety profile",
+                retryable=False,
+                hint="Use callable materialization or provide a future explicit policy/override path for shell-based blueprint materialization.",
+                details={
+                    "skill_id": skill_id,
+                    "adapter_kind": request.adapter_kind,
+                    "command": request.command,
+                    "policy_reasons": ["blueprint.allow_shell=false"],
+                },
+            )
         creation_request = skill_factory.build_creation_request_from_blueprint(
             blueprint,
             adapter_kind=request.adapter_kind,

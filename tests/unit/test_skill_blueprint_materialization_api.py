@@ -6,6 +6,54 @@ from app.api.main import app
 client = TestClient(app)
 
 
+def test_materialize_low_risk_blueprint_blocks_shell_script_materialization() -> None:
+    add_blueprint = client.post(
+        "/skill-blueprints",
+        json={
+            "skill_id": "skill.blueprint.blocked.shell",
+            "name": "Blocked Shell Blueprint",
+            "goal": "should not allow shell materialization under safe defaults",
+            "inputs": ["payload"],
+            "outputs": ["normalized"],
+            "steps": ["keep execution local and deterministic"],
+            "related_experience_ids": ["exp.materialize.blocked"],
+            "safety_profile": {
+                "preferred_risk_level": "R0_safe_read",
+                "prefer_local_only": True,
+                "prefer_deterministic": True,
+                "allow_network": False,
+                "allow_shell": False,
+                "allow_filesystem_write": False
+            }
+        },
+    )
+    assert add_blueprint.status_code == 200
+
+    blocked = client.post(
+        "/skill-blueprints/skill.blueprint.blocked.shell/materialize",
+        json={
+            "adapter_kind": "script",
+            "command": ["bash", "tests/fixtures/script_echo_skill.py"],
+            "schemas": {
+                "input": {"type": "object", "properties": {}, "additionalProperties": True},
+                "output": {"type": "object", "properties": {}, "additionalProperties": True},
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False
+                }
+            }
+        },
+    )
+    assert blocked.status_code == 400
+    payload = blocked.json()["detail"]
+    assert payload["stage"] == "materialize"
+    assert payload["kind"] == "policy_blocked"
+    assert "blueprint.allow_shell=false" in payload["details"]["policy_reasons"]
+
+
+
 def test_materialize_skill_blueprint_uses_safety_defaults_in_creation_request() -> None:
     add_blueprint = client.post(
         "/skill-blueprints",

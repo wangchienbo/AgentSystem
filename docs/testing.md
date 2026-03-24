@@ -174,6 +174,7 @@ Covered behavior:
 - blueprint creation-request bridge coverage now verifies governance-aware defaults can be projected into concrete `SkillCreationRequest` objects
 - blueprint materialization coverage now verifies stored blueprints can be turned into real skills through an API path that preserves governance-aware request defaults
 - end-to-end blueprint materialization coverage now verifies low-risk defaults also appear in the final registered skill manifest and capability profile
+- blueprint materialization policy coverage now verifies low-risk blueprints reject shell/script materialization when safety metadata disallows it
 
 ## 3.7 Interaction gateway
 Covered behavior:
