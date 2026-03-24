@@ -1,6 +1,6 @@
 import os
 
-os.environ.setdefault("AGENTSYSTEM_DISABLE_MODEL_REFINER", "1")
+os.environ.pop("AGENTSYSTEM_ENABLE_MODEL_REFINER", None)
 os.environ.setdefault("AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION", "1")
 
 from fastapi.testclient import TestClient

@@ -301,6 +301,7 @@ The platform should expose an API-first path for generated skills so the system 
 - provide a higher-level self-refinement governance dashboard payload that bundles overview, aggregate stats, recent queue state, and recent failed-hypothesis archive slices for operator-facing review surfaces
 - keep refinement operator-surface query construction centralized through a shared API helper so queue/stats/dashboard endpoints evolve with aligned filter semantics instead of duplicating parameter mapping inline
 - provide deterministic test controls for self-refinement API flows so contract/integration coverage can run without depending on external model availability or recursively launching the grouped regression suite
+- require model-backed self-refinement to be explicitly enabled in runtime wiring instead of opportunistically activating whenever model credentials/configuration happen to exist
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

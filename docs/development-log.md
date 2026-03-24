@@ -30,6 +30,30 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: explicit runtime opt-in for model self-refiner
+
+Shifted model-backed self-refinement from opportunistic auto-wiring to explicit runtime opt-in so normal API and regression paths stay deterministic unless model proposal synthesis is deliberately enabled.
+
+#### Added
+- `tests/unit/test_runtime_model_refiner_toggle.py`
+  - verifies runtime wiring leaves the model self-refiner off by default and enables it only when `AGENTSYSTEM_ENABLE_MODEL_REFINER=1`
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - now wires `ModelSelfRefiner` only when `AGENTSYSTEM_ENABLE_MODEL_REFINER=1`
+- `tests/unit/test_api_refinement_governance_path.py`
+  - no longer needs a disable-model flag; it simply ensures the explicit enable flag is absent while still disabling grouped regression for deterministic API coverage
+- `docs/requirements.md`
+  - records explicit enablement requirement for model-backed self-refinement
+- `docs/design.md`
+  - documents default-off / explicit-opt-in runtime wiring for the model self-refiner
+- `docs/testing.md`
+  - updates regression guidance to treat model-backed refinement as a separate opt-in slice
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_runtime_model_refiner_toggle.py tests/unit/test_api_refinement_governance_path.py tests/unit/test_refinement_observability_api.py`
+- result: `4 passed`
+
 ### Module: deterministic refinement API-path test controls
 
 Eliminated the major performance traps in the dedicated refinement API path test by adding test-only runtime toggles that prevent accidental model-backed proposal generation and recursive grouped-regression execution during contract-focused API coverage.

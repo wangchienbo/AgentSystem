@@ -194,7 +194,7 @@ def build_runtime() -> dict[str, object]:
     model_skill_suggester = ModelSkillSuggester()
     skill_suggestion = SkillSuggestionService(experience_store=experience_store, model_suggester=model_skill_suggester)
     app_registry = AppRegistryService(store=runtime_store)
-    model_self_refiner = None if os.getenv("AGENTSYSTEM_DISABLE_MODEL_REFINER") == "1" else ModelSelfRefiner()
+    model_self_refiner = ModelSelfRefiner() if os.getenv("AGENTSYSTEM_ENABLE_MODEL_REFINER") == "1" else None
     self_refinement = SelfRefinementService(
         experience_store=experience_store,
         registry=app_registry,
