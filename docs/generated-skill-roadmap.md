@@ -271,6 +271,7 @@ Keep generated skill expansion safe.
 - those safer defaults should be preserved in blueprint-level metadata so downstream generation stages can honor them automatically
 - the generation layer should expose an explicit bridge from blueprint safety metadata into concrete creation defaults before full end-to-end generated-skill materialization is completed
 - the next handoff should also project those defaults into concrete `SkillCreationRequest` objects so the generated-skill create path can consume them directly
+- stored blueprints should be materializable through a concrete API path so the governance-aware handoff becomes part of the real generated-skill creation flow, not just an internal helper
 
 ---
 

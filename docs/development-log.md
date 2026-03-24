@@ -30,6 +30,36 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: blueprint materialization into real skills
+
+Connected the safety-aware blueprint/request bridge into a real API path so stored skill blueprints can now be materialized into registered skills while preserving governance-derived request defaults.
+
+#### Added
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - verifies a stored blueprint can be materialized through the API into a real skill while preserving low-risk request defaults
+
+#### Updated
+- `app/services/experience_store.py`
+  - adds direct blueprint lookup by skill id
+- `app/models/skill_creation.py`
+  - adds `BlueprintMaterializationRequest`
+- `app/api/main.py`
+  - adds `POST /skill-blueprints/{skill_id}/materialize`
+- `docs/requirements.md`
+  - records blueprint materialization requirement
+- `docs/design.md`
+  - documents blueprint materialization as a first-class generated-skill path
+- `docs/testing.md`
+  - records blueprint materialization coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with real API materialization from stored blueprints
+- `docs/system-relationship-map.md`
+  - adds blueprint materialization API coverage into the generated-skill relationship graph
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_skill_blueprint_safety_defaults.py`
+- result: `3 passed`
+
 ### Module: blueprint-to-creation-request safety bridge
 
 Extended the blueprint safety handoff one step further by letting `SkillFactoryService` project governance-aware blueprint defaults into concrete `SkillCreationRequest` objects.

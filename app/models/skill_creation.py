@@ -37,6 +37,17 @@ class SkillCreationResult(BaseModel):
     smoke_test: SkillExecutionResult
 
 
+class BlueprintMaterializationRequest(BaseModel):
+    adapter_kind: Literal["callable", "script"] = "callable"
+    generation_operation: str = Field(default="")
+    handler_entry: str = Field(default="")
+    description: str = Field(default="")
+    command: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    schemas: SkillSchemaDefinition = Field(default_factory=SkillSchemaDefinition)
+    smoke_test_inputs: dict[str, Any] = Field(default_factory=dict)
+
+
 class StepMappingDefinition(BaseModel):
     from_step: str = Field(default="")
     from_inputs: str = Field(default="")

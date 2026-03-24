@@ -34,7 +34,7 @@ from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.refinement_loop import RefinementFilter, RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
-from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, SkillCreationRequest
+from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
 from app.models.experience import ExperienceRecord
@@ -289,6 +289,31 @@ def list_skill_blueprints() -> list[dict]:
 @app.post("/skill-blueprints")
 def add_skill_blueprint(blueprint: SkillBlueprint) -> dict:
     return experience_store.add_skill_blueprint(blueprint).model_dump(mode="json")
+
+@app.post("/skill-blueprints/{skill_id}/materialize")
+def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterializationRequest) -> dict:
+    try:
+        blueprint = experience_store.get_skill_blueprint(skill_id)
+        creation_request = skill_factory.build_creation_request_from_blueprint(
+            blueprint,
+            adapter_kind=request.adapter_kind,
+            generation_operation=request.generation_operation,
+            handler_entry=request.handler_entry,
+            description=request.description,
+            smoke_test_inputs=request.smoke_test_inputs,
+            input_schema=request.schemas.input,
+            output_schema=request.schemas.output,
+            error_schema=request.schemas.error,
+        )
+        creation_request.command = request.command
+        creation_request.tags = request.tags
+        return {
+            "skill_blueprint": blueprint.model_dump(mode="json"),
+            "creation_request": creation_request.model_dump(mode="json"),
+            "creation_result": skill_factory.create_skill(creation_request).model_dump(mode="json"),
+        }
+    except (KeyError, SkillFactoryError, SkillDiagnosticError, ValueError) as error:
+        raise map_domain_error(error) from error
 
 @app.get("/experiences/{experience_id}/suggested-skills")
 def suggest_skills_for_experience(experience_id: str) -> list[dict]:

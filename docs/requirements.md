@@ -317,6 +317,7 @@ The platform should expose an API-first path for generated skills so the system 
 - governance-aware skill suggestions should encode their low-risk bias into machine-readable blueprint metadata, not only human-readable step text, so later generation stages can inherit safer defaults
 - downstream generation defaults should consume `SkillBlueprint.safety_profile` to derive safer capability/risk defaults before a generated skill is materialized or registered
 - the system should expose a concrete blueprint-to-creation-request bridge so governance-aware defaults can enter the generated-skill creation path as first-class request defaults
+- stored skill blueprints should be materializable into real skills through an API path that preserves governance-aware creation defaults in the emitted `SkillCreationRequest`
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

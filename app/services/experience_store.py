@@ -23,6 +23,12 @@ class ExperienceStore:
     def list_skill_blueprints(self) -> list[SkillBlueprint]:
         return list(self._skills.values())
 
+    def get_skill_blueprint(self, skill_id: str) -> SkillBlueprint:
+        try:
+            return self._skills[skill_id]
+        except KeyError as error:
+            raise KeyError(f"Skill blueprint not found: {skill_id}") from error
+
     def suggest_skills_for_experience(self, experience_id: str) -> list[SkillBlueprint]:
         return [
             blueprint
