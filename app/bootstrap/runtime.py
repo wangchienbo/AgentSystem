@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from app.services.app_catalog import AppCatalogService
 from app.services.system_skills.app_config import AppConfigService
 from app.services.app_context_store import AppContextStore
@@ -192,7 +194,7 @@ def build_runtime() -> dict[str, object]:
     model_skill_suggester = ModelSkillSuggester()
     skill_suggestion = SkillSuggestionService(experience_store=experience_store, model_suggester=model_skill_suggester)
     app_registry = AppRegistryService(store=runtime_store)
-    model_self_refiner = ModelSelfRefiner()
+    model_self_refiner = None if os.getenv("AGENTSYSTEM_DISABLE_MODEL_REFINER") == "1" else ModelSelfRefiner()
     self_refinement = SelfRefinementService(
         experience_store=experience_store,
         registry=app_registry,

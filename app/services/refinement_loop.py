@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import subprocess
 
@@ -79,7 +80,11 @@ class RefinementLoopService:
                 status="approved" if proposal.auto_apply_allowed and proposal.risk_level == "low" and failure_awareness.repeat_risk == "low" else "proposed",
             )
         )
-        validation_mode = "grouped_regression" if Path(self._regression_runner).exists() else "checklist"
+        grouped_regression_enabled = (
+            os.getenv("AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION") != "1"
+            and Path(self._regression_runner).exists()
+        )
+        validation_mode = "grouped_regression" if grouped_regression_enabled else "checklist"
         experiment = self._memory.add_experiment(
             RefinementExperiment(
                 experiment_id=f"expmt.{request.app_instance_id}.{len(self._memory.list_experiments(hypothesis.hypothesis_id)) + 1}",
@@ -166,7 +171,7 @@ class RefinementLoopService:
 
     def _verify_proposal(self, app_instance_id: str, hypothesis_id: str, proposal, gating_reason: str, repeat_risk: str) -> VerificationResult:
         verification_id = f"verify.{app_instance_id}.{len(self._memory.list_verifications(hypothesis_id)) + 1}"
-        if Path(self._regression_runner).exists():
+        if os.getenv("AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION") != "1" and Path(self._regression_runner).exists():
             result = self._verification_executor(self._regression_runner)
             output = (result.stdout or "") + ("\n" + result.stderr if result.stderr else "")
             if result.returncode == 0:

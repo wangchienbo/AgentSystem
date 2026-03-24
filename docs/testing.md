@@ -153,6 +153,7 @@ Covered behavior:
 - refinement governance dashboard coverage now verifies the combined overview/stats/recent-slice read model and its API surface
 - refinement observability helper coverage now verifies queue/stats/dashboard endpoints share one API-side filter construction path; broad API golden-path coverage may remain in a separate slower slice when timeout-constrained
 - slower refinement API end-to-end coverage should live in a dedicated test file instead of expanding the main workflow golden-path file, so fast and slow API slices can be scheduled independently
+- refinement API-path tests should explicitly disable model-backed proposal generation and grouped-regression verification when the goal is deterministic contract coverage rather than remote/model or full-suite validation
 
 ## 3.7 Interaction gateway
 Covered behavior:

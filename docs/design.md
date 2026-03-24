@@ -63,6 +63,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - refinement governance should also expose a dashboard-style aggregate surface that composes overview + stats + recent queue/failure slices so operators can review learning-governance state through one higher-level read model
 - refinement operator endpoints should share a small API-side filter builder, mirroring workflow observability, so future query knobs stay aligned across queue/stats/dashboard surfaces
 - refinement governance API-path coverage may be maintained as a dedicated slower integration slice rather than being forced into the main workflow golden path, preserving faster regression loops for the common operator path
+- runtime wiring should support test-only opt-outs for model-backed self-refinement and grouped-regression verification so deterministic API-path tests can exercise refinement flows without accidentally invoking remote model calls or recursive full-suite regressions
 
 ---
 

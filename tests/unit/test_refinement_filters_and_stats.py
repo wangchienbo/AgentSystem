@@ -1,4 +1,7 @@
+import os
 from pathlib import Path
+
+os.environ.pop("AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION", None)
 
 from fastapi.testclient import TestClient
 

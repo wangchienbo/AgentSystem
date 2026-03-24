@@ -30,6 +30,38 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: deterministic refinement API-path test controls
+
+Eliminated the major performance traps in the dedicated refinement API path test by adding test-only runtime toggles that prevent accidental model-backed proposal generation and recursive grouped-regression execution during contract-focused API coverage.
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - honors `AGENTSYSTEM_DISABLE_MODEL_REFINER=1` to skip wiring `ModelSelfRefiner` into runtime-built self-refinement flows
+- `app/services/refinement_loop.py`
+  - honors `AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION=1` to force checklist validation instead of invoking `scripts/run_test_groups.sh`
+- `tests/unit/test_api_refinement_governance_path.py`
+  - sets both test-only toggles so the refinement API path remains deterministic and fast
+- `tests/unit/test_refinement_governance_dashboard.py`
+  - explicitly clears grouped-regression disable state so failure-path semantics still exercise the intended stubbed regression branch
+- `tests/unit/test_refinement_filters_and_stats.py`
+  - explicitly clears grouped-regression disable state for the same reason
+- `docs/requirements.md`
+  - records deterministic test-control expectations for refinement API coverage
+- `docs/design.md`
+  - documents test-only opt-outs for model/refinement verification wiring
+- `docs/testing.md`
+  - records how refinement API-path tests should disable remote/full-suite paths when validating contracts
+
+#### Validation
+- dedicated refinement API path passes quickly after toggles are applied
+- focused slice A: `./.venv/bin/pytest -q tests/unit/test_api_refinement_governance_path.py tests/unit/test_refinement_observability_api.py`
+  - result: `2 passed`
+- focused slice B: `./.venv/bin/pytest -q tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
+  - result: `5 passed`
+- diagnostic finding during investigation:
+  - `/self-refinement/propose` had been slowed by model-refiner availability/probe logic
+  - `/self-refinement/loop` had been slowed by auto-invocation of grouped regression via `scripts/run_test_groups.sh`
+
 ### Module: refinement API governance path test split
 
 Split the slower refinement API end-to-end path out of the main golden-path file so the common workflow golden-path regression stays compact while the refinement governance path can be validated independently.
