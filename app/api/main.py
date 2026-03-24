@@ -48,6 +48,7 @@ from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 from app.services.skill_retry_advisor import SkillRetryAdvisorService
 from app.api.workflow_observability import build_workflow_observability_filter
+from app.api.refinement_observability import build_refinement_filter
 
 
 app = FastAPI(title="AgentSystem App OS", version="0.1.0")
@@ -905,11 +906,11 @@ def get_refinement_rollout_queue_page(
     limit: int | None = None,
 ) -> dict:
     return refinement_memory.list_queue_page(
-        RefinementFilter(
+        build_refinement_filter(
             app_instance_id=app_instance_id,
             hypothesis_id=hypothesis_id,
             proposal_id=proposal_id,
-            queue_status=status,
+            status=status,
             limit=limit,
         )
     ).model_dump(mode="json")
@@ -923,7 +924,7 @@ def get_failed_hypotheses_page(
     limit: int | None = None,
 ) -> dict:
     return refinement_memory.list_failed_hypothesis_page(
-        RefinementFilter(
+        build_refinement_filter(
             app_instance_id=app_instance_id,
             hypothesis_id=hypothesis_id,
             proposal_id=proposal_id,
@@ -940,7 +941,7 @@ def get_refinement_stats(
     verification_outcome: str | None = None,
 ) -> dict:
     return refinement_memory.get_stats_summary(
-        RefinementFilter(
+        build_refinement_filter(
             app_instance_id=app_instance_id,
             hypothesis_id=hypothesis_id,
             proposal_id=proposal_id,
@@ -959,11 +960,11 @@ def get_refinement_governance_dashboard(
     recent_limit: int = 5,
 ) -> dict:
     return refinement_memory.get_governance_dashboard(
-        RefinementFilter(
+        build_refinement_filter(
             app_instance_id=app_instance_id,
             hypothesis_id=hypothesis_id,
             proposal_id=proposal_id,
-            queue_status=status,
+            status=status,
             verification_outcome=verification_outcome,
         ),
         recent_limit=recent_limit,

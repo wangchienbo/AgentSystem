@@ -2,6 +2,34 @@
 
 ## 2026-03-24
 
+### Module: refinement observability API helper alignment
+
+Aligned self-refinement operator endpoints with the workflow observability pattern by centralizing API-side filter construction for queue/stats/dashboard surfaces instead of hand-assembling filters inline.
+
+#### Added
+- `app/api/refinement_observability.py`
+  - shared `build_refinement_filter(...)` helper for refinement queue/stats/dashboard endpoint parsing
+- `tests/unit/test_refinement_observability_api.py`
+  - verifies supported refinement query dimensions map into one shared filter contract
+
+#### Updated
+- `app/api/main.py`
+  - routes refinement queue-page, failed-hypotheses-page, stats, and governance-dashboard endpoints through the shared filter helper
+- `tests/unit/test_api_golden_path.py`
+  - extends API golden-path coverage toward the refinement governance flow (not yet part of the validated fast slice because the broader file remains slower / timeout-sensitive)
+- `docs/requirements.md`
+  - records centralized refinement operator filter construction expectation
+- `docs/design.md`
+  - documents parity with workflow observability filter-builder structure
+- `docs/testing.md`
+  - records the focused helper-coverage strategy and notes the slower golden-path slice boundary
+
+#### Validation
+- fast refinement slice passes
+- result: `6 passed`
+- command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
+- note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remains uncommitted validation debt for the next pass
+
 ### Module: self-refinement governance dashboard summary
 
 Added a higher-level governance dashboard read model for self-refinement so operator-facing surfaces can fetch one composed payload instead of manually joining overview, stats, queue pages, and failed-hypothesis pages.
