@@ -30,6 +30,24 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: system-wide relationship map for modules / features / tests
+
+Added a dedicated relationship-map document to help future change planning and self-iteration track module coupling, feature coverage, and test impact as a graph instead of relying on ad-hoc repo memory.
+
+#### Added
+- `docs/system-relationship-map.md`
+  - system-wide graph covering module domains, feature-to-module-to-test mappings, operator contract relationships, and change-impact checklists
+
+#### Updated
+- `docs/code-structure.md`
+  - links to the relationship map for cross-cutting dependency lookup
+- `docs/testing.md`
+  - points readers to the relationship map before cross-domain edits
+
+#### Notes
+- graph edges intentionally represent not only direct imports, but also runtime wiring, API exposure, shared contracts, test coverage, and “should-check-together” coupling
+- this document is meant to be updated proactively whenever a new module, shared contract, or high-value test path is added
+
 ### Module: centralized operator API filter builders
 
 Centralized workflow and refinement API-side filter construction into a shared helper module so operator endpoint query semantics now evolve from one place instead of drifting across separate per-domain helper files.

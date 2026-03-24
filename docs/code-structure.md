@@ -1,5 +1,9 @@
 # Code Structure
 
+## Related Maps
+
+- See `docs/system-relationship-map.md` for the cross-cutting module / feature / test relationship graph used for change-impact analysis.
+
 This document is a lightweight map of the current AgentSystem code layout for ongoing development.
 
 ## API entry

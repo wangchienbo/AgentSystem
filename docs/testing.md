@@ -1,5 +1,7 @@
 # AgentSystem / App OS Testing Strategy
 
+For cross-cutting impact analysis before edits, also consult `docs/system-relationship-map.md`.
+
 ## 1. Purpose
 
 This document defines how AgentSystem should be validated against its current implemented architecture and its near-term roadmap.
