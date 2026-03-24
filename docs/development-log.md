@@ -28,7 +28,26 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - fast refinement slice passes
 - result: `6 passed`
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
-- note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remains uncommitted validation debt for the next pass
+- note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
+
+### Module: refinement API governance path test split
+
+Split the slower refinement API end-to-end path out of the main golden-path file so the common workflow golden-path regression stays compact while the refinement governance path can be validated independently.
+
+#### Added
+- `tests/unit/test_api_refinement_governance_path.py`
+  - dedicated refinement API path from review/propose/loop into stats and governance dashboard
+
+#### Updated
+- `tests/unit/test_api_golden_path.py`
+  - restored to the workflow-observability golden path only
+- `docs/testing.md`
+  - records the fast-slice vs slower dedicated API-path split
+- `docs/design.md`
+  - notes the dedicated slower refinement integration slice pattern
+
+#### Validation
+- structural split completed; dedicated API path remains a slower test slice and was not included in the fast validated subset yet
 
 ### Module: self-refinement governance dashboard summary
 

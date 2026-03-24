@@ -62,6 +62,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - refinement governance should expose lightweight operator read models parallel to workflow observability, including filtered rollout-queue pages, failed-hypothesis archive pages, and aggregate stats summaries keyed by app/hypothesis/proposal filters
 - refinement governance should also expose a dashboard-style aggregate surface that composes overview + stats + recent queue/failure slices so operators can review learning-governance state through one higher-level read model
 - refinement operator endpoints should share a small API-side filter builder, mirroring workflow observability, so future query knobs stay aligned across queue/stats/dashboard surfaces
+- refinement governance API-path coverage may be maintained as a dedicated slower integration slice rather than being forced into the main workflow golden path, preserving faster regression loops for the common operator path
 
 ---
 
