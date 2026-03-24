@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import ConfigDict
 
 from app.models.operator_contracts import OperatorPageMeta
+from app.models.operator_dashboards import OperatorDashboardCore
 from app.models.operator_filters import OperatorFilterParams
 from pydantic import BaseModel, Field
 
@@ -117,9 +118,7 @@ class RefinementDashboard(BaseModel):
     recent_failed_hypotheses: list[FailedHypothesisRecord] = Field(default_factory=list)
 
 
-class RefinementGovernanceDashboard(BaseModel):
-    overview: RefinementOverview
-    stats: "RefinementStatsSummary"
+class RefinementGovernanceDashboard(OperatorDashboardCore[RefinementOverview, "RefinementStatsSummary"]):
     recent_queue: "RefinementQueuePage"
     recent_failed_hypotheses: "FailedHypothesisPage"
 

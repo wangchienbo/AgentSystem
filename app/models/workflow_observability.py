@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.models.operator_contracts import OperatorPageMeta
+from app.models.operator_dashboards import OperatorDashboardCore
 from app.models.operator_filters import OperatorFilterParams
 from app.models.workflow_execution import WorkflowExecutionResult
 
@@ -102,9 +103,7 @@ class WorkflowStatsSummary(BaseModel):
     latest_event_at: str | None = None
 
 
-class WorkflowDashboardSummary(BaseModel):
-    overview: WorkflowOverview
-    stats: WorkflowStatsSummary
+class WorkflowDashboardSummary(OperatorDashboardCore["WorkflowOverview", WorkflowStatsSummary]):
     recent_timeline: WorkflowTimelinePage
 
 

@@ -30,6 +30,32 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: shared operator dashboard core contract
+
+Introduced a common dashboard core model for operator-facing surfaces so workflow observability and refinement governance now share the same overview/stats aggregate backbone while keeping domain-specific recent activity sections separate.
+
+#### Added
+- `app/models/operator_dashboards.py`
+  - defines `OperatorDashboardCore` as the shared overview/stats aggregate contract for operator dashboards
+- `tests/unit/test_operator_dashboard_core.py`
+  - verifies workflow and refinement dashboard models inherit the shared core without losing their domain-specific recent sections
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - `WorkflowDashboardSummary` now extends `OperatorDashboardCore`
+- `app/models/refinement_loop.py`
+  - `RefinementGovernanceDashboard` now extends `OperatorDashboardCore`
+- `docs/requirements.md`
+  - records the shared dashboard-core requirement
+- `docs/design.md`
+  - documents the shared overview/stats backbone plus domain-specific recent sections
+- `docs/testing.md`
+  - records shared dashboard-core coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_operator_dashboard_core.py tests/unit/test_operator_filter_params.py tests/unit/test_operator_page_meta.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_workflow_observability.py`
+- result: `17 passed`
+
 ### Module: shared operator filter parameter contract
 
 Introduced a common base filter model for operator-facing surfaces so workflow observability and refinement governance now share one definition for app scope, limit, since, and cursor semantics.

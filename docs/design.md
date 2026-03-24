@@ -68,6 +68,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - refinement governance page-style responses should mirror workflow observability structure by nesting counts/has-more state under `meta`, which reduces contract drift between the two operator surfaces
 - shared operator-facing pagination semantics should live in a common contract model (`OperatorPageMeta`), with domain-specific extensions such as workflow unresolved counts layering on top instead of redefining the whole shape
 - shared operator-facing query semantics should likewise live in a common base filter model (`OperatorFilterParams`), with workflow/refinement filters layering on domain-specific selectors without redefining common pagination/time-window fields
+- shared operator dashboard semantics should live in a common overview/stats core (`OperatorDashboardCore`), while domain-specific dashboards add their own recent timeline/queue/archive sections on top
 
 ---
 
