@@ -304,6 +304,7 @@ The platform should expose an API-first path for generated skills so the system 
 - require model-backed self-refinement to be explicitly enabled in runtime wiring instead of opportunistically activating whenever model credentials/configuration happen to exist
 - align refinement governance paging contracts more closely with workflow observability by exposing page metadata as a structured `meta` object rather than scattering counts at the top level
 - converge workflow observability and refinement governance on a shared operator paging metadata contract so future operator surfaces do not redefine count/cursor semantics independently
+- converge operator-surface query models on shared base filter parameters so app/limit/time-window/cursor semantics remain aligned across workflow and refinement APIs even when domain-specific fields differ
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

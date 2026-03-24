@@ -67,6 +67,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - model-backed self-refinement should be explicit opt-in at runtime wiring time (`AGENTSYSTEM_ENABLE_MODEL_REFINER=1`), with fallback proposal synthesis remaining the default path when the feature is not deliberately enabled
 - refinement governance page-style responses should mirror workflow observability structure by nesting counts/has-more state under `meta`, which reduces contract drift between the two operator surfaces
 - shared operator-facing pagination semantics should live in a common contract model (`OperatorPageMeta`), with domain-specific extensions such as workflow unresolved counts layering on top instead of redefining the whole shape
+- shared operator-facing query semantics should likewise live in a common base filter model (`OperatorFilterParams`), with workflow/refinement filters layering on domain-specific selectors without redefining common pagination/time-window fields
 
 ---
 

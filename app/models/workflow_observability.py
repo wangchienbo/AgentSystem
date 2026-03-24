@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.models.operator_contracts import OperatorPageMeta
+from app.models.operator_filters import OperatorFilterParams
 from app.models.workflow_execution import WorkflowExecutionResult
 
 
@@ -83,14 +84,11 @@ class WorkflowHistoryPage(BaseModel):
     meta: WorkflowPageMeta = Field(default_factory=WorkflowPageMeta)
 
 
-class WorkflowObservabilityFilter(BaseModel):
+class WorkflowObservabilityFilter(OperatorFilterParams):
     app_instance_id: str
     workflow_id: str | None = None
     failed_step_id: str | None = None
-    limit: int | None = None
     unresolved_only: bool = False
-    since: str | None = None
-    cursor: str | None = None
 
 
 class WorkflowStatsSummary(BaseModel):

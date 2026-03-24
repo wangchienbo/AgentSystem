@@ -30,6 +30,32 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: shared operator filter parameter contract
+
+Introduced a common base filter model for operator-facing surfaces so workflow observability and refinement governance now share one definition for app scope, limit, since, and cursor semantics.
+
+#### Added
+- `app/models/operator_filters.py`
+  - defines `OperatorFilterParams` as the shared base query/filter contract for operator surfaces
+- `tests/unit/test_operator_filter_params.py`
+  - verifies workflow and refinement filters inherit the shared base semantics while keeping their domain-specific selectors
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - `WorkflowObservabilityFilter` now extends `OperatorFilterParams`
+- `app/models/refinement_loop.py`
+  - `RefinementFilter` now extends `OperatorFilterParams`
+- `docs/requirements.md`
+  - records shared operator filter parameter alignment
+- `docs/design.md`
+  - documents common filter semantics plus domain-specific selectors
+- `docs/testing.md`
+  - records shared operator filter coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_operator_filter_params.py tests/unit/test_operator_page_meta.py tests/unit/test_refinement_observability_api.py tests/unit/test_workflow_observability.py`
+- result: `14 passed`
+
 ### Module: shared operator paging metadata contract
 
 Introduced a common operator paging metadata model so workflow observability and refinement governance now share one base contract for counts/cursor state while still allowing domain-specific extensions.

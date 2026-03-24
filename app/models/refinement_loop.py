@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import ConfigDict
 
 from app.models.operator_contracts import OperatorPageMeta
+from app.models.operator_filters import OperatorFilterParams
 from pydantic import BaseModel, Field
 
 
@@ -123,13 +124,11 @@ class RefinementGovernanceDashboard(BaseModel):
     recent_failed_hypotheses: "FailedHypothesisPage"
 
 
-class RefinementFilter(BaseModel):
-    app_instance_id: str | None = None
+class RefinementFilter(OperatorFilterParams):
     hypothesis_id: str | None = None
     proposal_id: str | None = None
     queue_status: RolloutQueueStatus | None = None
     verification_outcome: VerificationOutcome | None = None
-    limit: int | None = Field(default=None, ge=1)
 
 
 class RefinementStatsSummary(BaseModel):
