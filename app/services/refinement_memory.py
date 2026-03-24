@@ -9,6 +9,7 @@ from app.models.refinement_loop import (
     RefinementFilter,
     RefinementHypothesis,
     RefinementOverview,
+    RefinementPageMeta,
     RefinementQueuePage,
     RefinementStatsSummary,
     RolloutDecision,
@@ -161,18 +162,40 @@ class RefinementMemoryStore:
         items = list(self._queue.values())
         filtered = self._apply_queue_filters(items, filters)
         filtered = sorted(filtered, key=lambda item: item.created_at, reverse=True)
+        total_count = len(items)
+        filtered_count = len(filtered)
+        has_more = filters.limit is not None and filtered_count > filters.limit
         if filters.limit is not None:
             filtered = filtered[: filters.limit]
-        return RefinementQueuePage(items=filtered, total_count=len(items), filtered_count=len(filtered))
+        return RefinementQueuePage(
+            items=filtered,
+            meta=RefinementPageMeta(
+                returned_count=len(filtered),
+                total_count=total_count,
+                filtered_count=filtered_count,
+                has_more=has_more,
+            ),
+        )
 
     def list_failed_hypothesis_page(self, filters: RefinementFilter | None = None) -> FailedHypothesisPage:
         filters = filters or RefinementFilter()
         items = list(self._failed_hypotheses.values())
         filtered = self._apply_failed_hypothesis_filters(items, filters)
         filtered = sorted(filtered, key=lambda item: item.created_at, reverse=True)
+        total_count = len(items)
+        filtered_count = len(filtered)
+        has_more = filters.limit is not None and filtered_count > filters.limit
         if filters.limit is not None:
             filtered = filtered[: filters.limit]
-        return FailedHypothesisPage(items=filtered, total_count=len(items), filtered_count=len(filtered))
+        return FailedHypothesisPage(
+            items=filtered,
+            meta=RefinementPageMeta(
+                returned_count=len(filtered),
+                total_count=total_count,
+                filtered_count=filtered_count,
+                has_more=has_more,
+            ),
+        )
 
     def get_stats_summary(self, filters: RefinementFilter | None = None) -> RefinementStatsSummary:
         filters = filters or RefinementFilter()

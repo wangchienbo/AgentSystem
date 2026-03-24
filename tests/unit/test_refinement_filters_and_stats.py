@@ -171,8 +171,9 @@ def test_refinement_memory_filter_pages_and_stats(tmp_path: Path) -> None:
         RefinementFilter(app_instance_id=app_instance_id, queue_status=transitioned.status)
     )
 
-    assert queue_page.total_count >= 1
-    assert queue_page.filtered_count >= 1
+    assert queue_page.meta.total_count >= 1
+    assert queue_page.meta.filtered_count >= 1
+    assert queue_page.meta.returned_count >= 1
     assert queue_page.items[0].proposal_id == queue_item.proposal_id
     assert stats.total_hypotheses >= 1
     assert stats.total_verifications >= 1
@@ -190,8 +191,9 @@ def test_refinement_failed_hypothesis_page_and_failed_stats(tmp_path: Path) -> N
     )
 
     assert result.verification.outcome == "failed"
-    assert failed_page.total_count >= 1
-    assert failed_page.filtered_count >= 1
+    assert failed_page.meta.total_count >= 1
+    assert failed_page.meta.filtered_count >= 1
+    assert failed_page.meta.returned_count >= 1
     assert failed_page.items[0].app_instance_id == app_instance_id
     assert failed_stats.failed_verifications >= 1
     assert failed_stats.failed_hypotheses >= 1
@@ -204,7 +206,7 @@ def test_refinement_filter_and_stats_api_surfaces() -> None:
     )
     assert queue_response.status_code == 200
     queue_payload = queue_response.json()
-    assert queue_payload["total_count"] >= 0
+    assert queue_payload["meta"]["total_count"] >= 0
     assert isinstance(queue_payload["items"], list)
 
     failed_response = client.get(
@@ -213,7 +215,7 @@ def test_refinement_filter_and_stats_api_surfaces() -> None:
     )
     assert failed_response.status_code == 200
     failed_payload = failed_response.json()
-    assert failed_payload["filtered_count"] >= 0
+    assert failed_payload["meta"]["filtered_count"] >= 0
     assert isinstance(failed_payload["items"], list)
 
     stats_response = client.get(

@@ -30,6 +30,30 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: refinement paging meta contract alignment
+
+Aligned refinement governance page responses with the workflow observability contract by moving count/state fields into a structured `meta` object for queue-page and failed-hypothesis page payloads.
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `RefinementPageMeta`; `RefinementQueuePage` and `FailedHypothesisPage` now expose `meta` instead of top-level count fields
+- `app/services/refinement_memory.py`
+  - now populates `returned_count`, `total_count`, `filtered_count`, and `has_more` inside `meta`
+- `tests/unit/test_refinement_filters_and_stats.py`
+  - verifies structured `meta` payloads on service/API reads
+- `tests/unit/test_refinement_governance_dashboard.py`
+  - verifies dashboard recent queue/failed slices expose structured page metadata
+- `docs/requirements.md`
+  - records page-meta alignment expectation between refinement governance and workflow observability
+- `docs/design.md`
+  - documents nested `meta` shape as the preferred operator paging contract
+- `docs/testing.md`
+  - records structured refinement page-meta coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_refinement_filters_and_stats.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_overview.py`
+- result: `7 passed`
+
 ### Module: explicit runtime opt-in for model self-refiner
 
 Shifted model-backed self-refinement from opportunistic auto-wiring to explicit runtime opt-in so normal API and regression paths stay deterministic unless model proposal synthesis is deliberately enabled.

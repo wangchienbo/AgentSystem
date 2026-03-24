@@ -140,8 +140,8 @@ def test_refinement_governance_dashboard_aggregates_overview_stats_and_recent_pa
     assert dashboard.stats.total_hypotheses >= 1
     assert dashboard.stats.failed_verifications >= 1
     assert dashboard.stats.failed_hypotheses >= 1
-    assert dashboard.recent_queue.filtered_count >= 1
-    assert dashboard.recent_failed_hypotheses.filtered_count >= 1
+    assert dashboard.recent_queue.meta.filtered_count >= 1
+    assert dashboard.recent_failed_hypotheses.meta.filtered_count >= 1
     assert len(dashboard.recent_queue.items) >= 1
     assert len(dashboard.recent_failed_hypotheses.items) >= 1
 

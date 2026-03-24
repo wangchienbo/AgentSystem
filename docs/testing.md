@@ -155,6 +155,7 @@ Covered behavior:
 - slower refinement API end-to-end coverage should live in a dedicated test file instead of expanding the main workflow golden-path file, so fast and slow API slices can be scheduled independently
 - refinement API-path tests should explicitly disable grouped-regression verification when the goal is deterministic contract coverage rather than full-suite validation
 - model-backed proposal generation is now default-off in runtime wiring, and should be covered through explicit opt-in tests rather than assumed during normal API-path regression runs
+- refinement governance paging coverage now verifies structured `meta` payloads for queue/archive pages and governance dashboard slices, keeping them aligned with workflow observability page contracts
 
 ## 3.7 Interaction gateway
 Covered behavior:

@@ -154,12 +154,18 @@ class RefinementStatsSummary(BaseModel):
     latest_failed_hypothesis_at: datetime | None = None
 
 
+class RefinementPageMeta(BaseModel):
+    returned_count: int = 0
+    total_count: int = 0
+    filtered_count: int = 0
+    has_more: bool = False
+
+
 class RefinementQueuePage(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     items: list[RolloutQueueItem] = Field(default_factory=list)
-    total_count: int = 0
-    filtered_count: int = 0
+    meta: RefinementPageMeta = Field(default_factory=RefinementPageMeta)
 
     def __len__(self) -> int:
         return len(self.items)
@@ -175,8 +181,7 @@ class FailedHypothesisPage(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     items: list[FailedHypothesisRecord] = Field(default_factory=list)
-    total_count: int = 0
-    filtered_count: int = 0
+    meta: RefinementPageMeta = Field(default_factory=RefinementPageMeta)
 
     def __len__(self) -> int:
         return len(self.items)
