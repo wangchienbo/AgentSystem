@@ -423,6 +423,7 @@ graph TD
     F --> T16[tests/unit/test_skill_policy_diagnostics_api.py]
     F --> T17[tests/unit/test_skill_risk_policy.py]
     F --> T18[tests/unit/test_skill_risk_override_api.py]
+    F --> T19[tests/unit/test_skill_risk_dashboard.py]
 
 > Governance note: skill risk policy now has both decision state and event trail. Changes here should be treated as touching policy persistence, generated app assembly, API governance surfaces, and future audit/dashboard layers.
 ```

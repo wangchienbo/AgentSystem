@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.models.skill_risk_policy import SkillRiskDecision, SkillRiskGovernanceEvent
+from app.models.operator_contracts import OperatorPageMeta
+from app.models.skill_risk_policy import SkillRiskDashboard, SkillRiskDecision, SkillRiskEventPage, SkillRiskGovernanceEvent, SkillRiskStatsSummary
 from app.services.runtime_state_store import RuntimeStateStore
 
 
@@ -23,6 +24,48 @@ class SkillRiskPolicyService:
     def list_events(self, skill_id: str | None = None) -> list[SkillRiskGovernanceEvent]:
         events = self._events if skill_id is None else [item for item in self._events if item.skill_id == skill_id]
         return sorted(events, key=lambda item: item.created_at, reverse=True)
+
+    def get_event_page(self, skill_id: str | None = None, limit: int | None = None) -> SkillRiskEventPage:
+        events = self.list_events(skill_id=skill_id)
+        filtered_count = len(events)
+        has_more = limit is not None and filtered_count > limit
+        if limit is not None:
+            events = events[:limit]
+        return SkillRiskEventPage(
+            items=events,
+            meta=OperatorPageMeta(
+                returned_count=len(events),
+                total_count=len(self._events),
+                filtered_count=filtered_count,
+                has_more=has_more,
+            ),
+        )
+
+    def get_stats_summary(self) -> SkillRiskStatsSummary:
+        decisions = list(self._decisions.values())
+        events = list(self._events)
+        return SkillRiskStatsSummary(
+            total_decisions=len(decisions),
+            active_overrides=sum(1 for item in decisions if item.is_active()),
+            revoked_overrides=sum(1 for item in decisions if item.decision == "revoked"),
+            total_events=len(events),
+            blocked_events=sum(1 for item in events if item.event_type == "policy_blocked"),
+            approved_events=sum(1 for item in events if item.event_type == "override_approved"),
+            revoked_events=sum(1 for item in events if item.event_type == "override_revoked"),
+            latest_decision_at=max((item.created_at for item in decisions), default=None),
+            latest_event_at=max((item.created_at for item in events), default=None),
+        )
+
+    def get_dashboard(self, recent_limit: int = 5) -> SkillRiskDashboard:
+        return SkillRiskDashboard(
+            overview={
+                "active_policy": "default_deny_with_override",
+                "decision_store": "skill_risk_policy",
+                "event_store": "skill_risk_policy_events",
+            },
+            stats=self.get_stats_summary(),
+            recent_events=self.get_event_page(limit=recent_limit),
+        )
 
     def get_active_override(self, skill_id: str, *, scope: str = "generated_app_assembly") -> SkillRiskDecision | None:
         decision = self._decisions.get(skill_id)

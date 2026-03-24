@@ -30,6 +30,34 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: skill risk governance stats and dashboard
+
+Extended the risk governance subsystem with operator-facing stats and dashboard views so reviewers and future self-iteration loops can inspect risky-skill handling through structured summaries instead of raw decision/event scans.
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - adds `SkillRiskEventPage`, `SkillRiskStatsSummary`, and `SkillRiskDashboard`
+- `app/services/skill_risk_policy.py`
+  - adds event-page reads, aggregated stats summary, and dashboard composition
+- `app/api/main.py`
+  - exposes `/skill-risk/stats` and `/skill-risk/dashboard`
+- `tests/unit/test_skill_risk_dashboard.py`
+  - verifies service/API risk stats and dashboard surfaces
+- `docs/requirements.md`
+  - records operator-facing risk stats/dashboard requirement
+- `docs/design.md`
+  - documents overview/stats/recent-events risk dashboard shape
+- `docs/testing.md`
+  - records risk governance stats/dashboard coverage
+- `docs/generated-skill-roadmap.md`
+  - notes dashboard reads as part of the future self-iteration substrate
+- `docs/system-relationship-map.md`
+  - adds risk dashboard coverage into the generated-skill relationship graph
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_risk_dashboard.py tests/unit/test_skill_risk_policy.py tests/unit/test_skill_risk_override_api.py`
+- result: `4 passed`
+
 ### Module: skill risk governance event trail
 
 Added a lightweight governance event trail for risky generated skills so the system now records not only the latest override decision, but also the sequence of blocks and approval/revocation actions behind it.

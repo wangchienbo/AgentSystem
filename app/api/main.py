@@ -178,6 +178,14 @@ def list_skill_risk_decisions() -> list[dict]:
 def list_skill_risk_events(skill_id: str | None = None) -> list[dict]:
     return [item.model_dump(mode="json") for item in skill_risk_policy.list_events(skill_id=skill_id)]
 
+@app.get("/skill-risk/stats")
+def get_skill_risk_stats() -> dict:
+    return skill_risk_policy.get_stats_summary().model_dump(mode="json")
+
+@app.get("/skill-risk/dashboard")
+def get_skill_risk_dashboard(recent_limit: int = 5) -> dict:
+    return skill_risk_policy.get_dashboard(recent_limit=recent_limit).model_dump(mode="json")
+
 @app.post("/skill-risk/{skill_id}/approve")
 def approve_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
     return skill_risk_policy.approve_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
