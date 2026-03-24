@@ -174,6 +174,10 @@ def diagnose_retry(request: SkillRetryAdviceRequest) -> dict:
 def list_skill_risk_decisions() -> list[dict]:
     return [item.model_dump(mode="json") for item in skill_risk_policy.list_decisions()]
 
+@app.get("/skill-risk/events")
+def list_skill_risk_events(skill_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in skill_risk_policy.list_events(skill_id=skill_id)]
+
 @app.post("/skill-risk/{skill_id}/approve")
 def approve_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
     return skill_risk_policy.approve_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")

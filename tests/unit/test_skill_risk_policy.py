@@ -18,10 +18,13 @@ def test_skill_risk_policy_approve_list_revoke_and_reload(tmp_path: Path) -> Non
     assert approved.skill_id == "skill.risky.demo"
     assert service.get_active_override("skill.risky.demo") is not None
     assert len(service.list_decisions()) == 1
+    assert service.list_events()[0].event_type == "override_approved"
 
     reloaded = SkillRiskPolicyService(store=store)
     assert reloaded.get_active_override("skill.risky.demo") is not None
+    assert reloaded.list_events()[0].event_type == "override_approved"
 
     revoked = reloaded.revoke_override("skill.risky.demo", reviewer="tester", reason="rollback approval")
     assert revoked.decision == "revoked"
     assert reloaded.get_active_override("skill.risky.demo") is None
+    assert reloaded.list_events()[0].event_type == "override_revoked"

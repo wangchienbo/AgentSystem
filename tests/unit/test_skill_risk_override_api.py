@@ -57,6 +57,10 @@ def test_risk_override_allows_generated_app_assembly_after_approval() -> None:
     assert blocked.status_code == 400
     assert blocked.json()["detail"]["kind"] == "policy_blocked"
 
+    blocked_events = client.get("/skill-risk/events", params={"skill_id": "skill.override.api"})
+    assert blocked_events.status_code == 200
+    assert any(item["event_type"] == "policy_blocked" for item in blocked_events.json())
+
     approved = client.post(
         "/skill-risk/skill.override.api/approve",
         params={"reviewer": "tester", "reason": "allow generated assembly for controlled test"},
@@ -67,6 +71,10 @@ def test_risk_override_allows_generated_app_assembly_after_approval() -> None:
     listed = client.get("/skill-risk/decisions")
     assert listed.status_code == 200
     assert any(item["skill_id"] == "skill.override.api" for item in listed.json())
+
+    event_list = client.get("/skill-risk/events", params={"skill_id": "skill.override.api"})
+    assert event_list.status_code == 200
+    assert any(item["event_type"] == "override_approved" for item in event_list.json())
 
     allowed = client.post(
         "/apps/from-skills",

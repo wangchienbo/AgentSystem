@@ -265,6 +265,7 @@ Keep generated skill expansion safe.
 - generated app assembly rejects risky skills by default unless a future explicit policy layer authorizes them
 - blocked assembly/install-run paths surface structured policy diagnostics that a future approval or override layer can consume
 - reviewer-managed overrides can intentionally unblock risky generated app assembly with an auditable persisted decision
+- governance actions and policy blocks leave a queryable event trail suitable for future risk dashboards and audit/reporting surfaces
 
 ---
 

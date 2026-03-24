@@ -414,6 +414,16 @@ class SkillFactoryService:
             active_override = self._risk_policy.get_active_override(entry.skill_id, scope="generated_app_assembly")
             if active_override is not None:
                 return
+            self._risk_policy.record_event(
+                skill_id=entry.skill_id,
+                event_type="policy_blocked",
+                actor="system",
+                reason="generated app assembly blocked by default risk policy",
+                details={
+                    "risk_level": risk.risk_level,
+                    "policy_reasons": policy_reasons,
+                },
+            )
             raise _diagnostic(
                 "assemble",
                 "policy_blocked",

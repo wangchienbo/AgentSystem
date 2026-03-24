@@ -30,6 +30,40 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: skill risk governance event trail
+
+Added a lightweight governance event trail for risky generated skills so the system now records not only the latest override decision, but also the sequence of blocks and approval/revocation actions behind it.
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - adds `SkillRiskGovernanceEvent` and explicit governance event types
+- `app/services/skill_risk_policy.py`
+  - persists governance events alongside decision state
+  - records override approval/revocation events automatically
+  - exposes governance event listing
+- `app/services/skill_factory.py`
+  - records `policy_blocked` governance events before raising assembly diagnostics
+- `app/api/main.py`
+  - exposes `/skill-risk/events` for governance event inspection
+- `tests/unit/test_skill_risk_policy.py`
+  - verifies governance events persist/reload with decision state
+- `tests/unit/test_skill_risk_override_api.py`
+  - verifies blocked and approved override events are queryable via API
+- `docs/requirements.md`
+  - records queryable governance event trail requirement
+- `docs/design.md`
+  - documents decision-state plus event-trail split
+- `docs/testing.md`
+  - records governance event trail coverage
+- `docs/generated-skill-roadmap.md`
+  - extends Phase 7 with queryable governance events for future dashboards
+- `docs/system-relationship-map.md`
+  - highlights policy state + event trail as a cross-cutting governance surface
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_risk_policy.py tests/unit/test_skill_risk_override_api.py tests/unit/test_skill_factory_risk_gating.py`
+- result: `4 passed`
+
 ### Module: reviewer-managed skill risk overrides
 
 Completed the next governance step for Phase 7 by adding persisted reviewer-managed override decisions that can intentionally unblock risky generated-skill assembly when a human (or future policy layer) approves it.

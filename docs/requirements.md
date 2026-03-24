@@ -311,6 +311,7 @@ The platform should expose an API-first path for generated skills so the system 
 - generated app assembly/install-run must gate risky skills by default so high-risk manifests are not silently auto-composed into runnable apps
 - risk gating should return structured policy diagnostics (not opaque errors) so future approval/policy layers can reason over why a generated skill/app was blocked
 - the system should support explicit reviewer-managed override decisions for risky generated-skill assembly, including listing, approval, revocation, and persistence of those decisions
+- the system should also preserve a queryable governance event trail for risk blocking and override actions so future dashboards/audit surfaces can explain how risky skills were handled
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills
