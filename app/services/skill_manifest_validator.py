@@ -4,6 +4,16 @@ from app.models.skill_control import SkillRegistryEntry
 from app.services.schema_registry import SchemaRegistryError, SchemaRegistryService
 
 
+ALLOWED_SCRIPT_COMMAND_PREFIXES = (
+    "python",
+    "python3",
+    "bash",
+    "sh",
+    "node",
+    "uv",
+)
+
+
 class SkillManifestValidationError(ValueError):
     pass
 
@@ -28,8 +38,24 @@ class SkillManifestValidatorService:
             raise SkillManifestValidationError("Manifest adapter kind must match manifest runtime_adapter")
         if manifest.runtime_adapter == "callable" and not isinstance(manifest.adapter.entry, str):
             raise SkillManifestValidationError("Callable adapter entry must be a string")
-        if manifest.runtime_adapter == "script" and not isinstance(manifest.adapter.command, list):
-            raise SkillManifestValidationError("Script adapter command must be a list")
+        if manifest.runtime_adapter == "script":
+            if not isinstance(manifest.adapter.command, list):
+                raise SkillManifestValidationError("Script adapter command must be a list")
+            if not manifest.adapter.command:
+                raise SkillManifestValidationError("Script adapter command must not be empty")
+            command_head = manifest.adapter.command[0]
+            if command_head not in ALLOWED_SCRIPT_COMMAND_PREFIXES:
+                raise SkillManifestValidationError(
+                    f"Script adapter command prefix not allowed: {command_head}"
+                )
+            if manifest.risk.allow_shell and command_head not in {"bash", "sh"}:
+                raise SkillManifestValidationError(
+                    "allow_shell may only be set for shell-based script adapters"
+                )
+            if command_head in {"bash", "sh"} and not manifest.risk.allow_shell:
+                raise SkillManifestValidationError(
+                    "Shell-based script adapters require risk.allow_shell=true"
+                )
         contract = manifest.contract
         if not isinstance(contract.input_schema_ref, str) or not isinstance(contract.output_schema_ref, str) or not isinstance(contract.error_schema_ref, str):
             raise SkillManifestValidationError("Manifest contract refs must be strings")

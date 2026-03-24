@@ -256,6 +256,7 @@ Keep generated skill expansion safe.
 - file/network boundary metadata
 - generated skill risk classification enforcement
 - install/run gating for risky generated skills
+- manifest-level risk metadata (`risk_level`, shell/filesystem/network allowances) as the baseline machine-readable substrate
 
 ### Acceptance criteria
 - high-risk generated skill requests are blocked or gated intentionally

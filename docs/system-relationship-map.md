@@ -168,6 +168,9 @@ graph TD
 
 ### 3.6 Skills / Generated Skills / System Skills
 
+> Security note: changes in skill manifest risk metadata or script command restrictions should be treated as cross-cutting changes touching manifest models, validators, generated-skill flows, runtime assumptions, and security-oriented tests.
+
+
 ```mermaid
 graph TD
     SC[services/skill_control.py] --> SMV[services/skill_manifest_validator.py]

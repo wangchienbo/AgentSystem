@@ -30,6 +30,35 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: baseline skill-manifest risk metadata and script restrictions
+
+Started Phase 7 security groundwork by adding machine-readable manifest risk metadata and validator-enforced baseline script command restrictions for generated/runtime skills.
+
+#### Updated
+- `app/models/skill_manifest.py`
+  - adds `SkillManifestRisk` with risk level plus network/filesystem/shell allowance flags
+- `app/services/skill_manifest_validator.py`
+  - adds allowlisted script command prefixes
+  - rejects empty script commands
+  - requires explicit `risk.allow_shell=true` for shell-based script adapters
+  - rejects inconsistent shell-risk declarations
+- `tests/unit/test_skill_manifest_validator.py`
+  - adds coverage for disallowed command prefixes and shell-risk opt-in semantics
+- `docs/requirements.md`
+  - records manifest-level risk metadata and baseline script restriction requirements
+- `docs/design.md`
+  - documents risk metadata plus script command-prefix policy direction
+- `docs/testing.md`
+  - records skill-manifest security coverage expectations
+- `docs/generated-skill-roadmap.md`
+  - strengthens Phase 7 scope with explicit manifest-risk metadata as the baseline substrate
+- `docs/system-relationship-map.md`
+  - adds cross-cutting security note for manifest risk / script restriction changes
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_manifest_validator.py tests/unit/test_skill_manifest.py`
+- result: `8 passed`
+
 ### Module: self-iteration docs now require relationship-map maintenance
 
 Extended the relationship-map maintenance rule into the self-iteration and core-skill guidance docs so future generated-skill / self-evolution work treats the system map as part of the iteration substrate rather than optional documentation.

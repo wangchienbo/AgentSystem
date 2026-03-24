@@ -162,6 +162,7 @@ Covered behavior:
 - shared operator filter coverage now verifies workflow and refinement filter models inherit the same base app/limit/since/cursor query semantics
 - shared operator dashboard coverage now verifies workflow and refinement dashboard models inherit the same overview/stats aggregate core
 - shared operator API-filter coverage now verifies centralized workflow/refinement filter builders retain both common and domain-specific query dimensions
+- skill-manifest security coverage now verifies baseline script-command restrictions and explicit shell-risk opt-in semantics for script adapters
 
 ## 3.7 Interaction gateway
 Covered behavior:
