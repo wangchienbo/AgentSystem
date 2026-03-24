@@ -42,3 +42,44 @@ def test_skill_factory_builds_creation_defaults_from_blueprint_safety_profile(tm
     assert defaults["manifest_risk"]["allow_network"] is False
     assert defaults["manifest_risk"]["allow_shell"] is False
     assert defaults["manifest_risk"]["allow_filesystem_write"] is False
+
+
+def test_skill_factory_can_build_creation_request_from_blueprint(tmp_path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "blueprint-create-request"))
+    factory = SkillFactoryService(
+        skill_control=SkillControlService(),
+        skill_runtime=SkillRuntimeService(store=store),
+        schema_registry=SchemaRegistryService(),
+        generated_assets=GeneratedSkillAssetStore(AppDataStore(base_dir=str(tmp_path / "ns2"), store=store)),
+    )
+
+    blueprint = SkillBlueprint(
+        skill_id="skill.safe.request",
+        name="Safe Request Blueprint",
+        goal="produce a creation request with low-risk defaults",
+        inputs=["payload"],
+        outputs=["result"],
+        steps=["normalize safe input"],
+        safety_profile={
+            "preferred_risk_level": "R0_safe_read",
+            "prefer_local_only": True,
+            "prefer_deterministic": True,
+            "allow_network": False,
+            "allow_shell": False,
+            "allow_filesystem_write": False,
+        },
+    )
+
+    request = factory.build_creation_request_from_blueprint(
+        blueprint,
+        generation_operation="normalize_object_keys",
+        smoke_test_inputs={"payload": {"Display Name": "Agent"}},
+        input_schema={"type": "object", "properties": {"payload": {"type": "object"}}, "required": ["payload"]},
+        output_schema={"type": "object", "properties": {"normalized": {"type": "object"}}},
+    )
+
+    assert request.skill_id == "skill.safe.request"
+    assert request.capability_profile.risk_level == "R0_safe_read"
+    assert request.capability_profile.execution_locality == "local"
+    assert request.capability_profile.network_requirement == "N0_none"
+    assert request.generation_operation == "normalize_object_keys"

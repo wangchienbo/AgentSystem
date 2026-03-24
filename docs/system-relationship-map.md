@@ -426,6 +426,7 @@ graph TD
     F --> T13[tests/unit/test_system_context_skill.py]
     F --> T14[tests/unit/test_system_state_and_audit_skills.py]
     F --> T15[tests/unit/test_skill_factory_risk_gating.py]
+    F --> T20[tests/unit/test_skill_blueprint_safety_defaults.py]
     F --> T16[tests/unit/test_skill_policy_diagnostics_api.py]
     F --> T17[tests/unit/test_skill_risk_policy.py]
     F --> T18[tests/unit/test_skill_risk_override_api.py]

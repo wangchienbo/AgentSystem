@@ -79,6 +79,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - skill suggestion / self-iteration entry paths should be able to consume risk governance summaries so generated recommendations can adapt toward lower-risk execution forms when the governance layer shows recent blocking pressure
 - governance-aware suggestions should project that bias into blueprint-level `safety_profile` metadata (preferred risk level, local-only preference, shell/network/write allowances) so later generation/materialization stages can inherit safer defaults
 - `SkillFactoryService` should expose a creation-defaults bridge from `SkillBlueprint.safety_profile` into concrete capability/risk defaults, even before the full generated-skill authoring pipeline consumes it end-to-end
+- `SkillFactoryService` should also expose a blueprint-to-`SkillCreationRequest` bridge so governance-aware defaults can enter the concrete request object used by later materialization/registration flows
 
 ---
 

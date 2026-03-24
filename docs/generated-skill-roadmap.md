@@ -270,6 +270,7 @@ Keep generated skill expansion safe.
 - skill suggestion / self-iteration entry points should consume governance summaries so newly suggested skills naturally trend safer under active policy pressure
 - those safer defaults should be preserved in blueprint-level metadata so downstream generation stages can honor them automatically
 - the generation layer should expose an explicit bridge from blueprint safety metadata into concrete creation defaults before full end-to-end generated-skill materialization is completed
+- the next handoff should also project those defaults into concrete `SkillCreationRequest` objects so the generated-skill create path can consume them directly
 
 ---
 

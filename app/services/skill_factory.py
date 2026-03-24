@@ -80,6 +80,39 @@ class SkillFactoryService:
             "safety_profile": safety_profile,
         }
 
+    def build_creation_request_from_blueprint(
+        self,
+        blueprint: SkillBlueprint,
+        *,
+        adapter_kind: str = "callable",
+        generation_operation: str | None = None,
+        handler_entry: str | None = None,
+        description: str | None = None,
+        smoke_test_inputs: dict | None = None,
+        input_schema: dict | None = None,
+        output_schema: dict | None = None,
+        error_schema: dict | None = None,
+    ) -> SkillCreationRequest:
+        defaults = self.build_creation_defaults_from_blueprint(blueprint)
+        return SkillCreationRequest(
+            skill_id=blueprint.skill_id,
+            name=blueprint.name,
+            description=description or blueprint.goal,
+            adapter_kind=adapter_kind,
+            capability_profile=defaults["capability_profile"],
+            generation_operation=generation_operation,
+            handler_entry=handler_entry or "",
+            smoke_test_inputs=smoke_test_inputs or {},
+            input_schema=input_schema or {"type": "object", "properties": {}, "additionalProperties": True},
+            output_schema=output_schema or {"type": "object", "properties": {}, "additionalProperties": True},
+            error_schema=error_schema or {
+                "type": "object",
+                "properties": {"message": {"type": "string"}},
+                "required": ["message"],
+                "additionalProperties": True,
+            },
+        )
+
     def create_skill(self, request: SkillCreationRequest) -> SkillCreationResult:
         schema_refs = self._register_contracts(request)
         if request.adapter_kind == "callable":

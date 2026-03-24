@@ -30,6 +30,30 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: blueprint-to-creation-request safety bridge
+
+Extended the blueprint safety handoff one step further by letting `SkillFactoryService` project governance-aware blueprint defaults into concrete `SkillCreationRequest` objects.
+
+#### Updated
+- `app/services/skill_factory.py`
+  - adds `build_creation_request_from_blueprint(...)` so blueprint safety metadata can flow into concrete creation request objects
+- `tests/unit/test_skill_blueprint_safety_defaults.py`
+  - now verifies both raw creation-default derivation and full `SkillCreationRequest` projection
+- `docs/requirements.md`
+  - records the requirement for a blueprint-to-creation-request bridge
+- `docs/design.md`
+  - documents the concrete request-level handoff in the generated-skill pipeline
+- `docs/testing.md`
+  - records request-bridge coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with request-level safety-default projection
+- `docs/system-relationship-map.md`
+  - adds creation-request bridge coverage into the generated-skill relationship map
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_safety_defaults.py`
+- result: `2 passed`
+
 ### Module: skill-factory bridge from blueprint safety metadata to creation defaults
 
 Added the first explicit bridge from governance-aware blueprint metadata into downstream generated-skill creation defaults, so safer suggestion defaults can begin influencing concrete capability/risk settings instead of remaining passive annotations.
