@@ -39,6 +39,7 @@ See:
 - `docs/design.md`
 - `docs/skill-design-principles.md` — canonical reference for future core-skill design
 - `docs/code-structure.md` — lightweight map of bootstrap/runtime/system-skill layout
+- `docs/system-relationship-map.md` — required co-maintained system map; update it whenever structural code, feature boundaries, shared contracts, or important tests change
 - `docs/testing.md`
 - `docs/testing-detail.md`
 - `docs/development-log.md`

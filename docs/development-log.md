@@ -47,6 +47,7 @@ Added a dedicated relationship-map document to help future change planning and s
 #### Notes
 - graph edges intentionally represent not only direct imports, but also runtime wiring, API exposure, shared contracts, test coverage, and “should-check-together” coupling
 - this document is meant to be updated proactively whenever a new module, shared contract, or high-value test path is added
+- from this point forward, `docs/system-relationship-map.md` should be treated as a required co-maintained file for structural/system changes, including future self-iteration work
 
 ### Module: centralized operator API filter builders
 
