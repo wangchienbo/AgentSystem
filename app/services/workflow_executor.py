@@ -391,10 +391,11 @@ class WorkflowExecutorService:
         return [item for item in history if item.status == "partial" and any(step.status == "failed" for step in item.steps)]
 
     def retry_last_failure(self, app_instance_id: str) -> WorkflowExecutionResult:
-        failures = self.list_recent_failures(app_instance_id)
-        if not failures:
+        history = self.list_history(app_instance_id)
+        retry_candidates = [item for item in history if item.status == "partial"]
+        if not retry_candidates:
             raise WorkflowExecutorError(f"No failed workflow execution found for app instance: {app_instance_id}")
-        last = failures[-1]
+        last = retry_candidates[-1]
         retry_inputs = deepcopy(last.outputs.get("inputs", {})) if isinstance(last.outputs, dict) else {}
         retried = self.execute_workflow(
             app_instance_id=app_instance_id,

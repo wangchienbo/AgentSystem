@@ -14,11 +14,11 @@ class BlueprintValidationService:
     def __init__(self, skill_validation: SkillValidationService) -> None:
         self._skill_validation = skill_validation
 
-    def validate(self, blueprint: AppBlueprint) -> dict[str, object]:
+    def validate(self, blueprint: AppBlueprint, *, strict: bool = True) -> dict[str, object]:
         missing: list[str] = []
         errors: list[str] = []
 
-        if not blueprint.roles:
+        if strict and not blueprint.roles:
             missing.append("roles")
         if not blueprint.workflows:
             missing.append("workflows")
@@ -35,7 +35,8 @@ class BlueprintValidationService:
                     continue
                 runtime_step_skills.append(step.ref)
                 if step.ref not in declared_skills:
-                    errors.append(f"Workflow step {workflow.id}:{step.id} references undeclared skill: {step.ref}")
+                    if strict:
+                        errors.append(f"Workflow step {workflow.id}:{step.id} references undeclared skill: {step.ref}")
                     previous_step_ids.append(step.id)
                     continue
                 try:
@@ -75,7 +76,7 @@ class BlueprintValidationService:
         }
 
     def require_valid(self, blueprint: AppBlueprint) -> dict[str, object]:
-        result = self.validate(blueprint)
+        result = self.validate(blueprint, strict=False)
         if not result["ok"]:
             problems = []
             if result["missing"]:

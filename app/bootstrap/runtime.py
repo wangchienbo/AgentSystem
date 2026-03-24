@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from app.services.app_catalog import AppCatalogService
 from app.services.system_skills.app_config import AppConfigService
 from app.services.app_context_store import AppContextStore
@@ -28,9 +30,13 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.schema_registry import SchemaRegistryService
 from app.services.self_refinement import SelfRefinementService
+from app.services.refinement_loop import RefinementLoopService
+from app.services.refinement_memory import RefinementMemoryStore
+from app.services.refinement_rollout import RefinementRolloutService
 from app.services.skill_control import SkillControlService
 from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
+from app.services.skill_risk_policy import SkillRiskPolicyService
 from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
 from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
@@ -186,10 +192,15 @@ def build_runtime() -> dict[str, object]:
         experience_store=experience_store,
         context_store=app_context_store,
     )
+    skill_risk_policy = SkillRiskPolicyService(store=runtime_store)
     model_skill_suggester = ModelSkillSuggester()
-    skill_suggestion = SkillSuggestionService(experience_store=experience_store, model_suggester=model_skill_suggester)
+    skill_suggestion = SkillSuggestionService(
+        experience_store=experience_store,
+        model_suggester=model_skill_suggester,
+        risk_policy=skill_risk_policy,
+    )
     app_registry = AppRegistryService(store=runtime_store)
-    model_self_refiner = ModelSelfRefiner()
+    model_self_refiner = ModelSelfRefiner() if os.getenv("AGENTSYSTEM_ENABLE_MODEL_REFINER") == "1" else None
     self_refinement = SelfRefinementService(
         experience_store=experience_store,
         registry=app_registry,
@@ -205,6 +216,16 @@ def build_runtime() -> dict[str, object]:
     priority_analysis = PriorityAnalysisService(
         proposal_review=proposal_review,
         context_store=app_context_store,
+    )
+    refinement_memory = RefinementMemoryStore(store=runtime_store)
+    refinement_loop = RefinementLoopService(
+        proposal_review=proposal_review,
+        priority_analysis=priority_analysis,
+        memory=refinement_memory,
+    )
+    refinement_rollout = RefinementRolloutService(
+        memory=refinement_memory,
+        proposal_review=proposal_review,
     )
     app_installer = AppInstallerService(
         registry=app_registry,
@@ -224,6 +245,7 @@ def build_runtime() -> dict[str, object]:
         skill_runtime=skill_runtime,
         schema_registry=schema_registry,
         generated_assets=generated_skill_assets,
+        risk_policy=skill_risk_policy,
     )
     workflow_executor = WorkflowExecutorService(
         registry=app_registry,

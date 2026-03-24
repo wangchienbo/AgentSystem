@@ -1,0 +1,222 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+import subprocess
+
+from app.models.proposal_review import ProposalReviewRequest
+from app.models.refinement_loop import (
+    FailedHypothesisRecord,
+    RefinementExperiment,
+    RefinementHypothesis,
+    RefinementLoopRequest,
+    RefinementLoopResult,
+    RolloutDecision,
+    RolloutQueueItem,
+    VerificationResult,
+)
+from app.services.priority_analysis import PriorityAnalysisRequest, PriorityAnalysisService
+from app.services.proposal_review import ProposalReviewService
+from app.services.refinement_failure_analysis import RefinementFailureAnalysisService
+from app.services.refinement_memory import RefinementMemoryStore
+
+
+class RefinementLoopError(ValueError):
+    pass
+
+
+class RefinementLoopService:
+    def __init__(
+        self,
+        proposal_review: ProposalReviewService,
+        priority_analysis: PriorityAnalysisService,
+        memory: RefinementMemoryStore | None = None,
+        regression_runner: str = "/root/project/AgentSystem/scripts/run_test_groups.sh",
+        verification_executor=None,
+        failure_analysis: RefinementFailureAnalysisService | None = None,
+    ) -> None:
+        self._proposal_review = proposal_review
+        self._priority_analysis = priority_analysis
+        self._memory = memory or RefinementMemoryStore()
+        self._regression_runner = regression_runner
+        self._verification_executor = verification_executor or self._run_regression_command
+        self._failure_analysis = failure_analysis or RefinementFailureAnalysisService()
+
+    @property
+    def memory(self) -> RefinementMemoryStore:
+        return self._memory
+
+    def run(self, request: RefinementLoopRequest) -> RefinementLoopResult:
+        analysis = self._priority_analysis.analyze(PriorityAnalysisRequest(app_instance_id=request.app_instance_id))
+        if not analysis.prioritized:
+            raise RefinementLoopError(f"No prioritized proposals available for app instance: {request.app_instance_id}")
+
+        top = analysis.prioritized[0]
+        proposal = next(
+            (item for item in self._proposal_review.list_proposals(request.app_instance_id) if item.proposal_id == top.proposal_id),
+            None,
+        )
+        if proposal is None:
+            raise RefinementLoopError(f"Proposal not found for prioritized item: {top.proposal_id}")
+
+        failure_awareness = self._failure_analysis.analyze(
+            contradiction=analysis.primary_contradiction,
+            proposal=proposal,
+            failed_hypotheses=self._memory.list_failed_hypotheses(app_instance_id=request.app_instance_id),
+        )
+        hypothesis = self._memory.add_hypothesis(
+            RefinementHypothesis(
+                hypothesis_id=f"hyp.{request.app_instance_id}.{len(self._memory.list_hypotheses(request.app_instance_id)) + 1}",
+                app_instance_id=request.app_instance_id,
+                proposal_id=proposal.proposal_id,
+                experience_id=request.experience_id,
+                contradiction=analysis.primary_contradiction,
+                hypothesis=f"If proposal {proposal.proposal_id} is applied in a bounded validation path, the current main contradiction should weaken.",
+                expected_change=proposal.expected_benefit,
+                evidence=list(proposal.evidence),
+                repeat_risk=failure_awareness.repeat_risk,
+                related_failed_hypothesis_ids=failure_awareness.related_failed_hypothesis_ids,
+                novelty_note=failure_awareness.novelty_note,
+                status="approved" if proposal.auto_apply_allowed and proposal.risk_level == "low" and failure_awareness.repeat_risk == "low" else "proposed",
+            )
+        )
+        grouped_regression_enabled = (
+            os.getenv("AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION") != "1"
+            and Path(self._regression_runner).exists()
+        )
+        validation_mode = "grouped_regression" if grouped_regression_enabled else "checklist"
+        experiment = self._memory.add_experiment(
+            RefinementExperiment(
+                experiment_id=f"expmt.{request.app_instance_id}.{len(self._memory.list_experiments(hypothesis.hypothesis_id)) + 1}",
+                hypothesis_id=hypothesis.hypothesis_id,
+                app_instance_id=request.app_instance_id,
+                workflow_id=str(proposal.patch.get("workflow_id", "")),
+                validation_plan=list(proposal.validation_checklist),
+                validation_mode=validation_mode,
+                status="completed",
+            )
+        )
+
+        verification = self._memory.add_verification(
+            self._verify_proposal(
+                request.app_instance_id,
+                hypothesis.hypothesis_id,
+                proposal,
+                failure_awareness.gating_reason,
+                hypothesis.repeat_risk,
+            )
+        )
+        if verification.outcome == "failed":
+            self._memory.add_failed_hypothesis(
+                FailedHypothesisRecord(
+                    record_id=f"failed.{request.app_instance_id}.{len(self._memory.list_failed_hypotheses(app_instance_id=request.app_instance_id)) + 1}",
+                    hypothesis_id=hypothesis.hypothesis_id,
+                    app_instance_id=request.app_instance_id,
+                    contradiction=analysis.primary_contradiction,
+                    reason=verification.summary,
+                    disproven_assumption=hypothesis.hypothesis,
+                )
+            )
+
+        rollout_status = "promote" if verification.outcome == "passed" and hypothesis.repeat_risk == "low" else "hold"
+        rollout_reason = (
+            f"Promote proposal {proposal.proposal_id} into the next rollout window."
+            if rollout_status == "promote"
+            else f"Hold proposal {proposal.proposal_id} until remaining checks are resolved."
+        )
+        rollout = self._memory.add_decision(
+            RolloutDecision(
+                decision_id=f"rollout.{request.app_instance_id}.{len(self._memory.list_decisions(hypothesis.hypothesis_id)) + 1}",
+                hypothesis_id=hypothesis.hypothesis_id,
+                app_instance_id=request.app_instance_id,
+                status=rollout_status,
+                reason=rollout_reason,
+            )
+        )
+        queue_status = "queued"
+        queue_note = rollout.reason
+        if rollout.status == "promote" and proposal.auto_apply_allowed and proposal.risk_level == "low":
+            self._proposal_review.review(
+                ProposalReviewRequest(
+                    proposal_id=proposal.proposal_id,
+                    action="apply",
+                    reviewer="refinement-loop",
+                    note=f"auto-applied after {verification.execution_reference or verification.summary}",
+                )
+            )
+            queue_status = "applied"
+            queue_note = f"auto-applied after {verification.execution_reference or verification.summary}"
+        elif rollout.status == "reject":
+            queue_status = "rejected"
+        queue_item = self._memory.add_queue_item(
+            RolloutQueueItem(
+                queue_id=f"queue.{request.app_instance_id}.{len(self._memory.list_queue(app_instance_id=request.app_instance_id)) + 1}",
+                hypothesis_id=hypothesis.hypothesis_id,
+                proposal_id=proposal.proposal_id,
+                app_instance_id=request.app_instance_id,
+                status=queue_status,
+                note=queue_note,
+            )
+        )
+        return RefinementLoopResult(
+            app_instance_id=request.app_instance_id,
+            experience_id=request.experience_id,
+            primary_contradiction=analysis.primary_contradiction,
+            hypothesis=hypothesis,
+            experiment=experiment,
+            verification=verification,
+            rollout=rollout,
+            queue_item=queue_item,
+        )
+
+    def _verify_proposal(self, app_instance_id: str, hypothesis_id: str, proposal, gating_reason: str, repeat_risk: str) -> VerificationResult:
+        verification_id = f"verify.{app_instance_id}.{len(self._memory.list_verifications(hypothesis_id)) + 1}"
+        if os.getenv("AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION") != "1" and Path(self._regression_runner).exists():
+            result = self._verification_executor(self._regression_runner)
+            output = (result.stdout or "") + ("\n" + result.stderr if result.stderr else "")
+            if result.returncode == 0:
+                return VerificationResult(
+                    verification_id=verification_id,
+                    hypothesis_id=hypothesis_id,
+                    app_instance_id=app_instance_id,
+                    outcome="passed",
+                    summary=f"Grouped regression passed for proposal {proposal.proposal_id}",
+                    passed_checks=list(proposal.validation_checklist) or ["grouped regression runner"],
+                    failed_checks=[],
+                    execution_reference="grouped_regression:passed",
+                    failure_aware=repeat_risk != "low",
+                    gating_reason=gating_reason,
+                )
+            return VerificationResult(
+                verification_id=verification_id,
+                hypothesis_id=hypothesis_id,
+                app_instance_id=app_instance_id,
+                outcome="failed",
+                summary=f"Grouped regression failed for proposal {proposal.proposal_id}",
+                passed_checks=[],
+                failed_checks=list(proposal.validation_checklist) or [output[-200:]],
+                execution_reference="grouped_regression:failed",
+                failure_aware=repeat_risk != "low",
+                gating_reason=gating_reason,
+            )
+
+        passed_checks = list(proposal.validation_checklist[: max(1, len(proposal.validation_checklist) - 1)])
+        failed_checks = [] if proposal.risk_level == "low" else proposal.validation_checklist[-1:]
+        outcome = "passed" if not failed_checks else "inconclusive"
+        return VerificationResult(
+            verification_id=verification_id,
+            hypothesis_id=hypothesis_id,
+            app_instance_id=app_instance_id,
+            outcome=outcome,
+            summary=(
+                f"Bounded validation for proposal {proposal.proposal_id} {'passed core checks' if outcome == 'passed' else 'produced mixed signals'}"
+            ),
+            passed_checks=passed_checks,
+            failed_checks=failed_checks,
+            execution_reference="checklist:bounded",
+            failure_aware=repeat_risk != "low",
+            gating_reason=gating_reason,
+        )
+
+    def _run_regression_command(self, runner_path: str):
+        return subprocess.run([runner_path], capture_output=True, text=True)

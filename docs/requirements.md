@@ -39,6 +39,7 @@ The system should:
 - distinguish network availability from intelligence availability
 - treat intelligence invocation as a governed runtime policy decision rather than a default behavior whenever a model is reachable
 - infer app runtime class and startup behavior from skill metadata instead of requiring users to manually choose low-level capability profiles
+- make intelligence improve through a disciplined loop of observation -> synthesis -> experiment -> verification -> rollout rather than one-shot prompt improvisation
 - maintain explicit boundaries between:
   - blueprint definition
   - app installation
@@ -251,6 +252,13 @@ The system must support a per-app configuration surface controlled through `syst
 - schema validation
 - config change history
 
+The system should gradually evolve a practical intelligence loop for app behavior improvement:
+- observe real runtime behavior and user intervention
+- summarize contradictions, failures, and repeated work into structured experience
+- derive candidate changes to skill/app behavior from those experiences
+- validate candidate changes through smoke tests, golden paths, and grouped regression slices before promotion
+- preserve the difference between hypotheses, approved changes, and deployed behavior
+
 The platform should inject these system skills during installation rather than requiring end users to declare them manually.
 
 The platform should also provide a low-friction authoring path for normal skills so skill creation does not require hand-assembling registry/manifest boilerplate for every deterministic or script-backed capability.
@@ -285,6 +293,30 @@ The platform should expose an API-first path for generated skills so the system 
 - define a shared observability filter contract so diagnostics/history/timeline surfaces expose consistent query semantics
 - support time-window filtering on observability-history in addition to timeline feeds so history and feed views remain consistent
 - keep history and timeline response contracts aligned around paged results so clients can consume both surfaces with fewer special cases
+- include lightweight page metadata (counts/window/cursor state) so dashboards can present feed context without computing it independently
+- expose aggregate workflow observability totals so operator dashboards can render summary cards without scanning full history/timeline feeds
+- provide a single dashboard-oriented observability payload that bundles health/overview, aggregate stats, and a recent activity slice
+- keep observability parser/helper logic modular so further framework growth does not turn API handlers or the main observability service into monoliths
+- provide equivalent self-refinement governance read models for rollout queues and failed-hypothesis archives, including filtered page views and aggregate stats summaries so operator surfaces can inspect refinement state without scanning full raw lists
+- provide a higher-level self-refinement governance dashboard payload that bundles overview, aggregate stats, recent queue state, and recent failed-hypothesis archive slices for operator-facing review surfaces
+- keep refinement operator-surface query construction centralized through a shared API helper so queue/stats/dashboard endpoints evolve with aligned filter semantics instead of duplicating parameter mapping inline
+- provide deterministic test controls for self-refinement API flows so contract/integration coverage can run without depending on external model availability or recursively launching the grouped regression suite
+- require model-backed self-refinement to be explicitly enabled in runtime wiring instead of opportunistically activating whenever model credentials/configuration happen to exist
+- align refinement governance paging contracts more closely with workflow observability by exposing page metadata as a structured `meta` object rather than scattering counts at the top level
+- converge workflow observability and refinement governance on a shared operator paging metadata contract so future operator surfaces do not redefine count/cursor semantics independently
+- converge operator-surface query models on shared base filter parameters so app/limit/time-window/cursor semantics remain aligned across workflow and refinement APIs even when domain-specific fields differ
+- converge operator dashboard summaries on a shared overview/stats core so workflow and refinement surfaces speak a more consistent aggregate language even when their recent-activity sections differ
+- centralize API-side operator filter builders so workflow/refinement endpoints evolve from one helper module rather than drifting across multiple per-domain helper files
+- introduce explicit manifest-level risk metadata and baseline script-command restrictions so self-iterated/generated skills carry machine-readable execution risk hints before broader auto-expansion is allowed
+- generated app assembly/install-run must gate risky skills by default so high-risk manifests are not silently auto-composed into runnable apps
+- risk gating should return structured policy diagnostics (not opaque errors) so future approval/policy layers can reason over why a generated skill/app was blocked
+- the system should support explicit reviewer-managed override decisions for risky generated-skill assembly, including listing, approval, revocation, and persistence of those decisions
+- the system should also preserve a queryable governance event trail for risk blocking and override actions so future dashboards/audit surfaces can explain how risky skills were handled
+- risk governance should expose operator-facing stats and dashboard summaries so risky-skill handling can be inspected without manually scanning raw decision/event records
+- self-iteration / generated-skill suggestion paths should consume current risk-governance state so fallback recommendations trend toward lower-risk local/deterministic shapes under active policy pressure
+- governance-aware skill suggestions should encode their low-risk bias into machine-readable blueprint metadata, not only human-readable step text, so later generation stages can inherit safer defaults
+- downstream generation defaults should consume `SkillBlueprint.safety_profile` to derive safer capability/risk defaults before a generated skill is materialized or registered
+- the system should expose a concrete blueprint-to-creation-request bridge so governance-aware defaults can enter the generated-skill creation path as first-class request defaults
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

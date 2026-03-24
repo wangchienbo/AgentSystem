@@ -43,6 +43,12 @@ Current known limits:
 
 ## 3. Delivery Principles
 
+> **Self-iteration maintenance rule**
+>
+> Any future self-iteration work that changes system structure, adds/removes skills, changes generated-app flow, introduces new contracts/helpers, or changes important validation paths must also update `docs/system-relationship-map.md` in the same change set.
+>
+> The relationship map is part of the self-iteration substrate: if the system evolves but the map does not, future iterations will lose impact awareness.
+
 1. **Prove with real skills, not synthetic placeholders only**
    Every stage should be validated with at least one realistic skill or app path.
 
@@ -250,11 +256,21 @@ Keep generated skill expansion safe.
 - file/network boundary metadata
 - generated skill risk classification enforcement
 - install/run gating for risky generated skills
+- manifest-level risk metadata (`risk_level`, shell/filesystem/network allowances) as the baseline machine-readable substrate
 
 ### Acceptance criteria
 - high-risk generated skill requests are blocked or gated intentionally
 - script command restrictions are test-covered
 - risk metadata affects whether auto-install/auto-run is allowed
+- generated app assembly rejects risky skills by default unless a future explicit policy layer authorizes them
+- blocked assembly/install-run paths surface structured policy diagnostics that a future approval or override layer can consume
+- reviewer-managed overrides can intentionally unblock risky generated app assembly with an auditable persisted decision
+- governance actions and policy blocks leave a queryable event trail suitable for future risk dashboards and audit/reporting surfaces
+- operator-facing risk stats/dashboard reads are available so future self-iteration loops can inspect governance state without hand-scanning raw records
+- skill suggestion / self-iteration entry points should consume governance summaries so newly suggested skills naturally trend safer under active policy pressure
+- those safer defaults should be preserved in blueprint-level metadata so downstream generation stages can honor them automatically
+- the generation layer should expose an explicit bridge from blueprint safety metadata into concrete creation defaults before full end-to-end generated-skill materialization is completed
+- the next handoff should also project those defaults into concrete `SkillCreationRequest` objects so the generated-skill create path can consume them directly
 
 ---
 
@@ -310,3 +326,4 @@ Per phase, record:
 - validation cases
 - focused regression result
 - open follow-up gaps
+- whether `docs/system-relationship-map.md` was updated to reflect the new structure / coupling / test impact

@@ -1,54 +1,37 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import Iterable, Literal
+from datetime import UTC
 
 from app.models.workflow_execution import WorkflowExecutionResult
 from app.models.workflow_observability import (
+    WorkflowDashboardSummary,
     WorkflowDiagnosticsSummary,
     WorkflowHealthSummary,
     WorkflowHistoryPage,
     WorkflowObservabilityFilter,
     WorkflowOverview,
+    WorkflowPageMeta,
     WorkflowRecoveryState,
     WorkflowRecoverySummary,
+    WorkflowStatsSummary,
     WorkflowTimelineEvent,
     WorkflowTimelinePage,
 )
-
-
-HealthStatus = Literal["healthy", "failing", "recovering", "unknown"]
-HealthSeverity = Literal["info", "warning", "critical"]
+from app.services.workflow_observability_helpers import (
+    apply_history_filters,
+    classify_health,
+    count_unresolved_failures,
+    iter_retry_step_ids,
+)
 
 
 class WorkflowObservabilityService:
-    _HEALTH_RULES: tuple[dict[str, str], ...] = (
-        {"health_status": "recovering", "severity": "warning", "last_transition": "failure->recovered"},
-        {"health_status": "failing", "severity": "critical", "last_transition": "failure"},
-        {"health_status": "healthy", "severity": "info", "last_transition": "completed"},
-        {"health_status": "unknown", "severity": "info", "last_transition": "partial-without-failed-steps"},
-    )
     def __init__(self, workflow_executor) -> None:
         self._workflow_executor = workflow_executor
 
     def filter_history(self, filters: WorkflowObservabilityFilter) -> list[WorkflowExecutionResult]:
         history = self._workflow_executor.list_history(filters.app_instance_id)
-        if filters.workflow_id is not None:
-            history = [item for item in history if item.workflow_id == filters.workflow_id]
-        if filters.failed_step_id is not None:
-            history = [item for item in history if self._matches_failed_step(item, filters.failed_step_id)]
-        if filters.unresolved_only:
-            history = [item for item in history if self._is_unresolved(item)]
-        if filters.since is not None:
-            since_dt = datetime.fromisoformat(filters.since.replace("Z", "+00:00"))
-            history = [item for item in history if item.completed_at >= since_dt]
-        history = sorted(history, key=lambda item: item.completed_at, reverse=True)
-        if filters.cursor is not None:
-            cursor_dt = datetime.fromisoformat(filters.cursor.replace("Z", "+00:00"))
-            history = [item for item in history if item.completed_at < cursor_dt]
-        if filters.limit is not None:
-            history = history[: filters.limit]
-        return history
+        return apply_history_filters(history, filters, self._matches_failed_step, self._is_unresolved)
 
     def get_diagnostics_summary(
         self,
@@ -128,10 +111,10 @@ class WorkflowObservabilityService:
         if latest_execution is None:
             return WorkflowHealthSummary()
 
-        unresolved_failure_count = self._count_unresolved_failures(recovery_state)
+        unresolved_failure_count = count_unresolved_failures(recovery_state)
         latest_failed_step_ids = list(latest_execution.failed_step_ids)
         has_recent_retry = latest_retry is not None
-        health_status, severity, last_transition = self._classify_health(
+        health_status, severity, last_transition = classify_health(
             latest_execution=latest_execution,
             recovery_state=recovery_state,
             has_recent_retry=has_recent_retry,
@@ -191,7 +174,16 @@ class WorkflowObservabilityService:
             )
         )
         next_cursor = history[-1].completed_at.isoformat() if limit is not None and len(history) == limit else None
-        return WorkflowHistoryPage(items=history, next_cursor=next_cursor)
+        return WorkflowHistoryPage(
+            items=history,
+            meta=WorkflowPageMeta(
+                returned_count=len(history),
+                unresolved_count=sum(1 for item in history if self._is_unresolved(item)),
+                has_more=next_cursor is not None,
+                window_since=since,
+                next_cursor=next_cursor,
+            ),
+        )
 
     def list_timeline_events(
         self,
@@ -213,7 +205,78 @@ class WorkflowObservabilityService:
             cursor=cursor,
         )
         items = [self._to_timeline_event(item) for item in history_page.items]
-        return WorkflowTimelinePage(items=items, next_cursor=history_page.next_cursor)
+        return WorkflowTimelinePage(items=items, meta=history_page.meta)
+
+    def get_stats_summary(
+        self,
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        since: str | None = None,
+    ) -> WorkflowStatsSummary:
+        history = self.filter_history(
+            WorkflowObservabilityFilter(
+                app_instance_id=app_instance_id,
+                workflow_id=workflow_id,
+                failed_step_id=failed_step_id,
+                since=since,
+            )
+        )
+        latest_event_at = history[0].completed_at.isoformat() if history else None
+        total_failures = sum(1 for item in history if item.status == "partial" and item.failed_step_ids)
+        total_retries = sum(1 for item in history if item.retry_comparison is not None)
+        total_recoveries = sum(
+            1
+            for item in history
+            if item.retry_comparison is not None
+            and item.retry_comparison.previous_status == "partial"
+            and item.retry_comparison.retried_status == "completed"
+        )
+        total_completed = sum(1 for item in history if item.status == "completed")
+        total_partial_without_failed_steps = sum(1 for item in history if item.status == "partial" and not item.failed_step_ids)
+        unresolved_executions = sum(1 for item in history if self._is_unresolved(item))
+        return WorkflowStatsSummary(
+            total_executions=len(history),
+            total_failures=total_failures,
+            total_retries=total_retries,
+            total_recoveries=total_recoveries,
+            total_completed=total_completed,
+            total_partial_without_failed_steps=total_partial_without_failed_steps,
+            unresolved_executions=unresolved_executions,
+            latest_event_at=latest_event_at,
+        )
+
+    def get_dashboard_summary(
+        self,
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        since: str | None = None,
+        timeline_limit: int = 5,
+    ) -> WorkflowDashboardSummary:
+        overview = self.get_overview(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+        )
+        stats = self.get_stats_summary(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            since=since,
+        )
+        recent_timeline = self.list_timeline_events(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            limit=timeline_limit,
+            since=since,
+        )
+        return WorkflowDashboardSummary(
+            overview=overview,
+            stats=stats,
+            recent_timeline=recent_timeline,
+        )
 
     def _matches_failed_step(self, item: WorkflowExecutionResult, failed_step_id: str) -> bool:
         if failed_step_id in item.failed_step_ids:
@@ -221,7 +284,7 @@ class WorkflowObservabilityService:
         comparison = item.retry_comparison
         if comparison is None:
             return False
-        return failed_step_id in self._iter_retry_step_ids(comparison)
+        return failed_step_id in iter_retry_step_ids(comparison)
 
     def _to_timeline_event(self, item: WorkflowExecutionResult) -> WorkflowTimelineEvent:
         comparison = item.retry_comparison
@@ -272,34 +335,3 @@ class WorkflowObservabilityService:
             return "Workflow completed successfully"
         return "Workflow ended partial without explicit failed steps"
 
-    def _count_unresolved_failures(self, recovery_state: WorkflowRecoveryState | None) -> int:
-        if recovery_state is None:
-            return 0
-        return len(recovery_state.unchanged_failed_step_ids) + len(recovery_state.newly_failed_step_ids)
-
-    def _classify_health(
-        self,
-        latest_execution: WorkflowExecutionResult,
-        recovery_state: WorkflowRecoveryState | None,
-        has_recent_retry: bool,
-    ) -> tuple[HealthStatus, HealthSeverity, str]:
-        latest_failed_step_ids = list(latest_execution.failed_step_ids)
-        if recovery_state is not None and recovery_state.recovered:
-            rule = self._HEALTH_RULES[0]
-            return rule["health_status"], rule["severity"], rule["last_transition"]
-        if latest_execution.status == "partial" and latest_failed_step_ids:
-            rule = self._HEALTH_RULES[1]
-            last_transition = "failure->retry-partial" if has_recent_retry else rule["last_transition"]
-            return rule["health_status"], rule["severity"], last_transition
-        if latest_execution.status == "completed":
-            rule = self._HEALTH_RULES[2]
-            return rule["health_status"], rule["severity"], rule["last_transition"]
-        rule = self._HEALTH_RULES[3]
-        return rule["health_status"], rule["severity"], rule["last_transition"]
-
-    def _iter_retry_step_ids(self, comparison) -> Iterable[str]:
-        yield from comparison.previous_failed_step_ids
-        yield from comparison.retried_failed_step_ids
-        yield from comparison.resolved_failed_step_ids
-        yield from comparison.unchanged_failed_step_ids
-        yield from comparison.newly_failed_step_ids

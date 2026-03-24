@@ -3,7 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 
 from app.models.app_blueprint import AppBlueprint
-from app.models.skill_control import SkillRegistryEntry
+from app.models.skill_blueprint import SkillBlueprint
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry
 from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult, StepMappingDefinition, SuggestedStepMapping
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
@@ -11,6 +12,7 @@ from app.services.generated_callable_materializer import GeneratedCallableMateri
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_authoring import SkillAuthoringService
+from app.services.skill_risk_policy import SkillRiskPolicyService
 from app.services.skill_control import SkillControlService
 from app.services.skill_runtime import SkillRuntimeService
 
@@ -33,6 +35,9 @@ def _diagnostic(stage: str, kind: str, message: str, *, retryable: bool = False,
     )
 
 
+BLOCKED_GENERATED_APP_RISK_LEVELS = {"R2_shell", "R3_filesystem_write", "R4_networked", "R5_high_risk"}
+
+
 class SkillFactoryService:
     def __init__(
         self,
@@ -43,6 +48,7 @@ class SkillFactoryService:
         authoring: SkillAuthoringService | None = None,
         generated_assets: GeneratedSkillAssetStore | None = None,
         callable_materializer: GeneratedCallableMaterializer | None = None,
+        risk_policy: SkillRiskPolicyService | None = None,
     ) -> None:
         self._skill_control = skill_control
         self._skill_runtime = skill_runtime
@@ -50,6 +56,62 @@ class SkillFactoryService:
         self._authoring = authoring or SkillAuthoringService()
         self._generated_assets = generated_assets
         self._callable_materializer = callable_materializer or GeneratedCallableMaterializer()
+        self._risk_policy = risk_policy or SkillRiskPolicyService()
+
+    def build_creation_defaults_from_blueprint(self, blueprint: SkillBlueprint) -> dict:
+        safety_profile = blueprint.safety_profile or {}
+        capability_profile = SkillCapabilityProfile(
+            intelligence_level="L0_deterministic" if safety_profile.get("prefer_deterministic", True) else "L1_assisted",
+            network_requirement="N0_none" if safety_profile.get("allow_network") is False else "N1_optional",
+            runtime_criticality="C2_required_runtime",
+            execution_locality="local" if safety_profile.get("prefer_local_only") else "hybrid",
+            invocation_default="automatic",
+            risk_level=safety_profile.get("preferred_risk_level", "R0_safe_read"),
+        )
+        manifest_risk = {
+            "risk_level": safety_profile.get("preferred_risk_level", "R0_safe_read"),
+            "allow_network": bool(safety_profile.get("allow_network", False)),
+            "allow_shell": bool(safety_profile.get("allow_shell", False)),
+            "allow_filesystem_write": bool(safety_profile.get("allow_filesystem_write", False)),
+        }
+        return {
+            "capability_profile": capability_profile,
+            "manifest_risk": manifest_risk,
+            "safety_profile": safety_profile,
+        }
+
+    def build_creation_request_from_blueprint(
+        self,
+        blueprint: SkillBlueprint,
+        *,
+        adapter_kind: str = "callable",
+        generation_operation: str | None = None,
+        handler_entry: str | None = None,
+        description: str | None = None,
+        smoke_test_inputs: dict | None = None,
+        input_schema: dict | None = None,
+        output_schema: dict | None = None,
+        error_schema: dict | None = None,
+    ) -> SkillCreationRequest:
+        defaults = self.build_creation_defaults_from_blueprint(blueprint)
+        return SkillCreationRequest(
+            skill_id=blueprint.skill_id,
+            name=blueprint.name,
+            description=description or blueprint.goal,
+            adapter_kind=adapter_kind,
+            capability_profile=defaults["capability_profile"],
+            generation_operation=generation_operation,
+            handler_entry=handler_entry or "",
+            smoke_test_inputs=smoke_test_inputs or {},
+            input_schema=input_schema or {"type": "object", "properties": {}, "additionalProperties": True},
+            output_schema=output_schema or {"type": "object", "properties": {}, "additionalProperties": True},
+            error_schema=error_schema or {
+                "type": "object",
+                "properties": {"message": {"type": "string"}},
+                "required": ["message"],
+                "additionalProperties": True,
+            },
+        )
 
     def create_skill(self, request: SkillCreationRequest) -> SkillCreationResult:
         schema_refs = self._register_contracts(request)
@@ -165,6 +227,9 @@ class SkillFactoryService:
         missing = [skill_id for skill_id in request.skill_ids if skill_id not in {item.skill_id for item in self._skill_control.list_skills()}]
         if missing:
             raise SkillFactoryError(f"Skills not found for app assembly: {', '.join(missing)}")
+        for skill_id in request.skill_ids:
+            entry = self._skill_control.get_skill(skill_id)
+            self._assert_generated_app_safe(entry)
         steps = []
         created_steps = []
         suggested_mappings: list[SuggestedStepMapping] = []
@@ -353,7 +418,9 @@ class SkillFactoryService:
 
     def _apply_step_mapping(self, compiled_inputs: dict, mapping: StepMappingDefinition) -> None:
         if not mapping.from_step and not mapping.from_inputs and mapping.default_value is None:
-            raise SkillFactoryError(f"Step mapping for target '{mapping.target_field}' requires from_step, from_inputs, or default_value")
+            raise SkillFactoryError(
+                f"Step mapping for target '{mapping.target_field}' requires from_step or from_inputs (or default_value for literal injection)"
+            )
         if mapping.from_step and mapping.from_inputs:
             raise SkillFactoryError(f"Step mapping for target '{mapping.target_field}' cannot set both from_step and from_inputs")
         if mapping.transform and mapping.transform not in {"lowercase", "uppercase", "stringify", "wrap_object"}:
@@ -384,6 +451,52 @@ class SkillFactoryService:
                 raise SkillFactoryError(f"Step mapping target path '{mapping.target_field}' collides with non-object field '{part}'")
             cursor = next_value
         cursor[parts[-1]] = reference
+
+    def _assert_generated_app_safe(self, entry: SkillRegistryEntry) -> None:
+        manifest = entry.manifest
+        if manifest is None:
+            return
+        risk = manifest.risk
+        policy_reasons: list[str] = []
+        if risk.risk_level in BLOCKED_GENERATED_APP_RISK_LEVELS:
+            policy_reasons.append(f"risk_level={risk.risk_level}")
+        if risk.allow_shell:
+            policy_reasons.append("allow_shell=true")
+        if risk.allow_network:
+            policy_reasons.append("allow_network=true")
+        if risk.allow_filesystem_write:
+            policy_reasons.append("allow_filesystem_write=true")
+        if policy_reasons:
+            active_override = self._risk_policy.get_active_override(entry.skill_id, scope="generated_app_assembly")
+            if active_override is not None:
+                return
+            self._risk_policy.record_event(
+                skill_id=entry.skill_id,
+                event_type="policy_blocked",
+                actor="system",
+                reason="generated app assembly blocked by default risk policy",
+                details={
+                    "risk_level": risk.risk_level,
+                    "policy_reasons": policy_reasons,
+                },
+            )
+            raise _diagnostic(
+                "assemble",
+                "policy_blocked",
+                f"Skill '{entry.skill_id}' is gated from generated app assembly due to risk policy",
+                retryable=False,
+                hint="Use a lower-risk skill profile or add an explicit future approval/policy layer before assembling this generated app.",
+                details={
+                    "skill_id": entry.skill_id,
+                    "risk_level": risk.risk_level,
+                    "policy_reasons": policy_reasons,
+                    "override_scope": "generated_app_assembly",
+                },
+                suggested_retry_request={
+                    "blocked_skill_id": entry.skill_id,
+                    "replace_with": "lower-risk skill or future approved override",
+                },
+            )
 
     def _register_contracts(self, request: SkillCreationRequest) -> dict[str, str]:
         refs = {

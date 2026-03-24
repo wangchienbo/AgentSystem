@@ -110,4 +110,5 @@ Confirm that:
 - `docs/requirements.md` defines that a maintained core-skill principle reference must exist.
 - `docs/design.md` should reference this document when describing skill/runtime architecture.
 - `docs/testing.md` should define validation targets that keep core skills aligned with this document.
+- `docs/system-relationship-map.md` must be updated whenever core-skill/runtime/self-iteration changes alter system coupling, feature boundaries, or validation impact.
 - `README.md` and `TOOLS.md` should point here so future implementation work can find it quickly.

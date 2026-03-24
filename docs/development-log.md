@@ -1,5 +1,896 @@
 # Development Log
 
+## 2026-03-24
+
+### Module: refinement observability API helper alignment
+
+Aligned self-refinement operator endpoints with the workflow observability pattern by centralizing API-side filter construction for queue/stats/dashboard surfaces instead of hand-assembling filters inline.
+
+#### Added
+- `app/api/refinement_observability.py`
+  - shared `build_refinement_filter(...)` helper for refinement queue/stats/dashboard endpoint parsing
+- `tests/unit/test_refinement_observability_api.py`
+  - verifies supported refinement query dimensions map into one shared filter contract
+
+#### Updated
+- `app/api/main.py`
+  - routes refinement queue-page, failed-hypotheses-page, stats, and governance-dashboard endpoints through the shared filter helper
+- `tests/unit/test_api_golden_path.py`
+  - extends API golden-path coverage toward the refinement governance flow (not yet part of the validated fast slice because the broader file remains slower / timeout-sensitive)
+- `docs/requirements.md`
+  - records centralized refinement operator filter construction expectation
+- `docs/design.md`
+  - documents parity with workflow observability filter-builder structure
+- `docs/testing.md`
+  - records the focused helper-coverage strategy and notes the slower golden-path slice boundary
+
+#### Validation
+- fast refinement slice passes
+- result: `6 passed`
+- command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
+- note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
+
+### Module: blueprint-to-creation-request safety bridge
+
+Extended the blueprint safety handoff one step further by letting `SkillFactoryService` project governance-aware blueprint defaults into concrete `SkillCreationRequest` objects.
+
+#### Updated
+- `app/services/skill_factory.py`
+  - adds `build_creation_request_from_blueprint(...)` so blueprint safety metadata can flow into concrete creation request objects
+- `tests/unit/test_skill_blueprint_safety_defaults.py`
+  - now verifies both raw creation-default derivation and full `SkillCreationRequest` projection
+- `docs/requirements.md`
+  - records the requirement for a blueprint-to-creation-request bridge
+- `docs/design.md`
+  - documents the concrete request-level handoff in the generated-skill pipeline
+- `docs/testing.md`
+  - records request-bridge coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with request-level safety-default projection
+- `docs/system-relationship-map.md`
+  - adds creation-request bridge coverage into the generated-skill relationship map
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_safety_defaults.py`
+- result: `2 passed`
+
+### Module: skill-factory bridge from blueprint safety metadata to creation defaults
+
+Added the first explicit bridge from governance-aware blueprint metadata into downstream generated-skill creation defaults, so safer suggestion defaults can begin influencing concrete capability/risk settings instead of remaining passive annotations.
+
+#### Added
+- `tests/unit/test_skill_blueprint_safety_defaults.py`
+  - verifies `SkillFactoryService` derives concrete capability and manifest-risk defaults from `SkillBlueprint.safety_profile`
+
+#### Updated
+- `app/services/skill_factory.py`
+  - adds `build_creation_defaults_from_blueprint(...)` as the initial handoff bridge from blueprint safety metadata into concrete creation defaults
+- `docs/requirements.md`
+  - records downstream consumption of blueprint safety metadata
+- `docs/design.md`
+  - documents the skill-factory bridge as the first creation-defaults handoff stage
+- `docs/testing.md`
+  - records blueprint-safety handoff coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with explicit safety-metadata-to-defaults bridging
+- `docs/system-relationship-map.md`
+  - notes new coupling from blueprint safety metadata into skill-factory materialization defaults
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_safety_defaults.py tests/unit/test_skill_suggestion.py`
+- result: `7 passed`
+
+### Module: machine-readable safety defaults in governance-aware skill blueprints
+
+Extended governance-aware skill suggestion so low-risk bias is now preserved in machine-readable blueprint metadata rather than only appearing in textual suggestion steps.
+
+#### Updated
+- `app/models/skill_blueprint.py`
+  - adds `safety_profile` metadata for suggested/generated skill blueprints
+- `app/services/skill_suggestion.py`
+  - now emits governance-aware `safety_profile` defaults (preferred risk level, local-only/deterministic preference, no shell/network/write under policy pressure)
+- `tests/unit/test_skill_suggestion.py`
+  - verifies governance-aware suggestions encode low-risk defaults in blueprint metadata
+- `docs/requirements.md`
+  - records requirement that safer suggestion defaults be machine-readable
+- `docs/design.md`
+  - documents `SkillBlueprint.safety_profile` as the governance-aware handoff into later generation stages
+- `docs/testing.md`
+  - records safety-profile coverage for governance-aware suggestion
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with blueprint-level preservation of safer defaults
+- `docs/system-relationship-map.md`
+  - marks blueprint safety metadata as part of the governance-aware suggestion coupling surface
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_suggestion.py tests/unit/test_experience_store.py`
+- result: `8 passed`
+
+### Module: risk-aware skill suggestion governance context
+
+Connected the risk governance subsystem back into the self-iteration entry path by teaching skill suggestion to expose governance context and bias fallback suggestions toward lower-risk local/deterministic shapes when recent policy pressure exists.
+
+#### Updated
+- `app/models/skill_suggestion.py`
+  - `SkillSuggestionResult` now includes `governance_context`
+- `app/services/skill_suggestion.py`
+  - can consume `SkillRiskPolicyService`
+  - includes governance summary data in suggestion results
+  - biases fallback suggestion steps toward local/deterministic execution when recent `policy_blocked` pressure exists
+- `app/bootstrap/runtime.py`
+  - wires `SkillRiskPolicyService` into `SkillSuggestionService`
+- `tests/unit/test_skill_suggestion.py`
+  - verifies governance context and lower-risk fallback bias under policy pressure
+- `docs/requirements.md`
+  - records risk-aware suggestion requirement
+- `docs/design.md`
+  - documents governance-summary consumption by skill suggestion
+- `docs/testing.md`
+  - records governance-aware suggestion coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the self-iteration substrate with governance-aware suggestion behavior
+- `docs/system-relationship-map.md`
+  - notes skill suggestion’s new coupling to risk governance state
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_suggestion.py tests/unit/test_skill_risk_dashboard.py`
+- result: `8 passed`
+
+### Module: skill risk governance stats and dashboard
+
+Extended the risk governance subsystem with operator-facing stats and dashboard views so reviewers and future self-iteration loops can inspect risky-skill handling through structured summaries instead of raw decision/event scans.
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - adds `SkillRiskEventPage`, `SkillRiskStatsSummary`, and `SkillRiskDashboard`
+- `app/services/skill_risk_policy.py`
+  - adds event-page reads, aggregated stats summary, and dashboard composition
+- `app/api/main.py`
+  - exposes `/skill-risk/stats` and `/skill-risk/dashboard`
+- `tests/unit/test_skill_risk_dashboard.py`
+  - verifies service/API risk stats and dashboard surfaces
+- `docs/requirements.md`
+  - records operator-facing risk stats/dashboard requirement
+- `docs/design.md`
+  - documents overview/stats/recent-events risk dashboard shape
+- `docs/testing.md`
+  - records risk governance stats/dashboard coverage
+- `docs/generated-skill-roadmap.md`
+  - notes dashboard reads as part of the future self-iteration substrate
+- `docs/system-relationship-map.md`
+  - adds risk dashboard coverage into the generated-skill relationship graph
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_risk_dashboard.py tests/unit/test_skill_risk_policy.py tests/unit/test_skill_risk_override_api.py`
+- result: `4 passed`
+
+### Module: skill risk governance event trail
+
+Added a lightweight governance event trail for risky generated skills so the system now records not only the latest override decision, but also the sequence of blocks and approval/revocation actions behind it.
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - adds `SkillRiskGovernanceEvent` and explicit governance event types
+- `app/services/skill_risk_policy.py`
+  - persists governance events alongside decision state
+  - records override approval/revocation events automatically
+  - exposes governance event listing
+- `app/services/skill_factory.py`
+  - records `policy_blocked` governance events before raising assembly diagnostics
+- `app/api/main.py`
+  - exposes `/skill-risk/events` for governance event inspection
+- `tests/unit/test_skill_risk_policy.py`
+  - verifies governance events persist/reload with decision state
+- `tests/unit/test_skill_risk_override_api.py`
+  - verifies blocked and approved override events are queryable via API
+- `docs/requirements.md`
+  - records queryable governance event trail requirement
+- `docs/design.md`
+  - documents decision-state plus event-trail split
+- `docs/testing.md`
+  - records governance event trail coverage
+- `docs/generated-skill-roadmap.md`
+  - extends Phase 7 with queryable governance events for future dashboards
+- `docs/system-relationship-map.md`
+  - highlights policy state + event trail as a cross-cutting governance surface
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_risk_policy.py tests/unit/test_skill_risk_override_api.py tests/unit/test_skill_factory_risk_gating.py`
+- result: `4 passed`
+
+### Module: reviewer-managed skill risk overrides
+
+Completed the next governance step for Phase 7 by adding persisted reviewer-managed override decisions that can intentionally unblock risky generated-skill assembly when a human (or future policy layer) approves it.
+
+#### Added
+- `app/models/skill_risk_policy.py`
+  - defines persisted skill risk decision records with scope, reviewer, reason, and optional expiry
+- `app/services/skill_risk_policy.py`
+  - persists and reloads skill risk decisions through the runtime state store
+- `tests/unit/test_skill_risk_policy.py`
+  - verifies approve/list/revoke/reload behavior for persisted risk decisions
+- `tests/unit/test_skill_risk_override_api.py`
+  - verifies reviewer-managed API overrides can unblock generated app assembly and later be revoked
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires `SkillRiskPolicyService` into runtime
+- `app/services/skill_factory.py`
+  - generated app assembly now consults active risk overrides before enforcing default deny gates
+- `app/api/main.py`
+  - exposes risk decision list / approve / revoke endpoints under `/skill-risk/*`
+- `docs/requirements.md`
+  - records reviewer-managed override requirements
+- `docs/design.md`
+  - documents persisted policy store + override-aware gating behavior
+- `docs/testing.md`
+  - records approval/override coverage expectations
+- `docs/generated-skill-roadmap.md`
+  - extends Phase 7 with auditable reviewer-managed unblocking
+- `docs/system-relationship-map.md`
+  - adds risk policy and override API tests into the generated-skill relationship map
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_risk_policy.py tests/unit/test_skill_risk_override_api.py tests/unit/test_skill_policy_diagnostics_api.py tests/unit/test_skill_factory_risk_gating.py`
+- result: `5 passed`
+
+### Module: structured policy diagnostics for risk-gated generated skills
+
+Upgraded generated-skill risk gating from plain assembly errors into structured policy diagnostics so future approval or policy-override layers can reason over blocked skills programmatically.
+
+#### Updated
+- `app/models/skill_diagnostics.py`
+  - adds `policy_blocked` diagnostic kind
+- `app/services/skill_factory.py`
+  - risk-gated generated app assembly now raises structured `SkillDiagnosticError`
+  - emits stage=`assemble`, kind=`policy_blocked`, plus machine-readable `policy_reasons`
+- `tests/unit/test_skill_factory_risk_gating.py`
+  - now verifies service-level policy-blocked diagnostics
+- `tests/unit/test_skill_policy_diagnostics_api.py`
+  - verifies `/apps/from-skills` returns structured policy diagnostics for blocked risky skills
+- `docs/requirements.md`
+  - records structured policy diagnostic requirement for generated-skill risk gates
+- `docs/design.md`
+  - documents stage/kind/details shape for policy-blocked assembly diagnostics
+- `docs/testing.md`
+  - records policy-diagnostic coverage for generated-skill gating
+- `docs/generated-skill-roadmap.md`
+  - extends Phase 7 with structured blocked-path diagnostics for future approval layers
+- `docs/system-relationship-map.md`
+  - adds policy-diagnostic API coverage to the generated-skill relationship map
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_policy_diagnostics_api.py tests/unit/test_skill_factory_risk_gating.py tests/unit/test_skill_diagnostics_api.py`
+- result: `9 passed`
+
+### Module: generated app assembly risk gating
+
+Extended Phase 7 security boundaries into the generated app assembly path so risky skills are now blocked from `/apps/from-skills` and `/apps/from-skills/install-run` by default.
+
+#### Updated
+- `app/services/skill_factory.py`
+  - adds baseline generated-app risk gating before blueprint assembly
+  - blocks skills whose manifest risk is high-risk or explicitly allows shell/network/filesystem-write behavior
+- `tests/unit/test_skill_factory_risk_gating.py`
+  - verifies safe skills still assemble into generated apps
+  - verifies risky skills are rejected from generated app assembly by default
+- `docs/requirements.md`
+  - records default gating for risky generated app assembly/install-run paths
+- `docs/design.md`
+  - documents generated-app default deny behavior for risky manifests
+- `docs/testing.md`
+  - records generated-skill security gating coverage
+- `docs/generated-skill-roadmap.md`
+  - strengthens Phase 7 acceptance criteria around generated app assembly rejection
+- `docs/system-relationship-map.md`
+  - adds generated-skill risk-gating test coverage into the relationship map
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_risk_gating.py tests/unit/test_skill_factory_api.py tests/unit/test_generated_callable_skill.py tests/unit/test_generated_skill_persistence.py`
+- result: `13 passed`
+
+### Module: baseline skill-manifest risk metadata and script restrictions
+
+Started Phase 7 security groundwork by adding machine-readable manifest risk metadata and validator-enforced baseline script command restrictions for generated/runtime skills.
+
+#### Updated
+- `app/models/skill_manifest.py`
+  - adds `SkillManifestRisk` with risk level plus network/filesystem/shell allowance flags
+- `app/services/skill_manifest_validator.py`
+  - adds allowlisted script command prefixes
+  - rejects empty script commands
+  - requires explicit `risk.allow_shell=true` for shell-based script adapters
+  - rejects inconsistent shell-risk declarations
+- `tests/unit/test_skill_manifest_validator.py`
+  - adds coverage for disallowed command prefixes and shell-risk opt-in semantics
+- `docs/requirements.md`
+  - records manifest-level risk metadata and baseline script restriction requirements
+- `docs/design.md`
+  - documents risk metadata plus script command-prefix policy direction
+- `docs/testing.md`
+  - records skill-manifest security coverage expectations
+- `docs/generated-skill-roadmap.md`
+  - strengthens Phase 7 scope with explicit manifest-risk metadata as the baseline substrate
+- `docs/system-relationship-map.md`
+  - adds cross-cutting security note for manifest risk / script restriction changes
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_manifest_validator.py tests/unit/test_skill_manifest.py`
+- result: `8 passed`
+
+### Module: self-iteration docs now require relationship-map maintenance
+
+Extended the relationship-map maintenance rule into the self-iteration and core-skill guidance docs so future generated-skill / self-evolution work treats the system map as part of the iteration substrate rather than optional documentation.
+
+#### Updated
+- `docs/generated-skill-roadmap.md`
+  - adds an explicit self-iteration maintenance rule requiring `docs/system-relationship-map.md` updates in the same change set
+  - adds relationship-map update status to the per-phase progress tracking checklist
+- `docs/skill-design-principles.md`
+  - links core-skill/runtime/self-iteration changes to mandatory `docs/system-relationship-map.md` maintenance
+
+#### Notes
+- this makes the rule visible from the documents most likely to be consulted during future self-evolution work, not only from general development docs
+
+### Module: system-wide relationship map for modules / features / tests
+
+Added a dedicated relationship-map document to help future change planning and self-iteration track module coupling, feature coverage, and test impact as a graph instead of relying on ad-hoc repo memory.
+
+#### Added
+- `docs/system-relationship-map.md`
+  - system-wide graph covering module domains, feature-to-module-to-test mappings, operator contract relationships, and change-impact checklists
+
+#### Updated
+- `docs/code-structure.md`
+  - links to the relationship map for cross-cutting dependency lookup
+- `docs/testing.md`
+  - points readers to the relationship map before cross-domain edits
+
+#### Notes
+- graph edges intentionally represent not only direct imports, but also runtime wiring, API exposure, shared contracts, test coverage, and “should-check-together” coupling
+- this document is meant to be updated proactively whenever a new module, shared contract, or high-value test path is added
+- from this point forward, `docs/system-relationship-map.md` should be treated as a required co-maintained file for structural/system changes, including future self-iteration work
+
+### Module: centralized operator API filter builders
+
+Centralized workflow and refinement API-side filter construction into a shared helper module so operator endpoint query semantics now evolve from one place instead of drifting across separate per-domain helper files.
+
+#### Added
+- `app/api/operator_filters.py`
+  - shared workflow/refinement API filter builders with common query-dimension support
+- `tests/unit/test_operator_api_filters.py`
+  - verifies centralized builders preserve shared and domain-specific query semantics
+
+#### Updated
+- `app/api/main.py`
+  - imports workflow/refinement filter builders from the shared operator helper module
+- `app/api/workflow_observability.py`
+  - now acts as a thin compatibility re-export
+- `app/api/refinement_observability.py`
+  - now acts as a thin compatibility re-export
+- `docs/requirements.md`
+  - records centralized API-filter builder direction for operator surfaces
+- `docs/design.md`
+  - documents shared operator filter helper organization plus temporary compatibility wrappers
+- `docs/testing.md`
+  - records centralized API-filter builder coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_operator_api_filters.py tests/unit/test_refinement_observability_api.py tests/unit/test_operator_filter_params.py tests/unit/test_workflow_observability.py`
+- result: `13 passed`
+
+### Module: shared operator dashboard core contract
+
+Introduced a common dashboard core model for operator-facing surfaces so workflow observability and refinement governance now share the same overview/stats aggregate backbone while keeping domain-specific recent activity sections separate.
+
+#### Added
+- `app/models/operator_dashboards.py`
+  - defines `OperatorDashboardCore` as the shared overview/stats aggregate contract for operator dashboards
+- `tests/unit/test_operator_dashboard_core.py`
+  - verifies workflow and refinement dashboard models inherit the shared core without losing their domain-specific recent sections
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - `WorkflowDashboardSummary` now extends `OperatorDashboardCore`
+- `app/models/refinement_loop.py`
+  - `RefinementGovernanceDashboard` now extends `OperatorDashboardCore`
+- `docs/requirements.md`
+  - records the shared dashboard-core requirement
+- `docs/design.md`
+  - documents the shared overview/stats backbone plus domain-specific recent sections
+- `docs/testing.md`
+  - records shared dashboard-core coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_operator_dashboard_core.py tests/unit/test_operator_filter_params.py tests/unit/test_operator_page_meta.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_workflow_observability.py`
+- result: `17 passed`
+
+### Module: shared operator filter parameter contract
+
+Introduced a common base filter model for operator-facing surfaces so workflow observability and refinement governance now share one definition for app scope, limit, since, and cursor semantics.
+
+#### Added
+- `app/models/operator_filters.py`
+  - defines `OperatorFilterParams` as the shared base query/filter contract for operator surfaces
+- `tests/unit/test_operator_filter_params.py`
+  - verifies workflow and refinement filters inherit the shared base semantics while keeping their domain-specific selectors
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - `WorkflowObservabilityFilter` now extends `OperatorFilterParams`
+- `app/models/refinement_loop.py`
+  - `RefinementFilter` now extends `OperatorFilterParams`
+- `docs/requirements.md`
+  - records shared operator filter parameter alignment
+- `docs/design.md`
+  - documents common filter semantics plus domain-specific selectors
+- `docs/testing.md`
+  - records shared operator filter coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_operator_filter_params.py tests/unit/test_operator_page_meta.py tests/unit/test_refinement_observability_api.py tests/unit/test_workflow_observability.py`
+- result: `14 passed`
+
+### Module: shared operator paging metadata contract
+
+Introduced a common operator paging metadata model so workflow observability and refinement governance now share one base contract for counts/cursor state while still allowing domain-specific extensions.
+
+#### Added
+- `app/models/operator_contracts.py`
+  - defines `OperatorPageMeta` as the shared operator-facing pagination metadata contract
+- `tests/unit/test_operator_page_meta.py`
+  - verifies both workflow and refinement page meta models extend the shared base shape
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - `WorkflowPageMeta` now extends `OperatorPageMeta`
+- `app/models/refinement_loop.py`
+  - `RefinementPageMeta` now extends `OperatorPageMeta`
+- `docs/requirements.md`
+  - records the shared paging metadata requirement for operator surfaces
+- `docs/design.md`
+  - documents common pagination semantics plus domain-specific extensions
+- `docs/testing.md`
+  - records shared operator page-meta coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_operator_page_meta.py tests/unit/test_refinement_filters_and_stats.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_workflow_observability.py`
+- result: `16 passed`
+
+### Module: refinement paging meta contract alignment
+
+Aligned refinement governance page responses with the workflow observability contract by moving count/state fields into a structured `meta` object for queue-page and failed-hypothesis page payloads.
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `RefinementPageMeta`; `RefinementQueuePage` and `FailedHypothesisPage` now expose `meta` instead of top-level count fields
+- `app/services/refinement_memory.py`
+  - now populates `returned_count`, `total_count`, `filtered_count`, and `has_more` inside `meta`
+- `tests/unit/test_refinement_filters_and_stats.py`
+  - verifies structured `meta` payloads on service/API reads
+- `tests/unit/test_refinement_governance_dashboard.py`
+  - verifies dashboard recent queue/failed slices expose structured page metadata
+- `docs/requirements.md`
+  - records page-meta alignment expectation between refinement governance and workflow observability
+- `docs/design.md`
+  - documents nested `meta` shape as the preferred operator paging contract
+- `docs/testing.md`
+  - records structured refinement page-meta coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_refinement_filters_and_stats.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_overview.py`
+- result: `7 passed`
+
+### Module: explicit runtime opt-in for model self-refiner
+
+Shifted model-backed self-refinement from opportunistic auto-wiring to explicit runtime opt-in so normal API and regression paths stay deterministic unless model proposal synthesis is deliberately enabled.
+
+#### Added
+- `tests/unit/test_runtime_model_refiner_toggle.py`
+  - verifies runtime wiring leaves the model self-refiner off by default and enables it only when `AGENTSYSTEM_ENABLE_MODEL_REFINER=1`
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - now wires `ModelSelfRefiner` only when `AGENTSYSTEM_ENABLE_MODEL_REFINER=1`
+- `tests/unit/test_api_refinement_governance_path.py`
+  - no longer needs a disable-model flag; it simply ensures the explicit enable flag is absent while still disabling grouped regression for deterministic API coverage
+- `docs/requirements.md`
+  - records explicit enablement requirement for model-backed self-refinement
+- `docs/design.md`
+  - documents default-off / explicit-opt-in runtime wiring for the model self-refiner
+- `docs/testing.md`
+  - updates regression guidance to treat model-backed refinement as a separate opt-in slice
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_runtime_model_refiner_toggle.py tests/unit/test_api_refinement_governance_path.py tests/unit/test_refinement_observability_api.py`
+- result: `4 passed`
+
+### Module: deterministic refinement API-path test controls
+
+Eliminated the major performance traps in the dedicated refinement API path test by adding test-only runtime toggles that prevent accidental model-backed proposal generation and recursive grouped-regression execution during contract-focused API coverage.
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - honors `AGENTSYSTEM_DISABLE_MODEL_REFINER=1` to skip wiring `ModelSelfRefiner` into runtime-built self-refinement flows
+- `app/services/refinement_loop.py`
+  - honors `AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION=1` to force checklist validation instead of invoking `scripts/run_test_groups.sh`
+- `tests/unit/test_api_refinement_governance_path.py`
+  - sets both test-only toggles so the refinement API path remains deterministic and fast
+- `tests/unit/test_refinement_governance_dashboard.py`
+  - explicitly clears grouped-regression disable state so failure-path semantics still exercise the intended stubbed regression branch
+- `tests/unit/test_refinement_filters_and_stats.py`
+  - explicitly clears grouped-regression disable state for the same reason
+- `docs/requirements.md`
+  - records deterministic test-control expectations for refinement API coverage
+- `docs/design.md`
+  - documents test-only opt-outs for model/refinement verification wiring
+- `docs/testing.md`
+  - records how refinement API-path tests should disable remote/full-suite paths when validating contracts
+
+#### Validation
+- dedicated refinement API path passes quickly after toggles are applied
+- focused slice A: `./.venv/bin/pytest -q tests/unit/test_api_refinement_governance_path.py tests/unit/test_refinement_observability_api.py`
+  - result: `2 passed`
+- focused slice B: `./.venv/bin/pytest -q tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
+  - result: `5 passed`
+- diagnostic finding during investigation:
+  - `/self-refinement/propose` had been slowed by model-refiner availability/probe logic
+  - `/self-refinement/loop` had been slowed by auto-invocation of grouped regression via `scripts/run_test_groups.sh`
+
+### Module: refinement API governance path test split
+
+Split the slower refinement API end-to-end path out of the main golden-path file so the common workflow golden-path regression stays compact while the refinement governance path can be validated independently.
+
+#### Added
+- `tests/unit/test_api_refinement_governance_path.py`
+  - dedicated refinement API path from review/propose/loop into stats and governance dashboard
+
+#### Updated
+- `tests/unit/test_api_golden_path.py`
+  - restored to the workflow-observability golden path only
+- `docs/testing.md`
+  - records the fast-slice vs slower dedicated API-path split
+- `docs/design.md`
+  - notes the dedicated slower refinement integration slice pattern
+
+#### Validation
+- structural split completed; dedicated API path remains a slower test slice and was not included in the fast validated subset yet
+
+### Module: self-refinement governance dashboard summary
+
+Added a higher-level governance dashboard read model for self-refinement so operator-facing surfaces can fetch one composed payload instead of manually joining overview, stats, queue pages, and failed-hypothesis pages.
+
+#### Added
+- `tests/unit/test_refinement_governance_dashboard.py`
+  - verifies governance dashboard aggregation and API response shape
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `RefinementGovernanceDashboard`
+- `app/services/refinement_memory.py`
+  - adds governance dashboard aggregation built from overview, stats, recent queue, and recent failed-hypothesis slices
+- `app/api/main.py`
+  - exposes `/self-refinement/governance-dashboard`
+- `docs/requirements.md`
+  - records dashboard-style refinement governance read model expectation
+- `docs/design.md`
+  - documents governance dashboard composition
+- `docs/testing.md`
+  - records combined dashboard coverage expectations
+
+#### Validation
+- focused refinement governance/dashboard regression slice passes
+- result: `11 passed`
+- command: `./.venv/bin/pytest -q tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py tests/unit/test_refinement_rollout.py tests/unit/test_refinement_dashboard.py tests/unit/test_refinement_overview.py`
+
+### Module: self-refinement governance filter/stat read models
+
+Extended the refinement governance layer with filtered read models and aggregate stats so operator-facing surfaces can inspect rollout state and failed-learning history without scanning raw full lists.
+
+#### Added
+- `tests/unit/test_refinement_filters_and_stats.py`
+  - verifies queue-page filtering, failed-hypothesis archive paging, and aggregate stats summaries across service/API paths
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `RefinementFilter`, `RefinementStatsSummary`, `RefinementQueuePage`, and `FailedHypothesisPage`
+- `app/services/refinement_memory.py`
+  - adds filtered queue-page reads, failed-hypothesis page reads, aggregate stats summaries, and shared internal filter helpers
+- `app/api/main.py`
+  - exposes `/self-refinement/rollout-queue-page`, `/self-refinement/failed-hypotheses-page`, and `/self-refinement/stats`
+- `docs/requirements.md`
+  - records refinement-governance filtered page/stats requirement direction
+- `docs/design.md`
+  - documents refinement-governance operator read models
+- `docs/testing.md`
+  - records coverage expectations for refinement filtering/stats surfaces
+
+#### Validation
+- focused refinement governance regression slice passes
+- result: `9 passed`
+- command: `./.venv/bin/pytest -q tests/unit/test_refinement_filters_and_stats.py tests/unit/test_refinement_rollout.py tests/unit/test_refinement_dashboard.py tests/unit/test_refinement_overview.py`
+
+## 2026-03-23
+
+### Module: failure-aware refinement gating
+
+Connected negative learning history back into the refinement decision process. The system now analyzes previously failed hypotheses before forming a new hypothesis, marks repeated attempts with repeat-risk metadata, and prevents naive promotion when a strategy resembles a disproven path.
+
+#### Added
+- `app/services/refinement_failure_analysis.py`
+  - scores failure similarity and produces repeat-risk / gating metadata
+- `tests/unit/test_refinement_failure_awareness.py`
+  - verifies failed-hypothesis history raises repeat risk and blocks promotion on repeated strategies
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds repeat-risk / related-failure metadata on hypotheses and gating metadata on verification results
+- `app/services/refinement_loop.py`
+  - consults failed-hypothesis history before forming hypotheses and gates promotion when repeat risk is not low
+- `tests/unit/test_refinement_dashboard.py`
+  - validates repeat-risk visibility in dashboard history
+- `docs/design.md`
+  - documents failure-aware refinement gating
+- `docs/testing.md`
+  - records repeated-hypothesis gating coverage
+
+#### Validation
+- failure-awareness, dashboard, and refinement-loop regression slice passes
+- result: `5 passed`
+
+### Module: refinement dashboard history and failed-hypothesis archive
+
+Added the next learning-layer read model on top of refinement governance. The system now preserves failed hypotheses as first-class records and exposes dashboard/history views so recent learning activity is readable, not just stored as disconnected lists.
+
+#### Added
+- `tests/unit/test_refinement_dashboard.py`
+  - verifies failed-hypothesis archival and dashboard/history aggregation
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `FailedHypothesisRecord` and `RefinementDashboard`
+- `app/services/refinement_memory.py`
+  - persists failed hypotheses, builds dashboard/history views, and extends overview counts with negative-learning state
+- `app/services/refinement_loop.py`
+  - archives failed hypotheses when verification fails
+- `app/api/main.py`
+  - exposes refinement dashboard and failed-hypotheses endpoints
+- `docs/design.md`
+  - documents failed-hypothesis preservation and dashboard visibility expectations
+- `docs/testing.md`
+  - records dashboard/history regression coverage
+
+#### Validation
+- refinement overview, dashboard, and rollout regression slice passes
+- result: `6 passed`
+
+### Module: refinement rollout queue lifecycle
+
+Extended the rollout queue skeleton into a governed lifecycle. Queue items can now transition through approve/apply/reject/rollback operations, and the rollout service provides an explicit operational layer above the raw queue store.
+
+#### Added
+- `app/services/refinement_rollout.py`
+  - manages rollout queue lifecycle transitions and delegates apply actions through proposal review
+- `tests/unit/test_refinement_rollout.py`
+  - verifies queue lifecycle transitions and rollout queue API availability
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires the refinement rollout service into runtime
+- `app/api/main.py`
+  - exposes rollout queue transition endpoints
+- `tests/unit/test_refinement_overview.py`
+  - covers overview API surface
+- `docs/design.md`
+  - records explicit rollout lifecycle expectations
+- `docs/testing.md`
+  - records rollout lifecycle regression coverage
+
+#### Validation
+- refinement loop, overview, and rollout regression slice passes
+- result: `6 passed`
+
+### Module: refinement rollout queue and overview read model
+
+Added the first governance layer on top of the refinement loop. Rollout is now represented as a queue item instead of only an ephemeral decision, and refinement state can be summarized into an overview read model for operational visibility.
+
+#### Added
+- `tests/unit/test_refinement_overview.py`
+  - verifies queue state and latest learning-loop artifacts are aggregated into the overview read model
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `RolloutQueueItem`, `RefinementOverview`, and queue attachment on loop results
+- `app/services/refinement_memory.py`
+  - persists rollout queue items and builds per-app overview summaries
+- `app/services/refinement_loop.py`
+  - emits rollout queue items during loop execution and marks auto-applied promotions accordingly
+- `app/api/main.py`
+  - exposes rollout queue and refinement overview endpoints
+- `tests/unit/test_refinement_loop.py`
+  - validates queue emission and queue/list API coverage
+- `docs/design.md`
+  - documents rollout governance and overview visibility expectations
+- `docs/testing.md`
+  - records refinement overview/dashboard coverage
+
+#### Validation
+- refinement loop, persistence, and overview regression slice passes
+- result: `4 passed`
+
+### Module: pluggable refinement verification execution
+
+Resolved the timeout trap introduced by wiring refinement verification to the grouped regression runner. Verification execution is now injectable, so runtime paths can still call the real grouped runner while unit tests use a bounded stub executor and remain deterministic.
+
+#### Updated
+- `app/services/refinement_loop.py`
+  - adds injectable `verification_executor`
+  - keeps grouped regression as the runtime-capable default path
+  - preserves auto-apply rollout behavior for low-risk promoted proposals
+- `tests/unit/test_refinement_loop.py`
+  - uses a stub verification executor for fast deterministic unit coverage
+  - narrows API coverage to query/list surfaces while service-level tests continue to exercise the full loop
+- `tests/unit/test_refinement_loop_persistence.py`
+  - uses a stub verification executor during persistence coverage
+- `docs/design.md`
+  - documents pluggable verification execution as a design rule
+- `docs/testing.md`
+  - records the bounded-executor testing strategy for refinement verification
+
+#### Validation
+- refinement-loop, persistence, and proposal-review regression slice passes
+- result: `5 passed`
+
+### Module: refinement loop persistence and query surfaces
+
+Extended the refinement learning loop from a transient skeleton into a visible, queryable runtime layer. Refinement hypotheses, experiments, verifications, and rollout decisions now persist through the runtime store and can be listed back through dedicated API endpoints.
+
+#### Added
+- `tests/unit/test_refinement_loop_persistence.py`
+  - verifies refinement-loop artifacts survive runtime rebuild and remain queryable
+
+#### Updated
+- `app/services/refinement_memory.py`
+  - persists and reloads hypotheses / experiments / verifications / decisions through `RuntimeStateStore`
+- `app/bootstrap/runtime.py`
+  - wires refinement memory against the runtime store
+- `app/api/main.py`
+  - exposes list endpoints for hypotheses, experiments, verifications, and rollout decisions
+- `tests/unit/test_refinement_loop.py`
+  - validates the new query endpoints after loop execution
+- `docs/design.md`
+  - records persistence/query expectations for refinement-loop artifacts
+- `docs/testing.md`
+  - records persistence/query regression coverage for the refinement loop
+
+#### Validation
+- refinement-loop, persistence, self-refinement, and priority-analysis regression slice passes
+- result: `9 passed`
+
+### Module: refinement learning loop skeleton
+
+Added the first explicit domain layer for turning runtime contradiction analysis into inspectable improvement actions. The system can now convert prioritized refinement proposals into hypothesis, experiment, verification, and rollout objects through a dedicated service/API path.
+
+#### Added
+- `app/models/refinement_loop.py`
+  - defines `RefinementHypothesis`, `RefinementExperiment`, `VerificationResult`, `RolloutDecision`, and the loop request/result contracts
+- `app/services/refinement_memory.py`
+  - in-memory store for refinement loop objects
+- `app/services/refinement_loop.py`
+  - converts prioritized proposals into bounded refinement loop artifacts and rollout recommendations
+- `tests/unit/test_refinement_loop.py`
+  - covers both service-level and API-level refinement loop flow
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires refinement memory + refinement loop service into the runtime
+- `app/api/main.py`
+  - exposes `/self-refinement/loop`
+- `docs/design.md`
+  - documents hypothesis/experiment/verification/rollout as first-class refinement objects
+- `docs/testing.md`
+  - records refinement-loop coverage
+
+#### Validation
+- refinement-loop, self-refinement, and priority-analysis regression slice passes
+- result: `8 passed`
+
+### Module: generated-app durability and grouped regression runner
+
+Added the next layer of system-level guardrails: generated apps now have an explicit runtime-rebuild durability regression, and the project now has a stable grouped regression runner so full validation does not depend on a single long-lived pytest process.
+
+#### Added
+- `tests/unit/test_generated_app_durability.py`
+  - verifies a generated app blueprint remains executable after runtime rebuild when generated skills are reloaded, the blueprint is re-registered, and app namespaces are reprovisioned
+- `scripts/run_test_groups.sh`
+  - runs the test suite in stable grouped slices (`core`, `runtime`, `context_data`, `workflows`, `intelligence`, `generated`, `operator_paths`) to avoid environment timeout issues during monolithic suite runs
+
+#### Updated
+- `docs/requirements.md`
+  - documents a disciplined observation -> synthesis -> experiment -> verification improvement loop for practical system intelligence
+- `docs/design.md`
+  - reframes evolution from practice as an evidence-bound investigate -> hypothesize -> test -> rollout loop
+- `docs/testing.md`
+  - records generated-app durability coverage and grouped regression execution strategy
+
+#### Validation
+- focused durability/operator regression slice passes
+- result: `6 passed`
+- grouped regression runner passes all groups:
+  - `core`: 24 passed
+  - `runtime`: 31 passed
+  - `context_data`: 18 passed
+  - `workflows`: 30 passed
+  - `intelligence`: 15 passed
+  - `generated`: 28 passed
+  - `operator_paths`: 11 passed
+
+### Module: API golden path and generated-skill durability guardrails
+
+Added the next layer of regression guardrails above the earlier service/bootstrap coverage: one test now exercises the main operator flow strictly through the public API surface, and another verifies generated script skills remain durable across runtime rebuilds.
+
+#### Added
+- `tests/unit/test_api_golden_path.py`
+  - verifies registry -> install -> execute -> retry -> diagnostics -> overview -> dashboard through FastAPI endpoints
+- `tests/unit/test_generated_skill_durability.py`
+  - verifies persisted generated script skills reload after runtime rebuild and still execute successfully
+
+#### Updated
+- `docs/testing.md`
+  - records API-level golden-path coverage and generated-skill durability smoke coverage
+
+#### Validation
+- targeted regression slice passes for the new API/durability tests plus prior bootstrap/golden-path coverage
+- result: `5 passed`
+- note: full-suite reruns in this environment were interrupted by external SIGTERM timeout rather than assertion failures
+
+### Module: bootstrap smoke and golden-path integration guardrails
+
+Added regression guardrails for the two most important framework-level paths: fresh-runtime bootstrap/demo installability and the main operator golden path through interaction, workflow execution, retry, and observability.
+
+#### Added
+- `tests/unit/test_bootstrap_smoke.py`
+  - verifies built-in skill registration and demo catalog registration in a fresh runtime
+  - verifies default workspace/pipeline demo blueprints remain installable after bootstrap
+- `tests/unit/test_golden_path_integration.py`
+  - exercises registry/catalog wiring, interaction-driven app open, workflow execution, retry, diagnostics, overview, and dashboard summary flow in one integrated test
+
+#### Updated
+- `docs/testing.md`
+  - records bootstrap smoke coverage and golden-path operator coverage as regression guardrails
+
+#### Validation
+- targeted new regressions pass
+- full local suite passes
+- result: `158 passed`
+
+### Module: workflow observability closure and install-time validation split
+
+Closed the main workflow observability integration loop by reconciling retry semantics, timeline compatibility, demo blueprint installability, and strict-vs-relaxed blueprint validation behavior.
+
+#### Updated
+- `app/bootstrap/catalog.py`
+  - made demo catalog blueprints self-consistent under current bootstrap assumptions by providing minimal roles and removing optional undeclared required-skill dependencies from the default workspace/pipeline blueprints
+- `app/services/blueprint_validation.py`
+  - split validation behavior into strict operator-facing validation and relaxed install-time validation
+  - strict `/blueprints/validate` still reports missing `roles` and undeclared runtime skills
+  - install-time validation now enforces declared dependencies/contracts without blocking intentionally partial runtime workflows that reference undeclared step skills
+- `app/services/workflow_executor.py`
+  - retry now targets the latest `partial` execution rather than only executions surfaced through the recent-failure helper
+- `app/models/workflow_observability.py`
+  - timeline page model now preserves list-like compatibility (`len`, iteration, indexing) while retaining paginated page metadata
+- `app/services/skill_factory.py`
+  - clarified invalid step-mapping diagnostics so client-visible error text matches retry-guidance expectations
+- `docs/design.md`
+  - documented the strict-vs-relaxed validation split, partial-as-retry-target semantics, and timeline compatibility expectations
+- `docs/testing.md`
+  - recorded regression coverage for the validation split, partial retry semantics, and timeline page compatibility
+
+#### Validation
+- focused regressions pass for blueprint validation, observability APIs, and workflow executor flows
+- full local suite passes
+- result: `155 passed`
+
 ## 2026-03-21
 
 ### Module: auto-applied high-confidence generated mappings
@@ -2068,3 +2959,92 @@ Tightened the framework contract by making history responses page-shaped like ti
 #### Design intent clarified
 - history and timeline should feel like sibling query surfaces, not two independently shaped APIs that happen to expose similar data
 - even small repeated request-construction code in API handlers becomes drift risk once the query contract keeps growing
+
+### Module: add observability page metadata for dashboard consumers
+
+Improved the framework’s read-model quality by adding lightweight metadata to paged history/timeline responses so clients can reason about feed state without re-deriving everything themselves.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowPageMeta`
+  - updates history/timeline page models to include `meta`
+- `app/services/workflow_observability.py`
+  - populates returned-count, unresolved-count, window, has-more, and next-cursor metadata
+- `tests/unit/test_workflow_executor.py`
+  - extends API contract checks for page metadata
+- `tests/unit/test_workflow_observability.py`
+  - extends service-level page assertions for metadata behavior
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API/service coverage for paged observability metadata.
+
+#### Design intent clarified
+- page responses are more useful when they carry enough context for UI consumers to render feed state without additional bookkeeping calls
+- metadata should stay lightweight and derived from server-side query knowledge, not force clients to reverse-engineer pagination and unresolved counts from raw item arrays
+
+### Module: add aggregate workflow observability stats
+
+Rounded out the operator read-model by adding aggregate observability totals so dashboards can render summary cards without fetching and counting every history/timeline record themselves.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowStatsSummary`
+- `app/services/workflow_observability.py`
+  - adds `get_stats_summary()` for aggregate workflow observability totals
+- `app/api/main.py`
+  - adds `/workflows/stats`
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for aggregate observability stats
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for stats aggregation
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API/service coverage for aggregate observability totals.
+
+#### Design intent clarified
+- operator dashboards often need both feed-style detail and card-style aggregate stats; one should not require reconstructing the other client-side
+- aggregate stats should respect the same filtering concepts as the rest of the observability framework so summary cards and feeds remain coherent
+
+### Module: add dashboard-oriented observability summary
+
+Added a higher-level operator read model so dashboards can fetch one coherent payload instead of stitching overview, stats, and recent timeline calls together on the client side.
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - adds `WorkflowDashboardSummary`
+- `app/services/workflow_observability.py`
+  - adds `get_dashboard_summary()` to bundle overview, stats, and recent timeline
+- `app/api/main.py`
+  - adds `/workflows/dashboard`
+- `tests/unit/test_workflow_executor.py`
+  - adds API coverage for the dashboard summary payload
+- `tests/unit/test_workflow_observability.py`
+  - adds service-level coverage for combined dashboard composition
+
+#### Validation
+- Could not run `pytest` in the current shell because the command is unavailable in this environment; added deterministic API/service coverage for the dashboard read-model path.
+
+#### Design intent clarified
+- once observability data is rich enough, clients benefit from a composed read model that reflects operator needs directly instead of forcing repeated orchestration calls
+- the dashboard summary should remain a thin composition over existing observability primitives so lower-level query surfaces stay reusable and testable
+
+### Module: split observability helpers and API filter construction into dedicated modules
+
+Started the next cleanup pass by moving low-level observability filtering/classification helpers and API filter construction out of the large service/main files.
+
+#### Updated
+- `app/services/workflow_observability_helpers.py`
+  - extracts history filtering, health classification, unresolved counting, and retry step iteration helpers
+- `app/api/workflow_observability.py`
+  - extracts workflow observability filter construction from `main.py`
+- `app/services/workflow_observability.py`
+  - now delegates low-level helper logic instead of owning every concern directly
+- `app/api/main.py`
+  - now imports the dedicated observability filter builder instead of defining it inline
+
+#### Validation
+- Public API/service contracts were preserved while moving helper logic into dedicated modules; existing regression coverage remains the guardrail in this environment.
+
+#### Design intent clarified
+- once a sub-framework reaches this size, readability and future change safety improve by separating request-building and low-level helper logic from the primary orchestration layer
+- module extraction should reduce file bloat without forcing a breaking change in the public observability contract

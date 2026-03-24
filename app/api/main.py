@@ -32,6 +32,7 @@ from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
+from app.models.refinement_loop import RefinementFilter, RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError
@@ -46,31 +47,11 @@ from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 from app.services.skill_retry_advisor import SkillRetryAdvisorService
-from app.models.workflow_observability import WorkflowObservabilityFilter
+from app.api.operator_filters import build_refinement_filter, build_workflow_observability_filter
 
 
 app = FastAPI(title="AgentSystem App OS", version="0.1.0")
 retry_advisor = SkillRetryAdvisorService()
-
-
-def build_workflow_observability_filter(
-    app_instance_id: str,
-    workflow_id: str | None = None,
-    failed_step_id: str | None = None,
-    limit: int | None = None,
-    unresolved_only: bool = False,
-    since: str | None = None,
-    cursor: str | None = None,
-) -> WorkflowObservabilityFilter:
-    return WorkflowObservabilityFilter(
-        app_instance_id=app_instance_id,
-        workflow_id=workflow_id,
-        failed_step_id=failed_step_id,
-        limit=limit,
-        unresolved_only=unresolved_only,
-        since=since,
-        cursor=cursor,
-    )
 
 
 @app.get("/health")
@@ -111,9 +92,13 @@ app_registry = services["app_registry"]
 self_refinement = services["self_refinement"]
 proposal_review = services["proposal_review"]
 priority_analysis = services["priority_analysis"]
+refinement_loop = services["refinement_loop"]
+refinement_memory = services["refinement_memory"]
+refinement_rollout = services["refinement_rollout"]
 app_installer = services["app_installer"]
 app_catalog = services["app_catalog"]
 skill_runtime = services["skill_runtime"]
+skill_risk_policy = services["skill_risk_policy"]
 skill_factory = services["skill_factory"]
 workflow_executor = services["workflow_executor"]
 workflow_subscription = services["workflow_subscription"]
@@ -184,6 +169,30 @@ def create_skill(request: SkillCreationRequest) -> dict:
 @app.post("/skills/diagnose-retry")
 def diagnose_retry(request: SkillRetryAdviceRequest) -> dict:
     return retry_advisor.build_retry_advice(request.diagnostic).model_dump(mode="json")
+
+@app.get("/skill-risk/decisions")
+def list_skill_risk_decisions() -> list[dict]:
+    return [item.model_dump(mode="json") for item in skill_risk_policy.list_decisions()]
+
+@app.get("/skill-risk/events")
+def list_skill_risk_events(skill_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in skill_risk_policy.list_events(skill_id=skill_id)]
+
+@app.get("/skill-risk/stats")
+def get_skill_risk_stats() -> dict:
+    return skill_risk_policy.get_stats_summary().model_dump(mode="json")
+
+@app.get("/skill-risk/dashboard")
+def get_skill_risk_dashboard(recent_limit: int = 5) -> dict:
+    return skill_risk_policy.get_dashboard(recent_limit=recent_limit).model_dump(mode="json")
+
+@app.post("/skill-risk/{skill_id}/approve")
+def approve_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
+    return skill_risk_policy.approve_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
+
+@app.post("/skill-risk/{skill_id}/revoke")
+def revoke_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
+    return skill_risk_policy.revoke_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
 
 @app.post("/apps/from-skills")
 def create_app_from_skills(request: AppFromSkillsRequest) -> dict:
@@ -563,6 +572,50 @@ def list_workflow_timeline(
     ).model_dump(mode="json")
 
 
+@app.get("/workflows/stats")
+def get_workflow_stats(
+    app_instance_id: str,
+    workflow_id: str | None = None,
+    failed_step_id: str | None = None,
+    since: str | None = None,
+) -> dict:
+    filters = build_workflow_observability_filter(
+        app_instance_id=app_instance_id,
+        workflow_id=workflow_id,
+        failed_step_id=failed_step_id,
+        since=since,
+    )
+    return workflow_observability.get_stats_summary(
+        app_instance_id=filters.app_instance_id,
+        workflow_id=filters.workflow_id,
+        failed_step_id=filters.failed_step_id,
+        since=filters.since,
+    ).model_dump(mode="json")
+
+
+@app.get("/workflows/dashboard")
+def get_workflow_dashboard(
+    app_instance_id: str,
+    workflow_id: str | None = None,
+    failed_step_id: str | None = None,
+    since: str | None = None,
+    timeline_limit: int = 5,
+) -> dict:
+    filters = build_workflow_observability_filter(
+        app_instance_id=app_instance_id,
+        workflow_id=workflow_id,
+        failed_step_id=failed_step_id,
+        since=since,
+    )
+    return workflow_observability.get_dashboard_summary(
+        app_instance_id=filters.app_instance_id,
+        workflow_id=filters.workflow_id,
+        failed_step_id=filters.failed_step_id,
+        since=filters.since,
+        timeline_limit=timeline_limit,
+    ).model_dump(mode="json")
+
+
 @app.get("/runtime/persistence")
 def get_runtime_persistence_snapshot() -> dict:
     return {
@@ -817,6 +870,142 @@ def analyze_self_refinement_priority(request: PriorityAnalysisRequest) -> dict:
     try:
         return priority_analysis.analyze(request).model_dump(mode="json")
     except PriorityAnalysisError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/self-refinement/loop")
+def run_self_refinement_loop(request: RefinementLoopRequest) -> dict:
+    try:
+        return refinement_loop.run(request).model_dump(mode="json")
+    except (PriorityAnalysisError, ProposalReviewError, ValueError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/self-refinement/hypotheses")
+def list_refinement_hypotheses(app_instance_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_hypotheses(app_instance_id)]
+
+
+@app.get("/self-refinement/experiments")
+def list_refinement_experiments(hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_experiments(hypothesis_id)]
+
+
+@app.get("/self-refinement/verifications")
+def list_refinement_verifications(hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_verifications(hypothesis_id)]
+
+
+@app.get("/self-refinement/decisions")
+def list_refinement_decisions(hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_decisions(hypothesis_id)]
+
+
+@app.get("/self-refinement/rollout-queue")
+def list_refinement_rollout_queue(app_instance_id: str | None = None, hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_queue(app_instance_id, hypothesis_id)]
+
+
+@app.get("/self-refinement/overview")
+def get_refinement_overview(app_instance_id: str) -> dict:
+    return refinement_memory.build_overview(app_instance_id).model_dump(mode="json")
+
+
+@app.get("/self-refinement/dashboard")
+def get_refinement_dashboard(app_instance_id: str, limit: int = 5) -> dict:
+    return refinement_memory.build_dashboard(app_instance_id, limit=limit).model_dump(mode="json")
+
+
+@app.get("/self-refinement/failed-hypotheses")
+def list_failed_hypotheses(app_instance_id: str | None = None, hypothesis_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in refinement_memory.list_failed_hypotheses(app_instance_id, hypothesis_id)]
+
+
+@app.get("/self-refinement/rollout-queue-page")
+def get_refinement_rollout_queue_page(
+    app_instance_id: str | None = None,
+    hypothesis_id: str | None = None,
+    proposal_id: str | None = None,
+    status: str | None = None,
+    limit: int | None = None,
+) -> dict:
+    return refinement_memory.list_queue_page(
+        build_refinement_filter(
+            app_instance_id=app_instance_id,
+            hypothesis_id=hypothesis_id,
+            proposal_id=proposal_id,
+            status=status,
+            limit=limit,
+        )
+    ).model_dump(mode="json")
+
+
+@app.get("/self-refinement/failed-hypotheses-page")
+def get_failed_hypotheses_page(
+    app_instance_id: str | None = None,
+    hypothesis_id: str | None = None,
+    proposal_id: str | None = None,
+    limit: int | None = None,
+) -> dict:
+    return refinement_memory.list_failed_hypothesis_page(
+        build_refinement_filter(
+            app_instance_id=app_instance_id,
+            hypothesis_id=hypothesis_id,
+            proposal_id=proposal_id,
+            limit=limit,
+        )
+    ).model_dump(mode="json")
+
+
+@app.get("/self-refinement/stats")
+def get_refinement_stats(
+    app_instance_id: str | None = None,
+    hypothesis_id: str | None = None,
+    proposal_id: str | None = None,
+    verification_outcome: str | None = None,
+) -> dict:
+    return refinement_memory.get_stats_summary(
+        build_refinement_filter(
+            app_instance_id=app_instance_id,
+            hypothesis_id=hypothesis_id,
+            proposal_id=proposal_id,
+            verification_outcome=verification_outcome,
+        )
+    ).model_dump(mode="json")
+
+
+@app.get("/self-refinement/governance-dashboard")
+def get_refinement_governance_dashboard(
+    app_instance_id: str | None = None,
+    hypothesis_id: str | None = None,
+    proposal_id: str | None = None,
+    status: str | None = None,
+    verification_outcome: str | None = None,
+    recent_limit: int = 5,
+) -> dict:
+    return refinement_memory.get_governance_dashboard(
+        build_refinement_filter(
+            app_instance_id=app_instance_id,
+            hypothesis_id=hypothesis_id,
+            proposal_id=proposal_id,
+            status=status,
+            verification_outcome=verification_outcome,
+        ),
+        recent_limit=recent_limit,
+    ).model_dump(mode="json")
+
+
+@app.post("/self-refinement/rollout-queue/{queue_id}/{action}")
+def transition_refinement_rollout_queue(queue_id: str, action: str, payload: dict | None = None) -> dict:
+    payload = payload or {}
+    try:
+        return refinement_rollout.transition(
+            queue_id=queue_id,
+            action=action,
+            reviewer=payload.get("reviewer", "system"),
+            note=payload.get("note", ""),
+        ).model_dump(mode="json")
+    except (ValueError, ProposalReviewError) as error:
         raise map_domain_error(error) from error
 
 

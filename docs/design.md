@@ -47,6 +47,40 @@ The intended evolutionary chain is:
 - skill suggestion
 - future workflow/app refinement
 
+This should be treated as a disciplined world-model loop rather than a purely verbal planning loop:
+- investigate reality through runtime signals, user corrections, and concrete outcomes
+- transform observations into explicit contradictions, hypotheses, and proposed changes
+- test those changes in bounded workflows before wider rollout
+- keep revision tied to evidence, not only narrative plausibility
+- record the loop as first-class system objects (hypothesis, experiment, verification result, rollout decision) so refinement is inspectable rather than hidden inside one-shot proposal text
+- persist those refinement-loop objects through the runtime store and expose query surfaces so system learning remains visible across process rebuilds
+- keep verification execution pluggable: runtime paths may invoke real grouped regression, while tests should be able to inject a bounded executor so learning-loop regression coverage stays fast and deterministic
+- treat rollout as a governable queue, not only an immediate promote/hold judgment; queue items and overview read models should make the learning loop operationally visible
+- rollout queue items should support explicit lifecycle transitions (approve/apply/reject/rollback) so refinement promotion is operationally governed rather than hidden in one-off side effects
+- the system should preserve negative learning signals through failed-hypothesis records and expose recent refinement history through dashboard read models, so self-improvement can incorporate both success and disproof
+- refinement loop decisions should become failure-aware: previously disproven hypotheses should raise repeat-risk scores, annotate verification with gating reasons, and block naive promotion of repeated strategies
+- refinement governance should expose lightweight operator read models parallel to workflow observability, including filtered rollout-queue pages, failed-hypothesis archive pages, and aggregate stats summaries keyed by app/hypothesis/proposal filters
+- refinement governance should also expose a dashboard-style aggregate surface that composes overview + stats + recent queue/failure slices so operators can review learning-governance state through one higher-level read model
+- refinement operator endpoints should share a small API-side filter builder, mirroring workflow observability, so future query knobs stay aligned across queue/stats/dashboard surfaces
+- refinement governance API-path coverage may be maintained as a dedicated slower integration slice rather than being forced into the main workflow golden path, preserving faster regression loops for the common operator path
+- runtime wiring should support test-only opt-outs for model-backed self-refinement and grouped-regression verification so deterministic API-path tests can exercise refinement flows without accidentally invoking remote model calls or recursive full-suite regressions
+- model-backed self-refinement should be explicit opt-in at runtime wiring time (`AGENTSYSTEM_ENABLE_MODEL_REFINER=1`), with fallback proposal synthesis remaining the default path when the feature is not deliberately enabled
+- refinement governance page-style responses should mirror workflow observability structure by nesting counts/has-more state under `meta`, which reduces contract drift between the two operator surfaces
+- shared operator-facing pagination semantics should live in a common contract model (`OperatorPageMeta`), with domain-specific extensions such as workflow unresolved counts layering on top instead of redefining the whole shape
+- shared operator-facing query semantics should likewise live in a common base filter model (`OperatorFilterParams`), with workflow/refinement filters layering on domain-specific selectors without redefining common pagination/time-window fields
+- shared operator dashboard semantics should live in a common overview/stats core (`OperatorDashboardCore`), while domain-specific dashboards add their own recent timeline/queue/archive sections on top
+- API-side operator filter construction should be centralized in a shared helper module (`app/api/operator_filters.py`), while thin compatibility wrappers may remain temporarily to avoid churn during migration
+- generated/runtime skill manifests should begin carrying explicit risk metadata (`risk_level`, network/filesystem/shell allowances), and script adapters should be validated against an allowlisted command-prefix policy before registration/runtime use
+- generated app assembly should enforce a default deny gate for risky skills (e.g. networked, shell, filesystem-write, or explicitly high-risk manifests), so self-iteration cannot silently turn high-risk assets into auto-install/auto-run apps
+- generated-app policy gates should emit structured skill diagnostics (stage=`assemble`, kind=`policy_blocked`) with machine-readable policy reasons, so future approval or override layers can consume them cleanly
+- reviewer-managed skill risk decisions should live in a dedicated persisted policy store, and generated app assembly should consult active overrides before enforcing default deny behavior for risky skills
+- risk governance should emit and persist a lightweight event trail (`policy_blocked`, `override_approved`, `override_revoked`) so audit and observability layers can expose more than the latest policy decision snapshot
+- the risk policy layer should also provide stats and dashboard-shaped read models (overview + stats + recent events) consistent with the broader operator-surface direction in the system
+- skill suggestion / self-iteration entry paths should be able to consume risk governance summaries so generated recommendations can adapt toward lower-risk execution forms when the governance layer shows recent blocking pressure
+- governance-aware suggestions should project that bias into blueprint-level `safety_profile` metadata (preferred risk level, local-only preference, shell/network/write allowances) so later generation/materialization stages can inherit safer defaults
+- `SkillFactoryService` should expose a creation-defaults bridge from `SkillBlueprint.safety_profile` into concrete capability/risk defaults, even before the full generated-skill authoring pipeline consumes it end-to-end
+- `SkillFactoryService` should also expose a blueprint-to-`SkillCreationRequest` bridge so governance-aware defaults can enter the concrete request object used by later materialization/registration flows
+
 ---
 
 ## 3. High-level Architecture
@@ -132,6 +166,9 @@ The next packaging layer now starts to exist as an API-facing factory path:
 - generated skills should persist as assets and be reloaded into registry/runtime on bootstrap so the path becomes durable rather than session-only
 - generated skill failures should surface as structured diagnostics with stage/kind/hint metadata instead of only raw error strings
 - structured diagnostics should be able to carry a suggested retry request so failure handling can flow into the next generation attempt
+- blueprint validation now has two semantics: strict validation for explicit operator/API checks, and a relaxed install-time path that still validates declared dependencies/contracts while allowing intentionally partial runtime workflows and demo catalog blueprints to install without every step skill being predeclared or prebootstrapped
+- retry semantics now treat the latest `partial` execution as the canonical retry target so workflow recovery and observability remain aligned even when a partial run has no explicit failed step ids
+- paginated workflow timeline responses should preserve backward-compatible list-like access (`len`, iteration, indexing) at the service model layer even though the public contract is page-shaped
 
 ## 4.2 Definition Layer
 
@@ -656,5 +693,9 @@ Current implementation note:
 - observability queries now share an explicit filter model so API handlers and service logic stop drifting in which query knobs they support
 - API contract coverage now checks that diagnostics/history/timeline honor the same filter semantics, and observability-history formally supports time-window filtering alongside unresolved/recent slicing
 - history and timeline now share the same page-style response shape, and API-side filter construction is centralized through a small helper instead of repeated inline parameter assembly
+- paged observability responses now carry lightweight metadata (`returned_count`, `unresolved_count`, `has_more`, `window_since`, `next_cursor`) so dashboard clients can render state without re-deriving feed stats client-side
+- an aggregate stats summary is now available for workflow observability, giving operator-facing surfaces totals for executions, failures, retries, recoveries, unresolved states, and latest activity time
+- a dashboard-style read model now combines overview, stats, and recent timeline into one higher-level payload for operator surfaces that want one coherent summary call
+- observability internals are now starting to split into helper/query modules so API parsing and low-level classification/filter logic stop accumulating inside one large service/file
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

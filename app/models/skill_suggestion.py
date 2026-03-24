@@ -14,3 +14,4 @@ class SkillSuggestionResult(BaseModel):
     experience_id: str
     suggestion: SkillBlueprint
     persisted: bool = False
+    governance_context: dict = Field(default_factory=dict)

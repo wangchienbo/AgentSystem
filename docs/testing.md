@@ -1,5 +1,7 @@
 # AgentSystem / App OS Testing Strategy
 
+For cross-cutting impact analysis before edits, also consult `docs/system-relationship-map.md`.
+
 ## 1. Purpose
 
 This document defines how AgentSystem should be validated against its current implemented architecture and its near-term roadmap.
@@ -129,6 +131,47 @@ Covered behavior:
 - shared observability filter model coverage to keep query semantics aligned across service/API surfaces
 - API contract tests verifying diagnostics/history/timeline respect the same observability filter semantics
 - page-shape coverage for observability-history so it stays aligned with timeline pagination semantics
+- page metadata coverage for history/timeline responses (counts, cursors, window info)
+- aggregate stats coverage for workflow observability totals
+- dashboard summary coverage for combined overview/stats/timeline operator read models
+- modular helper/query split should preserve existing observability regression coverage without changing public contract behavior
+- install/runtime regression coverage now verifies relaxed install-time blueprint validation separately from strict `/blueprints/validate` checks so demo apps and runtime-partial workflows stay installable without weakening operator-facing validation
+- retry and observability regression coverage now treats `partial` as the canonical retry candidate state, including cases with and without explicit failed step ids
+- timeline regression coverage now protects both paginated response metadata and list-like compatibility access on the timeline page model
+- bootstrap smoke coverage now verifies built-in skill registration, demo catalog registration, and installability of default workspace/pipeline blueprints in a fresh runtime
+- golden-path integration coverage now locks the main operator flow from registry/catalog wiring through interaction open, workflow execution, retry, diagnostics, overview, and dashboard summaries
+- API-level golden-path coverage now protects the same operator flow through the public FastAPI surface, not only service-level integration helpers
+- generated-skill durability smoke coverage now verifies persisted generated script skills reload after runtime rebuild and still execute through the runtime adapter path
+- generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
+- grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
+- refinement-loop coverage now verifies the system can carry a prioritized refinement proposal into explicit hypothesis / experiment / verification / rollout objects through both service and API paths
+- refinement-loop persistence coverage now verifies those artifacts survive runtime rebuild and can be queried back through dedicated list surfaces
+- refinement-loop verification coverage now uses an injected executor in unit tests so grouped-regression integration remains real in runtime paths without making test execution depend on a full shell-based suite run
+- refinement overview/dashboard coverage now verifies queue state and latest learning-loop artifacts are aggregated into a readable governance summary
+- rollout queue lifecycle coverage now verifies approve/apply/reject/rollback transitions and the corresponding API surfaces
+- refinement dashboard/history coverage now verifies failed-hypothesis archiving plus recent-hypothesis / verification / decision / queue read models and related API surfaces
+- failure-aware refinement coverage now verifies repeated hypotheses are marked with repeat risk, linked to prior failed hypotheses, and gated from naive promotion even when later validation passes
+- refinement governance filtering coverage now verifies rollout-queue page reads, failed-hypothesis archive page reads, and aggregate stats summaries across both service and API surfaces
+- refinement governance dashboard coverage now verifies the combined overview/stats/recent-slice read model and its API surface
+- refinement observability helper coverage now verifies queue/stats/dashboard endpoints share one API-side filter construction path; broad API golden-path coverage may remain in a separate slower slice when timeout-constrained
+- slower refinement API end-to-end coverage should live in a dedicated test file instead of expanding the main workflow golden-path file, so fast and slow API slices can be scheduled independently
+- refinement API-path tests should explicitly disable grouped-regression verification when the goal is deterministic contract coverage rather than full-suite validation
+- model-backed proposal generation is now default-off in runtime wiring, and should be covered through explicit opt-in tests rather than assumed during normal API-path regression runs
+- refinement governance paging coverage now verifies structured `meta` payloads for queue/archive pages and governance dashboard slices, keeping them aligned with workflow observability page contracts
+- shared operator paging contract coverage now verifies both workflow and refinement page metadata models extend the same base shape
+- shared operator filter coverage now verifies workflow and refinement filter models inherit the same base app/limit/since/cursor query semantics
+- shared operator dashboard coverage now verifies workflow and refinement dashboard models inherit the same overview/stats aggregate core
+- shared operator API-filter coverage now verifies centralized workflow/refinement filter builders retain both common and domain-specific query dimensions
+- skill-manifest security coverage now verifies baseline script-command restrictions and explicit shell-risk opt-in semantics for script adapters
+- generated-skill security coverage now verifies risky skills are gated from generated app assembly/install-run by default
+- generated-skill policy coverage now verifies risk-gated assembly failures are returned as structured diagnostics with machine-readable policy reasons
+- generated-skill approval coverage now verifies reviewer-managed overrides can be persisted, listed, revoked, and used to unblock generated app assembly intentionally
+- generated-skill governance coverage now verifies blocked/approved/revoked risk events are queryable through the risk governance event trail
+- skill risk governance coverage now verifies operator-facing stats/dashboard summaries over decision and event data
+- skill suggestion governance coverage now verifies fallback suggestions expose governance context and bias toward lower-risk local/deterministic behavior under recent policy pressure
+- governance-aware suggestion coverage now verifies low-risk defaults are encoded in machine-readable blueprint safety metadata
+- blueprint safety handoff coverage now verifies skill-factory creation defaults can be derived from `SkillBlueprint.safety_profile`
+- blueprint creation-request bridge coverage now verifies governance-aware defaults can be projected into concrete `SkillCreationRequest` objects
 
 ## 3.7 Interaction gateway
 Covered behavior:

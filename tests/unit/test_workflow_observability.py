@@ -208,7 +208,9 @@ def test_workflow_observability_history_supports_limit_and_unresolved_filters() 
     )
     assert len(limited.items) == 1
     assert limited.items[0].completed_at >= first.completed_at
-    assert limited.next_cursor is not None
+    assert limited.meta.returned_count == 1
+    assert limited.meta.has_more is True
+    assert limited.meta.next_cursor is not None
 
     unresolved = observability.list_observability_history(
         app_instance_id=install_result.app_instance_id,
@@ -216,6 +218,7 @@ def test_workflow_observability_history_supports_limit_and_unresolved_filters() 
         unresolved_only=True,
     )
     assert len(unresolved.items) >= 1
+    assert unresolved.meta.unresolved_count >= 1
     assert all(item.status == "partial" or (item.retry_comparison is not None and item.retry_comparison.retried_status == "partial") for item in unresolved.items)
     assert any(item.workflow_id == second.workflow_id for item in unresolved.items)
 
@@ -300,13 +303,14 @@ def test_workflow_timeline_supports_since_and_cursor_pagination() -> None:
         limit=1,
     )
     assert len(page1.items) == 1
-    assert page1.next_cursor is not None
+    assert page1.meta.returned_count == 1
+    assert page1.meta.next_cursor is not None
 
     page2 = observability.list_timeline_events(
         app_instance_id=install_result.app_instance_id,
         workflow_id="wf.obs.pagination",
         limit=1,
-        cursor=page1.next_cursor,
+        cursor=page1.meta.next_cursor,
     )
     assert len(page2.items) <= 1
     if page2.items:
@@ -318,6 +322,7 @@ def test_workflow_timeline_supports_since_and_cursor_pagination() -> None:
         since=first.completed_at.isoformat(),
     )
     assert len(recent.items) >= 1
+    assert recent.meta.window_since == first.completed_at.isoformat()
     assert any(item.workflow_id == second.workflow_id for item in recent.items)
 
 
@@ -363,6 +368,92 @@ def test_workflow_observability_filter_model_drives_history_queries() -> None:
     assert len(history) == 1
     assert history[0].workflow_id == "wf.obs.filter-model"
     assert history[0].status == "partial"
+
+
+
+def test_workflow_stats_summary_aggregates_operator_totals() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-stats")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.stats",
+            name="Workflow Observability Stats App",
+            goal="aggregate workflow stats",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.stats",
+                    "name": "obs stats",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.stats", user_id="obs-stats-user")
+
+    executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.stats")
+    executor.retry_last_failure(install_result.app_instance_id)
+
+    stats = observability.get_stats_summary(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.stats",
+        failed_step_id="blocked.skill",
+    )
+
+    assert stats.total_executions >= 2
+    assert stats.total_failures >= 1
+    assert stats.total_retries >= 1
+    assert stats.unresolved_executions >= 1
+    assert stats.latest_event_at is not None
+
+
+
+def test_workflow_dashboard_summary_combines_overview_stats_and_timeline() -> None:
+    registry, installer, executor, observability = _build_runtime("workflow-observability-dashboard")
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.obs.dashboard",
+            name="Workflow Observability Dashboard App",
+            goal="compose dashboard summary",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.obs.dashboard",
+                    "name": "obs dashboard",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "blocked.skill", "kind": "skill", "ref": "skill.blocked", "config": {"mode": "fail"}},
+                    ],
+                }
+            ],
+            required_modules=[],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.obs.dashboard", user_id="obs-dashboard-user")
+
+    executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.obs.dashboard")
+    executor.retry_last_failure(install_result.app_instance_id)
+
+    dashboard = observability.get_dashboard_summary(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.obs.dashboard",
+        failed_step_id="blocked.skill",
+        timeline_limit=2,
+    )
+
+    assert dashboard.overview.health.health_status == "failing"
+    assert dashboard.stats.total_executions >= 2
+    assert dashboard.recent_timeline.meta.returned_count >= 1
+    assert len(dashboard.recent_timeline.items) >= 1
 
 
 

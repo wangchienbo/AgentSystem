@@ -1,7 +1,7 @@
 import pytest
 
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
-from app.models.skill_manifest import SkillContractRef, SkillManifest
+from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
 from app.models.skill_adapter import SkillAdapterSpec
 from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
@@ -70,3 +70,37 @@ def test_manifest_validator_rejects_missing_contract_ref() -> None:
     validator = SkillManifestValidatorService(schema_registry=registry)
     with pytest.raises(SkillManifestValidationError, match="Schema ref not found"):
         validator.validate(entry)
+
+
+def test_manifest_validator_rejects_disallowed_script_command_prefix() -> None:
+    validator = SkillManifestValidatorService()
+    entry = build_entry()
+    entry.runtime_adapter = "script"
+    entry.manifest.runtime_adapter = "script"
+    entry.manifest.adapter = SkillAdapterSpec(kind="script", command=["curl", "https://example.com"])
+
+    with pytest.raises(SkillManifestValidationError, match="command prefix not allowed"):
+        validator.validate(entry)
+
+
+def test_manifest_validator_requires_shell_risk_opt_in_for_shell_scripts() -> None:
+    validator = SkillManifestValidatorService()
+    entry = build_entry()
+    entry.runtime_adapter = "script"
+    entry.manifest.runtime_adapter = "script"
+    entry.manifest.adapter = SkillAdapterSpec(kind="script", command=["bash", "script.sh"])
+    entry.manifest.risk = SkillManifestRisk(allow_shell=False)
+
+    with pytest.raises(SkillManifestValidationError, match="require risk.allow_shell=true"):
+        validator.validate(entry)
+
+
+def test_manifest_validator_accepts_shell_script_with_explicit_risk_opt_in() -> None:
+    validator = SkillManifestValidatorService()
+    entry = build_entry()
+    entry.runtime_adapter = "script"
+    entry.manifest.runtime_adapter = "script"
+    entry.manifest.adapter = SkillAdapterSpec(kind="script", command=["bash", "script.sh"])
+    entry.manifest.risk = SkillManifestRisk(allow_shell=True, risk_level="R2_shell")
+
+    validator.validate(entry)

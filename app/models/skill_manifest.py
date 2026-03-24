@@ -11,6 +11,13 @@ class SkillContractRef(BaseModel):
     error_schema_ref: str = Field(default="")
 
 
+class SkillManifestRisk(BaseModel):
+    risk_level: str = Field(default="R0_safe_read", min_length=1)
+    allow_network: bool = False
+    allow_filesystem_write: bool = False
+    allow_shell: bool = False
+
+
 class SkillManifest(BaseModel):
     skill_id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
@@ -20,3 +27,4 @@ class SkillManifest(BaseModel):
     adapter: SkillAdapterSpec = Field(default_factory=SkillAdapterSpec)
     contract: SkillContractRef = Field(default_factory=SkillContractRef)
     tags: list[str] = Field(default_factory=list)
+    risk: SkillManifestRisk = Field(default_factory=SkillManifestRisk)

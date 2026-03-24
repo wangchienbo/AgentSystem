@@ -4,6 +4,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.operator_contracts import OperatorPageMeta
+from app.models.operator_dashboards import OperatorDashboardCore
+from app.models.operator_filters import OperatorFilterParams
 from app.models.workflow_execution import WorkflowExecutionResult
 
 
@@ -59,24 +62,49 @@ class WorkflowTimelineEvent(BaseModel):
     retry_of_completed_at: str | None = None
 
 
+class WorkflowPageMeta(OperatorPageMeta):
+    unresolved_count: int = 0
+
+
 class WorkflowTimelinePage(BaseModel):
     items: list[WorkflowTimelineEvent] = Field(default_factory=list)
-    next_cursor: str | None = None
+    meta: WorkflowPageMeta = Field(default_factory=WorkflowPageMeta)
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __getitem__(self, index: int) -> WorkflowTimelineEvent:
+        return self.items[index]
+
+    def __iter__(self):
+        return iter(self.items)
 
 
 class WorkflowHistoryPage(BaseModel):
     items: list[WorkflowExecutionResult] = Field(default_factory=list)
-    next_cursor: str | None = None
+    meta: WorkflowPageMeta = Field(default_factory=WorkflowPageMeta)
 
 
-class WorkflowObservabilityFilter(BaseModel):
+class WorkflowObservabilityFilter(OperatorFilterParams):
     app_instance_id: str
     workflow_id: str | None = None
     failed_step_id: str | None = None
-    limit: int | None = None
     unresolved_only: bool = False
-    since: str | None = None
-    cursor: str | None = None
+
+
+class WorkflowStatsSummary(BaseModel):
+    total_executions: int = 0
+    total_failures: int = 0
+    total_retries: int = 0
+    total_recoveries: int = 0
+    total_completed: int = 0
+    total_partial_without_failed_steps: int = 0
+    unresolved_executions: int = 0
+    latest_event_at: str | None = None
+
+
+class WorkflowDashboardSummary(OperatorDashboardCore["WorkflowOverview", WorkflowStatsSummary]):
+    recent_timeline: WorkflowTimelinePage
 
 
 class WorkflowOverview(BaseModel):
