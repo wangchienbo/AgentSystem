@@ -70,6 +70,7 @@ class SkillSuggestionService:
             outputs=["action_plan", "structured_result"],
             steps=self._build_steps(experience.summary, governance_context),
             related_experience_ids=[experience.experience_id],
+            safety_profile=self._build_safety_profile(governance_context),
         )
 
     def _build_governance_context(self) -> dict:
@@ -81,6 +82,22 @@ class SkillSuggestionService:
             "blocked_events": stats.blocked_events,
             "active_overrides": stats.active_overrides,
             "recent_policy_pressure": stats.blocked_events > 0,
+        }
+
+    def _build_safety_profile(self, governance_context: dict) -> dict:
+        if governance_context.get("recent_policy_pressure"):
+            return {
+                "preferred_risk_level": "R0_safe_read",
+                "prefer_local_only": True,
+                "prefer_deterministic": True,
+                "allow_network": False,
+                "allow_shell": False,
+                "allow_filesystem_write": False,
+            }
+        return {
+            "preferred_risk_level": "R0_safe_read",
+            "prefer_local_only": False,
+            "prefer_deterministic": True,
         }
 
     def _build_steps(self, summary: str, governance_context: dict) -> list[str]:

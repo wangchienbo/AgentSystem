@@ -11,3 +11,4 @@ class SkillBlueprint(BaseModel):
     outputs: list[str] = Field(default_factory=list)
     steps: list[str] = Field(default_factory=list)
     related_experience_ids: list[str] = Field(default_factory=list)
+    safety_profile: dict = Field(default_factory=dict)

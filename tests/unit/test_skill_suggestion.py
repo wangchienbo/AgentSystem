@@ -138,6 +138,9 @@ def test_skill_suggestion_includes_risk_governance_context_when_policy_pressure_
     assert result.governance_context["blocked_events"] >= 1
     assert result.governance_context["recent_policy_pressure"] is True
     assert any("avoid shell/network side effects" in step for step in result.suggestion.steps)
+    assert result.suggestion.safety_profile["preferred_risk_level"] == "R0_safe_read"
+    assert result.suggestion.safety_profile["allow_network"] is False
+    assert result.suggestion.safety_profile["allow_shell"] is False
 
 
 

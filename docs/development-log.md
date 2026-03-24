@@ -30,6 +30,32 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: machine-readable safety defaults in governance-aware skill blueprints
+
+Extended governance-aware skill suggestion so low-risk bias is now preserved in machine-readable blueprint metadata rather than only appearing in textual suggestion steps.
+
+#### Updated
+- `app/models/skill_blueprint.py`
+  - adds `safety_profile` metadata for suggested/generated skill blueprints
+- `app/services/skill_suggestion.py`
+  - now emits governance-aware `safety_profile` defaults (preferred risk level, local-only/deterministic preference, no shell/network/write under policy pressure)
+- `tests/unit/test_skill_suggestion.py`
+  - verifies governance-aware suggestions encode low-risk defaults in blueprint metadata
+- `docs/requirements.md`
+  - records requirement that safer suggestion defaults be machine-readable
+- `docs/design.md`
+  - documents `SkillBlueprint.safety_profile` as the governance-aware handoff into later generation stages
+- `docs/testing.md`
+  - records safety-profile coverage for governance-aware suggestion
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with blueprint-level preservation of safer defaults
+- `docs/system-relationship-map.md`
+  - marks blueprint safety metadata as part of the governance-aware suggestion coupling surface
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_suggestion.py tests/unit/test_experience_store.py`
+- result: `8 passed`
+
 ### Module: risk-aware skill suggestion governance context
 
 Connected the risk governance subsystem back into the self-iteration entry path by teaching skill suggestion to expose governance context and bias fallback suggestions toward lower-risk local/deterministic shapes when recent policy pressure exists.

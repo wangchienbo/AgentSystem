@@ -169,6 +169,7 @@ Covered behavior:
 - generated-skill governance coverage now verifies blocked/approved/revoked risk events are queryable through the risk governance event trail
 - skill risk governance coverage now verifies operator-facing stats/dashboard summaries over decision and event data
 - skill suggestion governance coverage now verifies fallback suggestions expose governance context and bias toward lower-risk local/deterministic behavior under recent policy pressure
+- governance-aware suggestion coverage now verifies low-risk defaults are encoded in machine-readable blueprint safety metadata
 
 ## 3.7 Interaction gateway
 Covered behavior:

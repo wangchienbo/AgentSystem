@@ -397,6 +397,8 @@ graph TD
     F[功能: Skills Runtime + Suggestion + Generation]
     F --> SG[services/skill_suggestion.py]
     F --> SKR[services/skill_runtime.py]
+
+> Blueprint note: governance-aware skill suggestion now affects both natural-language steps and machine-readable `SkillBlueprint.safety_profile`, so downstream generation/materialization changes should treat blueprint metadata as part of the same coupling surface.
     F --> SC[services/skill_control.py]
     F --> SA[services/skill_authoring.py]
     F --> SF[services/skill_factory.py]
