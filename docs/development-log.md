@@ -30,6 +30,34 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: centralized operator API filter builders
+
+Centralized workflow and refinement API-side filter construction into a shared helper module so operator endpoint query semantics now evolve from one place instead of drifting across separate per-domain helper files.
+
+#### Added
+- `app/api/operator_filters.py`
+  - shared workflow/refinement API filter builders with common query-dimension support
+- `tests/unit/test_operator_api_filters.py`
+  - verifies centralized builders preserve shared and domain-specific query semantics
+
+#### Updated
+- `app/api/main.py`
+  - imports workflow/refinement filter builders from the shared operator helper module
+- `app/api/workflow_observability.py`
+  - now acts as a thin compatibility re-export
+- `app/api/refinement_observability.py`
+  - now acts as a thin compatibility re-export
+- `docs/requirements.md`
+  - records centralized API-filter builder direction for operator surfaces
+- `docs/design.md`
+  - documents shared operator filter helper organization plus temporary compatibility wrappers
+- `docs/testing.md`
+  - records centralized API-filter builder coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_operator_api_filters.py tests/unit/test_refinement_observability_api.py tests/unit/test_operator_filter_params.py tests/unit/test_workflow_observability.py`
+- result: `13 passed`
+
 ### Module: shared operator dashboard core contract
 
 Introduced a common dashboard core model for operator-facing surfaces so workflow observability and refinement governance now share the same overview/stats aggregate backbone while keeping domain-specific recent activity sections separate.

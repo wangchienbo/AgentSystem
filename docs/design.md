@@ -69,6 +69,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - shared operator-facing pagination semantics should live in a common contract model (`OperatorPageMeta`), with domain-specific extensions such as workflow unresolved counts layering on top instead of redefining the whole shape
 - shared operator-facing query semantics should likewise live in a common base filter model (`OperatorFilterParams`), with workflow/refinement filters layering on domain-specific selectors without redefining common pagination/time-window fields
 - shared operator dashboard semantics should live in a common overview/stats core (`OperatorDashboardCore`), while domain-specific dashboards add their own recent timeline/queue/archive sections on top
+- API-side operator filter construction should be centralized in a shared helper module (`app/api/operator_filters.py`), while thin compatibility wrappers may remain temporarily to avoid churn during migration
 
 ---
 

@@ -47,8 +47,7 @@ from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 from app.services.skill_retry_advisor import SkillRetryAdvisorService
-from app.api.workflow_observability import build_workflow_observability_filter
-from app.api.refinement_observability import build_refinement_filter
+from app.api.operator_filters import build_refinement_filter, build_workflow_observability_filter
 
 
 app = FastAPI(title="AgentSystem App OS", version="0.1.0")

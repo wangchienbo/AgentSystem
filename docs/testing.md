@@ -159,6 +159,7 @@ Covered behavior:
 - shared operator paging contract coverage now verifies both workflow and refinement page metadata models extend the same base shape
 - shared operator filter coverage now verifies workflow and refinement filter models inherit the same base app/limit/since/cursor query semantics
 - shared operator dashboard coverage now verifies workflow and refinement dashboard models inherit the same overview/stats aggregate core
+- shared operator API-filter coverage now verifies centralized workflow/refinement filter builders retain both common and domain-specific query dimensions
 
 ## 3.7 Interaction gateway
 Covered behavior:
