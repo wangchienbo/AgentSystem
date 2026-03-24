@@ -175,6 +175,7 @@ Covered behavior:
 - blueprint materialization coverage now verifies stored blueprints can be turned into real skills through an API path that preserves governance-aware request defaults
 - end-to-end blueprint materialization coverage now verifies low-risk defaults also appear in the final registered skill manifest and capability profile
 - blueprint materialization policy coverage now verifies low-risk blueprints reject shell/script materialization when safety metadata disallows it
+- blueprint materialization override coverage now verifies reviewer-managed `blueprint_materialization` overrides can intentionally unblock those policy-gated paths
 
 ## 3.7 Interaction gateway
 Covered behavior:

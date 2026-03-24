@@ -428,6 +428,7 @@ graph TD
     F --> T15[tests/unit/test_skill_factory_risk_gating.py]
     F --> T20[tests/unit/test_skill_blueprint_safety_defaults.py]
     F --> T21[tests/unit/test_skill_blueprint_materialization_api.py]
+    F --> T22[tests/unit/test_skill_blueprint_materialization_override_api.py]
 
 > Policy note: blueprint materialization now consumes safety metadata as active policy, not just propagation metadata. Changes to `SkillBlueprint.safety_profile` can therefore affect whether materialization is allowed at all.
 

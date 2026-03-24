@@ -187,11 +187,26 @@ def get_skill_risk_dashboard(recent_limit: int = 5) -> dict:
     return skill_risk_policy.get_dashboard(recent_limit=recent_limit).model_dump(mode="json")
 
 @app.post("/skill-risk/{skill_id}/approve")
-def approve_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
-    return skill_risk_policy.approve_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
+def approve_skill_risk_override(
+    skill_id: str,
+    reviewer: str,
+    reason: str = "",
+    scope: str = "generated_app_assembly",
+) -> dict:
+    return skill_risk_policy.approve_override(
+        skill_id=skill_id,
+        reviewer=reviewer,
+        reason=reason,
+        scope=scope,
+    ).model_dump(mode="json")
 
 @app.post("/skill-risk/{skill_id}/revoke")
-def revoke_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
+def revoke_skill_risk_override(
+    skill_id: str,
+    reviewer: str,
+    reason: str = "",
+    scope: str = "generated_app_assembly",
+) -> dict:
     return skill_risk_policy.revoke_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
 
 @app.post("/apps/from-skills")
@@ -301,19 +316,22 @@ def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterialization
             and request.command[0] in {"bash", "sh"}
             and safety_profile.get("allow_shell") is False
         ):
-            raise SkillDiagnosticError(
-                stage="materialize",
-                kind="policy_blocked",
-                message=f"Skill blueprint '{skill_id}' is gated from shell materialization by safety profile",
-                retryable=False,
-                hint="Use callable materialization or provide a future explicit policy/override path for shell-based blueprint materialization.",
-                details={
-                    "skill_id": skill_id,
-                    "adapter_kind": request.adapter_kind,
-                    "command": request.command,
-                    "policy_reasons": ["blueprint.allow_shell=false"],
-                },
-            )
+            active_override = skill_risk_policy.get_active_override(skill_id, scope="blueprint_materialization")
+            if active_override is None:
+                raise _diagnostic(
+                    "materialize",
+                    "policy_blocked",
+                    f"Skill blueprint '{skill_id}' is gated from shell materialization by safety profile",
+                    retryable=False,
+                    hint="Use callable materialization or provide an explicit policy override for shell-based blueprint materialization.",
+                    details={
+                        "skill_id": skill_id,
+                        "adapter_kind": request.adapter_kind,
+                        "command": request.command,
+                        "policy_reasons": ["blueprint.allow_shell=false"],
+                        "override_scope": "blueprint_materialization",
+                    },
+                )
         creation_request = skill_factory.build_creation_request_from_blueprint(
             blueprint,
             adapter_kind=request.adapter_kind,

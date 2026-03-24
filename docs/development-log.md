@@ -30,6 +30,35 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: blueprint materialization policy overrides
+
+Connected blueprint materialization policy into the existing risk-governance override system so reviewer-managed approvals can intentionally unblock shell/script materialization under a dedicated scope.
+
+#### Added
+- `tests/unit/test_skill_blueprint_materialization_override_api.py`
+  - verifies low-risk shell/script materialization is blocked by default, then allowed after a reviewer-managed `blueprint_materialization` override is granted
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - extends policy scope with `blueprint_materialization`
+- `app/api/main.py`
+  - materialization policy now consults active overrides under the `blueprint_materialization` scope before blocking shell/script materialization
+  - risk override APIs now accept a `scope` parameter
+- `docs/requirements.md`
+  - records override-aware blueprint materialization requirement
+- `docs/design.md`
+  - documents scoped materialization override behavior
+- `docs/testing.md`
+  - records materialization override coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with scoped override participation in materialization policy
+- `docs/system-relationship-map.md`
+  - adds blueprint materialization override coverage into the generated-skill graph
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_skill_blueprint_materialization_override_api.py tests/unit/test_skill_risk_override_api.py`
+- result: `5 passed`
+
 ### Module: governance-aware blueprint materialization policy
 
 Started turning blueprint safety metadata into active materialization policy by blocking shell/script materialization for low-risk blueprints whose safety profile explicitly disallows shell behavior.
