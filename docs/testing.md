@@ -156,6 +156,7 @@ Covered behavior:
 - refinement API-path tests should explicitly disable grouped-regression verification when the goal is deterministic contract coverage rather than full-suite validation
 - model-backed proposal generation is now default-off in runtime wiring, and should be covered through explicit opt-in tests rather than assumed during normal API-path regression runs
 - refinement governance paging coverage now verifies structured `meta` payloads for queue/archive pages and governance dashboard slices, keeping them aligned with workflow observability page contracts
+- shared operator paging contract coverage now verifies both workflow and refinement page metadata models extend the same base shape
 
 ## 3.7 Interaction gateway
 Covered behavior:

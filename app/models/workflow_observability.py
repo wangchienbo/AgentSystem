@@ -4,6 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.operator_contracts import OperatorPageMeta
 from app.models.workflow_execution import WorkflowExecutionResult
 
 
@@ -59,12 +60,8 @@ class WorkflowTimelineEvent(BaseModel):
     retry_of_completed_at: str | None = None
 
 
-class WorkflowPageMeta(BaseModel):
-    returned_count: int = 0
+class WorkflowPageMeta(OperatorPageMeta):
     unresolved_count: int = 0
-    has_more: bool = False
-    window_since: str | None = None
-    next_cursor: str | None = None
 
 
 class WorkflowTimelinePage(BaseModel):

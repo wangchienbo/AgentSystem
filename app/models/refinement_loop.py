@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import ConfigDict
 
+from app.models.operator_contracts import OperatorPageMeta
 from pydantic import BaseModel, Field
 
 
@@ -154,11 +155,8 @@ class RefinementStatsSummary(BaseModel):
     latest_failed_hypothesis_at: datetime | None = None
 
 
-class RefinementPageMeta(BaseModel):
-    returned_count: int = 0
-    total_count: int = 0
-    filtered_count: int = 0
-    has_more: bool = False
+class RefinementPageMeta(OperatorPageMeta):
+    pass
 
 
 class RefinementQueuePage(BaseModel):

@@ -66,6 +66,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - runtime wiring should support test-only opt-outs for model-backed self-refinement and grouped-regression verification so deterministic API-path tests can exercise refinement flows without accidentally invoking remote model calls or recursive full-suite regressions
 - model-backed self-refinement should be explicit opt-in at runtime wiring time (`AGENTSYSTEM_ENABLE_MODEL_REFINER=1`), with fallback proposal synthesis remaining the default path when the feature is not deliberately enabled
 - refinement governance page-style responses should mirror workflow observability structure by nesting counts/has-more state under `meta`, which reduces contract drift between the two operator surfaces
+- shared operator-facing pagination semantics should live in a common contract model (`OperatorPageMeta`), with domain-specific extensions such as workflow unresolved counts layering on top instead of redefining the whole shape
 
 ---
 

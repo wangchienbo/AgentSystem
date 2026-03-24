@@ -30,6 +30,32 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: shared operator paging metadata contract
+
+Introduced a common operator paging metadata model so workflow observability and refinement governance now share one base contract for counts/cursor state while still allowing domain-specific extensions.
+
+#### Added
+- `app/models/operator_contracts.py`
+  - defines `OperatorPageMeta` as the shared operator-facing pagination metadata contract
+- `tests/unit/test_operator_page_meta.py`
+  - verifies both workflow and refinement page meta models extend the shared base shape
+
+#### Updated
+- `app/models/workflow_observability.py`
+  - `WorkflowPageMeta` now extends `OperatorPageMeta`
+- `app/models/refinement_loop.py`
+  - `RefinementPageMeta` now extends `OperatorPageMeta`
+- `docs/requirements.md`
+  - records the shared paging metadata requirement for operator surfaces
+- `docs/design.md`
+  - documents common pagination semantics plus domain-specific extensions
+- `docs/testing.md`
+  - records shared operator page-meta coverage
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_operator_page_meta.py tests/unit/test_refinement_filters_and_stats.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_workflow_observability.py`
+- result: `16 passed`
+
 ### Module: refinement paging meta contract alignment
 
 Aligned refinement governance page responses with the workflow observability contract by moving count/state fields into a structured `meta` object for queue-page and failed-hypothesis page payloads.
