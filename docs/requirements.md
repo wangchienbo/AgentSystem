@@ -308,6 +308,7 @@ The platform should expose an API-first path for generated skills so the system 
 - converge operator dashboard summaries on a shared overview/stats core so workflow and refinement surfaces speak a more consistent aggregate language even when their recent-activity sections differ
 - centralize API-side operator filter builders so workflow/refinement endpoints evolve from one helper module rather than drifting across multiple per-domain helper files
 - introduce explicit manifest-level risk metadata and baseline script-command restrictions so self-iterated/generated skills carry machine-readable execution risk hints before broader auto-expansion is allowed
+- generated app assembly/install-run must gate risky skills by default so high-risk manifests are not silently auto-composed into runnable apps
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

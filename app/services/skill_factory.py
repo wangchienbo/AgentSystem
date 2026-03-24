@@ -33,6 +33,9 @@ def _diagnostic(stage: str, kind: str, message: str, *, retryable: bool = False,
     )
 
 
+BLOCKED_GENERATED_APP_RISK_LEVELS = {"R2_shell", "R3_filesystem_write", "R4_networked", "R5_high_risk"}
+
+
 class SkillFactoryService:
     def __init__(
         self,
@@ -165,6 +168,9 @@ class SkillFactoryService:
         missing = [skill_id for skill_id in request.skill_ids if skill_id not in {item.skill_id for item in self._skill_control.list_skills()}]
         if missing:
             raise SkillFactoryError(f"Skills not found for app assembly: {', '.join(missing)}")
+        for skill_id in request.skill_ids:
+            entry = self._skill_control.get_skill(skill_id)
+            self._assert_generated_app_safe(entry)
         steps = []
         created_steps = []
         suggested_mappings: list[SuggestedStepMapping] = []
@@ -386,6 +392,21 @@ class SkillFactoryService:
                 raise SkillFactoryError(f"Step mapping target path '{mapping.target_field}' collides with non-object field '{part}'")
             cursor = next_value
         cursor[parts[-1]] = reference
+
+    def _assert_generated_app_safe(self, entry: SkillRegistryEntry) -> None:
+        manifest = entry.manifest
+        if manifest is None:
+            return
+        risk = manifest.risk
+        if (
+            risk.risk_level in BLOCKED_GENERATED_APP_RISK_LEVELS
+            or risk.allow_shell
+            or risk.allow_network
+            or risk.allow_filesystem_write
+        ):
+            raise SkillFactoryError(
+                f"Skill '{entry.skill_id}' is gated from generated app assembly due to risk policy"
+            )
 
     def _register_contracts(self, request: SkillCreationRequest) -> dict[str, str]:
         refs = {

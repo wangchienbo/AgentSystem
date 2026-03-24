@@ -419,6 +419,7 @@ graph TD
     F --> T12[tests/unit/test_system_app_config_skill.py]
     F --> T13[tests/unit/test_system_context_skill.py]
     F --> T14[tests/unit/test_system_state_and_audit_skills.py]
+    F --> T15[tests/unit/test_skill_factory_risk_gating.py]
 ```
 
 ## 5.10 Interaction Gateway / End-to-End API Usable Flow

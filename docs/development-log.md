@@ -30,6 +30,32 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: generated app assembly risk gating
+
+Extended Phase 7 security boundaries into the generated app assembly path so risky skills are now blocked from `/apps/from-skills` and `/apps/from-skills/install-run` by default.
+
+#### Updated
+- `app/services/skill_factory.py`
+  - adds baseline generated-app risk gating before blueprint assembly
+  - blocks skills whose manifest risk is high-risk or explicitly allows shell/network/filesystem-write behavior
+- `tests/unit/test_skill_factory_risk_gating.py`
+  - verifies safe skills still assemble into generated apps
+  - verifies risky skills are rejected from generated app assembly by default
+- `docs/requirements.md`
+  - records default gating for risky generated app assembly/install-run paths
+- `docs/design.md`
+  - documents generated-app default deny behavior for risky manifests
+- `docs/testing.md`
+  - records generated-skill security gating coverage
+- `docs/generated-skill-roadmap.md`
+  - strengthens Phase 7 acceptance criteria around generated app assembly rejection
+- `docs/system-relationship-map.md`
+  - adds generated-skill risk-gating test coverage into the relationship map
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_risk_gating.py tests/unit/test_skill_factory_api.py tests/unit/test_generated_callable_skill.py tests/unit/test_generated_skill_persistence.py`
+- result: `13 passed`
+
 ### Module: baseline skill-manifest risk metadata and script restrictions
 
 Started Phase 7 security groundwork by adding machine-readable manifest risk metadata and validator-enforced baseline script command restrictions for generated/runtime skills.
