@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from app.models.skill_adapter import SkillAdapterSpec
+from app.models.skill_diagnostics import SkillDiagnosticError
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_creation import AppFromSkillsRequest
 from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
@@ -11,7 +12,7 @@ from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_control import SkillControlService
-from app.services.skill_factory import SkillFactoryError, SkillFactoryService
+from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
 
 
@@ -76,7 +77,7 @@ def test_generated_app_assembly_rejects_high_risk_skill(tmp_path: Path) -> None:
     blocked_entry.manifest.risk.allow_network = True
     factory._skill_control.register(blocked_entry)
 
-    with pytest.raises(SkillFactoryError, match="risk policy"):
+    with pytest.raises(SkillDiagnosticError, match="risk policy") as error:
         factory.build_blueprint_from_skills(
             AppFromSkillsRequest(
                 blueprint_id="bp.blocked.generated",
@@ -86,3 +87,7 @@ def test_generated_app_assembly_rejects_high_risk_skill(tmp_path: Path) -> None:
                 workflow_id="wf.blocked.generated",
             )
         )
+    diagnostic = error.value.diagnostic
+    assert diagnostic.stage == "assemble"
+    assert diagnostic.kind == "policy_blocked"
+    assert diagnostic.details["skill_id"] == "skill.blocked.generated"

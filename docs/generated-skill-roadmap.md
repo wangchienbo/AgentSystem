@@ -263,6 +263,7 @@ Keep generated skill expansion safe.
 - script command restrictions are test-covered
 - risk metadata affects whether auto-install/auto-run is allowed
 - generated app assembly rejects risky skills by default unless a future explicit policy layer authorizes them
+- blocked assembly/install-run paths surface structured policy diagnostics that a future approval or override layer can consume
 
 ---
 

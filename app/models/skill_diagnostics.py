@@ -13,6 +13,7 @@ DiagnosticKind = Literal[
     "install_error",
     "execution_error",
     "reload_error",
+    "policy_blocked",
 ]
 
 

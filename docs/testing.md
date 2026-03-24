@@ -164,6 +164,7 @@ Covered behavior:
 - shared operator API-filter coverage now verifies centralized workflow/refinement filter builders retain both common and domain-specific query dimensions
 - skill-manifest security coverage now verifies baseline script-command restrictions and explicit shell-risk opt-in semantics for script adapters
 - generated-skill security coverage now verifies risky skills are gated from generated app assembly/install-run by default
+- generated-skill policy coverage now verifies risk-gated assembly failures are returned as structured diagnostics with machine-readable policy reasons
 
 ## 3.7 Interaction gateway
 Covered behavior:

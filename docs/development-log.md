@@ -30,6 +30,35 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: structured policy diagnostics for risk-gated generated skills
+
+Upgraded generated-skill risk gating from plain assembly errors into structured policy diagnostics so future approval or policy-override layers can reason over blocked skills programmatically.
+
+#### Updated
+- `app/models/skill_diagnostics.py`
+  - adds `policy_blocked` diagnostic kind
+- `app/services/skill_factory.py`
+  - risk-gated generated app assembly now raises structured `SkillDiagnosticError`
+  - emits stage=`assemble`, kind=`policy_blocked`, plus machine-readable `policy_reasons`
+- `tests/unit/test_skill_factory_risk_gating.py`
+  - now verifies service-level policy-blocked diagnostics
+- `tests/unit/test_skill_policy_diagnostics_api.py`
+  - verifies `/apps/from-skills` returns structured policy diagnostics for blocked risky skills
+- `docs/requirements.md`
+  - records structured policy diagnostic requirement for generated-skill risk gates
+- `docs/design.md`
+  - documents stage/kind/details shape for policy-blocked assembly diagnostics
+- `docs/testing.md`
+  - records policy-diagnostic coverage for generated-skill gating
+- `docs/generated-skill-roadmap.md`
+  - extends Phase 7 with structured blocked-path diagnostics for future approval layers
+- `docs/system-relationship-map.md`
+  - adds policy-diagnostic API coverage to the generated-skill relationship map
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_policy_diagnostics_api.py tests/unit/test_skill_factory_risk_gating.py tests/unit/test_skill_diagnostics_api.py`
+- result: `9 passed`
+
 ### Module: generated app assembly risk gating
 
 Extended Phase 7 security boundaries into the generated app assembly path so risky skills are now blocked from `/apps/from-skills` and `/apps/from-skills/install-run` by default.

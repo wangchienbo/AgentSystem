@@ -398,14 +398,31 @@ class SkillFactoryService:
         if manifest is None:
             return
         risk = manifest.risk
-        if (
-            risk.risk_level in BLOCKED_GENERATED_APP_RISK_LEVELS
-            or risk.allow_shell
-            or risk.allow_network
-            or risk.allow_filesystem_write
-        ):
-            raise SkillFactoryError(
-                f"Skill '{entry.skill_id}' is gated from generated app assembly due to risk policy"
+        policy_reasons: list[str] = []
+        if risk.risk_level in BLOCKED_GENERATED_APP_RISK_LEVELS:
+            policy_reasons.append(f"risk_level={risk.risk_level}")
+        if risk.allow_shell:
+            policy_reasons.append("allow_shell=true")
+        if risk.allow_network:
+            policy_reasons.append("allow_network=true")
+        if risk.allow_filesystem_write:
+            policy_reasons.append("allow_filesystem_write=true")
+        if policy_reasons:
+            raise _diagnostic(
+                "assemble",
+                "policy_blocked",
+                f"Skill '{entry.skill_id}' is gated from generated app assembly due to risk policy",
+                retryable=False,
+                hint="Use a lower-risk skill profile or add an explicit future approval/policy layer before assembling this generated app.",
+                details={
+                    "skill_id": entry.skill_id,
+                    "risk_level": risk.risk_level,
+                    "policy_reasons": policy_reasons,
+                },
+                suggested_retry_request={
+                    "blocked_skill_id": entry.skill_id,
+                    "replace_with": "lower-risk skill or future approved override",
+                },
             )
 
     def _register_contracts(self, request: SkillCreationRequest) -> dict[str, str]:
