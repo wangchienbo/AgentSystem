@@ -38,7 +38,7 @@ class SkillCreationResult(BaseModel):
 
 
 class BlueprintMaterializationRequest(BaseModel):
-    adapter_kind: Literal["callable", "script"] = "callable"
+    adapter_kind: Literal["callable", "script"] | None = None
     generation_operation: str = Field(default="")
     handler_entry: str = Field(default="")
     description: str = Field(default="")

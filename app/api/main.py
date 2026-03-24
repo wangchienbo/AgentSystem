@@ -310,8 +310,11 @@ def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterialization
     try:
         blueprint = experience_store.get_skill_blueprint(skill_id)
         safety_profile = blueprint.safety_profile or {}
+        effective_adapter_kind = request.adapter_kind or (
+            "callable" if safety_profile.get("prefer_callable_materialization") else "callable"
+        )
         if (
-            request.adapter_kind == "script"
+            effective_adapter_kind == "script"
             and request.command
             and request.command[0] in {"bash", "sh"}
             and safety_profile.get("allow_shell") is False
@@ -334,7 +337,7 @@ def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterialization
                 )
         creation_request = skill_factory.build_creation_request_from_blueprint(
             blueprint,
-            adapter_kind=request.adapter_kind,
+            adapter_kind=effective_adapter_kind,
             generation_operation=request.generation_operation,
             handler_entry=request.handler_entry,
             description=request.description,

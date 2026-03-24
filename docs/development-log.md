@@ -30,6 +30,32 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: governance-aware adapter default selection in blueprint materialization
+
+Extended governance-aware materialization from policy and propagation into actual adapter default selection: when callers omit `adapter_kind`, blueprint safety metadata can now steer the system toward callable materialization automatically.
+
+#### Updated
+- `app/models/skill_creation.py`
+  - `BlueprintMaterializationRequest.adapter_kind` is now optional
+- `app/api/main.py`
+  - blueprint materialization now derives an effective adapter kind from `SkillBlueprint.safety_profile.prefer_callable_materialization` when the caller leaves adapter choice unspecified
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - verifies callable materialization is auto-selected when the blueprint explicitly prefers it
+- `docs/requirements.md`
+  - records governance-aware adapter default selection requirement
+- `docs/design.md`
+  - documents safety-driven adapter default selection
+- `docs/testing.md`
+  - records adapter default-selection coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with adapter-default guidance from blueprint safety metadata
+- `docs/system-relationship-map.md`
+  - notes that blueprint safety metadata now affects artifact shape even without explicit adapter input
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_skill_blueprint_materialization_override_api.py`
+- result: `4 passed`
+
 ### Module: materialization-aware governance context in skill suggestion
 
 Fed blueprint-materialization policy pressure back into the skill suggestion path so self-iteration recommendations can react not only to general risk blocking, but specifically to materialization-time policy friction.

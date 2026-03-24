@@ -54,6 +54,64 @@ def test_materialize_low_risk_blueprint_blocks_shell_script_materialization() ->
 
 
 
+def test_materialize_blueprint_defaults_to_callable_when_safety_profile_prefers_it() -> None:
+    add_blueprint = client.post(
+        "/skill-blueprints",
+        json={
+            "skill_id": "skill.blueprint.default.callable",
+            "name": "Callable Preferred Blueprint",
+            "goal": "materialize with callable default chosen from safety profile",
+            "inputs": ["payload"],
+            "outputs": ["normalized"],
+            "steps": ["prefer callable materialization under governance pressure"],
+            "related_experience_ids": ["exp.materialize.callable.default"],
+            "safety_profile": {
+                "preferred_risk_level": "R0_safe_read",
+                "prefer_local_only": True,
+                "prefer_deterministic": True,
+                "prefer_callable_materialization": True,
+                "allow_network": False,
+                "allow_shell": False,
+                "allow_filesystem_write": False
+            }
+        },
+    )
+    assert add_blueprint.status_code == 200
+
+    materialize = client.post(
+        "/skill-blueprints/skill.blueprint.default.callable/materialize",
+        json={
+            "generation_operation": "normalize_object_keys",
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"payload": {"type": "object"}},
+                    "required": ["payload"],
+                    "additionalProperties": False
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {"normalized": {"type": "object"}, "adapter": {"type": "string"}},
+                    "required": ["normalized", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False
+                }
+            },
+            "smoke_test_inputs": {"payload": {"Display Name": "Agent System"}}
+        },
+    )
+    assert materialize.status_code == 200
+    payload = materialize.json()
+    assert payload["creation_request"]["adapter_kind"] == "callable"
+    assert payload["registered_skill"]["runtime_adapter"] == "callable"
+
+
+
 def test_materialize_skill_blueprint_uses_safety_defaults_in_creation_request() -> None:
     add_blueprint = client.post(
         "/skill-blueprints",

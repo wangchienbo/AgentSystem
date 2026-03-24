@@ -315,6 +315,7 @@ The platform should expose an API-first path for generated skills so the system 
 - risk governance should expose operator-facing stats and dashboard summaries so risky-skill handling can be inspected without manually scanning raw decision/event records
 - self-iteration / generated-skill suggestion paths should consume current risk-governance state so fallback recommendations trend toward lower-risk local/deterministic shapes under active policy pressure
 - suggestion paths should also consume blueprint-materialization policy pressure specifically, so recommendations can favor callable materialization and safer artifact shapes when materialization policy has recently blocked riskier forms
+- blueprint materialization should honor governance-aware defaults when callers do not explicitly choose an adapter, preferring callable materialization when the blueprint safety profile says so
 - governance-aware skill suggestions should encode their low-risk bias into machine-readable blueprint metadata, not only human-readable step text, so later generation stages can inherit safer defaults
 - downstream generation defaults should consume `SkillBlueprint.safety_profile` to derive safer capability/risk defaults before a generated skill is materialized or registered
 - the system should expose a concrete blueprint-to-creation-request bridge so governance-aware defaults can enter the generated-skill creation path as first-class request defaults

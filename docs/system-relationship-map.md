@@ -430,6 +430,8 @@ graph TD
     F --> T21[tests/unit/test_skill_blueprint_materialization_api.py]
     F --> T22[tests/unit/test_skill_blueprint_materialization_override_api.py]
 
+> Default-selection note: blueprint safety metadata now affects materialization adapter default selection when callers omit `adapter_kind`, so artifact shape can change even without explicit adapter input.
+
 > Policy note: blueprint materialization now consumes safety metadata as active policy, not just propagation metadata. Changes to `SkillBlueprint.safety_profile` can therefore affect whether materialization is allowed at all.
 
 > Materialization note: blueprint materialization now surfaces the final registered skill state, so changes in manifest/capability propagation should be treated as affecting not just request construction but end-to-end generated skill artifacts.
