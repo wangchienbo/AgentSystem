@@ -2,6 +2,33 @@
 
 ## 2026-03-24
 
+### Module: self-refinement governance dashboard summary
+
+Added a higher-level governance dashboard read model for self-refinement so operator-facing surfaces can fetch one composed payload instead of manually joining overview, stats, queue pages, and failed-hypothesis pages.
+
+#### Added
+- `tests/unit/test_refinement_governance_dashboard.py`
+  - verifies governance dashboard aggregation and API response shape
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `RefinementGovernanceDashboard`
+- `app/services/refinement_memory.py`
+  - adds governance dashboard aggregation built from overview, stats, recent queue, and recent failed-hypothesis slices
+- `app/api/main.py`
+  - exposes `/self-refinement/governance-dashboard`
+- `docs/requirements.md`
+  - records dashboard-style refinement governance read model expectation
+- `docs/design.md`
+  - documents governance dashboard composition
+- `docs/testing.md`
+  - records combined dashboard coverage expectations
+
+#### Validation
+- focused refinement governance/dashboard regression slice passes
+- result: `11 passed`
+- command: `./.venv/bin/pytest -q tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py tests/unit/test_refinement_rollout.py tests/unit/test_refinement_dashboard.py tests/unit/test_refinement_overview.py`
+
 ### Module: self-refinement governance filter/stat read models
 
 Extended the refinement governance layer with filtered read models and aggregate stats so operator-facing surfaces can inspect rollout state and failed-learning history without scanning raw full lists.

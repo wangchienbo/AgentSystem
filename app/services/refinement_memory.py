@@ -4,6 +4,7 @@ from app.models.refinement_loop import (
     FailedHypothesisPage,
     FailedHypothesisRecord,
     RefinementDashboard,
+    RefinementGovernanceDashboard,
     RefinementExperiment,
     RefinementFilter,
     RefinementHypothesis,
@@ -200,6 +201,35 @@ class RefinementMemoryStore:
             latest_verification_at=max((item.created_at for item in verifications), default=None),
             latest_queue_item_at=max((item.created_at for item in queue_items), default=None),
             latest_failed_hypothesis_at=max((item.created_at for item in failed_hypotheses), default=None),
+        )
+
+    def get_governance_dashboard(self, filters: RefinementFilter | None = None, recent_limit: int = 5) -> RefinementGovernanceDashboard:
+        filters = filters or RefinementFilter()
+        app_instance_id = filters.app_instance_id or "global"
+        overview = self.build_overview(app_instance_id) if filters.app_instance_id is not None else RefinementOverview(app_instance_id=app_instance_id)
+        stats = self.get_stats_summary(filters)
+        recent_queue = self.list_queue_page(
+            RefinementFilter(
+                app_instance_id=filters.app_instance_id,
+                hypothesis_id=filters.hypothesis_id,
+                proposal_id=filters.proposal_id,
+                queue_status=filters.queue_status,
+                limit=recent_limit,
+            )
+        )
+        recent_failed = self.list_failed_hypothesis_page(
+            RefinementFilter(
+                app_instance_id=filters.app_instance_id,
+                hypothesis_id=filters.hypothesis_id,
+                proposal_id=filters.proposal_id,
+                limit=recent_limit,
+            )
+        )
+        return RefinementGovernanceDashboard(
+            overview=overview,
+            stats=stats,
+            recent_queue=recent_queue,
+            recent_failed_hypotheses=recent_failed,
         )
 
     def _apply_hypothesis_filters(self, items: list[RefinementHypothesis], filters: RefinementFilter) -> list[RefinementHypothesis]:

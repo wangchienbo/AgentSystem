@@ -949,6 +949,27 @@ def get_refinement_stats(
     ).model_dump(mode="json")
 
 
+@app.get("/self-refinement/governance-dashboard")
+def get_refinement_governance_dashboard(
+    app_instance_id: str | None = None,
+    hypothesis_id: str | None = None,
+    proposal_id: str | None = None,
+    status: str | None = None,
+    verification_outcome: str | None = None,
+    recent_limit: int = 5,
+) -> dict:
+    return refinement_memory.get_governance_dashboard(
+        RefinementFilter(
+            app_instance_id=app_instance_id,
+            hypothesis_id=hypothesis_id,
+            proposal_id=proposal_id,
+            queue_status=status,
+            verification_outcome=verification_outcome,
+        ),
+        recent_limit=recent_limit,
+    ).model_dump(mode="json")
+
+
 @app.post("/self-refinement/rollout-queue/{queue_id}/{action}")
 def transition_refinement_rollout_queue(queue_id: str, action: str, payload: dict | None = None) -> dict:
     payload = payload or {}

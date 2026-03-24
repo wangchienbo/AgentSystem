@@ -298,6 +298,7 @@ The platform should expose an API-first path for generated skills so the system 
 - provide a single dashboard-oriented observability payload that bundles health/overview, aggregate stats, and a recent activity slice
 - keep observability parser/helper logic modular so further framework growth does not turn API handlers or the main observability service into monoliths
 - provide equivalent self-refinement governance read models for rollout queues and failed-hypothesis archives, including filtered page views and aggregate stats summaries so operator surfaces can inspect refinement state without scanning full raw lists
+- provide a higher-level self-refinement governance dashboard payload that bundles overview, aggregate stats, recent queue state, and recent failed-hypothesis archive slices for operator-facing review surfaces
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

@@ -60,6 +60,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - the system should preserve negative learning signals through failed-hypothesis records and expose recent refinement history through dashboard read models, so self-improvement can incorporate both success and disproof
 - refinement loop decisions should become failure-aware: previously disproven hypotheses should raise repeat-risk scores, annotate verification with gating reasons, and block naive promotion of repeated strategies
 - refinement governance should expose lightweight operator read models parallel to workflow observability, including filtered rollout-queue pages, failed-hypothesis archive pages, and aggregate stats summaries keyed by app/hypothesis/proposal filters
+- refinement governance should also expose a dashboard-style aggregate surface that composes overview + stats + recent queue/failure slices so operators can review learning-governance state through one higher-level read model
 
 ---
 

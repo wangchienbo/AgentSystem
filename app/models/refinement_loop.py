@@ -115,6 +115,13 @@ class RefinementDashboard(BaseModel):
     recent_failed_hypotheses: list[FailedHypothesisRecord] = Field(default_factory=list)
 
 
+class RefinementGovernanceDashboard(BaseModel):
+    overview: RefinementOverview
+    stats: "RefinementStatsSummary"
+    recent_queue: "RefinementQueuePage"
+    recent_failed_hypotheses: "FailedHypothesisPage"
+
+
 class RefinementFilter(BaseModel):
     app_instance_id: str | None = None
     hypothesis_id: str | None = None
