@@ -30,6 +30,32 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: materialization-aware governance context in skill suggestion
+
+Fed blueprint-materialization policy pressure back into the skill suggestion path so self-iteration recommendations can react not only to general risk blocking, but specifically to materialization-time policy friction.
+
+#### Updated
+- `app/services/skill_suggestion.py`
+  - governance context now includes materialization-scoped blocked-event and active-override signals
+  - fallback suggestions now bias toward callable materialization when blueprint-materialization policy pressure is active
+  - safety metadata now records `prefer_callable_materialization`
+- `tests/unit/test_skill_suggestion.py`
+  - verifies suggestion governance context includes materialization pressure and callable-materialization bias in both text and safety metadata
+- `docs/requirements.md`
+  - records materialization-aware suggestion requirement
+- `docs/design.md`
+  - documents blueprint-materialization pressure as part of governance-aware suggestion state
+- `docs/testing.md`
+  - records materialization-aware suggestion coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with materialization-pressure-aware suggestion behavior
+- `docs/system-relationship-map.md`
+  - notes that materialization policy summaries now affect suggested artifact shape
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_suggestion.py tests/unit/test_skill_blueprint_materialization_override_api.py`
+- result: `5 passed`
+
 ### Module: blueprint materialization policy overrides
 
 Connected blueprint materialization policy into the existing risk-governance override system so reviewer-managed approvals can intentionally unblock shell/script materialization under a dedicated scope.

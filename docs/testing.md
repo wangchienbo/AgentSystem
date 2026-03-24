@@ -169,6 +169,7 @@ Covered behavior:
 - generated-skill governance coverage now verifies blocked/approved/revoked risk events are queryable through the risk governance event trail
 - skill risk governance coverage now verifies operator-facing stats/dashboard summaries over decision and event data
 - skill suggestion governance coverage now verifies fallback suggestions expose governance context and bias toward lower-risk local/deterministic behavior under recent policy pressure
+- materialization-aware suggestion coverage now verifies fallback suggestions react to blueprint-materialization blocking pressure and prefer callable materialization in both text and metadata
 - governance-aware suggestion coverage now verifies low-risk defaults are encoded in machine-readable blueprint safety metadata
 - blueprint safety handoff coverage now verifies skill-factory creation defaults can be derived from `SkillBlueprint.safety_profile`
 - blueprint creation-request bridge coverage now verifies governance-aware defaults can be projected into concrete `SkillCreationRequest` objects

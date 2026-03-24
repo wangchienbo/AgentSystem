@@ -412,7 +412,7 @@ graph TD
     F --> T1[tests/unit/test_skill_suggestion.py]
     F --> T2[tests/unit/test_skill_runtime.py]
 
-> Suggestion note: skill suggestion now depends not only on experience data and optional model synthesis, but also on risk governance state when available. Changes in risk policy summaries can therefore alter generated-skill suggestion behavior.
+> Suggestion note: skill suggestion now depends not only on experience data and optional model synthesis, but also on risk governance state when available. Changes in risk policy summaries — especially blueprint-materialization pressure — can therefore alter generated-skill suggestion behavior and preferred artifact shape.
     F --> T3[tests/unit/test_skill_runtime_adapters.py]
     F --> T4[tests/unit/test_skill_control.py]
     F --> T5[tests/unit/test_skill_authoring.py]

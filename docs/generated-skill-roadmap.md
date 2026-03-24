@@ -268,6 +268,7 @@ Keep generated skill expansion safe.
 - governance actions and policy blocks leave a queryable event trail suitable for future risk dashboards and audit/reporting surfaces
 - operator-facing risk stats/dashboard reads are available so future self-iteration loops can inspect governance state without hand-scanning raw records
 - skill suggestion / self-iteration entry points should consume governance summaries so newly suggested skills naturally trend safer under active policy pressure
+- that governance context should explicitly include materialization-policy pressure so suggested skills can bias away from shell/script artifact shapes when those forms are being gated
 - those safer defaults should be preserved in blueprint-level metadata so downstream generation stages can honor them automatically
 - the generation layer should expose an explicit bridge from blueprint safety metadata into concrete creation defaults before full end-to-end generated-skill materialization is completed
 - the next handoff should also project those defaults into concrete `SkillCreationRequest` objects so the generated-skill create path can consume them directly

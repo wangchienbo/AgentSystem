@@ -77,19 +77,32 @@ class SkillSuggestionService:
         if self._risk_policy is None:
             return {"risk_governance_enabled": False}
         stats = self._risk_policy.get_stats_summary()
+        materialization_events = [
+            item for item in self._risk_policy.list_events() if item.scope == "blueprint_materialization"
+        ]
+        materialization_blocked_events = sum(1 for item in materialization_events if item.event_type == "policy_blocked")
+        materialization_active_overrides = sum(
+            1
+            for item in self._risk_policy.list_decisions()
+            if item.scope == "blueprint_materialization" and item.is_active()
+        )
         return {
             "risk_governance_enabled": True,
             "blocked_events": stats.blocked_events,
             "active_overrides": stats.active_overrides,
             "recent_policy_pressure": stats.blocked_events > 0,
+            "materialization_blocked_events": materialization_blocked_events,
+            "materialization_active_overrides": materialization_active_overrides,
+            "materialization_policy_pressure": materialization_blocked_events > 0,
         }
 
     def _build_safety_profile(self, governance_context: dict) -> dict:
-        if governance_context.get("recent_policy_pressure"):
+        if governance_context.get("recent_policy_pressure") or governance_context.get("materialization_policy_pressure"):
             return {
                 "preferred_risk_level": "R0_safe_read",
                 "prefer_local_only": True,
                 "prefer_deterministic": True,
+                "prefer_callable_materialization": True,
                 "allow_network": False,
                 "allow_shell": False,
                 "allow_filesystem_write": False,
@@ -98,6 +111,7 @@ class SkillSuggestionService:
             "preferred_risk_level": "R0_safe_read",
             "prefer_local_only": False,
             "prefer_deterministic": True,
+            "prefer_callable_materialization": False,
         }
 
     def _build_steps(self, summary: str, governance_context: dict) -> list[str]:
@@ -109,4 +123,6 @@ class SkillSuggestionService:
         ]
         if governance_context.get("recent_policy_pressure"):
             steps.insert(2, "prefer deterministic local execution and avoid shell/network side effects unless explicitly required")
+        if governance_context.get("materialization_policy_pressure"):
+            steps.insert(3, "prefer callable materialization over shell/script materialization while policy pressure remains active")
         return steps
