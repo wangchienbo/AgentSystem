@@ -43,6 +43,12 @@ Current known limits:
 
 ## 3. Delivery Principles
 
+> **Self-iteration maintenance rule**
+>
+> Any future self-iteration work that changes system structure, adds/removes skills, changes generated-app flow, introduces new contracts/helpers, or changes important validation paths must also update `docs/system-relationship-map.md` in the same change set.
+>
+> The relationship map is part of the self-iteration substrate: if the system evolves but the map does not, future iterations will lose impact awareness.
+
 1. **Prove with real skills, not synthetic placeholders only**
    Every stage should be validated with at least one realistic skill or app path.
 
@@ -310,3 +316,4 @@ Per phase, record:
 - validation cases
 - focused regression result
 - open follow-up gaps
+- whether `docs/system-relationship-map.md` was updated to reflect the new structure / coupling / test impact

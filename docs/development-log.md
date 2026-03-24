@@ -30,6 +30,20 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: self-iteration docs now require relationship-map maintenance
+
+Extended the relationship-map maintenance rule into the self-iteration and core-skill guidance docs so future generated-skill / self-evolution work treats the system map as part of the iteration substrate rather than optional documentation.
+
+#### Updated
+- `docs/generated-skill-roadmap.md`
+  - adds an explicit self-iteration maintenance rule requiring `docs/system-relationship-map.md` updates in the same change set
+  - adds relationship-map update status to the per-phase progress tracking checklist
+- `docs/skill-design-principles.md`
+  - links core-skill/runtime/self-iteration changes to mandatory `docs/system-relationship-map.md` maintenance
+
+#### Notes
+- this makes the rule visible from the documents most likely to be consulted during future self-evolution work, not only from general development docs
+
 ### Module: system-wide relationship map for modules / features / tests
 
 Added a dedicated relationship-map document to help future change planning and self-iteration track module coupling, feature coverage, and test impact as a graph instead of relying on ad-hoc repo memory.
