@@ -307,10 +307,13 @@ def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterialization
         )
         creation_request.command = request.command
         creation_request.tags = request.tags
+        creation_result = skill_factory.create_skill(creation_request)
+        registered_skill = skill_control.get_skill(creation_result.skill_id)
         return {
             "skill_blueprint": blueprint.model_dump(mode="json"),
             "creation_request": creation_request.model_dump(mode="json"),
-            "creation_result": skill_factory.create_skill(creation_request).model_dump(mode="json"),
+            "creation_result": creation_result.model_dump(mode="json"),
+            "registered_skill": registered_skill.model_dump(mode="json"),
         }
     except (KeyError, SkillFactoryError, SkillDiagnosticError, ValueError) as error:
         raise map_domain_error(error) from error

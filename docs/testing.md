@@ -173,6 +173,7 @@ Covered behavior:
 - blueprint safety handoff coverage now verifies skill-factory creation defaults can be derived from `SkillBlueprint.safety_profile`
 - blueprint creation-request bridge coverage now verifies governance-aware defaults can be projected into concrete `SkillCreationRequest` objects
 - blueprint materialization coverage now verifies stored blueprints can be turned into real skills through an API path that preserves governance-aware request defaults
+- end-to-end blueprint materialization coverage now verifies low-risk defaults also appear in the final registered skill manifest and capability profile
 
 ## 3.7 Interaction gateway
 Covered behavior:

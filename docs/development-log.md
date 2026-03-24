@@ -30,6 +30,30 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: end-to-end propagation of safety defaults into registered skills
+
+Extended blueprint materialization so callers can now verify that governance-aware safety defaults propagated all the way into the final registered skill artifact, not just the intermediate creation request.
+
+#### Updated
+- `app/api/main.py`
+  - blueprint materialization now returns `registered_skill` alongside the blueprint, creation request, and creation result
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - now verifies low-risk defaults propagate into the final registered skill capability profile and manifest risk metadata
+- `docs/requirements.md`
+  - records end-to-end propagation visibility requirement
+- `docs/design.md`
+  - documents intermediate-request plus final-artifact visibility in the materialization response
+- `docs/testing.md`
+  - records end-to-end registered-skill propagation coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with final-artifact verification in the materialization path
+- `docs/system-relationship-map.md`
+  - notes that blueprint materialization now touches final registered artifact state as well as request construction
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py`
+- result: `1 passed`
+
 ### Module: blueprint materialization into real skills
 
 Connected the safety-aware blueprint/request bridge into a real API path so stored skill blueprints can now be materialized into registered skills while preserving governance-derived request defaults.

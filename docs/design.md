@@ -81,6 +81,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - `SkillFactoryService` should expose a creation-defaults bridge from `SkillBlueprint.safety_profile` into concrete capability/risk defaults, even before the full generated-skill authoring pipeline consumes it end-to-end
 - `SkillFactoryService` should also expose a blueprint-to-`SkillCreationRequest` bridge so governance-aware defaults can enter the concrete request object used by later materialization/registration flows
 - the API layer should expose blueprint materialization as a first-class path, allowing stored `SkillBlueprint` records to become real skills while preserving the request defaults derived from governance-aware safety metadata
+- blueprint materialization responses should expose both the intermediate creation request and the final registered skill state so governance-aware propagation can be validated end-to-end
 
 ---
 

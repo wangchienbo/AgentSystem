@@ -428,6 +428,8 @@ graph TD
     F --> T15[tests/unit/test_skill_factory_risk_gating.py]
     F --> T20[tests/unit/test_skill_blueprint_safety_defaults.py]
     F --> T21[tests/unit/test_skill_blueprint_materialization_api.py]
+
+> Materialization note: blueprint materialization now surfaces the final registered skill state, so changes in manifest/capability propagation should be treated as affecting not just request construction but end-to-end generated skill artifacts.
     F --> T16[tests/unit/test_skill_policy_diagnostics_api.py]
     F --> T17[tests/unit/test_skill_risk_policy.py]
     F --> T18[tests/unit/test_skill_risk_override_api.py]

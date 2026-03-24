@@ -318,6 +318,7 @@ The platform should expose an API-first path for generated skills so the system 
 - downstream generation defaults should consume `SkillBlueprint.safety_profile` to derive safer capability/risk defaults before a generated skill is materialized or registered
 - the system should expose a concrete blueprint-to-creation-request bridge so governance-aware defaults can enter the generated-skill creation path as first-class request defaults
 - stored skill blueprints should be materializable into real skills through an API path that preserves governance-aware creation defaults in the emitted `SkillCreationRequest`
+- blueprint materialization should also expose the resulting registered skill state so callers can verify that low-risk defaults propagated into the final manifest/capability profile, not only the intermediate request
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills
