@@ -32,7 +32,7 @@ from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
-from app.models.refinement_loop import RefinementLoopRequest
+from app.models.refinement_loop import RefinementFilter, RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError
@@ -894,6 +894,59 @@ def get_refinement_dashboard(app_instance_id: str, limit: int = 5) -> dict:
 @app.get("/self-refinement/failed-hypotheses")
 def list_failed_hypotheses(app_instance_id: str | None = None, hypothesis_id: str | None = None) -> list[dict]:
     return [item.model_dump(mode="json") for item in refinement_memory.list_failed_hypotheses(app_instance_id, hypothesis_id)]
+
+
+@app.get("/self-refinement/rollout-queue-page")
+def get_refinement_rollout_queue_page(
+    app_instance_id: str | None = None,
+    hypothesis_id: str | None = None,
+    proposal_id: str | None = None,
+    status: str | None = None,
+    limit: int | None = None,
+) -> dict:
+    return refinement_memory.list_queue_page(
+        RefinementFilter(
+            app_instance_id=app_instance_id,
+            hypothesis_id=hypothesis_id,
+            proposal_id=proposal_id,
+            queue_status=status,
+            limit=limit,
+        )
+    ).model_dump(mode="json")
+
+
+@app.get("/self-refinement/failed-hypotheses-page")
+def get_failed_hypotheses_page(
+    app_instance_id: str | None = None,
+    hypothesis_id: str | None = None,
+    proposal_id: str | None = None,
+    limit: int | None = None,
+) -> dict:
+    return refinement_memory.list_failed_hypothesis_page(
+        RefinementFilter(
+            app_instance_id=app_instance_id,
+            hypothesis_id=hypothesis_id,
+            proposal_id=proposal_id,
+            limit=limit,
+        )
+    ).model_dump(mode="json")
+
+
+@app.get("/self-refinement/stats")
+def get_refinement_stats(
+    app_instance_id: str | None = None,
+    hypothesis_id: str | None = None,
+    proposal_id: str | None = None,
+    verification_outcome: str | None = None,
+) -> dict:
+    return refinement_memory.get_stats_summary(
+        RefinementFilter(
+            app_instance_id=app_instance_id,
+            hypothesis_id=hypothesis_id,
+            proposal_id=proposal_id,
+            verification_outcome=verification_outcome,
+        )
+    ).model_dump(mode="json")
 
 
 @app.post("/self-refinement/rollout-queue/{queue_id}/{action}")

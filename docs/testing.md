@@ -149,6 +149,7 @@ Covered behavior:
 - rollout queue lifecycle coverage now verifies approve/apply/reject/rollback transitions and the corresponding API surfaces
 - refinement dashboard/history coverage now verifies failed-hypothesis archiving plus recent-hypothesis / verification / decision / queue read models and related API surfaces
 - failure-aware refinement coverage now verifies repeated hypotheses are marked with repeat risk, linked to prior failed hypotheses, and gated from naive promotion even when later validation passes
+- refinement governance filtering coverage now verifies rollout-queue page reads, failed-hypothesis archive page reads, and aggregate stats summaries across both service and API surfaces
 
 ## 3.7 Interaction gateway
 Covered behavior:

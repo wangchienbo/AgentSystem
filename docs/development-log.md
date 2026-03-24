@@ -1,5 +1,34 @@
 # Development Log
 
+## 2026-03-24
+
+### Module: self-refinement governance filter/stat read models
+
+Extended the refinement governance layer with filtered read models and aggregate stats so operator-facing surfaces can inspect rollout state and failed-learning history without scanning raw full lists.
+
+#### Added
+- `tests/unit/test_refinement_filters_and_stats.py`
+  - verifies queue-page filtering, failed-hypothesis archive paging, and aggregate stats summaries across service/API paths
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `RefinementFilter`, `RefinementStatsSummary`, `RefinementQueuePage`, and `FailedHypothesisPage`
+- `app/services/refinement_memory.py`
+  - adds filtered queue-page reads, failed-hypothesis page reads, aggregate stats summaries, and shared internal filter helpers
+- `app/api/main.py`
+  - exposes `/self-refinement/rollout-queue-page`, `/self-refinement/failed-hypotheses-page`, and `/self-refinement/stats`
+- `docs/requirements.md`
+  - records refinement-governance filtered page/stats requirement direction
+- `docs/design.md`
+  - documents refinement-governance operator read models
+- `docs/testing.md`
+  - records coverage expectations for refinement filtering/stats surfaces
+
+#### Validation
+- focused refinement governance regression slice passes
+- result: `9 passed`
+- command: `./.venv/bin/pytest -q tests/unit/test_refinement_filters_and_stats.py tests/unit/test_refinement_rollout.py tests/unit/test_refinement_dashboard.py tests/unit/test_refinement_overview.py`
+
 ## 2026-03-23
 
 ### Module: failure-aware refinement gating

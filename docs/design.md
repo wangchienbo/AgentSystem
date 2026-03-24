@@ -59,6 +59,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - rollout queue items should support explicit lifecycle transitions (approve/apply/reject/rollback) so refinement promotion is operationally governed rather than hidden in one-off side effects
 - the system should preserve negative learning signals through failed-hypothesis records and expose recent refinement history through dashboard read models, so self-improvement can incorporate both success and disproof
 - refinement loop decisions should become failure-aware: previously disproven hypotheses should raise repeat-risk scores, annotate verification with gating reasons, and block naive promotion of repeated strategies
+- refinement governance should expose lightweight operator read models parallel to workflow observability, including filtered rollout-queue pages, failed-hypothesis archive pages, and aggregate stats summaries keyed by app/hypothesis/proposal filters
 
 ---
 

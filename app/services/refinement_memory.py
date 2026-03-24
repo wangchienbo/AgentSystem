@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from app.models.refinement_loop import (
+    FailedHypothesisPage,
     FailedHypothesisRecord,
     RefinementDashboard,
     RefinementExperiment,
+    RefinementFilter,
     RefinementHypothesis,
     RefinementOverview,
+    RefinementQueuePage,
+    RefinementStatsSummary,
     RolloutDecision,
     RolloutQueueItem,
     VerificationResult,
@@ -130,7 +134,6 @@ class RefinementMemoryStore:
     def build_dashboard(self, app_instance_id: str, limit: int = 5) -> RefinementDashboard:
         overview = self.build_overview(app_instance_id)
         recent_hypotheses = sorted(self.list_hypotheses(app_instance_id), key=lambda item: item.created_at, reverse=True)[:limit]
-        hypothesis_ids = {item.hypothesis_id for item in recent_hypotheses}
         recent_verifications = sorted(
             [item for item in self._verifications.values() if item.app_instance_id == app_instance_id],
             key=lambda item: item.created_at,
@@ -141,10 +144,8 @@ class RefinementMemoryStore:
             key=lambda item: item.created_at,
             reverse=True,
         )[:limit]
-        recent_queue_items = sorted(self.list_queue(app_instance_id=app_instance_id), key=lambda item: item.created_at, reverse=True)[:limit]
-        recent_failed_hypotheses = sorted(
-            self.list_failed_hypotheses(app_instance_id=app_instance_id), key=lambda item: item.created_at, reverse=True
-        )[:limit]
+        recent_queue_items = self.list_queue_page(RefinementFilter(app_instance_id=app_instance_id, limit=limit)).items
+        recent_failed_hypotheses = self.list_failed_hypothesis_page(RefinementFilter(app_instance_id=app_instance_id, limit=limit)).items
         return RefinementDashboard(
             overview=overview,
             recent_hypotheses=recent_hypotheses,
@@ -153,6 +154,105 @@ class RefinementMemoryStore:
             recent_queue_items=recent_queue_items,
             recent_failed_hypotheses=recent_failed_hypotheses,
         )
+
+    def list_queue_page(self, filters: RefinementFilter | None = None) -> RefinementQueuePage:
+        filters = filters or RefinementFilter()
+        items = list(self._queue.values())
+        filtered = self._apply_queue_filters(items, filters)
+        filtered = sorted(filtered, key=lambda item: item.created_at, reverse=True)
+        if filters.limit is not None:
+            filtered = filtered[: filters.limit]
+        return RefinementQueuePage(items=filtered, total_count=len(items), filtered_count=len(filtered))
+
+    def list_failed_hypothesis_page(self, filters: RefinementFilter | None = None) -> FailedHypothesisPage:
+        filters = filters or RefinementFilter()
+        items = list(self._failed_hypotheses.values())
+        filtered = self._apply_failed_hypothesis_filters(items, filters)
+        filtered = sorted(filtered, key=lambda item: item.created_at, reverse=True)
+        if filters.limit is not None:
+            filtered = filtered[: filters.limit]
+        return FailedHypothesisPage(items=filtered, total_count=len(items), filtered_count=len(filtered))
+
+    def get_stats_summary(self, filters: RefinementFilter | None = None) -> RefinementStatsSummary:
+        filters = filters or RefinementFilter()
+        hypotheses = self._apply_hypothesis_filters(list(self._hypotheses.values()), filters)
+        verifications = self._apply_verification_filters(list(self._verifications.values()), filters)
+        queue_items = self._apply_queue_filters(list(self._queue.values()), filters)
+        failed_hypotheses = self._apply_failed_hypothesis_filters(list(self._failed_hypotheses.values()), filters)
+        return RefinementStatsSummary(
+            app_instance_id=filters.app_instance_id,
+            hypothesis_id=filters.hypothesis_id,
+            proposal_id=filters.proposal_id,
+            total_hypotheses=len(hypotheses),
+            repeated_hypotheses=sum(1 for item in hypotheses if item.repeat_risk != "low"),
+            total_verifications=len(verifications),
+            passed_verifications=sum(1 for item in verifications if item.outcome == "passed"),
+            failed_verifications=sum(1 for item in verifications if item.outcome == "failed"),
+            inconclusive_verifications=sum(1 for item in verifications if item.outcome == "inconclusive"),
+            total_queue_items=len(queue_items),
+            queued_items=sum(1 for item in queue_items if item.status == "queued"),
+            approved_items=sum(1 for item in queue_items if item.status == "approved"),
+            applied_items=sum(1 for item in queue_items if item.status == "applied"),
+            rejected_items=sum(1 for item in queue_items if item.status == "rejected"),
+            rolled_back_items=sum(1 for item in queue_items if item.status == "rolled_back"),
+            failed_hypotheses=len(failed_hypotheses),
+            latest_hypothesis_at=max((item.created_at for item in hypotheses), default=None),
+            latest_verification_at=max((item.created_at for item in verifications), default=None),
+            latest_queue_item_at=max((item.created_at for item in queue_items), default=None),
+            latest_failed_hypothesis_at=max((item.created_at for item in failed_hypotheses), default=None),
+        )
+
+    def _apply_hypothesis_filters(self, items: list[RefinementHypothesis], filters: RefinementFilter) -> list[RefinementHypothesis]:
+        filtered = items
+        if filters.app_instance_id is not None:
+            filtered = [item for item in filtered if item.app_instance_id == filters.app_instance_id]
+        if filters.hypothesis_id is not None:
+            filtered = [item for item in filtered if item.hypothesis_id == filters.hypothesis_id]
+        if filters.proposal_id is not None:
+            filtered = [item for item in filtered if item.proposal_id == filters.proposal_id]
+        return filtered
+
+    def _apply_verification_filters(self, items: list[VerificationResult], filters: RefinementFilter) -> list[VerificationResult]:
+        filtered = items
+        if filters.app_instance_id is not None:
+            filtered = [item for item in filtered if item.app_instance_id == filters.app_instance_id]
+        if filters.hypothesis_id is not None:
+            filtered = [item for item in filtered if item.hypothesis_id == filters.hypothesis_id]
+        if filters.verification_outcome is not None:
+            filtered = [item for item in filtered if item.outcome == filters.verification_outcome]
+        if filters.proposal_id is not None:
+            hypothesis_ids = {
+                item.hypothesis_id for item in self._apply_hypothesis_filters(list(self._hypotheses.values()), filters)
+            }
+            filtered = [item for item in filtered if item.hypothesis_id in hypothesis_ids]
+        return filtered
+
+    def _apply_queue_filters(self, items: list[RolloutQueueItem], filters: RefinementFilter) -> list[RolloutQueueItem]:
+        filtered = items
+        if filters.app_instance_id is not None:
+            filtered = [item for item in filtered if item.app_instance_id == filters.app_instance_id]
+        if filters.hypothesis_id is not None:
+            filtered = [item for item in filtered if item.hypothesis_id == filters.hypothesis_id]
+        if filters.proposal_id is not None:
+            filtered = [item for item in filtered if item.proposal_id == filters.proposal_id]
+        if filters.queue_status is not None:
+            filtered = [item for item in filtered if item.status == filters.queue_status]
+        return filtered
+
+    def _apply_failed_hypothesis_filters(
+        self, items: list[FailedHypothesisRecord], filters: RefinementFilter
+    ) -> list[FailedHypothesisRecord]:
+        filtered = items
+        if filters.app_instance_id is not None:
+            filtered = [item for item in filtered if item.app_instance_id == filters.app_instance_id]
+        if filters.hypothesis_id is not None:
+            filtered = [item for item in filtered if item.hypothesis_id == filters.hypothesis_id]
+        if filters.proposal_id is not None:
+            hypothesis_ids = {
+                item.hypothesis_id for item in self._apply_hypothesis_filters(list(self._hypotheses.values()), filters)
+            }
+            filtered = [item for item in filtered if item.hypothesis_id in hypothesis_ids]
+        return filtered
 
     def _persist(self) -> None:
         if self._store is None:

@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Literal
 
+from pydantic import ConfigDict
+
 from pydantic import BaseModel, Field
 
 
@@ -111,6 +113,72 @@ class RefinementDashboard(BaseModel):
     recent_decisions: list[RolloutDecision] = Field(default_factory=list)
     recent_queue_items: list[RolloutQueueItem] = Field(default_factory=list)
     recent_failed_hypotheses: list[FailedHypothesisRecord] = Field(default_factory=list)
+
+
+class RefinementFilter(BaseModel):
+    app_instance_id: str | None = None
+    hypothesis_id: str | None = None
+    proposal_id: str | None = None
+    queue_status: RolloutQueueStatus | None = None
+    verification_outcome: VerificationOutcome | None = None
+    limit: int | None = Field(default=None, ge=1)
+
+
+class RefinementStatsSummary(BaseModel):
+    app_instance_id: str | None = None
+    hypothesis_id: str | None = None
+    proposal_id: str | None = None
+    total_hypotheses: int = 0
+    repeated_hypotheses: int = 0
+    total_verifications: int = 0
+    passed_verifications: int = 0
+    failed_verifications: int = 0
+    inconclusive_verifications: int = 0
+    total_queue_items: int = 0
+    queued_items: int = 0
+    approved_items: int = 0
+    applied_items: int = 0
+    rejected_items: int = 0
+    rolled_back_items: int = 0
+    failed_hypotheses: int = 0
+    latest_hypothesis_at: datetime | None = None
+    latest_verification_at: datetime | None = None
+    latest_queue_item_at: datetime | None = None
+    latest_failed_hypothesis_at: datetime | None = None
+
+
+class RefinementQueuePage(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    items: list[RolloutQueueItem] = Field(default_factory=list)
+    total_count: int = 0
+    filtered_count: int = 0
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __iter__(self):
+        return iter(self.items)
+
+    def __getitem__(self, index: int) -> RolloutQueueItem:
+        return self.items[index]
+
+
+class FailedHypothesisPage(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    items: list[FailedHypothesisRecord] = Field(default_factory=list)
+    total_count: int = 0
+    filtered_count: int = 0
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __iter__(self):
+        return iter(self.items)
+
+    def __getitem__(self, index: int) -> FailedHypothesisRecord:
+        return self.items[index]
 
 
 class RefinementLoopRequest(BaseModel):
