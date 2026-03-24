@@ -267,6 +267,7 @@ Keep generated skill expansion safe.
 - reviewer-managed overrides can intentionally unblock risky generated app assembly with an auditable persisted decision
 - governance actions and policy blocks leave a queryable event trail suitable for future risk dashboards and audit/reporting surfaces
 - operator-facing risk stats/dashboard reads are available so future self-iteration loops can inspect governance state without hand-scanning raw records
+- skill suggestion / self-iteration entry points should consume governance summaries so newly suggested skills naturally trend safer under active policy pressure
 
 ---
 

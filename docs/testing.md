@@ -168,6 +168,7 @@ Covered behavior:
 - generated-skill approval coverage now verifies reviewer-managed overrides can be persisted, listed, revoked, and used to unblock generated app assembly intentionally
 - generated-skill governance coverage now verifies blocked/approved/revoked risk events are queryable through the risk governance event trail
 - skill risk governance coverage now verifies operator-facing stats/dashboard summaries over decision and event data
+- skill suggestion governance coverage now verifies fallback suggestions expose governance context and bias toward lower-risk local/deterministic behavior under recent policy pressure
 
 ## 3.7 Interaction gateway
 Covered behavior:

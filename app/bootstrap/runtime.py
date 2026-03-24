@@ -192,8 +192,13 @@ def build_runtime() -> dict[str, object]:
         experience_store=experience_store,
         context_store=app_context_store,
     )
+    skill_risk_policy = SkillRiskPolicyService(store=runtime_store)
     model_skill_suggester = ModelSkillSuggester()
-    skill_suggestion = SkillSuggestionService(experience_store=experience_store, model_suggester=model_skill_suggester)
+    skill_suggestion = SkillSuggestionService(
+        experience_store=experience_store,
+        model_suggester=model_skill_suggester,
+        risk_policy=skill_risk_policy,
+    )
     app_registry = AppRegistryService(store=runtime_store)
     model_self_refiner = ModelSelfRefiner() if os.getenv("AGENTSYSTEM_ENABLE_MODEL_REFINER") == "1" else None
     self_refinement = SelfRefinementService(
@@ -234,7 +239,6 @@ def build_runtime() -> dict[str, object]:
     )
     app_catalog = AppCatalogService()
     skill_runtime = SkillRuntimeService(store=runtime_store, schema_registry=schema_registry)
-    skill_risk_policy = SkillRiskPolicyService(store=runtime_store)
     generated_skill_assets = GeneratedSkillAssetStore(app_data_store)
     skill_factory = SkillFactoryService(
         skill_control=skill_control,

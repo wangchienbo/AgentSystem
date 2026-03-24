@@ -30,6 +30,36 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: risk-aware skill suggestion governance context
+
+Connected the risk governance subsystem back into the self-iteration entry path by teaching skill suggestion to expose governance context and bias fallback suggestions toward lower-risk local/deterministic shapes when recent policy pressure exists.
+
+#### Updated
+- `app/models/skill_suggestion.py`
+  - `SkillSuggestionResult` now includes `governance_context`
+- `app/services/skill_suggestion.py`
+  - can consume `SkillRiskPolicyService`
+  - includes governance summary data in suggestion results
+  - biases fallback suggestion steps toward local/deterministic execution when recent `policy_blocked` pressure exists
+- `app/bootstrap/runtime.py`
+  - wires `SkillRiskPolicyService` into `SkillSuggestionService`
+- `tests/unit/test_skill_suggestion.py`
+  - verifies governance context and lower-risk fallback bias under policy pressure
+- `docs/requirements.md`
+  - records risk-aware suggestion requirement
+- `docs/design.md`
+  - documents governance-summary consumption by skill suggestion
+- `docs/testing.md`
+  - records governance-aware suggestion coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the self-iteration substrate with governance-aware suggestion behavior
+- `docs/system-relationship-map.md`
+  - notes skill suggestion’s new coupling to risk governance state
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_suggestion.py tests/unit/test_skill_risk_dashboard.py`
+- result: `8 passed`
+
 ### Module: skill risk governance stats and dashboard
 
 Extended the risk governance subsystem with operator-facing stats and dashboard views so reviewers and future self-iteration loops can inspect risky-skill handling through structured summaries instead of raw decision/event scans.

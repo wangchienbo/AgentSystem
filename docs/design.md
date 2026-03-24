@@ -76,6 +76,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - reviewer-managed skill risk decisions should live in a dedicated persisted policy store, and generated app assembly should consult active overrides before enforcing default deny behavior for risky skills
 - risk governance should emit and persist a lightweight event trail (`policy_blocked`, `override_approved`, `override_revoked`) so audit and observability layers can expose more than the latest policy decision snapshot
 - the risk policy layer should also provide stats and dashboard-shaped read models (overview + stats + recent events) consistent with the broader operator-surface direction in the system
+- skill suggestion / self-iteration entry paths should be able to consume risk governance summaries so generated recommendations can adapt toward lower-risk execution forms when the governance layer shows recent blocking pressure
 
 ---
 

@@ -313,6 +313,7 @@ The platform should expose an API-first path for generated skills so the system 
 - the system should support explicit reviewer-managed override decisions for risky generated-skill assembly, including listing, approval, revocation, and persistence of those decisions
 - the system should also preserve a queryable governance event trail for risk blocking and override actions so future dashboards/audit surfaces can explain how risky skills were handled
 - risk governance should expose operator-facing stats and dashboard summaries so risky-skill handling can be inspected without manually scanning raw decision/event records
+- self-iteration / generated-skill suggestion paths should consume current risk-governance state so fallback recommendations trend toward lower-risk local/deterministic shapes under active policy pressure
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

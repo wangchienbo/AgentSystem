@@ -4,6 +4,7 @@ from app.api.main import app
 from app.models.experience import ExperienceRecord
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.services.experience_store import ExperienceStore
+from app.services.skill_risk_policy import SkillRiskPolicyService
 from app.services.skill_suggestion import SkillSuggestionService
 
 
@@ -114,6 +115,29 @@ def test_skill_suggestion_can_persist_blueprint() -> None:
 
     assert result.persisted is True
     assert len(store.list_skill_blueprints()) == 1
+
+
+
+def test_skill_suggestion_includes_risk_governance_context_when_policy_pressure_exists() -> None:
+    store = ExperienceStore()
+    risk_policy = SkillRiskPolicyService()
+    risk_policy.record_event(skill_id="skill.blocked.demo", event_type="policy_blocked", reason="blocked for safety")
+    service = SkillSuggestionService(experience_store=store, risk_policy=risk_policy)
+    store.add_experience(
+        ExperienceRecord(
+            experience_id="exp.runtime.005",
+            title="Runtime review under governance pressure",
+            summary="最近生成型能力多次被风险策略拦截。",
+            source="runtime",
+        )
+    )
+
+    result = service.suggest(SkillSuggestionRequest(experience_id="exp.runtime.005"))
+
+    assert result.governance_context["risk_governance_enabled"] is True
+    assert result.governance_context["blocked_events"] >= 1
+    assert result.governance_context["recent_policy_pressure"] is True
+    assert any("avoid shell/network side effects" in step for step in result.suggestion.steps)
 
 
 
