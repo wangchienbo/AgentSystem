@@ -403,6 +403,8 @@ graph TD
     F --> SA[services/skill_authoring.py]
     F --> SF[services/skill_factory.py]
     F --> GCM[services/generated_callable_materializer.py]
+
+> Factory note: `SkillFactoryService` now consumes `SkillBlueprint.safety_profile` when deriving creation defaults, so changes to blueprint safety metadata should be treated as also affecting generated-skill materialization defaults.
     F --> GSA[services/generated_skill_assets.py]
     F --> SSR[services/system_skill_registry.py]
     F --> SSS[services/system_skill_service.py]

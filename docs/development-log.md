@@ -30,6 +30,32 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: skill-factory bridge from blueprint safety metadata to creation defaults
+
+Added the first explicit bridge from governance-aware blueprint metadata into downstream generated-skill creation defaults, so safer suggestion defaults can begin influencing concrete capability/risk settings instead of remaining passive annotations.
+
+#### Added
+- `tests/unit/test_skill_blueprint_safety_defaults.py`
+  - verifies `SkillFactoryService` derives concrete capability and manifest-risk defaults from `SkillBlueprint.safety_profile`
+
+#### Updated
+- `app/services/skill_factory.py`
+  - adds `build_creation_defaults_from_blueprint(...)` as the initial handoff bridge from blueprint safety metadata into concrete creation defaults
+- `docs/requirements.md`
+  - records downstream consumption of blueprint safety metadata
+- `docs/design.md`
+  - documents the skill-factory bridge as the first creation-defaults handoff stage
+- `docs/testing.md`
+  - records blueprint-safety handoff coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with explicit safety-metadata-to-defaults bridging
+- `docs/system-relationship-map.md`
+  - notes new coupling from blueprint safety metadata into skill-factory materialization defaults
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_safety_defaults.py tests/unit/test_skill_suggestion.py`
+- result: `7 passed`
+
 ### Module: machine-readable safety defaults in governance-aware skill blueprints
 
 Extended governance-aware skill suggestion so low-risk bias is now preserved in machine-readable blueprint metadata rather than only appearing in textual suggestion steps.

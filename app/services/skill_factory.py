@@ -3,7 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 
 from app.models.app_blueprint import AppBlueprint
-from app.models.skill_control import SkillRegistryEntry
+from app.models.skill_blueprint import SkillBlueprint
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry
 from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult, StepMappingDefinition, SuggestedStepMapping
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
@@ -56,6 +57,28 @@ class SkillFactoryService:
         self._generated_assets = generated_assets
         self._callable_materializer = callable_materializer or GeneratedCallableMaterializer()
         self._risk_policy = risk_policy or SkillRiskPolicyService()
+
+    def build_creation_defaults_from_blueprint(self, blueprint: SkillBlueprint) -> dict:
+        safety_profile = blueprint.safety_profile or {}
+        capability_profile = SkillCapabilityProfile(
+            intelligence_level="L0_deterministic" if safety_profile.get("prefer_deterministic", True) else "L1_assisted",
+            network_requirement="N0_none" if safety_profile.get("allow_network") is False else "N1_optional",
+            runtime_criticality="C2_required_runtime",
+            execution_locality="local" if safety_profile.get("prefer_local_only") else "hybrid",
+            invocation_default="automatic",
+            risk_level=safety_profile.get("preferred_risk_level", "R0_safe_read"),
+        )
+        manifest_risk = {
+            "risk_level": safety_profile.get("preferred_risk_level", "R0_safe_read"),
+            "allow_network": bool(safety_profile.get("allow_network", False)),
+            "allow_shell": bool(safety_profile.get("allow_shell", False)),
+            "allow_filesystem_write": bool(safety_profile.get("allow_filesystem_write", False)),
+        }
+        return {
+            "capability_profile": capability_profile,
+            "manifest_risk": manifest_risk,
+            "safety_profile": safety_profile,
+        }
 
     def create_skill(self, request: SkillCreationRequest) -> SkillCreationResult:
         schema_refs = self._register_contracts(request)

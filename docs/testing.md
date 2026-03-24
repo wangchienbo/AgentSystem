@@ -170,6 +170,7 @@ Covered behavior:
 - skill risk governance coverage now verifies operator-facing stats/dashboard summaries over decision and event data
 - skill suggestion governance coverage now verifies fallback suggestions expose governance context and bias toward lower-risk local/deterministic behavior under recent policy pressure
 - governance-aware suggestion coverage now verifies low-risk defaults are encoded in machine-readable blueprint safety metadata
+- blueprint safety handoff coverage now verifies skill-factory creation defaults can be derived from `SkillBlueprint.safety_profile`
 
 ## 3.7 Interaction gateway
 Covered behavior:

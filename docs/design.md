@@ -78,6 +78,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - the risk policy layer should also provide stats and dashboard-shaped read models (overview + stats + recent events) consistent with the broader operator-surface direction in the system
 - skill suggestion / self-iteration entry paths should be able to consume risk governance summaries so generated recommendations can adapt toward lower-risk execution forms when the governance layer shows recent blocking pressure
 - governance-aware suggestions should project that bias into blueprint-level `safety_profile` metadata (preferred risk level, local-only preference, shell/network/write allowances) so later generation/materialization stages can inherit safer defaults
+- `SkillFactoryService` should expose a creation-defaults bridge from `SkillBlueprint.safety_profile` into concrete capability/risk defaults, even before the full generated-skill authoring pipeline consumes it end-to-end
 
 ---
 
