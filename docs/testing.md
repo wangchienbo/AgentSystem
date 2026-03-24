@@ -165,6 +165,7 @@ Covered behavior:
 - skill-manifest security coverage now verifies baseline script-command restrictions and explicit shell-risk opt-in semantics for script adapters
 - generated-skill security coverage now verifies risky skills are gated from generated app assembly/install-run by default
 - generated-skill policy coverage now verifies risk-gated assembly failures are returned as structured diagnostics with machine-readable policy reasons
+- generated-skill approval coverage now verifies reviewer-managed overrides can be persisted, listed, revoked, and used to unblock generated app assembly intentionally
 
 ## 3.7 Interaction gateway
 Covered behavior:

@@ -98,6 +98,7 @@ refinement_rollout = services["refinement_rollout"]
 app_installer = services["app_installer"]
 app_catalog = services["app_catalog"]
 skill_runtime = services["skill_runtime"]
+skill_risk_policy = services["skill_risk_policy"]
 skill_factory = services["skill_factory"]
 workflow_executor = services["workflow_executor"]
 workflow_subscription = services["workflow_subscription"]
@@ -168,6 +169,18 @@ def create_skill(request: SkillCreationRequest) -> dict:
 @app.post("/skills/diagnose-retry")
 def diagnose_retry(request: SkillRetryAdviceRequest) -> dict:
     return retry_advisor.build_retry_advice(request.diagnostic).model_dump(mode="json")
+
+@app.get("/skill-risk/decisions")
+def list_skill_risk_decisions() -> list[dict]:
+    return [item.model_dump(mode="json") for item in skill_risk_policy.list_decisions()]
+
+@app.post("/skill-risk/{skill_id}/approve")
+def approve_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
+    return skill_risk_policy.approve_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
+
+@app.post("/skill-risk/{skill_id}/revoke")
+def revoke_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
+    return skill_risk_policy.revoke_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
 
 @app.post("/apps/from-skills")
 def create_app_from_skills(request: AppFromSkillsRequest) -> dict:

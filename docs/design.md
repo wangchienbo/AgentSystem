@@ -73,6 +73,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - generated/runtime skill manifests should begin carrying explicit risk metadata (`risk_level`, network/filesystem/shell allowances), and script adapters should be validated against an allowlisted command-prefix policy before registration/runtime use
 - generated app assembly should enforce a default deny gate for risky skills (e.g. networked, shell, filesystem-write, or explicitly high-risk manifests), so self-iteration cannot silently turn high-risk assets into auto-install/auto-run apps
 - generated-app policy gates should emit structured skill diagnostics (stage=`assemble`, kind=`policy_blocked`) with machine-readable policy reasons, so future approval or override layers can consume them cleanly
+- reviewer-managed skill risk decisions should live in a dedicated persisted policy store, and generated app assembly should consult active overrides before enforcing default deny behavior for risky skills
 
 ---
 

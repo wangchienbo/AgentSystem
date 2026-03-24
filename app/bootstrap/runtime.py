@@ -36,6 +36,7 @@ from app.services.refinement_rollout import RefinementRolloutService
 from app.services.skill_control import SkillControlService
 from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
+from app.services.skill_risk_policy import SkillRiskPolicyService
 from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
 from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
@@ -233,12 +234,14 @@ def build_runtime() -> dict[str, object]:
     )
     app_catalog = AppCatalogService()
     skill_runtime = SkillRuntimeService(store=runtime_store, schema_registry=schema_registry)
+    skill_risk_policy = SkillRiskPolicyService(store=runtime_store)
     generated_skill_assets = GeneratedSkillAssetStore(app_data_store)
     skill_factory = SkillFactoryService(
         skill_control=skill_control,
         skill_runtime=skill_runtime,
         schema_registry=schema_registry,
         generated_assets=generated_skill_assets,
+        risk_policy=skill_risk_policy,
     )
     workflow_executor = WorkflowExecutorService(
         registry=app_registry,

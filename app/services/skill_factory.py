@@ -11,6 +11,7 @@ from app.services.generated_callable_materializer import GeneratedCallableMateri
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_authoring import SkillAuthoringService
+from app.services.skill_risk_policy import SkillRiskPolicyService
 from app.services.skill_control import SkillControlService
 from app.services.skill_runtime import SkillRuntimeService
 
@@ -46,6 +47,7 @@ class SkillFactoryService:
         authoring: SkillAuthoringService | None = None,
         generated_assets: GeneratedSkillAssetStore | None = None,
         callable_materializer: GeneratedCallableMaterializer | None = None,
+        risk_policy: SkillRiskPolicyService | None = None,
     ) -> None:
         self._skill_control = skill_control
         self._skill_runtime = skill_runtime
@@ -53,6 +55,7 @@ class SkillFactoryService:
         self._authoring = authoring or SkillAuthoringService()
         self._generated_assets = generated_assets
         self._callable_materializer = callable_materializer or GeneratedCallableMaterializer()
+        self._risk_policy = risk_policy or SkillRiskPolicyService()
 
     def create_skill(self, request: SkillCreationRequest) -> SkillCreationResult:
         schema_refs = self._register_contracts(request)
@@ -408,6 +411,9 @@ class SkillFactoryService:
         if risk.allow_filesystem_write:
             policy_reasons.append("allow_filesystem_write=true")
         if policy_reasons:
+            active_override = self._risk_policy.get_active_override(entry.skill_id, scope="generated_app_assembly")
+            if active_override is not None:
+                return
             raise _diagnostic(
                 "assemble",
                 "policy_blocked",
@@ -418,6 +424,7 @@ class SkillFactoryService:
                     "skill_id": entry.skill_id,
                     "risk_level": risk.risk_level,
                     "policy_reasons": policy_reasons,
+                    "override_scope": "generated_app_assembly",
                 },
                 suggested_retry_request={
                     "blocked_skill_id": entry.skill_id,

@@ -30,6 +30,42 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
 
+### Module: reviewer-managed skill risk overrides
+
+Completed the next governance step for Phase 7 by adding persisted reviewer-managed override decisions that can intentionally unblock risky generated-skill assembly when a human (or future policy layer) approves it.
+
+#### Added
+- `app/models/skill_risk_policy.py`
+  - defines persisted skill risk decision records with scope, reviewer, reason, and optional expiry
+- `app/services/skill_risk_policy.py`
+  - persists and reloads skill risk decisions through the runtime state store
+- `tests/unit/test_skill_risk_policy.py`
+  - verifies approve/list/revoke/reload behavior for persisted risk decisions
+- `tests/unit/test_skill_risk_override_api.py`
+  - verifies reviewer-managed API overrides can unblock generated app assembly and later be revoked
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - wires `SkillRiskPolicyService` into runtime
+- `app/services/skill_factory.py`
+  - generated app assembly now consults active risk overrides before enforcing default deny gates
+- `app/api/main.py`
+  - exposes risk decision list / approve / revoke endpoints under `/skill-risk/*`
+- `docs/requirements.md`
+  - records reviewer-managed override requirements
+- `docs/design.md`
+  - documents persisted policy store + override-aware gating behavior
+- `docs/testing.md`
+  - records approval/override coverage expectations
+- `docs/generated-skill-roadmap.md`
+  - extends Phase 7 with auditable reviewer-managed unblocking
+- `docs/system-relationship-map.md`
+  - adds risk policy and override API tests into the generated-skill relationship map
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_risk_policy.py tests/unit/test_skill_risk_override_api.py tests/unit/test_skill_policy_diagnostics_api.py tests/unit/test_skill_factory_risk_gating.py`
+- result: `5 passed`
+
 ### Module: structured policy diagnostics for risk-gated generated skills
 
 Upgraded generated-skill risk gating from plain assembly errors into structured policy diagnostics so future approval or policy-override layers can reason over blocked skills programmatically.
