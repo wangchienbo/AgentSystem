@@ -323,6 +323,8 @@ The platform should expose an API-first path for generated skills so the system 
 - blueprint materialization should also expose the resulting registered skill state so callers can verify that low-risk defaults propagated into the final manifest/capability profile, not only the intermediate request
 - governance-aware blueprint materialization should enforce baseline policy rules (e.g. low-risk blueprints do not silently materialize into shell/script form) instead of treating safety metadata as advisory only
 - materialization policy should honor explicit reviewer-managed overrides under a dedicated `blueprint_materialization` scope so blocked paths can be intentionally unblocked with auditability
+- blueprint-derived manifest risk defaults must propagate through `SkillCreationRequest` into the final authored/registered skill manifest so policy intent and validator-visible artifact state do not drift apart
+- approved blueprint-materialization shell overrides must affect the final authored manifest risk metadata (for example `allow_shell=true` / elevated risk level), not only the API-layer preflight decision, so later manifest validation and runtime registration remain consistent with governance decisions
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

@@ -402,9 +402,12 @@ graph TD
     F --> SC[services/skill_control.py]
     F --> SA[services/skill_authoring.py]
     F --> SF[services/skill_factory.py]
+    F --> SMV[services/skill_manifest_validator.py]
     F --> GCM[services/generated_callable_materializer.py]
 
 > Factory note: `SkillFactoryService` now consumes `SkillBlueprint.safety_profile` when deriving creation defaults, so changes to blueprint safety metadata should be treated as also affecting generated-skill materialization defaults.
+
+> Propagation note: blueprint-derived `manifest_risk` now flows through `SkillCreationRequest` into `SkillAuthoringService` and the final registered `SkillManifest`, so changes in request-model fields, authoring helpers, or manifest-risk semantics can break materialization, validation, and override behavior together.
     F --> GSA[services/generated_skill_assets.py]
     F --> SSR[services/system_skill_registry.py]
     F --> SSS[services/system_skill_service.py]
@@ -417,6 +420,7 @@ graph TD
     F --> T4[tests/unit/test_skill_control.py]
     F --> T5[tests/unit/test_skill_authoring.py]
     F --> T6[tests/unit/test_skill_factory_api.py]
+    F --> T23[tests/unit/test_skill_manifest_validator.py]
     F --> T7[tests/unit/test_skill_diagnostics_api.py]
     F --> T8[tests/unit/test_generated_callable_skill.py]
     F --> T9[tests/unit/test_generated_skill_persistence.py]
@@ -435,6 +439,8 @@ graph TD
 > Policy note: blueprint materialization now consumes safety metadata as active policy, not just propagation metadata. Changes to `SkillBlueprint.safety_profile` can therefore affect whether materialization is allowed at all.
 
 > Materialization note: blueprint materialization now surfaces the final registered skill state, so changes in manifest/capability propagation should be treated as affecting not just request construction but end-to-end generated skill artifacts.
+
+> Override note: `blueprint_materialization` overrides now only work end-to-end if API policy checks, creation-request risk fields, authoring helpers, and manifest validation all agree on the same shell-risk state; treat those as one coupled surface during edits.
     F --> T16[tests/unit/test_skill_policy_diagnostics_api.py]
     F --> T17[tests/unit/test_skill_risk_policy.py]
     F --> T18[tests/unit/test_skill_risk_override_api.py]

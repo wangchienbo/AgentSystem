@@ -86,6 +86,8 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - blueprint materialization responses should expose both the intermediate creation request and the final registered skill state so governance-aware propagation can be validated end-to-end
 - blueprint materialization should interpret safety metadata as active policy, not passive annotation: for example, low-risk blueprints should be able to block shell/script materialization unless a future explicit override layer authorizes it
 - blueprint materialization should consult skill risk overrides under a dedicated `blueprint_materialization` scope before enforcing shell/script blocks, keeping approval logic aligned with the existing risk-governance subsystem
+- blueprint-derived risk defaults should not stop at request construction: they must remain part of the concrete `SkillCreationRequest` contract and flow through skill authoring into the final `SkillManifest`, so validators and downstream governance inspect the same risk state the blueprint materialization logic intended
+- when a scoped blueprint-materialization override intentionally authorizes shell/script materialization, the resulting authored manifest should carry explicit elevated shell-risk metadata rather than relying on an invisible side channel, preserving consistency across API diagnostics, manifest validation, registry state, and future audit surfaces
 
 ---
 
