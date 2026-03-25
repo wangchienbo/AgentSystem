@@ -322,7 +322,7 @@ Use this checklist when executing the roadmap:
 - [ ] Phase 2: callable generation path
 - [ ] Phase 3: structured diagnostics + retry loop
 - [ ] Phase 4: multi-step composition/mapping
-- [ ] Phase 5: richer generated app skeletons
+- [x] Phase 5: richer generated app skeletons
 - [ ] Phase 6: broader real-skill validation matrix
 - [ ] Phase 7: security/permission boundaries
 - [ ] Phase 8: revision/rollback/self-improvement

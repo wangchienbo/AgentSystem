@@ -2,6 +2,30 @@
 
 ## 2026-03-25
 
+### Module: richer generated app skeleton defaults
+
+Upgraded generated app assembly from a bare workflow wrapper into a profile-aware blueprint skeleton that carries usable control-plane metadata.
+
+#### Updated
+- `app/services/skill_factory.py`
+  - now uses `AppProfileResolverService` during `/apps/from-skills` assembly
+  - infers `service` vs `pipeline` execution mode from selected runtime skills
+  - derives runtime-policy defaults (`idle_strategy`, persistence posture) from the inferred skeleton type and invocation posture
+  - emits a default generated-agent role with responsibilities, visible views, and allowed actions
+  - emits a default runnable task (`task.run_generated_workflow`)
+  - emits three operator-facing default views: `generated.overview`, `generated.run`, and `generated.activity`
+- `tests/unit/test_skill_factory_api.py`
+  - verifies single-skill generated apps default to a richer service skeleton
+  - verifies multi-step generated apps default to a richer pipeline skeleton
+
+#### Why
+- generated app blueprints were still structurally runnable but metadata-poor, leaving Phase-5 roadmap acceptance unmet and making control-plane display unnecessarily thin
+- the system already had app-profile inference logic, but generated app assembly was not reusing it to produce more realistic blueprint defaults
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_generated_app_durability.py tests/unit/test_blueprint_validation.py`
+- result: `17 passed`
+
 ### Module: skill-origin API contract coverage
 
 Extended the new registry origin metadata work into explicit public-API contract checks so `origin` is verified at control-plane read surfaces instead of only through direct service access.

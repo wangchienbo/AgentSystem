@@ -400,6 +400,7 @@ graph TD
 
 > Blueprint note: governance-aware skill suggestion now affects both natural-language steps and machine-readable `SkillBlueprint.safety_profile`, so downstream generation/materialization changes should treat blueprint metadata as part of the same coupling surface.
     F --> SC[services/skill_control.py]
+    F --> APR[services/app_profile_resolver.py]
     F --> SA[services/skill_authoring.py]
     F --> SF[services/skill_factory.py]
     F --> SMV[services/skill_manifest_validator.py]
@@ -410,6 +411,8 @@ graph TD
 > Propagation note: blueprint-derived `manifest_risk` now flows through `SkillCreationRequest` into `SkillAuthoringService` and the final registered `SkillManifest`, so changes in request-model fields, authoring helpers, or manifest-risk semantics can break materialization, validation, and override behavior together.
 
 > Origin note: generated-skill durability now depends on registry origin metadata (`builtin | generated | manual`) staying aligned across built-in bootstrap, generated-skill authoring, persisted asset payloads, and reload registration; edits to any one of those surfaces should be treated as affecting Phase-1 asset identity guarantees.
+
+> Skeleton note: generated app assembly now depends on `AppProfileResolverService` to derive richer blueprint skeleton defaults (execution mode, tasks, views, idle behavior) from selected skills, so app-profile logic changes should be treated as affecting `/apps/from-skills` output shape and generated-app metadata expectations.
     F --> GSA[services/generated_skill_assets.py]
     F --> SSR[services/system_skill_registry.py]
     F --> SSS[services/system_skill_service.py]

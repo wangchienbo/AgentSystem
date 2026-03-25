@@ -325,6 +325,7 @@ The platform should expose an API-first path for generated skills so the system 
 - materialization policy should honor explicit reviewer-managed overrides under a dedicated `blueprint_materialization` scope so blocked paths can be intentionally unblocked with auditability
 - blueprint-derived manifest risk defaults must propagate through `SkillCreationRequest` into the final authored/registered skill manifest so policy intent and validator-visible artifact state do not drift apart
 - approved blueprint-materialization shell overrides must affect the final authored manifest risk metadata (for example `allow_shell=true` / elevated risk level), not only the API-layer preflight decision, so later manifest validation and runtime registration remain consistent with governance decisions
+- generated app assembly should infer a minimal but useful app skeleton from the selected skills, including runtime policy defaults, at least one runnable task, and operator-facing views, so blueprint metadata is meaningful for control-plane display rather than just a bare workflow container
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

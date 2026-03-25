@@ -88,6 +88,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - blueprint materialization should consult skill risk overrides under a dedicated `blueprint_materialization` scope before enforcing shell/script blocks, keeping approval logic aligned with the existing risk-governance subsystem
 - blueprint-derived risk defaults should not stop at request construction: they must remain part of the concrete `SkillCreationRequest` contract and flow through skill authoring into the final `SkillManifest`, so validators and downstream governance inspect the same risk state the blueprint materialization logic intended
 - when a scoped blueprint-materialization override intentionally authorizes shell/script materialization, the resulting authored manifest should carry explicit elevated shell-risk metadata rather than relying on an invisible side channel, preserving consistency across API diagnostics, manifest validation, registry state, and future audit surfaces
+- generated app assembly should reuse `AppProfileResolverService` so blueprint skeleton defaults (execution mode, idle behavior, operator-facing overview/run/activity views, and the default generated-agent task) reflect the runtime properties of the selected skills instead of always emitting the same bare service shell
 
 ---
 

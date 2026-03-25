@@ -8,6 +8,7 @@ from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry
 from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult, StepMappingDefinition, SuggestedStepMapping
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
+from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.generated_callable_materializer import GeneratedCallableMaterializer, GeneratedCallableMaterializerError
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.schema_registry import SchemaRegistryService
@@ -49,6 +50,7 @@ class SkillFactoryService:
         generated_assets: GeneratedSkillAssetStore | None = None,
         callable_materializer: GeneratedCallableMaterializer | None = None,
         risk_policy: SkillRiskPolicyService | None = None,
+        app_profile_resolver: AppProfileResolverService | None = None,
     ) -> None:
         self._skill_control = skill_control
         self._skill_runtime = skill_runtime
@@ -57,6 +59,7 @@ class SkillFactoryService:
         self._generated_assets = generated_assets
         self._callable_materializer = callable_materializer or GeneratedCallableMaterializer()
         self._risk_policy = risk_policy or SkillRiskPolicyService()
+        self._app_profile_resolver = app_profile_resolver or AppProfileResolverService(skill_control=self._skill_control)
 
     def build_creation_defaults_from_blueprint(self, blueprint: SkillBlueprint) -> dict:
         safety_profile = blueprint.safety_profile or {}
@@ -278,12 +281,36 @@ class SkillFactoryService:
                 }
             )
             created_steps.append(step_id)
+        runtime_profile = self._app_profile_resolver.resolve(list(request.skill_ids))
+        execution_mode = "pipeline" if len(runtime_profile.runtime_skills) > 1 else "service"
+        if not runtime_profile.direct_start_supported and len(runtime_profile.runtime_skills) <= 1:
+            execution_mode = "service"
+        visible_views = ["generated.overview", "generated.run", "generated.activity"]
+        activation = "on_demand"
+        idle_strategy = "keep_alive" if execution_mode == "service" else "suspend"
+        if runtime_profile.invocation_posture == "ask_user":
+            idle_strategy = "suspend"
+
         blueprint = AppBlueprint(
             id=request.blueprint_id,
             name=request.name,
             goal=request.goal,
-            roles=[{"id": "generated.agent", "name": "Generated Agent", "type": "agent"}],
-            tasks=[],
+            roles=[{
+                "id": "generated.agent",
+                "name": "Generated Agent",
+                "type": "agent",
+                "responsibilities": ["run generated workflow", "handle generated skill execution"],
+                "visible_views": visible_views,
+                "allowed_actions": ["workflow.execute", "workflow.inspect"],
+            }],
+            tasks=[{
+                "id": "task.run_generated_workflow",
+                "owner_role": "generated.agent",
+                "trigger": "manual",
+                "inputs": {"workflow_id": request.workflow_id},
+                "outputs": {"status": "workflow_status", "steps": "execution_steps"},
+                "success_condition": "workflow completes without failed steps",
+            }],
             workflows=[
                 {
                     "id": request.workflow_id,
@@ -292,8 +319,44 @@ class SkillFactoryService:
                     "steps": steps,
                 }
             ],
+            views=[
+                {
+                    "id": "generated.overview",
+                    "name": "Overview",
+                    "type": "page",
+                    "visible_roles": ["generated.agent"],
+                    "components": [
+                        {"kind": "summary", "title": request.name, "goal": request.goal},
+                        {"kind": "runtime_profile", "profile": runtime_profile.model_dump(mode="json")},
+                    ],
+                },
+                {
+                    "id": "generated.run",
+                    "name": "Run Workflow",
+                    "type": "form",
+                    "visible_roles": ["generated.agent"],
+                    "actions": [{"id": "run-workflow", "kind": "workflow.execute", "workflow_id": request.workflow_id}],
+                },
+                {
+                    "id": "generated.activity",
+                    "name": "Activity",
+                    "type": "dashboard",
+                    "visible_roles": ["generated.agent"],
+                    "components": [
+                        {"kind": "workflow_status", "workflow_id": request.workflow_id},
+                        {"kind": "required_skills", "skill_ids": list(request.skill_ids)},
+                    ],
+                },
+            ],
             required_modules=[],
             required_skills=list(request.skill_ids),
+            runtime_policy={
+                "execution_mode": execution_mode,
+                "activation": activation,
+                "restart_policy": "on_failure",
+                "persistence_level": "standard" if execution_mode == "service" else "full",
+                "idle_strategy": idle_strategy,
+            },
         )
         return blueprint, AppFromSkillsResult(
             blueprint_id=request.blueprint_id,

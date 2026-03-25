@@ -118,6 +118,9 @@ def test_create_app_blueprint_from_generated_skills_via_api() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["blueprint"]["id"] == "bp.generated.skill.app"
+    assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "service"
+    assert payload["blueprint"]["tasks"][0]["id"] == "task.run_generated_workflow"
+    assert {view["id"] for view in payload["blueprint"]["views"]} == {"generated.overview", "generated.run", "generated.activity"}
     assert payload["result"]["required_skills"] == ["skill.script.for.app"]
     assert payload["result"]["created_steps"] == ["skill.1"]
 
@@ -289,6 +292,10 @@ def test_create_multi_step_generated_app_with_step_mappings() -> None:
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "pipeline"
+    assert payload["blueprint"]["runtime_policy"]["idle_strategy"] == "suspend"
+    assert len(payload["blueprint"]["tasks"]) == 1
+    assert len(payload["blueprint"]["views"]) == 3
     assert payload["execution"]["status"] == "completed"
     assert payload["execution"]["steps"][0]["output"]["slug"] == "a-better-app-os-for-real"
     assert payload["execution"]["steps"][1]["output"]["normalized"]["generated_slug"] == "a-better-app-os-for-real"
