@@ -143,8 +143,12 @@ def test_revise_generated_skill_via_api_updates_active_version_and_versions(tmp_
     assert compare.status_code == 200
     compare_payload = compare.json()
     assert compare_payload["active_version"] == "1.1.0"
+    assert compare_payload["active_is_from"] is False
+    assert compare_payload["active_is_to"] is True
     assert compare_payload["description_changed"] is True
     assert compare_payload["generation_operation_changed"] is False
+    assert compare_payload["change_count"] >= 1
+    assert compare_payload["summary"].startswith("Changed:")
 
 
 def test_revise_generated_skill_can_record_draft_governance_metadata(tmp_path: Path) -> None:

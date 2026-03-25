@@ -76,6 +76,14 @@ class GeneratedSkillVersionComparison(BaseModel):
     from_version: str
     to_version: str
     active_version: str
+    from_note: str = ""
+    to_note: str = ""
+    from_created_at: str = ""
+    to_created_at: str = ""
+    active_is_from: bool = False
+    active_is_to: bool = False
+    change_count: int = 0
+    summary: str = ""
     description_changed: bool = False
     adapter_kind_changed: bool = False
     generation_operation_changed: bool = False
@@ -84,6 +92,12 @@ class GeneratedSkillVersionComparison(BaseModel):
     capability_profile_changed: bool = False
     manifest_risk_changed: bool = False
     schema_refs_changed: bool = False
+    risk_level_changed: bool = False
+    input_schema_changed: bool = False
+    output_schema_changed: bool = False
+    error_schema_changed: bool = False
+    tags_added: list[str] = Field(default_factory=list)
+    tags_removed: list[str] = Field(default_factory=list)
 
 
 class BlueprintMaterializationRequest(BaseModel):

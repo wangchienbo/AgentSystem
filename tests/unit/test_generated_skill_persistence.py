@@ -92,7 +92,9 @@ def test_generated_script_skill_persists_and_reloads(tmp_path: Path) -> None:
     comparison = reloaded_factory.compare_generated_skill_versions("skill.text.slugify.persisted", "1.0.0", "1.1.0")
     assert comparison.skill_id == "skill.text.slugify.persisted"
     assert comparison.active_version == "1.1.0"
+    assert comparison.active_is_to is True
     assert comparison.description_changed is True
+    assert comparison.summary.startswith("Changed:")
     restored_entry = reloaded_skill_control.get_skill("skill.text.slugify.persisted")
     assert restored_entry.manifest is not None
     assert restored_entry.manifest.version == "1.1.0"
