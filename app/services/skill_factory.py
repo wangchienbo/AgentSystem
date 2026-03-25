@@ -4,8 +4,8 @@ from copy import deepcopy
 
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_blueprint import SkillBlueprint
-from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry
-from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult, StepMappingDefinition, SuggestedStepMapping
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
+from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, GeneratedSkillRevisionRequest, GeneratedSkillRevisionResult, GeneratedSkillVersionComparison, SkillCreationRequest, SkillCreationResult, StepMappingDefinition, SuggestedStepMapping
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
 from app.services.app_profile_resolver import AppProfileResolverService
@@ -119,8 +119,100 @@ class SkillFactoryService:
             },
         )
 
+    def revise_generated_skill(self, skill_id: str, request: GeneratedSkillRevisionRequest) -> GeneratedSkillRevisionResult:
+        if self._generated_assets is None:
+            raise SkillFactoryError("Generated skill revision requires generated asset storage")
+        existing_asset = self._generated_assets.get_generated_asset(skill_id)
+        if existing_asset is None:
+            raise SkillFactoryError(f"Generated skill asset not found: {skill_id}")
+        existing_entry = self._skill_control.get_skill(skill_id)
+        if existing_entry.origin != "generated":
+            raise SkillFactoryError(f"Only generated skills support revise: {skill_id}")
+
+        schema_payload = request.schemas.model_dump(mode="json")
+        revised_request = SkillCreationRequest(
+            skill_id=skill_id,
+            name=existing_asset.get("name", existing_entry.name),
+            description=request.description or existing_asset.get("description", ""),
+            adapter_kind=existing_asset.get("adapter_kind", existing_entry.runtime_adapter),
+            generation_operation=request.generation_operation or existing_asset.get("generation_operation", ""),
+            handler_entry=request.handler_entry or existing_asset.get("handler_entry", ""),
+            command=list(request.command or existing_asset.get("command", [])),
+            tags=list(request.tags or existing_asset.get("tags", [])),
+            capability_profile=request.capability_profile or existing_entry.capability_profile,
+            manifest_risk=request.manifest_risk or existing_entry.manifest.risk,
+            schemas=schema_payload if schema_payload != {"input": {}, "output": {}, "error": {}} else existing_asset.get("schemas", {}),
+            smoke_test_inputs=dict(request.smoke_test_inputs or {}),
+        )
+        previous_version = existing_entry.active_version
+        schema_refs = self._register_contracts(revised_request)
+        entry = self._build_entry_and_register_runtime(revised_request, schema_refs)
+        entry.versions = list(existing_entry.versions) + [
+            SkillVersion(version=request.version, content=entry.versions[-1].content, note=request.note or f"revise {request.version}")
+        ]
+        entry.active_version = request.version
+        if entry.manifest is not None:
+            entry.manifest.version = request.version
+        self._skill_control.register(entry)
+        smoke = self._run_smoke_test(revised_request)
+        self._generated_assets.persist_generated_skill(request=revised_request, schema_refs=schema_refs, entry=entry)
+        return GeneratedSkillRevisionResult(
+            skill_id=skill_id,
+            version=request.version,
+            previous_version=previous_version,
+            active_version=entry.active_version,
+            runtime_adapter=entry.runtime_adapter,
+            schema_refs=schema_refs,
+            smoke_test=smoke,
+        )
+
+    def compare_generated_skill_versions(self, skill_id: str, from_version: str, to_version: str) -> GeneratedSkillVersionComparison:
+        if self._generated_assets is None:
+            raise SkillFactoryError("Generated skill comparison requires generated asset storage")
+        entry = self._skill_control.get_skill(skill_id)
+        if entry.origin != "generated":
+            raise SkillFactoryError(f"Only generated skills support compare: {skill_id}")
+        try:
+            return self._generated_assets.compare_versions(skill_id, from_version, to_version)
+        except ValueError as error:
+            raise SkillFactoryError(str(error)) from error
+
+    def rollback_generated_skill(self, skill_id: str, target_version: str) -> dict:
+        if self._generated_assets is None:
+            raise SkillFactoryError("Generated skill rollback requires generated asset storage")
+        existing_entry = self._skill_control.get_skill(skill_id)
+        if existing_entry.origin != "generated":
+            raise SkillFactoryError(f"Only generated skills support rollback: {skill_id}")
+        rollback_request = self._generated_assets.build_request_for_version(skill_id, target_version)
+        rollback_request.smoke_test_inputs = {}
+        schema_refs = self._register_contracts(rollback_request)
+        entry = self._build_entry_and_register_runtime(rollback_request, schema_refs)
+        entry.versions = list(existing_entry.versions)
+        entry.active_version = target_version
+        if entry.manifest is not None:
+            entry.manifest.version = target_version
+        self._skill_control.register(entry)
+        return {
+            "skill_id": skill_id,
+            "target_version": target_version,
+            "active_version": entry.active_version,
+            "runtime_adapter": entry.runtime_adapter,
+        }
+
     def create_skill(self, request: SkillCreationRequest) -> SkillCreationResult:
         schema_refs = self._register_contracts(request)
+        entry = self._build_entry_and_register_runtime(request, schema_refs)
+        smoke = self._run_smoke_test(request)
+        if self._generated_assets is not None:
+            self._generated_assets.persist_generated_skill(request=request, schema_refs=schema_refs, entry=entry)
+        return SkillCreationResult(
+            skill_id=request.skill_id,
+            schema_refs=schema_refs,
+            runtime_adapter=entry.runtime_adapter,
+            smoke_test=smoke,
+        )
+
+    def _build_entry_and_register_runtime(self, request: SkillCreationRequest, schema_refs: dict[str, str]) -> SkillRegistryEntry:
         if request.adapter_kind == "callable":
             handler_entry = request.handler_entry
             if not handler_entry:
@@ -169,8 +261,6 @@ class SkillFactoryService:
                 origin="generated",
                 content=request.description or request.name,
             )
-            if request.skill_id not in {item.skill_id for item in self._skill_control.list_skills()}:
-                self._skill_control.register(entry)
             try:
                 handler = self._callable_materializer.load_handler(handler_entry)
             except GeneratedCallableMaterializerError as error:
@@ -181,40 +271,42 @@ class SkillFactoryService:
                     hint="Check generated callable file path and handler function name.",
                     details={"skill_id": request.skill_id, "handler_entry": handler_entry},
                 ) from error
+            self._skill_control.register(entry)
             self._skill_runtime.register_handler(request.skill_id, handler, entry=entry)
-        else:
-            if not request.command:
-                raise _diagnostic(
-                    "create",
-                    "invalid_request",
-                    "Script skill creation requires command",
-                    hint="Provide a script command list for script-backed skills.",
-                    details={"skill_id": request.skill_id, "adapter_kind": request.adapter_kind},
-                    suggested_retry_request={
-                        "skill_id": request.skill_id,
-                        "adapter_kind": request.adapter_kind,
-                        "command": ["python3", "path/to/generated_skill.py"],
-                    },
-                )
-            entry = self._authoring.build_script_entry(
-                skill_id=request.skill_id,
-                name=request.name,
-                command=request.command,
-                description=request.description,
-                input_schema_ref=schema_refs["input"],
-                output_schema_ref=schema_refs["output"],
-                error_schema_ref=schema_refs["error"],
-                tags=request.tags,
-                capability_profile=request.capability_profile,
-                manifest_risk=request.manifest_risk,
-                origin="generated",
-                content=request.description or request.name,
+            return entry
+        if not request.command:
+            raise _diagnostic(
+                "create",
+                "invalid_request",
+                "Script skill creation requires command",
+                hint="Provide a script command list for script-backed skills.",
+                details={"skill_id": request.skill_id, "adapter_kind": request.adapter_kind},
+                suggested_retry_request={
+                    "skill_id": request.skill_id,
+                    "adapter_kind": request.adapter_kind,
+                    "command": ["python3", "path/to/generated_skill.py"],
+                },
             )
-            if request.skill_id not in {item.skill_id for item in self._skill_control.list_skills()}:
-                self._skill_control.register(entry)
-            self._skill_runtime.register_handler(request.skill_id, self._script_placeholder, entry=entry)
+        entry = self._authoring.build_script_entry(
+            skill_id=request.skill_id,
+            name=request.name,
+            command=request.command,
+            description=request.description,
+            input_schema_ref=schema_refs["input"],
+            output_schema_ref=schema_refs["output"],
+            error_schema_ref=schema_refs["error"],
+            tags=request.tags,
+            capability_profile=request.capability_profile,
+            manifest_risk=request.manifest_risk,
+            origin="generated",
+            content=request.description or request.name,
+        )
+        self._skill_control.register(entry)
+        self._skill_runtime.register_handler(request.skill_id, self._script_placeholder, entry=entry)
+        return entry
 
-        smoke = self._skill_runtime.execute(
+    def _run_smoke_test(self, request: SkillCreationRequest):
+        return self._skill_runtime.execute(
             SkillExecutionRequest(
                 skill_id=request.skill_id,
                 app_instance_id="skill-factory",
@@ -223,14 +315,6 @@ class SkillFactoryService:
                 inputs=request.smoke_test_inputs,
                 config={},
             )
-        )
-        if self._generated_assets is not None:
-            self._generated_assets.persist_generated_skill(request=request, schema_refs=schema_refs, entry=entry)
-        return SkillCreationResult(
-            skill_id=request.skill_id,
-            schema_refs=schema_refs,
-            runtime_adapter=entry.runtime_adapter,
-            smoke_test=smoke,
         )
 
     def build_blueprint_from_skills(self, request: AppFromSkillsRequest) -> tuple[AppBlueprint, AppFromSkillsResult]:

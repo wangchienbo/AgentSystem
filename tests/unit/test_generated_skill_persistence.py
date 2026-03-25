@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.models.skill_creation import SkillCreationRequest, SkillSchemaDefinition
+from app.models.skill_creation import GeneratedSkillRevisionRequest, SkillCreationRequest, SkillSchemaDefinition
 from app.models.skill_runtime import SkillExecutionRequest
 from app.services.app_data_store import AppDataStore
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
@@ -75,14 +75,36 @@ def test_generated_script_skill_persists_and_reloads(tmp_path: Path) -> None:
         generated_assets=reloaded_assets,
     )
 
+    revision = factory.revise_generated_skill(
+        "skill.text.slugify.persisted",
+        GeneratedSkillRevisionRequest(
+            version="1.1.0",
+            description="persisted generated script skill revised",
+            command=["python3", "tests/fixtures/script_slugify_skill.py"],
+            smoke_test_inputs={"text": "Persist Me Again Please"},
+            note="revise persisted skill",
+        ),
+    )
+    assert revision.active_version == "1.1.0"
+
     restored = reloaded_factory.reload_generated_skills()
     assert restored == 1
+    comparison = reloaded_factory.compare_generated_skill_versions("skill.text.slugify.persisted", "1.0.0", "1.1.0")
+    assert comparison.skill_id == "skill.text.slugify.persisted"
+    assert comparison.active_version == "1.1.0"
+    assert comparison.description_changed is True
     restored_entry = reloaded_skill_control.get_skill("skill.text.slugify.persisted")
     assert restored_entry.manifest is not None
+    assert restored_entry.manifest.version == "1.1.0"
+    assert restored_entry.active_version == "1.1.0"
+    assert [item.version for item in restored_entry.versions] == ["1.0.0", "1.1.0"]
     assert restored_entry.runtime_adapter == "script"
     assert restored_entry.origin == "generated"
 
-    result = reloaded_skill_runtime.execute(
+    rollback = reloaded_factory.rollback_generated_skill("skill.text.slugify.persisted", "1.0.0")
+    assert rollback["active_version"] == "1.0.0"
+
+    rollback_result = reloaded_skill_runtime.execute(
         SkillExecutionRequest(
             skill_id="skill.text.slugify.persisted",
             app_instance_id="persisted-app",
@@ -93,5 +115,6 @@ def test_generated_script_skill_persists_and_reloads(tmp_path: Path) -> None:
         )
     )
 
-    assert result.status == "completed"
-    assert result.output["slug"] == "reloaded-skill-works"
+    assert rollback_result.status == "completed"
+    assert rollback_result.output["slug"] == "reloaded-skill-works"
+    assert reloaded_skill_control.get_skill("skill.text.slugify.persisted").active_version == "1.0.0"

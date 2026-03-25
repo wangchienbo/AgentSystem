@@ -2,6 +2,41 @@
 
 ## 2026-03-25
 
+### Module: generated skill revision / rollback foundations
+
+Started Phase 8 by adding the first usable generated-skill revision lifecycle.
+
+#### Updated
+- `app/models/skill_creation.py`
+  - adds `GeneratedSkillRevisionRequest`, `GeneratedSkillRevisionResult`, and `GeneratedSkillVersionComparison`
+- `app/services/generated_skill_assets.py`
+  - persists revision history for generated skills
+  - can reconstruct a historical `SkillCreationRequest` for rollback
+  - can compare two generated-skill revisions via lightweight summary diff
+- `app/services/skill_factory.py`
+  - adds generated-skill revise / rollback / compare flows
+  - refactors shared entry/runtime registration for create vs revise paths
+- `app/api/main.py`
+  - adds `/skills/{skill_id}/versions`
+  - adds `/skills/{skill_id}/revise`
+  - adds `/skills/{skill_id}/compare`
+  - routes generated-skill rollback through the generated asset/version path
+- `tests/unit/test_skill_factory_api.py`
+  - verifies revise API, version listing with active markers, compare summary, and generated rollback behavior
+- `tests/unit/test_generated_skill_persistence.py`
+  - verifies revised generated skills persist/reload with the correct active version
+  - verifies persisted revision history can still drive compare and rollback after reload
+- `tests/unit/test_generated_skill_revision_service.py`
+  - verifies manual/non-generated skills are rejected by generated revise flows
+
+#### Why
+- generated skills could be created and persisted, but not yet evolved safely as versioned assets
+- Phase 8 needs at least a first-pass lifecycle for revise, rollback, version inspection, and basic revision comparison before deeper self-improvement loops make sense
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_generated_skill_persistence.py -k "generated_script_skill_persists_and_reloads or revise_generated_skill_via_api or rollback_generated_skill_via_api"`
+- result: `3 passed`
+
 ### Module: risk dashboard scope-aware stats
 
 Made skill-risk governance stats explicitly scope-aware so operator surfaces can distinguish different classes of policy pressure.

@@ -67,6 +67,147 @@ def test_create_script_skill_via_api_and_smoke_execute() -> None:
     assert detail_response.json()["origin"] == "generated"
 
 
+def test_revise_generated_skill_via_api_updates_active_version_and_versions() -> None:
+    create_response = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.callable.revise.target",
+            "name": "Revise Target Skill",
+            "description": "initial revision target",
+            "adapter_kind": "callable",
+            "generation_operation": "extract_text_metadata",
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "original_text": {"type": "string"},
+                        "slug": {"type": "string"},
+                        "word_count": {"type": "integer"},
+                        "has_year": {"type": "boolean"},
+                        "years": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["original_text", "slug", "word_count", "has_year", "years", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False
+                }
+            },
+            "smoke_test_inputs": {"text": "Revision Base 2026"}
+        },
+    )
+    assert create_response.status_code == 200
+
+    revise_response = client.post(
+        "/skills/skill.callable.revise.target/revise",
+        json={
+            "version": "1.1.0",
+            "description": "revised metadata extractor",
+            "generation_operation": "extract_text_metadata",
+            "smoke_test_inputs": {"text": "Revision Updated 2027"},
+            "note": "revise generated callable"
+        },
+    )
+    assert revise_response.status_code == 200
+    payload = revise_response.json()
+    assert payload["version"] == "1.1.0"
+    assert payload["previous_version"] == "1.0.0"
+    assert payload["active_version"] == "1.1.0"
+    assert payload["smoke_test"]["output"]["years"] == ["2027"]
+
+    detail = client.get("/skills/skill.callable.revise.target")
+    assert detail.status_code == 200
+    assert detail.json()["active_version"] == "1.1.0"
+
+    versions = client.get("/skills/skill.callable.revise.target/versions")
+    assert versions.status_code == 200
+    assert [item["version"] for item in versions.json()] == ["1.0.0", "1.1.0"]
+    assert [item["active"] for item in versions.json()] == [False, True]
+
+    compare = client.get(
+        "/skills/skill.callable.revise.target/compare",
+        params={"from_version": "1.0.0", "to_version": "1.1.0"},
+    )
+    assert compare.status_code == 200
+    compare_payload = compare.json()
+    assert compare_payload["active_version"] == "1.1.0"
+    assert compare_payload["description_changed"] is True
+    assert compare_payload["generation_operation_changed"] is False
+
+
+def test_rollback_generated_skill_via_api_restores_previous_active_version() -> None:
+    create_response = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.callable.rollback.target",
+            "name": "Rollback Target Skill",
+            "description": "initial rollback target",
+            "adapter_kind": "callable",
+            "generation_operation": "extract_text_metadata",
+            "schemas": {
+                "input": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"], "additionalProperties": False},
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "original_text": {"type": "string"},
+                        "slug": {"type": "string"},
+                        "word_count": {"type": "integer"},
+                        "has_year": {"type": "boolean"},
+                        "years": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["original_text", "slug", "word_count", "has_year", "years", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False}
+            },
+            "smoke_test_inputs": {"text": "Rollback Base 2026"}
+        },
+    )
+    assert create_response.status_code == 200
+
+    revise_response = client.post(
+        "/skills/skill.callable.rollback.target/revise",
+        json={
+            "version": "1.1.0",
+            "description": "rollback revised metadata extractor",
+            "generation_operation": "extract_text_metadata",
+            "smoke_test_inputs": {"text": "Rollback Updated 2027"}
+        },
+    )
+    assert revise_response.status_code == 200
+
+    rollback_response = client.post(
+        "/skills/skill.callable.rollback.target/rollback",
+        json={"target_version": "1.0.0"},
+    )
+    assert rollback_response.status_code == 200
+    payload = rollback_response.json()
+    assert payload["active_version"] == "1.0.0"
+
+    detail = client.get("/skills/skill.callable.rollback.target")
+    assert detail.status_code == 200
+    assert detail.json()["active_version"] == "1.0.0"
+    assert detail.json()["manifest"]["version"] == "1.0.0"
+
+    versions = client.get("/skills/skill.callable.rollback.target/versions")
+    assert versions.status_code == 200
+    assert [item["version"] for item in versions.json()] == ["1.0.0", "1.1.0"]
+    assert [item["active"] for item in versions.json()] == [True, False]
+
+
+
+
 def test_create_app_blueprint_from_generated_skills_via_api() -> None:
     create_skill = client.post(
         "/skills/create",

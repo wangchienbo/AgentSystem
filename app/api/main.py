@@ -34,7 +34,7 @@ from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.refinement_loop import RefinementFilter, RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
-from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, SkillCreationRequest
+from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, GeneratedSkillRevisionRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError, _diagnostic
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
 from app.models.experience import ExperienceRecord
@@ -141,8 +141,11 @@ def replace_skill(skill_id: str, payload: dict[str, str]) -> dict:
 @app.post("/skills/{skill_id}/rollback")
 def rollback_skill(skill_id: str, payload: dict[str, str]) -> dict:
     try:
+        entry = skill_control.get_skill(skill_id)
+        if entry.origin == "generated":
+            return skill_factory.rollback_generated_skill(skill_id, payload["target_version"])
         return skill_control.rollback_skill(skill_id, payload["target_version"]).model_dump(mode="json")
-    except SkillControlError as error:
+    except (SkillControlError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
 
 @app.post("/skills/{skill_id}/disable")
@@ -164,6 +167,39 @@ def create_skill(request: SkillCreationRequest) -> dict:
     try:
         return skill_factory.create_skill(request).model_dump(mode="json")
     except (SkillDiagnosticError, SkillControlError, SkillRuntimeError, ValueError) as error:
+        raise map_domain_error(error) from error
+
+@app.get("/skills/{skill_id}/versions")
+def list_skill_versions(skill_id: str) -> list[dict]:
+    try:
+        entry = skill_control.get_skill(skill_id)
+        return [
+            {
+                "version": item.version,
+                "note": item.note,
+                "created_at": item.created_at.isoformat(),
+                "active": item.version == entry.active_version,
+            }
+            for item in entry.versions
+        ]
+    except SkillControlError as error:
+        raise map_domain_error(error) from error
+
+@app.get("/skills/{skill_id}/compare")
+def compare_skill_versions(skill_id: str, from_version: str, to_version: str) -> dict:
+    try:
+        entry = skill_control.get_skill(skill_id)
+        if entry.origin != "generated":
+            raise SkillFactoryError(f"Only generated skills support compare: {skill_id}")
+        return skill_factory.compare_generated_skill_versions(skill_id, from_version, to_version).model_dump(mode="json")
+    except (SkillControlError, SkillFactoryError, ValueError) as error:
+        raise map_domain_error(error) from error
+
+@app.post("/skills/{skill_id}/revise")
+def revise_generated_skill(skill_id: str, request: GeneratedSkillRevisionRequest) -> dict:
+    try:
+        return skill_factory.revise_generated_skill(skill_id, request).model_dump(mode="json")
+    except (SkillDiagnosticError, SkillControlError, SkillRuntimeError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
 
 @app.post("/skills/diagnose-retry")
