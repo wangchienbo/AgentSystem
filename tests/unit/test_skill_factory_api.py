@@ -197,6 +197,65 @@ def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
     assert payload["execution"]["steps"][0]["output"]["adapter"] == "script"
 
 
+def test_create_structured_transform_generated_app_exposes_shape_specific_metadata() -> None:
+    create_normalize = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.object.normalize_keys.structured",
+            "name": "Normalize Object Keys Structured Skill",
+            "description": "normalize structured payload keys into stable keys",
+            "adapter_kind": "callable",
+            "generation_operation": "normalize_object_keys",
+            "tags": ["structured", "json", "normalization"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"payload": {"type": "object"}},
+                    "required": ["payload"],
+                    "additionalProperties": False
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "normalized": {"type": "object"},
+                        "top_level_keys": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["normalized", "top_level_keys", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False
+                }
+            },
+            "smoke_test_inputs": {"payload": {"Display Name": "Agent System", "Mode": "Fast"}}
+        },
+    )
+    assert create_normalize.status_code == 200
+
+    response = client.post(
+        "/apps/from-skills",
+        json={
+            "blueprint_id": "bp.generated.structured.transform",
+            "name": "Generated Structured Transform App",
+            "goal": "normalize structured input payloads",
+            "skill_ids": ["skill.object.normalize_keys.structured"],
+            "workflow_id": "wf.generated.structured.transform",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "service"
+    assert payload["blueprint"]["roles"][0]["name"] == "Generated Data Agent"
+    assert payload["blueprint"]["tasks"][0]["inputs"]["app_shape"] == "structured_transform"
+    assert payload["blueprint"]["views"][0]["name"] == "Structured Transformation Overview"
+    assert payload["blueprint"]["views"][1]["actions"][0]["id"] == "transform-structured-data"
+
+
 def test_create_multi_step_generated_app_with_step_mappings() -> None:
     create_slugify = client.post(
         "/skills/create",

@@ -21,6 +21,8 @@ Made generated app skeletons differ more meaningfully by inferred app type inste
 #### Validation
 - `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_registry_installer.py tests/unit/test_generated_app_durability.py`
 - result: `13 passed`
+- focused structured-shape check: `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py -k "structured_transform or multi_step_generated_app_with_step_mappings or create_app_blueprint_from_generated_skills_via_api"`
+- result: `3 passed`
 
 ### Module: generated app runtime-profile metadata promotion
 
