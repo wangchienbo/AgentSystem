@@ -265,6 +265,7 @@ def test_activate_draft_generated_revision_promotes_it_to_active() -> None:
     assert payload[1]["revision_status"] == "active"
     assert payload[1]["active"] is True
     assert payload[1]["reviewer"] == "bob"
+    assert payload[1]["approved_at"] is not None
 
 
 def test_rollback_generated_skill_via_api_restores_previous_active_version() -> None:

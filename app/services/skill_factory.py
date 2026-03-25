@@ -8,6 +8,8 @@ from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry,
 from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, GeneratedSkillRevisionRequest, GeneratedSkillRevisionResult, GeneratedSkillVersionComparison, SkillCreationRequest, SkillCreationResult, StepMappingDefinition, SuggestedStepMapping
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
+from datetime import UTC, datetime
+
 from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.generated_callable_materializer import GeneratedCallableMaterializer, GeneratedCallableMaterializerError
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
@@ -198,6 +200,7 @@ class SkillFactoryService:
             updated = item.model_copy(deep=True)
             if updated.version == version:
                 updated.revision_status = "active"
+                updated.approved_at = datetime.now(UTC)
                 if reviewer:
                     updated.reviewer = reviewer
             elif updated.version == existing_entry.active_version:
