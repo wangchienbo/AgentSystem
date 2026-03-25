@@ -51,3 +51,10 @@ class SkillMutationResult(BaseModel):
     action: Literal["replace", "rollback", "disable", "enable"]
     status: SkillStatus
     active_version: str
+
+
+class SkillVersionSummary(BaseModel):
+    version: str
+    note: str = Field(default="")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    active: bool = False

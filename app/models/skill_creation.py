@@ -39,6 +39,45 @@ class SkillCreationResult(BaseModel):
     smoke_test: SkillExecutionResult
 
 
+class GeneratedSkillRevisionRequest(BaseModel):
+    version: str = Field(..., min_length=1)
+    description: str = Field(default="")
+    generation_operation: str = Field(default="")
+    handler_entry: str = Field(default="")
+    command: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    capability_profile: SkillCapabilityProfile | None = None
+    manifest_risk: SkillManifestRisk | None = None
+    schemas: SkillSchemaDefinition = Field(default_factory=SkillSchemaDefinition)
+    smoke_test_inputs: dict[str, Any] = Field(default_factory=dict)
+    note: str = Field(default="")
+
+
+class GeneratedSkillRevisionResult(BaseModel):
+    skill_id: str
+    version: str
+    previous_version: str
+    active_version: str
+    runtime_adapter: str
+    schema_refs: dict[str, str] = Field(default_factory=dict)
+    smoke_test: SkillExecutionResult
+
+
+class GeneratedSkillVersionComparison(BaseModel):
+    skill_id: str
+    from_version: str
+    to_version: str
+    active_version: str
+    description_changed: bool = False
+    adapter_kind_changed: bool = False
+    generation_operation_changed: bool = False
+    command_changed: bool = False
+    tags_changed: bool = False
+    capability_profile_changed: bool = False
+    manifest_risk_changed: bool = False
+    schema_refs_changed: bool = False
+
+
 class BlueprintMaterializationRequest(BaseModel):
     adapter_kind: Literal["callable", "script"] | None = None
     generation_operation: str = Field(default="")
