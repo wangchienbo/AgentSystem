@@ -15,6 +15,12 @@ def test_skill_risk_policy_stats_and_dashboard_service_view(tmp_path: Path) -> N
     service = SkillRiskPolicyService(store=store)
 
     service.record_event(skill_id="skill.a", event_type="policy_blocked", reason="blocked by default policy")
+    service.record_event(
+        skill_id="skill.b",
+        event_type="policy_blocked",
+        reason="blocked by materialization policy",
+        scope="blueprint_materialization",
+    )
     service.approve_override(skill_id="skill.a", reviewer="tester", reason="allow for controlled assembly")
     service.revoke_override(skill_id="skill.a", reviewer="tester", reason="close window")
 
@@ -22,8 +28,10 @@ def test_skill_risk_policy_stats_and_dashboard_service_view(tmp_path: Path) -> N
     dashboard = service.get_dashboard(recent_limit=2)
 
     assert stats.total_decisions == 1
-    assert stats.total_events >= 3
-    assert stats.blocked_events >= 1
+    assert stats.total_events >= 4
+    assert stats.blocked_events >= 2
+    assert stats.events_by_scope["generated_app_assembly"] >= 3
+    assert stats.events_by_scope["blueprint_materialization"] == 1
     assert stats.approved_events >= 1
     assert stats.revoked_events >= 1
     assert dashboard.stats.total_events >= 3
@@ -45,3 +53,5 @@ def test_skill_risk_dashboard_api_surface() -> None:
     assert "stats" in payload
     assert "recent_events" in payload
     assert "meta" in payload["recent_events"]
+    assert "events_by_scope" in payload["stats"]
+    assert payload["stats"]["events_by_scope"].get("generated_app_assembly", 0) >= 0

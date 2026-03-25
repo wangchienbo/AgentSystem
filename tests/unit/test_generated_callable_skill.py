@@ -93,6 +93,151 @@ def test_create_real_callable_skill_via_api_and_install_run() -> None:
     assert run_payload["execution"]["steps"][0]["output"]["adapter"] == "callable"
 
 
+def test_create_real_callable_validation_skill_via_api_and_install_run() -> None:
+    create_response = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.object.validate_required_fields",
+            "name": "Validate Required Fields",
+            "description": "validate required fields in a structured payload deterministically",
+            "adapter_kind": "callable",
+            "generation_operation": "validate_required_fields",
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {
+                        "payload": {"type": "object"},
+                        "required_fields": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "required": ["payload", "required_fields"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "valid": {"type": "boolean"},
+                        "missing_fields": {"type": "array", "items": {"type": "string"}},
+                        "checked_fields": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["valid", "missing_fields", "checked_fields", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "smoke_test_inputs": {
+                "payload": {"title": "Agent System", "owner": "bo"},
+                "required_fields": ["title", "owner", "status"],
+            },
+        },
+    )
+    assert create_response.status_code == 200
+    create_payload = create_response.json()
+    assert create_payload["runtime_adapter"] == "callable"
+    assert create_payload["smoke_test"]["status"] == "completed"
+    assert create_payload["smoke_test"]["output"]["valid"] is False
+    assert create_payload["smoke_test"]["output"]["missing_fields"] == ["status"]
+
+    run_response = client.post(
+        "/apps/from-skills/install-run",
+        json={
+            "blueprint_id": "bp.object.validate_required_fields",
+            "name": "Validate Required Fields App",
+            "goal": "validate structured payload completeness before processing",
+            "skill_ids": ["skill.object.validate_required_fields"],
+            "workflow_id": "wf.object.validate_required_fields",
+            "user_id": "validation-user",
+            "step_inputs": {
+                "skill.1": {
+                    "payload": {"title": "Agent System", "owner": "bo", "status": "active"},
+                    "required_fields": ["title", "owner", "status"],
+                }
+            },
+        },
+    )
+    assert run_response.status_code == 200
+    run_payload = run_response.json()
+    assert run_payload["execution"]["status"] == "completed"
+    assert run_payload["execution"]["steps"][0]["output"]["valid"] is True
+    assert run_payload["execution"]["steps"][0]["output"]["missing_fields"] == []
+    assert run_payload["execution"]["steps"][0]["output"]["adapter"] == "callable"
+
+
+def test_create_real_callable_metadata_parsing_skill_via_api_and_install_run() -> None:
+    create_response = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.text.extract_metadata",
+            "name": "Extract Text Metadata",
+            "description": "extract lightweight metadata from titles or notes deterministically",
+            "adapter_kind": "callable",
+            "generation_operation": "extract_text_metadata",
+            "tags": ["metadata", "text", "parsing"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "original_text": {"type": "string"},
+                        "slug": {"type": "string"},
+                        "word_count": {"type": "integer"},
+                        "has_year": {"type": "boolean"},
+                        "years": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["original_text", "slug", "word_count", "has_year", "years", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "smoke_test_inputs": {"text": "Agent System Roadmap 2026"},
+        },
+    )
+    assert create_response.status_code == 200
+    create_payload = create_response.json()
+    assert create_payload["smoke_test"]["status"] == "completed"
+    assert create_payload["smoke_test"]["output"]["slug"] == "agent-system-roadmap-2026"
+    assert create_payload["smoke_test"]["output"]["word_count"] == 4
+    assert create_payload["smoke_test"]["output"]["has_year"] is True
+    assert create_payload["smoke_test"]["output"]["years"] == ["2026"]
+
+    run_response = client.post(
+        "/apps/from-skills/install-run",
+        json={
+            "blueprint_id": "bp.text.extract_metadata",
+            "name": "Extract Metadata App",
+            "goal": "extract metadata from incoming text before later processing",
+            "skill_ids": ["skill.text.extract_metadata"],
+            "workflow_id": "wf.text.extract_metadata",
+            "user_id": "metadata-user",
+            "step_inputs": {
+                "skill.1": {"text": "Quarterly Review Notes 2025"}
+            },
+        },
+    )
+    assert run_response.status_code == 200
+    run_payload = run_response.json()
+    assert run_payload["execution"]["status"] == "completed"
+    assert run_payload["execution"]["steps"][0]["output"]["slug"] == "quarterly-review-notes-2025"
+    assert run_payload["execution"]["steps"][0]["output"]["has_year"] is True
+    assert run_payload["execution"]["steps"][0]["output"]["years"] == ["2025"]
+
+
 def test_generated_callable_skill_persists_and_reloads(tmp_path: Path) -> None:
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-store"))
     data_store = AppDataStore(base_dir=str(tmp_path / "namespaces"), store=runtime_store)

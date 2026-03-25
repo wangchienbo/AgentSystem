@@ -2,6 +2,83 @@
 
 ## 2026-03-25
 
+### Module: risk dashboard scope-aware stats
+
+Made skill-risk governance stats explicitly scope-aware so operator surfaces can distinguish different classes of policy pressure.
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - adds `events_by_scope` to `SkillRiskStatsSummary`
+- `app/services/skill_risk_policy.py`
+  - aggregates risk-governance events by scope (`generated_app_assembly`, `blueprint_materialization`)
+- `tests/unit/test_skill_risk_dashboard.py`
+  - verifies service/dashboard stats expose per-scope event counts
+  - verifies API dashboard payloads expose the new `events_by_scope` read model
+
+#### Why
+- recent governance work introduced multiple meaningful risk scopes, but dashboard/stats reads still collapsed them into one undifferentiated event count
+- scope-aware stats make policy pressure visible without forcing operators to hand-scan raw event trails
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_risk_dashboard.py tests/unit/test_skill_risk_policy.py tests/unit/test_skill_diagnostics_api.py`
+- result: `10 passed`
+
+### Module: install-run policy diagnostic contract coverage
+
+Locked the combined install-run API path to the same structured generated-app assembly risk-diagnostic contract already enforced at blueprint assembly time.
+
+#### Updated
+- `tests/unit/test_skill_diagnostics_api.py`
+  - verifies `/apps/from-skills/install-run` returns `assemble`/`policy_blocked` diagnostics for risky generated skills
+  - verifies the diagnostic preserves `override_scope=generated_app_assembly` and policy reasons
+  - verifies the risk event trail records a `policy_blocked` event for the blocked skill
+
+#### Why
+- install-run already reused generated-app assembly internally, but the security contract was only implicitly protected
+- this makes sure future refactors cannot silently collapse a structured policy block into a generic install failure on the combined API path
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_diagnostics_api.py tests/unit/test_skill_risk_override_api.py tests/unit/test_skill_factory_risk_gating.py`
+- result: `10 passed`
+
+### Module: metadata parsing generated-skill case
+
+Expanded the real-skill validation matrix with a deterministic generated callable that extracts lightweight metadata from text.
+
+#### Updated
+- `app/services/generated_callable_materializer.py`
+  - adds `extract_text_metadata` callable generation operation
+- `tests/unit/test_generated_callable_skill.py`
+  - verifies generated metadata parsing skill creation, smoke-test behavior, generated app install-run flow, and deterministic metadata outputs (`slug`, `word_count`, `has_year`, `years`)
+
+#### Why
+- Phase 6 still lacked a realistic metadata parsing case distinct from normalization and validation examples
+- this adds a simple but useful ordinary-skill shape without expanding into heavyweight NLP or external-model dependencies
+
+#### Validation
+- focused: `./.venv/bin/pytest -q tests/unit/test_generated_callable_skill.py -k "metadata_parsing_skill or callable_validation_skill or create_real_callable_skill_via_api_and_install_run"`
+- result: `3 passed`
+- broader generated-skill slice: `./.venv/bin/pytest -q tests/unit/test_generated_callable_skill.py tests/unit/test_generated_skill_persistence.py tests/unit/test_generated_skill_durability.py tests/unit/test_generated_app_durability.py tests/unit/test_skill_factory_api.py`
+- result: `17 passed`
+
+### Module: deterministic validation generated-skill case
+
+Expanded the real-skill validation matrix with a deterministic generated callable that validates required fields in structured payloads.
+
+#### Updated
+- `app/services/generated_callable_materializer.py`
+  - adds `validate_required_fields` callable generation operation
+- `tests/unit/test_generated_callable_skill.py`
+  - verifies generated callable validation skill creation, smoke-test behavior, generated app install-run flow, and deterministic validation outputs
+
+#### Why
+- Phase 6 asks for broader realistic generated-skill coverage beyond transform-only examples
+- this adds a validation-oriented callable case that exercises a different ordinary skill shape than slugify/text or object-key normalization
+
+#### Validation
+- focused: `./.venv/bin/pytest -q tests/unit/test_generated_callable_skill.py tests/unit/test_skill_factory_api.py -k "callable_validation_skill or create_real_callable_skill_via_api_and_install_run or create_structured_transform_generated_app_exposes_shape_specific_metadata"`
+- result: `3 passed`
+
 ### Module: explicit generated app-shape metadata
 
 Promoted generated app shape from implicit wording to an explicit machine-readable control-plane field.

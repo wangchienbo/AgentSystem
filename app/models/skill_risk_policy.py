@@ -54,6 +54,7 @@ class SkillRiskStatsSummary(BaseModel):
     blocked_events: int = 0
     approved_events: int = 0
     revoked_events: int = 0
+    events_by_scope: dict[str, int] = Field(default_factory=dict)
     latest_decision_at: datetime | None = None
     latest_event_at: datetime | None = None
 

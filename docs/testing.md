@@ -149,6 +149,8 @@ Covered behavior:
 - generated-app shape coverage now verifies text-style single-skill apps, structured-transform single-skill apps, and multi-step pipelines emit different role names, task metadata, and action/view labels instead of sharing identical generic wording
 - installer/control-plane coverage now verifies app install responses expose inferred runtime-profile metadata in addition to execution mode/status, keeping install-time API reads aligned with blueprint/registry summaries
 - generated-app shape coverage now also locks the new explicit `app_shape` field across blueprint, registry, and install-result payloads so app-type semantics are machine-readable instead of only implicit in generated labels
+- generated callable validation coverage now verifies a deterministic validation skill (`validate_required_fields`) can be created, smoke-tested, installed into a generated app, and executed end-to-end as a realistic non-transform callable case
+- generated callable metadata coverage now verifies a deterministic metadata-parsing skill (`extract_text_metadata`) can be created, smoke-tested, installed into a generated app, and executed end-to-end with stable slug/year/word-count extraction behavior
 - generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
 - refinement-loop coverage now verifies the system can carry a prioritized refinement proposal into explicit hypothesis / experiment / verification / rollout objects through both service and API paths
@@ -186,6 +188,8 @@ Covered behavior:
 - end-to-end blueprint materialization coverage now verifies low-risk defaults also appear in the final registered skill manifest and capability profile
 - blueprint materialization policy coverage now verifies low-risk blueprints reject shell/script materialization when safety metadata disallows it
 - blueprint materialization override coverage now verifies reviewer-managed `blueprint_materialization` overrides can intentionally unblock those policy-gated paths
+- install-run risk-gating coverage now verifies the combined `/apps/from-skills/install-run` path preserves structured generated-app assembly policy diagnostics (including `override_scope` and event-trail visibility) rather than degrading into a generic install failure
+- skill-risk dashboard coverage now verifies governance stats expose `events_by_scope`, so generated-app assembly pressure and blueprint-materialization pressure remain distinguishable in operator read models
 
 ## 3.7 Interaction gateway
 Covered behavior:
