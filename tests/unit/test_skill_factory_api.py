@@ -119,6 +119,8 @@ def test_create_app_blueprint_from_generated_skills_via_api() -> None:
     payload = response.json()
     assert payload["blueprint"]["id"] == "bp.generated.skill.app"
     assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "service"
+    assert payload["blueprint"]["runtime_profile"]["offline_capable"] is True
+    assert payload["blueprint"]["runtime_profile"]["direct_start_supported"] is True
     assert payload["blueprint"]["tasks"][0]["id"] == "task.run_generated_workflow"
     assert {view["id"] for view in payload["blueprint"]["views"]} == {"generated.overview", "generated.run", "generated.activity"}
     assert payload["result"]["required_skills"] == ["skill.script.for.app"]
@@ -126,7 +128,9 @@ def test_create_app_blueprint_from_generated_skills_via_api() -> None:
 
     blueprints = client.get("/registry/apps")
     assert blueprints.status_code == 200
-    assert any(item["blueprint_id"] == "bp.generated.skill.app" for item in blueprints.json())
+    registered = next(item for item in blueprints.json() if item["blueprint_id"] == "bp.generated.skill.app")
+    assert registered["runtime_profile_summary"]["offline_capable"] is True
+    assert registered["runtime_profile_summary"]["invocation_posture"] == "automatic"
 
 
 def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
@@ -294,6 +298,7 @@ def test_create_multi_step_generated_app_with_step_mappings() -> None:
     payload = response.json()
     assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "pipeline"
     assert payload["blueprint"]["runtime_policy"]["idle_strategy"] == "suspend"
+    assert payload["blueprint"]["runtime_profile"]["runtime_skills"] == ["skill.text.slugify.chain", "skill.object.normalize_keys.chain"]
     assert len(payload["blueprint"]["tasks"]) == 1
     assert len(payload["blueprint"]["views"]) == 3
     assert payload["execution"]["status"] == "completed"

@@ -413,6 +413,8 @@ graph TD
 > Origin note: generated-skill durability now depends on registry origin metadata (`builtin | generated | manual`) staying aligned across built-in bootstrap, generated-skill authoring, persisted asset payloads, and reload registration; edits to any one of those surfaces should be treated as affecting Phase-1 asset identity guarantees.
 
 > Skeleton note: generated app assembly now depends on `AppProfileResolverService` to derive richer blueprint skeleton defaults (execution mode, tasks, views, idle behavior) from selected skills, so app-profile logic changes should be treated as affecting `/apps/from-skills` output shape and generated-app metadata expectations.
+
+> Profile note: inferred `AppRuntimeProfile` data now flows into generated `AppBlueprint.runtime_profile`, `AppRegistryEntry.runtime_profile_summary`, and later `AppInstance.runtime_profile`, so edits to app-profile resolution or registry registration should be treated as affecting both pre-install and post-install runtime metadata contracts.
     F --> GSA[services/generated_skill_assets.py]
     F --> SSR[services/system_skill_registry.py]
     F --> SSS[services/system_skill_service.py]

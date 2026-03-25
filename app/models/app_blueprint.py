@@ -2,6 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.app_profile import AppRuntimeProfile
 from app.models.runtime_policy import RuntimePolicy
 
 
@@ -73,3 +74,4 @@ class AppBlueprint(BaseModel):
     required_skills: list[str] = Field(default_factory=list)
     storage_plan: StoragePlan = Field(default_factory=StoragePlan)
     runtime_policy: RuntimePolicy = Field(default_factory=RuntimePolicy)
+    runtime_profile: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)

@@ -350,6 +350,7 @@ class SkillFactoryService:
             ],
             required_modules=[],
             required_skills=list(request.skill_ids),
+            runtime_profile=runtime_profile.model_dump(mode="json"),
             runtime_policy={
                 "execution_mode": execution_mode,
                 "activation": activation,

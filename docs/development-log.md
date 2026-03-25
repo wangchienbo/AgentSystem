@@ -2,6 +2,31 @@
 
 ## 2026-03-25
 
+### Module: generated app runtime-profile metadata promotion
+
+Promoted inferred app runtime profile data into generated blueprints and registry summaries so control-plane reads can inspect runtime capability shape before installation.
+
+#### Updated
+- `app/models/app_blueprint.py`
+  - adds first-class `runtime_profile`
+- `app/models/registry.py`
+  - adds `runtime_profile_summary` to registry entries
+- `app/services/skill_factory.py`
+  - writes resolved runtime profile into generated app blueprints
+- `app/services/app_registry.py`
+  - copies blueprint runtime profile into registry-entry summaries during registration
+- `tests/unit/test_skill_factory_api.py`
+  - verifies generated blueprints expose runtime-profile metadata
+  - verifies `/registry/apps` exposes runtime-profile summaries for generated blueprints
+
+#### Why
+- runtime profile inference already existed at install time, but generated blueprints and registry entries still lacked a stable pre-install runtime capability summary
+- that made control-plane display and generated-app inspection depend on reconstructing capability facts from raw skills or waiting until install-time state existed
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_registry_installer.py tests/unit/test_generated_app_durability.py tests/unit/test_blueprint_validation.py`
+- result: `20 passed`
+
 ### Module: richer generated app skeleton defaults
 
 Upgraded generated app assembly from a bare workflow wrapper into a profile-aware blueprint skeleton that carries usable control-plane metadata.

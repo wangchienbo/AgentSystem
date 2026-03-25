@@ -22,6 +22,7 @@ class AppRegistryService:
             name=blueprint.name,
             version=blueprint.version,
             description=description or blueprint.goal,
+            runtime_profile_summary=blueprint.runtime_profile,
         )
         self._entries[blueprint.id] = entry
         self._persist()

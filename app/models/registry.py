@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.app_profile import AppRuntimeProfile
+
 RegistryStatus = Literal["draft", "registered", "deprecated", "archived"]
 InstallStatus = Literal["installed", "upgraded"]
 
@@ -15,6 +17,7 @@ class AppRegistryEntry(BaseModel):
     version: str = Field(..., min_length=1)
     status: RegistryStatus = "registered"
     description: str = ""
+    runtime_profile_summary: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
