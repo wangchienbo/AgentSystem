@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.models.skill_adapter import SkillAdapterSpec
-from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion, SkillOrigin
 from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
 
 
@@ -25,6 +25,7 @@ class SkillAuthoringSpec:
     content: str = ""
     capability_profile: SkillCapabilityProfile = field(default_factory=SkillCapabilityProfile)
     manifest_risk: SkillManifestRisk = field(default_factory=SkillManifestRisk)
+    origin: SkillOrigin = "manual"
 
 
 class SkillAuthoringService:
@@ -59,6 +60,7 @@ class SkillAuthoringService:
         return SkillRegistryEntry(
             skill_id=spec.skill_id,
             name=spec.name,
+            origin=spec.origin,
             immutable_interface=spec.immutable_interface,
             active_version=spec.version,
             versions=[SkillVersion(version=spec.version, content=content)],
@@ -85,6 +87,7 @@ class SkillAuthoringService:
         content: str = "",
         capability_profile: SkillCapabilityProfile | None = None,
         manifest_risk: SkillManifestRisk | None = None,
+        origin: SkillOrigin = "manual",
     ) -> SkillRegistryEntry:
         return self.build_entry(
             SkillAuthoringSpec(
@@ -103,6 +106,7 @@ class SkillAuthoringService:
                 content=content,
                 capability_profile=capability_profile or SkillCapabilityProfile(),
                 manifest_risk=manifest_risk or SkillManifestRisk(),
+                origin=origin,
             )
         )
 
@@ -123,6 +127,7 @@ class SkillAuthoringService:
         content: str = "",
         capability_profile: SkillCapabilityProfile | None = None,
         manifest_risk: SkillManifestRisk | None = None,
+        origin: SkillOrigin = "manual",
     ) -> SkillRegistryEntry:
         return self.build_entry(
             SkillAuthoringSpec(
@@ -141,5 +146,6 @@ class SkillAuthoringService:
                 content=content,
                 capability_profile=capability_profile or SkillCapabilityProfile(),
                 manifest_risk=manifest_risk or SkillManifestRisk(),
+                origin=origin,
             )
         )

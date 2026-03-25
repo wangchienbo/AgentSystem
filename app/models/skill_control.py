@@ -13,6 +13,7 @@ SkillNetworkRequirement = Literal["N0_none", "N1_optional", "N2_required"]
 SkillRuntimeCriticality = Literal["C0_build_only", "C1_optional_runtime", "C2_required_runtime", "build_and_runtime_governance", "build_only_or_optional_runtime"]
 SkillExecutionLocality = Literal["local", "hybrid", "remote"]
 SkillInvocationDefault = Literal["automatic", "ask_user", "explicit_only"]
+SkillOrigin = Literal["builtin", "generated", "manual"]
 
 
 class SkillCapabilityProfile(BaseModel):
@@ -34,6 +35,7 @@ class SkillVersion(BaseModel):
 class SkillRegistryEntry(BaseModel):
     skill_id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
+    origin: SkillOrigin = "manual"
     immutable_interface: bool = False
     status: SkillStatus = "active"
     active_version: str = Field(..., min_length=1)

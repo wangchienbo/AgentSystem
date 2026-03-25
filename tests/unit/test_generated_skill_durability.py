@@ -80,6 +80,7 @@ def test_generated_skill_assets_reload_after_runtime_rebuild(tmp_path: Path) -> 
     assert restored >= 1
     restored_entry = rebuilt_skill_control.get_skill("skill.text.slugify.durable")
     assert restored_entry.skill_id == "skill.text.slugify.durable"
+    assert restored_entry.origin == "generated"
 
     result = rebuilt_skill_runtime.execute(
         SkillExecutionRequest(

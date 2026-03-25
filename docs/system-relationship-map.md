@@ -408,6 +408,8 @@ graph TD
 > Factory note: `SkillFactoryService` now consumes `SkillBlueprint.safety_profile` when deriving creation defaults, so changes to blueprint safety metadata should be treated as also affecting generated-skill materialization defaults.
 
 > Propagation note: blueprint-derived `manifest_risk` now flows through `SkillCreationRequest` into `SkillAuthoringService` and the final registered `SkillManifest`, so changes in request-model fields, authoring helpers, or manifest-risk semantics can break materialization, validation, and override behavior together.
+
+> Origin note: generated-skill durability now depends on registry origin metadata (`builtin | generated | manual`) staying aligned across built-in bootstrap, generated-skill authoring, persisted asset payloads, and reload registration; edits to any one of those surfaces should be treated as affecting Phase-1 asset identity guarantees.
     F --> GSA[services/generated_skill_assets.py]
     F --> SSR[services/system_skill_registry.py]
     F --> SSS[services/system_skill_service.py]

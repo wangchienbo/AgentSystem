@@ -2,6 +2,37 @@
 
 ## 2026-03-25
 
+### Module: generated-vs-builtin skill origin metadata
+
+Closed the remaining Phase-1 generated-skill roadmap gap by teaching registry entries to distinguish built-in, generated, and manual skills, and by preserving that origin across generated-skill persistence and reload.
+
+#### Updated
+- `app/models/skill_control.py`
+  - adds `SkillRegistryEntry.origin` with explicit `builtin | generated | manual` registry metadata
+- `app/services/skill_authoring.py`
+  - threads origin through authoring specs and callable/script entry builders
+- `app/services/skill_factory.py`
+  - marks API-created/materialized skills as `generated`
+- `app/services/system_skill_registry.py`
+  - marks bootstrapped system skills as `builtin`
+- `tests/unit/test_skill_authoring.py`
+  - verifies ordinary authoring defaults to `manual`
+- `tests/unit/test_bootstrap_smoke.py`
+  - verifies bootstrapped core/system skills are tagged `builtin`
+- `tests/unit/test_generated_skill_persistence.py`
+- `tests/unit/test_generated_skill_durability.py`
+  - verify persisted/reloaded generated assets remain tagged `generated`
+
+#### Why
+- Phase 1 of the generated-skill roadmap already had persistence/reload, but the registry still could not distinguish built-in skills from generated assets
+- without explicit origin metadata, runtime reload could restore the bytes of a generated skill while losing its identity as a generated managed asset
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_authoring.py tests/unit/test_generated_skill_persistence.py tests/unit/test_generated_skill_durability.py tests/unit/test_bootstrap_smoke.py tests/unit/test_generated_callable_skill.py tests/unit/test_skill_factory_api.py`
+- result: `17 passed`
+
+## 2026-03-25
+
 ### Module: blueprint materialization risk/default propagation contract repair
 
 Repaired the blueprint materialization path after the new shell-policy gate exposed a broken contract between API diagnostics, creation-request models, and authored skill manifests.

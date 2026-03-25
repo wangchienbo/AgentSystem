@@ -107,7 +107,7 @@ Without persistence/reload, generated skills are closer to session artifacts tha
 
 ### Acceptance criteria
 - [x] a generated script skill survives process restart
-- [ ] registry can distinguish generated assets from built-ins
+- [x] registry can distinguish generated assets from built-ins
 - [x] reload restores manifest/contract/runtime registration correctly
 - [x] focused persistence/reload tests pass
 

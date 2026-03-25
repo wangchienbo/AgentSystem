@@ -23,6 +23,7 @@ def test_skill_authoring_service_builds_callable_entry() -> None:
     assert entry.manifest.adapter.entry == "app.skills.notes:append_note"
     assert entry.manifest.contract.input_schema_ref == "schema://skill.notes.append/input"
     assert entry.manifest.tags == ["notes", "deterministic"]
+    assert entry.origin == "manual"
 
 
 def test_skill_authoring_service_builds_script_entry() -> None:
@@ -41,6 +42,7 @@ def test_skill_authoring_service_builds_script_entry() -> None:
     assert entry.manifest.adapter.kind == "script"
     assert entry.manifest.adapter.command == ["python3", "tests/fixtures/script_echo_skill.py"]
     assert entry.manifest.tags == ["script"]
+    assert entry.origin == "manual"
 
 
 def test_skill_authoring_service_preserves_capability_profile_and_dependencies() -> None:
@@ -70,3 +72,4 @@ def test_skill_authoring_service_preserves_capability_profile_and_dependencies()
     assert entry.capability_profile == capability
     assert entry.manifest is not None
     assert entry.manifest.description == "optional model-assisted lookup"
+    assert entry.origin == "manual"

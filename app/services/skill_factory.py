@@ -163,6 +163,7 @@ class SkillFactoryService:
                 tags=request.tags,
                 capability_profile=request.capability_profile,
                 manifest_risk=request.manifest_risk,
+                origin="generated",
                 content=request.description or request.name,
             )
             if request.skill_id not in {item.skill_id for item in self._skill_control.list_skills()}:
@@ -203,6 +204,7 @@ class SkillFactoryService:
                 tags=request.tags,
                 capability_profile=request.capability_profile,
                 manifest_risk=request.manifest_risk,
+                origin="generated",
                 content=request.description or request.name,
             )
             if request.skill_id not in {item.skill_id for item in self._skill_control.list_skills()}:
