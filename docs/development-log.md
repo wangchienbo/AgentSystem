@@ -2,6 +2,38 @@
 
 ## 2026-03-25
 
+### Module: generated revision governance metadata
+
+Started Phase 8.3 by adding minimal governance semantics to generated skill revisions and rollbacks.
+
+#### Updated
+- `app/models/skill_control.py`
+  - extends `SkillVersion` with governance metadata (`revision_status`, `reason`, `reviewer`, `approved_at`, `rollback_reason`)
+- `app/models/skill_creation.py`
+  - extends generated revision requests with governance-oriented input (`reason`, `reviewer`, `approve_immediately`)
+- `app/api/main.py`
+  - version listing now exposes governance metadata for each revision
+  - adds draft revision activation endpoint: `/skills/{skill_id}/revisions/{version}/activate`
+  - generated rollback now accepts reviewer/reason metadata
+- `app/services/skill_factory.py`
+  - supports draft generated revisions that do not immediately replace the active version
+  - supports later activation of draft revisions
+  - records rollback reviewer/reason and version-state transitions (`active`, `draft`, `superseded`, `rolled_back`)
+- `app/services/generated_skill_assets.py`
+  - preserves explicit revision version identity when draft revisions are stored before activation
+- `tests/unit/test_skill_factory_api.py`
+  - verifies draft revisions remain non-active until activated
+  - verifies later activation promotes draft revisions to active and supersedes the previous active version
+  - verifies rollback stores governance metadata and state transitions in version history
+
+#### Why
+- Phase 8.1/8.2 made generated skills versioned and comparable, but revision changes were still largely governance-free technical operations
+- Phase 8.3 begins turning revision history into an auditable lifecycle by distinguishing draft vs active revisions and by preserving why/by whom rollbacks and revisions happened
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py -k "rollback_generated_skill_via_api or activate_draft_generated_revision or governance_metadata"`
+- result: `3 passed`
+
 ### Module: generated skill revision / rollback foundations
 
 Started Phase 8 by adding the first usable generated-skill revision lifecycle.
