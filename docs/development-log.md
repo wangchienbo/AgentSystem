@@ -2,6 +2,26 @@
 
 ## 2026-03-25
 
+### Module: metadata parsing generated-skill case
+
+Expanded the real-skill validation matrix with a deterministic generated callable that extracts lightweight metadata from text.
+
+#### Updated
+- `app/services/generated_callable_materializer.py`
+  - adds `extract_text_metadata` callable generation operation
+- `tests/unit/test_generated_callable_skill.py`
+  - verifies generated metadata parsing skill creation, smoke-test behavior, generated app install-run flow, and deterministic metadata outputs (`slug`, `word_count`, `has_year`, `years`)
+
+#### Why
+- Phase 6 still lacked a realistic metadata parsing case distinct from normalization and validation examples
+- this adds a simple but useful ordinary-skill shape without expanding into heavyweight NLP or external-model dependencies
+
+#### Validation
+- focused: `./.venv/bin/pytest -q tests/unit/test_generated_callable_skill.py -k "metadata_parsing_skill or callable_validation_skill or create_real_callable_skill_via_api_and_install_run"`
+- result: `3 passed`
+- broader generated-skill slice: `./.venv/bin/pytest -q tests/unit/test_generated_callable_skill.py tests/unit/test_generated_skill_persistence.py tests/unit/test_generated_skill_durability.py tests/unit/test_generated_app_durability.py tests/unit/test_skill_factory_api.py`
+- result: `17 passed`
+
 ### Module: deterministic validation generated-skill case
 
 Expanded the real-skill validation matrix with a deterministic generated callable that validates required fields in structured payloads.

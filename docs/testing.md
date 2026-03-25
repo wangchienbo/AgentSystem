@@ -150,6 +150,7 @@ Covered behavior:
 - installer/control-plane coverage now verifies app install responses expose inferred runtime-profile metadata in addition to execution mode/status, keeping install-time API reads aligned with blueprint/registry summaries
 - generated-app shape coverage now also locks the new explicit `app_shape` field across blueprint, registry, and install-result payloads so app-type semantics are machine-readable instead of only implicit in generated labels
 - generated callable validation coverage now verifies a deterministic validation skill (`validate_required_fields`) can be created, smoke-tested, installed into a generated app, and executed end-to-end as a realistic non-transform callable case
+- generated callable metadata coverage now verifies a deterministic metadata-parsing skill (`extract_text_metadata`) can be created, smoke-tested, installed into a generated app, and executed end-to-end with stable slug/year/word-count extraction behavior
 - generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
 - refinement-loop coverage now verifies the system can carry a prioritized refinement proposal into explicit hypothesis / experiment / verification / rollout objects through both service and API paths
