@@ -8,6 +8,8 @@ from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry,
 from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, GeneratedSkillRevisionRequest, GeneratedSkillRevisionResult, GeneratedSkillVersionComparison, SkillCreationRequest, SkillCreationResult, StepMappingDefinition, SuggestedStepMapping
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
+from datetime import UTC, datetime
+
 from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.generated_callable_materializer import GeneratedCallableMaterializer, GeneratedCallableMaterializerError
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
@@ -147,15 +149,28 @@ class SkillFactoryService:
         previous_version = existing_entry.active_version
         schema_refs = self._register_contracts(revised_request)
         entry = self._build_entry_and_register_runtime(revised_request, schema_refs)
-        entry.versions = list(existing_entry.versions) + [
-            SkillVersion(version=request.version, content=entry.versions[-1].content, note=request.note or f"revise {request.version}")
+        prior_versions = []
+        for item in existing_entry.versions:
+            updated = item.model_copy(deep=True)
+            if updated.version == existing_entry.active_version and request.approve_immediately:
+                updated.revision_status = "superseded"
+            prior_versions.append(updated)
+        entry.versions = prior_versions + [
+            SkillVersion(
+                version=request.version,
+                content=entry.versions[-1].content,
+                note=request.note or f"revise {request.version}",
+                revision_status="active" if request.approve_immediately else "draft",
+                reason=request.reason,
+                reviewer=request.reviewer,
+            )
         ]
-        entry.active_version = request.version
+        entry.active_version = request.version if request.approve_immediately else existing_entry.active_version
         if entry.manifest is not None:
-            entry.manifest.version = request.version
+            entry.manifest.version = entry.active_version
         self._skill_control.register(entry)
         smoke = self._run_smoke_test(revised_request)
-        self._generated_assets.persist_generated_skill(request=revised_request, schema_refs=schema_refs, entry=entry)
+        self._generated_assets.persist_generated_skill(request=revised_request, schema_refs=schema_refs, entry=entry, version_override=request.version)
         return GeneratedSkillRevisionResult(
             skill_id=skill_id,
             version=request.version,
@@ -165,6 +180,43 @@ class SkillFactoryService:
             schema_refs=schema_refs,
             smoke_test=smoke,
         )
+
+    def activate_generated_skill_revision(self, skill_id: str, version: str, reviewer: str = "") -> dict:
+        if self._generated_assets is None:
+            raise SkillFactoryError("Generated skill activation requires generated asset storage")
+        activate_request = self._generated_assets.build_request_for_version(skill_id, version)
+        try:
+            existing_entry = self._skill_control.get_skill(skill_id)
+        except SkillControlError:
+            self.reload_generated_skills()
+            existing_entry = self._skill_control.get_skill(skill_id)
+        if existing_entry.origin != "generated":
+            raise SkillFactoryError(f"Only generated skills support activation: {skill_id}")
+        activate_request.smoke_test_inputs = {}
+        schema_refs = self._register_contracts(activate_request)
+        entry = self._build_entry_and_register_runtime(activate_request, schema_refs)
+        updated_versions = []
+        for item in existing_entry.versions:
+            updated = item.model_copy(deep=True)
+            if updated.version == version:
+                updated.revision_status = "active"
+                updated.approved_at = datetime.now(UTC)
+                if reviewer:
+                    updated.reviewer = reviewer
+            elif updated.version == existing_entry.active_version:
+                updated.revision_status = "superseded"
+            updated_versions.append(updated)
+        entry.versions = updated_versions
+        entry.active_version = version
+        if entry.manifest is not None:
+            entry.manifest.version = version
+        self._skill_control.register(entry)
+        return {
+            "skill_id": skill_id,
+            "activated_version": version,
+            "active_version": entry.active_version,
+            "runtime_adapter": entry.runtime_adapter,
+        }
 
     def compare_generated_skill_versions(self, skill_id: str, from_version: str, to_version: str) -> GeneratedSkillVersionComparison:
         if self._generated_assets is None:
@@ -177,7 +229,7 @@ class SkillFactoryService:
         except ValueError as error:
             raise SkillFactoryError(str(error)) from error
 
-    def rollback_generated_skill(self, skill_id: str, target_version: str) -> dict:
+    def rollback_generated_skill(self, skill_id: str, target_version: str, reviewer: str = "", rollback_reason: str = "") -> dict:
         if self._generated_assets is None:
             raise SkillFactoryError("Generated skill rollback requires generated asset storage")
         existing_entry = self._skill_control.get_skill(skill_id)
@@ -187,7 +239,18 @@ class SkillFactoryService:
         rollback_request.smoke_test_inputs = {}
         schema_refs = self._register_contracts(rollback_request)
         entry = self._build_entry_and_register_runtime(rollback_request, schema_refs)
-        entry.versions = list(existing_entry.versions)
+        updated_versions = []
+        for item in existing_entry.versions:
+            updated = item.model_copy(deep=True)
+            if updated.version == target_version:
+                updated.revision_status = "active"
+                updated.rollback_reason = rollback_reason
+                if reviewer:
+                    updated.reviewer = reviewer
+            elif updated.version == existing_entry.active_version:
+                updated.revision_status = "rolled_back"
+            updated_versions.append(updated)
+        entry.versions = updated_versions
         entry.active_version = target_version
         if entry.manifest is not None:
             entry.manifest.version = target_version
@@ -197,6 +260,8 @@ class SkillFactoryService:
             "target_version": target_version,
             "active_version": entry.active_version,
             "runtime_adapter": entry.runtime_adapter,
+            "reviewer": reviewer,
+            "rollback_reason": rollback_reason,
         }
 
     def create_skill(self, request: SkillCreationRequest) -> SkillCreationResult:

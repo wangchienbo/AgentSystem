@@ -20,28 +20,35 @@ class GeneratedSkillAssetStore:
         request: SkillCreationRequest,
         schema_refs: dict[str, str],
         entry: SkillRegistryEntry,
+        version_override: str | None = None,
     ) -> None:
         existing = self.get_generated_asset(request.skill_id) or {}
         revisions = list(existing.get("revisions", []))
-        revisions.append(
-            {
-                "version": entry.active_version,
-                "description": request.description,
-                "adapter_kind": request.adapter_kind,
-                "generation_operation": request.generation_operation,
-                "handler_entry": request.handler_entry,
-                "command": list(request.command),
-                "tags": list(request.tags),
-                "capability_profile": request.capability_profile.model_dump(mode="json"),
-                "manifest_risk": request.manifest_risk.model_dump(mode="json"),
-                "schema_refs": dict(schema_refs),
-                "schemas": {
-                    "input": request.schemas.input,
-                    "output": request.schemas.output,
-                    "error": request.schemas.error,
-                },
-            }
-        )
+        revision_version = version_override or entry.active_version
+        payload = {
+            "version": revision_version,
+            "description": request.description,
+            "adapter_kind": request.adapter_kind,
+            "generation_operation": request.generation_operation,
+            "handler_entry": request.handler_entry,
+            "command": list(request.command),
+            "tags": list(request.tags),
+            "capability_profile": request.capability_profile.model_dump(mode="json"),
+            "manifest_risk": request.manifest_risk.model_dump(mode="json"),
+            "schema_refs": dict(schema_refs),
+            "schemas": {
+                "input": request.schemas.input,
+                "output": request.schemas.output,
+                "error": request.schemas.error,
+            },
+            "note": next((item.note for item in entry.versions if item.version == revision_version), ""),
+            "created_at": next((item.created_at.isoformat() for item in entry.versions if item.version == revision_version), ""),
+        }
+        version_record = next((item for item in revisions if item.get("version") == revision_version), None)
+        if version_record is None:
+            revisions.append(payload)
+        else:
+            version_record.update(payload)
         self._data_store.put_record(
             namespace_id=self._namespace_id,
             key=f"generated-skill:{request.skill_id}",

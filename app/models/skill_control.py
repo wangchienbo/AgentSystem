@@ -25,11 +25,19 @@ class SkillCapabilityProfile(BaseModel):
     risk_level: str = Field(default="R0_safe_read", min_length=1)
 
 
+SkillRevisionStatus = Literal["active", "superseded", "rolled_back", "draft"]
+
+
 class SkillVersion(BaseModel):
     version: str = Field(..., min_length=1)
     content: str = Field(..., min_length=1)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     note: str = Field(default="")
+    revision_status: SkillRevisionStatus = "active"
+    reason: str = Field(default="")
+    reviewer: str = Field(default="")
+    approved_at: datetime | None = None
+    rollback_reason: str = Field(default="")
 
 
 class SkillRegistryEntry(BaseModel):
