@@ -325,6 +325,7 @@ Use this checklist when executing the roadmap:
 - [x] Phase 5: richer generated app skeletons
   - generated app skeletons now differ by lightweight inferred app shape (`text_transform`, `structured_transform`, `pipeline_chain`)
 - [ ] Phase 6: broader real-skill validation matrix
+  - deterministic validation skill case now covered via generated callable `validate_required_fields`
 - [ ] Phase 7: security/permission boundaries
 - [ ] Phase 8: revision/rollback/self-improvement
 

@@ -25,6 +25,8 @@ class GeneratedCallableMaterializer:
             content = self._render_normalize_object_keys(skill_id)
         elif operation == "echo_object_keys":
             content = self._render_echo_object_keys(skill_id)
+        elif operation == "validate_required_fields":
+            content = self._render_validate_required_fields(skill_id)
         else:
             raise GeneratedCallableMaterializerError(f"Unsupported callable generation operation: {operation}")
         file_path.write_text(content, encoding="utf-8")
@@ -102,6 +104,29 @@ def handle(request: SkillExecutionRequest) -> SkillExecutionResult:
         output={{
             "echoed": echoed,
             "top_level_keys": sorted(list(echoed.keys())),
+            "adapter": "callable",
+        }},
+    )
+'''
+
+    @staticmethod
+    def _render_validate_required_fields(skill_id: str) -> str:
+        return f'''from __future__ import annotations
+
+from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
+
+
+def handle(request: SkillExecutionRequest) -> SkillExecutionResult:
+    payload = request.inputs.get("payload", {{}})
+    required_fields = request.inputs.get("required_fields", [])
+    missing_fields = [field for field in required_fields if field not in payload or payload.get(field) in (None, "")]
+    return SkillExecutionResult(
+        skill_id="{skill_id}",
+        status="completed",
+        output={{
+            "valid": len(missing_fields) == 0,
+            "missing_fields": missing_fields,
+            "checked_fields": list(required_fields),
             "adapter": "callable",
         }},
     )

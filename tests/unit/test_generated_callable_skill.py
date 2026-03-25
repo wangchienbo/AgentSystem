@@ -93,6 +93,81 @@ def test_create_real_callable_skill_via_api_and_install_run() -> None:
     assert run_payload["execution"]["steps"][0]["output"]["adapter"] == "callable"
 
 
+def test_create_real_callable_validation_skill_via_api_and_install_run() -> None:
+    create_response = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.object.validate_required_fields",
+            "name": "Validate Required Fields",
+            "description": "validate required fields in a structured payload deterministically",
+            "adapter_kind": "callable",
+            "generation_operation": "validate_required_fields",
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {
+                        "payload": {"type": "object"},
+                        "required_fields": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "required": ["payload", "required_fields"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "valid": {"type": "boolean"},
+                        "missing_fields": {"type": "array", "items": {"type": "string"}},
+                        "checked_fields": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["valid", "missing_fields", "checked_fields", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "smoke_test_inputs": {
+                "payload": {"title": "Agent System", "owner": "bo"},
+                "required_fields": ["title", "owner", "status"],
+            },
+        },
+    )
+    assert create_response.status_code == 200
+    create_payload = create_response.json()
+    assert create_payload["runtime_adapter"] == "callable"
+    assert create_payload["smoke_test"]["status"] == "completed"
+    assert create_payload["smoke_test"]["output"]["valid"] is False
+    assert create_payload["smoke_test"]["output"]["missing_fields"] == ["status"]
+
+    run_response = client.post(
+        "/apps/from-skills/install-run",
+        json={
+            "blueprint_id": "bp.object.validate_required_fields",
+            "name": "Validate Required Fields App",
+            "goal": "validate structured payload completeness before processing",
+            "skill_ids": ["skill.object.validate_required_fields"],
+            "workflow_id": "wf.object.validate_required_fields",
+            "user_id": "validation-user",
+            "step_inputs": {
+                "skill.1": {
+                    "payload": {"title": "Agent System", "owner": "bo", "status": "active"},
+                    "required_fields": ["title", "owner", "status"],
+                }
+            },
+        },
+    )
+    assert run_response.status_code == 200
+    run_payload = run_response.json()
+    assert run_payload["execution"]["status"] == "completed"
+    assert run_payload["execution"]["steps"][0]["output"]["valid"] is True
+    assert run_payload["execution"]["steps"][0]["output"]["missing_fields"] == []
+    assert run_payload["execution"]["steps"][0]["output"]["adapter"] == "callable"
+
+
 def test_generated_callable_skill_persists_and_reloads(tmp_path: Path) -> None:
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-store"))
     data_store = AppDataStore(base_dir=str(tmp_path / "namespaces"), store=runtime_store)

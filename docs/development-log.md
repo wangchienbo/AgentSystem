@@ -2,6 +2,24 @@
 
 ## 2026-03-25
 
+### Module: deterministic validation generated-skill case
+
+Expanded the real-skill validation matrix with a deterministic generated callable that validates required fields in structured payloads.
+
+#### Updated
+- `app/services/generated_callable_materializer.py`
+  - adds `validate_required_fields` callable generation operation
+- `tests/unit/test_generated_callable_skill.py`
+  - verifies generated callable validation skill creation, smoke-test behavior, generated app install-run flow, and deterministic validation outputs
+
+#### Why
+- Phase 6 asks for broader realistic generated-skill coverage beyond transform-only examples
+- this adds a validation-oriented callable case that exercises a different ordinary skill shape than slugify/text or object-key normalization
+
+#### Validation
+- focused: `./.venv/bin/pytest -q tests/unit/test_generated_callable_skill.py tests/unit/test_skill_factory_api.py -k "callable_validation_skill or create_real_callable_skill_via_api_and_install_run or create_structured_transform_generated_app_exposes_shape_specific_metadata"`
+- result: `3 passed`
+
 ### Module: explicit generated app-shape metadata
 
 Promoted generated app shape from implicit wording to an explicit machine-readable control-plane field.
