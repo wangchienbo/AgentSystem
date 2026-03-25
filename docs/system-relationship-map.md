@@ -416,7 +416,7 @@ graph TD
 
 > Profile note: inferred `AppRuntimeProfile` data now flows into generated `AppBlueprint.runtime_profile`, `AppRegistryEntry.runtime_profile_summary`, install-result payloads, and later `AppInstance.runtime_profile`, so edits to app-profile resolution or registry registration should be treated as affecting both pre-install and post-install runtime metadata contracts.
 
-> Shape note: generated app assembly now performs lightweight app-shape classification from skill metadata and schema field names, so changes to skill naming/tagging/schema conventions can affect generated role names, task semantics, and operator-view labels even when workflow structure stays the same.
+> Shape note: generated app assembly now performs lightweight app-shape classification from skill metadata and schema field names, so changes to skill naming/tagging/schema conventions can affect generated role names, task semantics, operator-view labels, and now explicit `app_shape` metadata even when workflow structure stays the same.
     F --> GSA[services/generated_skill_assets.py]
     F --> SSR[services/system_skill_registry.py]
     F --> SSS[services/system_skill_service.py]

@@ -92,6 +92,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - the inferred `AppRuntimeProfile` should be promoted into both generated blueprints and registry-entry summaries, not kept only inside installer/runtime state, so pre-install control-plane reads and generated-app UIs can consume the same normalized runtime capability view that installation later persists into `AppInstance`
 - generated app assembly should also perform a lightweight app-shape classification using available skill metadata (ids, descriptions, tags, and basic schema field signals) so the emitted role/task/view wording differs across text-oriented apps, structured-data transforms, and multi-step pipelines without requiring manual blueprint editing
 - the same inferred app runtime profile exposed pre-install in blueprints/registry summaries should also be returned from install results, keeping pre-install and post-install control-plane reads aligned around one normalized runtime capability contract
+- lightweight generated-app shape classification should also persist into explicit `app_shape` fields on `AppBlueprint`, `AppRegistryEntry`, and `AppInstallResult`, leaving human-facing wording as a presentation layer rather than the only place where app-type semantics exist
 
 ---
 

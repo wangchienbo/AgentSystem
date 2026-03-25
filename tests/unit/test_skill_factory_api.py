@@ -118,6 +118,7 @@ def test_create_app_blueprint_from_generated_skills_via_api() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["blueprint"]["id"] == "bp.generated.skill.app"
+    assert payload["blueprint"]["app_shape"] == "text_transform"
     assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "service"
     assert payload["blueprint"]["runtime_profile"]["offline_capable"] is True
     assert payload["blueprint"]["runtime_profile"]["direct_start_supported"] is True
@@ -133,6 +134,7 @@ def test_create_app_blueprint_from_generated_skills_via_api() -> None:
     blueprints = client.get("/registry/apps")
     assert blueprints.status_code == 200
     registered = next(item for item in blueprints.json() if item["blueprint_id"] == "bp.generated.skill.app")
+    assert registered["app_shape"] == "text_transform"
     assert registered["runtime_profile_summary"]["offline_capable"] is True
     assert registered["runtime_profile_summary"]["invocation_posture"] == "automatic"
 
@@ -192,6 +194,7 @@ def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["install"]["blueprint_id"] == "bp.generated.install.run"
+    assert payload["install"]["app_shape"] == "text_transform"
     assert payload["install"]["runtime_profile"]["offline_capable"] is True
     assert payload["execution"]["status"] == "completed"
     assert payload["execution"]["steps"][0]["status"] == "completed"
@@ -250,6 +253,7 @@ def test_create_structured_transform_generated_app_exposes_shape_specific_metada
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["blueprint"]["app_shape"] == "structured_transform"
     assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "service"
     assert payload["blueprint"]["roles"][0]["name"] == "Generated Data Agent"
     assert payload["blueprint"]["tasks"][0]["inputs"]["app_shape"] == "structured_transform"
@@ -360,6 +364,7 @@ def test_create_multi_step_generated_app_with_step_mappings() -> None:
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["blueprint"]["app_shape"] == "pipeline_chain"
     assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "pipeline"
     assert payload["blueprint"]["runtime_policy"]["idle_strategy"] == "suspend"
     assert payload["blueprint"]["runtime_profile"]["runtime_skills"] == ["skill.text.slugify.chain", "skill.object.normalize_keys.chain"]

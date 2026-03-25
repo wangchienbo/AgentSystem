@@ -85,6 +85,7 @@ def test_installer_creates_instance_with_runtime_policy(tmp_path: Path) -> None:
     instance = lifecycle.get_instance(result.app_instance_id)
 
     assert result.status == "installed"
+    assert result.app_shape == "generic"
     assert result.runtime_profile.runtime_intelligence_level == "L0_deterministic"
     assert result.runtime_profile.offline_capable is True
     assert instance.execution_mode == "pipeline"

@@ -61,11 +61,15 @@ class StoragePlan(BaseModel):
     system_metadata: str = "system"
 
 
+AppShape = Literal["generic", "text_transform", "structured_transform", "pipeline_chain"]
+
+
 class AppBlueprint(BaseModel):
     id: str
     name: str
     goal: str
     version: str = "0.1.0"
+    app_shape: AppShape = "generic"
     roles: list[Role] = Field(default_factory=list)
     tasks: list[Task] = Field(default_factory=list)
     workflows: list[Workflow] = Field(default_factory=list)

@@ -326,6 +326,7 @@ class SkillFactoryService:
             id=request.blueprint_id,
             name=request.name,
             goal=request.goal,
+            app_shape=app_shape,
             roles=[{
                 "id": "generated.agent",
                 "name": role_name,

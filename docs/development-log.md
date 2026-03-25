@@ -2,6 +2,34 @@
 
 ## 2026-03-25
 
+### Module: explicit generated app-shape metadata
+
+Promoted generated app shape from implicit wording to an explicit machine-readable control-plane field.
+
+#### Updated
+- `app/models/app_blueprint.py`
+  - adds `app_shape` (`generic | text_transform | structured_transform | pipeline_chain`)
+- `app/models/registry.py`
+  - adds `app_shape` to `AppRegistryEntry` and `AppInstallResult`
+- `app/services/skill_factory.py`
+  - persists inferred generated app shape into emitted blueprints
+- `app/services/app_registry.py`
+  - preserves blueprint shape in registry summaries
+- `app/services/app_installer.py`
+  - returns blueprint shape in install results
+- `tests/unit/test_skill_factory_api.py`
+  - verifies explicit `app_shape` across blueprint, registry, and generated install-run payloads
+- `tests/unit/test_registry_installer.py`
+  - verifies ordinary manually registered blueprints default to `app_shape=generic`
+
+#### Why
+- app-shape semantics had become useful, but were still mostly implicit in role/task/view wording
+- exposing shape directly makes control-plane code and future UI work less brittle than reverse-inferring app type from labels
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_registry_installer.py tests/unit/test_api_golden_path.py tests/unit/test_generated_app_durability.py tests/unit/test_blueprint_validation.py`
+- result: `22 passed`
+
 ### Module: install-result runtime-profile visibility
 
 Extended the app runtime-profile promotion work through the installer contract so install responses expose the same normalized runtime capability view already present in generated blueprints and registry summaries.
