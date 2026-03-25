@@ -1733,25 +1733,18 @@ Started Phase 8.3 by adding minimal governance semantics to generated skill revi
 #### Validation
 - `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py -k "rollback_generated_skill_via_api or activate_draft_generated_revision or governance_metadata"`
 - result: `3 passed`
-### Module: richer generated skill comparison summaries
+### Module: focused generated compare delta coverage
 
-Started Phase 8.2 by upgrading generated revision comparison from a minimal boolean summary into a more reviewer-friendly read model.
+Completed the first useful Phase-8.2 compare hardening pass by explicitly testing tag, schema, and risk deltas.
 
 #### Updated
-- `app/models/skill_creation.py`
-  - expands `GeneratedSkillVersionComparison` with notes, created-at fields, active-side markers, change counts, summaries, schema-level change booleans, and tag delta fields
-- `app/services/generated_skill_assets.py`
-  - persists revision note/created-at metadata into generated asset history
-  - updates compare logic to expose richer diff summaries (`summary`, `change_count`, `tags_added`, `tags_removed`, schema/risk detail)
 - `tests/unit/test_skill_factory_api.py`
-  - verifies richer compare payload fields through the public API
-- `tests/unit/test_generated_skill_persistence.py`
-  - verifies richer compare semantics still hold after generated asset reload
+  - adds a focused generated-revision compare case that changes tags, manifest risk level, and input/output schema shape in one revision
+  - verifies `tags_added`, `tags_removed`, `risk_level_changed`, `input_schema_changed`, `output_schema_changed`, `change_count`, and `summary`
 
 #### Why
-- Phase 8.1 proved generated skills could be revised/rolled back, but compare output was still too thin to help a reviewer decide whether a revision was minor or substantial
-- richer compare output makes version inspection more usable without yet introducing heavyweight semantic diffs or approval workflows
+- richer compare summaries were implemented, but the most operator-meaningful delta categories still needed one focused contract test to prevent future regressions from collapsing them back into vague boolean-only output
 
 #### Validation
-- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_generated_skill_persistence.py -k "revise_generated_skill_via_api or generated_script_skill_persists_and_reloads"`
-- result: `2 passed`
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py -k "compare_generated_skill_reports_tag_schema_and_risk_deltas or revise_generated_skill_via_api or rollback_generated_skill_via_api"`
+- result: `3 passed`
