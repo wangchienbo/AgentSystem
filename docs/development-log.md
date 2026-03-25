@@ -1,5 +1,37 @@
 # Development Log
 
+## 2026-03-25
+
+### Module: blueprint materialization risk/default propagation contract repair
+
+Repaired the blueprint materialization path after the new shell-policy gate exposed a broken contract between API diagnostics, creation-request models, and authored skill manifests.
+
+#### Updated
+- `app/api/main.py`
+  - imports and reuses the shared `_diagnostic(...)` helper so materialization policy failures surface as structured API diagnostics
+  - when a `blueprint_materialization` override is active for shell/script materialization, upgrades the generated creation request to explicit shell-allowed risk metadata before registration
+- `app/models/skill_diagnostics.py`
+  - extends diagnostic stage coverage with `materialize` so materialization policy failures map cleanly to HTTP 400 responses instead of falling through as internal errors
+- `app/models/skill_creation.py`
+  - adds `manifest_risk` to `SkillCreationRequest`
+  - aligns blueprint materialization request construction around the nested `schemas` contract shape used by the model
+- `app/services/skill_factory.py`
+  - threads blueprint-derived `manifest_risk` through concrete creation requests
+  - passes manifest risk into callable/script authoring so registered manifests preserve governance-derived risk defaults and approved shell overrides
+- `app/services/skill_authoring.py`
+  - adds manifest-risk support to authoring specs and callable/script entry builders
+  - persists explicit risk metadata into final `SkillManifest` objects instead of relying on implicit defaults
+
+#### Why
+- materialization policy failures were raising before HTTP error mapping because `_diagnostic` was referenced without import
+- the new `materialize` stage was not part of the diagnostic union, causing policy diagnostics to degrade into internal errors
+- blueprint-derived manifest risk defaults were computed but not actually carried through `SkillCreationRequest` into authored manifests
+- scoped shell overrides could clear the preflight block but still fail later manifest validation because final authored manifests still defaulted to `allow_shell=false`
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_skill_blueprint_materialization_override_api.py tests/unit/test_skill_risk_override_api.py`
+- result: `5 passed`
+
 ## 2026-03-24
 
 ### Module: refinement observability API helper alignment

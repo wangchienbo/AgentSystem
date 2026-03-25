@@ -100,16 +100,19 @@ class SkillFactoryService:
             description=description or blueprint.goal,
             adapter_kind=adapter_kind,
             capability_profile=defaults["capability_profile"],
+            manifest_risk=defaults["manifest_risk"],
             generation_operation=generation_operation,
             handler_entry=handler_entry or "",
             smoke_test_inputs=smoke_test_inputs or {},
-            input_schema=input_schema or {"type": "object", "properties": {}, "additionalProperties": True},
-            output_schema=output_schema or {"type": "object", "properties": {}, "additionalProperties": True},
-            error_schema=error_schema or {
-                "type": "object",
-                "properties": {"message": {"type": "string"}},
-                "required": ["message"],
-                "additionalProperties": True,
+            schemas={
+                "input": input_schema or {"type": "object", "properties": {}, "additionalProperties": True},
+                "output": output_schema or {"type": "object", "properties": {}, "additionalProperties": True},
+                "error": error_schema or {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": True,
+                },
             },
         )
 
@@ -159,6 +162,7 @@ class SkillFactoryService:
                 error_schema_ref=schema_refs["error"],
                 tags=request.tags,
                 capability_profile=request.capability_profile,
+                manifest_risk=request.manifest_risk,
                 content=request.description or request.name,
             )
             if request.skill_id not in {item.skill_id for item in self._skill_control.list_skills()}:
@@ -198,6 +202,7 @@ class SkillFactoryService:
                 error_schema_ref=schema_refs["error"],
                 tags=request.tags,
                 capability_profile=request.capability_profile,
+                manifest_risk=request.manifest_risk,
                 content=request.description or request.name,
             )
             if request.skill_id not in {item.skill_id for item in self._skill_control.list_skills()}:

@@ -5,6 +5,7 @@ from typing import Literal, Any
 from pydantic import BaseModel, Field
 
 from app.models.skill_control import SkillCapabilityProfile
+from app.models.skill_manifest import SkillManifestRisk
 from app.models.skill_runtime import SkillExecutionResult
 
 
@@ -24,6 +25,7 @@ class SkillCreationRequest(BaseModel):
     command: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     capability_profile: SkillCapabilityProfile = Field(default_factory=SkillCapabilityProfile)
+    manifest_risk: SkillManifestRisk = Field(default_factory=SkillManifestRisk)
     schemas: SkillSchemaDefinition = Field(default_factory=SkillSchemaDefinition)
     smoke_test_inputs: dict[str, Any] = Field(default_factory=dict)
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
-from app.models.skill_manifest import SkillContractRef, SkillManifest
+from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
 
 
 @dataclass(slots=True)
@@ -24,6 +24,7 @@ class SkillAuthoringSpec:
     dependencies: list[str] = field(default_factory=list)
     content: str = ""
     capability_profile: SkillCapabilityProfile = field(default_factory=SkillCapabilityProfile)
+    manifest_risk: SkillManifestRisk = field(default_factory=SkillManifestRisk)
 
 
 class SkillAuthoringService:
@@ -52,6 +53,7 @@ class SkillAuthoringService:
                 error_schema_ref=spec.error_schema_ref,
             ),
             tags=list(spec.tags),
+            risk=spec.manifest_risk,
         )
         content = spec.content or spec.description or spec.name
         return SkillRegistryEntry(
@@ -82,6 +84,7 @@ class SkillAuthoringService:
         dependencies: list[str] | None = None,
         content: str = "",
         capability_profile: SkillCapabilityProfile | None = None,
+        manifest_risk: SkillManifestRisk | None = None,
     ) -> SkillRegistryEntry:
         return self.build_entry(
             SkillAuthoringSpec(
@@ -99,6 +102,7 @@ class SkillAuthoringService:
                 dependencies=list(dependencies or []),
                 content=content,
                 capability_profile=capability_profile or SkillCapabilityProfile(),
+                manifest_risk=manifest_risk or SkillManifestRisk(),
             )
         )
 
@@ -118,6 +122,7 @@ class SkillAuthoringService:
         dependencies: list[str] | None = None,
         content: str = "",
         capability_profile: SkillCapabilityProfile | None = None,
+        manifest_risk: SkillManifestRisk | None = None,
     ) -> SkillRegistryEntry:
         return self.build_entry(
             SkillAuthoringSpec(
@@ -135,5 +140,6 @@ class SkillAuthoringService:
                 dependencies=list(dependencies or []),
                 content=content,
                 capability_profile=capability_profile or SkillCapabilityProfile(),
+                manifest_risk=manifest_risk or SkillManifestRisk(),
             )
         )

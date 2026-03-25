@@ -35,7 +35,7 @@ from app.models.proposal_review import ProposalReviewRequest
 from app.models.refinement_loop import RefinementFilter, RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, SkillCreationRequest
-from app.services.skill_factory import SkillFactoryError
+from app.services.skill_factory import SkillFactoryError, _diagnostic
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
@@ -348,6 +348,16 @@ def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterialization
         )
         creation_request.command = request.command
         creation_request.tags = request.tags
+        if (
+            effective_adapter_kind == "script"
+            and request.command
+            and request.command[0] in {"bash", "sh"}
+        ):
+            active_override = skill_risk_policy.get_active_override(skill_id, scope="blueprint_materialization")
+            if active_override is not None:
+                creation_request.manifest_risk.allow_shell = True
+                creation_request.manifest_risk.risk_level = "R2_shell"
+                creation_request.capability_profile.risk_level = "R2_shell"
         creation_result = skill_factory.create_skill(creation_request)
         registered_skill = skill_control.get_skill(creation_result.skill_id)
         return {
