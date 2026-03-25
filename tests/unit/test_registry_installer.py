@@ -178,4 +178,12 @@ def test_registry_and_install_api_flow() -> None:
     )
     assert install_response.status_code == 200
     assert install_response.json()["execution_mode"] == "service"
+    assert install_response.json()["release_version"] == "0.2.0"
     assert install_response.json()["runtime_profile"]["offline_capable"] is True
+
+    reinstall_response = client.post(
+        "/registry/apps/bp.api.registry/install",
+        json={"user_id": "api-user-rollback"},
+    )
+    assert reinstall_response.status_code == 200
+    assert reinstall_response.json()["release_version"] == "0.1.0"

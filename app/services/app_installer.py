@@ -111,6 +111,7 @@ class AppInstallerService:
             install_status=install_status,
             execution_mode=instance.execution_mode,
             status=self._lifecycle.get_instance(instance.id).status,
+            release_version=instance.release_version,
             app_shape=blueprint.app_shape,
             runtime_profile=instance.runtime_profile,
         )
