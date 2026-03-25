@@ -414,7 +414,7 @@ graph TD
 
 > Skeleton note: generated app assembly now depends on `AppProfileResolverService` to derive richer blueprint skeleton defaults (execution mode, tasks, views, idle behavior) from selected skills, so app-profile logic changes should be treated as affecting `/apps/from-skills` output shape and generated-app metadata expectations.
 
-> Profile note: inferred `AppRuntimeProfile` data now flows into generated `AppBlueprint.runtime_profile`, `AppRegistryEntry.runtime_profile_summary`, and later `AppInstance.runtime_profile`, so edits to app-profile resolution or registry registration should be treated as affecting both pre-install and post-install runtime metadata contracts.
+> Profile note: inferred `AppRuntimeProfile` data now flows into generated `AppBlueprint.runtime_profile`, `AppRegistryEntry.runtime_profile_summary`, install-result payloads, and later `AppInstance.runtime_profile`, so edits to app-profile resolution or registry registration should be treated as affecting both pre-install and post-install runtime metadata contracts.
 
 > Shape note: generated app assembly now performs lightweight app-shape classification from skill metadata and schema field names, so changes to skill naming/tagging/schema conventions can affect generated role names, task semantics, and operator-view labels even when workflow structure stays the same.
     F --> GSA[services/generated_skill_assets.py]

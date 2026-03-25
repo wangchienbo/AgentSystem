@@ -111,4 +111,5 @@ class AppInstallerService:
             install_status=install_status,
             execution_mode=instance.execution_mode,
             status=self._lifecycle.get_instance(instance.id).status,
+            runtime_profile=instance.runtime_profile,
         )

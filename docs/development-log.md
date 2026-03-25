@@ -2,6 +2,28 @@
 
 ## 2026-03-25
 
+### Module: install-result runtime-profile visibility
+
+Extended the app runtime-profile promotion work through the installer contract so install responses expose the same normalized runtime capability view already present in generated blueprints and registry summaries.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `runtime_profile` to `AppInstallResult`
+- `app/services/app_installer.py`
+  - returns the installed instance runtime profile in install results
+- `tests/unit/test_registry_installer.py`
+  - verifies service and API install flows expose runtime-profile metadata
+- `tests/unit/test_skill_factory_api.py`
+  - verifies generated install-run payloads expose install-time runtime-profile metadata
+
+#### Why
+- runtime profile data was already available before install via blueprint/registry surfaces and after install via `AppInstance`, but the install response itself remained thinner than the surrounding control-plane contract
+- returning runtime profile directly from install responses removes an unnecessary follow-up read for operator surfaces
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py tests/unit/test_skill_factory_api.py tests/unit/test_api_golden_path.py`
+- result: `14 passed`
+
 ### Module: generated app shape differentiation
 
 Made generated app skeletons differ more meaningfully by inferred app type instead of only by execution mode.

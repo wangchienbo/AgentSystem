@@ -328,6 +328,7 @@ The platform should expose an API-first path for generated skills so the system 
 - generated app assembly should infer a minimal but useful app skeleton from the selected skills, including runtime policy defaults, at least one runnable task, and operator-facing views, so blueprint metadata is meaningful for control-plane display rather than just a bare workflow container
 - generated app blueprints and registry entries should expose an inferred app-level runtime profile as first-class metadata, so control-plane surfaces can inspect offline capability, direct-start support, invocation posture, and runtime-skill composition without reconstructing those facts from raw skill lists
 - generated app skeletons should differ meaningfully by inferred app shape (for example text transformation vs structured transformation vs multi-step pipeline) so default role/task/view metadata is not one-size-fits-all across obviously different generated apps
+- install responses for registered/generated apps should also expose the inferred runtime profile so control-plane callers can inspect runtime capability posture immediately after install without separately resolving instance state or registry metadata
 
 The platform should also reject invalid app blueprints before installation when deterministic checks already show inconsistent runtime wiring, including at least:
 - workflow skill steps referencing undeclared skills

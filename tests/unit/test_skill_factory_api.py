@@ -192,6 +192,7 @@ def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["install"]["blueprint_id"] == "bp.generated.install.run"
+    assert payload["install"]["runtime_profile"]["offline_capable"] is True
     assert payload["execution"]["status"] == "completed"
     assert payload["execution"]["steps"][0]["status"] == "completed"
     assert payload["execution"]["steps"][0]["output"]["adapter"] == "script"

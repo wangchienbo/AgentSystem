@@ -147,6 +147,7 @@ Covered behavior:
 - generated-app skeleton coverage now verifies `/apps/from-skills` and `/apps/from-skills/install-run` emit richer profile-aware blueprint metadata (service vs pipeline execution mode, default task, and overview/run/activity views) instead of an always-empty skeleton
 - generated-app runtime-profile coverage now verifies inferred app profile data is visible pre-install through generated blueprints and registry-entry summaries, not only after installer materialization into `AppInstance`
 - generated-app shape coverage now verifies text-style single-skill apps, structured-transform single-skill apps, and multi-step pipelines emit different role names, task metadata, and action/view labels instead of sharing identical generic wording
+- installer/control-plane coverage now verifies app install responses expose inferred runtime-profile metadata in addition to execution mode/status, keeping install-time API reads aligned with blueprint/registry summaries
 - generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
 - refinement-loop coverage now verifies the system can carry a prioritized refinement proposal into explicit hypothesis / experiment / verification / rollout objects through both service and API paths

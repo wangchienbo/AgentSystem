@@ -27,3 +27,4 @@ class AppInstallResult(BaseModel):
     install_status: InstallStatus
     execution_mode: Literal["service", "pipeline"]
     status: str
+    runtime_profile: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)

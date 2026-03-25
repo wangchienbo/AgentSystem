@@ -91,6 +91,7 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - generated app assembly should reuse `AppProfileResolverService` so blueprint skeleton defaults (execution mode, idle behavior, operator-facing overview/run/activity views, and the default generated-agent task) reflect the runtime properties of the selected skills instead of always emitting the same bare service shell
 - the inferred `AppRuntimeProfile` should be promoted into both generated blueprints and registry-entry summaries, not kept only inside installer/runtime state, so pre-install control-plane reads and generated-app UIs can consume the same normalized runtime capability view that installation later persists into `AppInstance`
 - generated app assembly should also perform a lightweight app-shape classification using available skill metadata (ids, descriptions, tags, and basic schema field signals) so the emitted role/task/view wording differs across text-oriented apps, structured-data transforms, and multi-step pipelines without requiring manual blueprint editing
+- the same inferred app runtime profile exposed pre-install in blueprints/registry summaries should also be returned from install results, keeping pre-install and post-install control-plane reads aligned around one normalized runtime capability contract
 
 ---
 
