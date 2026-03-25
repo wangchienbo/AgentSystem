@@ -6,6 +6,8 @@ from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_control import SkillControlService
+import pytest
+
 from app.services.skill_factory import SkillFactoryError, SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
 
@@ -43,11 +45,26 @@ def test_revise_manual_skill_is_rejected(tmp_path) -> None:
     )
     skill_control.register(manual_entry)
 
-    try:
+    with pytest.raises(SkillFactoryError, match="Generated skill asset not found|Only generated skills support revise"):
         factory.revise_generated_skill(
             "skill.manual.revise.rejected",
             GeneratedSkillRevisionRequest(version="2.0.0", description="should fail"),
         )
-        assert False, "expected SkillFactoryError"
-    except SkillFactoryError as error:
-        assert "Generated skill asset not found" in str(error) or "Only generated skills support revise" in str(error)
+
+
+def test_compare_generated_skill_rejects_unknown_version(tmp_path) -> None:
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-store"))
+    data_store = AppDataStore(base_dir=str(tmp_path / "namespaces"), store=runtime_store)
+    schema_registry = SchemaRegistryService()
+    skill_control = SkillControlService()
+    skill_runtime = SkillRuntimeService(store=runtime_store, schema_registry=schema_registry)
+    generated_assets = GeneratedSkillAssetStore(data_store)
+    factory = SkillFactoryService(
+        skill_control=skill_control,
+        skill_runtime=skill_runtime,
+        schema_registry=schema_registry,
+        generated_assets=generated_assets,
+    )
+
+    with pytest.raises(Exception, match="Skill not found: skill.missing.generated"):
+        factory.compare_generated_skill_versions("skill.missing.generated", "1.0.0", "1.1.0")
