@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from app.models.app_blueprint import AppBlueprint
-from app.models.registry import AppRegistryEntry
+from app.models.registry import AppReleaseRecord, AppRegistryEntry
 from app.services.runtime_state_store import RuntimeStateStore
 
 
@@ -22,6 +24,9 @@ class AppRegistryService:
             name=blueprint.name,
             version=blueprint.version,
             description=description or blueprint.goal,
+            release_status="active",
+            approved_at=datetime.now(UTC),
+            releases=[AppReleaseRecord(version=blueprint.version, status="active", approved_at=datetime.now(UTC))],
             app_shape=blueprint.app_shape,
             runtime_profile_summary=blueprint.runtime_profile,
         )

@@ -46,6 +46,9 @@ def test_registry_registers_blueprint(tmp_path: Path) -> None:
     entry = registry.register_blueprint(build_blueprint(), description="registry test")
 
     assert entry.blueprint_id == "bp.test.registry"
+    assert entry.release_status == "active"
+    assert entry.releases[0].version == "0.1.0"
+    assert entry.releases[0].status == "active"
     assert registry.get_blueprint("bp.test.registry").runtime_policy.execution_mode == "service"
 
 
@@ -125,7 +128,49 @@ def test_registry_and_install_api_flow() -> None:
 
     list_response = client.get("/registry/apps")
     assert list_response.status_code == 200
-    assert any(item["blueprint_id"] == "bp.api.registry" for item in list_response.json())
+    registry_entry = next(item for item in list_response.json() if item["blueprint_id"] == "bp.api.registry")
+    assert registry_entry["release_status"] == "active"
+    assert registry_entry["releases"][0]["status"] == "active"
+
+    releases_response = client.get("/registry/apps/bp.api.registry/releases")
+    assert releases_response.status_code == 200
+    assert releases_response.json()[0]["version"] == "0.1.0"
+    assert releases_response.json()[0]["status"] == "active"
+
+    draft_release = client.post(
+        "/registry/apps/bp.api.registry/releases",
+        json={"version": "0.2.0", "note": "staged rollout", "reviewer": "alice", "activate_immediately": False},
+    )
+    assert draft_release.status_code == 200
+    assert draft_release.json()["version"] == "0.1.0"
+    assert draft_release.json()["releases"][1]["status"] == "draft"
+
+    activated = client.post(
+        "/registry/apps/bp.api.registry/releases/0.2.0/activate",
+        json={"reviewer": "bob"},
+    )
+    assert activated.status_code == 200
+    assert activated.json()["version"] == "0.2.0"
+    assert activated.json()["release_note"] == "staged rollout"
+    assert activated.json()["reviewer"] == "bob"
+
+    releases_after = client.get("/registry/apps/bp.api.registry/releases")
+    assert releases_after.status_code == 200
+    assert [item["status"] for item in releases_after.json()] == ["superseded", "active"]
+
+    rolled_back = client.post(
+        "/registry/apps/bp.api.registry/rollback",
+        json={"target_version": "0.1.0", "reviewer": "carol", "rollback_reason": "staged release regression"},
+    )
+    assert rolled_back.status_code == 200
+    assert rolled_back.json()["version"] == "0.1.0"
+    assert rolled_back.json()["rollback_reason"] == "staged release regression"
+    assert rolled_back.json()["reviewer"] == "carol"
+
+    releases_final = client.get("/registry/apps/bp.api.registry/releases")
+    assert releases_final.status_code == 200
+    assert [item["status"] for item in releases_final.json()] == ["active", "rolled_back"]
+    assert releases_final.json()[0]["rollback_reason"] == "staged release regression"
 
     install_response = client.post(
         "/registry/apps/bp.api.registry/install",

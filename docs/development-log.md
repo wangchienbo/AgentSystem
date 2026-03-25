@@ -2,6 +2,35 @@
 
 ## 2026-03-25
 
+### Module: app rollout governance foundations
+
+Started app-level rollout governance by giving registered app blueprints an explicit release lifecycle in the registry.
+
+#### Updated
+- `app/models/registry.py`
+  - adds app release records/status metadata to registry entries
+- `app/services/app_registry.py`
+  - registers initial active releases for newly registered blueprints
+  - supports adding draft releases
+  - supports activating a staged release
+  - supports rolling back to an older release with reviewer/reason metadata
+- `app/api/main.py`
+  - adds `/registry/apps/{blueprint_id}/releases`
+  - adds release creation and activation endpoints
+  - adds app rollback endpoint
+- `tests/unit/test_registry_installer.py`
+  - verifies default active release creation
+  - verifies draft release staging and later activation
+  - verifies rollback restores the older release and records rollback governance metadata
+
+#### Why
+- skill-level governance had become much richer, but app-level rollout still lacked release semantics beyond a single current registry entry
+- this establishes the first app rollout lifecycle without yet expanding into deeper runtime deployment orchestration
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `3 passed`
+
 ### Module: generated revision governance metadata
 
 Started Phase 8.3 by adding minimal governance semantics to generated skill revisions and rollbacks.
