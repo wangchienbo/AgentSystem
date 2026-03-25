@@ -2,6 +2,30 @@
 
 ## 2026-03-25
 
+### Module: app release runtime binding
+
+Closed the first rollout-governance loop by making installer/runtime state follow the registry's active app release.
+
+#### Updated
+- `app/models/app_instance.py`
+  - records installed `release_version` and `release_note_snapshot`
+- `app/models/registry.py`
+  - exposes `release_version` in install results
+- `app/services/app_installer.py`
+  - binds installs to the registry entry's current active release version/note instead of treating registry release state as read-only metadata
+- `tests/unit/test_registry_installer.py`
+  - verifies install results and instances carry the active release version
+  - verifies activating a draft release changes the release version used by install
+  - verifies rollback restores the older release version for subsequent installs
+
+#### Why
+- app rollout governance had become meaningful at the registry layer, but install/runtime behavior still needed to prove that active release changes actually affect new app instances
+- without this binding, release activation/rollback would remain a control-plane-only feature instead of a runtime-impacting contract
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `3 passed`
+
 ### Module: app rollout governance foundations
 
 Started app-level rollout governance by giving registered app blueprints an explicit release lifecycle in the registry.
