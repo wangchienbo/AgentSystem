@@ -528,6 +528,53 @@ def list_registry_apps() -> list[dict]:
     return [item.model_dump(mode="json") for item in app_registry.list_entries()]
 
 
+@app.get("/registry/apps/{blueprint_id}/releases")
+def list_app_releases(blueprint_id: str) -> list[dict]:
+    try:
+        entry = next(item for item in app_registry.list_entries() if item.blueprint_id == blueprint_id)
+        return [item.model_dump(mode="json") for item in entry.releases]
+    except StopIteration as error:
+        raise HTTPException(status_code=404, detail=f"App blueprint not found: {blueprint_id}") from error
+
+
+@app.post("/registry/apps/{blueprint_id}/releases")
+def add_app_release(blueprint_id: str, payload: dict) -> dict:
+    try:
+        entry = app_registry.add_release(
+            blueprint_id,
+            version=payload["version"],
+            note=payload.get("note", ""),
+            reviewer=payload.get("reviewer", ""),
+            activate_immediately=payload.get("activate_immediately", False),
+        )
+        return entry.model_dump(mode="json")
+    except (ValueError, HTTPException) as error:
+        raise map_domain_error(error) if isinstance(error, ValueError) else error
+
+
+@app.post("/registry/apps/{blueprint_id}/releases/{version}/activate")
+def activate_app_release(blueprint_id: str, version: str, payload: dict | None = None) -> dict:
+    try:
+        entry = app_registry.activate_release(blueprint_id, version, reviewer=(payload or {}).get("reviewer", ""))
+        return entry.model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/registry/apps/{blueprint_id}/rollback")
+def rollback_app_release(blueprint_id: str, payload: dict) -> dict:
+    try:
+        entry = app_registry.rollback_release(
+            blueprint_id,
+            payload["target_version"],
+            reviewer=payload.get("reviewer", ""),
+            rollback_reason=payload.get("rollback_reason", ""),
+        )
+        return entry.model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
 @app.post("/registry/apps")
 def register_blueprint(blueprint: AppBlueprint) -> dict:
     try:

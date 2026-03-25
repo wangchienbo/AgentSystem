@@ -155,6 +155,7 @@ Covered behavior:
 - Phase-8.2 compare coverage now verifies generated revision comparison returns richer reviewer-friendly context (notes, created-at metadata, active-side markers, change counts, summaries, and more granular schema/tag/risk change signals)
 - focused Phase-8.2 delta coverage now explicitly verifies tag additions/removals, schema-shape changes, and risk-level changes are surfaced through generated revision comparison instead of only broad boolean summary flags
 - Phase-8.3 governance coverage now verifies generated revisions can remain in `draft`, be explicitly activated later, and record rollback reviewer/reason metadata in version history instead of treating revision changes as governance-free state flips
+- app rollout governance coverage now verifies registry entries expose release history, draft releases can be staged and later activated, and app rollback restores an older release while preserving reviewer/note/rollback-reason metadata in the release timeline
 - Phase-8 revision coverage now verifies generated skills can be revised, listed by version with active markers, compared across revisions, rolled back, and reloaded from persisted generated assets without losing active-version semantics
 - generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
