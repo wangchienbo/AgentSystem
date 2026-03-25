@@ -2,6 +2,27 @@
 
 ## 2026-03-25
 
+### Module: risk dashboard scope-aware stats
+
+Made skill-risk governance stats explicitly scope-aware so operator surfaces can distinguish different classes of policy pressure.
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - adds `events_by_scope` to `SkillRiskStatsSummary`
+- `app/services/skill_risk_policy.py`
+  - aggregates risk-governance events by scope (`generated_app_assembly`, `blueprint_materialization`)
+- `tests/unit/test_skill_risk_dashboard.py`
+  - verifies service/dashboard stats expose per-scope event counts
+  - verifies API dashboard payloads expose the new `events_by_scope` read model
+
+#### Why
+- recent governance work introduced multiple meaningful risk scopes, but dashboard/stats reads still collapsed them into one undifferentiated event count
+- scope-aware stats make policy pressure visible without forcing operators to hand-scan raw event trails
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_risk_dashboard.py tests/unit/test_skill_risk_policy.py tests/unit/test_skill_diagnostics_api.py`
+- result: `10 passed`
+
 ### Module: install-run policy diagnostic contract coverage
 
 Locked the combined install-run API path to the same structured generated-app assembly risk-diagnostic contract already enforced at blueprint assembly time.

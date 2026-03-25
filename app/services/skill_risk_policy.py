@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from datetime import datetime
 
 from app.models.operator_contracts import OperatorPageMeta
@@ -52,6 +53,7 @@ class SkillRiskPolicyService:
             blocked_events=sum(1 for item in events if item.event_type == "policy_blocked"),
             approved_events=sum(1 for item in events if item.event_type == "override_approved"),
             revoked_events=sum(1 for item in events if item.event_type == "override_revoked"),
+            events_by_scope=dict(Counter(item.scope for item in events)),
             latest_decision_at=max((item.created_at for item in decisions), default=None),
             latest_event_at=max((item.created_at for item in events), default=None),
         )
