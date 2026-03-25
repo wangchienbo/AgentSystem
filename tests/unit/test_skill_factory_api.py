@@ -133,6 +133,8 @@ def test_revise_generated_skill_via_api_updates_active_version_and_versions() ->
     assert versions.status_code == 200
     assert [item["version"] for item in versions.json()] == ["1.0.0", "1.1.0"]
     assert [item["active"] for item in versions.json()] == [False, True]
+    assert versions.json()[1]["revision_status"] == "active"
+    assert versions.json()[1]["note"] == "revise generated callable"
 
     compare = client.get(
         "/skills/skill.callable.revise.target/compare",
@@ -143,6 +145,126 @@ def test_revise_generated_skill_via_api_updates_active_version_and_versions() ->
     assert compare_payload["active_version"] == "1.1.0"
     assert compare_payload["description_changed"] is True
     assert compare_payload["generation_operation_changed"] is False
+
+
+def test_revise_generated_skill_can_record_draft_governance_metadata() -> None:
+    create_response = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.compare.governance.target",
+            "name": "Governance Target",
+            "description": "baseline governance target",
+            "adapter_kind": "callable",
+            "generation_operation": "extract_text_metadata",
+            "schemas": {
+                "input": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"], "additionalProperties": False},
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "original_text": {"type": "string"},
+                        "slug": {"type": "string"},
+                        "word_count": {"type": "integer"},
+                        "has_year": {"type": "boolean"},
+                        "years": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["original_text", "slug", "word_count", "has_year", "years", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False}
+            },
+            "smoke_test_inputs": {"text": "Governance Base 2026"}
+        },
+    )
+    assert create_response.status_code == 200
+
+    revise_response = client.post(
+        "/skills/skill.compare.governance.target/revise",
+        json={
+            "version": "1.1.0",
+            "description": "draft governance revision",
+            "generation_operation": "extract_text_metadata",
+            "smoke_test_inputs": {"text": "Governance Draft 2027"},
+            "note": "awaiting approval",
+            "reason": "improve metadata extraction quality",
+            "reviewer": "alice",
+            "approve_immediately": False
+        },
+    )
+    assert revise_response.status_code == 200
+
+    versions = client.get("/skills/skill.compare.governance.target/versions")
+    assert versions.status_code == 200
+    payload = versions.json()
+    assert payload[0]["active"] is True
+    assert payload[0]["revision_status"] == "active"
+    assert payload[1]["active"] is False
+    assert payload[1]["revision_status"] == "draft"
+    assert payload[1]["reason"] == "improve metadata extraction quality"
+    assert payload[1]["reviewer"] == "alice"
+
+
+def test_activate_draft_generated_revision_promotes_it_to_active() -> None:
+    create_response = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.compare.activate.target",
+            "name": "Activate Draft Target",
+            "description": "baseline activation target",
+            "adapter_kind": "callable",
+            "generation_operation": "extract_text_metadata",
+            "schemas": {
+                "input": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"], "additionalProperties": False},
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "original_text": {"type": "string"},
+                        "slug": {"type": "string"},
+                        "word_count": {"type": "integer"},
+                        "has_year": {"type": "boolean"},
+                        "years": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["original_text", "slug", "word_count", "has_year", "years", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False}
+            },
+            "smoke_test_inputs": {"text": "Activation Base 2026"}
+        },
+    )
+    assert create_response.status_code == 200
+
+    revise_response = client.post(
+        "/skills/skill.compare.activate.target/revise",
+        json={
+            "version": "1.1.0",
+            "description": "draft activation revision",
+            "generation_operation": "extract_text_metadata",
+            "smoke_test_inputs": {"text": "Activation Draft 2027"},
+            "note": "pending activation",
+            "reason": "promote after review",
+            "reviewer": "alice",
+            "approve_immediately": False
+        },
+    )
+    assert revise_response.status_code == 200
+    assert revise_response.json()["active_version"] == "1.0.0"
+
+    activate_response = client.post(
+        "/skills/skill.compare.activate.target/revisions/1.1.0/activate",
+        json={"reviewer": "bob"},
+    )
+    assert activate_response.status_code == 200
+    assert activate_response.json()["active_version"] == "1.1.0"
+
+    versions = client.get("/skills/skill.compare.activate.target/versions")
+    assert versions.status_code == 200
+    payload = versions.json()
+    assert payload[0]["revision_status"] == "superseded"
+    assert payload[1]["revision_status"] == "active"
+    assert payload[1]["active"] is True
+    assert payload[1]["reviewer"] == "bob"
 
 
 def test_rollback_generated_skill_via_api_restores_previous_active_version() -> None:
@@ -189,11 +311,13 @@ def test_rollback_generated_skill_via_api_restores_previous_active_version() -> 
 
     rollback_response = client.post(
         "/skills/skill.callable.rollback.target/rollback",
-        json={"target_version": "1.0.0"},
+        json={"target_version": "1.0.0", "reviewer": "carol", "rollback_reason": "regression detected"},
     )
     assert rollback_response.status_code == 200
     payload = rollback_response.json()
     assert payload["active_version"] == "1.0.0"
+    assert payload["reviewer"] == "carol"
+    assert payload["rollback_reason"] == "regression detected"
 
     detail = client.get("/skills/skill.callable.rollback.target")
     assert detail.status_code == 200
@@ -204,6 +328,9 @@ def test_rollback_generated_skill_via_api_restores_previous_active_version() -> 
     assert versions.status_code == 200
     assert [item["version"] for item in versions.json()] == ["1.0.0", "1.1.0"]
     assert [item["active"] for item in versions.json()] == [True, False]
+    assert versions.json()[0]["rollback_reason"] == "regression detected"
+    assert versions.json()[0]["reviewer"] == "carol"
+    assert versions.json()[1]["revision_status"] == "rolled_back"
 
 
 

@@ -51,6 +51,9 @@ class GeneratedSkillRevisionRequest(BaseModel):
     schemas: SkillSchemaDefinition = Field(default_factory=SkillSchemaDefinition)
     smoke_test_inputs: dict[str, Any] = Field(default_factory=dict)
     note: str = Field(default="")
+    reason: str = Field(default="")
+    reviewer: str = Field(default="")
+    approve_immediately: bool = True
 
 
 class GeneratedSkillRevisionResult(BaseModel):

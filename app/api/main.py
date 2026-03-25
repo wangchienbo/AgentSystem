@@ -143,7 +143,12 @@ def rollback_skill(skill_id: str, payload: dict[str, str]) -> dict:
     try:
         entry = skill_control.get_skill(skill_id)
         if entry.origin == "generated":
-            return skill_factory.rollback_generated_skill(skill_id, payload["target_version"])
+            return skill_factory.rollback_generated_skill(
+                skill_id,
+                payload["target_version"],
+                reviewer=payload.get("reviewer", ""),
+                rollback_reason=payload.get("rollback_reason", ""),
+            )
         return skill_control.rollback_skill(skill_id, payload["target_version"]).model_dump(mode="json")
     except (SkillControlError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
@@ -179,6 +184,11 @@ def list_skill_versions(skill_id: str) -> list[dict]:
                 "note": item.note,
                 "created_at": item.created_at.isoformat(),
                 "active": item.version == entry.active_version,
+                "revision_status": item.revision_status,
+                "reason": item.reason,
+                "reviewer": item.reviewer,
+                "approved_at": item.approved_at.isoformat() if item.approved_at else None,
+                "rollback_reason": item.rollback_reason,
             }
             for item in entry.versions
         ]
@@ -192,6 +202,14 @@ def compare_skill_versions(skill_id: str, from_version: str, to_version: str) ->
         if entry.origin != "generated":
             raise SkillFactoryError(f"Only generated skills support compare: {skill_id}")
         return skill_factory.compare_generated_skill_versions(skill_id, from_version, to_version).model_dump(mode="json")
+    except (SkillControlError, SkillFactoryError, ValueError) as error:
+        raise map_domain_error(error) from error
+
+@app.post("/skills/{skill_id}/revisions/{version}/activate")
+def activate_generated_skill_revision(skill_id: str, version: str, payload: dict[str, str] | None = None) -> dict:
+    try:
+        reviewer = (payload or {}).get("reviewer", "")
+        return skill_factory.activate_generated_skill_revision(skill_id, version, reviewer=reviewer)
     except (SkillControlError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
 
