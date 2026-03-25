@@ -188,6 +188,7 @@ Covered behavior:
 - end-to-end blueprint materialization coverage now verifies low-risk defaults also appear in the final registered skill manifest and capability profile
 - blueprint materialization policy coverage now verifies low-risk blueprints reject shell/script materialization when safety metadata disallows it
 - blueprint materialization override coverage now verifies reviewer-managed `blueprint_materialization` overrides can intentionally unblock those policy-gated paths
+- install-run risk-gating coverage now verifies the combined `/apps/from-skills/install-run` path preserves structured generated-app assembly policy diagnostics (including `override_scope` and event-trail visibility) rather than degrading into a generic install failure
 
 ## 3.7 Interaction gateway
 Covered behavior:

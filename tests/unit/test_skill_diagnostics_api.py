@@ -158,6 +158,74 @@ def test_app_from_skills_rejects_unsupported_transform_request() -> None:
     assert "unsupported transform" in payload.lower()
 
 
+def test_install_run_risk_gating_returns_structured_policy_diagnostic() -> None:
+    create_skill = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.script.diagnostic.risky",
+            "name": "Diagnostic Risky Skill",
+            "description": "risky generated assembly test",
+            "adapter_kind": "script",
+            "command": ["bash", "tests/fixtures/script_echo_skill.py"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "echo": {"type": "string"},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["echo", "adapter"],
+                    "additionalProperties": True,
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False,
+                },
+            },
+            "manifest_risk": {
+                "risk_level": "R2_shell",
+                "allow_shell": True,
+                "allow_network": False,
+                "allow_filesystem_write": False
+            },
+            "smoke_test_inputs": {"text": "blocked"},
+        },
+    )
+    assert create_skill.status_code == 200
+
+    response = client.post(
+        "/apps/from-skills/install-run",
+        json={
+            "blueprint_id": "bp.diagnostic.risky.install_run",
+            "name": "Risky Install Run App",
+            "goal": "trigger generated app assembly risk policy",
+            "skill_ids": ["skill.script.diagnostic.risky"],
+            "workflow_id": "wf.diagnostic.risky.install_run",
+            "user_id": "diag-risk-user",
+        },
+    )
+
+    assert response.status_code == 400
+    payload = response.json()["detail"]
+    assert payload["stage"] == "assemble"
+    assert payload["kind"] == "policy_blocked"
+    assert payload["details"]["skill_id"] == "skill.script.diagnostic.risky"
+    assert payload["details"]["override_scope"] == "generated_app_assembly"
+    assert "allow_shell=true" in payload["details"]["policy_reasons"]
+
+    events = client.get("/skill-risk/events", params={"skill_id": "skill.script.diagnostic.risky"})
+    assert events.status_code == 200
+    assert any(item["event_type"] == "policy_blocked" for item in events.json())
+
+
 def test_diagnose_retry_returns_suggested_request() -> None:
     response = client.post(
         "/skills/diagnose-retry",

@@ -2,6 +2,24 @@
 
 ## 2026-03-25
 
+### Module: install-run policy diagnostic contract coverage
+
+Locked the combined install-run API path to the same structured generated-app assembly risk-diagnostic contract already enforced at blueprint assembly time.
+
+#### Updated
+- `tests/unit/test_skill_diagnostics_api.py`
+  - verifies `/apps/from-skills/install-run` returns `assemble`/`policy_blocked` diagnostics for risky generated skills
+  - verifies the diagnostic preserves `override_scope=generated_app_assembly` and policy reasons
+  - verifies the risk event trail records a `policy_blocked` event for the blocked skill
+
+#### Why
+- install-run already reused generated-app assembly internally, but the security contract was only implicitly protected
+- this makes sure future refactors cannot silently collapse a structured policy block into a generic install failure on the combined API path
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_diagnostics_api.py tests/unit/test_skill_risk_override_api.py tests/unit/test_skill_factory_risk_gating.py`
+- result: `10 passed`
+
 ### Module: metadata parsing generated-skill case
 
 Expanded the real-skill validation matrix with a deterministic generated callable that extracts lightweight metadata from text.
