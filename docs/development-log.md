@@ -34,6 +34,14 @@ Repaired the blueprint materialization path after the new shell-policy gate expo
 
 ## 2026-03-24
 
+### Module: API golden-path follow-up confirmation
+
+Closed the remaining follow-up note from the refinement observability helper work by re-running the slower public-API golden-path slice in isolation and confirming that the end-to-end operator flow remains green.
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_api_golden_path.py`
+- result: `1 passed`
+
 ### Module: refinement observability API helper alignment
 
 Aligned self-refinement operator endpoints with the workflow observability pattern by centralizing API-side filter construction for queue/stats/dashboard surfaces instead of hand-assembling filters inline.

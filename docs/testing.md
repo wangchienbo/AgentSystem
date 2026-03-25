@@ -154,6 +154,7 @@ Covered behavior:
 - refinement governance filtering coverage now verifies rollout-queue page reads, failed-hypothesis archive page reads, and aggregate stats summaries across both service and API surfaces
 - refinement governance dashboard coverage now verifies the combined overview/stats/recent-slice read model and its API surface
 - refinement observability helper coverage now verifies queue/stats/dashboard endpoints share one API-side filter construction path; broad API golden-path coverage may remain in a separate slower slice when timeout-constrained
+- the slower API golden-path slice (`tests/unit/test_api_golden_path.py`) has now been re-run successfully as a standalone check after earlier timeout/SIGTERM interruption, so workflow/operator public-surface coverage is confirmed rather than left as an open note
 - slower refinement API end-to-end coverage should live in a dedicated test file instead of expanding the main workflow golden-path file, so fast and slow API slices can be scheduled independently
 - refinement API-path tests should explicitly disable grouped-regression verification when the goal is deterministic contract coverage rather than full-suite validation
 - model-backed proposal generation is now default-off in runtime wiring, and should be covered through explicit opt-in tests rather than assumed during normal API-path regression runs
