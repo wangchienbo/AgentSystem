@@ -174,6 +174,7 @@ def test_materialize_skill_blueprint_uses_safety_defaults_in_creation_request() 
     assert creation_request["capability_profile"]["execution_locality"] == "local"
     assert creation_result["created"] is True
     assert creation_result["registered"] is True
+    assert registered_skill["origin"] == "generated"
     assert registered_skill["capability_profile"]["risk_level"] == "R0_safe_read"
     assert registered_skill["capability_profile"]["network_requirement"] == "N0_none"
     assert registered_skill["capability_profile"]["execution_locality"] == "local"

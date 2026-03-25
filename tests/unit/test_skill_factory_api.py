@@ -6,6 +6,13 @@ from app.api.main import app
 client = TestClient(app)
 
 
+def test_list_skills_exposes_builtin_origin() -> None:
+    response = client.get("/skills")
+    assert response.status_code == 200
+    system_app_config = next(item for item in response.json() if item["skill_id"] == "system.app_config")
+    assert system_app_config["origin"] == "builtin"
+
+
 def test_create_script_skill_via_api_and_smoke_execute() -> None:
     response = client.post(
         "/skills/create",
@@ -52,7 +59,12 @@ def test_create_script_skill_via_api_and_smoke_execute() -> None:
 
     list_response = client.get("/skills")
     assert list_response.status_code == 200
-    assert any(item["skill_id"] == "skill.script.generated" for item in list_response.json())
+    listed = next(item for item in list_response.json() if item["skill_id"] == "skill.script.generated")
+    assert listed["origin"] == "generated"
+
+    detail_response = client.get("/skills/skill.script.generated")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["origin"] == "generated"
 
 
 def test_create_app_blueprint_from_generated_skills_via_api() -> None:

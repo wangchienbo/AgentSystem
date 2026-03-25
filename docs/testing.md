@@ -143,6 +143,7 @@ Covered behavior:
 - API-level golden-path coverage now protects the same operator flow through the public FastAPI surface, not only service-level integration helpers
 - generated-skill durability smoke coverage now verifies persisted generated script skills reload after runtime rebuild and still execute through the runtime adapter path
 - generated-skill registry-origin coverage now verifies built-in skills register as `origin=builtin` while generated persisted/reloaded assets remain `origin=generated`, preserving Phase-1 durability metadata across runtime rebuilds
+- public skill API coverage now locks registry-origin visibility through `/skills`, `/skills/{id}`, and blueprint-materialization responses so origin metadata is not only internal state but a stable control-plane contract
 - generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
 - refinement-loop coverage now verifies the system can carry a prioritized refinement proposal into explicit hypothesis / experiment / verification / rollout objects through both service and API paths

@@ -2,6 +2,21 @@
 
 ## 2026-03-25
 
+### Module: skill-origin API contract coverage
+
+Extended the new registry origin metadata work into explicit public-API contract checks so `origin` is verified at control-plane read surfaces instead of only through direct service access.
+
+#### Updated
+- `tests/unit/test_skill_factory_api.py`
+  - verifies `/skills` exposes built-in origin metadata
+  - verifies generated skills created through `/skills/create` are subsequently visible as `origin=generated` through `/skills` and `/skills/{skill_id}`
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - verifies materialization responses expose the final registered skill with `origin=generated`
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_bootstrap_smoke.py tests/unit/test_generated_skill_persistence.py tests/unit/test_generated_skill_durability.py`
+- result: `16 passed`
+
 ### Module: generated-vs-builtin skill origin metadata
 
 Closed the remaining Phase-1 generated-skill roadmap gap by teaching registry entries to distinguish built-in, generated, and manual skills, and by preserving that origin across generated-skill persistence and reload.
