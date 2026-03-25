@@ -2,6 +2,26 @@
 
 ## 2026-03-25
 
+### Module: generated app shape differentiation
+
+Made generated app skeletons differ more meaningfully by inferred app type instead of only by execution mode.
+
+#### Updated
+- `app/services/skill_factory.py`
+  - adds lightweight generated-app shape classification from skill metadata and schema field names
+  - emits differentiated role names, task semantics, overview titles, and run-action labels for `text_transform`, `structured_transform`, and `pipeline_chain` shapes
+- `tests/unit/test_skill_factory_api.py`
+  - verifies single-skill text-oriented generated apps emit text-transform labels
+  - verifies multi-step generated apps emit pipeline-oriented labels
+
+#### Why
+- Phase-5 richer skeleton support existed, but generated apps could still feel too generic when obviously different skill sets produced nearly identical control-plane wording
+- lightweight shape inference provides more useful defaults without introducing a heavyweight app-design system or requiring manual blueprint authoring
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_registry_installer.py tests/unit/test_generated_app_durability.py`
+- result: `13 passed`
+
 ### Module: generated app runtime-profile metadata promotion
 
 Promoted inferred app runtime profile data into generated blueprints and registry summaries so control-plane reads can inspect runtime capability shape before installation.

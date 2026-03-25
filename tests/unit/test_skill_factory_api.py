@@ -121,8 +121,12 @@ def test_create_app_blueprint_from_generated_skills_via_api() -> None:
     assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "service"
     assert payload["blueprint"]["runtime_profile"]["offline_capable"] is True
     assert payload["blueprint"]["runtime_profile"]["direct_start_supported"] is True
+    assert payload["blueprint"]["roles"][0]["name"] == "Generated Text Agent"
     assert payload["blueprint"]["tasks"][0]["id"] == "task.run_generated_workflow"
+    assert payload["blueprint"]["tasks"][0]["inputs"]["app_shape"] == "text_transform"
     assert {view["id"] for view in payload["blueprint"]["views"]} == {"generated.overview", "generated.run", "generated.activity"}
+    assert payload["blueprint"]["views"][0]["name"] == "Text Transformation Overview"
+    assert payload["blueprint"]["views"][1]["actions"][0]["id"] == "transform-text"
     assert payload["result"]["required_skills"] == ["skill.script.for.app"]
     assert payload["result"]["created_steps"] == ["skill.1"]
 
@@ -299,6 +303,10 @@ def test_create_multi_step_generated_app_with_step_mappings() -> None:
     assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "pipeline"
     assert payload["blueprint"]["runtime_policy"]["idle_strategy"] == "suspend"
     assert payload["blueprint"]["runtime_profile"]["runtime_skills"] == ["skill.text.slugify.chain", "skill.object.normalize_keys.chain"]
+    assert payload["blueprint"]["roles"][0]["name"] == "Generated Pipeline Agent"
+    assert payload["blueprint"]["tasks"][0]["inputs"]["app_shape"] == "pipeline_chain"
+    assert payload["blueprint"]["views"][0]["name"] == "Pipeline Overview"
+    assert payload["blueprint"]["views"][1]["actions"][0]["id"] == "run-pipeline"
     assert len(payload["blueprint"]["tasks"]) == 1
     assert len(payload["blueprint"]["views"]) == 3
     assert payload["execution"]["status"] == "completed"

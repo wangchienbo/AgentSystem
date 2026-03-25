@@ -285,6 +285,37 @@ class SkillFactoryService:
         execution_mode = "pipeline" if len(runtime_profile.runtime_skills) > 1 else "service"
         if not runtime_profile.direct_start_supported and len(runtime_profile.runtime_skills) <= 1:
             execution_mode = "service"
+        app_shape = self._classify_generated_app_shape(list(request.skill_ids), execution_mode=execution_mode)
+        role_name = {
+            "text_transform": "Generated Text Agent",
+            "structured_transform": "Generated Data Agent",
+            "pipeline_chain": "Generated Pipeline Agent",
+        }.get(app_shape, "Generated Agent")
+        task_name = {
+            "text_transform": "Transform text input into normalized output",
+            "structured_transform": "Transform structured payload into normalized output",
+            "pipeline_chain": "Run the generated multi-step pipeline",
+        }.get(app_shape, "Run generated workflow")
+        overview_title = {
+            "text_transform": "Text Transformation Overview",
+            "structured_transform": "Structured Transformation Overview",
+            "pipeline_chain": "Pipeline Overview",
+        }.get(app_shape, "Overview")
+        run_title = {
+            "text_transform": "Run Text Transformation",
+            "structured_transform": "Run Structured Transformation",
+            "pipeline_chain": "Run Pipeline",
+        }.get(app_shape, "Run Workflow")
+        activity_title = {
+            "text_transform": "Recent Text Transform Activity",
+            "structured_transform": "Recent Structured Transform Activity",
+            "pipeline_chain": "Pipeline Activity",
+        }.get(app_shape, "Activity")
+        action_label = {
+            "text_transform": "transform-text",
+            "structured_transform": "transform-structured-data",
+            "pipeline_chain": "run-pipeline",
+        }.get(app_shape, "run-workflow")
         visible_views = ["generated.overview", "generated.run", "generated.activity"]
         activation = "on_demand"
         idle_strategy = "keep_alive" if execution_mode == "service" else "suspend"
@@ -297,9 +328,9 @@ class SkillFactoryService:
             goal=request.goal,
             roles=[{
                 "id": "generated.agent",
-                "name": "Generated Agent",
+                "name": role_name,
                 "type": "agent",
-                "responsibilities": ["run generated workflow", "handle generated skill execution"],
+                "responsibilities": [task_name, "handle generated skill execution"],
                 "visible_views": visible_views,
                 "allowed_actions": ["workflow.execute", "workflow.inspect"],
             }],
@@ -307,9 +338,9 @@ class SkillFactoryService:
                 "id": "task.run_generated_workflow",
                 "owner_role": "generated.agent",
                 "trigger": "manual",
-                "inputs": {"workflow_id": request.workflow_id},
+                "inputs": {"workflow_id": request.workflow_id, "app_shape": app_shape},
                 "outputs": {"status": "workflow_status", "steps": "execution_steps"},
-                "success_condition": "workflow completes without failed steps",
+                "success_condition": task_name,
             }],
             workflows=[
                 {
@@ -322,7 +353,7 @@ class SkillFactoryService:
             views=[
                 {
                     "id": "generated.overview",
-                    "name": "Overview",
+                    "name": overview_title,
                     "type": "page",
                     "visible_roles": ["generated.agent"],
                     "components": [
@@ -332,14 +363,14 @@ class SkillFactoryService:
                 },
                 {
                     "id": "generated.run",
-                    "name": "Run Workflow",
+                    "name": run_title,
                     "type": "form",
                     "visible_roles": ["generated.agent"],
-                    "actions": [{"id": "run-workflow", "kind": "workflow.execute", "workflow_id": request.workflow_id}],
+                    "actions": [{"id": action_label, "kind": "workflow.execute", "workflow_id": request.workflow_id}],
                 },
                 {
                     "id": "generated.activity",
-                    "name": "Activity",
+                    "name": activity_title,
                     "type": "dashboard",
                     "visible_roles": ["generated.agent"],
                     "components": [
@@ -367,6 +398,37 @@ class SkillFactoryService:
             suggested_mappings=suggested_mappings,
             unresolved_inputs=unresolved_inputs,
         )
+
+    def _classify_generated_app_shape(self, skill_ids: list[str], *, execution_mode: str) -> str:
+        if execution_mode == "pipeline" or len(skill_ids) > 1:
+            return "pipeline_chain"
+        if not skill_ids:
+            return "generic"
+        try:
+            entry = self._skill_control.get_skill(skill_ids[0])
+        except Exception:
+            return "generic"
+        contract = entry.manifest.contract if entry.manifest is not None else None
+        input_ref = contract.input_schema_ref if contract is not None else ""
+        output_ref = contract.output_schema_ref if contract is not None else ""
+        input_schema = self._schema_registry.resolve(input_ref) if input_ref else {}
+        output_schema = self._schema_registry.resolve(output_ref) if output_ref else {}
+        schema_signals = " ".join([
+            " ".join((input_schema.get("properties") or {}).keys()) if isinstance(input_schema, dict) else "",
+            " ".join((output_schema.get("properties") or {}).keys()) if isinstance(output_schema, dict) else "",
+        ])
+        signals = " ".join([
+            entry.skill_id,
+            entry.name,
+            entry.manifest.description if entry.manifest is not None else "",
+            " ".join(entry.manifest.tags) if entry.manifest is not None else "",
+            schema_signals,
+        ]).lower()
+        if any(token in signals for token in ["text", "slug", "title", "normalize human", "echo"]):
+            return "text_transform"
+        if any(token in signals for token in ["object", "json", "payload", "keys", "schema", "structured"]):
+            return "structured_transform"
+        return "generic"
 
     def _suggest_step_mappings(
         self,
