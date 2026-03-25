@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.models.skill_adapter import SkillAdapterSpec
-from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
-from app.models.skill_manifest import SkillContractRef, SkillManifest
+from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion, SkillOrigin
+from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
 
 
 @dataclass(slots=True)
@@ -24,6 +24,8 @@ class SkillAuthoringSpec:
     dependencies: list[str] = field(default_factory=list)
     content: str = ""
     capability_profile: SkillCapabilityProfile = field(default_factory=SkillCapabilityProfile)
+    manifest_risk: SkillManifestRisk = field(default_factory=SkillManifestRisk)
+    origin: SkillOrigin = "manual"
 
 
 class SkillAuthoringService:
@@ -52,11 +54,13 @@ class SkillAuthoringService:
                 error_schema_ref=spec.error_schema_ref,
             ),
             tags=list(spec.tags),
+            risk=spec.manifest_risk,
         )
         content = spec.content or spec.description or spec.name
         return SkillRegistryEntry(
             skill_id=spec.skill_id,
             name=spec.name,
+            origin=spec.origin,
             immutable_interface=spec.immutable_interface,
             active_version=spec.version,
             versions=[SkillVersion(version=spec.version, content=content)],
@@ -82,6 +86,8 @@ class SkillAuthoringService:
         dependencies: list[str] | None = None,
         content: str = "",
         capability_profile: SkillCapabilityProfile | None = None,
+        manifest_risk: SkillManifestRisk | None = None,
+        origin: SkillOrigin = "manual",
     ) -> SkillRegistryEntry:
         return self.build_entry(
             SkillAuthoringSpec(
@@ -99,6 +105,8 @@ class SkillAuthoringService:
                 dependencies=list(dependencies or []),
                 content=content,
                 capability_profile=capability_profile or SkillCapabilityProfile(),
+                manifest_risk=manifest_risk or SkillManifestRisk(),
+                origin=origin,
             )
         )
 
@@ -118,6 +126,8 @@ class SkillAuthoringService:
         dependencies: list[str] | None = None,
         content: str = "",
         capability_profile: SkillCapabilityProfile | None = None,
+        manifest_risk: SkillManifestRisk | None = None,
+        origin: SkillOrigin = "manual",
     ) -> SkillRegistryEntry:
         return self.build_entry(
             SkillAuthoringSpec(
@@ -135,5 +145,7 @@ class SkillAuthoringService:
                 dependencies=list(dependencies or []),
                 content=content,
                 capability_profile=capability_profile or SkillCapabilityProfile(),
+                manifest_risk=manifest_risk or SkillManifestRisk(),
+                origin=origin,
             )
         )

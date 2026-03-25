@@ -4,7 +4,7 @@ from typing import Literal, Any
 
 from pydantic import BaseModel, Field
 
-DiagnosticStage = Literal["create", "register", "smoke_test", "assemble", "install", "execute", "reload"]
+DiagnosticStage = Literal["create", "register", "smoke_test", "assemble", "materialize", "install", "execute", "reload"]
 DiagnosticKind = Literal[
     "invalid_request",
     "adapter_error",

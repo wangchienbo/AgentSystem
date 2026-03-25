@@ -107,7 +107,7 @@ Without persistence/reload, generated skills are closer to session artifacts tha
 
 ### Acceptance criteria
 - [x] a generated script skill survives process restart
-- [ ] registry can distinguish generated assets from built-ins
+- [x] registry can distinguish generated assets from built-ins
 - [x] reload restores manifest/contract/runtime registration correctly
 - [x] focused persistence/reload tests pass
 
@@ -268,9 +268,15 @@ Keep generated skill expansion safe.
 - governance actions and policy blocks leave a queryable event trail suitable for future risk dashboards and audit/reporting surfaces
 - operator-facing risk stats/dashboard reads are available so future self-iteration loops can inspect governance state without hand-scanning raw records
 - skill suggestion / self-iteration entry points should consume governance summaries so newly suggested skills naturally trend safer under active policy pressure
+- that governance context should explicitly include materialization-policy pressure so suggested skills can bias away from shell/script artifact shapes when those forms are being gated
+- blueprint safety metadata should also guide adapter default selection during materialization when callers leave the adapter unspecified
 - those safer defaults should be preserved in blueprint-level metadata so downstream generation stages can honor them automatically
 - the generation layer should expose an explicit bridge from blueprint safety metadata into concrete creation defaults before full end-to-end generated-skill materialization is completed
 - the next handoff should also project those defaults into concrete `SkillCreationRequest` objects so the generated-skill create path can consume them directly
+- stored blueprints should be materializable through a concrete API path so the governance-aware handoff becomes part of the real generated-skill creation flow, not just an internal helper
+- that API path should expose the final registered skill state so future self-iteration loops can verify whether governance-aware defaults actually propagated into the resulting artifact
+- blueprint safety metadata should also become active materialization policy, preventing low-risk blueprints from silently crossing into shell/network-heavy forms without a later explicit override layer
+- that materialization policy should participate in the same audited override system, using a dedicated `blueprint_materialization` scope when intentional exceptions are granted
 
 ---
 
@@ -316,7 +322,8 @@ Use this checklist when executing the roadmap:
 - [ ] Phase 2: callable generation path
 - [ ] Phase 3: structured diagnostics + retry loop
 - [ ] Phase 4: multi-step composition/mapping
-- [ ] Phase 5: richer generated app skeletons
+- [x] Phase 5: richer generated app skeletons
+  - generated app skeletons now differ by lightweight inferred app shape (`text_transform`, `structured_transform`, `pipeline_chain`)
 - [ ] Phase 6: broader real-skill validation matrix
 - [ ] Phase 7: security/permission boundaries
 - [ ] Phase 8: revision/rollback/self-improvement

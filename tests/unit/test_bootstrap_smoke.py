@@ -37,8 +37,10 @@ def test_bootstrap_runtime_exposes_builtin_skills_and_demo_catalog_entries() -> 
     bootstrap_builtin_skills(skill_runtime, services)
     bootstrap_demo_catalog(app_registry, app_catalog)
 
-    skill_ids = {entry.skill_id for entry in skill_control.list_skills()}
+    skill_entries = {entry.skill_id: entry for entry in skill_control.list_skills()}
+    skill_ids = set(skill_entries)
     assert {"system.app_config", "system.context", "system.state", "system.audit"}.issubset(skill_ids)
+    assert all(skill_entries[skill_id].origin == "builtin" for skill_id in {"system.app_config", "system.context", "system.state", "system.audit"})
 
     blueprint_ids = {entry.blueprint_id for entry in app_registry.list_entries()}
     assert {"bp.workspace.assistant", "bp.pipeline.executor"}.issubset(blueprint_ids)

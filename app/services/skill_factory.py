@@ -8,6 +8,7 @@ from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry
 from app.models.skill_creation import AppFromSkillsRequest, AppFromSkillsResult, SkillCreationRequest, SkillCreationResult, StepMappingDefinition, SuggestedStepMapping
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
+from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.generated_callable_materializer import GeneratedCallableMaterializer, GeneratedCallableMaterializerError
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.schema_registry import SchemaRegistryService
@@ -49,6 +50,7 @@ class SkillFactoryService:
         generated_assets: GeneratedSkillAssetStore | None = None,
         callable_materializer: GeneratedCallableMaterializer | None = None,
         risk_policy: SkillRiskPolicyService | None = None,
+        app_profile_resolver: AppProfileResolverService | None = None,
     ) -> None:
         self._skill_control = skill_control
         self._skill_runtime = skill_runtime
@@ -57,6 +59,7 @@ class SkillFactoryService:
         self._generated_assets = generated_assets
         self._callable_materializer = callable_materializer or GeneratedCallableMaterializer()
         self._risk_policy = risk_policy or SkillRiskPolicyService()
+        self._app_profile_resolver = app_profile_resolver or AppProfileResolverService(skill_control=self._skill_control)
 
     def build_creation_defaults_from_blueprint(self, blueprint: SkillBlueprint) -> dict:
         safety_profile = blueprint.safety_profile or {}
@@ -100,16 +103,19 @@ class SkillFactoryService:
             description=description or blueprint.goal,
             adapter_kind=adapter_kind,
             capability_profile=defaults["capability_profile"],
+            manifest_risk=defaults["manifest_risk"],
             generation_operation=generation_operation,
             handler_entry=handler_entry or "",
             smoke_test_inputs=smoke_test_inputs or {},
-            input_schema=input_schema or {"type": "object", "properties": {}, "additionalProperties": True},
-            output_schema=output_schema or {"type": "object", "properties": {}, "additionalProperties": True},
-            error_schema=error_schema or {
-                "type": "object",
-                "properties": {"message": {"type": "string"}},
-                "required": ["message"],
-                "additionalProperties": True,
+            schemas={
+                "input": input_schema or {"type": "object", "properties": {}, "additionalProperties": True},
+                "output": output_schema or {"type": "object", "properties": {}, "additionalProperties": True},
+                "error": error_schema or {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": True,
+                },
             },
         )
 
@@ -159,6 +165,8 @@ class SkillFactoryService:
                 error_schema_ref=schema_refs["error"],
                 tags=request.tags,
                 capability_profile=request.capability_profile,
+                manifest_risk=request.manifest_risk,
+                origin="generated",
                 content=request.description or request.name,
             )
             if request.skill_id not in {item.skill_id for item in self._skill_control.list_skills()}:
@@ -198,6 +206,8 @@ class SkillFactoryService:
                 error_schema_ref=schema_refs["error"],
                 tags=request.tags,
                 capability_profile=request.capability_profile,
+                manifest_risk=request.manifest_risk,
+                origin="generated",
                 content=request.description or request.name,
             )
             if request.skill_id not in {item.skill_id for item in self._skill_control.list_skills()}:
@@ -271,12 +281,68 @@ class SkillFactoryService:
                 }
             )
             created_steps.append(step_id)
+        runtime_profile = self._app_profile_resolver.resolve(list(request.skill_ids))
+        execution_mode = "pipeline" if len(runtime_profile.runtime_skills) > 1 else "service"
+        if not runtime_profile.direct_start_supported and len(runtime_profile.runtime_skills) <= 1:
+            execution_mode = "service"
+        app_shape = self._classify_generated_app_shape(list(request.skill_ids), execution_mode=execution_mode)
+        role_name = {
+            "text_transform": "Generated Text Agent",
+            "structured_transform": "Generated Data Agent",
+            "pipeline_chain": "Generated Pipeline Agent",
+        }.get(app_shape, "Generated Agent")
+        task_name = {
+            "text_transform": "Transform text input into normalized output",
+            "structured_transform": "Transform structured payload into normalized output",
+            "pipeline_chain": "Run the generated multi-step pipeline",
+        }.get(app_shape, "Run generated workflow")
+        overview_title = {
+            "text_transform": "Text Transformation Overview",
+            "structured_transform": "Structured Transformation Overview",
+            "pipeline_chain": "Pipeline Overview",
+        }.get(app_shape, "Overview")
+        run_title = {
+            "text_transform": "Run Text Transformation",
+            "structured_transform": "Run Structured Transformation",
+            "pipeline_chain": "Run Pipeline",
+        }.get(app_shape, "Run Workflow")
+        activity_title = {
+            "text_transform": "Recent Text Transform Activity",
+            "structured_transform": "Recent Structured Transform Activity",
+            "pipeline_chain": "Pipeline Activity",
+        }.get(app_shape, "Activity")
+        action_label = {
+            "text_transform": "transform-text",
+            "structured_transform": "transform-structured-data",
+            "pipeline_chain": "run-pipeline",
+        }.get(app_shape, "run-workflow")
+        visible_views = ["generated.overview", "generated.run", "generated.activity"]
+        activation = "on_demand"
+        idle_strategy = "keep_alive" if execution_mode == "service" else "suspend"
+        if runtime_profile.invocation_posture == "ask_user":
+            idle_strategy = "suspend"
+
         blueprint = AppBlueprint(
             id=request.blueprint_id,
             name=request.name,
             goal=request.goal,
-            roles=[{"id": "generated.agent", "name": "Generated Agent", "type": "agent"}],
-            tasks=[],
+            app_shape=app_shape,
+            roles=[{
+                "id": "generated.agent",
+                "name": role_name,
+                "type": "agent",
+                "responsibilities": [task_name, "handle generated skill execution"],
+                "visible_views": visible_views,
+                "allowed_actions": ["workflow.execute", "workflow.inspect"],
+            }],
+            tasks=[{
+                "id": "task.run_generated_workflow",
+                "owner_role": "generated.agent",
+                "trigger": "manual",
+                "inputs": {"workflow_id": request.workflow_id, "app_shape": app_shape},
+                "outputs": {"status": "workflow_status", "steps": "execution_steps"},
+                "success_condition": task_name,
+            }],
             workflows=[
                 {
                     "id": request.workflow_id,
@@ -285,8 +351,45 @@ class SkillFactoryService:
                     "steps": steps,
                 }
             ],
+            views=[
+                {
+                    "id": "generated.overview",
+                    "name": overview_title,
+                    "type": "page",
+                    "visible_roles": ["generated.agent"],
+                    "components": [
+                        {"kind": "summary", "title": request.name, "goal": request.goal},
+                        {"kind": "runtime_profile", "profile": runtime_profile.model_dump(mode="json")},
+                    ],
+                },
+                {
+                    "id": "generated.run",
+                    "name": run_title,
+                    "type": "form",
+                    "visible_roles": ["generated.agent"],
+                    "actions": [{"id": action_label, "kind": "workflow.execute", "workflow_id": request.workflow_id}],
+                },
+                {
+                    "id": "generated.activity",
+                    "name": activity_title,
+                    "type": "dashboard",
+                    "visible_roles": ["generated.agent"],
+                    "components": [
+                        {"kind": "workflow_status", "workflow_id": request.workflow_id},
+                        {"kind": "required_skills", "skill_ids": list(request.skill_ids)},
+                    ],
+                },
+            ],
             required_modules=[],
             required_skills=list(request.skill_ids),
+            runtime_profile=runtime_profile.model_dump(mode="json"),
+            runtime_policy={
+                "execution_mode": execution_mode,
+                "activation": activation,
+                "restart_policy": "on_failure",
+                "persistence_level": "standard" if execution_mode == "service" else "full",
+                "idle_strategy": idle_strategy,
+            },
         )
         return blueprint, AppFromSkillsResult(
             blueprint_id=request.blueprint_id,
@@ -296,6 +399,37 @@ class SkillFactoryService:
             suggested_mappings=suggested_mappings,
             unresolved_inputs=unresolved_inputs,
         )
+
+    def _classify_generated_app_shape(self, skill_ids: list[str], *, execution_mode: str) -> str:
+        if execution_mode == "pipeline" or len(skill_ids) > 1:
+            return "pipeline_chain"
+        if not skill_ids:
+            return "generic"
+        try:
+            entry = self._skill_control.get_skill(skill_ids[0])
+        except Exception:
+            return "generic"
+        contract = entry.manifest.contract if entry.manifest is not None else None
+        input_ref = contract.input_schema_ref if contract is not None else ""
+        output_ref = contract.output_schema_ref if contract is not None else ""
+        input_schema = self._schema_registry.resolve(input_ref) if input_ref else {}
+        output_schema = self._schema_registry.resolve(output_ref) if output_ref else {}
+        schema_signals = " ".join([
+            " ".join((input_schema.get("properties") or {}).keys()) if isinstance(input_schema, dict) else "",
+            " ".join((output_schema.get("properties") or {}).keys()) if isinstance(output_schema, dict) else "",
+        ])
+        signals = " ".join([
+            entry.skill_id,
+            entry.name,
+            entry.manifest.description if entry.manifest is not None else "",
+            " ".join(entry.manifest.tags) if entry.manifest is not None else "",
+            schema_signals,
+        ]).lower()
+        if any(token in signals for token in ["text", "slug", "title", "normalize human", "echo"]):
+            return "text_transform"
+        if any(token in signals for token in ["object", "json", "payload", "keys", "schema", "structured"]):
+            return "structured_transform"
+        return "generic"
 
     def _suggest_step_mappings(
         self,

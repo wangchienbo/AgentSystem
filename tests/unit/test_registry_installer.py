@@ -85,6 +85,9 @@ def test_installer_creates_instance_with_runtime_policy(tmp_path: Path) -> None:
     instance = lifecycle.get_instance(result.app_instance_id)
 
     assert result.status == "installed"
+    assert result.app_shape == "generic"
+    assert result.runtime_profile.runtime_intelligence_level == "L0_deterministic"
+    assert result.runtime_profile.offline_capable is True
     assert instance.execution_mode == "pipeline"
     assert instance.runtime_policy.execution_mode == "pipeline"
     assert "system.app_config" in instance.system_skills
@@ -130,3 +133,4 @@ def test_registry_and_install_api_flow() -> None:
     )
     assert install_response.status_code == 200
     assert install_response.json()["execution_mode"] == "service"
+    assert install_response.json()["runtime_profile"]["offline_capable"] is True

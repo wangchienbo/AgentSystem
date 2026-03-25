@@ -2,6 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.app_profile import AppRuntimeProfile
 from app.models.runtime_policy import RuntimePolicy
 
 
@@ -60,11 +61,15 @@ class StoragePlan(BaseModel):
     system_metadata: str = "system"
 
 
+AppShape = Literal["generic", "text_transform", "structured_transform", "pipeline_chain"]
+
+
 class AppBlueprint(BaseModel):
     id: str
     name: str
     goal: str
     version: str = "0.1.0"
+    app_shape: AppShape = "generic"
     roles: list[Role] = Field(default_factory=list)
     tasks: list[Task] = Field(default_factory=list)
     workflows: list[Workflow] = Field(default_factory=list)
@@ -73,3 +78,4 @@ class AppBlueprint(BaseModel):
     required_skills: list[str] = Field(default_factory=list)
     storage_plan: StoragePlan = Field(default_factory=StoragePlan)
     runtime_policy: RuntimePolicy = Field(default_factory=RuntimePolicy)
+    runtime_profile: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)

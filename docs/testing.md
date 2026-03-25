@@ -142,6 +142,13 @@ Covered behavior:
 - golden-path integration coverage now locks the main operator flow from registry/catalog wiring through interaction open, workflow execution, retry, diagnostics, overview, and dashboard summaries
 - API-level golden-path coverage now protects the same operator flow through the public FastAPI surface, not only service-level integration helpers
 - generated-skill durability smoke coverage now verifies persisted generated script skills reload after runtime rebuild and still execute through the runtime adapter path
+- generated-skill registry-origin coverage now verifies built-in skills register as `origin=builtin` while generated persisted/reloaded assets remain `origin=generated`, preserving Phase-1 durability metadata across runtime rebuilds
+- public skill API coverage now locks registry-origin visibility through `/skills`, `/skills/{id}`, and blueprint-materialization responses so origin metadata is not only internal state but a stable control-plane contract
+- generated-app skeleton coverage now verifies `/apps/from-skills` and `/apps/from-skills/install-run` emit richer profile-aware blueprint metadata (service vs pipeline execution mode, default task, and overview/run/activity views) instead of an always-empty skeleton
+- generated-app runtime-profile coverage now verifies inferred app profile data is visible pre-install through generated blueprints and registry-entry summaries, not only after installer materialization into `AppInstance`
+- generated-app shape coverage now verifies text-style single-skill apps, structured-transform single-skill apps, and multi-step pipelines emit different role names, task metadata, and action/view labels instead of sharing identical generic wording
+- installer/control-plane coverage now verifies app install responses expose inferred runtime-profile metadata in addition to execution mode/status, keeping install-time API reads aligned with blueprint/registry summaries
+- generated-app shape coverage now also locks the new explicit `app_shape` field across blueprint, registry, and install-result payloads so app-type semantics are machine-readable instead of only implicit in generated labels
 - generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
 - refinement-loop coverage now verifies the system can carry a prioritized refinement proposal into explicit hypothesis / experiment / verification / rollout objects through both service and API paths
@@ -154,6 +161,7 @@ Covered behavior:
 - refinement governance filtering coverage now verifies rollout-queue page reads, failed-hypothesis archive page reads, and aggregate stats summaries across both service and API surfaces
 - refinement governance dashboard coverage now verifies the combined overview/stats/recent-slice read model and its API surface
 - refinement observability helper coverage now verifies queue/stats/dashboard endpoints share one API-side filter construction path; broad API golden-path coverage may remain in a separate slower slice when timeout-constrained
+- the slower API golden-path slice (`tests/unit/test_api_golden_path.py`) has now been re-run successfully as a standalone check after earlier timeout/SIGTERM interruption, so workflow/operator public-surface coverage is confirmed rather than left as an open note
 - slower refinement API end-to-end coverage should live in a dedicated test file instead of expanding the main workflow golden-path file, so fast and slow API slices can be scheduled independently
 - refinement API-path tests should explicitly disable grouped-regression verification when the goal is deterministic contract coverage rather than full-suite validation
 - model-backed proposal generation is now default-off in runtime wiring, and should be covered through explicit opt-in tests rather than assumed during normal API-path regression runs
@@ -169,9 +177,15 @@ Covered behavior:
 - generated-skill governance coverage now verifies blocked/approved/revoked risk events are queryable through the risk governance event trail
 - skill risk governance coverage now verifies operator-facing stats/dashboard summaries over decision and event data
 - skill suggestion governance coverage now verifies fallback suggestions expose governance context and bias toward lower-risk local/deterministic behavior under recent policy pressure
+- materialization-aware suggestion coverage now verifies fallback suggestions react to blueprint-materialization blocking pressure and prefer callable materialization in both text and metadata
+- governance-aware materialization default coverage now verifies blueprint safety metadata can automatically select callable materialization when adapter choice is omitted
 - governance-aware suggestion coverage now verifies low-risk defaults are encoded in machine-readable blueprint safety metadata
 - blueprint safety handoff coverage now verifies skill-factory creation defaults can be derived from `SkillBlueprint.safety_profile`
 - blueprint creation-request bridge coverage now verifies governance-aware defaults can be projected into concrete `SkillCreationRequest` objects
+- blueprint materialization coverage now verifies stored blueprints can be turned into real skills through an API path that preserves governance-aware request defaults
+- end-to-end blueprint materialization coverage now verifies low-risk defaults also appear in the final registered skill manifest and capability profile
+- blueprint materialization policy coverage now verifies low-risk blueprints reject shell/script materialization when safety metadata disallows it
+- blueprint materialization override coverage now verifies reviewer-managed `blueprint_materialization` overrides can intentionally unblock those policy-gated paths
 
 ## 3.7 Interaction gateway
 Covered behavior:

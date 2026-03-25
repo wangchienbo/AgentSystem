@@ -1,6 +1,213 @@
 # Development Log
 
+## 2026-03-25
+
+### Module: explicit generated app-shape metadata
+
+Promoted generated app shape from implicit wording to an explicit machine-readable control-plane field.
+
+#### Updated
+- `app/models/app_blueprint.py`
+  - adds `app_shape` (`generic | text_transform | structured_transform | pipeline_chain`)
+- `app/models/registry.py`
+  - adds `app_shape` to `AppRegistryEntry` and `AppInstallResult`
+- `app/services/skill_factory.py`
+  - persists inferred generated app shape into emitted blueprints
+- `app/services/app_registry.py`
+  - preserves blueprint shape in registry summaries
+- `app/services/app_installer.py`
+  - returns blueprint shape in install results
+- `tests/unit/test_skill_factory_api.py`
+  - verifies explicit `app_shape` across blueprint, registry, and generated install-run payloads
+- `tests/unit/test_registry_installer.py`
+  - verifies ordinary manually registered blueprints default to `app_shape=generic`
+
+#### Why
+- app-shape semantics had become useful, but were still mostly implicit in role/task/view wording
+- exposing shape directly makes control-plane code and future UI work less brittle than reverse-inferring app type from labels
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_registry_installer.py tests/unit/test_api_golden_path.py tests/unit/test_generated_app_durability.py tests/unit/test_blueprint_validation.py`
+- result: `22 passed`
+
+### Module: install-result runtime-profile visibility
+
+Extended the app runtime-profile promotion work through the installer contract so install responses expose the same normalized runtime capability view already present in generated blueprints and registry summaries.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `runtime_profile` to `AppInstallResult`
+- `app/services/app_installer.py`
+  - returns the installed instance runtime profile in install results
+- `tests/unit/test_registry_installer.py`
+  - verifies service and API install flows expose runtime-profile metadata
+- `tests/unit/test_skill_factory_api.py`
+  - verifies generated install-run payloads expose install-time runtime-profile metadata
+
+#### Why
+- runtime profile data was already available before install via blueprint/registry surfaces and after install via `AppInstance`, but the install response itself remained thinner than the surrounding control-plane contract
+- returning runtime profile directly from install responses removes an unnecessary follow-up read for operator surfaces
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py tests/unit/test_skill_factory_api.py tests/unit/test_api_golden_path.py`
+- result: `14 passed`
+
+### Module: generated app shape differentiation
+
+Made generated app skeletons differ more meaningfully by inferred app type instead of only by execution mode.
+
+#### Updated
+- `app/services/skill_factory.py`
+  - adds lightweight generated-app shape classification from skill metadata and schema field names
+  - emits differentiated role names, task semantics, overview titles, and run-action labels for `text_transform`, `structured_transform`, and `pipeline_chain` shapes
+- `tests/unit/test_skill_factory_api.py`
+  - verifies single-skill text-oriented generated apps emit text-transform labels
+  - verifies multi-step generated apps emit pipeline-oriented labels
+
+#### Why
+- Phase-5 richer skeleton support existed, but generated apps could still feel too generic when obviously different skill sets produced nearly identical control-plane wording
+- lightweight shape inference provides more useful defaults without introducing a heavyweight app-design system or requiring manual blueprint authoring
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_registry_installer.py tests/unit/test_generated_app_durability.py`
+- result: `13 passed`
+- focused structured-shape check: `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py -k "structured_transform or multi_step_generated_app_with_step_mappings or create_app_blueprint_from_generated_skills_via_api"`
+- result: `3 passed`
+
+### Module: generated app runtime-profile metadata promotion
+
+Promoted inferred app runtime profile data into generated blueprints and registry summaries so control-plane reads can inspect runtime capability shape before installation.
+
+#### Updated
+- `app/models/app_blueprint.py`
+  - adds first-class `runtime_profile`
+- `app/models/registry.py`
+  - adds `runtime_profile_summary` to registry entries
+- `app/services/skill_factory.py`
+  - writes resolved runtime profile into generated app blueprints
+- `app/services/app_registry.py`
+  - copies blueprint runtime profile into registry-entry summaries during registration
+- `tests/unit/test_skill_factory_api.py`
+  - verifies generated blueprints expose runtime-profile metadata
+  - verifies `/registry/apps` exposes runtime-profile summaries for generated blueprints
+
+#### Why
+- runtime profile inference already existed at install time, but generated blueprints and registry entries still lacked a stable pre-install runtime capability summary
+- that made control-plane display and generated-app inspection depend on reconstructing capability facts from raw skills or waiting until install-time state existed
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_registry_installer.py tests/unit/test_generated_app_durability.py tests/unit/test_blueprint_validation.py`
+- result: `20 passed`
+
+### Module: richer generated app skeleton defaults
+
+Upgraded generated app assembly from a bare workflow wrapper into a profile-aware blueprint skeleton that carries usable control-plane metadata.
+
+#### Updated
+- `app/services/skill_factory.py`
+  - now uses `AppProfileResolverService` during `/apps/from-skills` assembly
+  - infers `service` vs `pipeline` execution mode from selected runtime skills
+  - derives runtime-policy defaults (`idle_strategy`, persistence posture) from the inferred skeleton type and invocation posture
+  - emits a default generated-agent role with responsibilities, visible views, and allowed actions
+  - emits a default runnable task (`task.run_generated_workflow`)
+  - emits three operator-facing default views: `generated.overview`, `generated.run`, and `generated.activity`
+- `tests/unit/test_skill_factory_api.py`
+  - verifies single-skill generated apps default to a richer service skeleton
+  - verifies multi-step generated apps default to a richer pipeline skeleton
+
+#### Why
+- generated app blueprints were still structurally runnable but metadata-poor, leaving Phase-5 roadmap acceptance unmet and making control-plane display unnecessarily thin
+- the system already had app-profile inference logic, but generated app assembly was not reusing it to produce more realistic blueprint defaults
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_generated_app_durability.py tests/unit/test_blueprint_validation.py`
+- result: `17 passed`
+
+### Module: skill-origin API contract coverage
+
+Extended the new registry origin metadata work into explicit public-API contract checks so `origin` is verified at control-plane read surfaces instead of only through direct service access.
+
+#### Updated
+- `tests/unit/test_skill_factory_api.py`
+  - verifies `/skills` exposes built-in origin metadata
+  - verifies generated skills created through `/skills/create` are subsequently visible as `origin=generated` through `/skills` and `/skills/{skill_id}`
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - verifies materialization responses expose the final registered skill with `origin=generated`
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_bootstrap_smoke.py tests/unit/test_generated_skill_persistence.py tests/unit/test_generated_skill_durability.py`
+- result: `16 passed`
+
+### Module: generated-vs-builtin skill origin metadata
+
+Closed the remaining Phase-1 generated-skill roadmap gap by teaching registry entries to distinguish built-in, generated, and manual skills, and by preserving that origin across generated-skill persistence and reload.
+
+#### Updated
+- `app/models/skill_control.py`
+  - adds `SkillRegistryEntry.origin` with explicit `builtin | generated | manual` registry metadata
+- `app/services/skill_authoring.py`
+  - threads origin through authoring specs and callable/script entry builders
+- `app/services/skill_factory.py`
+  - marks API-created/materialized skills as `generated`
+- `app/services/system_skill_registry.py`
+  - marks bootstrapped system skills as `builtin`
+- `tests/unit/test_skill_authoring.py`
+  - verifies ordinary authoring defaults to `manual`
+- `tests/unit/test_bootstrap_smoke.py`
+  - verifies bootstrapped core/system skills are tagged `builtin`
+- `tests/unit/test_generated_skill_persistence.py`
+- `tests/unit/test_generated_skill_durability.py`
+  - verify persisted/reloaded generated assets remain tagged `generated`
+
+#### Why
+- Phase 1 of the generated-skill roadmap already had persistence/reload, but the registry still could not distinguish built-in skills from generated assets
+- without explicit origin metadata, runtime reload could restore the bytes of a generated skill while losing its identity as a generated managed asset
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_authoring.py tests/unit/test_generated_skill_persistence.py tests/unit/test_generated_skill_durability.py tests/unit/test_bootstrap_smoke.py tests/unit/test_generated_callable_skill.py tests/unit/test_skill_factory_api.py`
+- result: `17 passed`
+
+## 2026-03-25
+
+### Module: blueprint materialization risk/default propagation contract repair
+
+Repaired the blueprint materialization path after the new shell-policy gate exposed a broken contract between API diagnostics, creation-request models, and authored skill manifests.
+
+#### Updated
+- `app/api/main.py`
+  - imports and reuses the shared `_diagnostic(...)` helper so materialization policy failures surface as structured API diagnostics
+  - when a `blueprint_materialization` override is active for shell/script materialization, upgrades the generated creation request to explicit shell-allowed risk metadata before registration
+- `app/models/skill_diagnostics.py`
+  - extends diagnostic stage coverage with `materialize` so materialization policy failures map cleanly to HTTP 400 responses instead of falling through as internal errors
+- `app/models/skill_creation.py`
+  - adds `manifest_risk` to `SkillCreationRequest`
+  - aligns blueprint materialization request construction around the nested `schemas` contract shape used by the model
+- `app/services/skill_factory.py`
+  - threads blueprint-derived `manifest_risk` through concrete creation requests
+  - passes manifest risk into callable/script authoring so registered manifests preserve governance-derived risk defaults and approved shell overrides
+- `app/services/skill_authoring.py`
+  - adds manifest-risk support to authoring specs and callable/script entry builders
+  - persists explicit risk metadata into final `SkillManifest` objects instead of relying on implicit defaults
+
+#### Why
+- materialization policy failures were raising before HTTP error mapping because `_diagnostic` was referenced without import
+- the new `materialize` stage was not part of the diagnostic union, causing policy diagnostics to degrade into internal errors
+- blueprint-derived manifest risk defaults were computed but not actually carried through `SkillCreationRequest` into authored manifests
+- scoped shell overrides could clear the preflight block but still fail later manifest validation because final authored manifests still defaulted to `allow_shell=false`
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_skill_blueprint_materialization_override_api.py tests/unit/test_skill_risk_override_api.py`
+- result: `5 passed`
+
 ## 2026-03-24
+
+### Module: API golden-path follow-up confirmation
+
+Closed the remaining follow-up note from the refinement observability helper work by re-running the slower public-API golden-path slice in isolation and confirming that the end-to-end operator flow remains green.
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_api_golden_path.py`
+- result: `1 passed`
 
 ### Module: refinement observability API helper alignment
 
@@ -29,6 +236,165 @@ Aligned self-refinement operator endpoints with the workflow observability patte
 - result: `6 passed`
 - command: `./.venv/bin/pytest -q tests/unit/test_refinement_observability_api.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py`
 - note: `tests/unit/test_api_golden_path.py` was re-run separately but the broader file was interrupted by external `SIGTERM`, so that expanded golden-path assertion remained follow-up work
+
+### Module: governance-aware adapter default selection in blueprint materialization
+
+Extended governance-aware materialization from policy and propagation into actual adapter default selection: when callers omit `adapter_kind`, blueprint safety metadata can now steer the system toward callable materialization automatically.
+
+#### Updated
+- `app/models/skill_creation.py`
+  - `BlueprintMaterializationRequest.adapter_kind` is now optional
+- `app/api/main.py`
+  - blueprint materialization now derives an effective adapter kind from `SkillBlueprint.safety_profile.prefer_callable_materialization` when the caller leaves adapter choice unspecified
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - verifies callable materialization is auto-selected when the blueprint explicitly prefers it
+- `docs/requirements.md`
+  - records governance-aware adapter default selection requirement
+- `docs/design.md`
+  - documents safety-driven adapter default selection
+- `docs/testing.md`
+  - records adapter default-selection coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with adapter-default guidance from blueprint safety metadata
+- `docs/system-relationship-map.md`
+  - notes that blueprint safety metadata now affects artifact shape even without explicit adapter input
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_skill_blueprint_materialization_override_api.py`
+- result: `4 passed`
+
+### Module: materialization-aware governance context in skill suggestion
+
+Fed blueprint-materialization policy pressure back into the skill suggestion path so self-iteration recommendations can react not only to general risk blocking, but specifically to materialization-time policy friction.
+
+#### Updated
+- `app/services/skill_suggestion.py`
+  - governance context now includes materialization-scoped blocked-event and active-override signals
+  - fallback suggestions now bias toward callable materialization when blueprint-materialization policy pressure is active
+  - safety metadata now records `prefer_callable_materialization`
+- `tests/unit/test_skill_suggestion.py`
+  - verifies suggestion governance context includes materialization pressure and callable-materialization bias in both text and safety metadata
+- `docs/requirements.md`
+  - records materialization-aware suggestion requirement
+- `docs/design.md`
+  - documents blueprint-materialization pressure as part of governance-aware suggestion state
+- `docs/testing.md`
+  - records materialization-aware suggestion coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with materialization-pressure-aware suggestion behavior
+- `docs/system-relationship-map.md`
+  - notes that materialization policy summaries now affect suggested artifact shape
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_suggestion.py tests/unit/test_skill_blueprint_materialization_override_api.py`
+- result: `5 passed`
+
+### Module: blueprint materialization policy overrides
+
+Connected blueprint materialization policy into the existing risk-governance override system so reviewer-managed approvals can intentionally unblock shell/script materialization under a dedicated scope.
+
+#### Added
+- `tests/unit/test_skill_blueprint_materialization_override_api.py`
+  - verifies low-risk shell/script materialization is blocked by default, then allowed after a reviewer-managed `blueprint_materialization` override is granted
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - extends policy scope with `blueprint_materialization`
+- `app/api/main.py`
+  - materialization policy now consults active overrides under the `blueprint_materialization` scope before blocking shell/script materialization
+  - risk override APIs now accept a `scope` parameter
+- `docs/requirements.md`
+  - records override-aware blueprint materialization requirement
+- `docs/design.md`
+  - documents scoped materialization override behavior
+- `docs/testing.md`
+  - records materialization override coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with scoped override participation in materialization policy
+- `docs/system-relationship-map.md`
+  - adds blueprint materialization override coverage into the generated-skill graph
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_skill_blueprint_materialization_override_api.py tests/unit/test_skill_risk_override_api.py`
+- result: `5 passed`
+
+### Module: governance-aware blueprint materialization policy
+
+Started turning blueprint safety metadata into active materialization policy by blocking shell/script materialization for low-risk blueprints whose safety profile explicitly disallows shell behavior.
+
+#### Updated
+- `app/api/main.py`
+  - blueprint materialization now enforces a baseline policy block for shell/script materialization when `SkillBlueprint.safety_profile.allow_shell=false`
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - verifies low-risk blueprints are rejected from shell/script materialization with a structured `policy_blocked` diagnostic
+- `docs/requirements.md`
+  - records baseline materialization-policy enforcement requirement
+- `docs/design.md`
+  - documents safety metadata as active materialization policy rather than passive annotation
+- `docs/testing.md`
+  - records blueprint materialization policy coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with active materialization-policy behavior
+- `docs/system-relationship-map.md`
+  - marks blueprint safety metadata as affecting materialization permission, not only downstream defaults
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py`
+- result: `2 passed`
+
+### Module: end-to-end propagation of safety defaults into registered skills
+
+Extended blueprint materialization so callers can now verify that governance-aware safety defaults propagated all the way into the final registered skill artifact, not just the intermediate creation request.
+
+#### Updated
+- `app/api/main.py`
+  - blueprint materialization now returns `registered_skill` alongside the blueprint, creation request, and creation result
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - now verifies low-risk defaults propagate into the final registered skill capability profile and manifest risk metadata
+- `docs/requirements.md`
+  - records end-to-end propagation visibility requirement
+- `docs/design.md`
+  - documents intermediate-request plus final-artifact visibility in the materialization response
+- `docs/testing.md`
+  - records end-to-end registered-skill propagation coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with final-artifact verification in the materialization path
+- `docs/system-relationship-map.md`
+  - notes that blueprint materialization now touches final registered artifact state as well as request construction
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py`
+- result: `1 passed`
+
+### Module: blueprint materialization into real skills
+
+Connected the safety-aware blueprint/request bridge into a real API path so stored skill blueprints can now be materialized into registered skills while preserving governance-derived request defaults.
+
+#### Added
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+  - verifies a stored blueprint can be materialized through the API into a real skill while preserving low-risk request defaults
+
+#### Updated
+- `app/services/experience_store.py`
+  - adds direct blueprint lookup by skill id
+- `app/models/skill_creation.py`
+  - adds `BlueprintMaterializationRequest`
+- `app/api/main.py`
+  - adds `POST /skill-blueprints/{skill_id}/materialize`
+- `docs/requirements.md`
+  - records blueprint materialization requirement
+- `docs/design.md`
+  - documents blueprint materialization as a first-class generated-skill path
+- `docs/testing.md`
+  - records blueprint materialization coverage
+- `docs/generated-skill-roadmap.md`
+  - extends the roadmap with real API materialization from stored blueprints
+- `docs/system-relationship-map.md`
+  - adds blueprint materialization API coverage into the generated-skill relationship graph
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_skill_blueprint_safety_defaults.py`
+- result: `3 passed`
 
 ### Module: blueprint-to-creation-request safety bridge
 

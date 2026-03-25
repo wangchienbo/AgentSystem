@@ -80,6 +80,7 @@ def test_generated_script_skill_persists_and_reloads(tmp_path: Path) -> None:
     restored_entry = reloaded_skill_control.get_skill("skill.text.slugify.persisted")
     assert restored_entry.manifest is not None
     assert restored_entry.runtime_adapter == "script"
+    assert restored_entry.origin == "generated"
 
     result = reloaded_skill_runtime.execute(
         SkillExecutionRequest(

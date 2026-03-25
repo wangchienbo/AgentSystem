@@ -6,6 +6,13 @@ from app.api.main import app
 client = TestClient(app)
 
 
+def test_list_skills_exposes_builtin_origin() -> None:
+    response = client.get("/skills")
+    assert response.status_code == 200
+    system_app_config = next(item for item in response.json() if item["skill_id"] == "system.app_config")
+    assert system_app_config["origin"] == "builtin"
+
+
 def test_create_script_skill_via_api_and_smoke_execute() -> None:
     response = client.post(
         "/skills/create",
@@ -52,7 +59,12 @@ def test_create_script_skill_via_api_and_smoke_execute() -> None:
 
     list_response = client.get("/skills")
     assert list_response.status_code == 200
-    assert any(item["skill_id"] == "skill.script.generated" for item in list_response.json())
+    listed = next(item for item in list_response.json() if item["skill_id"] == "skill.script.generated")
+    assert listed["origin"] == "generated"
+
+    detail_response = client.get("/skills/skill.script.generated")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["origin"] == "generated"
 
 
 def test_create_app_blueprint_from_generated_skills_via_api() -> None:
@@ -106,12 +118,25 @@ def test_create_app_blueprint_from_generated_skills_via_api() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["blueprint"]["id"] == "bp.generated.skill.app"
+    assert payload["blueprint"]["app_shape"] == "text_transform"
+    assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "service"
+    assert payload["blueprint"]["runtime_profile"]["offline_capable"] is True
+    assert payload["blueprint"]["runtime_profile"]["direct_start_supported"] is True
+    assert payload["blueprint"]["roles"][0]["name"] == "Generated Text Agent"
+    assert payload["blueprint"]["tasks"][0]["id"] == "task.run_generated_workflow"
+    assert payload["blueprint"]["tasks"][0]["inputs"]["app_shape"] == "text_transform"
+    assert {view["id"] for view in payload["blueprint"]["views"]} == {"generated.overview", "generated.run", "generated.activity"}
+    assert payload["blueprint"]["views"][0]["name"] == "Text Transformation Overview"
+    assert payload["blueprint"]["views"][1]["actions"][0]["id"] == "transform-text"
     assert payload["result"]["required_skills"] == ["skill.script.for.app"]
     assert payload["result"]["created_steps"] == ["skill.1"]
 
     blueprints = client.get("/registry/apps")
     assert blueprints.status_code == 200
-    assert any(item["blueprint_id"] == "bp.generated.skill.app" for item in blueprints.json())
+    registered = next(item for item in blueprints.json() if item["blueprint_id"] == "bp.generated.skill.app")
+    assert registered["app_shape"] == "text_transform"
+    assert registered["runtime_profile_summary"]["offline_capable"] is True
+    assert registered["runtime_profile_summary"]["invocation_posture"] == "automatic"
 
 
 def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
@@ -169,9 +194,71 @@ def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["install"]["blueprint_id"] == "bp.generated.install.run"
+    assert payload["install"]["app_shape"] == "text_transform"
+    assert payload["install"]["runtime_profile"]["offline_capable"] is True
     assert payload["execution"]["status"] == "completed"
     assert payload["execution"]["steps"][0]["status"] == "completed"
     assert payload["execution"]["steps"][0]["output"]["adapter"] == "script"
+
+
+def test_create_structured_transform_generated_app_exposes_shape_specific_metadata() -> None:
+    create_normalize = client.post(
+        "/skills/create",
+        json={
+            "skill_id": "skill.object.normalize_keys.structured",
+            "name": "Normalize Object Keys Structured Skill",
+            "description": "normalize structured payload keys into stable keys",
+            "adapter_kind": "callable",
+            "generation_operation": "normalize_object_keys",
+            "tags": ["structured", "json", "normalization"],
+            "schemas": {
+                "input": {
+                    "type": "object",
+                    "properties": {"payload": {"type": "object"}},
+                    "required": ["payload"],
+                    "additionalProperties": False
+                },
+                "output": {
+                    "type": "object",
+                    "properties": {
+                        "normalized": {"type": "object"},
+                        "top_level_keys": {"type": "array", "items": {"type": "string"}},
+                        "adapter": {"type": "string"}
+                    },
+                    "required": ["normalized", "top_level_keys", "adapter"],
+                    "additionalProperties": True
+                },
+                "error": {
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                    "required": ["message"],
+                    "additionalProperties": False
+                }
+            },
+            "smoke_test_inputs": {"payload": {"Display Name": "Agent System", "Mode": "Fast"}}
+        },
+    )
+    assert create_normalize.status_code == 200
+
+    response = client.post(
+        "/apps/from-skills",
+        json={
+            "blueprint_id": "bp.generated.structured.transform",
+            "name": "Generated Structured Transform App",
+            "goal": "normalize structured input payloads",
+            "skill_ids": ["skill.object.normalize_keys.structured"],
+            "workflow_id": "wf.generated.structured.transform",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["blueprint"]["app_shape"] == "structured_transform"
+    assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "service"
+    assert payload["blueprint"]["roles"][0]["name"] == "Generated Data Agent"
+    assert payload["blueprint"]["tasks"][0]["inputs"]["app_shape"] == "structured_transform"
+    assert payload["blueprint"]["views"][0]["name"] == "Structured Transformation Overview"
+    assert payload["blueprint"]["views"][1]["actions"][0]["id"] == "transform-structured-data"
 
 
 def test_create_multi_step_generated_app_with_step_mappings() -> None:
@@ -277,6 +364,16 @@ def test_create_multi_step_generated_app_with_step_mappings() -> None:
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["blueprint"]["app_shape"] == "pipeline_chain"
+    assert payload["blueprint"]["runtime_policy"]["execution_mode"] == "pipeline"
+    assert payload["blueprint"]["runtime_policy"]["idle_strategy"] == "suspend"
+    assert payload["blueprint"]["runtime_profile"]["runtime_skills"] == ["skill.text.slugify.chain", "skill.object.normalize_keys.chain"]
+    assert payload["blueprint"]["roles"][0]["name"] == "Generated Pipeline Agent"
+    assert payload["blueprint"]["tasks"][0]["inputs"]["app_shape"] == "pipeline_chain"
+    assert payload["blueprint"]["views"][0]["name"] == "Pipeline Overview"
+    assert payload["blueprint"]["views"][1]["actions"][0]["id"] == "run-pipeline"
+    assert len(payload["blueprint"]["tasks"]) == 1
+    assert len(payload["blueprint"]["views"]) == 3
     assert payload["execution"]["status"] == "completed"
     assert payload["execution"]["steps"][0]["output"]["slug"] == "a-better-app-os-for-real"
     assert payload["execution"]["steps"][1]["output"]["normalized"]["generated_slug"] == "a-better-app-os-for-real"

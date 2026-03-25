@@ -34,8 +34,8 @@ from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.refinement_loop import RefinementFilter, RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
-from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, SkillCreationRequest
-from app.services.skill_factory import SkillFactoryError
+from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, SkillCreationRequest
+from app.services.skill_factory import SkillFactoryError, _diagnostic
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
@@ -187,11 +187,26 @@ def get_skill_risk_dashboard(recent_limit: int = 5) -> dict:
     return skill_risk_policy.get_dashboard(recent_limit=recent_limit).model_dump(mode="json")
 
 @app.post("/skill-risk/{skill_id}/approve")
-def approve_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
-    return skill_risk_policy.approve_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
+def approve_skill_risk_override(
+    skill_id: str,
+    reviewer: str,
+    reason: str = "",
+    scope: str = "generated_app_assembly",
+) -> dict:
+    return skill_risk_policy.approve_override(
+        skill_id=skill_id,
+        reviewer=reviewer,
+        reason=reason,
+        scope=scope,
+    ).model_dump(mode="json")
 
 @app.post("/skill-risk/{skill_id}/revoke")
-def revoke_skill_risk_override(skill_id: str, reviewer: str, reason: str = "") -> dict:
+def revoke_skill_risk_override(
+    skill_id: str,
+    reviewer: str,
+    reason: str = "",
+    scope: str = "generated_app_assembly",
+) -> dict:
     return skill_risk_policy.revoke_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
 
 @app.post("/apps/from-skills")
@@ -289,6 +304,70 @@ def list_skill_blueprints() -> list[dict]:
 @app.post("/skill-blueprints")
 def add_skill_blueprint(blueprint: SkillBlueprint) -> dict:
     return experience_store.add_skill_blueprint(blueprint).model_dump(mode="json")
+
+@app.post("/skill-blueprints/{skill_id}/materialize")
+def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterializationRequest) -> dict:
+    try:
+        blueprint = experience_store.get_skill_blueprint(skill_id)
+        safety_profile = blueprint.safety_profile or {}
+        effective_adapter_kind = request.adapter_kind or (
+            "callable" if safety_profile.get("prefer_callable_materialization") else "callable"
+        )
+        if (
+            effective_adapter_kind == "script"
+            and request.command
+            and request.command[0] in {"bash", "sh"}
+            and safety_profile.get("allow_shell") is False
+        ):
+            active_override = skill_risk_policy.get_active_override(skill_id, scope="blueprint_materialization")
+            if active_override is None:
+                raise _diagnostic(
+                    "materialize",
+                    "policy_blocked",
+                    f"Skill blueprint '{skill_id}' is gated from shell materialization by safety profile",
+                    retryable=False,
+                    hint="Use callable materialization or provide an explicit policy override for shell-based blueprint materialization.",
+                    details={
+                        "skill_id": skill_id,
+                        "adapter_kind": request.adapter_kind,
+                        "command": request.command,
+                        "policy_reasons": ["blueprint.allow_shell=false"],
+                        "override_scope": "blueprint_materialization",
+                    },
+                )
+        creation_request = skill_factory.build_creation_request_from_blueprint(
+            blueprint,
+            adapter_kind=effective_adapter_kind,
+            generation_operation=request.generation_operation,
+            handler_entry=request.handler_entry,
+            description=request.description,
+            smoke_test_inputs=request.smoke_test_inputs,
+            input_schema=request.schemas.input,
+            output_schema=request.schemas.output,
+            error_schema=request.schemas.error,
+        )
+        creation_request.command = request.command
+        creation_request.tags = request.tags
+        if (
+            effective_adapter_kind == "script"
+            and request.command
+            and request.command[0] in {"bash", "sh"}
+        ):
+            active_override = skill_risk_policy.get_active_override(skill_id, scope="blueprint_materialization")
+            if active_override is not None:
+                creation_request.manifest_risk.allow_shell = True
+                creation_request.manifest_risk.risk_level = "R2_shell"
+                creation_request.capability_profile.risk_level = "R2_shell"
+        creation_result = skill_factory.create_skill(creation_request)
+        registered_skill = skill_control.get_skill(creation_result.skill_id)
+        return {
+            "skill_blueprint": blueprint.model_dump(mode="json"),
+            "creation_request": creation_request.model_dump(mode="json"),
+            "creation_result": creation_result.model_dump(mode="json"),
+            "registered_skill": registered_skill.model_dump(mode="json"),
+        }
+    except (KeyError, SkillFactoryError, SkillDiagnosticError, ValueError) as error:
+        raise map_domain_error(error) from error
 
 @app.get("/experiences/{experience_id}/suggested-skills")
 def suggest_skills_for_experience(experience_id: str) -> list[dict]:

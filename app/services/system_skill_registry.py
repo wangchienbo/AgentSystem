@@ -248,6 +248,7 @@ def build_registry_entry(skill_id: str) -> SkillRegistryEntry:
     return SkillRegistryEntry(
         skill_id=skill_id,
         name=spec["name"],
+        origin="builtin",
         immutable_interface=spec["immutable_interface"],
         active_version=spec["version"],
         versions=[SkillVersion(version=spec["version"], content=spec["content"])],
