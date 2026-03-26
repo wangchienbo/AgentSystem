@@ -99,6 +99,8 @@ graph TD
 graph TD
     AB[models/app_blueprint.py] --> AR[services/app_registry.py]
     AB --> BV[services/blueprint_validation.py]
+    MREG[models/registry.py] --> AR[services/app_registry.py]
+    APIREG[api/main.py\nregistry release endpoints] --> AR
     AR --> AI[services/app_installer.py]
     APR[services/app_profile_resolver.py] --> AI
     ACAT[services/app_catalog.py] --> IG[services/interaction_gateway.py]

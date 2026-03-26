@@ -1,5 +1,35 @@
 # Development Log
 
+## 2026-03-26
+
+### Module: app release compare
+
+Extended app rollout governance with a release comparison surface so operators can inspect what changed before promoting or rolling back a release.
+
+#### Updated
+- `app/models/registry.py`
+  - extends `AppReleaseRecord` with compare-ready release metadata (`app_shape`, `required_skills`, `runtime_policy`, `runtime_profile`)
+  - adds `AppReleaseComparison` as a stable read model for release diff summaries
+- `app/services/app_registry.py`
+  - persists richer release snapshots for newly registered and staged releases
+  - adds `compare_releases` alongside explicit list/add/activate/rollback release lifecycle helpers
+- `app/api/main.py`
+  - adds `/registry/apps/{blueprint_id}/compare`
+  - fixes registry release API error mapping by importing `HTTPException`
+- `app/services/app_installer.py`
+  - aligns install results with `installed_version` so release-bound installs report the active registry release correctly
+- `tests/unit/test_registry_installer.py`
+  - verifies release compare output includes active-side markers and change summaries
+  - keeps activation/install/rollback assertions aligned with compare-aware rollout behavior
+
+#### Why
+- app rollout governance could already stage, activate, and roll back releases, but operators still lacked a first-class way to inspect what materially changed between two releases
+- without a comparison surface, promotion and rollback decisions depend on implicit knowledge instead of a stable control-plane contract
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `3 passed`
+
 ## 2026-03-25
 
 ### Module: app release runtime binding

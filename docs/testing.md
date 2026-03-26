@@ -157,6 +157,7 @@ Covered behavior:
 - Phase-8.3 governance coverage now verifies generated revisions can remain in `draft`, be explicitly activated later, and record rollback reviewer/reason metadata in version history instead of treating revision changes as governance-free state flips
 - app rollout governance coverage now verifies registry entries expose release history, draft releases can be staged and later activated, and app rollback restores an older release while preserving reviewer/note/rollback-reason metadata in the release timeline
 - app release runtime-binding coverage now verifies installs consume the current active release and that rollback changes the release version used by subsequent installs, not just the registry/read-model surface
+- app release compare coverage now verifies operator/API paths can compare two app releases, report which side is active, and surface release-note / required-skill / runtime-policy / runtime-profile / app-shape change summaries
 - Phase-8 revision coverage now verifies generated skills can be revised, listed by version with active markers, compared across revisions, rolled back, and reloaded from persisted generated assets without losing active-version semantics
 - generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments

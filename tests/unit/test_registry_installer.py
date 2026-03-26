@@ -158,6 +158,28 @@ def test_registry_and_install_api_flow() -> None:
     assert releases_after.status_code == 200
     assert [item["status"] for item in releases_after.json()] == ["superseded", "active"]
 
+    compare_response = client.get(
+        "/registry/apps/bp.api.registry/compare",
+        params={"from_version": "0.1.0", "to_version": "0.2.0"},
+    )
+    assert compare_response.status_code == 200
+    compare_payload = compare_response.json()
+    assert compare_payload["active_version"] == "0.2.0"
+    assert compare_payload["active_is_from"] is False
+    assert compare_payload["active_is_to"] is True
+    assert compare_payload["release_note_changed"] is True
+    assert compare_payload["change_count"] >= 1
+    assert compare_payload["summary"].startswith("Changed:")
+
+    install_response = client.post(
+        "/registry/apps/bp.api.registry/install",
+        json={"user_id": "api-user"},
+    )
+    assert install_response.status_code == 200
+    assert install_response.json()["execution_mode"] == "service"
+    assert install_response.json()["release_version"] == "0.2.0"
+    assert install_response.json()["runtime_profile"]["offline_capable"] is True
+
     rolled_back = client.post(
         "/registry/apps/bp.api.registry/rollback",
         json={"target_version": "0.1.0", "reviewer": "carol", "rollback_reason": "staged release regression"},
@@ -171,15 +193,6 @@ def test_registry_and_install_api_flow() -> None:
     assert releases_final.status_code == 200
     assert [item["status"] for item in releases_final.json()] == ["active", "rolled_back"]
     assert releases_final.json()[0]["rollback_reason"] == "staged release regression"
-
-    install_response = client.post(
-        "/registry/apps/bp.api.registry/install",
-        json={"user_id": "api-user"},
-    )
-    assert install_response.status_code == 200
-    assert install_response.json()["execution_mode"] == "service"
-    assert install_response.json()["release_version"] == "0.2.0"
-    assert install_response.json()["runtime_profile"]["offline_capable"] is True
 
     reinstall_response = client.post(
         "/registry/apps/bp.api.registry/install",

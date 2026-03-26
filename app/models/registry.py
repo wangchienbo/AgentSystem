@@ -20,7 +20,27 @@ class AppReleaseRecord(BaseModel):
     reviewer: str = ""
     approved_at: datetime | None = None
     rollback_reason: str = ""
+    app_shape: str = "generic"
+    required_skills: list[str] = Field(default_factory=list)
+    runtime_policy: dict = Field(default_factory=dict)
+    runtime_profile: dict = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AppReleaseComparison(BaseModel):
+    blueprint_id: str
+    from_version: str
+    to_version: str
+    active_version: str
+    active_is_from: bool = False
+    active_is_to: bool = False
+    release_note_changed: bool = False
+    required_skills_changed: bool = False
+    runtime_policy_changed: bool = False
+    runtime_profile_changed: bool = False
+    app_shape_changed: bool = False
+    change_count: int = 0
+    summary: str = ""
 
 
 class AppRegistryEntry(BaseModel):
