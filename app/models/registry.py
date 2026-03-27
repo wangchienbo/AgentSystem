@@ -162,6 +162,15 @@ class AppAttentionSummary(BaseModel):
     items: list[AppAttentionItem] = Field(default_factory=list)
 
 
+class AppOperatorActionRecord(BaseModel):
+    blueprint_id: str
+    attention_reason: str
+    action: Literal["acknowledge", "dismiss"]
+    reviewer: str = ""
+    note: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class AppInstallResult(BaseModel):
     app_instance_id: str
     blueprint_id: str

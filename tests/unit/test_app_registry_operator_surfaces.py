@@ -108,6 +108,33 @@ def test_registry_attention_summary_service(tmp_path: Path) -> None:
     assert len(limited_attention.items) == 1
 
 
+def test_registry_attention_actions_service(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "attention-action-store"))
+    registry = AppRegistryService(store=store)
+
+    alpha = build_blueprint(blueprint_id="bp.action.alpha", name="Action Alpha")
+    registry.register_blueprint(alpha)
+    registry.add_release("bp.action.alpha", "0.2.0", note="needs review")
+
+    attention_before = registry.get_attention_summary()
+    assert attention_before.total_attention_items == 1
+    assert attention_before.items[0].attention_reason == "draft_release"
+
+    action = registry.record_operator_action(
+        "bp.action.alpha",
+        attention_reason="draft_release",
+        action="dismiss",
+        reviewer="ops",
+        note="reviewed already",
+    )
+    assert action.action == "dismiss"
+    assert action.reviewer == "ops"
+
+    attention_after = registry.get_attention_summary()
+    assert attention_after.total_attention_items == 0
+
+
+
 def test_registry_operator_surface_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",
@@ -162,6 +189,17 @@ def test_registry_operator_surface_api_flow() -> None:
     attention_after_activate_payload = attention_after_activate.json()
     attention_item = next(item for item in attention_after_activate_payload["items"] if item["blueprint_id"] == "bp.api.registry")
     assert attention_item["attention_reason"] == "rollback_target_available"
+
+    dismiss_attention = client.post(
+        "/registry/apps/bp.api.registry/attention-actions",
+        json={"attention_reason": "rollback_target_available", "action": "dismiss", "reviewer": "ops", "note": "known risk"},
+    )
+    assert dismiss_attention.status_code == 200
+    assert dismiss_attention.json()["action"] == "dismiss"
+
+    attention_after_dismiss = client.get("/registry/apps/attention")
+    assert attention_after_dismiss.status_code == 200
+    assert all(item["blueprint_id"] != "bp.api.registry" for item in attention_after_dismiss.json()["items"])
 
     rolled_back = client.post(
         "/registry/apps/bp.api.registry/rollback",

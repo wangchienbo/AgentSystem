@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.models.app_blueprint import AppBlueprint
-from app.models.registry import AppAttentionItem, AppAttentionSummary, AppControlPlaneSummary, AppRegistryOverviewItem, AppRegistryOverviewSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
+from app.models.registry import AppAttentionItem, AppAttentionSummary, AppControlPlaneSummary, AppOperatorActionRecord, AppRegistryOverviewItem, AppRegistryOverviewSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
 from app.services.runtime_state_store import RuntimeStateStore
 
 
@@ -15,6 +15,7 @@ class AppRegistryService:
     def __init__(self, store: RuntimeStateStore | None = None) -> None:
         self._blueprints: dict[str, AppBlueprint] = {}
         self._entries: dict[str, AppRegistryEntry] = {}
+        self._operator_actions: list[AppOperatorActionRecord] = []
         self._store = store
 
     def register_blueprint(self, blueprint: AppBlueprint, description: str = "") -> AppRegistryEntry:
@@ -170,9 +171,25 @@ class AppRegistryService:
 
     def get_attention_summary(self, *, limit: int | None = None) -> AppAttentionSummary:
         summaries = [self.get_control_plane_summary(entry.blueprint_id) for entry in self.list_entries()]
+        active_actions: dict[tuple[str, str], AppOperatorActionRecord] = {}
+        for action in self._operator_actions:
+            active_actions[(action.blueprint_id, action.attention_reason)] = action
+
         items: list[AppAttentionItem] = []
         for item in summaries:
-            if item.draft_release_count > 0:
+            if active_actions.get((item.blueprint_id, "draft_release")) and active_actions[(item.blueprint_id, "draft_release")].action == "dismiss":
+                draft_suppressed = True
+            else:
+                draft_suppressed = False
+            if active_actions.get((item.blueprint_id, "rollback_target_available")) and active_actions[(item.blueprint_id, "rollback_target_available")].action == "dismiss":
+                rollback_target_suppressed = True
+            else:
+                rollback_target_suppressed = False
+            if active_actions.get((item.blueprint_id, "recently_rolled_back")) and active_actions[(item.blueprint_id, "recently_rolled_back")].action == "dismiss":
+                rolled_back_suppressed = True
+            else:
+                rolled_back_suppressed = False
+            if item.draft_release_count > 0 and not draft_suppressed:
                 items.append(
                     AppAttentionItem(
                         blueprint_id=item.blueprint_id,
@@ -188,7 +205,7 @@ class AppRegistryService:
                         approved_at=item.approved_at,
                     )
                 )
-            elif item.rollback_available:
+            elif item.rollback_available and not rollback_target_suppressed:
                 items.append(
                     AppAttentionItem(
                         blueprint_id=item.blueprint_id,
@@ -204,7 +221,7 @@ class AppRegistryService:
                         approved_at=item.approved_at,
                     )
                 )
-            elif item.rolled_back_release_count > 0:
+            elif item.rolled_back_release_count > 0 and not rolled_back_suppressed:
                 items.append(
                     AppAttentionItem(
                         blueprint_id=item.blueprint_id,
@@ -235,6 +252,35 @@ class AppRegistryService:
             recently_rolled_back_count=sum(1 for item in items if item.attention_reason == "recently_rolled_back"),
             items=items,
         )
+
+    def record_operator_action(
+        self,
+        blueprint_id: str,
+        attention_reason: str,
+        action: str,
+        reviewer: str = "",
+        note: str = "",
+    ) -> AppOperatorActionRecord:
+        self.get_entry(blueprint_id)
+        if attention_reason not in {"draft_release", "rollback_target_available", "recently_rolled_back"}:
+            raise AppRegistryError(f"Unsupported attention reason: {attention_reason}")
+        if action not in {"acknowledge", "dismiss"}:
+            raise AppRegistryError(f"Unsupported operator action: {action}")
+        record = AppOperatorActionRecord(
+            blueprint_id=blueprint_id,
+            attention_reason=attention_reason,
+            action=action,
+            reviewer=reviewer,
+            note=note,
+        )
+        self._operator_actions = [
+            item
+            for item in self._operator_actions
+            if not (item.blueprint_id == blueprint_id and item.attention_reason == attention_reason)
+        ]
+        self._operator_actions.append(record)
+        self._persist()
+        return record
 
     def add_release(
         self,
@@ -404,3 +450,7 @@ class AppRegistryService:
             return
         self._store.save_mapping("registry_entries", self._entries)
         self._store.save_mapping("registry_blueprints", self._blueprints)
+        self._store.save_mapping(
+            "registry_operator_actions",
+            {str(index): item for index, item in enumerate(self._operator_actions)},
+        )

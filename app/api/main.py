@@ -573,6 +573,20 @@ def get_app_registry_attention(limit: int | None = None) -> dict:
     return app_registry.get_attention_summary(limit=limit).model_dump(mode="json")
 
 
+@app.post("/registry/apps/{blueprint_id}/attention-actions")
+def record_app_attention_action(blueprint_id: str, payload: dict[str, str]) -> dict:
+    try:
+        return app_registry.record_operator_action(
+            blueprint_id=blueprint_id,
+            attention_reason=payload["attention_reason"],
+            action=payload["action"],
+            reviewer=payload.get("reviewer", ""),
+            note=payload.get("note", ""),
+        ).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
 @app.get("/registry/apps/{blueprint_id}/compare")
 def compare_app_releases(blueprint_id: str, from_version: str, to_version: str) -> dict:
     try:
