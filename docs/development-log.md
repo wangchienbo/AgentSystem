@@ -2,6 +2,31 @@
 
 ## 2026-03-27
 
+### Module: app registry overview summary
+
+Extended the app governance control plane from single-app views to a registry-wide overview surface suitable for operator lists and dashboard entry views.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `AppRegistryOverviewItem`
+  - adds `AppRegistryOverviewSummary`
+- `app/services/app_registry.py`
+  - adds `get_registry_overview` with lightweight filter support (`app_shape`, `has_draft`, `rollback_available`, `limit`)
+  - sorts overview items so draft-bearing and rollback-relevant apps rise to the top
+- `app/api/main.py`
+  - adds `/registry/apps/overview`
+- `tests/unit/test_registry_installer.py`
+  - verifies overview summary aggregation, filtering, and ordering at the service layer
+  - verifies API overview output reflects app attention/rollback state during release transitions
+
+#### Why
+- per-app compare/history/summary reads were in place, but the control plane still lacked a multi-app operator view
+- registry operators need one aggregate surface that shows which apps deserve attention before drilling into individual release histories
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `4 passed`
+
 ### Module: app control-plane summary
 
 Extended the app governance control plane with a single summary surface that aggregates active release posture, release counts, rollback availability, app shape, and runtime-profile metadata.

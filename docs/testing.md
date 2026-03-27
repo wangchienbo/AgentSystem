@@ -160,6 +160,7 @@ Covered behavior:
 - app release compare coverage now verifies operator/API paths can compare two app releases, report which side is active, and surface release-note / required-skill / runtime-policy / runtime-profile / app-shape change summaries
 - app release history coverage now verifies operator/API paths expose release-history summaries with active version, release counts by status, rollback target, and reverse-chronological release ordering
 - app control-plane summary coverage now verifies operator/API paths expose a single summary read model for active release posture, runtime-profile metadata, release counts, and rollback availability across activate/rollback transitions
+- app registry overview coverage now verifies operator/API paths expose multi-app overview aggregation with attention-oriented ordering plus lightweight filtering for draft and rollback posture
 - Phase-8 revision coverage now verifies generated skills can be revised, listed by version with active markers, compared across revisions, rolled back, and reloaded from persisted generated assets without losing active-version semantics
 - generated-app durability coverage now verifies a generated blueprint remains runnable after runtime rebuild when its generated skills are reloaded and the app instance state is reprovisioned
 - grouped regression runner coverage now provides a stable alternative to monolithic full-suite execution in timeout-constrained environments
