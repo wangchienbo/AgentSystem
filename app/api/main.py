@@ -537,6 +537,14 @@ def list_app_releases(blueprint_id: str) -> list[dict]:
         raise HTTPException(status_code=404, detail=f"App blueprint not found: {blueprint_id}") from error
 
 
+@app.get("/registry/apps/{blueprint_id}/release-history")
+def get_app_release_history(blueprint_id: str) -> dict:
+    try:
+        return app_registry.get_release_history(blueprint_id).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
 @app.get("/registry/apps/{blueprint_id}/compare")
 def compare_app_releases(blueprint_id: str, from_version: str, to_version: str) -> dict:
     try:

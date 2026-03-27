@@ -75,6 +75,22 @@ class AppRegistryEntry(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class AppReleaseHistorySummary(BaseModel):
+    blueprint_id: str
+    active_version: str
+    active_release_status: AppReleaseStatus = "active"
+    total_releases: int = 0
+    draft_release_count: int = 0
+    superseded_release_count: int = 0
+    rolled_back_release_count: int = 0
+    latest_release_version: str = ""
+    latest_release_created_at: datetime | None = None
+    latest_draft_version: str | None = None
+    latest_draft_created_at: datetime | None = None
+    rollback_target_version: str | None = None
+    releases: list[AppReleaseRecord] = Field(default_factory=list)
+
+
 class AppInstallResult(BaseModel):
     app_instance_id: str
     blueprint_id: str

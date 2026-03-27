@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.models.app_blueprint import AppBlueprint
-from app.models.registry import AppReleaseComparison, AppReleaseRecord, AppRegistryEntry
+from app.models.registry import AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
 from app.services.runtime_state_store import RuntimeStateStore
 
 
@@ -59,6 +59,28 @@ class AppRegistryService:
     def list_releases(self, blueprint_id: str) -> list[AppReleaseRecord]:
         entry = self.get_entry(blueprint_id)
         return [release.model_copy(deep=True) for release in entry.releases]
+
+    def get_release_history(self, blueprint_id: str) -> AppReleaseHistorySummary:
+        entry = self.get_entry(blueprint_id)
+        releases = sorted(entry.releases, key=lambda item: item.created_at, reverse=True)
+        latest_release = releases[0] if releases else None
+        latest_draft = next((item for item in releases if item.status == "draft"), None)
+        rollback_target = next((item for item in releases if item.status == "superseded"), None)
+        return AppReleaseHistorySummary(
+            blueprint_id=blueprint_id,
+            active_version=entry.version,
+            active_release_status=entry.release_status,
+            total_releases=len(entry.releases),
+            draft_release_count=sum(1 for item in entry.releases if item.status == "draft"),
+            superseded_release_count=sum(1 for item in entry.releases if item.status == "superseded"),
+            rolled_back_release_count=sum(1 for item in entry.releases if item.status == "rolled_back"),
+            latest_release_version="" if latest_release is None else latest_release.version,
+            latest_release_created_at=None if latest_release is None else latest_release.created_at,
+            latest_draft_version=None if latest_draft is None else latest_draft.version,
+            latest_draft_created_at=None if latest_draft is None else latest_draft.created_at,
+            rollback_target_version=None if rollback_target is None else rollback_target.version,
+            releases=[item.model_copy(deep=True) for item in releases],
+        )
 
     def add_release(
         self,

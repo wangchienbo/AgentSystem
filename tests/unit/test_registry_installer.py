@@ -158,6 +158,20 @@ def test_registry_and_install_api_flow() -> None:
     assert releases_after.status_code == 200
     assert [item["status"] for item in releases_after.json()] == ["superseded", "active"]
 
+    history_after_activate = client.get("/registry/apps/bp.api.registry/release-history")
+    assert history_after_activate.status_code == 200
+    history_after_activate_payload = history_after_activate.json()
+    assert history_after_activate_payload["active_version"] == "0.2.0"
+    assert history_after_activate_payload["active_release_status"] == "active"
+    assert history_after_activate_payload["total_releases"] == 2
+    assert history_after_activate_payload["draft_release_count"] == 0
+    assert history_after_activate_payload["superseded_release_count"] == 1
+    assert history_after_activate_payload["rolled_back_release_count"] == 0
+    assert history_after_activate_payload["latest_release_version"] == "0.2.0"
+    assert history_after_activate_payload["latest_draft_version"] is None
+    assert history_after_activate_payload["rollback_target_version"] == "0.1.0"
+    assert history_after_activate_payload["releases"][0]["version"] == "0.2.0"
+
     compare_response = client.get(
         "/registry/apps/bp.api.registry/compare",
         params={"from_version": "0.1.0", "to_version": "0.2.0"},
