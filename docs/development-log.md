@@ -1,5 +1,33 @@
 # Development Log
 
+## 2026-03-28
+
+### Module: app operator attention actions
+
+Moved the app registry control plane from read-only triage into a minimal actionable surface by allowing operators to record per-app attention actions.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `AppOperatorActionRecord`
+- `app/services/app_registry.py`
+  - tracks operator actions per app/attention reason
+  - adds `record_operator_action`
+  - allows `dismiss` actions to suppress matching attention items from the triage queue
+  - persists operator actions through the runtime store using existing mapping persistence
+- `app/api/main.py`
+  - adds `/registry/apps/{blueprint_id}/attention-actions`
+- `tests/unit/test_app_registry_operator_surfaces.py`
+  - verifies service-level dismiss actions suppress draft attention items
+  - verifies API-level dismiss actions remove rollback-target attention items from the queue
+
+#### Why
+- the triage queue could explain *why* an app needed review, but operators still had no way to record that they had already handled or intentionally suppressed a given attention case
+- a minimal action surface lets the control plane move from passive reading to lightweight governance without yet introducing a heavy workflow engine for review state
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py tests/unit/test_app_registry_operator_surfaces.py`
+- result: `6 passed`
+
 ## 2026-03-27
 
 ### Module: app registry attention summary
