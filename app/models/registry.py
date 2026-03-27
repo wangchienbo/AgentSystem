@@ -34,12 +34,27 @@ class AppReleaseComparison(BaseModel):
     active_version: str
     active_is_from: bool = False
     active_is_to: bool = False
+    from_status: AppReleaseStatus = "draft"
+    to_status: AppReleaseStatus = "draft"
+    from_note: str = ""
+    to_note: str = ""
+    from_reviewer: str = ""
+    to_reviewer: str = ""
+    from_created_at: datetime | None = None
+    to_created_at: datetime | None = None
     release_note_changed: bool = False
     required_skills_changed: bool = False
     runtime_policy_changed: bool = False
     runtime_profile_changed: bool = False
     app_shape_changed: bool = False
+    required_skills_added: list[str] = Field(default_factory=list)
+    required_skills_removed: list[str] = Field(default_factory=list)
+    runtime_policy_changes: dict[str, dict[str, object | None]] = Field(default_factory=dict)
+    runtime_profile_changes: dict[str, dict[str, object | None]] = Field(default_factory=dict)
+    app_shape_from: str = "generic"
+    app_shape_to: str = "generic"
     change_count: int = 0
+    changed_fields: list[str] = Field(default_factory=list)
     summary: str = ""
 
 

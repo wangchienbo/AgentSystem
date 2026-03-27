@@ -167,7 +167,19 @@ def test_registry_and_install_api_flow() -> None:
     assert compare_payload["active_version"] == "0.2.0"
     assert compare_payload["active_is_from"] is False
     assert compare_payload["active_is_to"] is True
+    assert compare_payload["from_status"] == "superseded"
+    assert compare_payload["to_status"] == "active"
+    assert compare_payload["from_note"] == ""
+    assert compare_payload["to_note"] == "staged rollout"
+    assert compare_payload["to_reviewer"] == "bob"
     assert compare_payload["release_note_changed"] is True
+    assert compare_payload["required_skills_added"] == []
+    assert compare_payload["required_skills_removed"] == []
+    assert compare_payload["runtime_policy_changes"] == {}
+    assert compare_payload["runtime_profile_changes"] == {}
+    assert compare_payload["app_shape_from"] == "generic"
+    assert compare_payload["app_shape_to"] == "generic"
+    assert "release_note" in compare_payload["changed_fields"]
     assert compare_payload["change_count"] >= 1
     assert compare_payload["summary"].startswith("Changed:")
 

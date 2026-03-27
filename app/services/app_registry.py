@@ -169,25 +169,56 @@ class AppRegistryService:
             active_version=entry.version,
             active_is_from=entry.version == from_version,
             active_is_to=entry.version == to_version,
+            from_status=from_release.status,
+            to_status=to_release.status,
+            from_note=from_release.note,
+            to_note=to_release.note,
+            from_reviewer=from_release.reviewer,
+            to_reviewer=to_release.reviewer,
+            from_created_at=from_release.created_at,
+            to_created_at=to_release.created_at,
+            app_shape_from=from_release.app_shape,
+            app_shape_to=to_release.app_shape,
         )
         changed: list[str] = []
 
         if from_release.note != to_release.note:
             comparison.release_note_changed = True
             changed.append("release_note")
-        if from_release.required_skills != to_release.required_skills:
+
+        from_skills = set(from_release.required_skills)
+        to_skills = set(to_release.required_skills)
+        comparison.required_skills_added = sorted(to_skills - from_skills)
+        comparison.required_skills_removed = sorted(from_skills - to_skills)
+        if comparison.required_skills_added or comparison.required_skills_removed:
             comparison.required_skills_changed = True
             changed.append("required_skills")
-        if from_release.runtime_policy != to_release.runtime_policy:
+
+        runtime_policy_keys = sorted(set(from_release.runtime_policy) | set(to_release.runtime_policy))
+        comparison.runtime_policy_changes = {
+            key: {"from": from_release.runtime_policy.get(key), "to": to_release.runtime_policy.get(key)}
+            for key in runtime_policy_keys
+            if from_release.runtime_policy.get(key) != to_release.runtime_policy.get(key)
+        }
+        if comparison.runtime_policy_changes:
             comparison.runtime_policy_changed = True
             changed.append("runtime_policy")
-        if from_release.runtime_profile != to_release.runtime_profile:
+
+        runtime_profile_keys = sorted(set(from_release.runtime_profile) | set(to_release.runtime_profile))
+        comparison.runtime_profile_changes = {
+            key: {"from": from_release.runtime_profile.get(key), "to": to_release.runtime_profile.get(key)}
+            for key in runtime_profile_keys
+            if from_release.runtime_profile.get(key) != to_release.runtime_profile.get(key)
+        }
+        if comparison.runtime_profile_changes:
             comparison.runtime_profile_changed = True
             changed.append("runtime_profile")
+
         if from_release.app_shape != to_release.app_shape:
             comparison.app_shape_changed = True
             changed.append("app_shape")
 
+        comparison.changed_fields = changed
         comparison.change_count = len(changed)
         comparison.summary = "No changes detected" if not changed else "Changed: " + ", ".join(changed)
         return comparison
