@@ -2,6 +2,29 @@
 
 ## 2026-03-27
 
+### Module: app control-plane summary
+
+Extended the app governance control plane with a single summary surface that aggregates active release posture, release counts, rollback availability, app shape, and runtime-profile metadata.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `AppControlPlaneSummary`
+- `app/services/app_registry.py`
+  - adds `get_control_plane_summary`, composing registry-entry state with release-history summary data
+- `app/api/main.py`
+  - adds `/registry/apps/{blueprint_id}/summary`
+- `tests/unit/test_registry_installer.py`
+  - verifies control-plane summary after activation and after rollback
+  - verifies rollback availability and release-status counts move correctly with release transitions
+
+#### Why
+- compare and release-history surfaces were already useful, but operators still lacked one stable summary contract for the most common app registry questions
+- a control plane should not require clients to merge registry entry + history + active release metadata by hand for the normal overview path
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `3 passed`
+
 ### Module: app release compare detail + history summary
 
 Finished the first operator-usable app release governance read models by extending compare output with structured deltas and adding a release-history summary surface.
