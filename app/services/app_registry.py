@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.models.app_blueprint import AppBlueprint
-from app.models.registry import AppControlPlaneSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
+from app.models.registry import AppControlPlaneSummary, AppRegistryOverviewItem, AppRegistryOverviewSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
 from app.services.runtime_state_store import RuntimeStateStore
 
 
@@ -106,6 +106,66 @@ class AppRegistryService:
             release_note=entry.release_note,
             reviewer=entry.reviewer,
             approved_at=entry.approved_at,
+        )
+
+    def get_registry_overview(
+        self,
+        *,
+        app_shape: str | None = None,
+        has_draft: bool | None = None,
+        rollback_available: bool | None = None,
+        limit: int | None = None,
+    ) -> AppRegistryOverviewSummary:
+        summaries = [self.get_control_plane_summary(entry.blueprint_id) for entry in self.list_entries()]
+        if app_shape is not None:
+            summaries = [item for item in summaries if item.app_shape == app_shape]
+        if has_draft is not None:
+            summaries = [item for item in summaries if (item.draft_release_count > 0) is has_draft]
+        if rollback_available is not None:
+            summaries = [item for item in summaries if item.rollback_available is rollback_available]
+
+        items = [
+            AppRegistryOverviewItem(
+                blueprint_id=item.blueprint_id,
+                name=item.name,
+                active_version=item.active_version,
+                active_release_status=item.active_release_status,
+                app_shape=item.app_shape,
+                runtime_profile=item.runtime_profile,
+                total_releases=item.total_releases,
+                draft_release_count=item.draft_release_count,
+                rolled_back_release_count=item.rolled_back_release_count,
+                rollback_available=item.rollback_available,
+                latest_release_created_at=item.latest_release_created_at,
+                approved_at=item.approved_at,
+                attention_needed=item.draft_release_count > 0 or item.rollback_available,
+            )
+            for item in summaries
+        ]
+        items.sort(
+            key=lambda item: (
+                0 if item.draft_release_count > 0 else 1,
+                0 if item.rollback_available else 1,
+                -(item.latest_release_created_at.timestamp() if item.latest_release_created_at is not None else 0),
+            )
+        )
+        if limit is not None:
+            items = items[:limit]
+
+        shape_counts: dict[str, int] = {}
+        release_status_counts: dict[str, int] = {}
+        for item in items:
+            shape_counts[item.app_shape] = shape_counts.get(item.app_shape, 0) + 1
+            release_status_counts[item.active_release_status] = release_status_counts.get(item.active_release_status, 0) + 1
+
+        return AppRegistryOverviewSummary(
+            total_apps=len(items),
+            apps_with_drafts=sum(1 for item in items if item.draft_release_count > 0),
+            apps_with_rollbacks=sum(1 for item in items if item.rolled_back_release_count > 0),
+            apps_with_rollback_targets=sum(1 for item in items if item.rollback_available),
+            shape_counts=shape_counts,
+            release_status_counts=release_status_counts,
+            items=items,
         )
 
     def add_release(

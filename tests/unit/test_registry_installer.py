@@ -19,10 +19,10 @@ from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry,
 client = TestClient(app)
 
 
-def build_blueprint(execution_mode: str = "service") -> AppBlueprint:
+def build_blueprint(execution_mode: str = "service", *, blueprint_id: str = "bp.test.registry", name: str = "Registry Test App") -> AppBlueprint:
     return AppBlueprint(
-        id="bp.test.registry",
-        name="Registry Test App",
+        id=blueprint_id,
+        name=name,
         goal="verify registry and installer",
         roles=[],
         tasks=[],
@@ -102,6 +102,44 @@ def test_installer_creates_instance_with_runtime_policy(tmp_path: Path) -> None:
     assert snapshot.values["runtime"]["runtime_profile"]["offline_capable"] is True
 
 
+def test_registry_overview_service_filters_and_ordering(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "overview-store"))
+    registry = AppRegistryService(store=store)
+
+    alpha = build_blueprint(blueprint_id="bp.alpha", name="Alpha App")
+    beta = build_blueprint(blueprint_id="bp.beta", name="Beta App")
+    gamma = build_blueprint(blueprint_id="bp.gamma", name="Gamma App")
+
+    registry.register_blueprint(alpha)
+    registry.register_blueprint(beta)
+    registry.register_blueprint(gamma)
+
+    registry.add_release("bp.alpha", "0.2.0", note="draft alpha")
+    registry.add_release("bp.beta", "0.2.0", note="promote beta")
+    registry.activate_release("bp.beta", "0.2.0", reviewer="ops")
+    registry.rollback_release("bp.beta", "0.1.0", reviewer="ops", rollback_reason="regression")
+
+    overview = registry.get_registry_overview()
+    assert overview.total_apps == 3
+    assert overview.apps_with_drafts == 1
+    assert overview.apps_with_rollbacks == 1
+    assert overview.apps_with_rollback_targets == 0
+    assert overview.release_status_counts["active"] == 3
+    assert overview.shape_counts["generic"] == 3
+    assert overview.items[0].blueprint_id == "bp.alpha"
+    assert overview.items[0].attention_needed is True
+    assert {item.blueprint_id for item in overview.items} == {"bp.alpha", "bp.beta", "bp.gamma"}
+
+    draft_only = registry.get_registry_overview(has_draft=True)
+    assert draft_only.total_apps == 1
+    assert draft_only.items[0].blueprint_id == "bp.alpha"
+
+    rollback_only = registry.get_registry_overview(rollback_available=False, limit=2)
+    assert rollback_only.total_apps == 2
+    assert len(rollback_only.items) == 2
+
+
+
 def test_registry_and_install_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",
@@ -178,6 +216,14 @@ def test_registry_and_install_api_flow() -> None:
     assert summary_after_activate_payload["blueprint_id"] == "bp.api.registry"
     assert summary_after_activate_payload["name"] == "API Registry App"
     assert summary_after_activate_payload["active_version"] == "0.2.0"
+
+    overview_after_activate = client.get("/registry/apps/overview")
+    assert overview_after_activate.status_code == 200
+    overview_after_activate_payload = overview_after_activate.json()
+    assert overview_after_activate_payload["total_apps"] >= 1
+    registry_item = next(item for item in overview_after_activate_payload["items"] if item["blueprint_id"] == "bp.api.registry")
+    assert registry_item["active_version"] == "0.2.0"
+    assert registry_item["attention_needed"] is True
     assert summary_after_activate_payload["active_release_status"] == "active"
     assert summary_after_activate_payload["app_shape"] == "generic"
     assert summary_after_activate_payload["runtime_profile"]["offline_capable"] is True
@@ -244,6 +290,13 @@ def test_registry_and_install_api_flow() -> None:
     assert summary_after_rollback.status_code == 200
     summary_after_rollback_payload = summary_after_rollback.json()
     assert summary_after_rollback_payload["active_version"] == "0.1.0"
+
+    overview_after_rollback = client.get("/registry/apps/overview", params={"rollback_available": False, "limit": 10})
+    assert overview_after_rollback.status_code == 200
+    overview_after_rollback_payload = overview_after_rollback.json()
+    registry_item_after_rollback = next(item for item in overview_after_rollback_payload["items"] if item["blueprint_id"] == "bp.api.registry")
+    assert registry_item_after_rollback["rollback_available"] is False
+    assert registry_item_after_rollback["rolled_back_release_count"] == 1
     assert summary_after_rollback_payload["rolled_back_release_count"] == 1
     assert summary_after_rollback_payload["superseded_release_count"] == 0
     assert summary_after_rollback_payload["rollback_target_version"] is None

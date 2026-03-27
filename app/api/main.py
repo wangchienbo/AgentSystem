@@ -553,6 +553,21 @@ def get_app_control_plane_summary(blueprint_id: str) -> dict:
         raise map_domain_error(error) from error
 
 
+@app.get("/registry/apps/overview")
+def get_app_registry_overview(
+    app_shape: str | None = None,
+    has_draft: bool | None = None,
+    rollback_available: bool | None = None,
+    limit: int | None = None,
+) -> dict:
+    return app_registry.get_registry_overview(
+        app_shape=app_shape,
+        has_draft=has_draft,
+        rollback_available=rollback_available,
+        limit=limit,
+    ).model_dump(mode="json")
+
+
 @app.get("/registry/apps/{blueprint_id}/compare")
 def compare_app_releases(blueprint_id: str, from_version: str, to_version: str) -> dict:
     try:
