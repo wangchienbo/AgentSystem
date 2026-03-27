@@ -1,5 +1,32 @@
 # Development Log
 
+## 2026-03-27
+
+### Module: app release compare detail + history summary
+
+Finished the first operator-usable app release governance read models by extending compare output with structured deltas and adding a release-history summary surface.
+
+#### Updated
+- `app/models/registry.py`
+  - extends `AppReleaseComparison` with richer operator-facing context (`from/to` status, note, reviewer, created-at, changed fields)
+  - adds `AppReleaseHistorySummary` as a control-plane read model for active release, draft counts, rollback target, and reverse-chronological release history
+- `app/services/app_registry.py`
+  - enriches `compare_releases` with structured diffs for required skills, runtime policy, and runtime profile
+  - adds `get_release_history` to summarize active release posture and release timeline state
+- `app/api/main.py`
+  - adds `/registry/apps/{blueprint_id}/release-history`
+- `tests/unit/test_registry_installer.py`
+  - verifies compare output now exposes structured diff details
+  - verifies release-history summary reflects active version, rollback target, counts, and reverse-chronological ordering
+
+#### Why
+- the earlier compare surface could say that releases differed, but not yet expose enough structured detail for a control plane or operator dashboard to render those differences cleanly
+- release list output alone also forced clients to reconstruct active/draft/rollback posture themselves instead of relying on a stable summary contract
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `3 passed`
+
 ## 2026-03-26
 
 ### Module: app release compare
