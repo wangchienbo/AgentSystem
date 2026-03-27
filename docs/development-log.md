@@ -1,5 +1,85 @@
 # Development Log
 
+## 2026-03-27
+
+### Module: app control-plane summary
+
+Extended the app governance control plane with a single summary surface that aggregates active release posture, release counts, rollback availability, app shape, and runtime-profile metadata.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `AppControlPlaneSummary`
+- `app/services/app_registry.py`
+  - adds `get_control_plane_summary`, composing registry-entry state with release-history summary data
+- `app/api/main.py`
+  - adds `/registry/apps/{blueprint_id}/summary`
+- `tests/unit/test_registry_installer.py`
+  - verifies control-plane summary after activation and after rollback
+  - verifies rollback availability and release-status counts move correctly with release transitions
+
+#### Why
+- compare and release-history surfaces were already useful, but operators still lacked one stable summary contract for the most common app registry questions
+- a control plane should not require clients to merge registry entry + history + active release metadata by hand for the normal overview path
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `3 passed`
+
+### Module: app release compare detail + history summary
+
+Finished the first operator-usable app release governance read models by extending compare output with structured deltas and adding a release-history summary surface.
+
+#### Updated
+- `app/models/registry.py`
+  - extends `AppReleaseComparison` with richer operator-facing context (`from/to` status, note, reviewer, created-at, changed fields)
+  - adds `AppReleaseHistorySummary` as a control-plane read model for active release, draft counts, rollback target, and reverse-chronological release history
+- `app/services/app_registry.py`
+  - enriches `compare_releases` with structured diffs for required skills, runtime policy, and runtime profile
+  - adds `get_release_history` to summarize active release posture and release timeline state
+- `app/api/main.py`
+  - adds `/registry/apps/{blueprint_id}/release-history`
+- `tests/unit/test_registry_installer.py`
+  - verifies compare output now exposes structured diff details
+  - verifies release-history summary reflects active version, rollback target, counts, and reverse-chronological ordering
+
+#### Why
+- the earlier compare surface could say that releases differed, but not yet expose enough structured detail for a control plane or operator dashboard to render those differences cleanly
+- release list output alone also forced clients to reconstruct active/draft/rollback posture themselves instead of relying on a stable summary contract
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `3 passed`
+
+## 2026-03-26
+
+### Module: app release compare
+
+Extended app rollout governance with a release comparison surface so operators can inspect what changed before promoting or rolling back a release.
+
+#### Updated
+- `app/models/registry.py`
+  - extends `AppReleaseRecord` with compare-ready release metadata (`app_shape`, `required_skills`, `runtime_policy`, `runtime_profile`)
+  - adds `AppReleaseComparison` as a stable read model for release diff summaries
+- `app/services/app_registry.py`
+  - persists richer release snapshots for newly registered and staged releases
+  - adds `compare_releases` alongside explicit list/add/activate/rollback release lifecycle helpers
+- `app/api/main.py`
+  - adds `/registry/apps/{blueprint_id}/compare`
+  - fixes registry release API error mapping by importing `HTTPException`
+- `app/services/app_installer.py`
+  - aligns install results with `installed_version` so release-bound installs report the active registry release correctly
+- `tests/unit/test_registry_installer.py`
+  - verifies release compare output includes active-side markers and change summaries
+  - keeps activation/install/rollback assertions aligned with compare-aware rollout behavior
+
+#### Why
+- app rollout governance could already stage, activate, and roll back releases, but operators still lacked a first-class way to inspect what materially changed between two releases
+- without a comparison surface, promotion and rollback decisions depend on implicit knowledge instead of a stable control-plane contract
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `3 passed`
+
 ## 2026-03-25
 
 ### Module: app release runtime binding

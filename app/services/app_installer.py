@@ -65,7 +65,7 @@ class AppInstallerService:
                 blueprint_id=blueprint.id,
                 owner_user_id=user_id,
                 status="draft",
-                installed_version=blueprint.version,
+                installed_version=self._registry.get_entry(blueprint.id).version,
                 data_namespace=f"users/{user_id}/apps/{instance_id}",
                 execution_mode=blueprint.runtime_policy.execution_mode,
                 runtime_policy=blueprint.runtime_policy,
@@ -111,7 +111,7 @@ class AppInstallerService:
             install_status=install_status,
             execution_mode=instance.execution_mode,
             status=self._lifecycle.get_instance(instance.id).status,
-            release_version=instance.release_version,
+            release_version=instance.installed_version,
             app_shape=blueprint.app_shape,
             runtime_profile=instance.runtime_profile,
         )

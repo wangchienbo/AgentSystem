@@ -20,7 +20,42 @@ class AppReleaseRecord(BaseModel):
     reviewer: str = ""
     approved_at: datetime | None = None
     rollback_reason: str = ""
+    app_shape: str = "generic"
+    required_skills: list[str] = Field(default_factory=list)
+    runtime_policy: dict = Field(default_factory=dict)
+    runtime_profile: dict = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AppReleaseComparison(BaseModel):
+    blueprint_id: str
+    from_version: str
+    to_version: str
+    active_version: str
+    active_is_from: bool = False
+    active_is_to: bool = False
+    from_status: AppReleaseStatus = "draft"
+    to_status: AppReleaseStatus = "draft"
+    from_note: str = ""
+    to_note: str = ""
+    from_reviewer: str = ""
+    to_reviewer: str = ""
+    from_created_at: datetime | None = None
+    to_created_at: datetime | None = None
+    release_note_changed: bool = False
+    required_skills_changed: bool = False
+    runtime_policy_changed: bool = False
+    runtime_profile_changed: bool = False
+    app_shape_changed: bool = False
+    required_skills_added: list[str] = Field(default_factory=list)
+    required_skills_removed: list[str] = Field(default_factory=list)
+    runtime_policy_changes: dict[str, dict[str, object | None]] = Field(default_factory=dict)
+    runtime_profile_changes: dict[str, dict[str, object | None]] = Field(default_factory=dict)
+    app_shape_from: str = "generic"
+    app_shape_to: str = "generic"
+    change_count: int = 0
+    changed_fields: list[str] = Field(default_factory=list)
+    summary: str = ""
 
 
 class AppRegistryEntry(BaseModel):
@@ -38,6 +73,45 @@ class AppRegistryEntry(BaseModel):
     app_shape: str = Field(default="generic")
     runtime_profile_summary: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AppReleaseHistorySummary(BaseModel):
+    blueprint_id: str
+    active_version: str
+    active_release_status: AppReleaseStatus = "active"
+    total_releases: int = 0
+    draft_release_count: int = 0
+    superseded_release_count: int = 0
+    rolled_back_release_count: int = 0
+    latest_release_version: str = ""
+    latest_release_created_at: datetime | None = None
+    latest_draft_version: str | None = None
+    latest_draft_created_at: datetime | None = None
+    rollback_target_version: str | None = None
+    releases: list[AppReleaseRecord] = Field(default_factory=list)
+
+
+class AppControlPlaneSummary(BaseModel):
+    blueprint_id: str
+    name: str
+    description: str = ""
+    status: RegistryStatus = "registered"
+    active_version: str
+    active_release_status: AppReleaseStatus = "active"
+    app_shape: str = "generic"
+    runtime_profile: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)
+    total_releases: int = 0
+    draft_release_count: int = 0
+    superseded_release_count: int = 0
+    rolled_back_release_count: int = 0
+    latest_release_version: str = ""
+    latest_release_created_at: datetime | None = None
+    latest_draft_version: str | None = None
+    rollback_target_version: str | None = None
+    rollback_available: bool = False
+    release_note: str = ""
+    reviewer: str = ""
+    approved_at: datetime | None = None
 
 
 class AppInstallResult(BaseModel):

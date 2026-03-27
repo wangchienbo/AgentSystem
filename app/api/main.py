@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from app.core.errors import map_domain_error
 
@@ -535,6 +535,30 @@ def list_app_releases(blueprint_id: str) -> list[dict]:
         return [item.model_dump(mode="json") for item in entry.releases]
     except StopIteration as error:
         raise HTTPException(status_code=404, detail=f"App blueprint not found: {blueprint_id}") from error
+
+
+@app.get("/registry/apps/{blueprint_id}/release-history")
+def get_app_release_history(blueprint_id: str) -> dict:
+    try:
+        return app_registry.get_release_history(blueprint_id).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/registry/apps/{blueprint_id}/summary")
+def get_app_control_plane_summary(blueprint_id: str) -> dict:
+    try:
+        return app_registry.get_control_plane_summary(blueprint_id).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/registry/apps/{blueprint_id}/compare")
+def compare_app_releases(blueprint_id: str, from_version: str, to_version: str) -> dict:
+    try:
+        return app_registry.compare_releases(blueprint_id, from_version, to_version).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
 
 
 @app.post("/registry/apps/{blueprint_id}/releases")

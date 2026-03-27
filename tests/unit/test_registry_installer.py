@@ -158,6 +158,74 @@ def test_registry_and_install_api_flow() -> None:
     assert releases_after.status_code == 200
     assert [item["status"] for item in releases_after.json()] == ["superseded", "active"]
 
+    history_after_activate = client.get("/registry/apps/bp.api.registry/release-history")
+    assert history_after_activate.status_code == 200
+    history_after_activate_payload = history_after_activate.json()
+    assert history_after_activate_payload["active_version"] == "0.2.0"
+    assert history_after_activate_payload["active_release_status"] == "active"
+    assert history_after_activate_payload["total_releases"] == 2
+    assert history_after_activate_payload["draft_release_count"] == 0
+    assert history_after_activate_payload["superseded_release_count"] == 1
+    assert history_after_activate_payload["rolled_back_release_count"] == 0
+    assert history_after_activate_payload["latest_release_version"] == "0.2.0"
+    assert history_after_activate_payload["latest_draft_version"] is None
+    assert history_after_activate_payload["rollback_target_version"] == "0.1.0"
+    assert history_after_activate_payload["releases"][0]["version"] == "0.2.0"
+
+    summary_after_activate = client.get("/registry/apps/bp.api.registry/summary")
+    assert summary_after_activate.status_code == 200
+    summary_after_activate_payload = summary_after_activate.json()
+    assert summary_after_activate_payload["blueprint_id"] == "bp.api.registry"
+    assert summary_after_activate_payload["name"] == "API Registry App"
+    assert summary_after_activate_payload["active_version"] == "0.2.0"
+    assert summary_after_activate_payload["active_release_status"] == "active"
+    assert summary_after_activate_payload["app_shape"] == "generic"
+    assert summary_after_activate_payload["runtime_profile"]["offline_capable"] is True
+    assert summary_after_activate_payload["total_releases"] == 2
+    assert summary_after_activate_payload["draft_release_count"] == 0
+    assert summary_after_activate_payload["superseded_release_count"] == 1
+    assert summary_after_activate_payload["rolled_back_release_count"] == 0
+    assert summary_after_activate_payload["latest_release_version"] == "0.2.0"
+    assert summary_after_activate_payload["latest_draft_version"] is None
+    assert summary_after_activate_payload["rollback_target_version"] == "0.1.0"
+    assert summary_after_activate_payload["rollback_available"] is True
+    assert summary_after_activate_payload["release_note"] == "staged rollout"
+    assert summary_after_activate_payload["reviewer"] == "bob"
+
+    compare_response = client.get(
+        "/registry/apps/bp.api.registry/compare",
+        params={"from_version": "0.1.0", "to_version": "0.2.0"},
+    )
+    assert compare_response.status_code == 200
+    compare_payload = compare_response.json()
+    assert compare_payload["active_version"] == "0.2.0"
+    assert compare_payload["active_is_from"] is False
+    assert compare_payload["active_is_to"] is True
+    assert compare_payload["from_status"] == "superseded"
+    assert compare_payload["to_status"] == "active"
+    assert compare_payload["from_note"] == ""
+    assert compare_payload["to_note"] == "staged rollout"
+    assert compare_payload["to_reviewer"] == "bob"
+    assert compare_payload["release_note_changed"] is True
+    assert compare_payload["required_skills_added"] == []
+    assert compare_payload["required_skills_removed"] == []
+    assert compare_payload["runtime_policy_changes"] == {}
+    assert compare_payload["runtime_profile_changes"] == {}
+    assert compare_payload["app_shape_from"] == "generic"
+    assert compare_payload["app_shape_to"] == "generic"
+    assert "release_note" in compare_payload["changed_fields"]
+    assert compare_payload["change_count"] >= 1
+    assert compare_payload["summary"].startswith("Changed:")
+
+    install_response = client.post(
+        "/registry/apps/bp.api.registry/install",
+        json={"user_id": "api-user"},
+    )
+    assert install_response.status_code == 200
+    assert install_response.json()["execution_mode"] == "service"
+    assert install_response.json()["release_version"] == "0.2.0"
+    assert install_response.json()["runtime_profile"]["offline_capable"] is True
+
     rolled_back = client.post(
         "/registry/apps/bp.api.registry/rollback",
         json={"target_version": "0.1.0", "reviewer": "carol", "rollback_reason": "staged release regression"},
@@ -172,14 +240,15 @@ def test_registry_and_install_api_flow() -> None:
     assert [item["status"] for item in releases_final.json()] == ["active", "rolled_back"]
     assert releases_final.json()[0]["rollback_reason"] == "staged release regression"
 
-    install_response = client.post(
-        "/registry/apps/bp.api.registry/install",
-        json={"user_id": "api-user"},
-    )
-    assert install_response.status_code == 200
-    assert install_response.json()["execution_mode"] == "service"
-    assert install_response.json()["release_version"] == "0.2.0"
-    assert install_response.json()["runtime_profile"]["offline_capable"] is True
+    summary_after_rollback = client.get("/registry/apps/bp.api.registry/summary")
+    assert summary_after_rollback.status_code == 200
+    summary_after_rollback_payload = summary_after_rollback.json()
+    assert summary_after_rollback_payload["active_version"] == "0.1.0"
+    assert summary_after_rollback_payload["rolled_back_release_count"] == 1
+    assert summary_after_rollback_payload["superseded_release_count"] == 0
+    assert summary_after_rollback_payload["rollback_target_version"] is None
+    assert summary_after_rollback_payload["rollback_available"] is False
+    assert summary_after_rollback_payload["reviewer"] == "carol"
 
     reinstall_response = client.post(
         "/registry/apps/bp.api.registry/install",
