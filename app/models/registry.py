@@ -91,6 +91,29 @@ class AppReleaseHistorySummary(BaseModel):
     releases: list[AppReleaseRecord] = Field(default_factory=list)
 
 
+class AppControlPlaneSummary(BaseModel):
+    blueprint_id: str
+    name: str
+    description: str = ""
+    status: RegistryStatus = "registered"
+    active_version: str
+    active_release_status: AppReleaseStatus = "active"
+    app_shape: str = "generic"
+    runtime_profile: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)
+    total_releases: int = 0
+    draft_release_count: int = 0
+    superseded_release_count: int = 0
+    rolled_back_release_count: int = 0
+    latest_release_version: str = ""
+    latest_release_created_at: datetime | None = None
+    latest_draft_version: str | None = None
+    rollback_target_version: str | None = None
+    rollback_available: bool = False
+    release_note: str = ""
+    reviewer: str = ""
+    approved_at: datetime | None = None
+
+
 class AppInstallResult(BaseModel):
     app_instance_id: str
     blueprint_id: str

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.models.app_blueprint import AppBlueprint
-from app.models.registry import AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
+from app.models.registry import AppControlPlaneSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
 from app.services.runtime_state_store import RuntimeStateStore
 
 
@@ -80,6 +80,32 @@ class AppRegistryService:
             latest_draft_created_at=None if latest_draft is None else latest_draft.created_at,
             rollback_target_version=None if rollback_target is None else rollback_target.version,
             releases=[item.model_copy(deep=True) for item in releases],
+        )
+
+    def get_control_plane_summary(self, blueprint_id: str) -> AppControlPlaneSummary:
+        entry = self.get_entry(blueprint_id)
+        history = self.get_release_history(blueprint_id)
+        return AppControlPlaneSummary(
+            blueprint_id=entry.blueprint_id,
+            name=entry.name,
+            description=entry.description,
+            status=entry.status,
+            active_version=entry.version,
+            active_release_status=entry.release_status,
+            app_shape=entry.app_shape,
+            runtime_profile=entry.runtime_profile_summary,
+            total_releases=history.total_releases,
+            draft_release_count=history.draft_release_count,
+            superseded_release_count=history.superseded_release_count,
+            rolled_back_release_count=history.rolled_back_release_count,
+            latest_release_version=history.latest_release_version,
+            latest_release_created_at=history.latest_release_created_at,
+            latest_draft_version=history.latest_draft_version,
+            rollback_target_version=history.rollback_target_version,
+            rollback_available=history.rollback_target_version is not None,
+            release_note=entry.release_note,
+            reviewer=entry.reviewer,
+            approved_at=entry.approved_at,
         )
 
     def add_release(

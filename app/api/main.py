@@ -545,6 +545,14 @@ def get_app_release_history(blueprint_id: str) -> dict:
         raise map_domain_error(error) from error
 
 
+@app.get("/registry/apps/{blueprint_id}/summary")
+def get_app_control_plane_summary(blueprint_id: str) -> dict:
+    try:
+        return app_registry.get_control_plane_summary(blueprint_id).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
 @app.get("/registry/apps/{blueprint_id}/compare")
 def compare_app_releases(blueprint_id: str, from_version: str, to_version: str) -> dict:
     try:
