@@ -99,7 +99,7 @@ graph TD
 graph TD
     AB[models/app_blueprint.py] --> AR[services/app_registry.py]
     AB --> BV[services/blueprint_validation.py]
-    MREG[models/registry.py\nrelease compare/history/summary/overview models] --> AR[services/app_registry.py]
+    MREG[models/registry.py\nrelease compare/history/summary/overview/attention models] --> AR[services/app_registry.py]
     APIREG[api/main.py\nregistry release endpoints] --> AR
     AR --> AI[services/app_installer.py]
     APR[services/app_profile_resolver.py] --> AI
@@ -284,7 +284,7 @@ graph TD
     F --> T4[tests/unit/test_bootstrap_smoke.py]
 ```
 
-> Release-governance note: app registry changes now affect both raw release lists and higher-level release compare/history/summary/overview read models, so control-plane/API consumers should treat those surfaces as one coupled contract.
+> Release-governance note: app registry changes now affect both raw release lists and higher-level release compare/history/summary/overview/attention read models, so control-plane/API consumers should treat those surfaces as one coupled contract.
 
 ## 5.3 Data / Context / Compaction
 

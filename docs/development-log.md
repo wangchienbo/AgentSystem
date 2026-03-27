@@ -2,6 +2,32 @@
 
 ## 2026-03-27
 
+### Module: app registry attention summary
+
+Added an operator-triage surface on top of registry overview so the control plane can highlight which apps deserve immediate review attention.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `AppAttentionItem`
+  - adds `AppAttentionSummary`
+- `app/services/app_registry.py`
+  - adds `get_attention_summary`
+  - classifies attention reasons into `draft_release`, `rollback_target_available`, and `recently_rolled_back`
+  - sorts the attention queue by priority and recency
+- `app/api/main.py`
+  - adds `/registry/apps/attention`
+- `tests/unit/test_registry_installer.py`
+  - verifies service-level attention summary counts and ordering
+  - verifies API attention output changes after activation and rollback transitions
+
+#### Why
+- overview can show candidate apps, but operators still benefit from a narrower triage queue that explains *why* each app needs attention
+- this gives the registry control plane a more actionable surface than a generic list summary alone
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `5 passed`
+
 ### Module: app registry overview summary
 
 Extended the app governance control plane from single-app views to a registry-wide overview surface suitable for operator lists and dashboard entry views.
