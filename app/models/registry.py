@@ -140,6 +140,28 @@ class AppRegistryOverviewSummary(BaseModel):
     items: list[AppRegistryOverviewItem] = Field(default_factory=list)
 
 
+class AppAttentionItem(BaseModel):
+    blueprint_id: str
+    name: str
+    attention_reason: str
+    priority: int = 0
+    active_version: str
+    app_shape: str = "generic"
+    draft_release_count: int = 0
+    rolled_back_release_count: int = 0
+    rollback_available: bool = False
+    latest_release_created_at: datetime | None = None
+    approved_at: datetime | None = None
+
+
+class AppAttentionSummary(BaseModel):
+    total_attention_items: int = 0
+    draft_attention_count: int = 0
+    rollback_target_count: int = 0
+    recently_rolled_back_count: int = 0
+    items: list[AppAttentionItem] = Field(default_factory=list)
+
+
 class AppInstallResult(BaseModel):
     app_instance_id: str
     blueprint_id: str

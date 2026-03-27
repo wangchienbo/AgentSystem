@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.models.app_blueprint import AppBlueprint
-from app.models.registry import AppControlPlaneSummary, AppRegistryOverviewItem, AppRegistryOverviewSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
+from app.models.registry import AppAttentionItem, AppAttentionSummary, AppControlPlaneSummary, AppRegistryOverviewItem, AppRegistryOverviewSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
 from app.services.runtime_state_store import RuntimeStateStore
 
 
@@ -165,6 +165,74 @@ class AppRegistryService:
             apps_with_rollback_targets=sum(1 for item in items if item.rollback_available),
             shape_counts=shape_counts,
             release_status_counts=release_status_counts,
+            items=items,
+        )
+
+    def get_attention_summary(self, *, limit: int | None = None) -> AppAttentionSummary:
+        summaries = [self.get_control_plane_summary(entry.blueprint_id) for entry in self.list_entries()]
+        items: list[AppAttentionItem] = []
+        for item in summaries:
+            if item.draft_release_count > 0:
+                items.append(
+                    AppAttentionItem(
+                        blueprint_id=item.blueprint_id,
+                        name=item.name,
+                        attention_reason="draft_release",
+                        priority=3,
+                        active_version=item.active_version,
+                        app_shape=item.app_shape,
+                        draft_release_count=item.draft_release_count,
+                        rolled_back_release_count=item.rolled_back_release_count,
+                        rollback_available=item.rollback_available,
+                        latest_release_created_at=item.latest_release_created_at,
+                        approved_at=item.approved_at,
+                    )
+                )
+            elif item.rollback_available:
+                items.append(
+                    AppAttentionItem(
+                        blueprint_id=item.blueprint_id,
+                        name=item.name,
+                        attention_reason="rollback_target_available",
+                        priority=2,
+                        active_version=item.active_version,
+                        app_shape=item.app_shape,
+                        draft_release_count=item.draft_release_count,
+                        rolled_back_release_count=item.rolled_back_release_count,
+                        rollback_available=item.rollback_available,
+                        latest_release_created_at=item.latest_release_created_at,
+                        approved_at=item.approved_at,
+                    )
+                )
+            elif item.rolled_back_release_count > 0:
+                items.append(
+                    AppAttentionItem(
+                        blueprint_id=item.blueprint_id,
+                        name=item.name,
+                        attention_reason="recently_rolled_back",
+                        priority=1,
+                        active_version=item.active_version,
+                        app_shape=item.app_shape,
+                        draft_release_count=item.draft_release_count,
+                        rolled_back_release_count=item.rolled_back_release_count,
+                        rollback_available=item.rollback_available,
+                        latest_release_created_at=item.latest_release_created_at,
+                        approved_at=item.approved_at,
+                    )
+                )
+        items.sort(
+            key=lambda item: (
+                -item.priority,
+                -(item.latest_release_created_at.timestamp() if item.latest_release_created_at is not None else 0),
+            )
+        )
+        if limit is not None:
+            items = items[:limit]
+        return AppAttentionSummary(
+            total_attention_items=len(items),
+            draft_attention_count=sum(1 for item in items if item.attention_reason == "draft_release"),
+            rollback_target_count=sum(1 for item in items if item.attention_reason == "rollback_target_available"),
+            recently_rolled_back_count=sum(1 for item in items if item.attention_reason == "recently_rolled_back"),
             items=items,
         )
 

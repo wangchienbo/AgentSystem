@@ -568,6 +568,11 @@ def get_app_registry_overview(
     ).model_dump(mode="json")
 
 
+@app.get("/registry/apps/attention")
+def get_app_registry_attention(limit: int | None = None) -> dict:
+    return app_registry.get_attention_summary(limit=limit).model_dump(mode="json")
+
+
 @app.get("/registry/apps/{blueprint_id}/compare")
 def compare_app_releases(blueprint_id: str, from_version: str, to_version: str) -> dict:
     try:

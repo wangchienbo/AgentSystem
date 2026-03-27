@@ -140,6 +140,42 @@ def test_registry_overview_service_filters_and_ordering(tmp_path: Path) -> None:
 
 
 
+def test_registry_attention_summary_service(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "attention-store"))
+    registry = AppRegistryService(store=store)
+
+    alpha = build_blueprint(blueprint_id="bp.attn.alpha", name="Alpha Attention")
+    beta = build_blueprint(blueprint_id="bp.attn.beta", name="Beta Attention")
+    gamma = build_blueprint(blueprint_id="bp.attn.gamma", name="Gamma Attention")
+
+    registry.register_blueprint(alpha)
+    registry.register_blueprint(beta)
+    registry.register_blueprint(gamma)
+
+    registry.add_release("bp.attn.alpha", "0.2.0", note="needs review")
+    registry.add_release("bp.attn.beta", "0.2.0", note="promote")
+    registry.activate_release("bp.attn.beta", "0.2.0", reviewer="ops")
+    registry.rollback_release("bp.attn.beta", "0.1.0", reviewer="ops", rollback_reason="issue")
+    registry.add_release("bp.attn.gamma", "0.2.0", note="promote")
+    registry.activate_release("bp.attn.gamma", "0.2.0", reviewer="ops")
+
+    attention = registry.get_attention_summary()
+    assert attention.total_attention_items == 3
+    assert attention.draft_attention_count == 1
+    assert attention.rollback_target_count == 1
+    assert attention.recently_rolled_back_count == 1
+    assert attention.items[0].blueprint_id == "bp.attn.alpha"
+    assert attention.items[0].attention_reason == "draft_release"
+    assert {item.blueprint_id for item in attention.items} == {"bp.attn.alpha", "bp.attn.beta", "bp.attn.gamma"}
+    assert any(item.attention_reason == "recently_rolled_back" and item.blueprint_id == "bp.attn.beta" for item in attention.items)
+    assert any(item.attention_reason == "rollback_target_available" and item.blueprint_id == "bp.attn.gamma" for item in attention.items)
+
+    limited_attention = registry.get_attention_summary(limit=1)
+    assert limited_attention.total_attention_items == 1
+    assert len(limited_attention.items) == 1
+
+
+
 def test_registry_and_install_api_flow() -> None:
     register_response = client.post(
         "/registry/apps",
@@ -224,6 +260,14 @@ def test_registry_and_install_api_flow() -> None:
     registry_item = next(item for item in overview_after_activate_payload["items"] if item["blueprint_id"] == "bp.api.registry")
     assert registry_item["active_version"] == "0.2.0"
     assert registry_item["attention_needed"] is True
+
+    attention_after_activate = client.get("/registry/apps/attention")
+    assert attention_after_activate.status_code == 200
+    attention_after_activate_payload = attention_after_activate.json()
+    assert attention_after_activate_payload["total_attention_items"] >= 1
+    attention_item = next(item for item in attention_after_activate_payload["items"] if item["blueprint_id"] == "bp.api.registry")
+    assert attention_item["attention_reason"] == "rollback_target_available"
+
     assert summary_after_activate_payload["active_release_status"] == "active"
     assert summary_after_activate_payload["app_shape"] == "generic"
     assert summary_after_activate_payload["runtime_profile"]["offline_capable"] is True
@@ -297,7 +341,14 @@ def test_registry_and_install_api_flow() -> None:
     registry_item_after_rollback = next(item for item in overview_after_rollback_payload["items"] if item["blueprint_id"] == "bp.api.registry")
     assert registry_item_after_rollback["rollback_available"] is False
     assert registry_item_after_rollback["rolled_back_release_count"] == 1
-    assert summary_after_rollback_payload["rolled_back_release_count"] == 1
+
+    attention_after_rollback = client.get("/registry/apps/attention")
+    assert attention_after_rollback.status_code == 200
+    attention_after_rollback_payload = attention_after_rollback.json()
+    attention_item_after_rollback = next(item for item in attention_after_rollback_payload["items"] if item["blueprint_id"] == "bp.api.registry")
+    assert attention_item_after_rollback["attention_reason"] == "recently_rolled_back"
+
+    summary_after_rollback_payload["rolled_back_release_count"] == 1
     assert summary_after_rollback_payload["superseded_release_count"] == 0
     assert summary_after_rollback_payload["rollback_target_version"] is None
     assert summary_after_rollback_payload["rollback_available"] is False
