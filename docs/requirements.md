@@ -52,6 +52,7 @@ The system should:
 - separate normal operational telemetry from upgrade/evolution evidence logs
 - treat token and runtime cost as first-class optimization dimensions alongside user experience and success rate
 - allow users to define policy separately for apps and skills, including collection, upgrade, publication, and rollback posture
+- keep the future expansion path centered on skill growth: after core substrate and core skills are stable, the system should primarily extend itself by generating and governing additional skills rather than repeatedly expanding the platform core
 
 ---
 
@@ -288,9 +289,11 @@ The system should allow skills to append structured upgrade-oriented evidence on
 ### 5.13 Skill-centric self-iteration and upgrade control
 The system should support a skill-centric evolution model in which:
 - the core platform provides primitive compare / evaluate / publish / rollback / archive interfaces
+- a small set of core skills forms the governed toolchain for generation, testing, acceptance, archive, publish, and rollback workflows
 - higher-level generation, testing, acceptance, archive, publish, and rollback workflows are implemented as skills wherever practical
 - both apps and skills can participate in evidence-bound self-iteration
 - users can define different strategy and automation posture for apps and skills
+- after the core substrate and core skill toolchain are stable, the preferred system expansion path is the creation and governance of additional skills rather than repeated enlargement of the platform core
 
 The system must preserve user control over:
 - whether upgrade information is collected
@@ -298,6 +301,10 @@ The system must preserve user control over:
 - whether automatic publication is allowed
 - whether rollout requires human confirmation
 - what cost/quality/stability tradeoff applies to a given app or skill
+
+The system should also preserve a clear authority boundary:
+- ordinary generated or revised skills may propose changes to other ordinary skills
+- core-platform contracts, safety boundaries, and primitive governance interfaces must remain under explicit platform/core-skill governance rather than arbitrary downstream skill mutation
 
 ### 5.14 Optimization criteria and acceptance gates
 The system must evaluate candidate improvements using multiple dimensions, including:

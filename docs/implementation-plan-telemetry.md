@@ -45,13 +45,16 @@ Build the minimum comparison / acceptance substrate:
 - cost / latency / success summary aggregation
 - release / rollback evidence records
 
-### Phase 3: skill consumption layer
-Build skills that consume the substrate:
+### Phase 2A: core-skill toolchain bootstrap
+Before broad autonomous skill growth, establish a small governed core-skill toolchain, such as:
 - replay sample selection skill
 - cost analysis skill
 - acceptance report skill
 - candidate comparison skill
 - archive summary skill
+
+### Phase 3: skill consumption layer
+Use the substrate and core-skill toolchain to support additional ordinary skill generation and governance.
 
 ### Phase 4: higher-order automation
 Only after the substrate is stable:
@@ -450,6 +453,13 @@ The first implementation should be considered successful if:
 That is enough to support later evolution without overcommitting to an unbuildable first release.
 
 ---
+
+## 15A. Long-term growth rule
+
+After the telemetry/evaluation/governance substrate exists and the core-skill toolchain is stable, the preferred system growth path should be:
+- ordinary skills generate or revise other ordinary skills
+- core skills supervise that generation/testing/acceptance flow
+- the platform core changes only when standards, safety boundaries, or primitive runtime/governance capabilities must change
 
 ## 15. Final Implementation Guideline
 

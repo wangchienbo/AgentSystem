@@ -33,6 +33,11 @@ Connectivity probe:
 
 ## Documentation
 
+Design direction summary:
+- keep the platform core thin
+- establish a governed core-skill toolchain
+- let future capability expansion happen mainly through skill growth rather than repeated core expansion
+
 See:
 - `TOOLS.md` — project-local operator notes, common commands, paths, and gotchas
 - `docs/requirements.md`

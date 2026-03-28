@@ -29,6 +29,7 @@ graph TD
     RuntimeBootstrap --> DataContext[Data & Context]
     RuntimeBootstrap --> EventsScheduling[Events / Scheduler / Supervisor]
     RuntimeBootstrap --> SkillsSystem[Skills & Generated Skills]
+    RuntimeBootstrap --> CoreSkillToolchain[Core Skill Toolchain]
     RuntimeBootstrap --> TelemetryLayer[Telemetry / Feedback / Upgrade Logs]
     RuntimeBootstrap --> LearningLoop[Practice Review / Self-Refinement]
     RuntimeBootstrap --> WorkflowOps[Workflow Execution & Observability]
@@ -43,6 +44,9 @@ graph TD
     DataContext --> LearningLoop
     WorkflowOps --> TelemetryLayer
     SkillsSystem --> TelemetryLayer
+    CoreSkillToolchain --> SkillsSystem
+    CoreSkillToolchain --> TelemetryLayer
+    CoreSkillToolchain --> LearningLoop
     TelemetryLayer --> LearningLoop
     SkillsSystem --> WorkflowOps
     WorkflowOps --> LearningLoop
@@ -671,3 +675,16 @@ graph TD
 - 未来 append-only upgrade-log tests
 - workflow / generated-skill / refinement 相关回归切片
 - 任何 publish / rollback / candidate-evaluation 相关测试
+
+### 3.10 Planned core-skill toolchain layer
+
+```mermaid
+graph TD
+    CST[planned core skills] --> TLM[planned telemetry services]
+    CST --> EVL[planned evaluation summary services]
+    CST --> SKR[services/skill_runtime.py]
+    CST --> SF[services/skill_factory.py]
+    CST --> RL[services/refinement / learning-loop services]
+```
+
+> Growth note: the intended long-term path is that governed core skills produce and supervise ordinary-skill growth, while direct platform-core changes remain relatively rare and high-governance.

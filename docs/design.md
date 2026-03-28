@@ -88,6 +88,15 @@ Candidate improvements should be judged by:
 
 The design should prefer reducing unnecessary work before adding heavier intelligence.
 
+### 2.10 Core-skill toolchain before broad self-expansion
+The preferred long-term expansion path is:
+- keep the platform core small
+- establish a governed core-skill toolchain for generation, testing, acceptance, archive, publish, and rollback
+- let that toolchain produce and govern additional ordinary skills
+- reserve direct core changes for standards, safety boundaries, and primitive runtime/governance capabilities
+
+In other words, the system should mainly grow by adding and governing skills, not by continuously enlarging the core platform.
+
 This world-model loop should be treated as a disciplined runtime-governed process rather than a purely verbal planning loop:
 - investigate reality through runtime signals, user corrections, and concrete outcomes
 - transform observations into explicit contradictions, hypotheses, and proposed changes
@@ -208,6 +217,15 @@ The first implementation should prefer:
 - append-only evidence substrate over full autonomous optimization loops
 
 If a requirement cannot be delivered without making the core too heavy, it should be deferred, reduced, or shifted into a skill-level workflow.
+
+### 3A.6 Core vs core-skill vs ordinary-skill boundary
+The architecture should preserve three distinct layers:
+
+- **core platform**: standards, runtime, registry, telemetry, policy, primitive governance operations
+- **core skills**: the governed toolchain for generation, replay selection, testing, acceptance, archive, publish, and rollback workflows
+- **ordinary skills**: business or domain skills that can be generated, revised, tested, accepted, published, and rolled back through the governed toolchain
+
+Ordinary skills should not directly mutate platform-core standards or safety boundaries. Those changes must remain under explicit platform or core-skill governance.
 
 ## 3. High-level Architecture
 

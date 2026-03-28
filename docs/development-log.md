@@ -2,6 +2,38 @@
 
 ## 2026-03-28
 
+### Module: core-thin / core-skill-toolchain documentation update
+
+Updated the document set to make the architecture preference more explicit: keep the platform core thin, establish a governed core-skill toolchain, and let later system expansion happen mainly through ordinary-skill growth under supervision.
+
+#### Updated
+- `docs/requirements.md`
+  - adds the long-term growth preference of skill expansion over repeated core expansion
+  - clarifies authority boundaries between ordinary skills and core/platform governance
+- `docs/design.md`
+  - adds an explicit core-skill-toolchain principle
+  - clarifies the three-layer boundary: core platform / core skills / ordinary skills
+- `docs/skill-design-principles.md`
+  - adds a core-skill-toolchain-over-core-bloat principle
+  - extends the checklist to ask whether self-improvement behavior should live as a governed core skill instead of new core code
+- `docs/implementation-plan-telemetry.md`
+  - inserts a dedicated core-skill-toolchain bootstrap phase before broad autonomous skill growth
+  - adds a long-term growth rule to preserve the thin-core philosophy during implementation
+- `docs/system-relationship-map.md`
+  - adds a planned core-skill-toolchain layer to the system relationship map
+- `README.md`
+  - adds a top-level design-direction summary for core-thin / skill-growth architecture
+
+#### Why
+- the prior docs already leaned toward a thin-core architecture, but the new direction required making the core-skill toolchain explicit as the main engine of future self-expansion
+- this helps keep later implementation choices aligned: build the substrate, build the governed core skills, then let the system extend itself mostly through skill growth
+
+#### Validation
+- cross-document wording pass completed across requirements / design / skill principles / implementation plan / relationship map / README
+- no runtime code changes in this step
+
+## 2026-03-28
+
 ### Module: telemetry documentation QA and consistency pass
 
 Performed a follow-up QA pass over the newly added telemetry / upgrade-evidence docs to tighten terminology, implementation-phase boundaries, and skill-extension trust rules.

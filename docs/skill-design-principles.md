@@ -60,6 +60,14 @@ A skill should explicitly indicate whether it is:
 - optional at runtime
 - required at runtime
 
+### 2.10 Core-skill toolchain over core bloat
+When the platform needs higher-order self-improvement behavior, the default preference should be:
+- keep the platform core minimal
+- express the improvement workflow as a governed core skill when possible
+- allow ordinary skills to be produced and managed by that toolchain later
+
+This means the main growth path should be governed skill growth, not repeated core expansion.
+
 ## 3. Canonical Core Skill Principle Table
 
 | Skill / capability | Primary role | Runtime criticality | Must be local-first | Must avoid default intelligence | Needs strict contract | Notes |
@@ -94,6 +102,7 @@ Whenever a new core skill is introduced, its design should be reviewed against t
 11. Does it blur config/state/context/audit boundaries?
 12. Could this behavior live as a skill instead of a core hard-coded flow?
 13. If it participates in self-iteration, does it produce or consume standardized telemetry/upgrade evidence cleanly?
+14. If this is a self-improvement toolchain capability, should it exist as a governed core skill rather than as new platform-core code?
 
 ## 5. How to Use This Document
 
