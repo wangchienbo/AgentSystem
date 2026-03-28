@@ -2,6 +2,43 @@
 
 ## 2026-03-28
 
+### Module: telemetry bootstrap wiring and evaluation gates
+
+Continued the Phase-1 substrate work by wiring telemetry-related services into runtime bootstrap and adding a first minimal evaluation-gate service.
+
+#### Added
+- `app/models/evaluation.py`
+  - `CandidateEvaluationRecord`
+  - `EvaluationGatePolicy`
+- `app/services/evaluation_summary_service.py`
+  - minimal hard-gate evaluation for token / latency / success / stability deltas
+  - evaluation records persisted into runtime store
+  - append-only evaluation events emitted into upgrade logs
+- `tests/unit/test_evaluation_summary_service.py`
+  - acceptance and rejection gate coverage
+- `tests/unit/test_bootstrap_telemetry_services.py`
+  - verifies runtime bootstrap exposes telemetry/evaluation services
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - now constructs and exposes:
+    - `collection_policy_service`
+    - `upgrade_log_service`
+    - `telemetry_service`
+    - `evaluation_summary_service`
+
+#### Scope deliberately kept small
+- no public API/operator surface yet for telemetry/evaluation
+- no weighted scoring yet; only hard-gate logic
+- no publish/rollback orchestration yet
+- no broader runtime instrumentation yet across existing services
+
+#### Validation
+- `python3 -m py_compile app/models/evaluation.py app/services/evaluation_summary_service.py app/bootstrap/runtime.py tests/unit/test_evaluation_summary_service.py tests/unit/test_bootstrap_telemetry_services.py`
+- full pytest execution still depends on the richer test environment rather than the current shell path
+
+## 2026-03-28
+
 ### Module: telemetry phase-1 core substrate implementation
 
 Implemented the first runnable telemetry substrate slice aligned with the thin-core / skill-growth architecture. This is intentionally a platform substrate, not yet a full operator surface or autonomous optimization loop.
