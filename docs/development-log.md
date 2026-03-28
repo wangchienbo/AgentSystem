@@ -2,6 +2,29 @@
 
 ## 2026-03-28
 
+### Module: implementation plan for telemetry / upgrade evidence
+
+Added a practical implementation-plan document to turn the telemetry / feedback / append-only upgrade-log design into a buildable roadmap.
+
+#### Added
+- `docs/implementation-plan-telemetry.md`
+  - defines phased delivery order
+  - narrows Phase 1 scope to a realistic substrate
+  - specifies proposed models, services, storage layout, and query surfaces
+  - identifies which requirements should be deferred or reduced initially
+  - formalizes the boundary between core substrate and skill-oriented higher-order workflows
+
+#### Why
+- the architecture/design docs were becoming conceptually coherent, but implementation sequencing still needed an explicit buildability guide
+- this plan keeps the system from overcommitting to a too-heavy first iteration of self-improvement
+- it also gives future code work a clear first slice: telemetry schema, collection policy, version binding, and append-only logging
+
+#### Validation
+- document reviewed against the updated requirements/design/testing direction
+- scope intentionally reduced where the full conceptual design would be too heavy for a first implementation
+
+## 2026-03-28
+
 ### Module: telemetry and upgrade-evidence documentation consolidation
 
 Performed a documentation-wide consolidation to align the project with the new design direction: core-thin / skill-heavy evolution, user-controlled telemetry policy, append-only upgrade logs, and cost-aware self-iteration.
