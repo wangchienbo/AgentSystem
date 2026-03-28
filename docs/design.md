@@ -2,11 +2,17 @@
 
 ## 1. Design Intent
 
+Detailed companion reference: `docs/telemetry-and-upgrade-logging.md`.
+
+
 AgentSystem is designed as an **App OS** rather than a single assistant runtime.
 Its core job is to manage apps as long-lived system objects while allowing the system to learn from runtime practice and gradually improve its reusable capability layer.
 
 The current design direction is:
 - user interacts with the system through a control plane and unified gateway
+- the core platform stays thin and standard-oriented while higher-order behaviors should remain skill-centric wherever practical
+- runtime operational telemetry and upgrade/evolution evidence are separated by design
+- self-iteration must remain evidence-bound, user-governed, and cost-aware
 - apps are defined as blueprints, installed as instances, and governed by runtime policy
 - apps own separated namespaces for business and runtime data
 - apps also own app-local shared context for internal execution and coordination
@@ -41,6 +47,39 @@ Network reachability and intelligence availability are separate concerns:
 - intelligent invocation should be governed by policy, not by mere model availability
 
 ### 2.6 System should evolve from practice
+### 2.7 Thin core, skill-centric higher-order behavior
+The platform core should own:
+- standard contracts
+- telemetry/event envelopes
+- collection policy and safety boundaries
+- primitive compare / evaluate / publish / rollback / archive operations
+
+Higher-order workflows such as:
+- next-version generation
+- replay/test orchestration
+- acceptance review
+- archive/report generation
+- publish/rollback orchestration
+
+should remain skill-oriented wherever practical. This preserves extensibility while keeping the core implementable and governable.
+
+### 2.8 Runtime telemetry and upgrade evidence are separate
+The system should maintain two distinct observation planes:
+- lightweight online telemetry for runtime/control-plane usage
+- append-only upgrade/evolution evidence for replay, acceptance, and self-iteration
+
+This separation reduces online cost while preserving the historical evidence needed for improvement.
+
+### 2.9 Cost-aware optimization, not intelligence-first optimization
+Candidate improvements should be judged by:
+- user experience
+- task success
+- token efficiency
+- latency efficiency
+- stability and rollback posture
+
+The design should prefer reducing unnecessary work before adding heavier intelligence.
+
 The intended evolutionary chain is:
 - practice
 - experience
@@ -101,6 +140,62 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - lightweight generated-app shape classification should also persist into explicit `app_shape` fields on `AppBlueprint`, `AppRegistryEntry`, and `AppInstallResult`, leaving human-facing wording as a presentation layer rather than the only place where app-type semantics exist
 
 ---
+
+## 3A. Telemetry and upgrade-evidence architecture
+
+The observation layer should be split into two coordinated but distinct planes.
+
+### 3A.1 Online telemetry plane
+This plane serves ordinary runtime and control-plane needs.
+
+It should hold lightweight, queryable records such as:
+- interaction summaries
+- step/invocation summaries
+- token and latency totals
+- success/failure outcomes
+- explicit and implicit feedback
+- version bindings across app / skill / agent / policy
+
+This plane should stay cheap enough to keep enabled by default in light mode.
+
+### 3A.2 Upgrade/evolution evidence plane
+This plane serves replay, acceptance, version comparison, optimization, publish, and rollback analysis.
+
+It should use:
+- append-only writing
+- time-sliced files
+- JSONL-oriented event storage
+- event-first records with optional aggregate snapshots
+
+It should not become a hard dependency for the online serving path.
+
+### 3A.3 Collection policy model
+Observation policy should support:
+- global scope
+- app scope
+- skill scope
+- agent scope
+- task-type scope
+
+Collection levels should support at least:
+- off
+- light
+- medium
+- heavy
+- custom
+
+Default posture should be light collection enabled, with expensive raw capture disabled unless explicitly enabled.
+
+### 3A.4 Skill-extensible upgrade evidence
+The core platform should define the baseline telemetry/event envelope.
+
+Skills may append structured upgrade-oriented evidence on top of that envelope, for example:
+- replay-sample reasons
+- optimization hints
+- domain-specific acceptance notes
+- archive/report metadata
+
+This preserves consistency while keeping higher-order evolution workflows skill-centric.
 
 ## 3. High-level Architecture
 
