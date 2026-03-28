@@ -14,6 +14,17 @@ This plan intentionally prefers a buildable first version over a maximal design.
 
 ---
 
+## 1A. Terminology used in this plan
+
+This plan uses the following terms with narrow meanings:
+- `telemetry`: lightweight online runtime records
+- `upgrade-evidence log`: append-only historical evidence for replay/acceptance/optimization
+- `evaluation summary`: derived candidate-comparison or acceptance result
+
+These terms should stay aligned with `docs/telemetry-and-upgrade-logging.md`.
+
+---
+
 ## 2. Delivery Strategy
 
 The implementation should proceed in phases.
@@ -177,6 +188,8 @@ Recommended fields:
 ## 4.5 CollectionPolicyRecord
 Recommended fields:
 - `scope_type` (`global | app | skill | agent | task_type`)
+
+Note: Phase 1 should actively use only `global | app | skill`, while `agent | task_type` may remain future-facing placeholders if included at all.
 - `scope_id`
 - `enabled`
 - `level` (`off | light | medium | heavy | custom`)
@@ -292,6 +305,11 @@ Recommended rule:
 - skills may not replace the base event schema
 
 This avoids fragmentation while preserving flexibility.
+
+## 8.1 Trust boundary for skill extensions
+Phase 1 platform decisions should not directly trust arbitrary extension fields for hard gates or release actions.
+
+Unless an extension contract is explicitly registered later, extension payloads should be treated as supplemental analysis material rather than authoritative governance input.
 
 ---
 

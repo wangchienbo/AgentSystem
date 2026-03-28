@@ -2,6 +2,37 @@
 
 ## 2026-03-28
 
+### Module: telemetry documentation QA and consistency pass
+
+Performed a follow-up QA pass over the newly added telemetry / upgrade-evidence docs to tighten terminology, implementation-phase boundaries, and skill-extension trust rules.
+
+#### Updated
+- `docs/telemetry-and-upgrade-logging.md`
+  - adds terminology boundary section
+  - fixes scope-list typo
+  - clarifies first-delivery scope vs full conceptual model
+  - clarifies that skill extension payloads are supplemental unless explicitly promoted by contract
+- `docs/implementation-plan-telemetry.md`
+  - adds terminology alignment section
+  - clarifies Phase-1 trust boundary for skill extension payloads
+  - makes app/skill/global scope prioritization more explicit
+- `docs/testing.md`
+  - aligns collection-level expectations with phased delivery instead of implying all levels are first-pass test obligations
+  - links to the implementation plan for requirement-reduction guidance
+- `docs/design.md`
+  - fixes ordering/formatting drift in the core principle section
+  - adds a buildability-boundary note to keep the conceptual model from being misread as day-one mandatory scope
+
+#### Why
+- earlier drafts were directionally correct but still had a few consistency risks: terminology drift, implied all-at-once implementation scope, and insufficiently explicit boundaries around skill-supplied extension evidence
+- this pass is intended to make the docs safer to implement directly instead of only being conceptually persuasive
+
+#### Validation
+- manual cross-document consistency pass completed across requirements / design / telemetry / implementation-plan / testing docs
+- no runtime code changes in this step
+
+## 2026-03-28
+
 ### Module: implementation plan for telemetry / upgrade evidence
 
 Added a practical implementation-plan document to turn the telemetry / feedback / append-only upgrade-log design into a buildable roadmap.

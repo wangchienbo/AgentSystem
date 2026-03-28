@@ -2,6 +2,7 @@
 
 For cross-cutting impact analysis before edits, also consult `docs/system-relationship-map.md`.
 For telemetry and upgrade-evidence design details, also consult `docs/telemetry-and-upgrade-logging.md`.
+For delivery scope and planned requirement reductions, also consult `docs/implementation-plan-telemetry.md`.
 
 ## 1. Purpose
 
@@ -70,7 +71,7 @@ Should cover:
 - global enable / disable behavior
 - app-level overrides
 - skill-level overrides
-- collection level behavior (`off | light | medium | heavy | custom`)
+- collection level behavior (Phase 1 should prioritize `off | light | medium`; heavier levels may remain later-phase targets)
 - default-light collection posture
 
 ### 3.3 Upgrade-log tests

@@ -47,6 +47,14 @@ Network reachability and intelligence availability are separate concerns:
 - intelligent invocation should be governed by policy, not by mere model availability
 
 ### 2.6 System should evolve from practice
+The intended evolutionary chain is:
+- practice
+- experience
+- skill suggestion
+- future workflow/app refinement
+
+This should be treated as a disciplined world-model loop rather than a purely verbal planning loop.
+
 ### 2.7 Thin core, skill-centric higher-order behavior
 The platform core should own:
 - standard contracts
@@ -80,13 +88,7 @@ Candidate improvements should be judged by:
 
 The design should prefer reducing unnecessary work before adding heavier intelligence.
 
-The intended evolutionary chain is:
-- practice
-- experience
-- skill suggestion
-- future workflow/app refinement
-
-This should be treated as a disciplined world-model loop rather than a purely verbal planning loop:
+This world-model loop should be treated as a disciplined runtime-governed process rather than a purely verbal planning loop:
 - investigate reality through runtime signals, user corrections, and concrete outcomes
 - transform observations into explicit contradictions, hypotheses, and proposed changes
 - test those changes in bounded workflows before wider rollout
@@ -196,6 +198,16 @@ Skills may append structured upgrade-oriented evidence on top of that envelope, 
 - archive/report metadata
 
 This preserves consistency while keeping higher-order evolution workflows skill-centric.
+
+### 3A.5 Buildability boundary
+The full conceptual model should not be interpreted as mandatory Day-1 scope.
+
+The first implementation should prefer:
+- light telemetry over heavy capture
+- simple scope precedence over policy combinatorics
+- append-only evidence substrate over full autonomous optimization loops
+
+If a requirement cannot be delivered without making the core too heavy, it should be deferred, reduced, or shifted into a skill-level workflow.
 
 ## 3. High-level Architecture
 

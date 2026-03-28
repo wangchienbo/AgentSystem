@@ -16,6 +16,17 @@ The central design stance is:
 
 ---
 
+## 2A. Terminology boundary
+
+To avoid drift across documents, the following terms should be used consistently:
+- **telemetry**: lightweight, structured runtime records used for ordinary operational reads and controls
+- **upgrade-evidence logs**: append-only historical evidence used for replay, acceptance, optimization, publish, and rollback analysis
+- **observability**: a broader operator-facing read layer that may consume telemetry and other domain summaries, but is not identical to telemetry itself
+- **audit**: policy/action trace surfaces associated with system governance; audit may consume upgrade-evidence, but should not be treated as a synonym for all upgrade logs
+- **evaluation summary**: a derived comparison or acceptance record, not a raw telemetry event
+
+---
+
 ## 2. Core Design Position
 
 ### 2.1 Core thin, skill heavy
@@ -162,7 +173,7 @@ Users must be able to control telemetry and upgrade collection policy.
 Policy should be expressible at multiple scopes:
 - global
 - app
-n- skill
+- skill
 - agent
 - task type
 
@@ -219,6 +230,15 @@ The default system posture should be:
 - expensive raw capture disabled
 - user able to narrow or disable collection at any time
 
+### 5.5 Delivery-phase boundary
+The conceptual design supports off/light/medium/heavy/custom and broader scope layering, but the first delivery should prioritize a smaller subset.
+
+The buildable first implementation should start with:
+- `off | light | medium` collection levels
+- `global | app | skill` policy scopes
+
+Heavier collection levels and more complex scope composition should remain later-phase targets unless practical demand proves them necessary earlier.
+
 ---
 
 ## 6. Standardized Event Model and Skill Extensibility
@@ -251,6 +271,16 @@ The rule should be:
 - skills may add structured extension payloads
 
 This preserves consistency without giving up flexibility.
+
+### 6.3 Platform-decision boundary for extension payloads
+Skill extension payloads should be treated as supplemental evidence unless the platform explicitly registers a contract that promotes a given extension field into a trusted decision input.
+
+This means:
+- baseline platform decisions should rely first on platform-defined fields
+- extension payloads must not break or replace the base event envelope
+- publish / rollback / acceptance gates should not silently depend on arbitrary unregistered extension fields
+
+This prevents evidence fragmentation from turning into governance fragmentation.
 
 ---
 
