@@ -15,6 +15,7 @@ from app.services.blueprint_validation import BlueprintValidationService
 from app.services.skill_validation import SkillValidationService
 from app.services.demonstration_extractor import DemonstrationExtractor
 from app.services.event_bus import EventBusService
+from app.services.evaluation_summary_service import EvaluationSummaryService
 from app.services.experience_store import ExperienceStore
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.interaction_gateway import InteractionGateway
@@ -24,6 +25,7 @@ from app.services.model_skill_suggester import ModelSkillSuggester
 from app.services.practice_review import PracticeReviewService
 from app.services.priority_analysis import PriorityAnalysisService
 from app.services.proposal_review import ProposalReviewService
+from app.services.collection_policy_service import CollectionPolicyService
 from app.services.requirement_router import RequirementRouter
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
@@ -40,6 +42,8 @@ from app.services.skill_risk_policy import SkillRiskPolicyService
 from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
 from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
+from app.services.telemetry_service import TelemetryService
+from app.services.upgrade_log_service import UpgradeLogService
 from app.services.workflow_executor import WorkflowExecutorService
 from app.services.workflow_observability import WorkflowObservabilityService
 from app.services.workflow_subscription import WorkflowSubscriptionService
@@ -186,6 +190,17 @@ def build_runtime() -> dict[str, object]:
     event_bus = EventBusService(scheduler=scheduler, store=runtime_store)
     supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
     context_skill_service = ContextSkillService(context_store=app_context_store)
+    collection_policy_service = CollectionPolicyService(store=runtime_store)
+    upgrade_log_service = UpgradeLogService()
+    telemetry_service = TelemetryService(
+        store=runtime_store,
+        policy_service=collection_policy_service,
+        upgrade_log_service=upgrade_log_service,
+    )
+    evaluation_summary_service = EvaluationSummaryService(
+        store=runtime_store,
+        upgrade_log_service=upgrade_log_service,
+    )
     practice_review = PracticeReviewService(
         event_bus=event_bus,
         data_store=app_data_store,
