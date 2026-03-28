@@ -1,12 +1,16 @@
 # AgentSystem / App OS Testing Strategy
 
 For cross-cutting impact analysis before edits, also consult `docs/system-relationship-map.md`.
+For telemetry and upgrade-evidence design details, also consult `docs/telemetry-and-upgrade-logging.md`.
 
 ## 1. Purpose
 
 This document defines how AgentSystem should be validated against its current implemented architecture and its near-term roadmap.
 
 The testing goal is not only to validate isolated functions, but to verify that the system behaves coherently as an App OS with:
+- telemetry / feedback / upgrade logging separation
+- collection policy levels and app/skill-scoped control
+- cost-aware self-iteration evidence
 - blueprint registration and installation
 - lifecycle and runtime management
 - scheduling and supervision
@@ -49,7 +53,41 @@ Used to validate full user/system flows:
 
 ---
 
-## 3. Current Implemented Test Matrix
+## 3. Telemetry / feedback / upgrade-log testing direction
+
+The next major cross-cutting testing area should validate the new telemetry and upgrade-evidence substrate.
+
+### 3.1 Runtime telemetry tests
+Should cover:
+- interaction-level telemetry creation
+- step/invocation telemetry creation
+- token / latency / success-failure aggregation
+- version binding across app / skill / agent / policy
+- explicit and implicit feedback persistence
+
+### 3.2 Collection-policy tests
+Should cover:
+- global enable / disable behavior
+- app-level overrides
+- skill-level overrides
+- collection level behavior (`off | light | medium | heavy | custom`)
+- default-light collection posture
+
+### 3.3 Upgrade-log tests
+Should cover:
+- append-only JSONL writing
+- daily rotation behavior
+- event schema stability
+- bounded payload behavior in light mode
+- failure tolerance so log-write issues do not break online request serving
+
+### 3.4 Self-iteration evidence tests
+Should cover:
+- candidate evaluation records include cost/latency/success dimensions
+- publish / rollback evidence is queryable
+- skill-added evidence extensions do not break baseline event parsing
+
+## 4. Current Implemented Test Matrix
 
 The current codebase already covers the following implemented domains.
 
@@ -250,7 +288,7 @@ Covered behavior:
 
 ---
 
-## 4. Test Suite Status
+## 5. Test Suite Status
 
 At the time of this document update:
 - automated local test suite passes
@@ -260,7 +298,7 @@ This indicates the implemented milestone is internally consistent at the current
 
 ---
 
-## 5. Core Functional Test Groups
+## 6. Core Functional Test Groups
 
 ## 5.1 Lifecycle tests
 Required checks:
@@ -341,7 +379,7 @@ Required checks:
 
 ---
 
-## 6. API-level Validation Targets
+## 7. API-level Validation Targets
 
 The following API groups should remain covered by tests:
 - `/blueprints/validate`
@@ -360,7 +398,7 @@ The following API groups should remain covered by tests:
 
 ---
 
-## 7. Testing Discipline
+## 8. Testing Discipline
 
 ### 7.1 For each feature node
 For each functional feature node, the expected workflow is:
@@ -380,7 +418,7 @@ Tests should map back to the implemented requirements and current design, not to
 
 ---
 
-## 8. Known Current Testing Limits
+## 9. Known Current Testing Limits
 
 The current suite is strong for core service logic, but still limited in these areas:
 - no real workflow execution engine yet
@@ -392,7 +430,7 @@ The current suite is strong for core service logic, but still limited in these a
 
 ---
 
-## 9. Next Testing Priorities
+## 10. Next Testing Priorities
 
 As the system evolves, the next test groups to add should be:
 1. workflow execution against data and event primitives
@@ -402,13 +440,15 @@ As the system evolves, the next test groups to add should be:
 5. persistent backend compatibility tests
 6. longer-running service app recovery tests
 7. layered context compaction and working-set derivation tests
+8. telemetry / feedback / upgrade-log split and collection-policy tests
+9. cost-aware candidate evaluation / publish-gate / rollback-evidence tests
    - summary/policy persistence and reload
    - auto compaction on stage change
    - working-set/detail views include workflow and skill execution references
 
 ---
 
-## 10. Conclusion
+## 11. Conclusion
 
 The current testing strategy should continue to protect the system’s core identity:
 - apps as managed long-lived objects

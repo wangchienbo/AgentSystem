@@ -3,6 +3,7 @@
 ## Related Maps
 
 - See `docs/system-relationship-map.md` for the cross-cutting module / feature / test relationship graph used for change-impact analysis.
+- See `docs/telemetry-and-upgrade-logging.md` for the telemetry / feedback / upgrade-evidence architecture that future implementation should follow.
 
 This document is a lightweight map of the current AgentSystem code layout for ongoing development.
 
@@ -84,3 +85,18 @@ Read:
 3. `app/models/skill_adapter.py`
 4. `app/services/skill_manifest_validator.py`
 5. `app/services/skill_runtime.py`
+
+## Planned telemetry / upgrade evidence layer
+
+This layer is now a documented design target and should be treated as a first-class future structure area.
+
+Expected module families include:
+- telemetry models for interaction / step / feedback / version binding
+- collection-policy models for per-scope and per-level control
+- lightweight online telemetry services
+- append-only upgrade-log writers/readers
+- evaluation summary / candidate comparison primitives
+
+Design rule:
+- the core should define the standard substrate
+- higher-order generation / testing / acceptance / publish / rollback flows should remain skill-oriented whenever practical

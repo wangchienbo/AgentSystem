@@ -2,6 +2,42 @@
 
 ## 2026-03-28
 
+### Module: telemetry and upgrade-evidence documentation consolidation
+
+Performed a documentation-wide consolidation to align the project with the new design direction: core-thin / skill-heavy evolution, user-controlled telemetry policy, append-only upgrade logs, and cost-aware self-iteration.
+
+#### Updated
+- `docs/requirements.md`
+  - adds telemetry / feedback / upgrade-log requirements
+  - adds collection-policy levels and app/skill-scoped control requirements
+  - records skill-centric self-iteration and optimization criteria as first-class requirements
+- `docs/design.md`
+  - adds telemetry / feedback / upgrade-evidence architecture
+  - documents dual-track observation design (online telemetry vs append-only upgrade logs)
+- `docs/testing.md`
+  - adds testing direction for telemetry, collection policy, append-only logs, and cost-aware evaluation
+- `docs/testing-detail.md`
+  - adds implementation-oriented telemetry / upgrade-log testing notes
+- `docs/skill-design-principles.md`
+  - adds a skill-centric evolution principle so higher-order workflows remain skill-first when possible
+- `docs/code-structure.md`
+  - adds planned telemetry / upgrade evidence layer as an explicit future structure area
+- `docs/system-relationship-map.md`
+  - adds telemetry / feedback / upgrade-log relationships and future test impact guidance
+- `docs/telemetry-and-upgrade-logging.md`
+  - new dedicated design document for telemetry, feedback, collection levels, append-only upgrade logs, and skill-extensible upgrade evidence
+
+#### Why
+- recent design decisions around self-iteration, user-controlled policy, token-cost awareness, append-only upgrade logging, and skill-oriented evolution had become larger than a few isolated notes
+- the existing requirements/design/testing docs needed a coherent update so future implementation work has one aligned direction instead of scattered conversation fragments
+- this also prepares the project for future implementation of telemetry and evaluation primitives without forcing all higher-order behavior into the core platform
+
+#### Validation
+- documentation cross-check performed against current architecture docs and relationship-map maintenance rules
+- no code-path changes in this module; validation scope is document consistency and coverage
+
+## 2026-03-28
+
 ### Module: app operator attention actions
 
 Moved the app registry control plane from read-only triage into a minimal actionable surface by allowing operators to record per-app attention actions.
