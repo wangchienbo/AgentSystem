@@ -2,6 +2,39 @@
 
 ## 2026-03-28
 
+### Module: workflow telemetry hooks and minimal read surfaces
+
+Pushed the telemetry/evaluation module closer to a usable whole by adding workflow-level telemetry hooks and exposing minimal read surfaces for telemetry, evaluation, upgrade logs, and the initial core-skill toolchain.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - now emits lightweight workflow-level telemetry summaries
+  - binds minimal version information during workflow execution result recording
+- `app/api/main.py`
+  - now exposes read endpoints for:
+    - telemetry interactions
+    - telemetry steps
+    - feedback
+    - version bindings
+    - collection policies
+    - candidate evaluations
+    - upgrade-log events
+    - core replay / cost / acceptance / archive summaries
+
+#### Added
+- `tests/unit/test_telemetry_api.py`
+  - verifies the new minimal read surfaces for telemetry/evaluation/core-toolchain summaries
+
+#### Scope deliberately kept small
+- this is still a minimal read surface, not a full observability dashboard
+- core skill toolchain is exposed through small control-plane reads, but not yet fully registered as runtime manifest-backed skills
+- ordinary-skill self-growth/publish orchestration still remains later-phase work
+
+#### Validation
+- `python3 -m py_compile app/services/workflow_executor.py app/api/main.py app/bootstrap/runtime.py tests/unit/test_telemetry_api.py`
+
+## 2026-03-28
+
 ### Module: telemetry hooks and initial core-skill toolchain stubs
 
 Extended the Phase-1 implementation by adding telemetry hooks to key runtime paths and creating the first lightweight core-skill-toolchain stubs that consume telemetry/evaluation data.
