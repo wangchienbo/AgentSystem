@@ -2,6 +2,46 @@
 
 ## 2026-03-28
 
+### Module: telemetry phase-1 core substrate implementation
+
+Implemented the first runnable telemetry substrate slice aligned with the thin-core / skill-growth architecture. This is intentionally a platform substrate, not yet a full operator surface or autonomous optimization loop.
+
+#### Added
+- `app/models/telemetry.py`
+  - `InteractionTelemetryRecord`
+  - `StepTelemetryRecord`
+  - `FeedbackRecord`
+  - `VersionBindingRecord`
+  - `CollectionPolicyRecord`
+- `app/models/upgrade_log.py`
+  - `UpgradeLogEvent` append-only event envelope
+- `app/services/collection_policy_service.py`
+  - stores and resolves collection policy with simple precedence (`skill > app > global`)
+- `app/services/upgrade_log_service.py`
+  - append-only JSONL event writer/reader with per-day files
+- `app/services/telemetry_service.py`
+  - records interactions, steps, feedback, and version bindings
+  - persists lightweight online telemetry into the runtime store
+  - emits append-only upgrade-evidence events when policy allows
+- `tests/unit/test_telemetry_services.py`
+  - policy precedence coverage
+  - JSONL append/read coverage
+  - persistence reload coverage
+  - medium-policy step event logging coverage
+
+#### Scope deliberately kept small
+- no API/operator dashboard surface yet
+- no heavy/custom collection level implementation
+- no candidate evaluation primitives yet
+- no direct wiring into runtime bootstrap yet
+- no autonomous self-improvement loop yet
+
+#### Validation
+- `python3 -m py_compile app/models/telemetry.py app/models/upgrade_log.py app/services/collection_policy_service.py app/services/upgrade_log_service.py app/services/telemetry_service.py tests/unit/test_telemetry_services.py`
+- environment did not provide `pytest` directly in this shell, so validation for this step is syntax/compile verification plus test-file creation for later full-suite execution
+
+## 2026-03-28
+
 ### Module: core-thin / core-skill-toolchain documentation update
 
 Updated the document set to make the architecture preference more explicit: keep the platform core thin, establish a governed core-skill toolchain, and let later system expansion happen mainly through ordinary-skill growth under supervision.
