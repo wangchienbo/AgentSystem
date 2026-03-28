@@ -253,7 +253,11 @@ def build_runtime() -> dict[str, object]:
         blueprint_validation=blueprint_validation,
     )
     app_catalog = AppCatalogService()
-    skill_runtime = SkillRuntimeService(store=runtime_store, schema_registry=schema_registry)
+    skill_runtime = SkillRuntimeService(
+        store=runtime_store,
+        schema_registry=schema_registry,
+        telemetry_service=telemetry_service,
+    )
     generated_skill_assets = GeneratedSkillAssetStore(app_data_store)
     skill_factory = SkillFactoryService(
         skill_control=skill_control,
@@ -289,6 +293,7 @@ def build_runtime() -> dict[str, object]:
         runtime_host=runtime_host,
         installer=app_installer,
         context_store=app_context_store,
+        telemetry_service=telemetry_service,
     )
     skill_factory.reload_generated_skills()
 
