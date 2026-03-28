@@ -2,6 +2,37 @@
 
 ## 2026-03-28
 
+### Module: telemetry hooks and initial core-skill toolchain stubs
+
+Extended the Phase-1 implementation by adding telemetry hooks to key runtime paths and creating the first lightweight core-skill-toolchain stubs that consume telemetry/evaluation data.
+
+#### Updated
+- `app/services/interaction_gateway.py`
+  - now records lightweight interaction telemetry for user-command handling
+- `app/services/skill_runtime.py`
+  - now records lightweight step telemetry for skill execution outcomes
+- `app/bootstrap/runtime.py`
+  - now injects telemetry service into interaction gateway and skill runtime
+
+#### Added
+- `app/services/core_skill_toolchain.py`
+  - `CoreReplaySelectorSkill`
+  - `CoreCostAnalyzerSkill`
+  - `CoreAcceptanceReportSkill`
+  - `CoreArchiveSummarySkill`
+- `tests/unit/test_core_skill_toolchain.py`
+  - verifies the first core-toolchain stubs can consume telemetry/evaluation substrate data
+
+#### Scope deliberately kept small
+- workflow executor itself was not yet deeply instrumented beyond downstream skill-step telemetry
+- no public API endpoints yet for the core-skill toolchain
+- these core skills are still service-level stubs, not yet exposed as fully registered runtime skills/manifests
+
+#### Validation
+- `python3 -m py_compile app/services/interaction_gateway.py app/services/skill_runtime.py app/bootstrap/runtime.py app/services/core_skill_toolchain.py tests/unit/test_core_skill_toolchain.py`
+
+## 2026-03-28
+
 ### Module: telemetry bootstrap wiring and evaluation gates
 
 Continued the Phase-1 substrate work by wiring telemetry-related services into runtime bootstrap and adding a first minimal evaluation-gate service.
