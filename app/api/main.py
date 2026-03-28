@@ -47,6 +47,12 @@ from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
 from app.services.skill_control import SkillControlError
 from app.services.skill_retry_advisor import SkillRetryAdvisorService
+from app.services.core_skill_toolchain import (
+    CoreAcceptanceReportSkill,
+    CoreArchiveSummarySkill,
+    CoreCostAnalyzerSkill,
+    CoreReplaySelectorSkill,
+)
 from app.api.operator_filters import build_refinement_filter, build_workflow_observability_filter
 
 
@@ -106,6 +112,14 @@ workflow_observability = services["workflow_observability"]
 context_compaction = services["context_compaction"]
 interaction_gateway = services["interaction_gateway"]
 blueprint_validation = services["blueprint_validation"]
+collection_policy_service = services["collection_policy_service"]
+upgrade_log_service = services["upgrade_log_service"]
+telemetry_service = services["telemetry_service"]
+evaluation_summary_service = services["evaluation_summary_service"]
+core_replay_selector = CoreReplaySelectorSkill(telemetry_service)
+core_cost_analyzer = CoreCostAnalyzerSkill(telemetry_service)
+core_acceptance_report = CoreAcceptanceReportSkill(evaluation_summary_service)
+core_archive_summary = CoreArchiveSummarySkill()
 
 bootstrap_builtin_skills(skill_runtime, services)
 bootstrap_demo_catalog(app_registry, app_catalog)
@@ -1057,6 +1071,78 @@ def list_skill_runtime_executions() -> list[dict]:
 @app.get("/skill-runtime/failures")
 def list_skill_runtime_failures() -> list[dict]:
     return [item.model_dump(mode="json") for item in skill_runtime.list_failures()]
+
+
+@app.get("/telemetry/interactions/{interaction_id}")
+def get_telemetry_interaction(interaction_id: str) -> dict:
+    item = telemetry_service.get_interaction(interaction_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="telemetry interaction not found")
+    return item.model_dump(mode="json")
+
+
+@app.get("/telemetry/interactions/{interaction_id}/steps")
+def list_telemetry_steps(interaction_id: str) -> list[dict]:
+    return [item.model_dump(mode="json") for item in telemetry_service.list_steps(interaction_id)]
+
+
+@app.get("/telemetry/feedback")
+def list_telemetry_feedback(scope_id: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in telemetry_service.list_feedback(scope_id=scope_id)]
+
+
+@app.get("/telemetry/version-bindings/{interaction_id}")
+def get_version_binding(interaction_id: str) -> dict:
+    item = telemetry_service.get_version_binding(interaction_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="version binding not found")
+    return item.model_dump(mode="json")
+
+
+@app.get("/telemetry/policies")
+def list_collection_policies() -> list[dict]:
+    return [item.model_dump(mode="json") for item in collection_policy_service.list_policies()]
+
+
+@app.get("/evaluation/candidates")
+def list_candidate_evaluations() -> list[dict]:
+    return [item.model_dump(mode="json") for item in evaluation_summary_service.list_records()]
+
+
+@app.get("/evaluation/candidates/{candidate_id}")
+def get_candidate_evaluation(candidate_id: str) -> dict:
+    item = evaluation_summary_service.get(candidate_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="candidate evaluation not found")
+    return item.model_dump(mode="json")
+
+
+@app.get("/upgrade-logs/{stream}/{day}")
+def list_upgrade_log_events(stream: str, day: str) -> list[dict]:
+    return [item.model_dump(mode="json") for item in upgrade_log_service.read_events(stream, day)]
+
+
+@app.get("/core-skills/replay/failed-interactions")
+def list_failed_replay_candidates() -> dict:
+    return {"interaction_ids": core_replay_selector.select_failed_interactions()}
+
+
+@app.get("/core-skills/cost/{app_id}")
+def summarize_app_cost(app_id: str) -> dict:
+    return core_cost_analyzer.summarize_app_cost(app_id)
+
+
+@app.get("/core-skills/acceptance/{candidate_id}")
+def get_acceptance_report(candidate_id: str) -> dict:
+    return core_acceptance_report.build_report(candidate_id)
+
+
+@app.get("/core-skills/archive/{candidate_id}")
+def get_archive_summary(candidate_id: str) -> dict:
+    item = evaluation_summary_service.get(candidate_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="candidate evaluation not found")
+    return core_archive_summary.summarize_evaluation(item)
 
 
 @app.post("/practice/review")

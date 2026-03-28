@@ -274,6 +274,7 @@ def build_runtime() -> dict[str, object]:
         context_store=app_context_store,
         skill_runtime=skill_runtime,
         store=runtime_store,
+        telemetry_service=telemetry_service,
     )
     workflow_subscription = WorkflowSubscriptionService(
         workflow_executor=workflow_executor,
