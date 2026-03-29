@@ -389,6 +389,8 @@ The following API groups should remain covered by tests:
 - `/demonstrations/extract`
 - `/apps/*`
 - `/registry/apps*`
+  - release comparison (`/registry/apps/{blueprint_id}/compare`)
+  - operator overview / attention / summary read models
 - `/interaction/command`
 - `/data/namespaces*`
 - `/events*`

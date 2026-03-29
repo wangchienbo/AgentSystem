@@ -841,5 +841,8 @@ Current implementation note:
 - an aggregate stats summary is now available for workflow observability, giving operator-facing surfaces totals for executions, failures, retries, recoveries, unresolved states, and latest activity time
 - a dashboard-style read model now combines overview, stats, and recent timeline into one higher-level payload for operator surfaces that want one coherent summary call
 - observability internals are now starting to split into helper/query modules so API parsing and low-level classification/filter logic stop accumulating inside one large service/file
+- registry/operator surfaces now include release comparison, overview, attention, and control-plane summary read models so release review can happen through one coherent operator-facing contract
+- operator-facing workflow/refinement surfaces now share small common filter/page/dashboard contracts, reducing drift between related read models while keeping domain-specific payloads explicit
+- workflow execution telemetry now binds app versions through the installed app-instance version surface, avoiding contract drift between installer/runtime models and executor telemetry
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

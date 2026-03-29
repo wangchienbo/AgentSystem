@@ -32,3 +32,7 @@ class AppInstance(BaseModel):
     system_skills: list[str] = Field(default_factory=list)
     resolved_skills: list[str] = Field(default_factory=list)
     runtime_profile: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)
+
+    @property
+    def release_version(self) -> str:
+        return self.installed_version

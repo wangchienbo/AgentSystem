@@ -677,6 +677,7 @@ Current milestone is considered complete if the system can:
 - review runtime practice into experience
 - suggest skill blueprints from experience
 - pass automated tests for the above
+- expose operator-facing registry read models for release comparison, overview, attention triage, and control-plane summary
 
 ---
 

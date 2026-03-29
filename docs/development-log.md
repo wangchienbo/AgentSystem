@@ -4033,3 +4033,28 @@ Started the next cleanup pass by moving low-level observability filtering/classi
 #### Design intent clarified
 - once a sub-framework reaches this size, readability and future change safety improve by separating request-building and low-level helper logic from the primary orchestration layer
 - module extraction should reduce file bloat without forcing a breaking change in the public observability contract
+
+### Module: complete app release compare and operator surface validation pass
+
+Closed the loop on the app release comparison/operator surface module by validating the new registry read models, shared operator contracts, and workflow-facing operator APIs together, then fixing one runtime compatibility gap uncovered by the regression pass.
+
+#### Updated
+- `app/models/app_instance.py`
+  - adds a compatibility `release_version` property backed by `installed_version`
+  - keeps workflow telemetry/version binding aligned with the app installer/runtime model
+- `docs/requirements.md`
+  - records operator-facing registry read models as part of the current milestone surface
+- `docs/design.md`
+  - captures the release-compare/operator-surface design intent and the version-binding compatibility fix
+- `docs/testing.md`
+  - makes registry compare/overview/attention/summary coverage explicit in the API validation targets
+
+#### Validation
+- Ran `.venv/bin/python` + `fastapi.testclient` smoke validation for the registry release-compare flow
+- Ran `.venv/bin/pytest tests/unit/test_api_golden_path.py tests/unit/test_workflow_executor.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_app_registry_operator_surfaces.py tests/unit/test_operator_api_filters.py tests/unit/test_operator_filter_params.py tests/unit/test_operator_page_meta.py tests/unit/test_operator_dashboard_core.py tests/unit/test_api_golden_path.py tests/unit/test_workflow_observability.py tests/unit/test_workflow_executor.py -q`
+- Result: `37 passed`
+
+#### Design intent clarified
+- operator-facing surfaces are only "done" when the release/read-model APIs, shared contracts, and workflow execution path still agree under regression coverage
+- compatibility between installer/runtime instance models and executor telemetry should be preserved at the model boundary instead of relying on call sites to remember alternate field names
