@@ -687,7 +687,7 @@ Current milestone is considered complete if the system can:
 The next major gaps are:
 - workflow execution modules tied to app data and event operations
 - contradiction / priority analysis for better decision focus
-- app refinement from suggested skills
+- app refinement from suggested skills, including a one-call path that materializes suggested skill blueprints and assembles them into an app blueprint
 - stronger policy and permission model
 - production-grade persistence and recovery
 - layered context compaction and retrieval

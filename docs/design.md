@@ -780,6 +780,7 @@ The next most important missing pieces are:
 - app data operations as workflow primitives
 - contradiction / priority analysis for better focus
 - app/workflow refinement based on suggested skills
+- suggested-skill refinement should not require callers to manually materialize each suggested blueprint first; the platform should provide a one-call orchestration path that materializes missing suggested skills and assembles an app blueprint from them
 - stronger permission and policy enforcement
 - durable production-grade persistence backends
 - layered context compaction and retrieval

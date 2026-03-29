@@ -440,6 +440,7 @@ As the system evolves, the next test groups to add should be:
 1. workflow execution against data and event primitives
 2. contradiction / priority analysis behavior
 3. refinement flows from suggested skills into workflows/apps
+4. suggested-skill refinement can materialize missing suggested blueprints and assemble/register an app blueprint through one API path
 4. policy and permission enforcement
 5. persistent backend compatibility tests
 6. longer-running service app recovery tests
