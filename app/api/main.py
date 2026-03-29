@@ -13,6 +13,7 @@ from app.services.app_catalog import AppCatalogError
 from app.services.app_context_store import AppContextStoreError
 from app.services.app_data_store import AppDataStoreError
 from app.services.app_registry import AppRegistryError
+from app.services.app_refinement import AppRefinementError
 from app.services.app_installer import AppInstallerError
 from app.services.app_config_service import AppConfigError
 from app.services.event_bus import EventBusError
@@ -34,6 +35,7 @@ from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.refinement_loop import RefinementFilter, RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
+from app.models.app_refinement import SuggestedSkillRefinementRequest
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, GeneratedSkillRevisionRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError, _diagnostic
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
@@ -106,6 +108,7 @@ app_catalog = services["app_catalog"]
 skill_runtime = services["skill_runtime"]
 skill_risk_policy = services["skill_risk_policy"]
 skill_factory = services["skill_factory"]
+app_refinement = services["app_refinement"]
 workflow_executor = services["workflow_executor"]
 workflow_subscription = services["workflow_subscription"]
 workflow_observability = services["workflow_observability"]
@@ -355,6 +358,16 @@ def create_install_and_run_app_from_skills(request: AppFromSkillsInstallRunReque
             )
         ) from error
     except (SkillDiagnosticError, AppRegistryError, SkillFactoryError, ValueError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/apps/refine-from-suggested-skills")
+def refine_app_from_suggested_skills(request: SuggestedSkillRefinementRequest) -> dict:
+    try:
+        result = app_refinement.build_app_from_suggested_skills(request)
+        app_registry.register_blueprint(result.blueprint)
+        return result.model_dump(mode="json")
+    except (AppRefinementError, AppRegistryError, SkillDiagnosticError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
 
 @app.get("/experiences")

@@ -4089,3 +4089,36 @@ Finished the broader refinement governance module by adding a unified operator s
 #### Design intent clarified
 - this module is only considered complete when operators can inspect refinement state from both granular governance endpoints and a single higher-level summary surface
 - refinement proposal/review/priority/governance state should stay composable internally, but routine operator triage should not require clients to orchestrate that composition themselves
+
+### Module: complete app refinement from suggested skills
+
+Completed the next-stage refinement flow by connecting persisted suggested skill blueprints to generated app assembly, so experience-driven suggestions can now become app-level refinements without manual per-skill materialization.
+
+#### Updated
+- `app/models/app_refinement.py`
+  - adds request/result contracts for suggested-skill-to-app refinement orchestration
+- `app/services/app_refinement.py`
+  - selects suggested skill blueprints from an experience or explicit skill ids
+  - materializes missing suggested skills through the generated callable path
+  - assembles the resulting skill set into an app blueprint via existing app-from-skills logic
+- `app/bootstrap/runtime.py`
+  - wires the new app refinement service into runtime composition
+- `app/api/main.py`
+  - exposes `/apps/refine-from-suggested-skills`
+- `tests/unit/test_app_refinement_from_suggested_skills.py`
+  - validates the end-to-end API flow from practice review → skill suggestion → app refinement assembly
+- `docs/requirements.md`
+  - records one-call app refinement from suggested skills explicitly
+- `docs/design.md`
+  - captures the orchestration design intent
+- `docs/testing.md`
+  - records regression coverage for the new one-call refinement path
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_skill_suggestion.py tests/unit/test_app_refinement_from_suggested_skills.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_api_golden_path.py tests/unit/test_golden_path_integration.py tests/unit/test_skill_suggestion.py tests/unit/test_app_refinement_from_suggested_skills.py -q`
+- Result: `8 passed`, `10 passed`
+
+#### Design intent clarified
+- suggested skill blueprints are only practically useful for app evolution when the platform can bridge them into concrete app refinement without asking callers to manually recreate intermediate materialization steps
+- experience-driven refinement should prefer the safer generated callable path by default when materializing suggested skills into executable building blocks

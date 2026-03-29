@@ -8,6 +8,7 @@ from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_profile_resolver import AppProfileResolverService
+from app.services.app_refinement import AppRefinementService
 from app.services.app_registry import AppRegistryService
 from app.services.context_compaction import ContextCompactionService
 from app.services.system_skills.context import ContextSkillService
@@ -265,6 +266,11 @@ def build_runtime() -> dict[str, object]:
         schema_registry=schema_registry,
         generated_assets=generated_skill_assets,
         risk_policy=skill_risk_policy,
+    )
+    app_refinement = AppRefinementService(
+        experience_store=experience_store,
+        skill_control=skill_control,
+        skill_factory=skill_factory,
     )
     workflow_executor = WorkflowExecutorService(
         registry=app_registry,
