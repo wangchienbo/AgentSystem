@@ -143,6 +143,7 @@ Covered behavior:
 - circuit-open protection
 - scheduler/supervisor API flow
 - proposal review / priority analysis context-aware scoring and review notes
+- refinement operator summary coverage across proposal/review/priority/governance aggregation
 
 ## 3.6 Registry and installer
 Covered behavior:

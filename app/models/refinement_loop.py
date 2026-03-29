@@ -8,6 +8,7 @@ from pydantic import ConfigDict
 from app.models.operator_contracts import OperatorPageMeta
 from app.models.operator_dashboards import OperatorDashboardCore
 from app.models.operator_filters import OperatorFilterParams
+from app.models.priority_analysis import PrioritizedProposal
 from pydantic import BaseModel, Field
 
 
@@ -121,6 +122,20 @@ class RefinementDashboard(BaseModel):
 class RefinementGovernanceDashboard(OperatorDashboardCore[RefinementOverview, "RefinementStatsSummary"]):
     recent_queue: "RefinementQueuePage"
     recent_failed_hypotheses: "FailedHypothesisPage"
+
+
+class RefinementOperatorSummary(BaseModel):
+    app_instance_id: str
+    proposal_count: int = 0
+    proposed_review_count: int = 0
+    approved_review_count: int = 0
+    rejected_review_count: int = 0
+    applied_review_count: int = 0
+    latest_priority: PrioritizedProposal | None = None
+    primary_contradiction: str = ""
+    recommended_action: str = ""
+    context_summary: str = ""
+    governance: RefinementGovernanceDashboard
 
 
 class RefinementFilter(OperatorFilterParams):
