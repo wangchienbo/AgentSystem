@@ -4058,3 +4058,34 @@ Closed the loop on the app release comparison/operator surface module by validat
 #### Design intent clarified
 - operator-facing surfaces are only "done" when the release/read-model APIs, shared contracts, and workflow execution path still agree under regression coverage
 - compatibility between installer/runtime instance models and executor telemetry should be preserved at the model boundary instead of relying on call sites to remember alternate field names
+
+### Module: complete refinement governance / priority analysis operator surface
+
+Finished the broader refinement governance module by adding a unified operator summary surface on top of the existing proposal review, priority analysis, and governance dashboard layers.
+
+#### Updated
+- `app/models/refinement_loop.py`
+  - adds `RefinementOperatorSummary` as the aggregate read model for proposal/review/priority/governance inspection
+- `app/services/refinement_memory.py`
+  - adds `build_operator_summary(...)` to assemble proposal counts, review-state totals, latest priority judgment, contradiction/action guidance, and governance dashboard state in one response
+- `app/api/main.py`
+  - exposes `/self-refinement/operator-summary`
+- `tests/unit/test_refinement_operator_summary.py`
+  - validates both direct service aggregation and API surface behavior
+- `docs/requirements.md`
+  - records the unified operator summary requirement explicitly
+- `docs/design.md`
+  - captures the design intent for one-call operator triage over refinement governance
+- `docs/testing.md`
+  - records operator-summary regression coverage
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_refinement_operator_summary.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_refinement_operator_summary.py tests/unit/test_priority_analysis.py tests/unit/test_proposal_review.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_api_refinement_governance_path.py tests/unit/test_refinement_governance_dashboard.py tests/unit/test_refinement_filters_and_stats.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_refinement_dashboard.py tests/unit/test_refinement_overview.py tests/unit/test_refinement_observability_api.py -q`
+- Result: `2 passed`, `5 passed`, `6 passed`, `5 passed`
+
+#### Design intent clarified
+- this module is only considered complete when operators can inspect refinement state from both granular governance endpoints and a single higher-level summary surface
+- refinement proposal/review/priority/governance state should stay composable internally, but routine operator triage should not require clients to orchestrate that composition themselves

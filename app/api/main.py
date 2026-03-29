@@ -1319,6 +1319,21 @@ def get_refinement_governance_dashboard(
     ).model_dump(mode="json")
 
 
+@app.get("/self-refinement/operator-summary")
+def get_refinement_operator_summary(app_instance_id: str, recent_limit: int = 5) -> dict:
+    try:
+        priority = priority_analysis.analyze(PriorityAnalysisRequest(app_instance_id=app_instance_id))
+    except PriorityAnalysisError:
+        priority = None
+    return refinement_memory.build_operator_summary(
+        app_instance_id=app_instance_id,
+        proposals=proposal_review.list_proposals(app_instance_id),
+        reviews=proposal_review.list_reviews(),
+        priority=priority,
+        recent_limit=recent_limit,
+    ).model_dump(mode="json")
+
+
 @app.post("/self-refinement/rollout-queue/{queue_id}/{action}")
 def transition_refinement_rollout_queue(queue_id: str, action: str, payload: dict | None = None) -> dict:
     payload = payload or {}

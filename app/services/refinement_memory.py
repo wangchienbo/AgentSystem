@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.models.priority_analysis import PriorityAnalysisResult
+from app.models.proposal_review import ProposalReviewRecord
 from app.models.refinement_loop import (
     FailedHypothesisPage,
     FailedHypothesisRecord,
@@ -8,6 +10,7 @@ from app.models.refinement_loop import (
     RefinementExperiment,
     RefinementFilter,
     RefinementHypothesis,
+    RefinementOperatorSummary,
     RefinementOverview,
     RefinementPageMeta,
     RefinementQueuePage,
@@ -253,6 +256,36 @@ class RefinementMemoryStore:
             stats=stats,
             recent_queue=recent_queue,
             recent_failed_hypotheses=recent_failed,
+        )
+
+    def build_operator_summary(
+        self,
+        *,
+        app_instance_id: str,
+        proposals: list,
+        reviews: list[ProposalReviewRecord],
+        priority: PriorityAnalysisResult | None,
+        recent_limit: int = 5,
+    ) -> RefinementOperatorSummary:
+        related_proposals = [item for item in proposals if item.app_instance_id == app_instance_id]
+        proposal_ids = {item.proposal_id for item in related_proposals}
+        related_reviews = [item for item in reviews if item.proposal_id in proposal_ids]
+        governance = self.get_governance_dashboard(
+            RefinementFilter(app_instance_id=app_instance_id),
+            recent_limit=recent_limit,
+        )
+        return RefinementOperatorSummary(
+            app_instance_id=app_instance_id,
+            proposal_count=len(related_proposals),
+            proposed_review_count=sum(1 for item in related_reviews if item.status == "proposed"),
+            approved_review_count=sum(1 for item in related_reviews if item.status == "approved"),
+            rejected_review_count=sum(1 for item in related_reviews if item.status == "rejected"),
+            applied_review_count=sum(1 for item in related_reviews if item.status == "applied"),
+            latest_priority=None if priority is None or not priority.prioritized else priority.prioritized[0],
+            primary_contradiction="" if priority is None else priority.primary_contradiction,
+            recommended_action="" if priority is None else priority.recommended_action,
+            context_summary="" if priority is None else priority.context_summary,
+            governance=governance,
         )
 
     def _apply_hypothesis_filters(self, items: list[RefinementHypothesis], filters: RefinementFilter) -> list[RefinementHypothesis]:
