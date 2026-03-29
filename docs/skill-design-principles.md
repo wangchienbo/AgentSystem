@@ -51,11 +51,22 @@ Core skills should have strict machine-readable contracts for:
 ### 2.7 Orchestrator-visible execution
 Skill execution should remain visible to the runtime/orchestrator so policy, tracing, timeout, retry, and audit can be applied consistently.
 
-### 2.8 Build-time vs runtime clarity
+### 2.8 Skill-centric evolution by default
+If a higher-order behavior such as generation, testing, acceptance, archive, publish, or rollback can be expressed as a reusable skill workflow rather than a hard-coded core behavior, the platform should prefer the skill path unless the function must remain a core standard or safety boundary.
+
+### 2.9 Build-time vs runtime clarity
 A skill should explicitly indicate whether it is:
 - build-only
 - optional at runtime
 - required at runtime
+
+### 2.10 Core-skill toolchain over core bloat
+When the platform needs higher-order self-improvement behavior, the default preference should be:
+- keep the platform core minimal
+- express the improvement workflow as a governed core skill when possible
+- allow ordinary skills to be produced and managed by that toolchain later
+
+This means the main growth path should be governed skill growth, not repeated core expansion.
 
 ## 3. Canonical Core Skill Principle Table
 
@@ -89,6 +100,9 @@ Whenever a new core skill is introduced, its design should be reviewed against t
 9. Should it be visible to the orchestrator/runtime for tracing, retry, and policy control?
 10. Could it incorrectly inflate app runtime intelligence level if misclassified?
 11. Does it blur config/state/context/audit boundaries?
+12. Could this behavior live as a skill instead of a core hard-coded flow?
+13. If it participates in self-iteration, does it produce or consume standardized telemetry/upgrade evidence cleanly?
+14. If this is a self-improvement toolchain capability, should it exist as a governed core skill rather than as new platform-core code?
 
 ## 5. How to Use This Document
 

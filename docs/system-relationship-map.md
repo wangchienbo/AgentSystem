@@ -29,6 +29,8 @@ graph TD
     RuntimeBootstrap --> DataContext[Data & Context]
     RuntimeBootstrap --> EventsScheduling[Events / Scheduler / Supervisor]
     RuntimeBootstrap --> SkillsSystem[Skills & Generated Skills]
+    RuntimeBootstrap --> CoreSkillToolchain[Core Skill Toolchain]
+    RuntimeBootstrap --> TelemetryLayer[Telemetry / Feedback / Upgrade Logs]
     RuntimeBootstrap --> LearningLoop[Practice Review / Self-Refinement]
     RuntimeBootstrap --> WorkflowOps[Workflow Execution & Observability]
     RuntimeBootstrap --> Interaction[Interaction Gateway]
@@ -40,6 +42,12 @@ graph TD
     EventsScheduling --> WorkflowOps
     EventsScheduling --> LearningLoop
     DataContext --> LearningLoop
+    WorkflowOps --> TelemetryLayer
+    SkillsSystem --> TelemetryLayer
+    CoreSkillToolchain --> SkillsSystem
+    CoreSkillToolchain --> TelemetryLayer
+    CoreSkillToolchain --> LearningLoop
+    TelemetryLayer --> LearningLoop
     SkillsSystem --> WorkflowOps
     WorkflowOps --> LearningLoop
     LearningLoop --> WorkflowOps
@@ -99,7 +107,7 @@ graph TD
 graph TD
     AB[models/app_blueprint.py] --> AR[services/app_registry.py]
     AB --> BV[services/blueprint_validation.py]
-    MREG[models/registry.py\nrelease compare/history/summary models] --> AR[services/app_registry.py]
+    MREG[models/registry.py\nrelease compare/history/summary/overview/attention/action models] --> AR[services/app_registry.py]
     APIREG[api/main.py\nregistry release endpoints] --> AR
     AR --> AI[services/app_installer.py]
     APR[services/app_profile_resolver.py] --> AI
@@ -216,6 +224,22 @@ graph TD
     BR --> MSS
 ```
 
+### 3.9 Planned telemetry / feedback / upgrade-log layer
+
+```mermaid
+graph TD
+    BR[app/bootstrap/runtime.py] --> TLM[planned telemetry services]
+    BR --> ULG[planned upgrade-log services]
+    TLM --> EVL[planned evaluation summary services]
+    TLM --> POL[planned collection-policy services]
+    TLM --> WF[workflow/runtime execution surfaces]
+    TLM --> SF[skill-oriented generation/test/acceptance flows]
+    ULG --> SF
+    ULG --> RL[refinement / learning-loop services]
+```
+
+> Design note: this layer is intentionally split between a platform-defined standard substrate and skill-extensible higher-level workflows.
+
 ---
 
 ## 4. Operator Surface Contract Map
@@ -284,7 +308,7 @@ graph TD
     F --> T4[tests/unit/test_bootstrap_smoke.py]
 ```
 
-> Release-governance note: app registry changes now affect both raw release lists and higher-level release compare/history/summary read models, so control-plane/API consumers should treat those surfaces as one coupled contract.
+> Release-governance note: app registry changes now affect both raw release lists and higher-level release compare/history/summary/overview/attention/action read models, so control-plane/API consumers should treat those surfaces as one coupled contract.
 
 ## 5.3 Data / Context / Compaction
 
@@ -337,7 +361,25 @@ graph TD
     F --> T6[tests/unit/test_golden_path_integration.py]
 ```
 
-## 5.6 Practice Review / Experience / Demonstration Extraction
+## 5.6 Telemetry / Feedback / Upgrade Logs
+
+```mermaid
+graph TD
+    F[功能: Telemetry + Feedback + Upgrade Logs]
+    F --> TLM[planned telemetry models/services]
+    F --> POL[planned collection-policy models/services]
+    F --> ULG[planned append-only upgrade-log services]
+    F --> EVL[planned evaluation summary primitives]
+    F --> A[future API/query surfaces for telemetry/evaluation]
+    F --> T1[future tests: telemetry collection]
+    F --> T2[future tests: collection policy levels]
+    F --> T3[future tests: append-only upgrade logs]
+    F --> T4[future tests: cost-aware candidate evaluation]
+```
+
+> Coupling note: telemetry changes should be treated as cross-cutting across workflow execution, generated skills, self-refinement, publish/rollback governance, and operator read models.
+
+## 5.7 Practice Review / Experience / Demonstration Extraction
 
 ```mermaid
 graph TD
@@ -351,7 +393,7 @@ graph TD
     F --> T3[tests/unit/test_demonstration_extractor.py]
 ```
 
-## 5.7 Self-Refinement Proposal Generation
+## 5.8 Self-Refinement Proposal Generation
 
 ```mermaid
 graph TD
@@ -368,7 +410,7 @@ graph TD
     F --> T4[tests/e2e/test_external_model_api_flow.py]
 ```
 
-## 5.8 Refinement Loop / Priority / Rollout / Memory / Governance
+## 5.9 Refinement Loop / Priority / Rollout / Memory / Governance
 
 ```mermaid
 graph TD
@@ -394,7 +436,7 @@ graph TD
     F --> T11[tests/unit/test_refinement_observability_api.py]
 ```
 
-## 5.9 Skill Suggestion / Skill Runtime / System Skills / Generated Skills
+## 5.10 Skill Suggestion / Skill Runtime / System Skills / Generated Skills
 
 ```mermaid
 graph TD
@@ -462,7 +504,7 @@ graph TD
 > Governance note: skill risk policy now has both decision state and event trail. Changes here should be treated as touching policy persistence, generated app assembly, API governance surfaces, and future audit/dashboard layers.
 ```
 
-## 5.10 Interaction Gateway / End-to-End API Usable Flow
+## 5.11 Interaction Gateway / End-to-End API Usable Flow
 
 ```mermaid
 graph TD
@@ -624,3 +666,25 @@ graph TD
 - 如果两个模块开始频繁一起改 → 即使不是直接 import，也补一条边
 
 > 原则：**宁可多连一条边，也不要少连一条会导致漏改的边。**
+
+### 6.6 改 telemetry / upgrade-log / collection-policy 时
+
+优先跑：
+- 未来 telemetry collection tests
+- 未来 collection policy level tests
+- 未来 append-only upgrade-log tests
+- workflow / generated-skill / refinement 相关回归切片
+- 任何 publish / rollback / candidate-evaluation 相关测试
+
+### 3.10 Planned core-skill toolchain layer
+
+```mermaid
+graph TD
+    CST[planned core skills] --> TLM[planned telemetry services]
+    CST --> EVL[planned evaluation summary services]
+    CST --> SKR[services/skill_runtime.py]
+    CST --> SF[services/skill_factory.py]
+    CST --> RL[services/refinement / learning-loop services]
+```
+
+> Growth note: the intended long-term path is that governed core skills produce and supervise ordinary-skill growth, while direct platform-core changes remain relatively rare and high-governance.

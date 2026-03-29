@@ -1,6 +1,348 @@
 # Development Log
 
+## 2026-03-28
+
+### Module: workflow telemetry hooks and minimal read surfaces
+
+Pushed the telemetry/evaluation module closer to a usable whole by adding workflow-level telemetry hooks and exposing minimal read surfaces for telemetry, evaluation, upgrade logs, and the initial core-skill toolchain.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - now emits lightweight workflow-level telemetry summaries
+  - binds minimal version information during workflow execution result recording
+- `app/api/main.py`
+  - now exposes read endpoints for:
+    - telemetry interactions
+    - telemetry steps
+    - feedback
+    - version bindings
+    - collection policies
+    - candidate evaluations
+    - upgrade-log events
+    - core replay / cost / acceptance / archive summaries
+
+#### Added
+- `tests/unit/test_telemetry_api.py`
+  - verifies the new minimal read surfaces for telemetry/evaluation/core-toolchain summaries
+
+#### Scope deliberately kept small
+- this is still a minimal read surface, not a full observability dashboard
+- core skill toolchain is exposed through small control-plane reads, but not yet fully registered as runtime manifest-backed skills
+- ordinary-skill self-growth/publish orchestration still remains later-phase work
+
+#### Validation
+- `python3 -m py_compile app/services/workflow_executor.py app/api/main.py app/bootstrap/runtime.py tests/unit/test_telemetry_api.py`
+
+## 2026-03-28
+
+### Module: telemetry hooks and initial core-skill toolchain stubs
+
+Extended the Phase-1 implementation by adding telemetry hooks to key runtime paths and creating the first lightweight core-skill-toolchain stubs that consume telemetry/evaluation data.
+
+#### Updated
+- `app/services/interaction_gateway.py`
+  - now records lightweight interaction telemetry for user-command handling
+- `app/services/skill_runtime.py`
+  - now records lightweight step telemetry for skill execution outcomes
+- `app/bootstrap/runtime.py`
+  - now injects telemetry service into interaction gateway and skill runtime
+
+#### Added
+- `app/services/core_skill_toolchain.py`
+  - `CoreReplaySelectorSkill`
+  - `CoreCostAnalyzerSkill`
+  - `CoreAcceptanceReportSkill`
+  - `CoreArchiveSummarySkill`
+- `tests/unit/test_core_skill_toolchain.py`
+  - verifies the first core-toolchain stubs can consume telemetry/evaluation substrate data
+
+#### Scope deliberately kept small
+- workflow executor itself was not yet deeply instrumented beyond downstream skill-step telemetry
+- no public API endpoints yet for the core-skill toolchain
+- these core skills are still service-level stubs, not yet exposed as fully registered runtime skills/manifests
+
+#### Validation
+- `python3 -m py_compile app/services/interaction_gateway.py app/services/skill_runtime.py app/bootstrap/runtime.py app/services/core_skill_toolchain.py tests/unit/test_core_skill_toolchain.py`
+
+## 2026-03-28
+
+### Module: telemetry bootstrap wiring and evaluation gates
+
+Continued the Phase-1 substrate work by wiring telemetry-related services into runtime bootstrap and adding a first minimal evaluation-gate service.
+
+#### Added
+- `app/models/evaluation.py`
+  - `CandidateEvaluationRecord`
+  - `EvaluationGatePolicy`
+- `app/services/evaluation_summary_service.py`
+  - minimal hard-gate evaluation for token / latency / success / stability deltas
+  - evaluation records persisted into runtime store
+  - append-only evaluation events emitted into upgrade logs
+- `tests/unit/test_evaluation_summary_service.py`
+  - acceptance and rejection gate coverage
+- `tests/unit/test_bootstrap_telemetry_services.py`
+  - verifies runtime bootstrap exposes telemetry/evaluation services
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - now constructs and exposes:
+    - `collection_policy_service`
+    - `upgrade_log_service`
+    - `telemetry_service`
+    - `evaluation_summary_service`
+
+#### Scope deliberately kept small
+- no public API/operator surface yet for telemetry/evaluation
+- no weighted scoring yet; only hard-gate logic
+- no publish/rollback orchestration yet
+- no broader runtime instrumentation yet across existing services
+
+#### Validation
+- `python3 -m py_compile app/models/evaluation.py app/services/evaluation_summary_service.py app/bootstrap/runtime.py tests/unit/test_evaluation_summary_service.py tests/unit/test_bootstrap_telemetry_services.py`
+- full pytest execution still depends on the richer test environment rather than the current shell path
+
+## 2026-03-28
+
+### Module: telemetry phase-1 core substrate implementation
+
+Implemented the first runnable telemetry substrate slice aligned with the thin-core / skill-growth architecture. This is intentionally a platform substrate, not yet a full operator surface or autonomous optimization loop.
+
+#### Added
+- `app/models/telemetry.py`
+  - `InteractionTelemetryRecord`
+  - `StepTelemetryRecord`
+  - `FeedbackRecord`
+  - `VersionBindingRecord`
+  - `CollectionPolicyRecord`
+- `app/models/upgrade_log.py`
+  - `UpgradeLogEvent` append-only event envelope
+- `app/services/collection_policy_service.py`
+  - stores and resolves collection policy with simple precedence (`skill > app > global`)
+- `app/services/upgrade_log_service.py`
+  - append-only JSONL event writer/reader with per-day files
+- `app/services/telemetry_service.py`
+  - records interactions, steps, feedback, and version bindings
+  - persists lightweight online telemetry into the runtime store
+  - emits append-only upgrade-evidence events when policy allows
+- `tests/unit/test_telemetry_services.py`
+  - policy precedence coverage
+  - JSONL append/read coverage
+  - persistence reload coverage
+  - medium-policy step event logging coverage
+
+#### Scope deliberately kept small
+- no API/operator dashboard surface yet
+- no heavy/custom collection level implementation
+- no candidate evaluation primitives yet
+- no direct wiring into runtime bootstrap yet
+- no autonomous self-improvement loop yet
+
+#### Validation
+- `python3 -m py_compile app/models/telemetry.py app/models/upgrade_log.py app/services/collection_policy_service.py app/services/upgrade_log_service.py app/services/telemetry_service.py tests/unit/test_telemetry_services.py`
+- environment did not provide `pytest` directly in this shell, so validation for this step is syntax/compile verification plus test-file creation for later full-suite execution
+
+## 2026-03-28
+
+### Module: core-thin / core-skill-toolchain documentation update
+
+Updated the document set to make the architecture preference more explicit: keep the platform core thin, establish a governed core-skill toolchain, and let later system expansion happen mainly through ordinary-skill growth under supervision.
+
+#### Updated
+- `docs/requirements.md`
+  - adds the long-term growth preference of skill expansion over repeated core expansion
+  - clarifies authority boundaries between ordinary skills and core/platform governance
+- `docs/design.md`
+  - adds an explicit core-skill-toolchain principle
+  - clarifies the three-layer boundary: core platform / core skills / ordinary skills
+- `docs/skill-design-principles.md`
+  - adds a core-skill-toolchain-over-core-bloat principle
+  - extends the checklist to ask whether self-improvement behavior should live as a governed core skill instead of new core code
+- `docs/implementation-plan-telemetry.md`
+  - inserts a dedicated core-skill-toolchain bootstrap phase before broad autonomous skill growth
+  - adds a long-term growth rule to preserve the thin-core philosophy during implementation
+- `docs/system-relationship-map.md`
+  - adds a planned core-skill-toolchain layer to the system relationship map
+- `README.md`
+  - adds a top-level design-direction summary for core-thin / skill-growth architecture
+
+#### Why
+- the prior docs already leaned toward a thin-core architecture, but the new direction required making the core-skill toolchain explicit as the main engine of future self-expansion
+- this helps keep later implementation choices aligned: build the substrate, build the governed core skills, then let the system extend itself mostly through skill growth
+
+#### Validation
+- cross-document wording pass completed across requirements / design / skill principles / implementation plan / relationship map / README
+- no runtime code changes in this step
+
+## 2026-03-28
+
+### Module: telemetry documentation QA and consistency pass
+
+Performed a follow-up QA pass over the newly added telemetry / upgrade-evidence docs to tighten terminology, implementation-phase boundaries, and skill-extension trust rules.
+
+#### Updated
+- `docs/telemetry-and-upgrade-logging.md`
+  - adds terminology boundary section
+  - fixes scope-list typo
+  - clarifies first-delivery scope vs full conceptual model
+  - clarifies that skill extension payloads are supplemental unless explicitly promoted by contract
+- `docs/implementation-plan-telemetry.md`
+  - adds terminology alignment section
+  - clarifies Phase-1 trust boundary for skill extension payloads
+  - makes app/skill/global scope prioritization more explicit
+- `docs/testing.md`
+  - aligns collection-level expectations with phased delivery instead of implying all levels are first-pass test obligations
+  - links to the implementation plan for requirement-reduction guidance
+- `docs/design.md`
+  - fixes ordering/formatting drift in the core principle section
+  - adds a buildability-boundary note to keep the conceptual model from being misread as day-one mandatory scope
+
+#### Why
+- earlier drafts were directionally correct but still had a few consistency risks: terminology drift, implied all-at-once implementation scope, and insufficiently explicit boundaries around skill-supplied extension evidence
+- this pass is intended to make the docs safer to implement directly instead of only being conceptually persuasive
+
+#### Validation
+- manual cross-document consistency pass completed across requirements / design / telemetry / implementation-plan / testing docs
+- no runtime code changes in this step
+
+## 2026-03-28
+
+### Module: implementation plan for telemetry / upgrade evidence
+
+Added a practical implementation-plan document to turn the telemetry / feedback / append-only upgrade-log design into a buildable roadmap.
+
+#### Added
+- `docs/implementation-plan-telemetry.md`
+  - defines phased delivery order
+  - narrows Phase 1 scope to a realistic substrate
+  - specifies proposed models, services, storage layout, and query surfaces
+  - identifies which requirements should be deferred or reduced initially
+  - formalizes the boundary between core substrate and skill-oriented higher-order workflows
+
+#### Why
+- the architecture/design docs were becoming conceptually coherent, but implementation sequencing still needed an explicit buildability guide
+- this plan keeps the system from overcommitting to a too-heavy first iteration of self-improvement
+- it also gives future code work a clear first slice: telemetry schema, collection policy, version binding, and append-only logging
+
+#### Validation
+- document reviewed against the updated requirements/design/testing direction
+- scope intentionally reduced where the full conceptual design would be too heavy for a first implementation
+
+## 2026-03-28
+
+### Module: telemetry and upgrade-evidence documentation consolidation
+
+Performed a documentation-wide consolidation to align the project with the new design direction: core-thin / skill-heavy evolution, user-controlled telemetry policy, append-only upgrade logs, and cost-aware self-iteration.
+
+#### Updated
+- `docs/requirements.md`
+  - adds telemetry / feedback / upgrade-log requirements
+  - adds collection-policy levels and app/skill-scoped control requirements
+  - records skill-centric self-iteration and optimization criteria as first-class requirements
+- `docs/design.md`
+  - adds telemetry / feedback / upgrade-evidence architecture
+  - documents dual-track observation design (online telemetry vs append-only upgrade logs)
+- `docs/testing.md`
+  - adds testing direction for telemetry, collection policy, append-only logs, and cost-aware evaluation
+- `docs/testing-detail.md`
+  - adds implementation-oriented telemetry / upgrade-log testing notes
+- `docs/skill-design-principles.md`
+  - adds a skill-centric evolution principle so higher-order workflows remain skill-first when possible
+- `docs/code-structure.md`
+  - adds planned telemetry / upgrade evidence layer as an explicit future structure area
+- `docs/system-relationship-map.md`
+  - adds telemetry / feedback / upgrade-log relationships and future test impact guidance
+- `docs/telemetry-and-upgrade-logging.md`
+  - new dedicated design document for telemetry, feedback, collection levels, append-only upgrade logs, and skill-extensible upgrade evidence
+
+#### Why
+- recent design decisions around self-iteration, user-controlled policy, token-cost awareness, append-only upgrade logging, and skill-oriented evolution had become larger than a few isolated notes
+- the existing requirements/design/testing docs needed a coherent update so future implementation work has one aligned direction instead of scattered conversation fragments
+- this also prepares the project for future implementation of telemetry and evaluation primitives without forcing all higher-order behavior into the core platform
+
+#### Validation
+- documentation cross-check performed against current architecture docs and relationship-map maintenance rules
+- no code-path changes in this module; validation scope is document consistency and coverage
+
+## 2026-03-28
+
+### Module: app operator attention actions
+
+Moved the app registry control plane from read-only triage into a minimal actionable surface by allowing operators to record per-app attention actions.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `AppOperatorActionRecord`
+- `app/services/app_registry.py`
+  - tracks operator actions per app/attention reason
+  - adds `record_operator_action`
+  - allows `dismiss` actions to suppress matching attention items from the triage queue
+  - persists operator actions through the runtime store using existing mapping persistence
+- `app/api/main.py`
+  - adds `/registry/apps/{blueprint_id}/attention-actions`
+- `tests/unit/test_app_registry_operator_surfaces.py`
+  - verifies service-level dismiss actions suppress draft attention items
+  - verifies API-level dismiss actions remove rollback-target attention items from the queue
+
+#### Why
+- the triage queue could explain *why* an app needed review, but operators still had no way to record that they had already handled or intentionally suppressed a given attention case
+- a minimal action surface lets the control plane move from passive reading to lightweight governance without yet introducing a heavy workflow engine for review state
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py tests/unit/test_app_registry_operator_surfaces.py`
+- result: `6 passed`
+
 ## 2026-03-27
+
+### Module: app registry attention summary
+
+Added an operator-triage surface on top of registry overview so the control plane can highlight which apps deserve immediate review attention.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `AppAttentionItem`
+  - adds `AppAttentionSummary`
+- `app/services/app_registry.py`
+  - adds `get_attention_summary`
+  - classifies attention reasons into `draft_release`, `rollback_target_available`, and `recently_rolled_back`
+  - sorts the attention queue by priority and recency
+- `app/api/main.py`
+  - adds `/registry/apps/attention`
+- `tests/unit/test_registry_installer.py`
+  - verifies service-level attention summary counts and ordering
+  - verifies API attention output changes after activation and rollback transitions
+
+#### Why
+- overview can show candidate apps, but operators still benefit from a narrower triage queue that explains *why* each app needs attention
+- this gives the registry control plane a more actionable surface than a generic list summary alone
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `5 passed`
+
+### Module: app registry overview summary
+
+Extended the app governance control plane from single-app views to a registry-wide overview surface suitable for operator lists and dashboard entry views.
+
+#### Updated
+- `app/models/registry.py`
+  - adds `AppRegistryOverviewItem`
+  - adds `AppRegistryOverviewSummary`
+- `app/services/app_registry.py`
+  - adds `get_registry_overview` with lightweight filter support (`app_shape`, `has_draft`, `rollback_available`, `limit`)
+  - sorts overview items so draft-bearing and rollback-relevant apps rise to the top
+- `app/api/main.py`
+  - adds `/registry/apps/overview`
+- `tests/unit/test_registry_installer.py`
+  - verifies overview summary aggregation, filtering, and ordering at the service layer
+  - verifies API overview output reflects app attention/rollback state during release transitions
+
+#### Why
+- per-app compare/history/summary reads were in place, but the control plane still lacked a multi-app operator view
+- registry operators need one aggregate surface that shows which apps deserve attention before drilling into individual release histories
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_registry_installer.py`
+- result: `4 passed`
 
 ### Module: app control-plane summary
 
@@ -3691,3 +4033,28 @@ Started the next cleanup pass by moving low-level observability filtering/classi
 #### Design intent clarified
 - once a sub-framework reaches this size, readability and future change safety improve by separating request-building and low-level helper logic from the primary orchestration layer
 - module extraction should reduce file bloat without forcing a breaking change in the public observability contract
+
+### Module: complete app release compare and operator surface validation pass
+
+Closed the loop on the app release comparison/operator surface module by validating the new registry read models, shared operator contracts, and workflow-facing operator APIs together, then fixing one runtime compatibility gap uncovered by the regression pass.
+
+#### Updated
+- `app/models/app_instance.py`
+  - adds a compatibility `release_version` property backed by `installed_version`
+  - keeps workflow telemetry/version binding aligned with the app installer/runtime model
+- `docs/requirements.md`
+  - records operator-facing registry read models as part of the current milestone surface
+- `docs/design.md`
+  - captures the release-compare/operator-surface design intent and the version-binding compatibility fix
+- `docs/testing.md`
+  - makes registry compare/overview/attention/summary coverage explicit in the API validation targets
+
+#### Validation
+- Ran `.venv/bin/python` + `fastapi.testclient` smoke validation for the registry release-compare flow
+- Ran `.venv/bin/pytest tests/unit/test_api_golden_path.py tests/unit/test_workflow_executor.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_app_registry_operator_surfaces.py tests/unit/test_operator_api_filters.py tests/unit/test_operator_filter_params.py tests/unit/test_operator_page_meta.py tests/unit/test_operator_dashboard_core.py tests/unit/test_api_golden_path.py tests/unit/test_workflow_observability.py tests/unit/test_workflow_executor.py -q`
+- Result: `37 passed`
+
+#### Design intent clarified
+- operator-facing surfaces are only "done" when the release/read-model APIs, shared contracts, and workflow execution path still agree under regression coverage
+- compatibility between installer/runtime instance models and executor telemetry should be preserved at the model boundary instead of relying on call sites to remember alternate field names

@@ -6,9 +6,11 @@ from typing import Callable
 
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.skill_control import SkillRegistryEntry
+from app.models.telemetry import StepTelemetryRecord
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.schema_registry import SchemaRegistryError, SchemaRegistryService
 from app.services.model_client import ModelClientError
+from app.services.telemetry_service import TelemetryService
 
 SkillHandler = Callable[[SkillExecutionRequest], SkillExecutionResult]
 
@@ -22,11 +24,17 @@ class SkillContractViolationError(SkillRuntimeError):
 
 
 class SkillRuntimeService:
-    def __init__(self, store: RuntimeStateStore | None = None, schema_registry: SchemaRegistryService | None = None) -> None:
+    def __init__(
+        self,
+        store: RuntimeStateStore | None = None,
+        schema_registry: SchemaRegistryService | None = None,
+        telemetry_service: TelemetryService | None = None,
+    ) -> None:
         self._handlers: dict[str, SkillHandler] = {}
         self._entries: dict[str, SkillRegistryEntry] = {}
         self._store = store
         self._schema_registry = schema_registry
+        self._telemetry_service = telemetry_service
         self._executions: dict[str, SkillExecutionResult] = {}
 
     def register_handler(self, skill_id: str, handler: SkillHandler, entry: SkillRegistryEntry | None = None) -> None:
@@ -88,6 +96,19 @@ class SkillRuntimeService:
         execution_key = f"{request.app_instance_id}:{request.workflow_id}:{request.step_id}:{request.skill_id}"
         self._executions[execution_key] = result
         self._persist()
+        if self._telemetry_service is not None:
+            self._telemetry_service.record_step(
+                StepTelemetryRecord(
+                    interaction_id=f"workflow:{request.app_instance_id}:{request.workflow_id}",
+                    step_id=request.step_id,
+                    step_type="skill",
+                    name=request.skill_id,
+                    success=result.status == "completed",
+                    error_code=result.error_detail.get("kind") if result.error_detail else None,
+                    payload_summary={"status": result.status},
+                ),
+                app_id=request.app_instance_id.split(":")[0] if request.app_instance_id else None,
+            )
         return result
 
     def list_executions(self) -> list[SkillExecutionResult]:

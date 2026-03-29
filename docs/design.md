@@ -2,11 +2,17 @@
 
 ## 1. Design Intent
 
+Detailed companion reference: `docs/telemetry-and-upgrade-logging.md`.
+
+
 AgentSystem is designed as an **App OS** rather than a single assistant runtime.
 Its core job is to manage apps as long-lived system objects while allowing the system to learn from runtime practice and gradually improve its reusable capability layer.
 
 The current design direction is:
 - user interacts with the system through a control plane and unified gateway
+- the core platform stays thin and standard-oriented while higher-order behaviors should remain skill-centric wherever practical
+- runtime operational telemetry and upgrade/evolution evidence are separated by design
+- self-iteration must remain evidence-bound, user-governed, and cost-aware
 - apps are defined as blueprints, installed as instances, and governed by runtime policy
 - apps own separated namespaces for business and runtime data
 - apps also own app-local shared context for internal execution and coordination
@@ -47,7 +53,51 @@ The intended evolutionary chain is:
 - skill suggestion
 - future workflow/app refinement
 
-This should be treated as a disciplined world-model loop rather than a purely verbal planning loop:
+This should be treated as a disciplined world-model loop rather than a purely verbal planning loop.
+
+### 2.7 Thin core, skill-centric higher-order behavior
+The platform core should own:
+- standard contracts
+- telemetry/event envelopes
+- collection policy and safety boundaries
+- primitive compare / evaluate / publish / rollback / archive operations
+
+Higher-order workflows such as:
+- next-version generation
+- replay/test orchestration
+- acceptance review
+- archive/report generation
+- publish/rollback orchestration
+
+should remain skill-oriented wherever practical. This preserves extensibility while keeping the core implementable and governable.
+
+### 2.8 Runtime telemetry and upgrade evidence are separate
+The system should maintain two distinct observation planes:
+- lightweight online telemetry for runtime/control-plane usage
+- append-only upgrade/evolution evidence for replay, acceptance, and self-iteration
+
+This separation reduces online cost while preserving the historical evidence needed for improvement.
+
+### 2.9 Cost-aware optimization, not intelligence-first optimization
+Candidate improvements should be judged by:
+- user experience
+- task success
+- token efficiency
+- latency efficiency
+- stability and rollback posture
+
+The design should prefer reducing unnecessary work before adding heavier intelligence.
+
+### 2.10 Core-skill toolchain before broad self-expansion
+The preferred long-term expansion path is:
+- keep the platform core small
+- establish a governed core-skill toolchain for generation, testing, acceptance, archive, publish, and rollback
+- let that toolchain produce and govern additional ordinary skills
+- reserve direct core changes for standards, safety boundaries, and primitive runtime/governance capabilities
+
+In other words, the system should mainly grow by adding and governing skills, not by continuously enlarging the core platform.
+
+This world-model loop should be treated as a disciplined runtime-governed process rather than a purely verbal planning loop:
 - investigate reality through runtime signals, user corrections, and concrete outcomes
 - transform observations into explicit contradictions, hypotheses, and proposed changes
 - test those changes in bounded workflows before wider rollout
@@ -79,6 +129,9 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - app rollout governance should extend beyond activate/rollback controls to include explicit release-to-release comparison, so operators can inspect note / required-skill / runtime-policy / runtime-profile / app-shape drift before promoting or reverting a release
 - app rollout governance should also expose a release-history summary contract, so control-plane readers do not need to reconstruct active/draft/rollback posture or timeline ordering from raw release lists alone
 - app registry/control-plane reads should also provide a single summary contract for common operator views, aggregating active release posture, release counts, rollback availability, app shape, and runtime profile without requiring client-side joins across multiple registry endpoints
+- app governance should also expose a registry-wide overview contract so operators can triage draft-bearing or rollback-relevant apps before drilling into per-app compare/history surfaces
+- app governance should further expose an explicit attention/triage contract that explains *why* an app needs review (draft present, rollback target available, recently rolled back) instead of forcing operators to infer urgency from overview fields alone
+- app operator surfaces should also support lightweight action records (for example acknowledging or dismissing an attention case) so review state can affect what the triage queue shows without requiring full release-state mutation
 - skill suggestion / self-iteration entry paths should be able to consume risk governance summaries so generated recommendations can adapt toward lower-risk execution forms when the governance layer shows recent blocking pressure
 - that governance context should include blueprint-materialization policy pressure specifically, allowing suggestions to bias not only toward lower-risk execution but also toward callable materialization when shell/script forms are being blocked
 - blueprint materialization should consume `prefer_callable_materialization` as an active default-selection hint when the caller does not explicitly choose an adapter, so governance-aware defaults influence real artifact shape selection
@@ -98,6 +151,81 @@ This should be treated as a disciplined world-model loop rather than a purely ve
 - lightweight generated-app shape classification should also persist into explicit `app_shape` fields on `AppBlueprint`, `AppRegistryEntry`, and `AppInstallResult`, leaving human-facing wording as a presentation layer rather than the only place where app-type semantics exist
 
 ---
+
+## 3A. Telemetry and upgrade-evidence architecture
+
+The observation layer should be split into two coordinated but distinct planes.
+
+### 3A.1 Online telemetry plane
+This plane serves ordinary runtime and control-plane needs.
+
+It should hold lightweight, queryable records such as:
+- interaction summaries
+- step/invocation summaries
+- token and latency totals
+- success/failure outcomes
+- explicit and implicit feedback
+- version bindings across app / skill / agent / policy
+
+This plane should stay cheap enough to keep enabled by default in light mode.
+
+### 3A.2 Upgrade/evolution evidence plane
+This plane serves replay, acceptance, version comparison, optimization, publish, and rollback analysis.
+
+It should use:
+- append-only writing
+- time-sliced files
+- JSONL-oriented event storage
+- event-first records with optional aggregate snapshots
+
+It should not become a hard dependency for the online serving path.
+
+### 3A.3 Collection policy model
+Observation policy should support:
+- global scope
+- app scope
+- skill scope
+- agent scope
+- task-type scope
+
+Collection levels should support at least:
+- off
+- light
+- medium
+- heavy
+- custom
+
+Default posture should be light collection enabled, with expensive raw capture disabled unless explicitly enabled.
+
+### 3A.4 Skill-extensible upgrade evidence
+The core platform should define the baseline telemetry/event envelope.
+
+Skills may append structured upgrade-oriented evidence on top of that envelope, for example:
+- replay-sample reasons
+- optimization hints
+- domain-specific acceptance notes
+- archive/report metadata
+
+This preserves consistency while keeping higher-order evolution workflows skill-centric.
+
+### 3A.5 Buildability boundary
+The full conceptual model should not be interpreted as mandatory Day-1 scope.
+
+The first implementation should prefer:
+- light telemetry over heavy capture
+- simple scope precedence over policy combinatorics
+- append-only evidence substrate over full autonomous optimization loops
+
+If a requirement cannot be delivered without making the core too heavy, it should be deferred, reduced, or shifted into a skill-level workflow.
+
+### 3A.6 Core vs core-skill vs ordinary-skill boundary
+The architecture should preserve three distinct layers:
+
+- **core platform**: standards, runtime, registry, telemetry, policy, primitive governance operations
+- **core skills**: the governed toolchain for generation, replay selection, testing, acceptance, archive, publish, and rollback workflows
+- **ordinary skills**: business or domain skills that can be generated, revised, tested, accepted, published, and rolled back through the governed toolchain
+
+Ordinary skills should not directly mutate platform-core standards or safety boundaries. Those changes must remain under explicit platform or core-skill governance.
 
 ## 3. High-level Architecture
 
@@ -713,5 +841,8 @@ Current implementation note:
 - an aggregate stats summary is now available for workflow observability, giving operator-facing surfaces totals for executions, failures, retries, recoveries, unresolved states, and latest activity time
 - a dashboard-style read model now combines overview, stats, and recent timeline into one higher-level payload for operator surfaces that want one coherent summary call
 - observability internals are now starting to split into helper/query modules so API parsing and low-level classification/filter logic stop accumulating inside one large service/file
+- registry/operator surfaces now include release comparison, overview, attention, and control-plane summary read models so release review can happen through one coherent operator-facing contract
+- operator-facing workflow/refinement surfaces now share small common filter/page/dashboard contracts, reducing drift between related read models while keeping domain-specific payloads explicit
+- workflow execution telemetry now binds app versions through the installed app-instance version surface, avoiding contract drift between installer/runtime models and executor telemetry
 - recent failed workflow executions can now be retried directly from stored execution history and inputs
 - execution can write app data, append shared-context artifacts, persist runtime execution records, and publish internal events

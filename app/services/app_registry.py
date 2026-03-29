@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.models.app_blueprint import AppBlueprint
-from app.models.registry import AppControlPlaneSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
+from app.models.registry import AppAttentionItem, AppAttentionSummary, AppControlPlaneSummary, AppOperatorActionRecord, AppRegistryOverviewItem, AppRegistryOverviewSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
 from app.services.runtime_state_store import RuntimeStateStore
 
 
@@ -15,6 +15,7 @@ class AppRegistryService:
     def __init__(self, store: RuntimeStateStore | None = None) -> None:
         self._blueprints: dict[str, AppBlueprint] = {}
         self._entries: dict[str, AppRegistryEntry] = {}
+        self._operator_actions: list[AppOperatorActionRecord] = []
         self._store = store
 
     def register_blueprint(self, blueprint: AppBlueprint, description: str = "") -> AppRegistryEntry:
@@ -107,6 +108,179 @@ class AppRegistryService:
             reviewer=entry.reviewer,
             approved_at=entry.approved_at,
         )
+
+    def get_registry_overview(
+        self,
+        *,
+        app_shape: str | None = None,
+        has_draft: bool | None = None,
+        rollback_available: bool | None = None,
+        limit: int | None = None,
+    ) -> AppRegistryOverviewSummary:
+        summaries = [self.get_control_plane_summary(entry.blueprint_id) for entry in self.list_entries()]
+        if app_shape is not None:
+            summaries = [item for item in summaries if item.app_shape == app_shape]
+        if has_draft is not None:
+            summaries = [item for item in summaries if (item.draft_release_count > 0) is has_draft]
+        if rollback_available is not None:
+            summaries = [item for item in summaries if item.rollback_available is rollback_available]
+
+        items = [
+            AppRegistryOverviewItem(
+                blueprint_id=item.blueprint_id,
+                name=item.name,
+                active_version=item.active_version,
+                active_release_status=item.active_release_status,
+                app_shape=item.app_shape,
+                runtime_profile=item.runtime_profile,
+                total_releases=item.total_releases,
+                draft_release_count=item.draft_release_count,
+                rolled_back_release_count=item.rolled_back_release_count,
+                rollback_available=item.rollback_available,
+                latest_release_created_at=item.latest_release_created_at,
+                approved_at=item.approved_at,
+                attention_needed=item.draft_release_count > 0 or item.rollback_available,
+            )
+            for item in summaries
+        ]
+        items.sort(
+            key=lambda item: (
+                0 if item.draft_release_count > 0 else 1,
+                0 if item.rollback_available else 1,
+                -(item.latest_release_created_at.timestamp() if item.latest_release_created_at is not None else 0),
+            )
+        )
+        if limit is not None:
+            items = items[:limit]
+
+        shape_counts: dict[str, int] = {}
+        release_status_counts: dict[str, int] = {}
+        for item in items:
+            shape_counts[item.app_shape] = shape_counts.get(item.app_shape, 0) + 1
+            release_status_counts[item.active_release_status] = release_status_counts.get(item.active_release_status, 0) + 1
+
+        return AppRegistryOverviewSummary(
+            total_apps=len(items),
+            apps_with_drafts=sum(1 for item in items if item.draft_release_count > 0),
+            apps_with_rollbacks=sum(1 for item in items if item.rolled_back_release_count > 0),
+            apps_with_rollback_targets=sum(1 for item in items if item.rollback_available),
+            shape_counts=shape_counts,
+            release_status_counts=release_status_counts,
+            items=items,
+        )
+
+    def get_attention_summary(self, *, limit: int | None = None) -> AppAttentionSummary:
+        summaries = [self.get_control_plane_summary(entry.blueprint_id) for entry in self.list_entries()]
+        active_actions: dict[tuple[str, str], AppOperatorActionRecord] = {}
+        for action in self._operator_actions:
+            active_actions[(action.blueprint_id, action.attention_reason)] = action
+
+        items: list[AppAttentionItem] = []
+        for item in summaries:
+            if active_actions.get((item.blueprint_id, "draft_release")) and active_actions[(item.blueprint_id, "draft_release")].action == "dismiss":
+                draft_suppressed = True
+            else:
+                draft_suppressed = False
+            if active_actions.get((item.blueprint_id, "rollback_target_available")) and active_actions[(item.blueprint_id, "rollback_target_available")].action == "dismiss":
+                rollback_target_suppressed = True
+            else:
+                rollback_target_suppressed = False
+            if active_actions.get((item.blueprint_id, "recently_rolled_back")) and active_actions[(item.blueprint_id, "recently_rolled_back")].action == "dismiss":
+                rolled_back_suppressed = True
+            else:
+                rolled_back_suppressed = False
+            if item.draft_release_count > 0 and not draft_suppressed:
+                items.append(
+                    AppAttentionItem(
+                        blueprint_id=item.blueprint_id,
+                        name=item.name,
+                        attention_reason="draft_release",
+                        priority=3,
+                        active_version=item.active_version,
+                        app_shape=item.app_shape,
+                        draft_release_count=item.draft_release_count,
+                        rolled_back_release_count=item.rolled_back_release_count,
+                        rollback_available=item.rollback_available,
+                        latest_release_created_at=item.latest_release_created_at,
+                        approved_at=item.approved_at,
+                    )
+                )
+            elif item.rollback_available and not rollback_target_suppressed:
+                items.append(
+                    AppAttentionItem(
+                        blueprint_id=item.blueprint_id,
+                        name=item.name,
+                        attention_reason="rollback_target_available",
+                        priority=2,
+                        active_version=item.active_version,
+                        app_shape=item.app_shape,
+                        draft_release_count=item.draft_release_count,
+                        rolled_back_release_count=item.rolled_back_release_count,
+                        rollback_available=item.rollback_available,
+                        latest_release_created_at=item.latest_release_created_at,
+                        approved_at=item.approved_at,
+                    )
+                )
+            elif item.rolled_back_release_count > 0 and not rolled_back_suppressed:
+                items.append(
+                    AppAttentionItem(
+                        blueprint_id=item.blueprint_id,
+                        name=item.name,
+                        attention_reason="recently_rolled_back",
+                        priority=1,
+                        active_version=item.active_version,
+                        app_shape=item.app_shape,
+                        draft_release_count=item.draft_release_count,
+                        rolled_back_release_count=item.rolled_back_release_count,
+                        rollback_available=item.rollback_available,
+                        latest_release_created_at=item.latest_release_created_at,
+                        approved_at=item.approved_at,
+                    )
+                )
+        items.sort(
+            key=lambda item: (
+                -item.priority,
+                -(item.latest_release_created_at.timestamp() if item.latest_release_created_at is not None else 0),
+            )
+        )
+        if limit is not None:
+            items = items[:limit]
+        return AppAttentionSummary(
+            total_attention_items=len(items),
+            draft_attention_count=sum(1 for item in items if item.attention_reason == "draft_release"),
+            rollback_target_count=sum(1 for item in items if item.attention_reason == "rollback_target_available"),
+            recently_rolled_back_count=sum(1 for item in items if item.attention_reason == "recently_rolled_back"),
+            items=items,
+        )
+
+    def record_operator_action(
+        self,
+        blueprint_id: str,
+        attention_reason: str,
+        action: str,
+        reviewer: str = "",
+        note: str = "",
+    ) -> AppOperatorActionRecord:
+        self.get_entry(blueprint_id)
+        if attention_reason not in {"draft_release", "rollback_target_available", "recently_rolled_back"}:
+            raise AppRegistryError(f"Unsupported attention reason: {attention_reason}")
+        if action not in {"acknowledge", "dismiss"}:
+            raise AppRegistryError(f"Unsupported operator action: {action}")
+        record = AppOperatorActionRecord(
+            blueprint_id=blueprint_id,
+            attention_reason=attention_reason,
+            action=action,
+            reviewer=reviewer,
+            note=note,
+        )
+        self._operator_actions = [
+            item
+            for item in self._operator_actions
+            if not (item.blueprint_id == blueprint_id and item.attention_reason == attention_reason)
+        ]
+        self._operator_actions.append(record)
+        self._persist()
+        return record
 
     def add_release(
         self,
@@ -276,3 +450,7 @@ class AppRegistryService:
             return
         self._store.save_mapping("registry_entries", self._entries)
         self._store.save_mapping("registry_blueprints", self._blueprints)
+        self._store.save_mapping(
+            "registry_operator_actions",
+            {str(index): item for index, item in enumerate(self._operator_actions)},
+        )

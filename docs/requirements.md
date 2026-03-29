@@ -47,6 +47,12 @@ The system should:
   - app data
   - runtime state
   - experience / skill assets
+- keep the core platform thin and standard-oriented while pushing higher-order behaviors into skills wherever practical
+- support app and skill self-iteration through evidence-bound loops rather than opaque autonomous mutation
+- separate normal operational telemetry from upgrade/evolution evidence logs
+- treat token and runtime cost as first-class optimization dimensions alongside user experience and success rate
+- allow users to define policy separately for apps and skills, including collection, upgrade, publication, and rollback posture
+- keep the future expansion path centered on skill growth: after core substrate and core skills are stable, the system should primarily extend itself by generating and governing additional skills rather than repeatedly expanding the platform core
 
 ---
 
@@ -120,6 +126,9 @@ Current project scope includes:
 - event bus and event subscriptions
 - practice review from runtime behavior
 - experience-to-skill suggestion flow
+- telemetry / feedback / version-binding foundations for cost-aware self-iteration
+- append-only upgrade/evolution logging as a separate evidence layer
+- collection-policy controls with app/skill scope and collection levels
 
 ### 4.2 Out of scope for current phase
 Not required for current milestone:
@@ -234,7 +243,84 @@ The system must create and manage explicit namespaces for:
 
 It must support listing namespaces and writing/reading data records.
 
-### 5.11 System default skills and app configuration
+### 5.11 Telemetry, feedback, and upgrade logging
+The system must support a telemetry foundation that remains lightweight during normal use while still enabling evidence-bound self-iteration.
+
+The platform must:
+- collect structured runtime telemetry for ordinary operational reads
+- collect upgrade/evolution evidence separately from online operational storage
+- bind interaction and step records to app, skill, agent, and policy versions
+- record token, latency, success/failure, and tool/skill invocation summaries
+- support explicit and implicit user feedback capture
+- expose telemetry and evaluation records through stable queryable interfaces
+
+The system must separate:
+- normal operational telemetry used by online runtime/control-plane features
+- upgrade/evolution evidence used for replay, acceptance, optimization, publish, and rollback workflows
+
+Upgrade/evolution evidence should:
+- use append-only logging
+- be split by time window
+- prefer JSONL-style event logs
+- avoid becoming a hard dependency for the online serving path
+
+### 5.12 Telemetry policy and collection levels
+The system must let users control telemetry and upgrade-evidence policy at multiple scopes, including:
+- global
+- app
+- skill
+- agent
+- task type
+
+The system must support collection levels, including:
+- off
+- light
+- medium
+- heavy
+- custom
+
+Default behavior should be:
+- light collection enabled
+- upgrade-evidence capture available but low-cost
+- expensive raw-payload capture disabled unless policy explicitly asks for it
+
+The system should allow skills to append structured upgrade-oriented evidence on top of the platform-standard event envelope, but the baseline telemetry/event model must remain platform-defined.
+
+### 5.13 Skill-centric self-iteration and upgrade control
+The system should support a skill-centric evolution model in which:
+- the core platform provides primitive compare / evaluate / publish / rollback / archive interfaces
+- a small set of core skills forms the governed toolchain for generation, testing, acceptance, archive, publish, and rollback workflows
+- higher-level generation, testing, acceptance, archive, publish, and rollback workflows are implemented as skills wherever practical
+- both apps and skills can participate in evidence-bound self-iteration
+- users can define different strategy and automation posture for apps and skills
+- after the core substrate and core skill toolchain are stable, the preferred system expansion path is the creation and governance of additional skills rather than repeated enlargement of the platform core
+
+The system must preserve user control over:
+- whether upgrade information is collected
+- whether a given app or skill may append custom upgrade evidence
+- whether automatic publication is allowed
+- whether rollout requires human confirmation
+- what cost/quality/stability tradeoff applies to a given app or skill
+
+The system should also preserve a clear authority boundary:
+- ordinary generated or revised skills may propose changes to other ordinary skills
+- core-platform contracts, safety boundaries, and primitive governance interfaces must remain under explicit platform/core-skill governance rather than arbitrary downstream skill mutation
+
+### 5.14 Optimization criteria and acceptance gates
+The system must evaluate candidate improvements using multiple dimensions, including:
+- user experience / comfort
+- task success rate
+- token efficiency
+- latency efficiency
+- stability / regression posture
+
+The system should support both:
+- weighted comparison across those dimensions
+- hard gates that block promotion when regression thresholds are exceeded
+
+Token consumption must be treated as a first-class optimization input rather than a secondary reporting metric.
+
+### 5.15 System default skills and app configuration
 Each installed app must receive a minimal built-in system skill set that does not depend on external intelligence or network availability.
 
 The current expected baseline includes:
@@ -591,6 +677,7 @@ Current milestone is considered complete if the system can:
 - review runtime practice into experience
 - suggest skill blueprints from experience
 - pass automated tests for the above
+- expose operator-facing registry read models for release comparison, overview, attention triage, and control-plane summary
 
 ---
 
@@ -618,3 +705,9 @@ Required capabilities:
 - preserve decisions, constraints, open loops, artifacts, and current goal/stage during compaction
 - provide selective retrieval of deeper context only when required by the current execution node
 - support promotion of repeated patterns into long-term reusable experience
+
+## 11. Related design references
+
+- `docs/skill-design-principles.md`
+- `docs/system-relationship-map.md`
+- `docs/telemetry-and-upgrade-logging.md`

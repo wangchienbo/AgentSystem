@@ -114,6 +114,63 @@ class AppControlPlaneSummary(BaseModel):
     approved_at: datetime | None = None
 
 
+class AppRegistryOverviewItem(BaseModel):
+    blueprint_id: str
+    name: str
+    active_version: str
+    active_release_status: AppReleaseStatus = "active"
+    app_shape: str = "generic"
+    runtime_profile: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)
+    total_releases: int = 0
+    draft_release_count: int = 0
+    rolled_back_release_count: int = 0
+    rollback_available: bool = False
+    latest_release_created_at: datetime | None = None
+    approved_at: datetime | None = None
+    attention_needed: bool = False
+
+
+class AppRegistryOverviewSummary(BaseModel):
+    total_apps: int = 0
+    apps_with_drafts: int = 0
+    apps_with_rollbacks: int = 0
+    apps_with_rollback_targets: int = 0
+    shape_counts: dict[str, int] = Field(default_factory=dict)
+    release_status_counts: dict[str, int] = Field(default_factory=dict)
+    items: list[AppRegistryOverviewItem] = Field(default_factory=list)
+
+
+class AppAttentionItem(BaseModel):
+    blueprint_id: str
+    name: str
+    attention_reason: str
+    priority: int = 0
+    active_version: str
+    app_shape: str = "generic"
+    draft_release_count: int = 0
+    rolled_back_release_count: int = 0
+    rollback_available: bool = False
+    latest_release_created_at: datetime | None = None
+    approved_at: datetime | None = None
+
+
+class AppAttentionSummary(BaseModel):
+    total_attention_items: int = 0
+    draft_attention_count: int = 0
+    rollback_target_count: int = 0
+    recently_rolled_back_count: int = 0
+    items: list[AppAttentionItem] = Field(default_factory=list)
+
+
+class AppOperatorActionRecord(BaseModel):
+    blueprint_id: str
+    attention_reason: str
+    action: Literal["acknowledge", "dismiss"]
+    reviewer: str = ""
+    note: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class AppInstallResult(BaseModel):
     app_instance_id: str
     blueprint_id: str

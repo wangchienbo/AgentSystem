@@ -5,6 +5,7 @@ from typing import Any
 from copy import deepcopy
 
 from app.models.workflow_execution import WorkflowExecutionResult, WorkflowRetryComparison, WorkflowStepExecution
+from app.models.telemetry import StepTelemetryRecord, VersionBindingRecord
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
@@ -14,6 +15,7 @@ from app.services.lifecycle import AppLifecycleService
 from app.services.skill_runtime import SkillRuntimeError, SkillRuntimeService
 from app.models.skill_runtime import SkillExecutionRequest
 from app.services.context_compaction import ContextCompactionService
+from app.services.telemetry_service import TelemetryService
 
 
 class WorkflowExecutorError(ValueError):
@@ -31,6 +33,7 @@ class WorkflowExecutorService:
         skill_runtime: SkillRuntimeService | None = None,
         store: RuntimeStateStore | None = None,
         context_compaction: ContextCompactionService | None = None,
+        telemetry_service: TelemetryService | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -41,6 +44,7 @@ class WorkflowExecutorService:
         self._store = store
         self._history: list[WorkflowExecutionResult] = []
         self._context_compaction = context_compaction
+        self._telemetry_service = telemetry_service
 
     def execute_primary_workflow(self, app_instance_id: str, trigger: str = "manual", inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
         return self.execute_workflow(app_instance_id=app_instance_id, workflow_id=None, trigger=trigger, inputs=inputs)
@@ -157,6 +161,30 @@ class WorkflowExecutorService:
         )
         self._history.append(result)
         self._persist_history()
+        if self._telemetry_service is not None:
+            interaction_id = f"workflow:{app_instance_id}:{workflow.id}:{int(completed_at.timestamp())}"
+            self._telemetry_service.record_step(
+                StepTelemetryRecord(
+                    interaction_id=interaction_id,
+                    step_id=workflow.id,
+                    step_type="system",
+                    name="workflow_executor",
+                    success=result.status == "completed",
+                    error_code="workflow_partial" if result.status != "completed" else None,
+                    payload_summary={
+                        "failed_step_ids": result.failed_step_ids,
+                        "completed_steps": result.outputs.get("completed_steps", []),
+                    },
+                ),
+                app_id=instance.blueprint_id,
+            )
+            self._telemetry_service.bind_versions(
+                VersionBindingRecord(
+                    interaction_id=interaction_id,
+                    app_version=instance.release_version,
+                ),
+                app_id=instance.blueprint_id,
+            )
         if self._context_compaction is not None:
             if previous_stage is not None and previous_stage != f"workflow:{workflow.id}" and self._context_compaction.should_compact(app_instance_id, "stage_change"):
                 self._context_compaction.compact(app_instance_id, reason="stage_change")
