@@ -37,6 +37,7 @@ from app.models.evidence_skill import EvidenceSkillRequest
 from app.models.context_compaction_skill import ContextCompactionSkillRequest
 from app.models.workflow_insight_skill import WorkflowInsightSkillRequest
 from app.models.risk_governance_skill import RiskGovernanceSkillRequest
+from app.models.prompt_selection_skill import PromptSelectionSkillRequest
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
@@ -49,6 +50,7 @@ from app.services.skill_control import SkillControlService
 from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
 from app.services.skill_risk_policy import SkillRiskPolicyService
+from app.services.prompt_selection_service import PromptSelectionService
 from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
 from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
@@ -244,6 +246,18 @@ def build_runtime() -> dict[str, object]:
         "schema://risk.governance.skill/error",
         {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
     )
+    schema_registry.register(
+        "schema://prompt.selection.skill/input",
+        PromptSelectionSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://prompt.selection.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://prompt.selection.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
     skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)
     blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
@@ -369,6 +383,7 @@ def build_runtime() -> dict[str, object]:
         log_evidence_service=log_evidence,
     )
     workflow_executor._context_compaction = context_compaction
+    prompt_selection = PromptSelectionService(context_compaction=context_compaction, log_evidence=log_evidence)
     interaction_gateway = InteractionGateway(
         catalog=app_catalog,
         router=router,

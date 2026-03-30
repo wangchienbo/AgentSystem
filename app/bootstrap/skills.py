@@ -5,6 +5,7 @@ from app.models.context_skill import ContextSkillRequest
 from app.models.context_compaction_skill import ContextCompactionSkillRequest
 from app.models.evidence_skill import EvidenceSkillRequest
 from app.models.requirement_skill import RequirementSkillRequest
+from app.models.prompt_selection_skill import PromptSelectionSkillRequest
 from app.models.risk_governance_skill import RiskGovernanceSkillRequest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.system_skill import SystemAuditRequest, SystemStateRequest
@@ -26,6 +27,7 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
     context_compaction = services["context_compaction"]
     workflow_observability = services["workflow_observability"]
     skill_risk_policy = services["skill_risk_policy"]
+    prompt_selection = services["prompt_selection"]
 
     def demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
         payload = request.config.get("payload", request.inputs)
@@ -102,6 +104,12 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
         elif skill_request.operation == "context_summary":
             target_app = skill_request.app_instance_id or request.app_instance_id
             output = log_evidence.build_context_evidence_summary(target_app, limit=skill_request.limit or 3)
+        elif skill_request.operation == "search_index":
+            output = log_evidence.search_index(
+                query=request.inputs.get("query", ""),
+                app_instance_id=skill_request.app_instance_id or None,
+                limit=skill_request.limit,
+            ).model_dump(mode="json")
         else:
             output = log_evidence.get_stats_summary()
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
@@ -169,6 +177,22 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
             output = skill_risk_policy.get_stats_summary().model_dump(mode="json")
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
 
+    def prompt_selection_capability_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+        skill_request = PromptSelectionSkillRequest(**request.inputs)
+        if skill_request.operation == "evidence_search":
+            output = prompt_selection.search_evidence(
+                query=skill_request.query,
+                app_instance_id=skill_request.app_instance_id or request.app_instance_id,
+                category=skill_request.category or None,
+                limit=skill_request.limit or 5,
+            )
+        else:
+            output = prompt_selection.select_for_prompt(
+                app_instance_id=skill_request.app_instance_id or request.app_instance_id,
+                limit=skill_request.limit or 5,
+            )
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
+
     return {
         "skill.echo": demo_echo_skill,
         "system.app_config": system_app_config_skill,
@@ -181,6 +205,7 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
         "context.compaction.skill": context_compaction_capability_skill,
         "workflow.insight.skill": workflow_insight_capability_skill,
         "risk.governance.skill": risk_governance_capability_skill,
+        "prompt.selection.skill": prompt_selection_capability_skill,
     }
 
 

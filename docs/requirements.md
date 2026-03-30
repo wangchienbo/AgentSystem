@@ -179,6 +179,7 @@ Reusable system capabilities should be accessible through stable system skills w
 - context compaction / working-set shaping
 - workflow insight / observability summaries
 - governance and risk-control surfaces
+- prompt selection / evidence search / context-to-prompt shaping
 
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:

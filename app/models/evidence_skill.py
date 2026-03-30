@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-EvidenceSkillOperation = Literal["list_signals", "list_promoted", "list_index", "stats", "context_summary"]
+EvidenceSkillOperation = Literal["list_signals", "list_promoted", "list_index", "stats", "context_summary", "search_index"]
 
 
 class EvidenceSkillRequest(BaseModel):

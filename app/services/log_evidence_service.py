@@ -184,6 +184,32 @@ class LogEvidenceService:
             ],
         }
 
+    def search_index(
+        self,
+        *,
+        query: str = "",
+        app_instance_id: str | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+    ) -> EvidencePage:
+        items = list(self._index.values())
+        if app_instance_id is not None:
+            items = [item for item in items if item.app_instance_id == app_instance_id]
+        if category is not None and category != "":
+            items = [item for item in items if item.topic == category]
+        if query:
+            needle = query.lower()
+            items = [
+                item
+                for item in items
+                if needle in item.topic.lower()
+                or needle in item.short_summary.lower()
+                or any(needle in keyword.lower() for keyword in item.keywords)
+                or needle in item.scope_key.lower()
+            ]
+        items = sorted(items, key=lambda item: (item.priority, item.freshness_ts), reverse=True)
+        return self._page(items, limit=limit)
+
     def get_stats_summary(self) -> dict:
         signals = list(self._signals.values())
         evidence = list(self._evidence.values())

@@ -4413,3 +4413,39 @@ Completed the second batch of system capability skills by promoting workflow obs
 #### Design intent clarified
 - observability and governance are not just UI/API read models; once exposed as system skills they become reusable platform-native capabilities that can later be orchestrated by apps, workflows, and model-assisted control-plane logic
 - this second batch materially strengthens the architectural rule that stable capability APIs sit underneath, while system skills provide the reusable, governed, composable surface
+
+### Module: add prompt selection and evidence-search capability surfaces
+
+Completed the next capability layer by adding prompt-selection and evidence-search surfaces on top of the existing context-compaction and evidence-index infrastructure, and exposing them as builtin system skills rather than leaving them as only internal helper logic.
+
+#### Updated
+- `app/models/prompt_selection_skill.py`
+  - adds a stable request contract for prompt selection and evidence-search operations
+- `app/services/prompt_selection_service.py`
+  - introduces a service that combines working-set context and indexed evidence into a prompt-selection payload
+  - exposes a retrieval-oriented evidence search surface over the shared evidence index
+- `app/services/log_evidence_service.py`
+  - adds `search_index(...)` to support query/category/app-scoped evidence retrieval
+- `app/models/evidence_skill.py`
+  - extends evidence capability operations with `search_index`
+- `app/models/context_compaction_skill.py`
+  - extends context-compaction capability operations with `select_for_prompt`
+- `app/services/system_skill_registry.py`
+  - registers `prompt.selection.skill` as a builtin immutable system capability skill
+- `app/bootstrap/runtime.py`
+  - wires `PromptSelectionService` into runtime composition and registers prompt-selection schemas
+- `app/bootstrap/skills.py`
+  - wires prompt-selection handlers and extends evidence/context capability handlers with search/prompt-selection operations
+- `tests/unit/test_prompt_selection_service.py`
+  - validates prompt selection prefers working-set context plus indexed evidence rather than raw history
+- `tests/unit/test_prompt_selection_capability_skill.py`
+  - validates prompt-selection system skill registration and evidence-search runtime execution
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_prompt_selection_service.py tests/unit/test_prompt_selection_capability_skill.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_prompt_selection_service.py tests/unit/test_prompt_selection_capability_skill.py tests/unit/test_system_capability_skills.py tests/unit/test_workflow_risk_capability_skills.py tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `3 passed`, `33 passed`
+
+#### Design intent clarified
+- once evidence retrieval and prompt selection are exposed as capability skills, the system has a much cleaner path for model-facing prompt assembly that does not depend on bespoke direct service imports from every caller
+- prompt selection should prefer working-set context plus indexed/promoted evidence slices, making token-control an explicit reusable platform capability rather than an incidental side effect of one compaction path

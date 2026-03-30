@@ -55,7 +55,7 @@ Used for lightweight client-level validation such as:
 - requirement conflict detection and blueprint-draft handoff coverage
 - requirement-derived app-shape/runtime-profile draft coverage for transform-like vs pipeline-like requests
 - evidence-promotion coverage for repeated workflow failures, policy pressure, clarify-unresolved loops, retrieval index generation, and context-compaction evidence summaries
-- system capability skill coverage for requirement/evidence/context/workflow/risk capability surfaces
+- system capability skill coverage for requirement/evidence/context/workflow/risk/prompt-selection capability surfaces
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

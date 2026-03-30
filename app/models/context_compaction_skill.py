@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-ContextCompactionSkillOperation = Literal["compact", "working_set", "layers"]
+ContextCompactionSkillOperation = Literal["compact", "working_set", "layers", "select_for_prompt"]
 
 
 class ContextCompactionSkillRequest(BaseModel):

@@ -264,10 +264,11 @@ requires_openai_auth = true
 ### IS-010 系统能力 Skill 化测试
 期望：
 - requirement clarify/extract/readiness/blueprint handoff 可通过统一 system capability skill 暴露
-- evidence list/stats/context-summary 可通过统一 system capability skill 暴露
-- context compact/working-set/layers 可通过统一 system capability skill 暴露
+- evidence list/stats/context-summary/search-index 可通过统一 system capability skill 暴露
+- context compact/working-set/layers/select-for-prompt 可通过统一 system capability skill 暴露
 - workflow overview/timeline/stats/dashboard 可通过统一 system capability skill 暴露
 - risk governance events/stats/dashboard/override 可通过统一 system capability skill 暴露
+- prompt selection / evidence search 可通过统一 system capability skill 暴露
 - 这些 system capability skills 具备稳定 manifest、schema ref、capability profile 和 runtime handler 绑定
 
 ---
