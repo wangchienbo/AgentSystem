@@ -4341,3 +4341,40 @@ Completed the first full evidence-promotion module by wiring the shared evidence
 #### Design intent clarified
 - evidence promotion becomes materially more useful once compacted working context can read from promoted/indexed summaries, because token-control behavior then starts benefiting immediately even before a richer prompt-assembly layer exists
 - wiring a few real signal sources first (workflow failure, policy pressure, clarify unresolved) provides a practical backbone that can later absorb observability timelines, refinement failures, and other operator-facing evidence without rethinking the evidence contracts
+
+### Module: add first system capability skills for requirement/evidence/context
+
+Promoted a first batch of reusable platform abilities into builtin system skills, following the existing system-skill framework rather than leaving requirement/evidence/context capabilities only as direct services or HTTP endpoints.
+
+#### Updated
+- `app/models/requirement_skill.py`
+  - adds a stable contract for requirement capability operations
+- `app/models/evidence_skill.py`
+  - adds a stable contract for evidence capability operations
+- `app/models/context_compaction_skill.py`
+  - adds a stable contract for context-compaction operations
+- `app/services/system_skill_registry.py`
+  - registers `requirement.skill`, `evidence.skill`, and `context.compaction.skill` as builtin immutable system skills with manifest/schema/capability metadata
+- `app/bootstrap/runtime.py`
+  - registers schema refs for the new system capability skills
+- `app/bootstrap/skills.py`
+  - wires runtime handlers for the new capability skills against the existing requirement/evidence/context services
+- `tests/unit/test_system_capability_skills.py`
+  - validates registration plus runtime execution for requirement/evidence capability skills and registration for context compaction capability skill
+- `docs/requirements.md`
+  - records requirement/evidence/context capability surfaces as good system-skill candidates
+- `docs/design.md`
+  - captures the intended architecture: durable core capability APIs underneath reusable system skill facades
+- `docs/testing.md`
+  - records system capability skill coverage
+- `docs/testing-detail.md`
+  - documents the new system capability skill expectations
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_system_capability_skills.py tests/unit/test_log_evidence_api.py tests/unit/test_requirement_clarifier.py tests/unit/test_context_compaction.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_system_capability_skills.py tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `13 passed`, `27 passed`
+
+#### Design intent clarified
+- durable capability APIs and service implementations remain the substrate, but reusable intelligent/retrieval/context-shaping surfaces become much more composable once exposed as first-class system skills
+- this first batch establishes the pattern for later system capability skills such as workflow insight, governance/risk, and prompt-selection surfaces

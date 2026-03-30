@@ -41,6 +41,11 @@ Skills are versioned, replaceable, suggestible capability units. They are depend
 ### 2.5 Intelligence is selective
 The system should use deterministic services first, and use intelligence mainly for abstraction, suggestion, diagnosis, and generation.
 
+System capability skills should sit above stable core capability APIs/services:
+- core protocols, stores, lifecycle, registry, and execution APIs remain the durable substrate
+- reusable higher-level capabilities (especially requirement understanding, retrieval/evidence access, context shaping, and future model-assisted selection) should be exposed as system skills when feasible
+- skill facades should wrap services rather than replace the underlying capability APIs
+
 A lightweight requirement-understanding loop should exist before blueprint generation:
 - first route the request (`app | skill | hybrid | unclear`)
 - then build a minimal structured requirement spec

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from app.models.app_config import AppConfigRequest
 from app.models.context_skill import ContextSkillRequest
+from app.models.context_compaction_skill import ContextCompactionSkillRequest
+from app.models.evidence_skill import EvidenceSkillRequest
+from app.models.requirement_skill import RequirementSkillRequest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.system_skill import SystemAuditRequest, SystemStateRequest
 from app.services.model_client import OpenAIResponsesClient
@@ -15,6 +18,10 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
     system_state_service = services["system_state_service"]
     system_audit_service = services["system_audit_service"]
     context_skill_service = services["context_skill_service"]
+    requirement_clarifier = services["requirement_clarifier"]
+    requirement_blueprint_builder = services["requirement_blueprint_builder"]
+    log_evidence = services["log_evidence"]
+    context_compaction = services["context_compaction"]
 
     def demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
         payload = request.config.get("payload", request.inputs)
@@ -60,6 +67,51 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
             },
         )
 
+    def requirement_capability_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+        skill_request = RequirementSkillRequest(**request.inputs)
+        if skill_request.operation == "clarify":
+            output = requirement_clarifier.clarify(skill_request.text).model_dump(mode="json")
+        elif skill_request.operation == "extract":
+            output = requirement_clarifier.extract(skill_request.text).model_dump(mode="json")
+        elif skill_request.operation == "readiness":
+            output = requirement_clarifier.readiness(skill_request.text)
+            if skill_request.include_evidence_ingest:
+                log_evidence.ingest_clarify_unresolved(
+                    request_text=skill_request.text,
+                    requirement_type=output["requirement_type"],
+                    readiness=output["readiness"],
+                    missing_fields=output["missing_fields"],
+                )
+        else:
+            spec = requirement_clarifier.clarify(skill_request.text)
+            output = requirement_blueprint_builder.build_blueprint_draft(spec).model_dump(mode="json")
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
+
+    def evidence_capability_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+        skill_request = EvidenceSkillRequest(**request.inputs)
+        if skill_request.operation == "list_signals":
+            output = log_evidence.list_signals(limit=skill_request.limit).model_dump(mode="json")
+        elif skill_request.operation == "list_promoted":
+            output = log_evidence.list_promoted_evidence(limit=skill_request.limit).model_dump(mode="json")
+        elif skill_request.operation == "list_index":
+            output = log_evidence.list_index_entries(limit=skill_request.limit, app_instance_id=skill_request.app_instance_id or None).model_dump(mode="json")
+        elif skill_request.operation == "context_summary":
+            target_app = skill_request.app_instance_id or request.app_instance_id
+            output = log_evidence.build_context_evidence_summary(target_app, limit=skill_request.limit or 3)
+        else:
+            output = log_evidence.get_stats_summary()
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
+
+    def context_compaction_capability_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+        skill_request = ContextCompactionSkillRequest(**request.inputs)
+        if skill_request.operation == "compact":
+            output = context_compaction.compact(request.app_instance_id, reason=skill_request.reason).model_dump(mode="json")
+        elif skill_request.operation == "working_set":
+            output = context_compaction.build_working_set(request.app_instance_id).model_dump(mode="json")
+        else:
+            output = context_compaction.list_layers(request.app_instance_id)
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
+
     return {
         "skill.echo": demo_echo_skill,
         "system.app_config": system_app_config_skill,
@@ -67,6 +119,9 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
         "system.audit": system_audit_skill,
         "system.context": system_context_skill,
         "model.responses.probe": model_responses_probe_skill,
+        "requirement.skill": requirement_capability_skill,
+        "evidence.skill": evidence_capability_skill,
+        "context.compaction.skill": context_compaction_capability_skill,
     }
 
 

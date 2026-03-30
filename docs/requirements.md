@@ -173,6 +173,11 @@ The observation layer should also support a first-pass evidence-promotion loop t
 - promote high-pressure signals into reusable evidence objects
 - expose a lightweight retrieval-oriented index for future prompt/context selection
 
+Reusable system capabilities should be accessible through stable system skills when practical, especially for:
+- requirement understanding and blueprint handoff
+- evidence retrieval / evidence summaries
+- context compaction / working-set shaping
+
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:
 - listing skills

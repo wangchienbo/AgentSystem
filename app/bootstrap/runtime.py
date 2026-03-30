@@ -32,6 +32,9 @@ from app.services.log_evidence_service import LogEvidenceService
 from app.services.requirement_router import RequirementRouter
 from app.services.requirement_clarifier import RequirementClarifierService
 from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderService
+from app.models.requirement_skill import RequirementSkillRequest
+from app.models.evidence_skill import EvidenceSkillRequest
+from app.models.context_compaction_skill import ContextCompactionSkillRequest
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
@@ -178,6 +181,42 @@ def build_runtime() -> dict[str, object]:
             "required": ["message"],
             "additionalProperties": False,
         },
+    )
+    schema_registry.register(
+        "schema://requirement.skill/input",
+        RequirementSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://requirement.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://requirement.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://evidence.skill/input",
+        EvidenceSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://evidence.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://evidence.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://context.compaction.skill/input",
+        ContextCompactionSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://context.compaction.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://context.compaction.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
     )
     skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)
     blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
