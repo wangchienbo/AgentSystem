@@ -4122,3 +4122,26 @@ Completed the next-stage refinement flow by connecting persisted suggested skill
 #### Design intent clarified
 - suggested skill blueprints are only practically useful for app evolution when the platform can bridge them into concrete app refinement without asking callers to manually recreate intermediate materialization steps
 - experience-driven refinement should prefer the safer generated callable path by default when materializing suggested skills into executable building blocks
+
+### Module: add model client smoke coverage
+
+Added focused smoke coverage for the OpenAI-compatible responses client so the project now tests not only external connectivity paths but also the client-side normalization and error-mapping behavior that those paths depend on.
+
+#### Updated
+- `tests/unit/test_model_client_smoke.py`
+  - validates `/v1/responses` request construction and auth/header wiring
+  - validates direct JSON response handling
+  - validates `text/event-stream` preview normalization for probe-style calls
+  - validates retryable 5xx error mapping into `ModelClientError`
+- `docs/testing.md`
+  - records the lightweight model smoke-test layer explicitly
+- `docs/testing-detail.md`
+  - documents the three current model-test entry points: connectivity probe, e2e runtime flow, and client-level smoke coverage
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_model_client_smoke.py -q`
+- Result: `3 passed`
+
+#### Design intent clarified
+- model validation should distinguish between provider connectivity, runtime integration, and client normalization so regressions are easier to localize
+- lightweight client smoke coverage should stay fast and deterministic instead of depending on live external calls for every model-path regression

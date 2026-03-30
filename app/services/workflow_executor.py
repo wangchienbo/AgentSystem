@@ -15,6 +15,7 @@ from app.services.lifecycle import AppLifecycleService
 from app.services.skill_runtime import SkillRuntimeError, SkillRuntimeService
 from app.models.skill_runtime import SkillExecutionRequest
 from app.services.context_compaction import ContextCompactionService
+from app.services.policy_guard import PolicyGuardError, PolicyGuardService
 from app.services.telemetry_service import TelemetryService
 
 
@@ -34,6 +35,7 @@ class WorkflowExecutorService:
         store: RuntimeStateStore | None = None,
         context_compaction: ContextCompactionService | None = None,
         telemetry_service: TelemetryService | None = None,
+        policy_guard: PolicyGuardService | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -45,6 +47,7 @@ class WorkflowExecutorService:
         self._history: list[WorkflowExecutionResult] = []
         self._context_compaction = context_compaction
         self._telemetry_service = telemetry_service
+        self._policy_guard = policy_guard
 
     def execute_primary_workflow(self, app_instance_id: str, trigger: str = "manual", inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
         return self.execute_workflow(app_instance_id=app_instance_id, workflow_id=None, trigger=trigger, inputs=inputs)
@@ -104,6 +107,7 @@ class WorkflowExecutorService:
 
             executed = self._execute_step(
                 app_instance_id,
+                blueprint,
                 workflow.id,
                 step.kind,
                 step.id,
@@ -196,6 +200,7 @@ class WorkflowExecutorService:
     def _execute_step(
         self,
         app_instance_id: str,
+        blueprint,
         workflow_id: str,
         kind: str,
         step_id: str,
@@ -204,6 +209,26 @@ class WorkflowExecutorService:
         inputs: dict[str, Any],
         execution_context: dict[str, Any],
     ) -> WorkflowStepExecution:
+        if self._policy_guard is not None:
+            try:
+                self._policy_guard.ensure_workflow_step_allowed(blueprint, kind=kind, ref=ref)
+            except PolicyGuardError as error:
+                if self._context_store is not None:
+                    self._context_store.append_entry(
+                        app_instance_id,
+                        section="constraints",
+                        key=f"policy:{step_id}",
+                        value={"ref": ref, "kind": kind, "status": "blocked", "reason": str(error)},
+                        tags=["workflow", "policy"],
+                    )
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="failed",
+                    detail={"reason": str(error), "ref": ref, "kind": kind, "policy_blocked": True},
+                    output={},
+                )
         if kind == "module" and ref == "state.set":
             key = str(config.get("key", f"workflow.{workflow_id}.{step_id}"))
             value = self._resolve_value(config.get("value", inputs), execution_context)
@@ -289,23 +314,6 @@ class WorkflowExecutorService:
             )
 
         if kind == "skill":
-            if ref not in self._registry.get_blueprint(self._lifecycle.get_instance(app_instance_id).blueprint_id).required_skills:
-                if self._context_store is not None:
-                    self._context_store.append_entry(
-                        app_instance_id,
-                        section="constraints",
-                        key=f"skill-policy:{step_id}",
-                        value={"ref": ref, "status": "blocked", "reason": "skill not declared in blueprint"},
-                        tags=["workflow", "skill-policy"],
-                    )
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="failed",
-                    detail={"reason": "skill not declared in blueprint", "ref": ref},
-                    output={},
-                )
             if self._skill_runtime is None:
                 if self._context_store is not None:
                     self._context_store.append_entry(
