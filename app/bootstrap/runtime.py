@@ -27,6 +27,7 @@ from app.services.practice_review import PracticeReviewService
 from app.services.priority_analysis import PriorityAnalysisService
 from app.services.proposal_review import ProposalReviewService
 from app.services.collection_policy_service import CollectionPolicyService
+from app.services.policy_guard import PolicyGuardService
 from app.services.requirement_router import RequirementRouter
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
@@ -267,6 +268,7 @@ def build_runtime() -> dict[str, object]:
         generated_assets=generated_skill_assets,
         risk_policy=skill_risk_policy,
     )
+    policy_guard = PolicyGuardService()
     app_refinement = AppRefinementService(
         experience_store=experience_store,
         skill_control=skill_control,
@@ -281,6 +283,7 @@ def build_runtime() -> dict[str, object]:
         skill_runtime=skill_runtime,
         store=runtime_store,
         telemetry_service=telemetry_service,
+        policy_guard=policy_guard,
     )
     workflow_subscription = WorkflowSubscriptionService(
         workflow_executor=workflow_executor,

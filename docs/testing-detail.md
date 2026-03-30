@@ -73,6 +73,11 @@ requires_openai_auth = true
 兼容回退接口（可选）：
 - `POST https://crs.ruinique.com/v1/chat/completions`
 
+当前仓库内现有测试入口：
+- `scripts/model_probe.py`：最小外部连通性探针
+- `tests/e2e/test_external_model_api_flow.py`：通过内置 skill runtime 验证外部模型 API 流程
+- `tests/unit/test_model_client_smoke.py`：客户端级 smoke tests，覆盖 JSON / SSE / 5xx 错误映射
+
 ---
 
 ## 5. 系统级测试
@@ -223,6 +228,21 @@ requires_openai_auth = true
 ### IS-005 data.analyze
 期望：
 - 能对输入数据做语义分析并输出结构化结果
+
+### IS-006 模型客户端 smoke tests
+期望：
+- OpenAI-compatible responses 客户端可正确构造 `/v1/responses` 请求
+- `application/json` 响应可被直接解析为结构化结果
+- `text/event-stream` 响应可返回安全的 stream preview，便于轻量连通性验证
+- 5xx 错误可映射为带 `retryable=true` 的 `ModelClientError`
+
+### IS-007 意图理解路由测试
+期望：
+- 明确 app 需求可被识别为 `app`
+- 明确 skill 需求可被识别为 `skill`
+- 包含页面点击/演示线索的需求会被判定为优先示范
+- 过于抽象的战略/架构型需求会先进入 clarify 路径
+- 含多约束或 workflow 线索的需求不会被过早误判为必须示范
 
 ---
 

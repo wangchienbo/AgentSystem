@@ -42,6 +42,15 @@ Used for API and service combinations such as:
 - event publish -> event schedule trigger
 - practice review -> experience store
 - experience -> skill suggestion
+- external model probe through builtin skill runtime
+
+### 2.2.1 Model smoke tests
+Used for lightweight client-level validation such as:
+- OpenAI-compatible `/v1/responses` request construction
+- JSON response normalization
+- `text/event-stream` preview handling for probe-style calls
+- retryable 5xx error mapping
+- requirement-intent routing coverage for app / skill / demo-first / abstract-clarify scenarios
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:
