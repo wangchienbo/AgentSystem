@@ -51,4 +51,5 @@ def test_readiness_endpoint_shape_is_minimal_and_actionable() -> None:
     assert "readiness" in result
     assert "missing_fields" in result
     assert "recommended_questions" in result
+    assert "notes" in result
     assert result["requirement_type"] in {"skill", "hybrid", "app", "unclear"}

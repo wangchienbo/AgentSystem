@@ -26,6 +26,7 @@ from app.services.blueprint_validation import BlueprintValidationError
 from app.services.skill_validation import SkillValidationError
 from app.models.skill_diagnostics import SkillDiagnosticError
 from app.services.skill_factory import SkillFactoryError
+from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderError
 
 
 def map_domain_error(error: Exception) -> HTTPException:
@@ -35,7 +36,7 @@ def map_domain_error(error: Exception) -> HTTPException:
         if diagnostic["kind"] in {"reload_error", "execution_error"}:
             status_code = 422
         return HTTPException(status_code=status_code, detail=diagnostic)
-    if isinstance(error, (SkillControlError, SkillManifestValidationError, SkillValidationError, BlueprintValidationError, SkillFactoryError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, AppContextStoreError, AppConfigError, SystemSkillError, ContextSkillError, EventBusError, PracticeReviewError, SkillSuggestionError, SelfRefinementError, ProposalReviewError, PriorityAnalysisError)):
+    if isinstance(error, (SkillControlError, SkillManifestValidationError, SkillValidationError, BlueprintValidationError, SkillFactoryError, RequirementBlueprintBuilderError, LifecycleError, RuntimeHostError, SchedulerError, SupervisorError, AppCatalogError, AppRegistryError, AppInstallerError, AppDataStoreError, AppContextStoreError, AppConfigError, SystemSkillError, ContextSkillError, EventBusError, PracticeReviewError, SkillSuggestionError, SelfRefinementError, ProposalReviewError, PriorityAnalysisError)):
         message = str(error)
         if "not found" in message.lower():
             return HTTPException(status_code=404, detail=message)

@@ -30,6 +30,7 @@ from app.services.collection_policy_service import CollectionPolicyService
 from app.services.policy_guard import PolicyGuardService
 from app.services.requirement_router import RequirementRouter
 from app.services.requirement_clarifier import RequirementClarifierService
+from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
@@ -55,6 +56,7 @@ from app.services.workflow_subscription import WorkflowSubscriptionService
 def build_runtime() -> dict[str, object]:
     router = RequirementRouter()
     requirement_clarifier = RequirementClarifierService(router=router)
+    requirement_blueprint_builder = RequirementBlueprintBuilderService()
     skill_control = SkillControlService()
     schema_registry = SchemaRegistryService()
     schema_registry.register(

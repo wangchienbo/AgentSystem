@@ -38,6 +38,7 @@ from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.app_refinement import SuggestedSkillRefinementRequest
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, GeneratedSkillRevisionRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError, _diagnostic
+from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderError
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
@@ -80,6 +81,7 @@ def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
 services = build_runtime()
 router = services["router"]
 requirement_clarifier = services["requirement_clarifier"]
+requirement_blueprint_builder = services["requirement_blueprint_builder"]
 skill_control = services["skill_control"]
 experience_store = services["experience_store"]
 demonstration_extractor = services["demonstration_extractor"]
@@ -147,6 +149,15 @@ def extract_requirement(payload: dict[str, str]) -> dict:
 def requirement_readiness(payload: dict[str, str]) -> dict:
     text = payload.get("text", "")
     return requirement_clarifier.readiness(text)
+
+@app.post("/requirements/blueprint-draft")
+def requirement_blueprint_draft(payload: dict[str, str]) -> dict:
+    text = payload.get("text", "")
+    spec = requirement_clarifier.clarify(text)
+    try:
+        return requirement_blueprint_builder.build_blueprint_draft(spec).model_dump(mode="json")
+    except RequirementBlueprintBuilderError as error:
+        raise map_domain_error(error) from error
 
 @app.get("/skills")
 def list_skills() -> list[dict]:

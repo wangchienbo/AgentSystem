@@ -21,20 +21,23 @@ class RequirementClarifierService:
         constraints = self._extract_constraints(normalized)
         permissions = self._extract_permissions(normalized)
         failure_strategy = self._extract_failure_strategy(normalized)
+        conflict_reasons = self._detect_conflicts(normalized, intent.demonstration_decision)
         missing_fields = self._compute_missing_fields(
             requirement_type=intent.requirement_type,
             goal=goal,
             inputs=inputs,
             outputs=outputs,
+            conflict_reasons=conflict_reasons,
         )
-        recommended_questions = self._build_questions(missing_fields, intent.demonstration_decision)
-        readiness = self._determine_readiness(intent.demonstration_decision, missing_fields, constraints)
+        recommended_questions = self._build_questions(missing_fields, intent.demonstration_decision, conflict_reasons)
+        readiness = self._determine_readiness(intent.demonstration_decision, missing_fields, constraints, conflict_reasons)
 
         notes: list[str] = []
         if intent.requirement_type == "unclear":
             notes.append("当前需求类型仍偏模糊，建议先明确是 app、skill，还是两者组合。")
         if any("权限" in item or "审批" in item for item in constraints):
             notes.append("需求包含治理或权限边界，后续 blueprint 阶段应补充角色与授权规则。")
+        notes.extend(conflict_reasons)
 
         return RequirementSpec(
             raw_text=text,
@@ -66,6 +69,7 @@ class RequirementClarifierService:
             "needs_demo": spec.needs_demo,
             "recommended_questions": spec.recommended_questions,
             "requirement_type": spec.requirement_type,
+            "notes": spec.notes,
         }
 
     def _extract_goal(self, text: str) -> str:
@@ -104,7 +108,7 @@ class RequirementClarifierService:
 
     def _extract_constraints(self, text: str) -> list[str]:
         constraints: list[str] = []
-        for word in ["失败重试", "权限", "审批", "边界", "workflow", "本地", "联网"]:
+        for word in ["失败重试", "权限", "审批", "边界", "workflow", "本地", "联网", "自动执行", "人工审批"]:
             if word in text and word not in constraints:
                 constraints.append(word)
         return constraints
@@ -124,12 +128,23 @@ class RequirementClarifierService:
             return "rollback_on_failure"
         return None
 
+    def _detect_conflicts(self, text: str, demonstration_decision: str) -> list[str]:
+        conflicts: list[str] = []
+        if "本地" in text and "联网" in text:
+            conflicts.append("同时要求本地执行和联网依赖，需明确离线/在线边界。")
+        if "自动执行" in text and "人工审批" in text:
+            conflicts.append("同时要求自动执行和人工审批，需明确哪些步骤允许自动化。")
+        if demonstration_decision == "required" and any(word in text for word in ["直接输出", "直接生成结果"]):
+            conflicts.append("既要求先演示又要求直接输出结果，需明确演示是否为前置条件。")
+        return conflicts
+
     def _compute_missing_fields(
         self,
         requirement_type: str,
         goal: str,
         inputs: list[str],
         outputs: list[str],
+        conflict_reasons: list[str],
     ) -> list[str]:
         missing: list[str] = []
         if not goal:
@@ -140,15 +155,18 @@ class RequirementClarifierService:
             missing.append("inputs")
         if requirement_type == "unclear":
             missing.append("artifact_type")
+        if conflict_reasons:
+            missing.append("conflict_resolution")
         return missing
 
-    def _build_questions(self, missing_fields: list[str], demo_decision: str) -> list[str]:
+    def _build_questions(self, missing_fields: list[str], demo_decision: str, conflict_reasons: list[str]) -> list[str]:
         questions: list[str] = []
         field_to_question = {
             "artifact_type": "你要的是一个 app、一个 skill，还是两者组合？",
             "goal": "这个能力最终想解决的核心目标是什么？",
             "inputs": "这个能力的输入来源是什么？",
             "outputs": "你期望它最终输出什么结果？",
+            "conflict_resolution": "当前需求里有冲突约束，哪些要求优先级更高？",
         }
         for field in missing_fields:
             question = field_to_question.get(field)
@@ -156,9 +174,19 @@ class RequirementClarifierService:
                 questions.append(question)
         if demo_decision == "required":
             questions.append("这个流程是否方便先做一次演示，让系统抽取页面步骤和规则？")
+        if conflict_reasons:
+            questions.extend(conflict_reasons)
         return questions
 
-    def _determine_readiness(self, demo_decision: str, missing_fields: list[str], constraints: list[str]) -> str:
+    def _determine_readiness(
+        self,
+        demo_decision: str,
+        missing_fields: list[str],
+        constraints: list[str],
+        conflict_reasons: list[str],
+    ) -> str:
+        if conflict_reasons:
+            return "conflicting_constraints"
         if demo_decision == "required":
             return "needs_demo"
         if any(item in {"权限", "边界"} for item in constraints) and "outputs" in missing_fields:

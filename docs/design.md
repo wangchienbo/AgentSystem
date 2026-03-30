@@ -44,8 +44,9 @@ The system should use deterministic services first, and use intelligence mainly 
 A lightweight requirement-understanding loop should exist before blueprint generation:
 - first route the request (`app | skill | hybrid | unclear`)
 - then build a minimal structured requirement spec
-- then decide whether the request is ready, needs clarification, or needs demonstration
+- then decide whether the request is ready, needs clarification, needs demonstration, or contains conflicting constraints
 - only after that should later generation flows consume the request as a candidate blueprint/app/skill definition input
+- when the request is ready and app-oriented, the system may emit a minimal blueprint draft as a handoff artifact rather than forcing later stages to re-parse raw user text
 
 Network reachability and intelligence availability are separate concerns:
 - an app may have network but should still avoid intelligent calls by default

@@ -162,6 +162,8 @@ The requirement-intake layer should also support a minimal clarification/extract
 - report missing fields before blueprint generation
 - expose a readiness judgment (`ready | needs_clarification | needs_demo | conflicting_constraints`)
 - return recommended follow-up questions when the request is still underspecified
+- detect basic conflicting constraints before generation handoff
+- build a minimal app-oriented blueprint draft only when the requirement is ready for generation
 
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:

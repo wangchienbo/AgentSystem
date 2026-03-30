@@ -247,9 +247,10 @@ requires_openai_auth = true
 ### IS-008 需求澄清与结构化提取测试
 期望：
 - 可输出最小 requirement spec（goal / roles / inputs / outputs / constraints / permissions / failure strategy）
-- 可识别 `ready | needs_clarification | needs_demo` 等 readiness 状态
+- 可识别 `ready | needs_clarification | needs_demo | conflicting_constraints` 等 readiness 状态
 - 缺失关键信息时返回可执行的补充问题
 - API 层可通过 `/requirements/clarify`、`/requirements/extract`、`/requirements/readiness` 暴露同一套轻量 intake 能力
+- app-oriented 且 ready 的需求可通过 `/requirements/blueprint-draft` 生成最小 handoff blueprint
 
 ---
 

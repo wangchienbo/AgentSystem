@@ -4204,3 +4204,44 @@ Implemented the first minimal requirement-understanding loop beyond routing, so 
 #### Design intent clarified
 - requirement intake should not jump directly from raw user text into blueprint generation when lightweight deterministic clarification can first surface missing fields and better handoff structure
 - this first loop is intentionally heuristic and lightweight; richer semantic extraction can be layered later without discarding the stable intake contract or its regression coverage
+
+### Module: complete requirement handoff with conflict checks and blueprint draft generation
+
+Extended the first requirement-understanding loop into a fuller intake handoff by adding conflict-aware readiness, a minimal app-oriented blueprint-draft builder, and API surfaces that can reject non-ready requirements before generation.
+
+#### Updated
+- `app/services/requirement_clarifier.py`
+  - adds basic conflicting-constraint detection for local-vs-network, automation-vs-manual-approval, and demo-vs-direct-output pressure
+  - promotes conflict state into `readiness=conflicting_constraints`, `missing_fields`, notes, and follow-up questions
+- `app/services/requirement_blueprint_builder.py`
+  - builds a minimal `AppBlueprint` draft from a ready app/hybrid requirement spec
+  - rejects non-ready or skill-only requests with a dedicated builder error
+- `app/bootstrap/runtime.py`
+  - wires the requirement blueprint builder into runtime composition
+- `app/api/main.py`
+  - exposes `/requirements/blueprint-draft`
+  - maps builder failures into user-facing API errors instead of leaking internal exceptions
+- `app/core/errors.py`
+  - extends the shared domain-error mapper to include blueprint-builder failures
+- `tests/unit/test_requirement_conflicts.py`
+  - validates conflict detection for local/network and automation/manual-approval contradictions
+- `tests/unit/test_requirement_blueprint_builder.py`
+  - validates successful draft creation plus non-ready/skill-only rejection behavior
+- `tests/unit/test_requirement_blueprint_api.py`
+  - validates blueprint-draft API success/failure behavior
+- `docs/requirements.md`
+  - records conflict detection and ready-only blueprint draft handoff
+- `docs/design.md`
+  - captures the route → spec → readiness/conflict → blueprint-handoff sequence explicitly
+- `docs/testing.md`
+  - records conflict + blueprint-handoff regression coverage
+- `docs/testing-detail.md`
+  - documents the new conflict and blueprint-draft validation targets
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_requirement_router.py tests/unit/test_model_intent_understanding.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_clarifier_api.py tests/unit/test_requirement_conflicts.py tests/unit/test_requirement_blueprint_builder.py tests/unit/test_requirement_blueprint_api.py -q`
+- Result: `23 passed`
+
+#### Design intent clarified
+- the requirement layer should own the first explicit “stop or continue” judgment before later generation stages, rather than letting every downstream builder rediscover missing fields or contradictions separately
+- a minimal blueprint handoff artifact is useful even before richer semantic generation exists, because it stabilizes the contract between intake and later blueprint/app construction flows

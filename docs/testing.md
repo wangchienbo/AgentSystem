@@ -52,6 +52,7 @@ Used for lightweight client-level validation such as:
 - retryable 5xx error mapping
 - requirement-intent routing coverage for app / skill / demo-first / abstract-clarify scenarios
 - requirement clarification / extraction / readiness coverage for lightweight structured intake
+- requirement conflict detection and blueprint-draft handoff coverage
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:
