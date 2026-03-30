@@ -79,6 +79,7 @@ def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
 
 services = build_runtime()
 router = services["router"]
+requirement_clarifier = services["requirement_clarifier"]
 skill_control = services["skill_control"]
 experience_store = services["experience_store"]
 demonstration_extractor = services["demonstration_extractor"]
@@ -131,6 +132,21 @@ bootstrap_demo_catalog(app_registry, app_catalog)
 def route_requirement(payload: dict[str, str]) -> dict:
     text = payload.get("text", "")
     return router.route(text).model_dump()
+
+@app.post("/requirements/clarify")
+def clarify_requirement(payload: dict[str, str]) -> dict:
+    text = payload.get("text", "")
+    return requirement_clarifier.clarify(text).model_dump()
+
+@app.post("/requirements/extract")
+def extract_requirement(payload: dict[str, str]) -> dict:
+    text = payload.get("text", "")
+    return requirement_clarifier.extract(text).model_dump()
+
+@app.post("/requirements/readiness")
+def requirement_readiness(payload: dict[str, str]) -> dict:
+    text = payload.get("text", "")
+    return requirement_clarifier.readiness(text)
 
 @app.get("/skills")
 def list_skills() -> list[dict]:

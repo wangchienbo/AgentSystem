@@ -41,6 +41,12 @@ Skills are versioned, replaceable, suggestible capability units. They are depend
 ### 2.5 Intelligence is selective
 The system should use deterministic services first, and use intelligence mainly for abstraction, suggestion, diagnosis, and generation.
 
+A lightweight requirement-understanding loop should exist before blueprint generation:
+- first route the request (`app | skill | hybrid | unclear`)
+- then build a minimal structured requirement spec
+- then decide whether the request is ready, needs clarification, or needs demonstration
+- only after that should later generation flows consume the request as a candidate blueprint/app/skill definition input
+
 Network reachability and intelligence availability are separate concerns:
 - an app may have network but should still avoid intelligent calls by default
 - an app may be offline-capable while still carrying optional intelligent enhancements

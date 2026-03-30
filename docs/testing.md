@@ -51,6 +51,7 @@ Used for lightweight client-level validation such as:
 - `text/event-stream` preview handling for probe-style calls
 - retryable 5xx error mapping
 - requirement-intent routing coverage for app / skill / demo-first / abstract-clarify scenarios
+- requirement clarification / extraction / readiness coverage for lightweight structured intake
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

@@ -244,6 +244,13 @@ requires_openai_auth = true
 - 过于抽象的战略/架构型需求会先进入 clarify 路径
 - 含多约束或 workflow 线索的需求不会被过早误判为必须示范
 
+### IS-008 需求澄清与结构化提取测试
+期望：
+- 可输出最小 requirement spec（goal / roles / inputs / outputs / constraints / permissions / failure strategy）
+- 可识别 `ready | needs_clarification | needs_demo` 等 readiness 状态
+- 缺失关键信息时返回可执行的补充问题
+- API 层可通过 `/requirements/clarify`、`/requirements/extract`、`/requirements/readiness` 暴露同一套轻量 intake 能力
+
 ---
 
 ## 10. 数据与隔离测试

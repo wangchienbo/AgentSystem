@@ -156,6 +156,13 @@ It must also decide whether user demonstration is:
 - `not_needed`
 - `clarify`
 
+The requirement-intake layer should also support a minimal clarification/extraction loop that can:
+- summarize the current requirement goal
+- extract lightweight structured signals for roles / inputs / outputs / constraints / permissions / failure strategy
+- report missing fields before blueprint generation
+- expose a readiness judgment (`ready | needs_clarification | needs_demo | conflicting_constraints`)
+- return recommended follow-up questions when the request is still underspecified
+
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:
 - listing skills

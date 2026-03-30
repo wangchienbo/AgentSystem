@@ -4169,3 +4169,38 @@ Added a focused regression slice for requirement-intent understanding so the pro
 #### Design intent clarified
 - “model capability” in this codebase should include not only external provider access but also whether incoming natural-language requests are routed into the right product path
 - intent-understanding coverage should stay lightweight and deterministic at the router layer, while richer live-model understanding benchmarks can be added later without replacing these regression checks
+
+### Module: add requirement clarification and readiness loop
+
+Implemented the first minimal requirement-understanding loop beyond routing, so the system can now return a lightweight structured requirement spec, identify missing fields, recommend follow-up questions, and expose a readiness judgment before later blueprint-generation paths run.
+
+#### Updated
+- `app/models/requirement_spec.py`
+  - adds the first structured requirement-intake contract with readiness, missing-fields, and follow-up-question support
+- `app/services/requirement_clarifier.py`
+  - builds a lightweight requirement spec from raw natural-language input using deterministic extraction heuristics layered on top of the existing router
+  - exposes clarify / extract / readiness entry points
+- `app/bootstrap/runtime.py`
+  - wires the requirement clarifier into runtime composition
+- `app/api/main.py`
+  - exposes `/requirements/clarify`, `/requirements/extract`, and `/requirements/readiness`
+- `tests/unit/test_requirement_clarifier.py`
+  - validates abstract-request clarification, demo-first readiness, structured-skill readiness, app constraint extraction, and readiness summary shape
+- `tests/unit/test_requirement_clarifier_api.py`
+  - validates the new API surfaces return actionable structured responses
+- `docs/requirements.md`
+  - records the minimal clarification/extraction/readiness loop as part of requirement intake
+- `docs/design.md`
+  - captures the intended ordering: route → structured spec → readiness → later generation
+- `docs/testing.md`
+  - records lightweight requirement clarification coverage alongside model smoke coverage
+- `docs/testing-detail.md`
+  - documents the new clarification/extraction/readiness test targets
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_clarifier_api.py -q`
+- Result: `7 passed`
+
+#### Design intent clarified
+- requirement intake should not jump directly from raw user text into blueprint generation when lightweight deterministic clarification can first surface missing fields and better handoff structure
+- this first loop is intentionally heuristic and lightweight; richer semantic extraction can be layered later without discarding the stable intake contract or its regression coverage
