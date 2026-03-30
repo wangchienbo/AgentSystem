@@ -4245,3 +4245,34 @@ Extended the first requirement-understanding loop into a fuller intake handoff b
 #### Design intent clarified
 - the requirement layer should own the first explicit “stop or continue” judgment before later generation stages, rather than letting every downstream builder rediscover missing fields or contradictions separately
 - a minimal blueprint handoff artifact is useful even before richer semantic generation exists, because it stabilizes the contract between intake and later blueprint/app construction flows
+
+### Module: enrich requirement-derived blueprint drafts with shape and runtime hints
+
+Extended the requirement blueprint handoff so ready app requests no longer emit only a generic shell; the builder now classifies lightweight requirement-derived app shape, adjusts workflow/task/view semantics, and attaches a first-pass runtime profile that better reflects transform-style vs pipeline-style requests.
+
+#### Updated
+- `app/services/requirement_blueprint_builder.py`
+  - classifies requirement-derived drafts into lightweight shapes such as `structured_transform` and `pipeline_chain`
+  - derives corresponding workflow structure, operator-facing task/view wording, execution mode, persistence posture, and runtime-profile hints
+  - marks approval-heavy requests with `invocation_posture=ask_user`
+- `tests/unit/test_requirement_blueprint_builder.py`
+  - validates pipeline-shaped approval requests and structured-transform requests generate different draft metadata
+- `tests/unit/test_requirement_blueprint_api.py`
+  - validates the API surface exposes the richer `app_shape`, `runtime_policy`, and `runtime_profile` draft signals
+- `docs/requirements.md`
+  - records that requirement-derived drafts should carry app-shape/runtime-profile hints
+- `docs/design.md`
+  - captures the intent that requirement handoff artifacts should preserve early runtime/app-shape semantics instead of dropping them
+- `docs/testing.md`
+  - records richer draft-shape/runtime-profile coverage
+- `docs/testing-detail.md`
+  - documents transform-vs-pipeline draft expectations on the requirement blueprint surface
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_requirement_blueprint_builder.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_conflicts.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_requirement_router.py tests/unit/test_model_intent_understanding.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_clarifier_api.py tests/unit/test_requirement_conflicts.py tests/unit/test_requirement_blueprint_builder.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `14 passed`, `30 passed`
+
+#### Design intent clarified
+- requirement-derived blueprint drafts should not be pure placeholders when the intake layer already has enough deterministic signal to infer a better initial operator-facing app shape
+- preserving early shape/runtime semantics at the requirement handoff stage reduces later contract drift between intake, generated blueprint display, and eventual install/runtime posture

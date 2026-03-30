@@ -11,17 +11,30 @@ clarifier = RequirementClarifierService()
 builder = RequirementBlueprintBuilderService()
 
 
-def test_builds_blueprint_draft_from_ready_app_requirement() -> None:
+def test_builds_pipeline_blueprint_draft_from_ready_app_requirement() -> None:
     spec = clarifier.clarify("帮我做一个客服审批系统 app，要能提交工单、分配处理人，并记录失败重试日志和权限边界")
 
     blueprint = builder.build_blueprint_draft(spec)
 
     assert blueprint.id.startswith("bp.requirement.")
     assert blueprint.goal == spec.goal
+    assert blueprint.app_shape == "pipeline_chain"
     assert len(blueprint.roles) >= 1
     assert len(blueprint.tasks) == 1
-    assert len(blueprint.workflows) == 1
+    assert len(blueprint.workflows[0].steps) == 3
+    assert blueprint.runtime_policy.execution_mode == "pipeline"
+    assert blueprint.runtime_profile.invocation_posture == "ask_user"
+
+
+
+def test_builds_structured_transform_shape_for_json_style_requirement() -> None:
+    spec = clarifier.clarify("帮我做一个数据处理 app，把表单字段统一转换成结构化 JSON 输出")
+
+    blueprint = builder.build_blueprint_draft(spec)
+
+    assert blueprint.app_shape == "structured_transform"
     assert blueprint.runtime_policy.execution_mode == "service"
+    assert blueprint.tasks[0].inputs["app_shape"] == "structured_transform"
 
 
 

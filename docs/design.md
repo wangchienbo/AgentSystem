@@ -47,6 +47,7 @@ A lightweight requirement-understanding loop should exist before blueprint gener
 - then decide whether the request is ready, needs clarification, needs demonstration, or contains conflicting constraints
 - only after that should later generation flows consume the request as a candidate blueprint/app/skill definition input
 - when the request is ready and app-oriented, the system may emit a minimal blueprint draft as a handoff artifact rather than forcing later stages to re-parse raw user text
+- that handoff artifact should already carry lightweight app-shape and runtime-profile cues (for example pipeline vs transform posture, ask-user invocation pressure, and offline/network expectations) so later control-plane and install paths start from a more stable draft
 
 Network reachability and intelligence availability are separate concerns:
 - an app may have network but should still avoid intelligent calls by default

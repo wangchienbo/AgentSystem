@@ -53,6 +53,7 @@ Used for lightweight client-level validation such as:
 - requirement-intent routing coverage for app / skill / demo-first / abstract-clarify scenarios
 - requirement clarification / extraction / readiness coverage for lightweight structured intake
 - requirement conflict detection and blueprint-draft handoff coverage
+- requirement-derived app-shape/runtime-profile draft coverage for transform-like vs pipeline-like requests
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

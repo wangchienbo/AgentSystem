@@ -15,7 +15,22 @@ def test_requirement_blueprint_draft_api_returns_blueprint_for_ready_app_request
     assert response.status_code == 200
     payload = response.json()
     assert payload["id"].startswith("bp.requirement.")
+    assert payload["app_shape"] == "pipeline_chain"
     assert len(payload["roles"]) >= 1
+    assert payload["runtime_policy"]["execution_mode"] == "pipeline"
+    assert payload["runtime_profile"]["invocation_posture"] == "ask_user"
+
+
+
+def test_requirement_blueprint_draft_api_returns_structured_shape_when_app_is_transform_like() -> None:
+    response = client.post(
+        "/requirements/blueprint-draft",
+        json={"text": "帮我做一个数据处理 app，把表单字段统一转换成结构化 JSON 输出"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["app_shape"] == "structured_transform"
     assert payload["runtime_policy"]["execution_mode"] == "service"
 
 

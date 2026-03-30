@@ -164,6 +164,7 @@ The requirement-intake layer should also support a minimal clarification/extract
 - return recommended follow-up questions when the request is still underspecified
 - detect basic conflicting constraints before generation handoff
 - build a minimal app-oriented blueprint draft only when the requirement is ready for generation
+- let requirement-derived blueprint drafts carry lightweight app-shape and runtime-profile hints so later stages do not have to recover those semantics from raw text again
 
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:
