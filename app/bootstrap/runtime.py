@@ -28,6 +28,7 @@ from app.services.priority_analysis import PriorityAnalysisService
 from app.services.proposal_review import ProposalReviewService
 from app.services.collection_policy_service import CollectionPolicyService
 from app.services.policy_guard import PolicyGuardService
+from app.services.log_evidence_service import LogEvidenceService
 from app.services.requirement_router import RequirementRouter
 from app.services.requirement_clarifier import RequirementClarifierService
 from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderService
@@ -198,6 +199,7 @@ def build_runtime() -> dict[str, object]:
     context_skill_service = ContextSkillService(context_store=app_context_store)
     collection_policy_service = CollectionPolicyService(store=runtime_store)
     upgrade_log_service = UpgradeLogService()
+    log_evidence = LogEvidenceService(store=runtime_store)
     telemetry_service = TelemetryService(
         store=runtime_store,
         policy_service=collection_policy_service,

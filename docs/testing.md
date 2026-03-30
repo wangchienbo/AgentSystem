@@ -54,6 +54,7 @@ Used for lightweight client-level validation such as:
 - requirement clarification / extraction / readiness coverage for lightweight structured intake
 - requirement conflict detection and blueprint-draft handoff coverage
 - requirement-derived app-shape/runtime-profile draft coverage for transform-like vs pipeline-like requests
+- evidence-promotion coverage for repeated workflow failures, policy pressure, clarify-unresolved loops, and retrieval index generation
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

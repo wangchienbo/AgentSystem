@@ -253,6 +253,13 @@ requires_openai_auth = true
 - app-oriented 且 ready 的需求可通过 `/requirements/blueprint-draft` 生成最小 handoff blueprint
 - handoff blueprint 会根据需求信号区分 `structured_transform` / `pipeline_chain` 等轻量 app shape，并给出相应 runtime profile / execution mode
 
+### IS-009 证据晋升与索引测试
+期望：
+- repeated workflow failures 可先形成 draft，再提升为 suspicious signal，并在阈值满足时生成 promoted evidence
+- repeated policy-blocked events 可形成 policy-pressure signals/evidence
+- repeated clarify-unresolved cases 可形成 intake-side suspicious signals
+- API 层可通过 `/evidence/drafts`、`/evidence/signals`、`/evidence/promoted`、`/evidence/index`、`/evidence/stats` 暴露第一版 evidence promotion surfaces
+
 ---
 
 ## 10. 数据与隔离测试

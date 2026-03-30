@@ -83,6 +83,7 @@ router = services["router"]
 requirement_clarifier = services["requirement_clarifier"]
 requirement_blueprint_builder = services["requirement_blueprint_builder"]
 skill_control = services["skill_control"]
+log_evidence = services["log_evidence"]
 experience_store = services["experience_store"]
 demonstration_extractor = services["demonstration_extractor"]
 runtime_store = services["runtime_store"]
@@ -283,6 +284,26 @@ def get_skill_risk_stats() -> dict:
 @app.get("/skill-risk/dashboard")
 def get_skill_risk_dashboard(recent_limit: int = 5) -> dict:
     return skill_risk_policy.get_dashboard(recent_limit=recent_limit).model_dump(mode="json")
+
+@app.get("/evidence/drafts")
+def get_evidence_drafts(limit: int | None = None) -> dict:
+    return log_evidence.list_drafts(limit=limit).model_dump(mode="json")
+
+@app.get("/evidence/signals")
+def get_evidence_signals(limit: int | None = None) -> dict:
+    return log_evidence.list_signals(limit=limit).model_dump(mode="json")
+
+@app.get("/evidence/promoted")
+def get_promoted_evidence(limit: int | None = None) -> dict:
+    return log_evidence.list_promoted_evidence(limit=limit).model_dump(mode="json")
+
+@app.get("/evidence/index")
+def get_evidence_index(limit: int | None = None) -> dict:
+    return log_evidence.list_index_entries(limit=limit).model_dump(mode="json")
+
+@app.get("/evidence/stats")
+def get_evidence_stats() -> dict:
+    return log_evidence.get_stats_summary()
 
 @app.post("/skill-risk/{skill_id}/approve")
 def approve_skill_risk_override(

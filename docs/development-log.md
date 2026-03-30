@@ -4276,3 +4276,39 @@ Extended the requirement blueprint handoff so ready app requests no longer emit 
 #### Design intent clarified
 - requirement-derived blueprint drafts should not be pure placeholders when the intake layer already has enough deterministic signal to infer a better initial operator-facing app shape
 - preserving early shape/runtime semantics at the requirement handoff stage reduces later contract drift between intake, generated blueprint display, and eventual install/runtime posture
+
+### Module: add unified evidence-promotion v1
+
+Introduced a first-pass evidence-promotion layer so the system now has a concrete shared module for turning repeated raw operational references into draft summaries, suspicious signals, promoted evidence, and retrieval-oriented index entries.
+
+#### Updated
+- `app/models/log_evidence.py`
+  - adds shared contracts for raw refs, draft summaries, suspicious signals, promoted evidence, retrieval-index entries, and paged evidence responses
+- `app/services/log_evidence_service.py`
+  - implements v1 evidence promotion for three initial sources: repeated workflow failures, repeated policy-pressure events, and repeated requirement-clarify unresolved cases
+  - promotes repeated signals into evidence and index entries using deterministic thresholds
+- `app/bootstrap/runtime.py`
+  - wires the new shared log-evidence service into runtime composition
+- `app/api/main.py`
+  - exposes `/evidence/drafts`, `/evidence/signals`, `/evidence/promoted`, `/evidence/index`, and `/evidence/stats`
+- `tests/unit/test_log_evidence_service.py`
+  - validates repeated failure/policy/clarify patterns become signals and promoted evidence
+- `tests/unit/test_log_evidence_api.py`
+  - validates the new evidence surfaces and a minimal clarify-side integration path
+- `docs/requirements.md`
+  - records the first-pass evidence-promotion loop as part of the observation architecture
+- `docs/design.md`
+  - captures the raw → draft → suspicious → promoted/index layering explicitly
+- `docs/testing.md`
+  - records evidence-promotion regression coverage
+- `docs/testing-detail.md`
+  - documents the v1 evidence-promotion expectations and API surfaces
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `6 passed`, `19 passed`
+
+#### Design intent clarified
+- the system already had several local summary/dashboard layers, but prompt-control and long-horizon evidence handling benefit from a shared promotion module instead of only scattered per-domain read models
+- this first version intentionally stays deterministic and lightweight; later model-assisted summarization can sit on top of the same stable evidence contracts instead of replacing them

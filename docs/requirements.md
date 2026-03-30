@@ -166,6 +166,13 @@ The requirement-intake layer should also support a minimal clarification/extract
 - build a minimal app-oriented blueprint draft only when the requirement is ready for generation
 - let requirement-derived blueprint drafts carry lightweight app-shape and runtime-profile hints so later stages do not have to recover those semantics from raw text again
 
+The observation layer should also support a first-pass evidence-promotion loop that can:
+- ingest raw operational references
+- aggregate them into lightweight draft summaries
+- elevate repeated issues into suspicious signals
+- promote high-pressure signals into reusable evidence objects
+- expose a lightweight retrieval-oriented index for future prompt/context selection
+
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:
 - listing skills
