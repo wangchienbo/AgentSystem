@@ -215,7 +215,7 @@ def build_runtime() -> dict[str, object]:
         experience_store=experience_store,
         context_store=app_context_store,
     )
-    skill_risk_policy = SkillRiskPolicyService(store=runtime_store)
+    skill_risk_policy = SkillRiskPolicyService(store=runtime_store, log_evidence_service=log_evidence)
     model_skill_suggester = ModelSkillSuggester()
     skill_suggestion = SkillSuggestionService(
         experience_store=experience_store,
@@ -290,6 +290,7 @@ def build_runtime() -> dict[str, object]:
         store=runtime_store,
         telemetry_service=telemetry_service,
         policy_guard=policy_guard,
+        log_evidence_service=log_evidence,
     )
     workflow_subscription = WorkflowSubscriptionService(
         workflow_executor=workflow_executor,
@@ -300,6 +301,7 @@ def build_runtime() -> dict[str, object]:
         app_context_store=app_context_store,
         workflow_executor=workflow_executor,
         store=runtime_store,
+        log_evidence_service=log_evidence,
     )
     workflow_executor._context_compaction = context_compaction
     interaction_gateway = InteractionGateway(

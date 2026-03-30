@@ -36,6 +36,7 @@ class WorkflowExecutorService:
         context_compaction: ContextCompactionService | None = None,
         telemetry_service: TelemetryService | None = None,
         policy_guard: PolicyGuardService | None = None,
+        log_evidence_service = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -48,6 +49,7 @@ class WorkflowExecutorService:
         self._context_compaction = context_compaction
         self._telemetry_service = telemetry_service
         self._policy_guard = policy_guard
+        self._log_evidence_service = log_evidence_service
 
     def execute_primary_workflow(self, app_instance_id: str, trigger: str = "manual", inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
         return self.execute_workflow(app_instance_id=app_instance_id, workflow_id=None, trigger=trigger, inputs=inputs)
@@ -165,6 +167,14 @@ class WorkflowExecutorService:
         )
         self._history.append(result)
         self._persist_history()
+        if self._log_evidence_service is not None and result.status == "partial" and result.failed_step_ids:
+            self._log_evidence_service.ingest_workflow_failure(
+                app_instance_id=app_instance_id,
+                workflow_id=workflow.id,
+                failed_step_ids=list(result.failed_step_ids),
+                execution_id=f"{workflow.id}:{int(completed_at.timestamp())}",
+                status=result.status,
+            )
         if self._telemetry_service is not None:
             interaction_id = f"workflow:{app_instance_id}:{workflow.id}:{int(completed_at.timestamp())}"
             self._telemetry_service.record_step(

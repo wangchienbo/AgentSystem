@@ -4312,3 +4312,32 @@ Introduced a first-pass evidence-promotion layer so the system now has a concret
 #### Design intent clarified
 - the system already had several local summary/dashboard layers, but prompt-control and long-horizon evidence handling benefit from a shared promotion module instead of only scattered per-domain read models
 - this first version intentionally stays deterministic and lightweight; later model-assisted summarization can sit on top of the same stable evidence contracts instead of replacing them
+
+### Module: complete evidence-promotion integration with real signals and context summaries
+
+Completed the first full evidence-promotion module by wiring the shared evidence service into real signal sources and the context-compaction path, so promoted/indexed evidence can now influence compacted working summaries rather than remaining an isolated side store.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - emits workflow-failure evidence signals automatically when partial executions contain failed steps
+- `app/services/skill_risk_policy.py`
+  - feeds repeated `policy_blocked` governance events into the shared evidence pipeline
+- `app/api/main.py`
+  - feeds unresolved requirement-readiness results into the evidence pipeline during `/requirements/readiness`
+- `app/services/context_compaction.py`
+  - now includes `evidence_summary` metadata in compacted summary/working-set layers, using retrieval-index entries for the current app instance when available
+- `app/services/log_evidence_service.py`
+  - adds app-scoped index filtering and context-evidence summary construction for downstream context consumers
+- `tests/unit/test_evidence_integration.py`
+  - validates skill-risk auto-ingestion and context-compaction evidence-summary behavior
+- `tests/unit/test_context_compaction.py`
+  - validates working-set metadata includes evidence-summary structure
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_skill_risk_policy.py tests/unit/test_requirement_clarifier.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_skill_risk_policy.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `16 passed`, `24 passed`
+
+#### Design intent clarified
+- evidence promotion becomes materially more useful once compacted working context can read from promoted/indexed summaries, because token-control behavior then starts benefiting immediately even before a richer prompt-assembly layer exists
+- wiring a few real signal sources first (workflow failure, policy pressure, clarify unresolved) provides a practical backbone that can later absorb observability timelines, refinement failures, and other operator-facing evidence without rethinking the evidence contracts

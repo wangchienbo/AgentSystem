@@ -89,6 +89,7 @@ On top of those planes, the system should begin forming an evidence-promotion la
 - repeated patterns are aggregated into draft summaries
 - repeated or high-pressure patterns are elevated into suspicious signals
 - only promoted evidence and retrieval-index entries should become primary candidates for future prompt/context retrieval
+- context-compaction and future prompt-assembly paths should prefer promoted/indexed evidence summaries over re-reading raw operational history
 
 This separation reduces online cost while preserving the historical evidence needed for improvement.
 

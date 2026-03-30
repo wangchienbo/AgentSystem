@@ -149,7 +149,14 @@ def extract_requirement(payload: dict[str, str]) -> dict:
 @app.post("/requirements/readiness")
 def requirement_readiness(payload: dict[str, str]) -> dict:
     text = payload.get("text", "")
-    return requirement_clarifier.readiness(text)
+    result = requirement_clarifier.readiness(text)
+    log_evidence.ingest_clarify_unresolved(
+        request_text=text,
+        requirement_type=result["requirement_type"],
+        readiness=result["readiness"],
+        missing_fields=result["missing_fields"],
+    )
+    return result
 
 @app.post("/requirements/blueprint-draft")
 def requirement_blueprint_draft(payload: dict[str, str]) -> dict:

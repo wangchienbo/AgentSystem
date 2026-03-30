@@ -163,9 +163,26 @@ class LogEvidenceService:
         items = sorted(self._evidence.values(), key=lambda item: item.created_at, reverse=True)
         return self._page(items, limit=limit)
 
-    def list_index_entries(self, limit: int | None = None) -> EvidencePage:
+    def list_index_entries(self, limit: int | None = None, app_instance_id: str | None = None) -> EvidencePage:
         items = sorted(self._index.values(), key=lambda item: item.freshness_ts, reverse=True)
+        if app_instance_id is not None:
+            items = [item for item in items if item.app_instance_id == app_instance_id]
         return self._page(items, limit=limit)
+
+    def build_context_evidence_summary(self, app_instance_id: str, limit: int = 3) -> dict:
+        index_page = self.list_index_entries(limit=limit, app_instance_id=app_instance_id)
+        return {
+            "count": len(index_page.items),
+            "top_items": [
+                {
+                    "topic": item.topic,
+                    "summary": item.short_summary,
+                    "priority": item.priority,
+                    "scope_key": item.scope_key,
+                }
+                for item in index_page.items
+            ],
+        }
 
     def get_stats_summary(self) -> dict:
         signals = list(self._signals.values())

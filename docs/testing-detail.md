@@ -259,6 +259,7 @@ requires_openai_auth = true
 - repeated policy-blocked events 可形成 policy-pressure signals/evidence
 - repeated clarify-unresolved cases 可形成 intake-side suspicious signals
 - API 层可通过 `/evidence/drafts`、`/evidence/signals`、`/evidence/promoted`、`/evidence/index`、`/evidence/stats` 暴露第一版 evidence promotion surfaces
+- context compaction / working set 元数据中可包含 evidence summary，从而减少后续 prompt 对 raw 历史的依赖
 
 ---
 

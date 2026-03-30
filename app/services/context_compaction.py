@@ -16,10 +16,12 @@ class ContextCompactionService:
         app_context_store: AppContextStore,
         workflow_executor,
         store: RuntimeStateStore | None = None,
+        log_evidence_service=None,
     ) -> None:
         self._app_context_store = app_context_store
         self._workflow_executor = workflow_executor
         self._store = store
+        self._log_evidence_service = log_evidence_service
         self._summaries: dict[str, ContextSummary] = {}
         self._policies: dict[str, ContextCompactionPolicy] = {}
         if self._store is not None:
@@ -58,6 +60,7 @@ class ContextCompactionService:
         workflow_refs = [f"workflow:{item.workflow_id}:{item.trigger}" for item in history[-5:]]
         skill_refs = [f"skill:{item.skill_id}:{item.status}" for item in executions[-5:]]
 
+        evidence_summary = None if self._log_evidence_service is None else self._log_evidence_service.build_context_evidence_summary(app_instance_id)
         summary = ContextSummary(
             app_instance_id=app_instance_id,
             layer="summary",
@@ -75,6 +78,7 @@ class ContextCompactionService:
                 "skill_execution_count": len(executions),
                 "latest_workflow_ref": None if not history else workflow_refs[-1],
                 "latest_skill_ref": None if not executions else skill_refs[-1],
+                "evidence_summary": evidence_summary,
             },
         )
         self._summaries[app_instance_id] = summary
@@ -90,6 +94,7 @@ class ContextCompactionService:
         refs = [] if latest is None else [f"workflow:{latest.workflow_id}:{latest.trigger}"]
         if latest_execution is not None:
             refs.append(f"skill:{latest_execution.skill_id}:{latest_execution.status}")
+        evidence_summary = None if self._log_evidence_service is None else self._log_evidence_service.build_context_evidence_summary(app_instance_id)
         return ContextSummary(
             app_instance_id=app_instance_id,
             layer="working_set",
@@ -104,6 +109,7 @@ class ContextCompactionService:
                 "latest_workflow_status": None if latest is None else latest.status,
                 "latest_skill_status": None if latest_execution is None else latest_execution.status,
                 "skill_execution_count": len(executions),
+                "evidence_summary": evidence_summary,
             },
         )
 
