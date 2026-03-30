@@ -50,6 +50,7 @@ Used for lightweight client-level validation such as:
 - JSON response normalization
 - `text/event-stream` preview handling for probe-style calls
 - retryable 5xx error mapping
+- requirement-intent routing coverage for app / skill / demo-first / abstract-clarify scenarios
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

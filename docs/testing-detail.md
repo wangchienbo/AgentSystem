@@ -236,6 +236,14 @@ requires_openai_auth = true
 - `text/event-stream` 响应可返回安全的 stream preview，便于轻量连通性验证
 - 5xx 错误可映射为带 `retryable=true` 的 `ModelClientError`
 
+### IS-007 意图理解路由测试
+期望：
+- 明确 app 需求可被识别为 `app`
+- 明确 skill 需求可被识别为 `skill`
+- 包含页面点击/演示线索的需求会被判定为优先示范
+- 过于抽象的战略/架构型需求会先进入 clarify 路径
+- 含多约束或 workflow 线索的需求不会被过早误判为必须示范
+
 ---
 
 ## 10. 数据与隔离测试

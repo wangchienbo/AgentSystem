@@ -4145,3 +4145,27 @@ Added focused smoke coverage for the OpenAI-compatible responses client so the p
 #### Design intent clarified
 - model validation should distinguish between provider connectivity, runtime integration, and client normalization so regressions are easier to localize
 - lightweight client smoke coverage should stay fast and deterministic instead of depending on live external calls for every model-path regression
+
+### Module: add intent-understanding routing coverage
+
+Added a focused regression slice for requirement-intent understanding so the project now explicitly tests whether common user request shapes are routed toward app creation, skill creation, demo-first capture, or clarify-first handling.
+
+#### Updated
+- `tests/unit/test_model_intent_understanding.py`
+  - validates multi-constraint app requests remain app-oriented without forcing demonstration
+  - validates mixed tool/workflow requests stay within reasonable skill/hybrid routing outcomes
+  - validates UI click/demo-heavy requests trigger demonstration-first routing
+  - validates abstract strategy/architecture requests fall back to clarify
+  - validates structured validation requests stay on the direct skill path
+- `docs/testing.md`
+  - records requirement-intent routing as part of model smoke coverage
+- `docs/testing-detail.md`
+  - documents the new intent-understanding routing test target
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_model_intent_understanding.py tests/unit/test_requirement_router.py -q`
+- Result: `9 passed`
+
+#### Design intent clarified
+- “model capability” in this codebase should include not only external provider access but also whether incoming natural-language requests are routed into the right product path
+- intent-understanding coverage should stay lightweight and deterministic at the router layer, while richer live-model understanding benchmarks can be added later without replacing these regression checks
