@@ -35,6 +35,8 @@ from app.services.requirement_blueprint_builder import RequirementBlueprintBuild
 from app.models.requirement_skill import RequirementSkillRequest
 from app.models.evidence_skill import EvidenceSkillRequest
 from app.models.context_compaction_skill import ContextCompactionSkillRequest
+from app.models.workflow_insight_skill import WorkflowInsightSkillRequest
+from app.models.risk_governance_skill import RiskGovernanceSkillRequest
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
@@ -216,6 +218,30 @@ def build_runtime() -> dict[str, object]:
     )
     schema_registry.register(
         "schema://context.compaction.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://workflow.insight.skill/input",
+        WorkflowInsightSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://workflow.insight.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://workflow.insight.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://risk.governance.skill/input",
+        RiskGovernanceSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://risk.governance.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://risk.governance.skill/error",
         {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
     )
     skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)

@@ -5,8 +5,10 @@ from app.models.context_skill import ContextSkillRequest
 from app.models.context_compaction_skill import ContextCompactionSkillRequest
 from app.models.evidence_skill import EvidenceSkillRequest
 from app.models.requirement_skill import RequirementSkillRequest
+from app.models.risk_governance_skill import RiskGovernanceSkillRequest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.system_skill import SystemAuditRequest, SystemStateRequest
+from app.models.workflow_insight_skill import WorkflowInsightSkillRequest
 from app.services.model_client import OpenAIResponsesClient
 from app.services.model_config_loader import ModelConfigLoader
 from app.services.skill_runtime import SkillRuntimeService
@@ -22,6 +24,8 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
     requirement_blueprint_builder = services["requirement_blueprint_builder"]
     log_evidence = services["log_evidence"]
     context_compaction = services["context_compaction"]
+    workflow_observability = services["workflow_observability"]
+    skill_risk_policy = services["skill_risk_policy"]
 
     def demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
         payload = request.config.get("payload", request.inputs)
@@ -112,6 +116,59 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
             output = context_compaction.list_layers(request.app_instance_id)
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
 
+    def workflow_insight_capability_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+        skill_request = WorkflowInsightSkillRequest(**request.inputs)
+        if skill_request.operation == "overview":
+            output = workflow_observability.get_overview(
+                app_instance_id=request.app_instance_id,
+                workflow_id=skill_request.workflow_id,
+                failed_step_id=skill_request.failed_step_id,
+            ).model_dump(mode="json")
+        elif skill_request.operation == "timeline":
+            output = workflow_observability.list_timeline_events(
+                app_instance_id=request.app_instance_id,
+                workflow_id=skill_request.workflow_id,
+                limit=skill_request.limit,
+            ).model_dump(mode="json")
+        elif skill_request.operation == "dashboard":
+            output = workflow_observability.get_dashboard_summary(
+                app_instance_id=request.app_instance_id,
+                workflow_id=skill_request.workflow_id,
+                failed_step_id=skill_request.failed_step_id,
+                recent_limit=skill_request.limit or 5,
+            ).model_dump(mode="json")
+        else:
+            output = workflow_observability.get_stats_summary(
+                app_instance_id=request.app_instance_id,
+                workflow_id=skill_request.workflow_id,
+            ).model_dump(mode="json")
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
+
+    def risk_governance_capability_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+        skill_request = RiskGovernanceSkillRequest(**request.inputs)
+        if skill_request.operation == "events":
+            output = skill_risk_policy.get_event_page(
+                skill_id=skill_request.skill_id or None,
+                limit=skill_request.limit,
+            ).model_dump(mode="json")
+        elif skill_request.operation == "dashboard":
+            output = skill_risk_policy.get_dashboard(recent_limit=skill_request.limit or 5).model_dump(mode="json")
+        elif skill_request.operation == "approve_override":
+            output = skill_risk_policy.approve_override(
+                skill_id=skill_request.skill_id,
+                reviewer=skill_request.reviewer,
+                reason=skill_request.reason,
+            ).model_dump(mode="json")
+        elif skill_request.operation == "revoke_override":
+            output = skill_risk_policy.revoke_override(
+                skill_id=skill_request.skill_id,
+                reviewer=skill_request.reviewer,
+                reason=skill_request.reason,
+            ).model_dump(mode="json")
+        else:
+            output = skill_risk_policy.get_stats_summary().model_dump(mode="json")
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
+
     return {
         "skill.echo": demo_echo_skill,
         "system.app_config": system_app_config_skill,
@@ -122,6 +179,8 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
         "requirement.skill": requirement_capability_skill,
         "evidence.skill": evidence_capability_skill,
         "context.compaction.skill": context_compaction_capability_skill,
+        "workflow.insight.skill": workflow_insight_capability_skill,
+        "risk.governance.skill": risk_governance_capability_skill,
     }
 
 

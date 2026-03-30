@@ -177,6 +177,8 @@ Reusable system capabilities should be accessible through stable system skills w
 - requirement understanding and blueprint handoff
 - evidence retrieval / evidence summaries
 - context compaction / working-set shaping
+- workflow insight / observability summaries
+- governance and risk-control surfaces
 
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:

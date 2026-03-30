@@ -266,6 +266,8 @@ requires_openai_auth = true
 - requirement clarify/extract/readiness/blueprint handoff 可通过统一 system capability skill 暴露
 - evidence list/stats/context-summary 可通过统一 system capability skill 暴露
 - context compact/working-set/layers 可通过统一 system capability skill 暴露
+- workflow overview/timeline/stats/dashboard 可通过统一 system capability skill 暴露
+- risk governance events/stats/dashboard/override 可通过统一 system capability skill 暴露
 - 这些 system capability skills 具备稳定 manifest、schema ref、capability profile 和 runtime handler 绑定
 
 ---

@@ -4378,3 +4378,38 @@ Promoted a first batch of reusable platform abilities into builtin system skills
 #### Design intent clarified
 - durable capability APIs and service implementations remain the substrate, but reusable intelligent/retrieval/context-shaping surfaces become much more composable once exposed as first-class system skills
 - this first batch establishes the pattern for later system capability skills such as workflow insight, governance/risk, and prompt-selection surfaces
+
+### Module: add workflow insight and risk governance capability skills
+
+Completed the second batch of system capability skills by promoting workflow observability and risk-governance surfaces into builtin immutable skills, following the same core-service-plus-skill-facade pattern established for requirement/evidence/context.
+
+#### Updated
+- `app/models/workflow_insight_skill.py`
+  - adds a stable request contract for workflow overview/timeline/stats/dashboard operations
+- `app/models/risk_governance_skill.py`
+  - adds a stable request contract for risk governance events/stats/dashboard/override operations
+- `app/services/system_skill_registry.py`
+  - registers `workflow.insight.skill` and `risk.governance.skill` with manifest/schema/capability metadata
+- `app/bootstrap/runtime.py`
+  - registers schema refs for the new workflow/risk system capability skills
+- `app/bootstrap/skills.py`
+  - wires runtime handlers for workflow observability and risk-governance services behind the new skill facades
+- `tests/unit/test_workflow_risk_capability_skills.py`
+  - validates registration and basic runtime execution for workflow/risk capability skills
+- `docs/requirements.md`
+  - records workflow/risk surfaces as reusable system capability skills
+- `docs/design.md`
+  - extends the system-skill architecture statement to include workflow insight and governance surfaces
+- `docs/testing.md`
+  - records coverage for workflow/risk capability skills
+- `docs/testing-detail.md`
+  - documents the new workflow/risk system skill expectations
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_workflow_risk_capability_skills.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_system_capability_skills.py tests/unit/test_workflow_risk_capability_skills.py tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `3 passed`, `30 passed`
+
+#### Design intent clarified
+- observability and governance are not just UI/API read models; once exposed as system skills they become reusable platform-native capabilities that can later be orchestrated by apps, workflows, and model-assisted control-plane logic
+- this second batch materially strengthens the architectural rule that stable capability APIs sit underneath, while system skills provide the reusable, governed, composable surface

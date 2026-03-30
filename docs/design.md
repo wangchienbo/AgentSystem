@@ -43,7 +43,7 @@ The system should use deterministic services first, and use intelligence mainly 
 
 System capability skills should sit above stable core capability APIs/services:
 - core protocols, stores, lifecycle, registry, and execution APIs remain the durable substrate
-- reusable higher-level capabilities (especially requirement understanding, retrieval/evidence access, context shaping, and future model-assisted selection) should be exposed as system skills when feasible
+- reusable higher-level capabilities (especially requirement understanding, retrieval/evidence access, context shaping, workflow insight, governance/risk surfaces, and future model-assisted selection) should be exposed as system skills when feasible
 - skill facades should wrap services rather than replace the underlying capability APIs
 
 A lightweight requirement-understanding loop should exist before blueprint generation:
