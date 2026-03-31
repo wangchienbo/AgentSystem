@@ -14,9 +14,33 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.workflow_executor import WorkflowExecutorService
+from app.services.prompt_invocation_service import PromptInvocationService
+from app.services.prompt_selection_service import PromptSelectionService
+from app.services.log_evidence_service import LogEvidenceService
+from app.services.context_compaction import ContextCompactionService
 
 
 client = TestClient(app)
+
+
+class _FakeLoader:
+    def load(self):
+        class _Config:
+            provider = "OpenAI"
+            model = "gpt-5.4"
+        return _Config()
+
+    def resolve_api_key(self, config):
+        return "sk-test"
+
+
+class _FakeClient:
+    def __init__(self, config, api_key):
+        self.config = config
+        self.api_key = api_key
+
+    def request(self, input_payload, *, extra_payload=None):
+        return {"id": "resp_wf_123", "input_echo": input_payload, "extra_payload": extra_payload}
 
 
 def test_workflow_executor_runs_state_and_event_steps(tmp_path: Path) -> None:
@@ -213,6 +237,101 @@ def test_workflow_executor_passes_step_outputs_between_steps(tmp_path: Path) -> 
     event = event_bus.list_events("workflow.outputs.done")[0]
     assert event.payload["message"] == "hello"
     assert result.steps[-1].output["event_name"] == "workflow.outputs.done"
+
+
+def test_workflow_executor_runs_prompt_invoke_module_step(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "workflow-prompt-invoke-store"))
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "workflow-prompt-invoke-ns"), store=store)
+    scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
+    event_bus = EventBusService(scheduler=scheduler, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    log_evidence = LogEvidenceService(store=store)
+    context_compaction = ContextCompactionService(
+        app_context_store=context_store,
+        workflow_executor=type("_StubWorkflowExecutor", (), {"list_history": lambda self, app_instance_id: [], "_skill_runtime": None})(),
+        store=store,
+        log_evidence_service=log_evidence,
+    )
+    prompt_selection = PromptSelectionService(context_compaction=context_compaction, log_evidence=log_evidence)
+    prompt_invocation = PromptInvocationService(
+        prompt_selection=prompt_selection,
+        model_loader=_FakeLoader(),
+        client_factory=_FakeClient,
+    )
+    executor = WorkflowExecutorService(
+        registry=registry,
+        lifecycle=lifecycle,
+        data_store=data_store,
+        event_bus=event_bus,
+        context_store=context_store,
+        prompt_invocation_service=prompt_invocation,
+    )
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.prompt",
+            name="Workflow Prompt App",
+            goal="run prompt invocation in workflow",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.prompt.invoke",
+                    "name": "prompt invoke",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "prompt.run", "kind": "module", "ref": "prompt.invoke", "config": {"query": {"$from_inputs": "query"}, "limit": 3, "strategy": "query_first", "extra_payload": {"metadata": {"source": "workflow"}}}},
+                    ],
+                }
+            ],
+            required_modules=["prompt.invoke"],
+            required_skills=[],
+        )
+    )
+    install_result = installer.install_app("bp.workflow.prompt", user_id="workflow-prompt-user")
+    context_store.update_context(
+        install_result.app_instance_id,
+        current_stage="reasoning",
+        current_goal="answer user",
+        status="active",
+    )
+    log_evidence.ingest_workflow_failure(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.prompt.invoke",
+        failed_step_ids=["step.a"],
+        execution_id="exec.prompt.1",
+        status="partial",
+    )
+    log_evidence.ingest_workflow_failure(
+        app_instance_id=install_result.app_instance_id,
+        workflow_id="wf.prompt.invoke",
+        failed_step_ids=["step.a"],
+        execution_id="exec.prompt.2",
+        status="partial",
+    )
+
+    result = executor.execute_workflow(
+        install_result.app_instance_id,
+        workflow_id="wf.prompt.invoke",
+        inputs={"query": "workflow"},
+    )
+
+    assert result.status == "completed"
+    assert result.steps[0].ref == "prompt.invoke"
+    assert "model_invocation" in result.steps[0].output
+    assert result.steps[0].output["model_invocation"]["result"]["id"] == "resp_wf_123"
+    context = context_store.get_context(install_result.app_instance_id)
+    assert any(item.key == "prompt-invocation:prompt.run" for item in context.entries)
 
 
 def test_workflow_executor_supports_conditional_steps_and_outputs_summary(tmp_path: Path) -> None:

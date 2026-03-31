@@ -2,6 +2,34 @@
 
 ## 2026-03-31
 
+### Module: workflow prompt invocation step
+
+Extended workflow orchestration so prompt-selection-driven model invocation is now a first-class workflow module step instead of only an API/skill edge capability.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - adds support for `module` steps with `ref = prompt.invoke`
+  - routes those steps through the shared prompt invocation service
+  - records prompt invocation artifacts back into shared workflow context
+- `app/bootstrap/runtime.py`
+  - wires the prompt invocation service into the workflow executor
+- `tests/unit/test_workflow_executor.py`
+  - adds workflow-level coverage for prompt invocation step execution using fake model dependencies
+
+#### Updated docs
+- `docs/requirements.md`
+  - records workflow-level reuse of the prompt-selection/model-invocation path
+- `docs/design.md`
+  - documents `prompt.invoke` as a first-class workflow step reusing the shared service
+- `docs/testing.md`
+  - adds workflow prompt-invocation coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused validation notes for `prompt.invoke` workflow steps
+
+#### Validation
+- `python3 -m py_compile app/services/workflow_executor.py app/bootstrap/runtime.py tests/unit/test_workflow_executor.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: prompt invocation service and API surface
 
 Pulled the model-ready prompt flow into a dedicated service and added explicit API surfaces so prompt-selection-driven model invocation is reusable outside the builtin skill handler.

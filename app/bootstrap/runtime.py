@@ -371,6 +371,7 @@ def build_runtime() -> dict[str, object]:
         telemetry_service=telemetry_service,
         policy_guard=policy_guard,
         log_evidence_service=log_evidence,
+        prompt_invocation_service=prompt_invocation,
     )
     workflow_subscription = WorkflowSubscriptionService(
         workflow_executor=workflow_executor,

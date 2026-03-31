@@ -58,6 +58,7 @@ Used for lightweight client-level validation such as:
 - system capability skill coverage for requirement/evidence/context/workflow/risk/prompt-selection capability surfaces
 - prompt-selection contract coverage for query-aware ranking, evidence-vs-signal preference, token-aware truncation, and prompt assembly output
 - prompt-invocation service coverage for selection-to-model handoff via fake client injection
+- workflow executor coverage for prompt-invocation module steps reusing the same service path
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

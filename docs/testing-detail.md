@@ -280,6 +280,7 @@ requires_openai_auth = true
 - capability skill `prompt.selection.skill` 可透传 budget / strategy / prompt assembly 参数
 - `model_ready_prompt` 路径可在测试中以 fake model client 验证 assembled prompt 被正确送入模型调用层
 - 独立 `PromptInvocationService` 应可在 service-level 测试中通过 fake loader/client 验证 selection 输出与 model invocation 被统一编排
+- workflow executor 应支持 `module + ref=prompt.invoke` 的步骤，并验证其输出进入 workflow step outputs 与 context artifacts
 
 ---
 
