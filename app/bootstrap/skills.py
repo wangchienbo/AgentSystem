@@ -190,6 +190,14 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
             output = prompt_selection.select_for_prompt(
                 app_instance_id=skill_request.app_instance_id or request.app_instance_id,
                 limit=skill_request.limit or 5,
+                query=skill_request.query,
+                category=skill_request.category or None,
+                max_prompt_tokens=skill_request.max_prompt_tokens,
+                reserved_output_tokens=skill_request.reserved_output_tokens,
+                working_set_token_estimate=skill_request.working_set_token_estimate,
+                per_evidence_token_estimate=skill_request.per_evidence_token_estimate,
+                strategy=skill_request.strategy,
+                include_prompt_assembly=skill_request.include_prompt_assembly,
             )
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
 

@@ -1,5 +1,43 @@
 # Development Log
 
+## 2026-03-31
+
+### Module: advanced prompt selection contract
+
+Upgraded the first-pass prompt selection slice into a more platform-shaped contract by adding query-aware ranking, evidence-type preference, token-aware budget metadata, and prompt assembly output.
+
+#### Updated
+- `app/services/prompt_selection_service.py`
+  - now supports query/category-aware ranking strategies (`balanced`, `query_first`, `recency_first`)
+  - now exposes explicit ranking metadata (`match_score`, `evidence_type_score`, `freshness_score`, `rank_score`)
+  - now applies token-aware prompt budgeting with configurable working-set/output/evidence estimates
+  - now emits prompt sections and an optional assembled prompt for downstream model invocation paths
+- `app/models/prompt_selection_skill.py`
+  - extends the skill request contract with budget, strategy, and prompt-assembly fields
+- `app/bootstrap/skills.py`
+  - now passes advanced prompt selection contract fields through the builtin capability skill surface
+
+#### Added / expanded tests
+- `tests/unit/test_prompt_selection_service.py`
+  - covers prompt assembly output, token-aware truncation, query-aware ranking, and promoted-evidence preference
+- `tests/unit/test_prompt_selection_capability_skill.py`
+  - covers advanced prompt-selection skill execution with budget and strategy parameters
+
+#### Updated docs
+- `docs/requirements.md`
+  - records explicit prompt-selection contract requirements
+- `docs/design.md`
+  - documents prompt selection as a deterministic-first layer between context/evidence and model invocation
+- `docs/testing.md`
+  - adds prompt-selection contract coverage to the testing direction
+- `docs/testing-detail.md`
+  - adds implementation-oriented advanced prompt-selection test expectations
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_selection_service.py app/models/prompt_selection_skill.py app/bootstrap/skills.py tests/unit/test_prompt_selection_service.py tests/unit/test_prompt_selection_capability_skill.py`
+- environment currently lacks an installed `pytest`, so validation in this shell is syntax/contract coverage preparation rather than a full runtime pytest pass
+
+
 ## 2026-03-28
 
 ### Module: workflow telemetry hooks and minimal read surfaces

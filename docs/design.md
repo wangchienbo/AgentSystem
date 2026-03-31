@@ -54,6 +54,13 @@ A lightweight requirement-understanding loop should exist before blueprint gener
 - when the request is ready and app-oriented, the system may emit a minimal blueprint draft as a handoff artifact rather than forcing later stages to re-parse raw user text
 - that handoff artifact should already carry lightweight app-shape and runtime-profile cues (for example pipeline vs transform posture, ask-user invocation pressure, and offline/network expectations) so later control-plane and install paths start from a more stable draft
 
+The prompt-selection layer should sit between context compaction/evidence retrieval and future model invocation:
+- it should consume working-set context plus retrieval-index entries instead of raw runtime history where possible
+- it should expose a machine-readable selection policy rather than hiding ranking heuristics in opaque prompt code
+- it should support explicit budget accounting (working-set tokens, reserved output tokens, per-evidence estimates)
+- it should produce prompt-ready sections or a lightweight assembled prompt so downstream model calls can remain thin wrappers instead of reconstructing retrieval logic ad hoc
+- ranking should remain deterministic-first initially (query match + evidence type + priority + recency) before any future model-assisted reranking is introduced
+
 Network reachability and intelligence availability are separate concerns:
 - an app may have network but should still avoid intelligent calls by default
 - an app may be offline-capable while still carrying optional intelligent enhancements

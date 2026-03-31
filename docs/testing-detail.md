@@ -271,6 +271,14 @@ requires_openai_auth = true
 - prompt selection / evidence search 可通过统一 system capability skill 暴露
 - 这些 system capability skills 具备稳定 manifest、schema ref、capability profile 和 runtime handler 绑定
 
+### IS-011 Prompt selection 高级契约测试
+期望：
+- `select_for_prompt` 可返回 working_set、selected_evidence、selection_policy、prompt_budget、prompt_sections，以及可选的 assembled prompt
+- ranking 可根据 query/category 进行显式排序，并暴露 `match_score`、`rank_score` 等可检查字段
+- promoted evidence 在同等条件下优先于 signal
+- token-aware budget 能正确减少 selected evidence 数量，而不是仅使用 count limit
+- capability skill `prompt.selection.skill` 可透传 budget / strategy / prompt assembly 参数
+
 ---
 
 ## 10. 数据与隔离测试

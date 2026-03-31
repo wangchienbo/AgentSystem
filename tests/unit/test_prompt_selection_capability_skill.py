@@ -1,4 +1,5 @@
-from app.api.main import skill_control, skill_runtime, log_evidence
+from app.api.main import app_context_store, log_evidence, skill_control, skill_runtime
+from app.models.app_context import AppSharedContext
 from app.models.skill_runtime import SkillExecutionRequest
 
 
@@ -36,10 +37,75 @@ def test_prompt_selection_skill_executes_evidence_search() -> None:
             app_instance_id=APP_ID,
             workflow_id=WF_ID,
             step_id=STEP_ID,
-            inputs={"operation": "evidence_search", "query": "workflow", "limit": 5},
+            inputs={"operation": "evidence_search", "query": "workflow", "limit": 5, "strategy": "query_first"},
         )
     )
 
     assert result.status == "completed"
     assert "items" in result.output
     assert len(result.output["items"]) >= 1
+    assert "retrieval_policy" in result.output
+    assert result.output["retrieval_policy"]["ranking_strategy"] == "query_first"
+
+
+
+def test_prompt_selection_skill_executes_budget_aware_select() -> None:
+    app_context_store._contexts[APP_ID] = AppSharedContext(
+        app_instance_id=APP_ID,
+        app_name="bp.prompt.demo",
+        owner_user_id="user.prompt.demo",
+        description="prompt skill context",
+        status="active",
+        current_goal="answer user",
+        current_stage="reasoning",
+        entries=[],
+    )
+    for idx in range(3):
+        log_evidence.ingest_workflow_failure(
+            app_instance_id=APP_ID,
+            workflow_id=f"wf.select.{idx}",
+            failed_step_ids=["step.a"],
+            execution_id=f"exec.select.{idx}.1",
+            status="partial",
+        )
+        log_evidence.ingest_workflow_failure(
+            app_instance_id=APP_ID,
+            workflow_id=f"wf.select.{idx}",
+            failed_step_ids=["step.a"],
+            execution_id=f"exec.select.{idx}.2",
+            status="partial",
+        )
+        log_evidence.ingest_workflow_failure(
+            app_instance_id=APP_ID,
+            workflow_id=f"wf.select.{idx}",
+            failed_step_ids=["step.a"],
+            execution_id=f"exec.select.{idx}.3",
+            status="partial",
+        )
+
+    result = skill_runtime.execute(
+        SkillExecutionRequest(
+            skill_id="prompt.selection.skill",
+            app_instance_id=APP_ID,
+            workflow_id=WF_ID,
+            step_id=STEP_ID,
+            inputs={
+                "operation": "select",
+                "query": "workflow",
+                "limit": 5,
+                "max_prompt_tokens": 800,
+                "reserved_output_tokens": 200,
+                "working_set_token_estimate": 400,
+                "per_evidence_token_estimate": 120,
+                "strategy": "balanced",
+                "include_prompt_assembly": True,
+            },
+        )
+    )
+
+    assert result.status == "completed"
+    assert result.output["prompt_budget"]["mode"] == "token_aware"
+    assert result.output["prompt_budget"]["selected_limit"] == 1
+    assert len(result.output["selected_evidence"]) == 1
+    assert "assembled_prompt" in result.output
+    assert result.output["selection_policy"]["ranking_strategy"] == "balanced"

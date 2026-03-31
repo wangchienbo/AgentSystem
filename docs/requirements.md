@@ -181,6 +181,14 @@ Reusable system capabilities should be accessible through stable system skills w
 - governance and risk-control surfaces
 - prompt selection / evidence search / context-to-prompt shaping
 
+The prompt-selection layer should also support a more explicit selection contract that can:
+- rank indexed evidence using query-aware and evidence-type-aware heuristics
+- prefer promoted evidence over lower-confidence signal entries when both are available
+- expose prompt-budget metadata instead of relying only on item-count limits
+- support token-aware truncation through configurable working-set/output/evidence token estimates
+- emit prompt-ready sections (working-set summary + evidence digest) so later model-invocation paths do not need to rebuild prompt context from scratch
+- keep selection policy visible in machine-readable form for testing and later governance
+
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:
 - listing skills
