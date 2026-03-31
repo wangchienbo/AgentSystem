@@ -288,6 +288,7 @@ requires_openai_auth = true
 - prompt invocation 的治理事件应验证会流入 risk policy 事件流，并可进一步触发 evidence promotion
 - core replay / acceptance / archive summary 能力应验证 prompt invocation 专属视图，包括 failed replay 选择、acceptance rate、以及 success/latency/token regression 聚合
 - prompt invocation evaluation 应验证 feedback、normalized_response 与 workflow outcome hint 会影响 acceptance 结果，而不只是依赖单一 success proxy
+- 结构化 quality signals 应验证 expected_output（如 `slug_text` / `json_object`）与 normalized text 之间的匹配关系会被显式记录并影响 acceptance 推导
 
 ---
 

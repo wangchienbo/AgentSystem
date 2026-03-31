@@ -109,10 +109,11 @@ class PromptInvocationService:
                 app_id=app_instance_id.split(":")[0] if app_instance_id else app_instance_id,
             )
 
+        quality_signals = self._derive_quality_signals(normalized, extra_payload)
         if self._evaluation_summary_service is not None:
             feedback_delta = self._derive_feedback_delta(extra_payload)
-            success_delta = self._derive_success_delta(normalized, extra_payload)
-            stability_delta = self._derive_stability_delta(normalized, extra_payload)
+            success_delta = self._derive_success_delta(normalized, extra_payload, quality_signals)
+            stability_delta = self._derive_stability_delta(normalized, extra_payload, quality_signals)
             self._evaluation_summary_service.evaluate(
                 CandidateEvaluationRecord(
                     candidate_id=f"prompt-invoke:{interaction_id}",
@@ -136,6 +137,7 @@ class PromptInvocationService:
                 "result": model_result,
             },
             "normalized_response": normalized,
+            "quality_signals": quality_signals,
             "invocation_meta": {
                 "interaction_id": interaction_id,
                 "latency_ms": latency_ms,
@@ -178,20 +180,61 @@ class PromptInvocationService:
                 return max(min((float(score) - 3.0) / 2.0, 1.0), -1.0)
         return 0.0
 
-    def _derive_success_delta(self, normalized: dict, extra_payload: dict | None) -> float:
+    def _derive_quality_signals(self, normalized: dict, extra_payload: dict | None) -> dict:
+        text = normalized.get("text", "") or ""
+        text_length = normalized.get("text_length", 0)
+        empty_text = text_length == 0
+        very_short_text = 0 < text_length < 8
+        schema_expectation = None
+        schema_satisfied = None
+        workflow_success_hint = None
+        if isinstance(extra_payload, dict):
+            schema_expectation = extra_payload.get("expected_output")
+            workflow_success_hint = extra_payload.get("workflow_outcome")
+            if schema_expectation == "json_object":
+                stripped = text.strip()
+                schema_satisfied = stripped.startswith("{") and stripped.endswith("}")
+            elif schema_expectation == "slug_text":
+                schema_satisfied = bool(text) and (text == text.lower()) and (" " not in text)
+        score = 0.0
+        if not empty_text:
+            score += 0.03
+        if very_short_text:
+            score -= 0.02
+        if schema_satisfied is True:
+            score += 0.03
+        if schema_satisfied is False:
+            score -= 0.04
+        if workflow_success_hint == "success":
+            score += 0.02
+        elif workflow_success_hint == "failure":
+            score -= 0.05
+        return {
+            "empty_text": empty_text,
+            "very_short_text": very_short_text,
+            "schema_expectation": schema_expectation,
+            "schema_satisfied": schema_satisfied,
+            "workflow_success_hint": workflow_success_hint,
+            "quality_score": score,
+        }
+
+    def _derive_success_delta(self, normalized: dict, extra_payload: dict | None, quality_signals: dict) -> float:
         if isinstance(extra_payload, dict):
             outcome = extra_payload.get("workflow_outcome")
             if outcome == "success":
-                return 0.05
+                return max(0.05 + quality_signals.get("quality_score", 0.0), -0.20)
             if outcome == "failure":
-                return -0.10
-        return 0.01 if normalized.get("text") else -0.05
+                return min(-0.10 + quality_signals.get("quality_score", 0.0), 0.05)
+        return (0.01 if normalized.get("text") else -0.05) + quality_signals.get("quality_score", 0.0)
 
-    def _derive_stability_delta(self, normalized: dict, extra_payload: dict | None) -> float:
+    def _derive_stability_delta(self, normalized: dict, extra_payload: dict | None, quality_signals: dict) -> float:
+        delta = 0.0
         if normalized.get("finish_status") != "completed":
-            return -0.05
-        if normalized.get("text_length", 0) < 5:
-            return -0.02
+            delta -= 0.05
+        if quality_signals.get("very_short_text"):
+            delta -= 0.02
+        if quality_signals.get("schema_satisfied") is False:
+            delta -= 0.02
         if isinstance(extra_payload, dict) and extra_payload.get("retry_count", 0) not in (0, None):
-            return -0.01
-        return 0.0
+            delta -= 0.01
+        return delta

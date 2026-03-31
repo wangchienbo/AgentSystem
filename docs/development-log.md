@@ -2,6 +2,32 @@
 
 ## 2026-03-31
 
+### Module: structured prompt invocation quality signals
+
+Refined prompt-invocation acceptance again by turning post-execution quality hints into explicit structured signals rather than leaving them implicit inside one coarse evaluation heuristic.
+
+#### Updated
+- `app/services/prompt_invocation_service.py`
+  - now emits structured `quality_signals`
+  - now derives success/stability deltas from explicit quality-signal fields such as empty text, short text, expected-output satisfaction, and workflow-success hints
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates visible quality signals for mismatched slug-style output
+  - validates expected JSON output satisfaction can positively shape acceptance inputs
+
+#### Updated docs
+- `docs/requirements.md`
+  - records structured quality-signal expectations for prompt invocation
+- `docs/design.md`
+  - documents inspectable quality-signal fields rather than only derived acceptance scores
+- `docs/testing.md`
+  - adds structured quality-signal coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for expected-output/normalized-text matching
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_invocation_service.py tests/unit/test_prompt_invocation_service.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: richer prompt invocation acceptance signals
 
 Improved prompt-invocation evaluation so acceptance can be influenced by richer post-execution signals instead of depending only on a thin success heuristic.
