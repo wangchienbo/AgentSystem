@@ -330,6 +330,8 @@ def test_workflow_executor_runs_prompt_invoke_module_step(tmp_path: Path) -> Non
     assert result.steps[0].ref == "prompt.invoke"
     assert "model_invocation" in result.steps[0].output
     assert result.steps[0].output["model_invocation"]["result"]["id"] == "resp_wf_123"
+    assert "normalized_response" in result.steps[0].output
+    assert result.steps[0].output["normalized_response"]["finish_status"] == "completed"
     context = context_store.get_context(install_result.app_instance_id)
     assert any(item.key == "prompt-invocation:prompt.run" for item in context.entries)
 

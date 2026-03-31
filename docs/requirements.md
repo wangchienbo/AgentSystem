@@ -189,6 +189,8 @@ The prompt-selection layer should also support a more explicit selection contrac
 - emit prompt-ready sections (working-set summary + evidence digest) so later model-invocation paths do not need to rebuild prompt context from scratch
 - optionally expose a model-ready prompt path that can hand the assembled prompt directly into the configured model client
 - allow workflow orchestration to invoke the same prompt-selection + model-invocation path through a reusable workflow step instead of forcing this logic to remain only at the skill/API edge
+- normalize prompt-invocation model responses into a stable output shape suitable for workflows, APIs, and later evaluation surfaces
+- capture prompt-invocation telemetry/evaluation metadata so prompt-driven flows can participate in the same observability and upgrade-evidence loops as other runtime paths
 - keep selection policy visible in machine-readable form for testing and later governance
 
 ### 5.2 Skill control

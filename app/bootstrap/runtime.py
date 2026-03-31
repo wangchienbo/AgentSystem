@@ -386,7 +386,11 @@ def build_runtime() -> dict[str, object]:
     )
     workflow_executor._context_compaction = context_compaction
     prompt_selection = PromptSelectionService(context_compaction=context_compaction, log_evidence=log_evidence)
-    prompt_invocation = PromptInvocationService(prompt_selection=prompt_selection)
+    prompt_invocation = PromptInvocationService(
+        prompt_selection=prompt_selection,
+        telemetry_service=telemetry_service,
+        evaluation_summary_service=evaluation_summary_service,
+    )
     interaction_gateway = InteractionGateway(
         catalog=app_catalog,
         router=router,

@@ -37,11 +37,21 @@ class _FakeClient:
 
 
 
+from app.services.collection_policy_service import CollectionPolicyService
+from app.services.evaluation_summary_service import EvaluationSummaryService
+from app.services.telemetry_service import TelemetryService
+from app.services.upgrade_log_service import UpgradeLogService
+
+
 def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path) -> None:
     store = RuntimeStateStore(base_dir=str(tmp_path / "prompt-invocation-store"))
     lifecycle = AppLifecycleService(store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store)
     evidence = LogEvidenceService(store=store)
+    policy_service = CollectionPolicyService(store=store)
+    upgrade_log_service = UpgradeLogService(base_dir=str(tmp_path / "prompt-invocation-logs"))
+    telemetry = TelemetryService(store=store, policy_service=policy_service, upgrade_log_service=upgrade_log_service)
+    evaluation = EvaluationSummaryService(store=store, upgrade_log_service=upgrade_log_service)
     context_store._contexts["app.prompt"] = AppSharedContext(
         app_instance_id="app.prompt",
         app_name="bp.prompt",
@@ -63,6 +73,8 @@ def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path)
         prompt_selection=selection,
         model_loader=_FakeLoader(),
         client_factory=_FakeClient,
+        telemetry_service=telemetry,
+        evaluation_summary_service=evaluation,
     )
     evidence.ingest_workflow_failure(
         app_instance_id="app.prompt",
@@ -91,3 +103,10 @@ def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path)
     assert result["model_invocation"]["provider"] == "OpenAI"
     assert result["model_invocation"]["result"]["id"] == "resp_123"
     assert result["model_invocation"]["result"]["extra_payload"] == {"metadata": {"source": "test"}}
+    assert "normalized_response" in result
+    assert result["normalized_response"]["finish_status"] == "completed"
+    assert result["normalized_response"]["estimated_output_tokens"] >= 0
+    assert result["invocation_meta"]["interaction_id"].startswith("prompt_invoke:")
+    assert telemetry.get_interaction(result["invocation_meta"]["interaction_id"]) is not None
+    assert len(telemetry.list_steps(result["invocation_meta"]["interaction_id"])) == 1
+    assert evaluation.get(f"prompt-invoke:{result['invocation_meta']['interaction_id']}") is not None

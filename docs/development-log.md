@@ -2,6 +2,36 @@
 
 ## 2026-03-31
 
+### Module: prompt invocation telemetry and normalized response
+
+Closed the prompt-invocation loop further by normalizing model responses and wiring prompt invocation into telemetry/evaluation so prompt-driven execution participates in observability and upgrade evidence.
+
+#### Updated
+- `app/services/prompt_invocation_service.py`
+  - now emits normalized response output for downstream workflow/API consumers
+  - now records interaction + step telemetry for prompt invocation
+  - now produces lightweight evaluation records for prompt-invocation runs
+- `app/bootstrap/runtime.py`
+  - wires telemetry and evaluation services into the prompt invocation service
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates normalized response output plus telemetry/evaluation persistence
+- `tests/unit/test_workflow_executor.py`
+  - verifies workflow `prompt.invoke` output includes normalized response structure
+
+#### Updated docs
+- `docs/requirements.md`
+  - records normalization and observability requirements for prompt invocation
+- `docs/design.md`
+  - clarifies prompt invocation as an observable/normalizing service layer
+- `docs/testing.md`
+  - adds normalization + telemetry/evaluation coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-oriented prompt invocation observability checks
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_invocation_service.py app/bootstrap/runtime.py tests/unit/test_prompt_invocation_service.py tests/unit/test_workflow_executor.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: workflow prompt invocation step
 
 Extended workflow orchestration so prompt-selection-driven model invocation is now a first-class workflow module step instead of only an API/skill edge capability.
