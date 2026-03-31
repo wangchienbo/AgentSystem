@@ -286,6 +286,7 @@ requires_openai_auth = true
 - 至少应有一条端到端测试：从 requirement clarify 到 blueprint draft、registry/install、workflow 执行、prompt invocation 输出与 telemetry/evaluation 落盘全部跑通
 - policy guard / workflow executor 应验证 prompt invocation 被 runtime policy 禁用或要求用户批准时会被阻断并给出可审计的 policy_blocked 信号
 - prompt invocation 的治理事件应验证会流入 risk policy 事件流，并可进一步触发 evidence promotion
+- core replay / acceptance / archive summary 能力应验证 prompt invocation 专属视图，包括 failed replay 选择、acceptance rate、以及 success/latency/token regression 聚合
 
 ---
 

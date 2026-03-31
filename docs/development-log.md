@@ -2,6 +2,33 @@
 
 ## 2026-03-31
 
+### Module: prompt invocation replay/acceptance/regression summaries
+
+Extended the core review toolchain so prompt-driven execution can be analyzed with dedicated replay, acceptance, and regression summaries rather than remaining buried inside generic telemetry/evaluation stores.
+
+#### Updated
+- `app/services/core_skill_toolchain.py`
+  - adds prompt-invocation-specific replay selection
+  - adds prompt-invocation cost summary
+  - adds prompt-invocation acceptance summary
+  - adds prompt-invocation regression aggregation
+- `tests/unit/test_core_skill_toolchain.py`
+  - validates prompt-invocation replay selection, cost summary, acceptance summary, and regression rollups
+
+#### Updated docs
+- `docs/requirements.md`
+  - records prompt-invocation replay/acceptance/regression review surfaces
+- `docs/design.md`
+  - documents prompt-driven execution as part of the operator review loop
+- `docs/testing.md`
+  - adds core skill toolchain coverage expectations for prompt invocation review surfaces
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for prompt invocation replay/acceptance/regression summaries
+
+#### Validation
+- `python3 -m py_compile app/services/core_skill_toolchain.py tests/unit/test_core_skill_toolchain.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: prompt invocation risk/evidence integration
 
 Extended prompt invocation governance so prompt-driven execution not only gets blocked or approved, but also emits reusable risk/evidence signals that can feed later policy learning.
