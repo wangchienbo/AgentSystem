@@ -2,6 +2,31 @@
 
 ## 2026-03-31
 
+### Module: expanded prompt output contracts
+
+Finished the current prompt-quality track by expanding expected-output validation beyond the original narrow cases so prompt-driven tasks can express and assess a broader set of practical output shapes.
+
+#### Updated
+- `app/services/prompt_invocation_service.py`
+  - expands expected-output validation for `markdown_summary`, `bullet_list`, `key_value`, and `approval_decision` in addition to earlier JSON/slug support
+- `tests/unit/test_prompt_invocation_service.py`
+  - adds prompt invocation quality-signal coverage for bullet-list, key/value, and approval-decision outputs
+  - refactors prompt invocation tests around a reusable fixture-style helper for faster expansion
+
+#### Updated docs
+- `docs/requirements.md`
+  - records the practical expected-output contract family for prompt invocation
+- `docs/design.md`
+  - documents broader prompt-task output-shape validation
+- `docs/testing.md`
+  - adds multi-shape expected-output coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for multiple expected-output contract types
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_invocation_service.py tests/unit/test_prompt_invocation_service.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: prompt quality signals in review surfaces
 
 Finished the next review-layer step by carrying structured prompt quality signals into operator-facing replay/acceptance/archive summaries instead of leaving them trapped only inside per-invocation results.

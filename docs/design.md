@@ -70,6 +70,7 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 - prompt-invocation acceptance should be allowed to incorporate richer post-execution signals (normalized response quality, workflow outcome hints, and explicit feedback) instead of depending only on coarse success proxies
 - those richer signals should be structured and inspectable (empty text, very short text, expected-output satisfaction, workflow-success hint) rather than buried only inside one derived score
 - the same quality signals should flow into operator-facing replay/acceptance/archive summaries so review tooling can explain prompt quality regressions without reconstructing them from raw payloads
+- expected-output validation should cover a practical family of prompt-task shapes (JSON objects, slugs, markdown summaries, bullet lists, key/value text, approval decisions) so prompt-quality review can track more than one narrow output format
 - ranking should remain deterministic-first initially (query match + evidence type + priority + recency) before any future model-assisted reranking is introduced
 
 Network reachability and intelligence availability are separate concerns:

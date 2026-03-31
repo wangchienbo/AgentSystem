@@ -68,6 +68,7 @@ Used for lightweight client-level validation such as:
 - prompt-invocation acceptance coverage for richer feedback/output/workflow-derived signals
 - structured quality-signal coverage for expected output shape and normalized output quality hints
 - review-surface coverage showing prompt quality signals in acceptance/archive summaries
+- expected-output contract coverage for multiple prompt output shapes beyond JSON/slug baselines
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

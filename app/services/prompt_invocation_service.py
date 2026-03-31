@@ -192,11 +192,22 @@ class PromptInvocationService:
         if isinstance(extra_payload, dict):
             schema_expectation = extra_payload.get("expected_output")
             workflow_success_hint = extra_payload.get("workflow_outcome")
+            stripped = text.strip()
             if schema_expectation == "json_object":
-                stripped = text.strip()
                 schema_satisfied = stripped.startswith("{") and stripped.endswith("}")
             elif schema_expectation == "slug_text":
                 schema_satisfied = bool(text) and (text == text.lower()) and (" " not in text)
+            elif schema_expectation == "markdown_summary":
+                schema_satisfied = bool(text) and ("#" in text or "- " in text or "* " in text)
+            elif schema_expectation == "bullet_list":
+                lines = [line.strip() for line in text.splitlines() if line.strip()]
+                schema_satisfied = bool(lines) and all(line.startswith(("- ", "* ", "1. ", "2. ", "3. ")) for line in lines[: min(len(lines), 3)])
+            elif schema_expectation == "key_value":
+                lines = [line.strip() for line in text.splitlines() if line.strip()]
+                schema_satisfied = bool(lines) and all(":" in line for line in lines[: min(len(lines), 3)])
+            elif schema_expectation == "approval_decision":
+                lowered = stripped.lower()
+                schema_satisfied = lowered.startswith(("approve", "reject", "approved", "rejected"))
         score = 0.0
         if not empty_text:
             score += 0.03
