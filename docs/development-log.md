@@ -2,6 +2,37 @@
 
 ## 2026-03-31
 
+### Module: prompt invocation service and API surface
+
+Pulled the model-ready prompt flow into a dedicated service and added explicit API surfaces so prompt-selection-driven model invocation is reusable outside the builtin skill handler.
+
+#### Added
+- `app/services/prompt_invocation_service.py`
+  - orchestrates prompt selection, prompt assembly, model loading, and model invocation through one reusable service
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates selection-to-model handoff with fake loader/client injection
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - now wires `prompt_invocation` as a reusable runtime service
+- `app/bootstrap/skills.py`
+  - `prompt.selection.skill` now delegates model-ready invocation to the dedicated prompt invocation service
+- `app/api/main.py`
+  - adds `/prompt-selection/select`
+  - adds `/prompt-selection/invoke`
+
+#### Updated docs
+- `docs/design.md`
+  - formalizes the dedicated prompt invocation service direction
+- `docs/testing.md`
+  - adds service-level prompt invocation coverage expectation
+- `docs/testing-detail.md`
+  - adds fake-loader/client validation guidance for the prompt invocation service
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_invocation_service.py app/bootstrap/runtime.py app/bootstrap/skills.py app/api/main.py tests/unit/test_prompt_invocation_service.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: prompt-selection model-ready path
 
 Completed the next integration step for prompt selection by allowing the capability layer to hand an assembled prompt directly into the configured model client while keeping the selection output visible for inspection.

@@ -51,6 +51,7 @@ from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
 from app.services.skill_risk_policy import SkillRiskPolicyService
 from app.services.prompt_selection_service import PromptSelectionService
+from app.services.prompt_invocation_service import PromptInvocationService
 from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
 from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
@@ -384,6 +385,7 @@ def build_runtime() -> dict[str, object]:
     )
     workflow_executor._context_compaction = context_compaction
     prompt_selection = PromptSelectionService(context_compaction=context_compaction, log_evidence=log_evidence)
+    prompt_invocation = PromptInvocationService(prompt_selection=prompt_selection)
     interaction_gateway = InteractionGateway(
         catalog=app_catalog,
         router=router,

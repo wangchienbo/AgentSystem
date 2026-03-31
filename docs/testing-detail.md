@@ -279,6 +279,7 @@ requires_openai_auth = true
 - token-aware budget 能正确减少 selected evidence 数量，而不是仅使用 count limit
 - capability skill `prompt.selection.skill` 可透传 budget / strategy / prompt assembly 参数
 - `model_ready_prompt` 路径可在测试中以 fake model client 验证 assembled prompt 被正确送入模型调用层
+- 独立 `PromptInvocationService` 应可在 service-level 测试中通过 fake loader/client 验证 selection 输出与 model invocation 被统一编排
 
 ---
 

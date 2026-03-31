@@ -28,6 +28,7 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
     workflow_observability = services["workflow_observability"]
     skill_risk_policy = services["skill_risk_policy"]
     prompt_selection = services["prompt_selection"]
+    prompt_invocation = services["prompt_invocation"]
 
     def demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
         payload = request.config.get("payload", request.inputs)
@@ -201,19 +202,18 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
                 include_prompt_assembly=skill_request.include_prompt_assembly,
             )
             if skill_request.operation == "model_ready_prompt":
-                loader = ModelConfigLoader()
-                config = loader.load()
-                api_key = loader.resolve_api_key(config)
-                client = OpenAIResponsesClient(config=config, api_key=api_key)
-                model_result = client.request(output.get("assembled_prompt", ""))
-                output = {
-                    **output,
-                    "model_invocation": {
-                        "provider": config.provider,
-                        "model": config.model,
-                        "result": model_result,
-                    },
-                }
+                output = prompt_invocation.invoke_with_selection(
+                    app_instance_id=skill_request.app_instance_id or request.app_instance_id,
+                    query=skill_request.query,
+                    category=skill_request.category or None,
+                    limit=skill_request.limit or 5,
+                    max_prompt_tokens=skill_request.max_prompt_tokens,
+                    reserved_output_tokens=skill_request.reserved_output_tokens,
+                    working_set_token_estimate=skill_request.working_set_token_estimate,
+                    per_evidence_token_estimate=skill_request.per_evidence_token_estimate,
+                    strategy=skill_request.strategy,
+                    include_prompt_assembly=skill_request.include_prompt_assembly,
+                )
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
 
     return {

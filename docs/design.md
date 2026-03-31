@@ -60,6 +60,7 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 - it should support explicit budget accounting (working-set tokens, reserved output tokens, per-evidence estimates)
 - it should produce prompt-ready sections or a lightweight assembled prompt so downstream model calls can remain thin wrappers instead of reconstructing retrieval logic ad hoc
 - it may also expose a direct model-ready invocation path for bounded prompt-selection-driven prompting, while still keeping selection and model invocation inspectable as separate layers in the contract
+- when that path becomes operationally important, selection-to-model handoff should live in a dedicated prompt-invocation service rather than being trapped inside one capability handler
 - ranking should remain deterministic-first initially (query match + evidence type + priority + recency) before any future model-assisted reranking is introduced
 
 Network reachability and intelligence availability are separate concerns:

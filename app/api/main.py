@@ -73,6 +73,39 @@ def version() -> dict[str, str]:
     return {"version": "0.1.0"}
 
 
+@app.post("/prompt-selection/select")
+def prompt_selection_select(payload: dict) -> dict:
+    return prompt_selection.select_for_prompt(
+        app_instance_id=payload["app_instance_id"],
+        limit=payload.get("limit", 5),
+        query=payload.get("query", ""),
+        category=payload.get("category") or None,
+        max_prompt_tokens=payload.get("max_prompt_tokens"),
+        reserved_output_tokens=payload.get("reserved_output_tokens", 256),
+        working_set_token_estimate=payload.get("working_set_token_estimate", 400),
+        per_evidence_token_estimate=payload.get("per_evidence_token_estimate", 120),
+        strategy=payload.get("strategy", "balanced"),
+        include_prompt_assembly=payload.get("include_prompt_assembly", True),
+    )
+
+
+@app.post("/prompt-selection/invoke")
+def prompt_selection_invoke(payload: dict) -> dict:
+    return prompt_invocation.invoke_with_selection(
+        app_instance_id=payload["app_instance_id"],
+        query=payload.get("query", ""),
+        category=payload.get("category") or None,
+        limit=payload.get("limit", 5),
+        max_prompt_tokens=payload.get("max_prompt_tokens"),
+        reserved_output_tokens=payload.get("reserved_output_tokens", 256),
+        working_set_token_estimate=payload.get("working_set_token_estimate", 400),
+        per_evidence_token_estimate=payload.get("per_evidence_token_estimate", 120),
+        strategy=payload.get("strategy", "balanced"),
+        include_prompt_assembly=payload.get("include_prompt_assembly", True),
+        extra_payload=payload.get("extra_payload"),
+    )
+
+
 @app.post("/blueprints/validate")
 def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
     return blueprint_validation.validate(blueprint)
@@ -123,6 +156,8 @@ collection_policy_service = services["collection_policy_service"]
 upgrade_log_service = services["upgrade_log_service"]
 telemetry_service = services["telemetry_service"]
 evaluation_summary_service = services["evaluation_summary_service"]
+prompt_selection = services["prompt_selection"]
+prompt_invocation = services["prompt_invocation"]
 core_replay_selector = CoreReplaySelectorSkill(telemetry_service)
 core_cost_analyzer = CoreCostAnalyzerSkill(telemetry_service)
 core_acceptance_report = CoreAcceptanceReportSkill(evaluation_summary_service)
