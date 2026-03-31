@@ -126,6 +126,7 @@ class PromptInvocationService:
                     latency_delta=0.0,
                     feedback_delta=feedback_delta,
                     stability_delta=stability_delta,
+                    quality_signals=quality_signals,
                 )
             )
 

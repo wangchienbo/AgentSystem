@@ -197,6 +197,7 @@ The prompt-selection layer should also support a more explicit selection contrac
 - provide prompt-invocation-specific replay, acceptance, and regression summary surfaces so prompt-driven behavior can be reviewed like other evolving runtime paths
 - derive prompt-invocation acceptance from richer signals than raw success alone, including normalized output quality hints, workflow outcome hints, and available feedback deltas
 - expose structured quality signals for normalized prompt outputs (for example emptiness, shortness, expected-shape satisfaction, and workflow-success hints) so acceptance decisions remain inspectable
+- project those quality signals into replay/acceptance/archive summary surfaces so operators can review prompt-output quality without reopening raw invocation payloads
 - keep selection policy visible in machine-readable form for testing and later governance
 
 ### 5.2 Skill control

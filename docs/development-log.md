@@ -2,6 +2,35 @@
 
 ## 2026-03-31
 
+### Module: prompt quality signals in review surfaces
+
+Finished the next review-layer step by carrying structured prompt quality signals into operator-facing replay/acceptance/archive summaries instead of leaving them trapped only inside per-invocation results.
+
+#### Updated
+- `app/models/evaluation.py`
+  - stores quality signals directly on evaluation records
+- `app/services/prompt_invocation_service.py`
+  - persists structured quality signals into prompt-invocation evaluation records
+- `app/services/core_skill_toolchain.py`
+  - includes quality signals in acceptance reports
+  - aggregates schema failures / empty outputs in prompt-invocation summary surfaces
+- `tests/unit/test_core_skill_toolchain.py`
+  - validates prompt quality signals remain visible in acceptance/archive/regression summaries
+
+#### Updated docs
+- `docs/requirements.md`
+  - records review-surface visibility for prompt quality signals
+- `docs/design.md`
+  - documents quality-signal propagation into operator review tooling
+- `docs/testing.md`
+  - adds summary-surface coverage expectations for prompt quality signals
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions that prompt quality signals survive into review summaries
+
+#### Validation
+- `python3 -m py_compile app/models/evaluation.py app/services/prompt_invocation_service.py app/services/core_skill_toolchain.py tests/unit/test_core_skill_toolchain.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: structured prompt invocation quality signals
 
 Refined prompt-invocation acceptance again by turning post-execution quality hints into explicit structured signals rather than leaving them implicit inside one coarse evaluation heuristic.

@@ -289,6 +289,7 @@ requires_openai_auth = true
 - core replay / acceptance / archive summary 能力应验证 prompt invocation 专属视图，包括 failed replay 选择、acceptance rate、以及 success/latency/token regression 聚合
 - prompt invocation evaluation 应验证 feedback、normalized_response 与 workflow outcome hint 会影响 acceptance 结果，而不只是依赖单一 success proxy
 - 结构化 quality signals 应验证 expected_output（如 `slug_text` / `json_object`）与 normalized text 之间的匹配关系会被显式记录并影响 acceptance 推导
+- review summary 能力应验证这些 quality signals 继续出现在 prompt invocation acceptance/archive/regression 汇总中，而不是在 evaluation 后再次丢失
 
 ---
 

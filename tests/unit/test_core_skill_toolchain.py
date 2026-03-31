@@ -68,6 +68,7 @@ def test_core_acceptance_report_and_archive_summary(tmp_path: Path) -> None:
             token_delta=0.0,
             latency_delta=0.0,
             stability_delta=0.0,
+            quality_signals={"empty_text": False, "schema_satisfied": True, "schema_expectation": "json_object"},
         )
     )
     evaluation.evaluate(
@@ -81,6 +82,7 @@ def test_core_acceptance_report_and_archive_summary(tmp_path: Path) -> None:
             token_delta=0.20,
             latency_delta=0.10,
             stability_delta=-0.10,
+            quality_signals={"empty_text": False, "schema_satisfied": False, "schema_expectation": "slug_text"},
         )
     )
 
@@ -97,7 +99,9 @@ def test_core_acceptance_report_and_archive_summary(tmp_path: Path) -> None:
     assert prompt_report["total_records"] == 2
     assert prompt_report["accepted_records"] == 1
     assert prompt_report["rejected_records"] == 1
+    assert prompt_report["schema_failures"] == 1
     assert archive["candidate_id"] == "cand.1"
     assert regression["record_count"] == 2
     assert regression["rejected_count"] == 1
     assert regression["success_regressions"] == 1
+    assert regression["schema_failures"] == 1

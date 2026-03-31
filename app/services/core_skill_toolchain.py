@@ -75,7 +75,9 @@ class CoreAcceptanceReportSkill:
             "token_delta": record.token_delta,
             "latency_delta": record.latency_delta,
             "success_delta": record.success_delta,
+            "feedback_delta": record.feedback_delta,
             "stability_delta": record.stability_delta,
+            "quality_signals": record.quality_signals,
         }
 
     def build_prompt_invocation_report(self, app_id: str) -> dict[str, object]:
@@ -86,12 +88,17 @@ class CoreAcceptanceReportSkill:
         ]
         accepted = [item for item in records if item.accepted]
         rejected = [item for item in records if not item.accepted]
+        schema_failures = sum(1 for item in records if item.quality_signals.get("schema_satisfied") is False)
+        empty_outputs = sum(1 for item in records if item.quality_signals.get("empty_text") is True)
         return {
             "app_id": app_id,
             "total_records": len(records),
             "accepted_records": len(accepted),
             "rejected_records": len(rejected),
             "acceptance_rate": 0.0 if not records else len(accepted) / len(records),
+            "schema_failures": schema_failures,
+            "empty_outputs": empty_outputs,
+            "recent_quality_signals": [item.quality_signals for item in records[-3:]],
         }
 
 
@@ -102,6 +109,7 @@ class CoreArchiveSummarySkill:
             "target": f"{record.target_type}:{record.target_id}",
             "accepted": record.accepted,
             "reason": record.rejection_reason,
+            "quality_signals": record.quality_signals,
         }
 
     def summarize_prompt_invocation_regression(self, records: list[CandidateEvaluationRecord]) -> dict[str, object]:
@@ -112,4 +120,6 @@ class CoreArchiveSummarySkill:
             "success_regressions": sum(1 for item in prompt_records if item.success_delta < 0),
             "latency_regressions": sum(1 for item in prompt_records if item.latency_delta > 0),
             "token_regressions": sum(1 for item in prompt_records if item.token_delta > 0),
+            "schema_failures": sum(1 for item in prompt_records if item.quality_signals.get("schema_satisfied") is False),
+            "empty_outputs": sum(1 for item in prompt_records if item.quality_signals.get("empty_text") is True),
         }
