@@ -27,6 +27,9 @@ class EvaluationSummaryService:
         if record.success_delta < gate.min_success_delta:
             accepted = False
             rejection_reasons.append("success_regression_exceeded")
+        if record.feedback_delta < gate.min_feedback_delta:
+            accepted = False
+            rejection_reasons.append("feedback_regression_exceeded")
         if record.stability_delta < gate.min_stability_delta:
             accepted = False
             rejection_reasons.append("stability_regression_exceeded")

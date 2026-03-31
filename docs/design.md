@@ -67,6 +67,7 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 - workflow/runtime policy should retain the ability to gate prompt invocation (for example hard disable or require ask-user approval) so prompt-driven steps do not become a governance bypass
 - prompt-invocation governance signals should be emitted into shared risk/evidence channels so repeated blocked or sensitive prompt paths contribute to later policy learning rather than disappearing inside workflow execution
 - prompt-driven execution should also project into replay/acceptance/regression summaries via the core skill toolchain so it can participate in the same operator review loop as other candidate behaviors
+- prompt-invocation acceptance should be allowed to incorporate richer post-execution signals (normalized response quality, workflow outcome hints, and explicit feedback) instead of depending only on coarse success proxies
 - ranking should remain deterministic-first initially (query match + evidence type + priority + recency) before any future model-assisted reranking is introduced
 
 Network reachability and intelligence availability are separate concerns:

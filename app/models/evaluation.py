@@ -28,4 +28,5 @@ class EvaluationGatePolicy(BaseModel):
     max_token_growth: float = 0.15
     max_latency_growth: float = 0.20
     min_success_delta: float = -0.02
+    min_feedback_delta: float = -0.05
     min_stability_delta: float = -0.02

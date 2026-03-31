@@ -110,6 +110,9 @@ class PromptInvocationService:
             )
 
         if self._evaluation_summary_service is not None:
+            feedback_delta = self._derive_feedback_delta(extra_payload)
+            success_delta = self._derive_success_delta(normalized, extra_payload)
+            stability_delta = self._derive_stability_delta(normalized, extra_payload)
             self._evaluation_summary_service.evaluate(
                 CandidateEvaluationRecord(
                     candidate_id=f"prompt-invoke:{interaction_id}",
@@ -117,10 +120,11 @@ class PromptInvocationService:
                     target_id=app_instance_id.split(":")[0] if app_instance_id else app_instance_id,
                     baseline_version="prompt_invocation.v1",
                     candidate_version="prompt_invocation.v2",
-                    success_delta=0.01 if normalized.get("text") else -0.01,
+                    success_delta=success_delta,
                     token_delta=0.0,
                     latency_delta=0.0,
-                    stability_delta=0.0,
+                    feedback_delta=feedback_delta,
+                    stability_delta=stability_delta,
                 )
             )
 
@@ -161,4 +165,33 @@ class PromptInvocationService:
             "finish_status": "completed" if text or result else "empty",
             "estimated_output_tokens": estimated_output_tokens,
             "raw_kind": "responses_api",
+            "text_length": len(text),
         }
+
+    def _derive_feedback_delta(self, extra_payload: dict | None) -> float:
+        if not isinstance(extra_payload, dict):
+            return 0.0
+        feedback = extra_payload.get("feedback")
+        if isinstance(feedback, dict):
+            score = feedback.get("score")
+            if isinstance(score, (int, float)):
+                return max(min((float(score) - 3.0) / 2.0, 1.0), -1.0)
+        return 0.0
+
+    def _derive_success_delta(self, normalized: dict, extra_payload: dict | None) -> float:
+        if isinstance(extra_payload, dict):
+            outcome = extra_payload.get("workflow_outcome")
+            if outcome == "success":
+                return 0.05
+            if outcome == "failure":
+                return -0.10
+        return 0.01 if normalized.get("text") else -0.05
+
+    def _derive_stability_delta(self, normalized: dict, extra_payload: dict | None) -> float:
+        if normalized.get("finish_status") != "completed":
+            return -0.05
+        if normalized.get("text_length", 0) < 5:
+            return -0.02
+        if isinstance(extra_payload, dict) and extra_payload.get("retry_count", 0) not in (0, None):
+            return -0.01
+        return 0.0

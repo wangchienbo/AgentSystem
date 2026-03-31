@@ -65,6 +65,7 @@ Used for lightweight client-level validation such as:
 - policy-guard/workflow coverage for prompt-invocation disable/approval governance
 - risk/evidence integration coverage for prompt-invocation governance events
 - core skill toolchain coverage for prompt-invocation replay, acceptance, and regression summaries
+- prompt-invocation acceptance coverage for richer feedback/output/workflow-derived signals
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

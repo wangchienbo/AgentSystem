@@ -2,6 +2,36 @@
 
 ## 2026-03-31
 
+### Module: richer prompt invocation acceptance signals
+
+Improved prompt-invocation evaluation so acceptance can be influenced by richer post-execution signals instead of depending only on a thin success heuristic.
+
+#### Updated
+- `app/models/evaluation.py`
+  - adds `min_feedback_delta` to evaluation gate policy
+- `app/services/evaluation_summary_service.py`
+  - now rejects candidates when feedback regression exceeds the configured threshold
+- `app/services/prompt_invocation_service.py`
+  - derives evaluation inputs from normalized response quality hints, workflow outcome hints, retry hints, and explicit feedback payloads
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates prompt invocation evaluation captures positive feedback-derived and workflow-derived acceptance signals
+- `tests/unit/test_evaluation_summary_service.py`
+  - validates feedback regression contributes to rejection reasons
+
+#### Updated docs
+- `docs/requirements.md`
+  - records richer acceptance signal expectations for prompt invocation
+- `docs/design.md`
+  - documents prompt invocation acceptance as a multi-signal decision
+- `docs/testing.md`
+  - adds richer prompt invocation acceptance coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for feedback/output/workflow-derived acceptance inputs
+
+#### Validation
+- `python3 -m py_compile app/models/evaluation.py app/services/evaluation_summary_service.py app/services/prompt_invocation_service.py tests/unit/test_prompt_invocation_service.py tests/unit/test_evaluation_summary_service.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: prompt invocation replay/acceptance/regression summaries
 
 Extended the core review toolchain so prompt-driven execution can be analyzed with dedicated replay, acceptance, and regression summaries rather than remaining buried inside generic telemetry/evaluation stores.

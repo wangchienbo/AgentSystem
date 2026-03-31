@@ -287,6 +287,7 @@ requires_openai_auth = true
 - policy guard / workflow executor 应验证 prompt invocation 被 runtime policy 禁用或要求用户批准时会被阻断并给出可审计的 policy_blocked 信号
 - prompt invocation 的治理事件应验证会流入 risk policy 事件流，并可进一步触发 evidence promotion
 - core replay / acceptance / archive summary 能力应验证 prompt invocation 专属视图，包括 failed replay 选择、acceptance rate、以及 success/latency/token regression 聚合
+- prompt invocation evaluation 应验证 feedback、normalized_response 与 workflow outcome hint 会影响 acceptance 结果，而不只是依赖单一 success proxy
 
 ---
 

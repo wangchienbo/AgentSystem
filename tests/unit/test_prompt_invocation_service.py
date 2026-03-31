@@ -33,7 +33,11 @@ class _FakeClient:
         self.api_key = api_key
 
     def request(self, input_payload, *, extra_payload=None):
-        return {"id": "resp_123", "input_echo": input_payload, "extra_payload": extra_payload}
+        return {
+            "id": "resp_123",
+            "output": [{"type": "message", "content": [{"type": "output_text", "text": "good normalized output"}]}],
+            "extra_payload": extra_payload,
+        }
 
 
 
@@ -99,7 +103,12 @@ def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path)
         query="workflow",
         limit=3,
         strategy="query_first",
-        extra_payload={"metadata": {"source": "test"}},
+        extra_payload={
+            "metadata": {"source": "test"},
+            "feedback": {"score": 5},
+            "workflow_outcome": "success",
+            "retry_count": 0,
+        },
     )
 
     assert "assembled_prompt" in result
@@ -112,6 +121,9 @@ def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path)
     assert result["invocation_meta"]["interaction_id"].startswith("prompt_invoke:")
     assert telemetry.get_interaction(result["invocation_meta"]["interaction_id"]) is not None
     assert len(telemetry.list_steps(result["invocation_meta"]["interaction_id"])) == 1
-    assert evaluation.get(f"prompt-invoke:{result['invocation_meta']['interaction_id']}") is not None
+    evaluation_record = evaluation.get(f"prompt-invoke:{result['invocation_meta']['interaction_id']}")
+    assert evaluation_record is not None
+    assert evaluation_record.feedback_delta > 0
+    assert evaluation_record.success_delta > 0
     events = risk_policy.list_events(skill_id="prompt.invoke")
     assert any(item.scope == "prompt_invocation" for item in events)
