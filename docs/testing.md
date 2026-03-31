@@ -61,6 +61,7 @@ Used for lightweight client-level validation such as:
 - workflow executor coverage for prompt-invocation module steps reusing the same service path
 - prompt invocation normalization + telemetry/evaluation coverage for the shared service
 - requirement-blueprint-builder coverage for transform-style drafts that should emit `prompt.invoke` workflow steps
+- end-to-end requirement → blueprint → install → workflow → prompt result coverage for at least one transform-style app path
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

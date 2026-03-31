@@ -2,6 +2,24 @@
 
 ## 2026-03-31
 
+### Module: requirement-to-prompt-workflow end-to-end test
+
+Added an end-to-end test slice proving that a transform-style requirement can flow all the way from clarification into blueprint drafting, installation, workflow execution, prompt invocation, normalized output, and telemetry/evaluation persistence.
+
+#### Added
+- `tests/unit/test_requirement_to_prompt_workflow_e2e.py`
+  - covers requirement clarify → blueprint draft → registry register → install → workflow execute → prompt result → telemetry/evaluation assertions
+
+#### Updated docs
+- `docs/testing.md`
+  - records the expectation for at least one end-to-end transform-style prompt workflow coverage path
+- `docs/testing-detail.md`
+  - adds implementation-focused end-to-end coverage guidance for the prompt-driven path
+
+#### Validation
+- `python3 -m py_compile tests/unit/test_requirement_to_prompt_workflow_e2e.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: requirement blueprint prompt-invoke drafting
 
 Extended requirement-to-blueprint drafting so transform-oriented requirements now produce prompt-driven workflow steps directly in the emitted draft instead of leaving prompt invocation as a manual follow-up design task.
