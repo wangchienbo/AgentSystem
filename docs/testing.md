@@ -60,6 +60,7 @@ Used for lightweight client-level validation such as:
 - prompt-invocation service coverage for selection-to-model handoff via fake client injection
 - workflow executor coverage for prompt-invocation module steps reusing the same service path
 - prompt invocation normalization + telemetry/evaluation coverage for the shared service
+- requirement-blueprint-builder coverage for transform-style drafts that should emit `prompt.invoke` workflow steps
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

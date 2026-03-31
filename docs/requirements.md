@@ -165,6 +165,7 @@ The requirement-intake layer should also support a minimal clarification/extract
 - detect basic conflicting constraints before generation handoff
 - build a minimal app-oriented blueprint draft only when the requirement is ready for generation
 - let requirement-derived blueprint drafts carry lightweight app-shape and runtime-profile hints so later stages do not have to recover those semantics from raw text again
+- allow requirement-derived blueprint drafts for transform-style apps to materialize prompt-driven workflow steps (for example `prompt.invoke`) directly in the draft when that is the intended execution posture
 
 The observation layer should also support a first-pass evidence-promotion loop that can:
 - ingest raw operational references

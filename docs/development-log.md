@@ -2,6 +2,31 @@
 
 ## 2026-03-31
 
+### Module: requirement blueprint prompt-invoke drafting
+
+Extended requirement-to-blueprint drafting so transform-oriented requirements now produce prompt-driven workflow steps directly in the emitted draft instead of leaving prompt invocation as a manual follow-up design task.
+
+#### Updated
+- `app/services/requirement_blueprint_builder.py`
+  - transform-style draft generation now emits `module + ref=prompt.invoke`
+  - transform-style task contracts now expose `normalized_response` and `model_invocation` outputs
+- `tests/unit/test_requirement_blueprint_builder.py`
+  - adds coverage for structured/text transform drafts that should emit prompt invocation steps and output contracts
+
+#### Updated docs
+- `docs/requirements.md`
+  - records prompt-invoke drafting expectations for transform-style blueprints
+- `docs/design.md`
+  - documents prompt-driven workflow drafting as part of requirement handoff
+- `docs/testing.md`
+  - adds builder coverage expectations for prompt-invoke draft generation
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for prompt-invoke workflow draft output contracts
+
+#### Validation
+- `python3 -m py_compile app/services/requirement_blueprint_builder.py tests/unit/test_requirement_blueprint_builder.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: prompt invocation telemetry and normalized response
 
 Closed the prompt-invocation loop further by normalizing model responses and wiring prompt invocation into telemetry/evaluation so prompt-driven execution participates in observability and upgrade evidence.

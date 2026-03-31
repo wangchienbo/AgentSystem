@@ -35,6 +35,21 @@ def test_builds_structured_transform_shape_for_json_style_requirement() -> None:
     assert blueprint.app_shape == "structured_transform"
     assert blueprint.runtime_policy.execution_mode == "service"
     assert blueprint.tasks[0].inputs["app_shape"] == "structured_transform"
+    assert blueprint.workflows[0].steps[0].ref == "prompt.invoke"
+    assert blueprint.workflows[0].steps[0].kind == "module"
+    assert blueprint.tasks[0].outputs["normalized_response"]["type"] == "object"
+
+
+
+def test_builds_text_transform_with_prompt_invoke_step() -> None:
+    spec = clarifier.clarify("帮我做一个文本处理 app，把标题规范化并输出 slug 文本")
+
+    blueprint = builder.build_blueprint_draft(spec)
+
+    assert blueprint.app_shape == "text_transform"
+    assert blueprint.workflows[0].steps[0].ref == "prompt.invoke"
+    assert blueprint.workflows[0].steps[0].config["strategy"] == "query_first"
+    assert blueprint.tasks[0].outputs["model_invocation"]["type"] == "object"
 
 
 

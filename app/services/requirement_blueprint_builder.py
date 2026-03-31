@@ -72,12 +72,16 @@ class RequirementBlueprintBuilderService:
         owner_role = roles[0].id if roles else "r1"
         inputs = spec.inputs or ["user_input"]
         outputs = spec.outputs or ["result"]
+        task_outputs = {item: {"type": "string"} for item in outputs}
+        if app_shape in {"text_transform", "structured_transform", "generic"}:
+            task_outputs["normalized_response"] = {"type": "object"}
+            task_outputs["model_invocation"] = {"type": "object"}
         task = Task(
             id="task.main",
             owner_role=owner_role,
             trigger="manual",
             inputs={item: {"type": "string"} for item in inputs} | {"app_shape": app_shape},
-            outputs={item: {"type": "string"} for item in outputs},
+            outputs=task_outputs,
             success_condition=task_name,
             failure_policy=spec.failure_strategy or "retry_then_escalate",
         )
@@ -158,6 +162,26 @@ class RequirementBlueprintBuilderService:
                     ref="record.requirement",
                     config={"failure_strategy": spec.failure_strategy, "permissions": spec.permissions},
                 ),
+            ]
+        if app_shape in {"text_transform", "structured_transform", "generic"}:
+            return [
+                WorkflowStep(
+                    id="step.prompt.invoke",
+                    kind="module",
+                    ref="prompt.invoke",
+                    config={
+                        "query": spec.goal or spec.raw_text,
+                        "limit": 3,
+                        "strategy": "query_first",
+                        "include_prompt_assembly": True,
+                        "extra_payload": {
+                            "metadata": {
+                                "source": "requirement_blueprint_builder",
+                                "app_shape": app_shape,
+                            }
+                        },
+                    },
+                )
             ]
         return [
             WorkflowStep(

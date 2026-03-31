@@ -53,6 +53,7 @@ A lightweight requirement-understanding loop should exist before blueprint gener
 - only after that should later generation flows consume the request as a candidate blueprint/app/skill definition input
 - when the request is ready and app-oriented, the system may emit a minimal blueprint draft as a handoff artifact rather than forcing later stages to re-parse raw user text
 - that handoff artifact should already carry lightweight app-shape and runtime-profile cues (for example pipeline vs transform posture, ask-user invocation pressure, and offline/network expectations) so later control-plane and install paths start from a more stable draft
+- for transform-style drafts, the builder may directly emit a `prompt.invoke` workflow step so blueprint generation captures the intended prompt-driven execution posture instead of leaving that structure implicit
 
 The prompt-selection layer should sit between context compaction/evidence retrieval and future model invocation:
 - it should consume working-set context plus retrieval-index entries instead of raw runtime history where possible
