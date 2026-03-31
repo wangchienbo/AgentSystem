@@ -1,3 +1,4 @@
+import app.bootstrap.skills as builtin_skills
 from app.api.main import app_context_store, log_evidence, skill_control, skill_runtime
 from app.models.app_context import AppSharedContext
 from app.models.skill_runtime import SkillExecutionRequest
@@ -109,3 +110,81 @@ def test_prompt_selection_skill_executes_budget_aware_select() -> None:
     assert len(result.output["selected_evidence"]) == 1
     assert "assembled_prompt" in result.output
     assert result.output["selection_policy"]["ranking_strategy"] == "balanced"
+
+
+
+def test_prompt_selection_skill_can_invoke_model_ready_prompt(monkeypatch) -> None:
+    app_context_store._contexts[APP_ID] = AppSharedContext(
+        app_instance_id=APP_ID,
+        app_name="bp.prompt.demo",
+        owner_user_id="user.prompt.demo",
+        description="prompt skill context",
+        status="active",
+        current_goal="answer user",
+        current_stage="reasoning",
+        entries=[],
+    )
+    log_evidence.ingest_workflow_failure(
+        app_instance_id=APP_ID,
+        workflow_id="wf.model.ready",
+        failed_step_ids=["step.a"],
+        execution_id="exec.model.ready.1",
+        status="partial",
+    )
+    log_evidence.ingest_workflow_failure(
+        app_instance_id=APP_ID,
+        workflow_id="wf.model.ready",
+        failed_step_ids=["step.a"],
+        execution_id="exec.model.ready.2",
+        status="partial",
+    )
+    log_evidence.ingest_workflow_failure(
+        app_instance_id=APP_ID,
+        workflow_id="wf.model.ready",
+        failed_step_ids=["step.a"],
+        execution_id="exec.model.ready.3",
+        status="partial",
+    )
+
+    class _FakeLoader:
+        def load(self):
+            class _Config:
+                provider = "OpenAI"
+                model = "gpt-5.4"
+            return _Config()
+
+        def resolve_api_key(self, config):
+            return "sk-test"
+
+    class _FakeClient:
+        def __init__(self, config, api_key):
+            self.config = config
+            self.api_key = api_key
+
+        def request(self, input_payload, *, extra_payload=None):
+            return {"id": "resp_123", "input_echo": input_payload, "extra_payload": extra_payload}
+
+    monkeypatch.setattr(builtin_skills, "ModelConfigLoader", _FakeLoader)
+    monkeypatch.setattr(builtin_skills, "OpenAIResponsesClient", _FakeClient)
+
+    result = skill_runtime.execute(
+        SkillExecutionRequest(
+            skill_id="prompt.selection.skill",
+            app_instance_id=APP_ID,
+            workflow_id=WF_ID,
+            step_id=STEP_ID,
+            inputs={
+                "operation": "model_ready_prompt",
+                "query": "workflow",
+                "limit": 3,
+                "strategy": "query_first",
+                "include_prompt_assembly": True,
+            },
+        )
+    )
+
+    assert result.status == "completed"
+    assert "model_invocation" in result.output
+    assert result.output["model_invocation"]["provider"] == "OpenAI"
+    assert result.output["model_invocation"]["result"]["id"] == "resp_123"
+    assert "assembled_prompt" in result.output

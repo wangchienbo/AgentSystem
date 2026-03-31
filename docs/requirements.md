@@ -187,6 +187,7 @@ The prompt-selection layer should also support a more explicit selection contrac
 - expose prompt-budget metadata instead of relying only on item-count limits
 - support token-aware truncation through configurable working-set/output/evidence token estimates
 - emit prompt-ready sections (working-set summary + evidence digest) so later model-invocation paths do not need to rebuild prompt context from scratch
+- optionally expose a model-ready prompt path that can hand the assembled prompt directly into the configured model client
 - keep selection policy visible in machine-readable form for testing and later governance
 
 ### 5.2 Skill control

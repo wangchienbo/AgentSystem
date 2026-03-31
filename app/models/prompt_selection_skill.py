@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-PromptSelectionOperation = Literal["select", "evidence_search"]
+PromptSelectionOperation = Literal["select", "evidence_search", "model_ready_prompt"]
 
 
 class PromptSelectionSkillRequest(BaseModel):

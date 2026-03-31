@@ -278,6 +278,7 @@ requires_openai_auth = true
 - promoted evidence 在同等条件下优先于 signal
 - token-aware budget 能正确减少 selected evidence 数量，而不是仅使用 count limit
 - capability skill `prompt.selection.skill` 可透传 budget / strategy / prompt assembly 参数
+- `model_ready_prompt` 路径可在测试中以 fake model client 验证 assembled prompt 被正确送入模型调用层
 
 ---
 

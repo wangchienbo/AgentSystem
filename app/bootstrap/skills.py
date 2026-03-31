@@ -185,6 +185,7 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
                 app_instance_id=skill_request.app_instance_id or request.app_instance_id,
                 category=skill_request.category or None,
                 limit=skill_request.limit or 5,
+                strategy=skill_request.strategy,
             )
         else:
             output = prompt_selection.select_for_prompt(
@@ -199,6 +200,20 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
                 strategy=skill_request.strategy,
                 include_prompt_assembly=skill_request.include_prompt_assembly,
             )
+            if skill_request.operation == "model_ready_prompt":
+                loader = ModelConfigLoader()
+                config = loader.load()
+                api_key = loader.resolve_api_key(config)
+                client = OpenAIResponsesClient(config=config, api_key=api_key)
+                model_result = client.request(output.get("assembled_prompt", ""))
+                output = {
+                    **output,
+                    "model_invocation": {
+                        "provider": config.provider,
+                        "model": config.model,
+                        "result": model_result,
+                    },
+                }
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
 
     return {

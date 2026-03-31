@@ -70,6 +70,30 @@ def test_probe_returns_json_payload_for_application_json(monkeypatch, model_conf
     assert result["id"] == "resp_123"
 
 
+def test_request_supports_structured_input_payload(monkeypatch, model_config: ModelConfig) -> None:
+    captured: dict[str, object] = {}
+    response = _FakeResponse(
+        status_code=200,
+        content_type="application/json; charset=utf-8",
+        body={"id": "resp_structured", "output_text": "ok"},
+    )
+
+    monkeypatch.setattr(httpx, "Client", lambda *args, **kwargs: _FakeClient(response, captured))
+    client = OpenAIResponsesClient(config=model_config, api_key="sk-test")
+
+    result = client.request(
+        [{"role": "user", "content": [{"type": "input_text", "text": "hello"}]}],
+        extra_payload={"metadata": {"source": "prompt-selection"}},
+    )
+
+    assert captured["json"] == {
+        "model": "gpt-5.4",
+        "input": [{"role": "user", "content": [{"type": "input_text", "text": "hello"}]}],
+        "metadata": {"source": "prompt-selection"},
+    }
+    assert result["id"] == "resp_structured"
+
+
 def test_probe_returns_stream_preview_for_sse_response(monkeypatch, model_config: ModelConfig) -> None:
     captured: dict[str, object] = {}
     stream_text = "event: response.output_text.delta\ndata: {\"delta\":\"MODEL_\"}\n\nevent: done\ndata: [DONE]\n"

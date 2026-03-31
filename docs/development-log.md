@@ -2,6 +2,37 @@
 
 ## 2026-03-31
 
+### Module: prompt-selection model-ready path
+
+Completed the next integration step for prompt selection by allowing the capability layer to hand an assembled prompt directly into the configured model client while keeping the selection output visible for inspection.
+
+#### Updated
+- `app/services/model_client.py`
+  - adds a generic `request(...)` method for structured or plain prompt payloads
+  - keeps `probe(...)` as a thin wrapper over the shared request path
+- `app/models/prompt_selection_skill.py`
+  - adds `model_ready_prompt` as a new operation on the prompt-selection capability contract
+- `app/bootstrap/skills.py`
+  - extends `prompt.selection.skill` so `model_ready_prompt` selects evidence, assembles prompt context, and then invokes the configured model client
+
+#### Added / expanded tests
+- `tests/unit/test_model_client_smoke.py`
+  - adds structured-input request coverage for the model client
+- `tests/unit/test_prompt_selection_capability_skill.py`
+  - adds a fake-client-backed test for the `model_ready_prompt` path
+
+#### Updated docs
+- `docs/requirements.md`
+  - records the optional model-ready prompt path requirement
+- `docs/design.md`
+  - clarifies the relationship between prompt selection and downstream model invocation
+- `docs/testing-detail.md`
+  - adds explicit validation guidance for fake-client-backed model-ready prompt tests
+
+#### Validation
+- `python3 -m py_compile app/services/model_client.py app/models/prompt_selection_skill.py app/bootstrap/skills.py tests/unit/test_model_client_smoke.py tests/unit/test_prompt_selection_capability_skill.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: advanced prompt selection contract
 
 Upgraded the first-pass prompt selection slice into a more platform-shaped contract by adding query-aware ranking, evidence-type preference, token-aware budget metadata, and prompt assembly output.

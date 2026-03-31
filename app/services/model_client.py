@@ -17,12 +17,14 @@ class OpenAIResponsesClient:
         self._config = config
         self._api_key = api_key
 
-    def probe(self, prompt: str = "ping") -> dict:
+    def request(self, input_payload, *, extra_payload: dict | None = None) -> dict:
         url = self._config.base_url.rstrip("/") + "/v1/responses"
         payload = {
             "model": self._config.model,
-            "input": prompt,
+            "input": input_payload,
         }
+        if extra_payload:
+            payload.update(extra_payload)
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
@@ -50,3 +52,6 @@ class OpenAIResponsesClient:
             "content_type": content_type,
             "body_preview": response.text[:500],
         }
+
+    def probe(self, prompt: str = "ping") -> dict:
+        return self.request(prompt)
