@@ -18,6 +18,7 @@ from app.services.prompt_invocation_service import PromptInvocationService
 from app.services.prompt_selection_service import PromptSelectionService
 from app.services.log_evidence_service import LogEvidenceService
 from app.services.context_compaction import ContextCompactionService
+from app.services.skill_risk_policy import SkillRiskPolicyService
 
 
 client = TestClient(app)
@@ -374,6 +375,7 @@ def test_workflow_executor_blocks_prompt_invoke_without_user_approval(tmp_path: 
         context_store=context_store,
         prompt_invocation_service=prompt_invocation,
     )
+    executor._skill_risk_policy = SkillRiskPolicyService(store=store, log_evidence_service=log_evidence)
 
     registry.register_blueprint(
         AppBlueprint(

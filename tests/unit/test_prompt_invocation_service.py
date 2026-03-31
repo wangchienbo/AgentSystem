@@ -173,7 +173,8 @@ def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path)
     assert "assembled_prompt" in result
     assert result["model_invocation"]["provider"] == "OpenAI"
     assert result["model_invocation"]["result"]["id"] == "resp_123"
-    assert result["model_invocation"]["result"]["extra_payload"] == {"metadata": {"source": "test"}}
+    assert result["model_invocation"]["result"]["extra_payload"]["metadata"] == {"source": "test"}
+    assert result["model_invocation"]["result"]["extra_payload"]["expected_output"] == "slug_text"
     assert "normalized_response" in result
     assert result["normalized_response"]["finish_status"] == "completed"
     assert result["normalized_response"]["estimated_output_tokens"] >= 0

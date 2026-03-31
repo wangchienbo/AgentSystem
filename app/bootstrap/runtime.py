@@ -371,7 +371,7 @@ def build_runtime() -> dict[str, object]:
         telemetry_service=telemetry_service,
         policy_guard=policy_guard,
         log_evidence_service=log_evidence,
-        prompt_invocation_service=prompt_invocation,
+        prompt_invocation_service=None,
     )
     workflow_executor._skill_risk_policy = skill_risk_policy
     workflow_subscription = WorkflowSubscriptionService(
@@ -393,6 +393,7 @@ def build_runtime() -> dict[str, object]:
         evaluation_summary_service=evaluation_summary_service,
         skill_risk_policy_service=skill_risk_policy,
     )
+    workflow_executor._prompt_invocation_service = prompt_invocation
     interaction_gateway = InteractionGateway(
         catalog=app_catalog,
         router=router,

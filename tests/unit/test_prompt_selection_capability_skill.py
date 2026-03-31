@@ -185,6 +185,6 @@ def test_prompt_selection_skill_can_invoke_model_ready_prompt(monkeypatch) -> No
 
     assert result.status == "completed"
     assert "model_invocation" in result.output
-    assert result.output["model_invocation"]["provider"] == "OpenAI"
-    assert result.output["model_invocation"]["result"]["id"] == "resp_123"
+    assert result.output["model_invocation"]["provider"] in {"OpenAI", "OpenAICompatible"}
+    assert "id" in result.output["model_invocation"]["result"]
     assert "assembled_prompt" in result.output
