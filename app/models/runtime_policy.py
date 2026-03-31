@@ -18,3 +18,5 @@ class RuntimePolicy(BaseModel):
     persistence_level: PersistenceLevel = "standard"
     idle_strategy: IdleStrategy = "suspend"
     max_restart_attempts: int = Field(default=3, ge=0)
+    allow_prompt_invoke: bool = True
+    prompt_invoke_requires_ask_user: bool = False

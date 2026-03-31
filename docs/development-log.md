@@ -2,6 +2,37 @@
 
 ## 2026-03-31
 
+### Module: prompt invocation governance hooks
+
+Added first-pass governance hooks so prompt invocation can be constrained by runtime policy instead of acting as an always-open execution path.
+
+#### Updated
+- `app/models/runtime_policy.py`
+  - adds `allow_prompt_invoke`
+  - adds `prompt_invoke_requires_ask_user`
+- `app/services/policy_guard.py`
+  - blocks `prompt.invoke` when blueprint runtime policy disables it
+- `app/services/workflow_executor.py`
+  - blocks `prompt.invoke` execution when runtime policy requires user approval and the step config does not include approval
+- `tests/unit/test_policy_guard.py`
+  - adds policy guard coverage for prompt invocation allow/deny behavior
+- `tests/unit/test_workflow_executor.py`
+  - adds workflow coverage for approval-gated prompt invocation failure
+
+#### Updated docs
+- `docs/requirements.md`
+  - records governance controls for prompt invocation
+- `docs/design.md`
+  - documents prompt invocation as a policy-gated path rather than an unconditional shortcut
+- `docs/testing.md`
+  - adds governance coverage expectations for prompt invocation policy controls
+- `docs/testing-detail.md`
+  - adds implementation-focused blocked-path assertions for prompt invocation governance
+
+#### Validation
+- `python3 -m py_compile app/models/runtime_policy.py app/services/policy_guard.py app/services/workflow_executor.py tests/unit/test_policy_guard.py tests/unit/test_workflow_executor.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: requirement-to-prompt-workflow end-to-end test
 
 Added an end-to-end test slice proving that a transform-style requirement can flow all the way from clarification into blueprint drafting, installation, workflow execution, prompt invocation, normalized output, and telemetry/evaluation persistence.

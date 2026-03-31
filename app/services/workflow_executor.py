@@ -301,6 +301,15 @@ class WorkflowExecutorService:
                     output={"placeholder": "prompt_invoke", "ref": ref},
                 )
             resolved = self._resolve_value(config, execution_context)
+            if blueprint.runtime_policy.prompt_invoke_requires_ask_user and not bool(resolved.get("approved_by_user", False)):
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="failed",
+                    detail={"reason": "prompt invocation requires user approval", "policy_blocked": True},
+                    output={},
+                )
             result = self._prompt_invocation_service.invoke_with_selection(
                 app_instance_id=app_instance_id,
                 query=str(resolved.get("query", "")),

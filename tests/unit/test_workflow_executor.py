@@ -336,6 +336,78 @@ def test_workflow_executor_runs_prompt_invoke_module_step(tmp_path: Path) -> Non
     assert any(item.key == "prompt-invocation:prompt.run" for item in context.entries)
 
 
+def test_workflow_executor_blocks_prompt_invoke_without_user_approval(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "workflow-prompt-approval-store"))
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    registry = AppRegistryService(store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "workflow-prompt-approval-ns"), store=store)
+    scheduler = SchedulerService(lifecycle=lifecycle, runtime_host=runtime, store=store)
+    event_bus = EventBusService(scheduler=scheduler, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    log_evidence = LogEvidenceService(store=store)
+    context_compaction = ContextCompactionService(
+        app_context_store=context_store,
+        workflow_executor=type("_StubWorkflowExecutor", (), {"list_history": lambda self, app_instance_id: [], "_skill_runtime": None})(),
+        store=store,
+        log_evidence_service=log_evidence,
+    )
+    prompt_selection = PromptSelectionService(context_compaction=context_compaction, log_evidence=log_evidence)
+    prompt_invocation = PromptInvocationService(
+        prompt_selection=prompt_selection,
+        model_loader=_FakeLoader(),
+        client_factory=_FakeClient,
+    )
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+    )
+    executor = WorkflowExecutorService(
+        registry=registry,
+        lifecycle=lifecycle,
+        data_store=data_store,
+        event_bus=event_bus,
+        context_store=context_store,
+        prompt_invocation_service=prompt_invocation,
+    )
+
+    registry.register_blueprint(
+        AppBlueprint(
+            id="bp.workflow.prompt.approval",
+            name="Workflow Prompt Approval App",
+            goal="require approval for prompt invoke",
+            roles=[],
+            tasks=[],
+            workflows=[
+                {
+                    "id": "wf.prompt.approval",
+                    "name": "prompt approval",
+                    "triggers": ["manual"],
+                    "steps": [
+                        {"id": "prompt.run", "kind": "module", "ref": "prompt.invoke", "config": {"query": "workflow", "approved_by_user": False}},
+                    ],
+                }
+            ],
+            required_modules=["prompt.invoke"],
+            required_skills=[],
+            runtime_policy={"prompt_invoke_requires_ask_user": True},
+        )
+    )
+    install_result = installer.install_app("bp.workflow.prompt.approval", user_id="workflow-prompt-approval-user")
+
+    result = executor.execute_workflow(
+        install_result.app_instance_id,
+        workflow_id="wf.prompt.approval",
+    )
+
+    assert result.status == "partial"
+    assert result.steps[0].status == "failed"
+    assert result.steps[0].detail["policy_blocked"] is True
+
+
 def test_workflow_executor_supports_conditional_steps_and_outputs_summary(tmp_path: Path) -> None:
     store = RuntimeStateStore(base_dir=str(tmp_path / "workflow-conditions-store"))
     lifecycle = AppLifecycleService(store=store)
