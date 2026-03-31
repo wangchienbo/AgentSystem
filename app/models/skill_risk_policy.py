@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 
 
 SkillRiskDecisionStatus = Literal["approved_override", "revoked"]
-SkillRiskDecisionScope = Literal["generated_app_assembly", "blueprint_materialization"]
-SkillRiskGovernanceEventType = Literal["policy_blocked", "override_approved", "override_revoked"]
+SkillRiskDecisionScope = Literal["generated_app_assembly", "blueprint_materialization", "prompt_invocation"]
+SkillRiskGovernanceEventType = Literal["policy_blocked", "override_approved", "override_revoked", "approval_required"]
 
 
 class SkillRiskDecision(BaseModel):

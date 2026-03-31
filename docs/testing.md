@@ -51,6 +51,24 @@ Used for lightweight client-level validation such as:
 - `text/event-stream` preview handling for probe-style calls
 - retryable 5xx error mapping
 - requirement-intent routing coverage for app / skill / demo-first / abstract-clarify scenarios
+- requirement clarification / extraction / readiness coverage for lightweight structured intake
+- requirement conflict detection and blueprint-draft handoff coverage
+- requirement-derived app-shape/runtime-profile draft coverage for transform-like vs pipeline-like requests
+- evidence-promotion coverage for repeated workflow failures, policy pressure, clarify-unresolved loops, retrieval index generation, and context-compaction evidence summaries
+- system capability skill coverage for requirement/evidence/context/workflow/risk/prompt-selection capability surfaces
+- prompt-selection contract coverage for query-aware ranking, evidence-vs-signal preference, token-aware truncation, and prompt assembly output
+- prompt-invocation service coverage for selection-to-model handoff via fake client injection
+- workflow executor coverage for prompt-invocation module steps reusing the same service path
+- prompt invocation normalization + telemetry/evaluation coverage for the shared service
+- requirement-blueprint-builder coverage for transform-style drafts that should emit `prompt.invoke` workflow steps
+- end-to-end requirement → blueprint → install → workflow → prompt result coverage for at least one transform-style app path
+- policy-guard/workflow coverage for prompt-invocation disable/approval governance
+- risk/evidence integration coverage for prompt-invocation governance events
+- core skill toolchain coverage for prompt-invocation replay, acceptance, and regression summaries
+- prompt-invocation acceptance coverage for richer feedback/output/workflow-derived signals
+- structured quality-signal coverage for expected output shape and normalized output quality hints
+- review-surface coverage showing prompt quality signals in acceptance/archive summaries
+- expected-output contract coverage for multiple prompt output shapes beyond JSON/slug baselines
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

@@ -86,6 +86,7 @@ def test_context_compaction_api_flow() -> None:
     assert working_set_response.status_code == 200
     assert working_set_response.json()["layer"] == "working_set"
     assert "summarize-context" in working_set_response.json()["open_loops"]
+    assert "evidence_summary" in working_set_response.json()["metadata"]
 
     layers_response = client.get(f"/app-contexts/{app_instance_id}/layers")
     assert layers_response.status_code == 200

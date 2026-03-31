@@ -47,6 +47,7 @@ def test_evaluation_service_rejects_candidate_beyond_gates(tmp_path: Path) -> No
             success_delta=-0.10,
             token_delta=0.40,
             latency_delta=0.30,
+            feedback_delta=-0.20,
             stability_delta=-0.10,
         ),
         policy=EvaluationGatePolicy(),
@@ -56,4 +57,5 @@ def test_evaluation_service_rejects_candidate_beyond_gates(tmp_path: Path) -> No
     assert "token_growth_exceeded" in result.rejection_reason
     assert "latency_growth_exceeded" in result.rejection_reason
     assert "success_regression_exceeded" in result.rejection_reason
+    assert "feedback_regression_exceeded" in result.rejection_reason
     assert "stability_regression_exceeded" in result.rejection_reason

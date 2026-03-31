@@ -38,6 +38,7 @@ from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.app_refinement import SuggestedSkillRefinementRequest
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, GeneratedSkillRevisionRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError, _diagnostic
+from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderError
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
@@ -72,6 +73,39 @@ def version() -> dict[str, str]:
     return {"version": "0.1.0"}
 
 
+@app.post("/prompt-selection/select")
+def prompt_selection_select(payload: dict) -> dict:
+    return prompt_selection.select_for_prompt(
+        app_instance_id=payload["app_instance_id"],
+        limit=payload.get("limit", 5),
+        query=payload.get("query", ""),
+        category=payload.get("category") or None,
+        max_prompt_tokens=payload.get("max_prompt_tokens"),
+        reserved_output_tokens=payload.get("reserved_output_tokens", 256),
+        working_set_token_estimate=payload.get("working_set_token_estimate", 400),
+        per_evidence_token_estimate=payload.get("per_evidence_token_estimate", 120),
+        strategy=payload.get("strategy", "balanced"),
+        include_prompt_assembly=payload.get("include_prompt_assembly", True),
+    )
+
+
+@app.post("/prompt-selection/invoke")
+def prompt_selection_invoke(payload: dict) -> dict:
+    return prompt_invocation.invoke_with_selection(
+        app_instance_id=payload["app_instance_id"],
+        query=payload.get("query", ""),
+        category=payload.get("category") or None,
+        limit=payload.get("limit", 5),
+        max_prompt_tokens=payload.get("max_prompt_tokens"),
+        reserved_output_tokens=payload.get("reserved_output_tokens", 256),
+        working_set_token_estimate=payload.get("working_set_token_estimate", 400),
+        per_evidence_token_estimate=payload.get("per_evidence_token_estimate", 120),
+        strategy=payload.get("strategy", "balanced"),
+        include_prompt_assembly=payload.get("include_prompt_assembly", True),
+        extra_payload=payload.get("extra_payload"),
+    )
+
+
 @app.post("/blueprints/validate")
 def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
     return blueprint_validation.validate(blueprint)
@@ -79,7 +113,10 @@ def validate_blueprint(blueprint: AppBlueprint) -> dict[str, object]:
 
 services = build_runtime()
 router = services["router"]
+requirement_clarifier = services["requirement_clarifier"]
+requirement_blueprint_builder = services["requirement_blueprint_builder"]
 skill_control = services["skill_control"]
+log_evidence = services["log_evidence"]
 experience_store = services["experience_store"]
 demonstration_extractor = services["demonstration_extractor"]
 runtime_store = services["runtime_store"]
@@ -119,6 +156,8 @@ collection_policy_service = services["collection_policy_service"]
 upgrade_log_service = services["upgrade_log_service"]
 telemetry_service = services["telemetry_service"]
 evaluation_summary_service = services["evaluation_summary_service"]
+prompt_selection = services["prompt_selection"]
+prompt_invocation = services["prompt_invocation"]
 core_replay_selector = CoreReplaySelectorSkill(telemetry_service)
 core_cost_analyzer = CoreCostAnalyzerSkill(telemetry_service)
 core_acceptance_report = CoreAcceptanceReportSkill(evaluation_summary_service)
@@ -131,6 +170,37 @@ bootstrap_demo_catalog(app_registry, app_catalog)
 def route_requirement(payload: dict[str, str]) -> dict:
     text = payload.get("text", "")
     return router.route(text).model_dump()
+
+@app.post("/requirements/clarify")
+def clarify_requirement(payload: dict[str, str]) -> dict:
+    text = payload.get("text", "")
+    return requirement_clarifier.clarify(text).model_dump()
+
+@app.post("/requirements/extract")
+def extract_requirement(payload: dict[str, str]) -> dict:
+    text = payload.get("text", "")
+    return requirement_clarifier.extract(text).model_dump()
+
+@app.post("/requirements/readiness")
+def requirement_readiness(payload: dict[str, str]) -> dict:
+    text = payload.get("text", "")
+    result = requirement_clarifier.readiness(text)
+    log_evidence.ingest_clarify_unresolved(
+        request_text=text,
+        requirement_type=result["requirement_type"],
+        readiness=result["readiness"],
+        missing_fields=result["missing_fields"],
+    )
+    return result
+
+@app.post("/requirements/blueprint-draft")
+def requirement_blueprint_draft(payload: dict[str, str]) -> dict:
+    text = payload.get("text", "")
+    spec = requirement_clarifier.clarify(text)
+    try:
+        return requirement_blueprint_builder.build_blueprint_draft(spec).model_dump(mode="json")
+    except RequirementBlueprintBuilderError as error:
+        raise map_domain_error(error) from error
 
 @app.get("/skills")
 def list_skills() -> list[dict]:
@@ -256,6 +326,26 @@ def get_skill_risk_stats() -> dict:
 @app.get("/skill-risk/dashboard")
 def get_skill_risk_dashboard(recent_limit: int = 5) -> dict:
     return skill_risk_policy.get_dashboard(recent_limit=recent_limit).model_dump(mode="json")
+
+@app.get("/evidence/drafts")
+def get_evidence_drafts(limit: int | None = None) -> dict:
+    return log_evidence.list_drafts(limit=limit).model_dump(mode="json")
+
+@app.get("/evidence/signals")
+def get_evidence_signals(limit: int | None = None) -> dict:
+    return log_evidence.list_signals(limit=limit).model_dump(mode="json")
+
+@app.get("/evidence/promoted")
+def get_promoted_evidence(limit: int | None = None) -> dict:
+    return log_evidence.list_promoted_evidence(limit=limit).model_dump(mode="json")
+
+@app.get("/evidence/index")
+def get_evidence_index(limit: int | None = None) -> dict:
+    return log_evidence.list_index_entries(limit=limit).model_dump(mode="json")
+
+@app.get("/evidence/stats")
+def get_evidence_stats() -> dict:
+    return log_evidence.get_stats_summary()
 
 @app.post("/skill-risk/{skill_id}/approve")
 def approve_skill_risk_override(

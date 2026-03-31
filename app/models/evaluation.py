@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Literal
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 EvaluationTargetType = Literal["app", "skill", "agent", "policy"]
@@ -19,6 +21,7 @@ class CandidateEvaluationRecord(BaseModel):
     latency_delta: float = 0.0
     feedback_delta: float = 0.0
     stability_delta: float = 0.0
+    quality_signals: dict[str, Any] = Field(default_factory=dict)
     accepted: bool = False
     rejection_reason: str = ""
     evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -28,4 +31,5 @@ class EvaluationGatePolicy(BaseModel):
     max_token_growth: float = 0.15
     max_latency_growth: float = 0.20
     min_success_delta: float = -0.02
+    min_feedback_delta: float = -0.05
     min_stability_delta: float = -0.02

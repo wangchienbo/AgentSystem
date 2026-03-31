@@ -17,6 +17,7 @@ from app.models.skill_runtime import SkillExecutionRequest
 from app.services.context_compaction import ContextCompactionService
 from app.services.policy_guard import PolicyGuardError, PolicyGuardService
 from app.services.telemetry_service import TelemetryService
+from app.services.prompt_invocation_service import PromptInvocationService
 
 
 class WorkflowExecutorError(ValueError):
@@ -36,6 +37,8 @@ class WorkflowExecutorService:
         context_compaction: ContextCompactionService | None = None,
         telemetry_service: TelemetryService | None = None,
         policy_guard: PolicyGuardService | None = None,
+        log_evidence_service = None,
+        prompt_invocation_service: PromptInvocationService | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -48,6 +51,9 @@ class WorkflowExecutorService:
         self._context_compaction = context_compaction
         self._telemetry_service = telemetry_service
         self._policy_guard = policy_guard
+        self._log_evidence_service = log_evidence_service
+        self._prompt_invocation_service = prompt_invocation_service
+        self._skill_risk_policy = None
 
     def execute_primary_workflow(self, app_instance_id: str, trigger: str = "manual", inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
         return self.execute_workflow(app_instance_id=app_instance_id, workflow_id=None, trigger=trigger, inputs=inputs)
@@ -165,6 +171,14 @@ class WorkflowExecutorService:
         )
         self._history.append(result)
         self._persist_history()
+        if self._log_evidence_service is not None and result.status == "partial" and result.failed_step_ids:
+            self._log_evidence_service.ingest_workflow_failure(
+                app_instance_id=app_instance_id,
+                workflow_id=workflow.id,
+                failed_step_ids=list(result.failed_step_ids),
+                execution_id=f"{workflow.id}:{int(completed_at.timestamp())}",
+                status=result.status,
+            )
         if self._telemetry_service is not None:
             interaction_id = f"workflow:{app_instance_id}:{workflow.id}:{int(completed_at.timestamp())}"
             self._telemetry_service.record_step(
@@ -275,6 +289,68 @@ class WorkflowExecutorService:
                 status="completed" if record is not None else "skipped",
                 detail={"key": key, "found": record is not None},
                 output={} if record is None else {"key": key, "value": record.value},
+            )
+
+        if kind == "module" and ref == "prompt.invoke":
+            if self._prompt_invocation_service is None:
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="skipped",
+                    detail={"reason": "prompt invocation service unavailable"},
+                    output={"placeholder": "prompt_invoke", "ref": ref},
+                )
+            resolved = self._resolve_value(config, execution_context)
+            if blueprint.runtime_policy.prompt_invoke_requires_ask_user and not bool(resolved.get("approved_by_user", False)):
+                if hasattr(self, "_skill_risk_policy") and self._skill_risk_policy is not None:
+                    self._skill_risk_policy.record_event(
+                        skill_id="prompt.invoke",
+                        event_type="approval_required",
+                        actor="system",
+                        reason="prompt invocation requires user approval",
+                        scope="prompt_invocation",
+                        details={"app_instance_id": app_instance_id, "workflow_id": workflow_id, "step_id": step_id},
+                    )
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="failed",
+                    detail={"reason": "prompt invocation requires user approval", "policy_blocked": True},
+                    output={},
+                )
+            result = self._prompt_invocation_service.invoke_with_selection(
+                app_instance_id=app_instance_id,
+                query=str(resolved.get("query", "")),
+                category=resolved.get("category") or None,
+                limit=int(resolved.get("limit", 5)),
+                max_prompt_tokens=resolved.get("max_prompt_tokens"),
+                reserved_output_tokens=int(resolved.get("reserved_output_tokens", 256)),
+                working_set_token_estimate=int(resolved.get("working_set_token_estimate", 400)),
+                per_evidence_token_estimate=int(resolved.get("per_evidence_token_estimate", 120)),
+                strategy=str(resolved.get("strategy", "balanced")),
+                include_prompt_assembly=bool(resolved.get("include_prompt_assembly", True)),
+                extra_payload=resolved.get("extra_payload"),
+            )
+            if self._context_store is not None:
+                self._context_store.append_entry(
+                    app_instance_id,
+                    section="artifacts",
+                    key=f"prompt-invocation:{step_id}",
+                    value={
+                        "selection_summary": result.get("selection_summary", {}),
+                        "model_invocation": result.get("model_invocation", {}),
+                    },
+                    tags=["workflow", "prompt-invocation"],
+                )
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="completed",
+                detail={"provider": result.get("model_invocation", {}).get("provider"), "model": result.get("model_invocation", {}).get("model")},
+                output=result,
             )
 
         if kind == "event":

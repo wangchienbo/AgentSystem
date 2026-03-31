@@ -156,6 +156,51 @@ It must also decide whether user demonstration is:
 - `not_needed`
 - `clarify`
 
+The requirement-intake layer should also support a minimal clarification/extraction loop that can:
+- summarize the current requirement goal
+- extract lightweight structured signals for roles / inputs / outputs / constraints / permissions / failure strategy
+- report missing fields before blueprint generation
+- expose a readiness judgment (`ready | needs_clarification | needs_demo | conflicting_constraints`)
+- return recommended follow-up questions when the request is still underspecified
+- detect basic conflicting constraints before generation handoff
+- build a minimal app-oriented blueprint draft only when the requirement is ready for generation
+- let requirement-derived blueprint drafts carry lightweight app-shape and runtime-profile hints so later stages do not have to recover those semantics from raw text again
+- allow requirement-derived blueprint drafts for transform-style apps to materialize prompt-driven workflow steps (for example `prompt.invoke`) directly in the draft when that is the intended execution posture
+
+The observation layer should also support a first-pass evidence-promotion loop that can:
+- ingest raw operational references
+- aggregate them into lightweight draft summaries
+- elevate repeated issues into suspicious signals
+- promote high-pressure signals into reusable evidence objects
+- expose a lightweight retrieval-oriented index for future prompt/context selection
+
+Reusable system capabilities should be accessible through stable system skills when practical, especially for:
+- requirement understanding and blueprint handoff
+- evidence retrieval / evidence summaries
+- context compaction / working-set shaping
+- workflow insight / observability summaries
+- governance and risk-control surfaces
+- prompt selection / evidence search / context-to-prompt shaping
+
+The prompt-selection layer should also support a more explicit selection contract that can:
+- rank indexed evidence using query-aware and evidence-type-aware heuristics
+- prefer promoted evidence over lower-confidence signal entries when both are available
+- expose prompt-budget metadata instead of relying only on item-count limits
+- support token-aware truncation through configurable working-set/output/evidence token estimates
+- emit prompt-ready sections (working-set summary + evidence digest) so later model-invocation paths do not need to rebuild prompt context from scratch
+- optionally expose a model-ready prompt path that can hand the assembled prompt directly into the configured model client
+- allow workflow orchestration to invoke the same prompt-selection + model-invocation path through a reusable workflow step instead of forcing this logic to remain only at the skill/API edge
+- normalize prompt-invocation model responses into a stable output shape suitable for workflows, APIs, and later evaluation surfaces
+- capture prompt-invocation telemetry/evaluation metadata so prompt-driven flows can participate in the same observability and upgrade-evidence loops as other runtime paths
+- allow runtime policy and workflow governance to constrain prompt invocation (for example disabling it entirely or requiring explicit user approval)
+- ensure prompt-invocation governance events can flow into risk/evidence systems so blocked or sensitive prompt-driven paths become auditable and learnable over time
+- provide prompt-invocation-specific replay, acceptance, and regression summary surfaces so prompt-driven behavior can be reviewed like other evolving runtime paths
+- derive prompt-invocation acceptance from richer signals than raw success alone, including normalized output quality hints, workflow outcome hints, and available feedback deltas
+- expose structured quality signals for normalized prompt outputs (for example emptiness, shortness, expected-shape satisfaction, and workflow-success hints) so acceptance decisions remain inspectable
+- support a practical set of expected output contracts for prompt-driven tasks, starting with `json_object`, `slug_text`, `markdown_summary`, `bullet_list`, `key_value`, and `approval_decision`
+- project those quality signals into replay/acceptance/archive summary surfaces so operators can review prompt-output quality without reopening raw invocation payloads
+- keep selection policy visible in machine-readable form for testing and later governance
+
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:
 - listing skills

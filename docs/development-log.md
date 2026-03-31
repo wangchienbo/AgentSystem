@@ -1,5 +1,409 @@
 # Development Log
 
+## 2026-03-31
+
+### Module: expanded prompt output contracts
+
+Finished the current prompt-quality track by expanding expected-output validation beyond the original narrow cases so prompt-driven tasks can express and assess a broader set of practical output shapes.
+
+#### Updated
+- `app/services/prompt_invocation_service.py`
+  - expands expected-output validation for `markdown_summary`, `bullet_list`, `key_value`, and `approval_decision` in addition to earlier JSON/slug support
+- `tests/unit/test_prompt_invocation_service.py`
+  - adds prompt invocation quality-signal coverage for bullet-list, key/value, and approval-decision outputs
+  - refactors prompt invocation tests around a reusable fixture-style helper for faster expansion
+
+#### Updated docs
+- `docs/requirements.md`
+  - records the practical expected-output contract family for prompt invocation
+- `docs/design.md`
+  - documents broader prompt-task output-shape validation
+- `docs/testing.md`
+  - adds multi-shape expected-output coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for multiple expected-output contract types
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_invocation_service.py tests/unit/test_prompt_invocation_service.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: prompt quality signals in review surfaces
+
+Finished the next review-layer step by carrying structured prompt quality signals into operator-facing replay/acceptance/archive summaries instead of leaving them trapped only inside per-invocation results.
+
+#### Updated
+- `app/models/evaluation.py`
+  - stores quality signals directly on evaluation records
+- `app/services/prompt_invocation_service.py`
+  - persists structured quality signals into prompt-invocation evaluation records
+- `app/services/core_skill_toolchain.py`
+  - includes quality signals in acceptance reports
+  - aggregates schema failures / empty outputs in prompt-invocation summary surfaces
+- `tests/unit/test_core_skill_toolchain.py`
+  - validates prompt quality signals remain visible in acceptance/archive/regression summaries
+
+#### Updated docs
+- `docs/requirements.md`
+  - records review-surface visibility for prompt quality signals
+- `docs/design.md`
+  - documents quality-signal propagation into operator review tooling
+- `docs/testing.md`
+  - adds summary-surface coverage expectations for prompt quality signals
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions that prompt quality signals survive into review summaries
+
+#### Validation
+- `python3 -m py_compile app/models/evaluation.py app/services/prompt_invocation_service.py app/services/core_skill_toolchain.py tests/unit/test_core_skill_toolchain.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: structured prompt invocation quality signals
+
+Refined prompt-invocation acceptance again by turning post-execution quality hints into explicit structured signals rather than leaving them implicit inside one coarse evaluation heuristic.
+
+#### Updated
+- `app/services/prompt_invocation_service.py`
+  - now emits structured `quality_signals`
+  - now derives success/stability deltas from explicit quality-signal fields such as empty text, short text, expected-output satisfaction, and workflow-success hints
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates visible quality signals for mismatched slug-style output
+  - validates expected JSON output satisfaction can positively shape acceptance inputs
+
+#### Updated docs
+- `docs/requirements.md`
+  - records structured quality-signal expectations for prompt invocation
+- `docs/design.md`
+  - documents inspectable quality-signal fields rather than only derived acceptance scores
+- `docs/testing.md`
+  - adds structured quality-signal coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for expected-output/normalized-text matching
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_invocation_service.py tests/unit/test_prompt_invocation_service.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: richer prompt invocation acceptance signals
+
+Improved prompt-invocation evaluation so acceptance can be influenced by richer post-execution signals instead of depending only on a thin success heuristic.
+
+#### Updated
+- `app/models/evaluation.py`
+  - adds `min_feedback_delta` to evaluation gate policy
+- `app/services/evaluation_summary_service.py`
+  - now rejects candidates when feedback regression exceeds the configured threshold
+- `app/services/prompt_invocation_service.py`
+  - derives evaluation inputs from normalized response quality hints, workflow outcome hints, retry hints, and explicit feedback payloads
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates prompt invocation evaluation captures positive feedback-derived and workflow-derived acceptance signals
+- `tests/unit/test_evaluation_summary_service.py`
+  - validates feedback regression contributes to rejection reasons
+
+#### Updated docs
+- `docs/requirements.md`
+  - records richer acceptance signal expectations for prompt invocation
+- `docs/design.md`
+  - documents prompt invocation acceptance as a multi-signal decision
+- `docs/testing.md`
+  - adds richer prompt invocation acceptance coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for feedback/output/workflow-derived acceptance inputs
+
+#### Validation
+- `python3 -m py_compile app/models/evaluation.py app/services/evaluation_summary_service.py app/services/prompt_invocation_service.py tests/unit/test_prompt_invocation_service.py tests/unit/test_evaluation_summary_service.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: prompt invocation replay/acceptance/regression summaries
+
+Extended the core review toolchain so prompt-driven execution can be analyzed with dedicated replay, acceptance, and regression summaries rather than remaining buried inside generic telemetry/evaluation stores.
+
+#### Updated
+- `app/services/core_skill_toolchain.py`
+  - adds prompt-invocation-specific replay selection
+  - adds prompt-invocation cost summary
+  - adds prompt-invocation acceptance summary
+  - adds prompt-invocation regression aggregation
+- `tests/unit/test_core_skill_toolchain.py`
+  - validates prompt-invocation replay selection, cost summary, acceptance summary, and regression rollups
+
+#### Updated docs
+- `docs/requirements.md`
+  - records prompt-invocation replay/acceptance/regression review surfaces
+- `docs/design.md`
+  - documents prompt-driven execution as part of the operator review loop
+- `docs/testing.md`
+  - adds core skill toolchain coverage expectations for prompt invocation review surfaces
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for prompt invocation replay/acceptance/regression summaries
+
+#### Validation
+- `python3 -m py_compile app/services/core_skill_toolchain.py tests/unit/test_core_skill_toolchain.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: prompt invocation risk/evidence integration
+
+Extended prompt invocation governance so prompt-driven execution not only gets blocked or approved, but also emits reusable risk/evidence signals that can feed later policy learning.
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - adds `prompt_invocation` governance scope
+  - adds `approval_required` governance event type
+- `app/services/prompt_invocation_service.py`
+  - records prompt invocation execution into the shared risk event stream
+- `app/services/workflow_executor.py`
+  - records approval-required prompt invocation blocks into the shared risk event stream
+- `app/bootstrap/runtime.py`
+  - wires prompt invocation to the shared skill risk policy service
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates prompt invocation execution emits prompt-scoped risk events
+- `tests/unit/test_workflow_executor.py`
+  - validates approval-gated prompt invocation failures emit risk events
+- `tests/unit/test_evidence_integration.py`
+  - validates prompt invocation governance events can feed evidence promotion
+
+#### Updated docs
+- `docs/requirements.md`
+  - records prompt invocation governance as auditable evidence-producing behavior
+- `docs/design.md`
+  - documents prompt invocation governance signals as part of the shared risk/evidence loop
+- `docs/testing.md`
+  - adds risk/evidence integration coverage expectations for prompt invocation governance
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for prompt invocation governance event propagation
+
+#### Validation
+- `python3 -m py_compile app/models/skill_risk_policy.py app/services/prompt_invocation_service.py app/services/workflow_executor.py tests/unit/test_prompt_invocation_service.py tests/unit/test_workflow_executor.py tests/unit/test_evidence_integration.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: prompt invocation governance hooks
+
+Added first-pass governance hooks so prompt invocation can be constrained by runtime policy instead of acting as an always-open execution path.
+
+#### Updated
+- `app/models/runtime_policy.py`
+  - adds `allow_prompt_invoke`
+  - adds `prompt_invoke_requires_ask_user`
+- `app/services/policy_guard.py`
+  - blocks `prompt.invoke` when blueprint runtime policy disables it
+- `app/services/workflow_executor.py`
+  - blocks `prompt.invoke` execution when runtime policy requires user approval and the step config does not include approval
+- `tests/unit/test_policy_guard.py`
+  - adds policy guard coverage for prompt invocation allow/deny behavior
+- `tests/unit/test_workflow_executor.py`
+  - adds workflow coverage for approval-gated prompt invocation failure
+
+#### Updated docs
+- `docs/requirements.md`
+  - records governance controls for prompt invocation
+- `docs/design.md`
+  - documents prompt invocation as a policy-gated path rather than an unconditional shortcut
+- `docs/testing.md`
+  - adds governance coverage expectations for prompt invocation policy controls
+- `docs/testing-detail.md`
+  - adds implementation-focused blocked-path assertions for prompt invocation governance
+
+#### Validation
+- `python3 -m py_compile app/models/runtime_policy.py app/services/policy_guard.py app/services/workflow_executor.py tests/unit/test_policy_guard.py tests/unit/test_workflow_executor.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: requirement-to-prompt-workflow end-to-end test
+
+Added an end-to-end test slice proving that a transform-style requirement can flow all the way from clarification into blueprint drafting, installation, workflow execution, prompt invocation, normalized output, and telemetry/evaluation persistence.
+
+#### Added
+- `tests/unit/test_requirement_to_prompt_workflow_e2e.py`
+  - covers requirement clarify → blueprint draft → registry register → install → workflow execute → prompt result → telemetry/evaluation assertions
+
+#### Updated docs
+- `docs/testing.md`
+  - records the expectation for at least one end-to-end transform-style prompt workflow coverage path
+- `docs/testing-detail.md`
+  - adds implementation-focused end-to-end coverage guidance for the prompt-driven path
+
+#### Validation
+- `python3 -m py_compile tests/unit/test_requirement_to_prompt_workflow_e2e.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: requirement blueprint prompt-invoke drafting
+
+Extended requirement-to-blueprint drafting so transform-oriented requirements now produce prompt-driven workflow steps directly in the emitted draft instead of leaving prompt invocation as a manual follow-up design task.
+
+#### Updated
+- `app/services/requirement_blueprint_builder.py`
+  - transform-style draft generation now emits `module + ref=prompt.invoke`
+  - transform-style task contracts now expose `normalized_response` and `model_invocation` outputs
+- `tests/unit/test_requirement_blueprint_builder.py`
+  - adds coverage for structured/text transform drafts that should emit prompt invocation steps and output contracts
+
+#### Updated docs
+- `docs/requirements.md`
+  - records prompt-invoke drafting expectations for transform-style blueprints
+- `docs/design.md`
+  - documents prompt-driven workflow drafting as part of requirement handoff
+- `docs/testing.md`
+  - adds builder coverage expectations for prompt-invoke draft generation
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for prompt-invoke workflow draft output contracts
+
+#### Validation
+- `python3 -m py_compile app/services/requirement_blueprint_builder.py tests/unit/test_requirement_blueprint_builder.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: prompt invocation telemetry and normalized response
+
+Closed the prompt-invocation loop further by normalizing model responses and wiring prompt invocation into telemetry/evaluation so prompt-driven execution participates in observability and upgrade evidence.
+
+#### Updated
+- `app/services/prompt_invocation_service.py`
+  - now emits normalized response output for downstream workflow/API consumers
+  - now records interaction + step telemetry for prompt invocation
+  - now produces lightweight evaluation records for prompt-invocation runs
+- `app/bootstrap/runtime.py`
+  - wires telemetry and evaluation services into the prompt invocation service
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates normalized response output plus telemetry/evaluation persistence
+- `tests/unit/test_workflow_executor.py`
+  - verifies workflow `prompt.invoke` output includes normalized response structure
+
+#### Updated docs
+- `docs/requirements.md`
+  - records normalization and observability requirements for prompt invocation
+- `docs/design.md`
+  - clarifies prompt invocation as an observable/normalizing service layer
+- `docs/testing.md`
+  - adds normalization + telemetry/evaluation coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-oriented prompt invocation observability checks
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_invocation_service.py app/bootstrap/runtime.py tests/unit/test_prompt_invocation_service.py tests/unit/test_workflow_executor.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: workflow prompt invocation step
+
+Extended workflow orchestration so prompt-selection-driven model invocation is now a first-class workflow module step instead of only an API/skill edge capability.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - adds support for `module` steps with `ref = prompt.invoke`
+  - routes those steps through the shared prompt invocation service
+  - records prompt invocation artifacts back into shared workflow context
+- `app/bootstrap/runtime.py`
+  - wires the prompt invocation service into the workflow executor
+- `tests/unit/test_workflow_executor.py`
+  - adds workflow-level coverage for prompt invocation step execution using fake model dependencies
+
+#### Updated docs
+- `docs/requirements.md`
+  - records workflow-level reuse of the prompt-selection/model-invocation path
+- `docs/design.md`
+  - documents `prompt.invoke` as a first-class workflow step reusing the shared service
+- `docs/testing.md`
+  - adds workflow prompt-invocation coverage expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused validation notes for `prompt.invoke` workflow steps
+
+#### Validation
+- `python3 -m py_compile app/services/workflow_executor.py app/bootstrap/runtime.py tests/unit/test_workflow_executor.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: prompt invocation service and API surface
+
+Pulled the model-ready prompt flow into a dedicated service and added explicit API surfaces so prompt-selection-driven model invocation is reusable outside the builtin skill handler.
+
+#### Added
+- `app/services/prompt_invocation_service.py`
+  - orchestrates prompt selection, prompt assembly, model loading, and model invocation through one reusable service
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates selection-to-model handoff with fake loader/client injection
+
+#### Updated
+- `app/bootstrap/runtime.py`
+  - now wires `prompt_invocation` as a reusable runtime service
+- `app/bootstrap/skills.py`
+  - `prompt.selection.skill` now delegates model-ready invocation to the dedicated prompt invocation service
+- `app/api/main.py`
+  - adds `/prompt-selection/select`
+  - adds `/prompt-selection/invoke`
+
+#### Updated docs
+- `docs/design.md`
+  - formalizes the dedicated prompt invocation service direction
+- `docs/testing.md`
+  - adds service-level prompt invocation coverage expectation
+- `docs/testing-detail.md`
+  - adds fake-loader/client validation guidance for the prompt invocation service
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_invocation_service.py app/bootstrap/runtime.py app/bootstrap/skills.py app/api/main.py tests/unit/test_prompt_invocation_service.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: prompt-selection model-ready path
+
+Completed the next integration step for prompt selection by allowing the capability layer to hand an assembled prompt directly into the configured model client while keeping the selection output visible for inspection.
+
+#### Updated
+- `app/services/model_client.py`
+  - adds a generic `request(...)` method for structured or plain prompt payloads
+  - keeps `probe(...)` as a thin wrapper over the shared request path
+- `app/models/prompt_selection_skill.py`
+  - adds `model_ready_prompt` as a new operation on the prompt-selection capability contract
+- `app/bootstrap/skills.py`
+  - extends `prompt.selection.skill` so `model_ready_prompt` selects evidence, assembles prompt context, and then invokes the configured model client
+
+#### Added / expanded tests
+- `tests/unit/test_model_client_smoke.py`
+  - adds structured-input request coverage for the model client
+- `tests/unit/test_prompt_selection_capability_skill.py`
+  - adds a fake-client-backed test for the `model_ready_prompt` path
+
+#### Updated docs
+- `docs/requirements.md`
+  - records the optional model-ready prompt path requirement
+- `docs/design.md`
+  - clarifies the relationship between prompt selection and downstream model invocation
+- `docs/testing-detail.md`
+  - adds explicit validation guidance for fake-client-backed model-ready prompt tests
+
+#### Validation
+- `python3 -m py_compile app/services/model_client.py app/models/prompt_selection_skill.py app/bootstrap/skills.py tests/unit/test_model_client_smoke.py tests/unit/test_prompt_selection_capability_skill.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
+### Module: advanced prompt selection contract
+
+Upgraded the first-pass prompt selection slice into a more platform-shaped contract by adding query-aware ranking, evidence-type preference, token-aware budget metadata, and prompt assembly output.
+
+#### Updated
+- `app/services/prompt_selection_service.py`
+  - now supports query/category-aware ranking strategies (`balanced`, `query_first`, `recency_first`)
+  - now exposes explicit ranking metadata (`match_score`, `evidence_type_score`, `freshness_score`, `rank_score`)
+  - now applies token-aware prompt budgeting with configurable working-set/output/evidence estimates
+  - now emits prompt sections and an optional assembled prompt for downstream model invocation paths
+- `app/models/prompt_selection_skill.py`
+  - extends the skill request contract with budget, strategy, and prompt-assembly fields
+- `app/bootstrap/skills.py`
+  - now passes advanced prompt selection contract fields through the builtin capability skill surface
+
+#### Added / expanded tests
+- `tests/unit/test_prompt_selection_service.py`
+  - covers prompt assembly output, token-aware truncation, query-aware ranking, and promoted-evidence preference
+- `tests/unit/test_prompt_selection_capability_skill.py`
+  - covers advanced prompt-selection skill execution with budget and strategy parameters
+
+#### Updated docs
+- `docs/requirements.md`
+  - records explicit prompt-selection contract requirements
+- `docs/design.md`
+  - documents prompt selection as a deterministic-first layer between context/evidence and model invocation
+- `docs/testing.md`
+  - adds prompt-selection contract coverage to the testing direction
+- `docs/testing-detail.md`
+  - adds implementation-oriented advanced prompt-selection test expectations
+
+#### Validation
+- `python3 -m py_compile app/services/prompt_selection_service.py app/models/prompt_selection_skill.py app/bootstrap/skills.py tests/unit/test_prompt_selection_service.py tests/unit/test_prompt_selection_capability_skill.py`
+- environment currently lacks an installed `pytest`, so validation in this shell is syntax/contract coverage preparation rather than a full runtime pytest pass
+
+
 ## 2026-03-28
 
 ### Module: workflow telemetry hooks and minimal read surfaces
@@ -4169,3 +4573,283 @@ Added a focused regression slice for requirement-intent understanding so the pro
 #### Design intent clarified
 - “model capability” in this codebase should include not only external provider access but also whether incoming natural-language requests are routed into the right product path
 - intent-understanding coverage should stay lightweight and deterministic at the router layer, while richer live-model understanding benchmarks can be added later without replacing these regression checks
+
+### Module: add requirement clarification and readiness loop
+
+Implemented the first minimal requirement-understanding loop beyond routing, so the system can now return a lightweight structured requirement spec, identify missing fields, recommend follow-up questions, and expose a readiness judgment before later blueprint-generation paths run.
+
+#### Updated
+- `app/models/requirement_spec.py`
+  - adds the first structured requirement-intake contract with readiness, missing-fields, and follow-up-question support
+- `app/services/requirement_clarifier.py`
+  - builds a lightweight requirement spec from raw natural-language input using deterministic extraction heuristics layered on top of the existing router
+  - exposes clarify / extract / readiness entry points
+- `app/bootstrap/runtime.py`
+  - wires the requirement clarifier into runtime composition
+- `app/api/main.py`
+  - exposes `/requirements/clarify`, `/requirements/extract`, and `/requirements/readiness`
+- `tests/unit/test_requirement_clarifier.py`
+  - validates abstract-request clarification, demo-first readiness, structured-skill readiness, app constraint extraction, and readiness summary shape
+- `tests/unit/test_requirement_clarifier_api.py`
+  - validates the new API surfaces return actionable structured responses
+- `docs/requirements.md`
+  - records the minimal clarification/extraction/readiness loop as part of requirement intake
+- `docs/design.md`
+  - captures the intended ordering: route → structured spec → readiness → later generation
+- `docs/testing.md`
+  - records lightweight requirement clarification coverage alongside model smoke coverage
+- `docs/testing-detail.md`
+  - documents the new clarification/extraction/readiness test targets
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_clarifier_api.py -q`
+- Result: `7 passed`
+
+#### Design intent clarified
+- requirement intake should not jump directly from raw user text into blueprint generation when lightweight deterministic clarification can first surface missing fields and better handoff structure
+- this first loop is intentionally heuristic and lightweight; richer semantic extraction can be layered later without discarding the stable intake contract or its regression coverage
+
+### Module: complete requirement handoff with conflict checks and blueprint draft generation
+
+Extended the first requirement-understanding loop into a fuller intake handoff by adding conflict-aware readiness, a minimal app-oriented blueprint-draft builder, and API surfaces that can reject non-ready requirements before generation.
+
+#### Updated
+- `app/services/requirement_clarifier.py`
+  - adds basic conflicting-constraint detection for local-vs-network, automation-vs-manual-approval, and demo-vs-direct-output pressure
+  - promotes conflict state into `readiness=conflicting_constraints`, `missing_fields`, notes, and follow-up questions
+- `app/services/requirement_blueprint_builder.py`
+  - builds a minimal `AppBlueprint` draft from a ready app/hybrid requirement spec
+  - rejects non-ready or skill-only requests with a dedicated builder error
+- `app/bootstrap/runtime.py`
+  - wires the requirement blueprint builder into runtime composition
+- `app/api/main.py`
+  - exposes `/requirements/blueprint-draft`
+  - maps builder failures into user-facing API errors instead of leaking internal exceptions
+- `app/core/errors.py`
+  - extends the shared domain-error mapper to include blueprint-builder failures
+- `tests/unit/test_requirement_conflicts.py`
+  - validates conflict detection for local/network and automation/manual-approval contradictions
+- `tests/unit/test_requirement_blueprint_builder.py`
+  - validates successful draft creation plus non-ready/skill-only rejection behavior
+- `tests/unit/test_requirement_blueprint_api.py`
+  - validates blueprint-draft API success/failure behavior
+- `docs/requirements.md`
+  - records conflict detection and ready-only blueprint draft handoff
+- `docs/design.md`
+  - captures the route → spec → readiness/conflict → blueprint-handoff sequence explicitly
+- `docs/testing.md`
+  - records conflict + blueprint-handoff regression coverage
+- `docs/testing-detail.md`
+  - documents the new conflict and blueprint-draft validation targets
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_requirement_router.py tests/unit/test_model_intent_understanding.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_clarifier_api.py tests/unit/test_requirement_conflicts.py tests/unit/test_requirement_blueprint_builder.py tests/unit/test_requirement_blueprint_api.py -q`
+- Result: `23 passed`
+
+#### Design intent clarified
+- the requirement layer should own the first explicit “stop or continue” judgment before later generation stages, rather than letting every downstream builder rediscover missing fields or contradictions separately
+- a minimal blueprint handoff artifact is useful even before richer semantic generation exists, because it stabilizes the contract between intake and later blueprint/app construction flows
+
+### Module: enrich requirement-derived blueprint drafts with shape and runtime hints
+
+Extended the requirement blueprint handoff so ready app requests no longer emit only a generic shell; the builder now classifies lightweight requirement-derived app shape, adjusts workflow/task/view semantics, and attaches a first-pass runtime profile that better reflects transform-style vs pipeline-style requests.
+
+#### Updated
+- `app/services/requirement_blueprint_builder.py`
+  - classifies requirement-derived drafts into lightweight shapes such as `structured_transform` and `pipeline_chain`
+  - derives corresponding workflow structure, operator-facing task/view wording, execution mode, persistence posture, and runtime-profile hints
+  - marks approval-heavy requests with `invocation_posture=ask_user`
+- `tests/unit/test_requirement_blueprint_builder.py`
+  - validates pipeline-shaped approval requests and structured-transform requests generate different draft metadata
+- `tests/unit/test_requirement_blueprint_api.py`
+  - validates the API surface exposes the richer `app_shape`, `runtime_policy`, and `runtime_profile` draft signals
+- `docs/requirements.md`
+  - records that requirement-derived drafts should carry app-shape/runtime-profile hints
+- `docs/design.md`
+  - captures the intent that requirement handoff artifacts should preserve early runtime/app-shape semantics instead of dropping them
+- `docs/testing.md`
+  - records richer draft-shape/runtime-profile coverage
+- `docs/testing-detail.md`
+  - documents transform-vs-pipeline draft expectations on the requirement blueprint surface
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_requirement_blueprint_builder.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_conflicts.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_requirement_router.py tests/unit/test_model_intent_understanding.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_clarifier_api.py tests/unit/test_requirement_conflicts.py tests/unit/test_requirement_blueprint_builder.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `14 passed`, `30 passed`
+
+#### Design intent clarified
+- requirement-derived blueprint drafts should not be pure placeholders when the intake layer already has enough deterministic signal to infer a better initial operator-facing app shape
+- preserving early shape/runtime semantics at the requirement handoff stage reduces later contract drift between intake, generated blueprint display, and eventual install/runtime posture
+
+### Module: add unified evidence-promotion v1
+
+Introduced a first-pass evidence-promotion layer so the system now has a concrete shared module for turning repeated raw operational references into draft summaries, suspicious signals, promoted evidence, and retrieval-oriented index entries.
+
+#### Updated
+- `app/models/log_evidence.py`
+  - adds shared contracts for raw refs, draft summaries, suspicious signals, promoted evidence, retrieval-index entries, and paged evidence responses
+- `app/services/log_evidence_service.py`
+  - implements v1 evidence promotion for three initial sources: repeated workflow failures, repeated policy-pressure events, and repeated requirement-clarify unresolved cases
+  - promotes repeated signals into evidence and index entries using deterministic thresholds
+- `app/bootstrap/runtime.py`
+  - wires the new shared log-evidence service into runtime composition
+- `app/api/main.py`
+  - exposes `/evidence/drafts`, `/evidence/signals`, `/evidence/promoted`, `/evidence/index`, and `/evidence/stats`
+- `tests/unit/test_log_evidence_service.py`
+  - validates repeated failure/policy/clarify patterns become signals and promoted evidence
+- `tests/unit/test_log_evidence_api.py`
+  - validates the new evidence surfaces and a minimal clarify-side integration path
+- `docs/requirements.md`
+  - records the first-pass evidence-promotion loop as part of the observation architecture
+- `docs/design.md`
+  - captures the raw → draft → suspicious → promoted/index layering explicitly
+- `docs/testing.md`
+  - records evidence-promotion regression coverage
+- `docs/testing-detail.md`
+  - documents the v1 evidence-promotion expectations and API surfaces
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `6 passed`, `19 passed`
+
+#### Design intent clarified
+- the system already had several local summary/dashboard layers, but prompt-control and long-horizon evidence handling benefit from a shared promotion module instead of only scattered per-domain read models
+- this first version intentionally stays deterministic and lightweight; later model-assisted summarization can sit on top of the same stable evidence contracts instead of replacing them
+
+### Module: complete evidence-promotion integration with real signals and context summaries
+
+Completed the first full evidence-promotion module by wiring the shared evidence service into real signal sources and the context-compaction path, so promoted/indexed evidence can now influence compacted working summaries rather than remaining an isolated side store.
+
+#### Updated
+- `app/services/workflow_executor.py`
+  - emits workflow-failure evidence signals automatically when partial executions contain failed steps
+- `app/services/skill_risk_policy.py`
+  - feeds repeated `policy_blocked` governance events into the shared evidence pipeline
+- `app/api/main.py`
+  - feeds unresolved requirement-readiness results into the evidence pipeline during `/requirements/readiness`
+- `app/services/context_compaction.py`
+  - now includes `evidence_summary` metadata in compacted summary/working-set layers, using retrieval-index entries for the current app instance when available
+- `app/services/log_evidence_service.py`
+  - adds app-scoped index filtering and context-evidence summary construction for downstream context consumers
+- `tests/unit/test_evidence_integration.py`
+  - validates skill-risk auto-ingestion and context-compaction evidence-summary behavior
+- `tests/unit/test_context_compaction.py`
+  - validates working-set metadata includes evidence-summary structure
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_skill_risk_policy.py tests/unit/test_requirement_clarifier.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_skill_risk_policy.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `16 passed`, `24 passed`
+
+#### Design intent clarified
+- evidence promotion becomes materially more useful once compacted working context can read from promoted/indexed summaries, because token-control behavior then starts benefiting immediately even before a richer prompt-assembly layer exists
+- wiring a few real signal sources first (workflow failure, policy pressure, clarify unresolved) provides a practical backbone that can later absorb observability timelines, refinement failures, and other operator-facing evidence without rethinking the evidence contracts
+
+### Module: add first system capability skills for requirement/evidence/context
+
+Promoted a first batch of reusable platform abilities into builtin system skills, following the existing system-skill framework rather than leaving requirement/evidence/context capabilities only as direct services or HTTP endpoints.
+
+#### Updated
+- `app/models/requirement_skill.py`
+  - adds a stable contract for requirement capability operations
+- `app/models/evidence_skill.py`
+  - adds a stable contract for evidence capability operations
+- `app/models/context_compaction_skill.py`
+  - adds a stable contract for context-compaction operations
+- `app/services/system_skill_registry.py`
+  - registers `requirement.skill`, `evidence.skill`, and `context.compaction.skill` as builtin immutable system skills with manifest/schema/capability metadata
+- `app/bootstrap/runtime.py`
+  - registers schema refs for the new system capability skills
+- `app/bootstrap/skills.py`
+  - wires runtime handlers for the new capability skills against the existing requirement/evidence/context services
+- `tests/unit/test_system_capability_skills.py`
+  - validates registration plus runtime execution for requirement/evidence capability skills and registration for context compaction capability skill
+- `docs/requirements.md`
+  - records requirement/evidence/context capability surfaces as good system-skill candidates
+- `docs/design.md`
+  - captures the intended architecture: durable core capability APIs underneath reusable system skill facades
+- `docs/testing.md`
+  - records system capability skill coverage
+- `docs/testing-detail.md`
+  - documents the new system capability skill expectations
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_system_capability_skills.py tests/unit/test_log_evidence_api.py tests/unit/test_requirement_clarifier.py tests/unit/test_context_compaction.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_system_capability_skills.py tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `13 passed`, `27 passed`
+
+#### Design intent clarified
+- durable capability APIs and service implementations remain the substrate, but reusable intelligent/retrieval/context-shaping surfaces become much more composable once exposed as first-class system skills
+- this first batch establishes the pattern for later system capability skills such as workflow insight, governance/risk, and prompt-selection surfaces
+
+### Module: add workflow insight and risk governance capability skills
+
+Completed the second batch of system capability skills by promoting workflow observability and risk-governance surfaces into builtin immutable skills, following the same core-service-plus-skill-facade pattern established for requirement/evidence/context.
+
+#### Updated
+- `app/models/workflow_insight_skill.py`
+  - adds a stable request contract for workflow overview/timeline/stats/dashboard operations
+- `app/models/risk_governance_skill.py`
+  - adds a stable request contract for risk governance events/stats/dashboard/override operations
+- `app/services/system_skill_registry.py`
+  - registers `workflow.insight.skill` and `risk.governance.skill` with manifest/schema/capability metadata
+- `app/bootstrap/runtime.py`
+  - registers schema refs for the new workflow/risk system capability skills
+- `app/bootstrap/skills.py`
+  - wires runtime handlers for workflow observability and risk-governance services behind the new skill facades
+- `tests/unit/test_workflow_risk_capability_skills.py`
+  - validates registration and basic runtime execution for workflow/risk capability skills
+- `docs/requirements.md`
+  - records workflow/risk surfaces as reusable system capability skills
+- `docs/design.md`
+  - extends the system-skill architecture statement to include workflow insight and governance surfaces
+- `docs/testing.md`
+  - records coverage for workflow/risk capability skills
+- `docs/testing-detail.md`
+  - documents the new workflow/risk system skill expectations
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_workflow_risk_capability_skills.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_system_capability_skills.py tests/unit/test_workflow_risk_capability_skills.py tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `3 passed`, `30 passed`
+
+#### Design intent clarified
+- observability and governance are not just UI/API read models; once exposed as system skills they become reusable platform-native capabilities that can later be orchestrated by apps, workflows, and model-assisted control-plane logic
+- this second batch materially strengthens the architectural rule that stable capability APIs sit underneath, while system skills provide the reusable, governed, composable surface
+
+### Module: add prompt selection and evidence-search capability surfaces
+
+Completed the next capability layer by adding prompt-selection and evidence-search surfaces on top of the existing context-compaction and evidence-index infrastructure, and exposing them as builtin system skills rather than leaving them as only internal helper logic.
+
+#### Updated
+- `app/models/prompt_selection_skill.py`
+  - adds a stable request contract for prompt selection and evidence-search operations
+- `app/services/prompt_selection_service.py`
+  - introduces a service that combines working-set context and indexed evidence into a prompt-selection payload
+  - exposes a retrieval-oriented evidence search surface over the shared evidence index
+- `app/services/log_evidence_service.py`
+  - adds `search_index(...)` to support query/category/app-scoped evidence retrieval
+- `app/models/evidence_skill.py`
+  - extends evidence capability operations with `search_index`
+- `app/models/context_compaction_skill.py`
+  - extends context-compaction capability operations with `select_for_prompt`
+- `app/services/system_skill_registry.py`
+  - registers `prompt.selection.skill` as a builtin immutable system capability skill
+- `app/bootstrap/runtime.py`
+  - wires `PromptSelectionService` into runtime composition and registers prompt-selection schemas
+- `app/bootstrap/skills.py`
+  - wires prompt-selection handlers and extends evidence/context capability handlers with search/prompt-selection operations
+- `tests/unit/test_prompt_selection_service.py`
+  - validates prompt selection prefers working-set context plus indexed evidence rather than raw history
+- `tests/unit/test_prompt_selection_capability_skill.py`
+  - validates prompt-selection system skill registration and evidence-search runtime execution
+
+#### Validation
+- Ran `.venv/bin/pytest tests/unit/test_prompt_selection_service.py tests/unit/test_prompt_selection_capability_skill.py -q`
+- Ran `.venv/bin/pytest tests/unit/test_prompt_selection_service.py tests/unit/test_prompt_selection_capability_skill.py tests/unit/test_system_capability_skills.py tests/unit/test_workflow_risk_capability_skills.py tests/unit/test_log_evidence_service.py tests/unit/test_log_evidence_api.py tests/unit/test_evidence_integration.py tests/unit/test_context_compaction.py tests/unit/test_requirement_clarifier.py tests/unit/test_requirement_blueprint_api.py tests/unit/test_interaction_gateway.py -q`
+- Result: `3 passed`, `33 passed`
+
+#### Design intent clarified
+- once evidence retrieval and prompt selection are exposed as capability skills, the system has a much cleaner path for model-facing prompt assembly that does not depend on bespoke direct service imports from every caller
+- prompt selection should prefer working-set context plus indexed/promoted evidence slices, making token-control an explicit reusable platform capability rather than an incidental side effect of one compaction path

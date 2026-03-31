@@ -9,8 +9,9 @@ from app.services.runtime_state_store import RuntimeStateStore
 
 
 class SkillRiskPolicyService:
-    def __init__(self, store: RuntimeStateStore | None = None) -> None:
+    def __init__(self, store: RuntimeStateStore | None = None, log_evidence_service=None) -> None:
         self._store = store
+        self._log_evidence_service = log_evidence_service
         self._decisions: dict[str, SkillRiskDecision] = {}
         self._events: list[SkillRiskGovernanceEvent] = []
         if self._store is not None:
@@ -140,6 +141,13 @@ class SkillRiskPolicyService:
             details=details or {},
         )
         self._events.append(event)
+        if self._log_evidence_service is not None and event_type == "policy_blocked":
+            self._log_evidence_service.ingest_policy_event(
+                skill_id=skill_id,
+                event_type=event_type,
+                reason=reason,
+                scope=scope,
+            )
         self._persist()
         return event
 

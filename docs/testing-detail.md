@@ -244,6 +244,54 @@ requires_openai_auth = true
 - 过于抽象的战略/架构型需求会先进入 clarify 路径
 - 含多约束或 workflow 线索的需求不会被过早误判为必须示范
 
+### IS-008 需求澄清与结构化提取测试
+期望：
+- 可输出最小 requirement spec（goal / roles / inputs / outputs / constraints / permissions / failure strategy）
+- 可识别 `ready | needs_clarification | needs_demo | conflicting_constraints` 等 readiness 状态
+- 缺失关键信息时返回可执行的补充问题
+- API 层可通过 `/requirements/clarify`、`/requirements/extract`、`/requirements/readiness` 暴露同一套轻量 intake 能力
+- app-oriented 且 ready 的需求可通过 `/requirements/blueprint-draft` 生成最小 handoff blueprint
+- handoff blueprint 会根据需求信号区分 `structured_transform` / `pipeline_chain` 等轻量 app shape，并给出相应 runtime profile / execution mode
+
+### IS-009 证据晋升与索引测试
+期望：
+- repeated workflow failures 可先形成 draft，再提升为 suspicious signal，并在阈值满足时生成 promoted evidence
+- repeated policy-blocked events 可形成 policy-pressure signals/evidence
+- repeated clarify-unresolved cases 可形成 intake-side suspicious signals
+- API 层可通过 `/evidence/drafts`、`/evidence/signals`、`/evidence/promoted`、`/evidence/index`、`/evidence/stats` 暴露第一版 evidence promotion surfaces
+- context compaction / working set 元数据中可包含 evidence summary，从而减少后续 prompt 对 raw 历史的依赖
+
+### IS-010 系统能力 Skill 化测试
+期望：
+- requirement clarify/extract/readiness/blueprint handoff 可通过统一 system capability skill 暴露
+- evidence list/stats/context-summary/search-index 可通过统一 system capability skill 暴露
+- context compact/working-set/layers/select-for-prompt 可通过统一 system capability skill 暴露
+- workflow overview/timeline/stats/dashboard 可通过统一 system capability skill 暴露
+- risk governance events/stats/dashboard/override 可通过统一 system capability skill 暴露
+- prompt selection / evidence search 可通过统一 system capability skill 暴露
+- 这些 system capability skills 具备稳定 manifest、schema ref、capability profile 和 runtime handler 绑定
+
+### IS-011 Prompt selection 高级契约测试
+期望：
+- `select_for_prompt` 可返回 working_set、selected_evidence、selection_policy、prompt_budget、prompt_sections，以及可选的 assembled prompt
+- ranking 可根据 query/category 进行显式排序，并暴露 `match_score`、`rank_score` 等可检查字段
+- promoted evidence 在同等条件下优先于 signal
+- token-aware budget 能正确减少 selected evidence 数量，而不是仅使用 count limit
+- capability skill `prompt.selection.skill` 可透传 budget / strategy / prompt assembly 参数
+- `model_ready_prompt` 路径可在测试中以 fake model client 验证 assembled prompt 被正确送入模型调用层
+- 独立 `PromptInvocationService` 应可在 service-level 测试中通过 fake loader/client 验证 selection 输出与 model invocation 被统一编排
+- workflow executor 应支持 `module + ref=prompt.invoke` 的步骤，并验证其输出进入 workflow step outputs 与 context artifacts
+- prompt invocation service 应验证 `normalized_response`、interaction/step telemetry 记录，以及 evaluation 记录的落盘/可读性
+- requirement blueprint builder 应验证 transform-style requirement draft 会产出 `prompt.invoke` step，并同步暴露 `normalized_response` / `model_invocation` 输出契约
+- 至少应有一条端到端测试：从 requirement clarify 到 blueprint draft、registry/install、workflow 执行、prompt invocation 输出与 telemetry/evaluation 落盘全部跑通
+- policy guard / workflow executor 应验证 prompt invocation 被 runtime policy 禁用或要求用户批准时会被阻断并给出可审计的 policy_blocked 信号
+- prompt invocation 的治理事件应验证会流入 risk policy 事件流，并可进一步触发 evidence promotion
+- core replay / acceptance / archive summary 能力应验证 prompt invocation 专属视图，包括 failed replay 选择、acceptance rate、以及 success/latency/token regression 聚合
+- prompt invocation evaluation 应验证 feedback、normalized_response 与 workflow outcome hint 会影响 acceptance 结果，而不只是依赖单一 success proxy
+- 结构化 quality signals 应验证 expected_output（如 `slug_text` / `json_object`）与 normalized text 之间的匹配关系会被显式记录并影响 acceptance 推导
+- review summary 能力应验证这些 quality signals 继续出现在 prompt invocation acceptance/archive/regression 汇总中，而不是在 evaluation 后再次丢失
+- expected_output 契约应覆盖不止一种输出形态，至少包括 `json_object`、`slug_text`、`bullet_list`、`key_value`、`approval_decision`，并验证匹配/不匹配会进入 quality signals
+
 ---
 
 ## 10. 数据与隔离测试

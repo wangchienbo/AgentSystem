@@ -28,7 +28,16 @@ from app.services.priority_analysis import PriorityAnalysisService
 from app.services.proposal_review import ProposalReviewService
 from app.services.collection_policy_service import CollectionPolicyService
 from app.services.policy_guard import PolicyGuardService
+from app.services.log_evidence_service import LogEvidenceService
 from app.services.requirement_router import RequirementRouter
+from app.services.requirement_clarifier import RequirementClarifierService
+from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderService
+from app.models.requirement_skill import RequirementSkillRequest
+from app.models.evidence_skill import EvidenceSkillRequest
+from app.models.context_compaction_skill import ContextCompactionSkillRequest
+from app.models.workflow_insight_skill import WorkflowInsightSkillRequest
+from app.models.risk_governance_skill import RiskGovernanceSkillRequest
+from app.models.prompt_selection_skill import PromptSelectionSkillRequest
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
@@ -41,6 +50,8 @@ from app.services.skill_control import SkillControlService
 from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
 from app.services.skill_risk_policy import SkillRiskPolicyService
+from app.services.prompt_selection_service import PromptSelectionService
+from app.services.prompt_invocation_service import PromptInvocationService
 from app.services.skill_suggestion import SkillSuggestionService
 from app.services.supervisor import SupervisorService
 from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
@@ -53,6 +64,8 @@ from app.services.workflow_subscription import WorkflowSubscriptionService
 
 def build_runtime() -> dict[str, object]:
     router = RequirementRouter()
+    requirement_clarifier = RequirementClarifierService(router=router)
+    requirement_blueprint_builder = RequirementBlueprintBuilderService()
     skill_control = SkillControlService()
     schema_registry = SchemaRegistryService()
     schema_registry.register(
@@ -174,6 +187,78 @@ def build_runtime() -> dict[str, object]:
             "additionalProperties": False,
         },
     )
+    schema_registry.register(
+        "schema://requirement.skill/input",
+        RequirementSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://requirement.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://requirement.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://evidence.skill/input",
+        EvidenceSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://evidence.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://evidence.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://context.compaction.skill/input",
+        ContextCompactionSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://context.compaction.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://context.compaction.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://workflow.insight.skill/input",
+        WorkflowInsightSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://workflow.insight.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://workflow.insight.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://risk.governance.skill/input",
+        RiskGovernanceSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://risk.governance.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://risk.governance.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
+    schema_registry.register(
+        "schema://prompt.selection.skill/input",
+        PromptSelectionSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://prompt.selection.skill/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://prompt.selection.skill/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
     skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)
     blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
@@ -194,6 +279,7 @@ def build_runtime() -> dict[str, object]:
     context_skill_service = ContextSkillService(context_store=app_context_store)
     collection_policy_service = CollectionPolicyService(store=runtime_store)
     upgrade_log_service = UpgradeLogService()
+    log_evidence = LogEvidenceService(store=runtime_store)
     telemetry_service = TelemetryService(
         store=runtime_store,
         policy_service=collection_policy_service,
@@ -209,7 +295,7 @@ def build_runtime() -> dict[str, object]:
         experience_store=experience_store,
         context_store=app_context_store,
     )
-    skill_risk_policy = SkillRiskPolicyService(store=runtime_store)
+    skill_risk_policy = SkillRiskPolicyService(store=runtime_store, log_evidence_service=log_evidence)
     model_skill_suggester = ModelSkillSuggester()
     skill_suggestion = SkillSuggestionService(
         experience_store=experience_store,
@@ -284,7 +370,10 @@ def build_runtime() -> dict[str, object]:
         store=runtime_store,
         telemetry_service=telemetry_service,
         policy_guard=policy_guard,
+        log_evidence_service=log_evidence,
+        prompt_invocation_service=None,
     )
+    workflow_executor._skill_risk_policy = skill_risk_policy
     workflow_subscription = WorkflowSubscriptionService(
         workflow_executor=workflow_executor,
         store=runtime_store,
@@ -294,8 +383,17 @@ def build_runtime() -> dict[str, object]:
         app_context_store=app_context_store,
         workflow_executor=workflow_executor,
         store=runtime_store,
+        log_evidence_service=log_evidence,
     )
     workflow_executor._context_compaction = context_compaction
+    prompt_selection = PromptSelectionService(context_compaction=context_compaction, log_evidence=log_evidence)
+    prompt_invocation = PromptInvocationService(
+        prompt_selection=prompt_selection,
+        telemetry_service=telemetry_service,
+        evaluation_summary_service=evaluation_summary_service,
+        skill_risk_policy_service=skill_risk_policy,
+    )
+    workflow_executor._prompt_invocation_service = prompt_invocation
     interaction_gateway = InteractionGateway(
         catalog=app_catalog,
         router=router,

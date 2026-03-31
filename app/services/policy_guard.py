@@ -16,6 +16,8 @@ class PolicyGuardService:
         if kind == "module":
             if ref not in blueprint.required_modules:
                 raise PolicyGuardError(f"module not declared in blueprint: {ref}")
+            if ref == "prompt.invoke" and not blueprint.runtime_policy.allow_prompt_invoke:
+                raise PolicyGuardError("prompt invocation disabled by runtime policy")
             return
         if kind == "event":
             if "event.publish" not in blueprint.required_modules:

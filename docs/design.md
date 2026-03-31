@@ -41,6 +41,38 @@ Skills are versioned, replaceable, suggestible capability units. They are depend
 ### 2.5 Intelligence is selective
 The system should use deterministic services first, and use intelligence mainly for abstraction, suggestion, diagnosis, and generation.
 
+System capability skills should sit above stable core capability APIs/services:
+- core protocols, stores, lifecycle, registry, and execution APIs remain the durable substrate
+- reusable higher-level capabilities (especially requirement understanding, retrieval/evidence access, context shaping, workflow insight, governance/risk surfaces, prompt selection, and future model-assisted selection) should be exposed as system skills when feasible
+- skill facades should wrap services rather than replace the underlying capability APIs
+
+A lightweight requirement-understanding loop should exist before blueprint generation:
+- first route the request (`app | skill | hybrid | unclear`)
+- then build a minimal structured requirement spec
+- then decide whether the request is ready, needs clarification, needs demonstration, or contains conflicting constraints
+- only after that should later generation flows consume the request as a candidate blueprint/app/skill definition input
+- when the request is ready and app-oriented, the system may emit a minimal blueprint draft as a handoff artifact rather than forcing later stages to re-parse raw user text
+- that handoff artifact should already carry lightweight app-shape and runtime-profile cues (for example pipeline vs transform posture, ask-user invocation pressure, and offline/network expectations) so later control-plane and install paths start from a more stable draft
+- for transform-style drafts, the builder may directly emit a `prompt.invoke` workflow step so blueprint generation captures the intended prompt-driven execution posture instead of leaving that structure implicit
+
+The prompt-selection layer should sit between context compaction/evidence retrieval and future model invocation:
+- it should consume working-set context plus retrieval-index entries instead of raw runtime history where possible
+- it should expose a machine-readable selection policy rather than hiding ranking heuristics in opaque prompt code
+- it should support explicit budget accounting (working-set tokens, reserved output tokens, per-evidence estimates)
+- it should produce prompt-ready sections or a lightweight assembled prompt so downstream model calls can remain thin wrappers instead of reconstructing retrieval logic ad hoc
+- it may also expose a direct model-ready invocation path for bounded prompt-selection-driven prompting, while still keeping selection and model invocation inspectable as separate layers in the contract
+- when that path becomes operationally important, selection-to-model handoff should live in a dedicated prompt-invocation service rather than being trapped inside one capability handler
+- workflow execution should be able to reuse that same service through a first-class module step (for example `prompt.invoke`) so prompt-driven tasks can be orchestrated without inventing a parallel prompt path
+- the prompt invocation service should normalize model output and emit telemetry/evaluation records so prompt-driven orchestration does not become an observability blind spot
+- workflow/runtime policy should retain the ability to gate prompt invocation (for example hard disable or require ask-user approval) so prompt-driven steps do not become a governance bypass
+- prompt-invocation governance signals should be emitted into shared risk/evidence channels so repeated blocked or sensitive prompt paths contribute to later policy learning rather than disappearing inside workflow execution
+- prompt-driven execution should also project into replay/acceptance/regression summaries via the core skill toolchain so it can participate in the same operator review loop as other candidate behaviors
+- prompt-invocation acceptance should be allowed to incorporate richer post-execution signals (normalized response quality, workflow outcome hints, and explicit feedback) instead of depending only on coarse success proxies
+- those richer signals should be structured and inspectable (empty text, very short text, expected-output satisfaction, workflow-success hint) rather than buried only inside one derived score
+- the same quality signals should flow into operator-facing replay/acceptance/archive summaries so review tooling can explain prompt quality regressions without reconstructing them from raw payloads
+- expected-output validation should cover a practical family of prompt-task shapes (JSON objects, slugs, markdown summaries, bullet lists, key/value text, approval decisions) so prompt-quality review can track more than one narrow output format
+- ranking should remain deterministic-first initially (query match + evidence type + priority + recency) before any future model-assisted reranking is introduced
+
 Network reachability and intelligence availability are separate concerns:
 - an app may have network but should still avoid intelligent calls by default
 - an app may be offline-capable while still carrying optional intelligent enhancements
@@ -75,6 +107,13 @@ should remain skill-oriented wherever practical. This preserves extensibility wh
 The system should maintain two distinct observation planes:
 - lightweight online telemetry for runtime/control-plane usage
 - append-only upgrade/evolution evidence for replay, acceptance, and self-iteration
+
+On top of those planes, the system should begin forming an evidence-promotion layer:
+- raw event/log references remain cheap and mostly non-prompt-facing
+- repeated patterns are aggregated into draft summaries
+- repeated or high-pressure patterns are elevated into suspicious signals
+- only promoted evidence and retrieval-index entries should become primary candidates for future prompt/context retrieval
+- context-compaction and future prompt-assembly paths should prefer promoted/indexed evidence summaries over re-reading raw operational history
 
 This separation reduces online cost while preserving the historical evidence needed for improvement.
 
