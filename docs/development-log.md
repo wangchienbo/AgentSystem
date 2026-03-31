@@ -1,5 +1,32 @@
 # Development Log
 
+## 2026-04-01
+
+### Module: executable skill adapter and generator planning
+
+Produced a concrete development plan for the next platform phase: governed executable skill runtime support plus a script-skill generator that integrates with normal skill/app management instead of bypassing it.
+
+#### Added
+- `docs/executable-skill-plan.md`
+  - defines the executable skill runtime contract
+  - defines JSON stdin/stdout invocation protocol
+  - defines registry/runtime/app-management integration expectations
+  - defines the phased Script Skill Generator v1 roadmap
+
+#### Updated docs
+- `docs/requirements.md`
+  - records executable-skill and script-skill-generator requirements tied to app management compatibility
+- `docs/design.md`
+  - documents executable skills as a runtime-adapter concern rather than an app-only primitive
+- `docs/testing.md`
+  - adds adapter and generator testing expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused executable adapter / generator validation cases
+
+#### Notes
+- This step is a design-and-planning deliverable intended to de-risk the next development phase before code changes begin.
+
+
 ## 2026-03-31
 
 ### Module: expanded prompt output contracts

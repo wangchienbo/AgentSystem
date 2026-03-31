@@ -69,6 +69,8 @@ Used for lightweight client-level validation such as:
 - structured quality-signal coverage for expected output shape and normalized output quality hints
 - review-surface coverage showing prompt quality signals in acceptance/archive summaries
 - expected-output contract coverage for multiple prompt output shapes beyond JSON/slug baselines
+- executable-skill adapter coverage for json-stdio invocation, timeout, invalid output, and stderr/error mapping
+- script-skill generator coverage for scaffold layout, manifest/schema generation, registry registration, and app install/workflow execution through generated executable skills
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

@@ -199,6 +199,8 @@ The prompt-selection layer should also support a more explicit selection contrac
 - expose structured quality signals for normalized prompt outputs (for example emptiness, shortness, expected-shape satisfaction, and workflow-success hints) so acceptance decisions remain inspectable
 - support a practical set of expected output contracts for prompt-driven tasks, starting with `json_object`, `slug_text`, `markdown_summary`, `bullet_list`, `key_value`, and `approval_decision`
 - project those quality signals into replay/acceptance/archive summary surfaces so operators can review prompt-output quality without reopening raw invocation payloads
+- introduce a governed executable-skill runtime contract so future script/binary skills can be registered and invoked through the normal skill/app runtime path rather than ad hoc workflow primitives
+- support a v1 script-skill generation flow that produces a generated executable skill asset (manifest + schema + entrypoint + smoke test), registers it, and lets app management install/use it through normal skill dependencies
 - keep selection policy visible in machine-readable form for testing and later governance
 
 ### 5.2 Skill control
