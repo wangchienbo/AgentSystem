@@ -17,12 +17,14 @@ class PromptInvocationService:
         client_factory=None,
         telemetry_service=None,
         evaluation_summary_service=None,
+        skill_risk_policy_service=None,
     ) -> None:
         self._prompt_selection = prompt_selection
         self._model_loader = model_loader or ModelConfigLoader()
         self._client_factory = client_factory or OpenAIResponsesClient
         self._telemetry_service = telemetry_service
         self._evaluation_summary_service = evaluation_summary_service
+        self._skill_risk_policy_service = skill_risk_policy_service
 
     def invoke_with_selection(
         self,
@@ -41,6 +43,15 @@ class PromptInvocationService:
     ) -> dict:
         started_at = datetime.now(UTC)
         interaction_id = f"prompt_invoke:{app_instance_id}:{int(started_at.timestamp())}"
+        if self._skill_risk_policy_service is not None:
+            self._skill_risk_policy_service.record_event(
+                skill_id="prompt.invoke",
+                event_type="override_approved",
+                actor="system",
+                reason="prompt invocation executed",
+                scope="prompt_invocation",
+                details={"app_instance_id": app_instance_id, "query": query, "strategy": strategy},
+            )
         selection = self._prompt_selection.select_for_prompt(
             app_instance_id=app_instance_id,
             limit=limit,

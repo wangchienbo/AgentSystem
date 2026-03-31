@@ -53,6 +53,7 @@ class WorkflowExecutorService:
         self._policy_guard = policy_guard
         self._log_evidence_service = log_evidence_service
         self._prompt_invocation_service = prompt_invocation_service
+        self._skill_risk_policy = None
 
     def execute_primary_workflow(self, app_instance_id: str, trigger: str = "manual", inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
         return self.execute_workflow(app_instance_id=app_instance_id, workflow_id=None, trigger=trigger, inputs=inputs)
@@ -302,6 +303,15 @@ class WorkflowExecutorService:
                 )
             resolved = self._resolve_value(config, execution_context)
             if blueprint.runtime_policy.prompt_invoke_requires_ask_user and not bool(resolved.get("approved_by_user", False)):
+                if hasattr(self, "_skill_risk_policy") and self._skill_risk_policy is not None:
+                    self._skill_risk_policy.record_event(
+                        skill_id="prompt.invoke",
+                        event_type="approval_required",
+                        actor="system",
+                        reason="prompt invocation requires user approval",
+                        scope="prompt_invocation",
+                        details={"app_instance_id": app_instance_id, "workflow_id": workflow_id, "step_id": step_id},
+                    )
                 return WorkflowStepExecution(
                     step_id=step_id,
                     ref=ref,

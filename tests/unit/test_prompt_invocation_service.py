@@ -41,6 +41,7 @@ from app.services.collection_policy_service import CollectionPolicyService
 from app.services.evaluation_summary_service import EvaluationSummaryService
 from app.services.telemetry_service import TelemetryService
 from app.services.upgrade_log_service import UpgradeLogService
+from app.services.skill_risk_policy import SkillRiskPolicyService
 
 
 def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path) -> None:
@@ -52,6 +53,7 @@ def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path)
     upgrade_log_service = UpgradeLogService(base_dir=str(tmp_path / "prompt-invocation-logs"))
     telemetry = TelemetryService(store=store, policy_service=policy_service, upgrade_log_service=upgrade_log_service)
     evaluation = EvaluationSummaryService(store=store, upgrade_log_service=upgrade_log_service)
+    risk_policy = SkillRiskPolicyService(store=store, log_evidence_service=evidence)
     context_store._contexts["app.prompt"] = AppSharedContext(
         app_instance_id="app.prompt",
         app_name="bp.prompt",
@@ -75,6 +77,7 @@ def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path)
         client_factory=_FakeClient,
         telemetry_service=telemetry,
         evaluation_summary_service=evaluation,
+        skill_risk_policy_service=risk_policy,
     )
     evidence.ingest_workflow_failure(
         app_instance_id="app.prompt",
@@ -110,3 +113,5 @@ def test_prompt_invocation_service_invokes_model_with_assembled_prompt(tmp_path)
     assert telemetry.get_interaction(result["invocation_meta"]["interaction_id"]) is not None
     assert len(telemetry.list_steps(result["invocation_meta"]["interaction_id"])) == 1
     assert evaluation.get(f"prompt-invoke:{result['invocation_meta']['interaction_id']}") is not None
+    events = risk_policy.list_events(skill_id="prompt.invoke")
+    assert any(item.scope == "prompt_invocation" for item in events)

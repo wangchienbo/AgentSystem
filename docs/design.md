@@ -65,6 +65,7 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 - workflow execution should be able to reuse that same service through a first-class module step (for example `prompt.invoke`) so prompt-driven tasks can be orchestrated without inventing a parallel prompt path
 - the prompt invocation service should normalize model output and emit telemetry/evaluation records so prompt-driven orchestration does not become an observability blind spot
 - workflow/runtime policy should retain the ability to gate prompt invocation (for example hard disable or require ask-user approval) so prompt-driven steps do not become a governance bypass
+- prompt-invocation governance signals should be emitted into shared risk/evidence channels so repeated blocked or sensitive prompt paths contribute to later policy learning rather than disappearing inside workflow execution
 - ranking should remain deterministic-first initially (query match + evidence type + priority + recency) before any future model-assisted reranking is introduced
 
 Network reachability and intelligence availability are separate concerns:

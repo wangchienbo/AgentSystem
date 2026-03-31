@@ -276,6 +276,7 @@ def test_workflow_executor_runs_prompt_invoke_module_step(tmp_path: Path) -> Non
         context_store=context_store,
         prompt_invocation_service=prompt_invocation,
     )
+    executor._skill_risk_policy = SkillRiskPolicyService(store=store, log_evidence_service=log_evidence)
 
     registry.register_blueprint(
         AppBlueprint(
@@ -406,6 +407,8 @@ def test_workflow_executor_blocks_prompt_invoke_without_user_approval(tmp_path: 
     assert result.status == "partial"
     assert result.steps[0].status == "failed"
     assert result.steps[0].detail["policy_blocked"] is True
+    events = executor._skill_risk_policy.list_events(skill_id="prompt.invoke")
+    assert any(item.event_type == "approval_required" for item in events)
 
 
 def test_workflow_executor_supports_conditional_steps_and_outputs_summary(tmp_path: Path) -> None:

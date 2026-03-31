@@ -2,6 +2,41 @@
 
 ## 2026-03-31
 
+### Module: prompt invocation risk/evidence integration
+
+Extended prompt invocation governance so prompt-driven execution not only gets blocked or approved, but also emits reusable risk/evidence signals that can feed later policy learning.
+
+#### Updated
+- `app/models/skill_risk_policy.py`
+  - adds `prompt_invocation` governance scope
+  - adds `approval_required` governance event type
+- `app/services/prompt_invocation_service.py`
+  - records prompt invocation execution into the shared risk event stream
+- `app/services/workflow_executor.py`
+  - records approval-required prompt invocation blocks into the shared risk event stream
+- `app/bootstrap/runtime.py`
+  - wires prompt invocation to the shared skill risk policy service
+- `tests/unit/test_prompt_invocation_service.py`
+  - validates prompt invocation execution emits prompt-scoped risk events
+- `tests/unit/test_workflow_executor.py`
+  - validates approval-gated prompt invocation failures emit risk events
+- `tests/unit/test_evidence_integration.py`
+  - validates prompt invocation governance events can feed evidence promotion
+
+#### Updated docs
+- `docs/requirements.md`
+  - records prompt invocation governance as auditable evidence-producing behavior
+- `docs/design.md`
+  - documents prompt invocation governance signals as part of the shared risk/evidence loop
+- `docs/testing.md`
+  - adds risk/evidence integration coverage expectations for prompt invocation governance
+- `docs/testing-detail.md`
+  - adds implementation-focused assertions for prompt invocation governance event propagation
+
+#### Validation
+- `python3 -m py_compile app/models/skill_risk_policy.py app/services/prompt_invocation_service.py app/services/workflow_executor.py tests/unit/test_prompt_invocation_service.py tests/unit/test_workflow_executor.py tests/unit/test_evidence_integration.py`
+- shell environment still lacks installed `pytest`, so this step is syntax-validated and test-prepared rather than fully pytest-executed
+
 ### Module: prompt invocation governance hooks
 
 Added first-pass governance hooks so prompt invocation can be constrained by runtime policy instead of acting as an always-open execution path.

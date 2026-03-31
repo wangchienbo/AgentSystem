@@ -193,6 +193,7 @@ The prompt-selection layer should also support a more explicit selection contrac
 - normalize prompt-invocation model responses into a stable output shape suitable for workflows, APIs, and later evaluation surfaces
 - capture prompt-invocation telemetry/evaluation metadata so prompt-driven flows can participate in the same observability and upgrade-evidence loops as other runtime paths
 - allow runtime policy and workflow governance to constrain prompt invocation (for example disabling it entirely or requiring explicit user approval)
+- ensure prompt-invocation governance events can flow into risk/evidence systems so blocked or sensitive prompt-driven paths become auditable and learnable over time
 - keep selection policy visible in machine-readable form for testing and later governance
 
 ### 5.2 Skill control

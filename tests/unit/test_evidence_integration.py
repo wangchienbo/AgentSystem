@@ -73,3 +73,18 @@ def test_skill_risk_policy_blocked_events_feed_evidence(tmp_path: Path) -> None:
     stats = evidence.get_stats_summary()
     assert stats["signal_count"] >= 1
     assert stats["promoted_evidence_count"] >= 1
+
+
+
+def test_prompt_invocation_risk_events_feed_evidence(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "prompt-risk-evidence"))
+    evidence = LogEvidenceService(store=store)
+    service = SkillRiskPolicyService(store=store, log_evidence_service=evidence)
+
+    service.record_event(skill_id="prompt.invoke", event_type="policy_blocked", reason="approval required", scope="prompt_invocation")
+    service.record_event(skill_id="prompt.invoke", event_type="policy_blocked", reason="approval required again", scope="prompt_invocation")
+    service.record_event(skill_id="prompt.invoke", event_type="policy_blocked", reason="approval required third", scope="prompt_invocation")
+
+    stats = evidence.get_stats_summary()
+    assert stats["signal_count"] >= 1
+    assert stats["promoted_evidence_count"] >= 1
