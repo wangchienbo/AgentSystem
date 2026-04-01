@@ -90,6 +90,32 @@ Extended the Phase-4 workflow execution work beyond the initial state/observabil
 - Phase 4 is now substantially implemented at the workflow contract layer
 - remaining future improvement areas are mostly about richer mutation summaries and more selective resume/event-continuation semantics rather than missing core workflow primitives
 
+### Module: phase 5 suggested-skill refinement closure slice
+
+Implemented the first executable Phase-5 closure path so suggested skill blueprints can flow through materialization, app assembly, candidate registration, and optional validation from one API call.
+
+#### Implemented
+- new `AppRefinementOrchestratorService`
+- new `SuggestedSkillRefinementClosureRequest/Result` models
+- new `/apps/refine-from-suggested-skills/closure` API
+- closure path now performs:
+  - select suggested skill blueprints
+  - materialize missing skills through existing skill factory flow
+  - assemble refined app blueprint
+  - register the blueprint
+  - create a draft candidate release record
+  - optionally install the refined candidate
+  - optionally execute the generated workflow as a smoke/validation run
+- closure response exposes materialized/reused skill ids, release metadata, compare summary, optional install result, optional execution result, and structured execution diagnostics
+
+#### Validation
+- `tests/unit/test_phase5_refinement_closure.py` green
+- both materialize+assemble and install+run closure paths validated
+
+#### Notes
+- this is the first Phase-5 executable closure slice, not every future governance/reporting enhancement described in the design doc
+- it is enough to treat suggested-skill refinement as a real end-to-end path instead of separate manual calls
+
 ### Module: executable skill adapter foundation + script skill generator v1
 
 Implemented the first working executable-skill/runtime/generator slice so generated script skills can now be scaffolded, registered, and executed through normal app workflow skill steps.

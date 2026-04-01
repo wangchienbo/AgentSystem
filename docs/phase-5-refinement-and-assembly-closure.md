@@ -204,6 +204,28 @@ Phase 5 is complete when:
 - optional install/run validation exists for refined candidates
 - diagnostics remain structured and retry-friendly
 
+### 8.1 First implemented closure slice
+
+This round implements the first executable Phase-5 closure slice:
+- one-call refinement closure API at `/apps/refine-from-suggested-skills/closure`
+- orchestration from selected suggested skill blueprints -> materialize missing skills -> assemble app blueprint -> register candidate -> create draft release -> optional install/run
+- closure result now returns:
+  - selected blueprints
+  - created/materialized skill ids
+  - reused skill ids
+  - generated blueprint + app assembly result
+  - draft release metadata
+  - compare summary for the refined candidate
+  - optional install result
+  - optional workflow execution result
+  - structured diagnostics for non-completed execution validation
+
+Still pending for deeper Phase-5 follow-up:
+- tighter integration with proposal/refinement-memory objects
+- richer release comparison against prior active versions instead of current lightweight compare summary
+- stronger policy-block/materialization-diagnostics coverage across more risk variants
+- rollout queue/dashboard linkage for refined candidates
+
 ---
 
 ## 9. Recommended implementation order

@@ -9,6 +9,7 @@ from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.app_refinement import AppRefinementService
+from app.services.app_refinement_orchestrator import AppRefinementOrchestratorService
 from app.services.app_registry import AppRegistryService
 from app.services.context_compaction import ContextCompactionService
 from app.services.system_skills.context import ContextSkillService
@@ -394,6 +395,12 @@ def build_runtime() -> dict[str, object]:
         skill_risk_policy_service=skill_risk_policy,
     )
     workflow_executor._prompt_invocation_service = prompt_invocation
+    app_refinement_orchestrator = AppRefinementOrchestratorService(
+        app_refinement=app_refinement,
+        app_registry=app_registry,
+        app_installer=app_installer,
+        workflow_executor=workflow_executor,
+    )
     interaction_gateway = InteractionGateway(
         catalog=app_catalog,
         router=router,
