@@ -201,6 +201,7 @@ The prompt-selection layer should also support a more explicit selection contrac
 - project those quality signals into replay/acceptance/archive summary surfaces so operators can review prompt-output quality without reopening raw invocation payloads
 - introduce a governed executable-skill runtime contract so future script/binary skills can be registered and invoked through the normal skill/app runtime path rather than ad hoc workflow primitives
 - support a v1 script-skill generation flow that produces a generated executable skill asset (manifest + schema + entrypoint + smoke test), registers it, and lets app management install/use it through normal skill dependencies
+- executable/generated skills must remain invocable through normal skill steps inside app workflows rather than requiring a special app-only execution primitive
 - keep selection policy visible in machine-readable form for testing and later governance
 
 ### 5.2 Skill control
@@ -738,6 +739,11 @@ The next major gaps are:
 - stronger policy and permission model
 - production-grade persistence and recovery
 - layered context compaction and retrieval
+
+The current near-term execution roadmap is organized as:
+- **Phase 4**: workflow execution enhancement (`docs/phase-4-workflow-execution-enhancement.md`)
+- **Phase 5**: suggested-skill -> app refinement closure (`docs/phase-5-refinement-and-assembly-closure.md`)
+- **Phase 6**: governance, production persistence, and layered context (`docs/phase-6-governance-persistence-and-layered-context.md`)
 
 ## 12. Layered Context Management
 

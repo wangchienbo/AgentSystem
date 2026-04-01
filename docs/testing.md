@@ -71,6 +71,7 @@ Used for lightweight client-level validation such as:
 - expected-output contract coverage for multiple prompt output shapes beyond JSON/slug baselines
 - executable-skill adapter coverage for json-stdio invocation, timeout, invalid output, and stderr/error mapping
 - script-skill generator coverage for scaffold layout, manifest/schema generation, registry registration, and app install/workflow execution through generated executable skills
+- generated executable skill end-to-end coverage through normal app workflow skill steps
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:
@@ -470,15 +471,20 @@ As the system evolves, the next test groups to add should be:
 2. contradiction / priority analysis behavior
 3. refinement flows from suggested skills into workflows/apps
 4. suggested-skill refinement can materialize missing suggested blueprints and assemble/register an app blueprint through one API path
-4. policy and permission enforcement
-5. persistent backend compatibility tests
-6. longer-running service app recovery tests
-7. layered context compaction and working-set derivation tests
-8. telemetry / feedback / upgrade-log split and collection-policy tests
-9. cost-aware candidate evaluation / publish-gate / rollback-evidence tests
+5. policy and permission enforcement
+6. persistent backend compatibility tests
+7. longer-running service app recovery tests
+8. layered context compaction and working-set derivation tests
+9. telemetry / feedback / upgrade-log split and collection-policy tests
+10. cost-aware candidate evaluation / publish-gate / rollback-evidence tests
    - summary/policy persistence and reload
    - auto compaction on stage change
    - working-set/detail views include workflow and skill execution references
+
+The current execution roadmap for these testing additions is:
+- **Phase 4**: `docs/phase-4-workflow-execution-enhancement.md`
+- **Phase 5**: `docs/phase-5-refinement-and-assembly-closure.md`
+- **Phase 6**: `docs/phase-6-governance-persistence-and-layered-context.md`
 
 ---
 

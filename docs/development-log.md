@@ -2,6 +2,64 @@
 
 ## 2026-04-01
 
+### Module: phase 4/5/6 executable roadmap documentation
+
+Converted the previously implicit “what comes next” discussion into three concrete implementation-phase design documents so the next development rounds can be executed as planned modules instead of ad-hoc follow-up work.
+
+#### Added
+- `docs/phase-4-workflow-execution-enhancement.md`
+  - defines workflow primitive expansion, richer execution-state contracts, recovery semantics, and manual/event-wait handling
+- `docs/phase-5-refinement-and-assembly-closure.md`
+  - defines the one-call suggested-skill -> materialize -> assemble -> install/run refinement closure
+- `docs/phase-6-governance-persistence-and-layered-context.md`
+  - defines the next governance, persistence, and layered-context implementation phase
+
+#### Updated docs
+- `docs/requirements.md`
+  - links near-term roadmap gaps to explicit Phase 4/5/6 documents
+- `docs/design.md`
+  - links near-term design gaps to explicit Phase 4/5/6 documents
+- `docs/testing.md`
+  - aligns next testing priorities with the same phase roadmap
+
+#### Notes
+- this step is an execution-planning/documentation deliverable only; it intentionally does not yet implement the Phase 4/5/6 code paths
+- current branch context already points at app-refinement-from-suggested-skills, so these docs are intended to be the immediate implementation guide for the next modules
+
+### Module: executable skill adapter foundation + script skill generator v1
+
+Implemented the first working executable-skill/runtime/generator slice so generated script skills can now be scaffolded, registered, and executed through normal app workflow skill steps.
+
+#### Added
+- `app/services/executable_skill_adapter.py`
+  - executes executable skills through a JSON stdin/stdout process contract
+- `app/models/generated_skill.py`
+  - defines generated-skill request and asset metadata models
+- `app/services/generated_skill_asset_store.py`
+  - creates generated skill scaffold directories with manifest/schema/entrypoint/README/smoke test
+- `app/services/script_skill_generator.py`
+  - generates and registers executable script skills through normal skill-control flows
+- `tests/unit/test_executable_skill_adapter.py`
+  - validates executable adapter happy path, runtime dispatch, and invalid-json failure mapping
+- `tests/unit/test_script_skill_generator.py`
+  - validates scaffold generation and generated skill runtime execution
+- `tests/unit/test_generated_executable_skill_app_flow.py`
+  - validates a generated executable skill can be referenced by an app and executed through a normal workflow skill step
+
+#### Updated
+- `app/models/skill_adapter.py`
+  - extends adapter metadata with invocation protocol and timeout
+- `app/services/skill_manifest_validator.py`
+  - validates executable/script adapter invocation metadata
+- `app/services/skill_runtime.py`
+  - dispatches executable skills through the new executable adapter
+- `app/services/workflow_executor.py`
+  - hardens skill-step policy blocking for undeclared skills
+
+#### Validation
+- `python -m pytest -q tests/unit/test_executable_skill_adapter.py tests/unit/test_script_skill_generator.py tests/unit/test_generated_executable_skill_app_flow.py`
+- result: passing locally in the project virtualenv
+
 ### Module: executable skill adapter and generator planning
 
 Produced a concrete development plan for the next platform phase: governed executable skill runtime support plus a script-skill generator that integrates with normal skill/app management instead of bypassing it.
