@@ -28,6 +28,9 @@ from app.services.practice_review import PracticeReviewService
 from app.services.priority_analysis import PriorityAnalysisService
 from app.services.proposal_review import ProposalReviewService
 from app.services.collection_policy_service import CollectionPolicyService
+from app.services.context_retrieval_service import ContextRetrievalService
+from app.services.persistence_health_service import PersistenceHealthService
+from app.services.policy_authority_service import PolicyAuthorityService
 from app.services.policy_guard import PolicyGuardService
 from app.services.log_evidence_service import LogEvidenceService
 from app.services.requirement_router import RequirementRouter
@@ -279,6 +282,8 @@ def build_runtime() -> dict[str, object]:
     supervisor = SupervisorService(runtime_host=runtime_host, store=runtime_store)
     context_skill_service = ContextSkillService(context_store=app_context_store)
     collection_policy_service = CollectionPolicyService(store=runtime_store)
+    policy_authority = PolicyAuthorityService(store=runtime_store)
+    persistence_health = PersistenceHealthService(store=runtime_store)
     upgrade_log_service = UpgradeLogService()
     log_evidence = LogEvidenceService(store=runtime_store)
     telemetry_service = TelemetryService(
@@ -387,6 +392,7 @@ def build_runtime() -> dict[str, object]:
         log_evidence_service=log_evidence,
     )
     workflow_executor._context_compaction = context_compaction
+    context_retrieval = ContextRetrievalService(app_context_store=app_context_store, context_compaction=context_compaction)
     prompt_selection = PromptSelectionService(context_compaction=context_compaction, log_evidence=log_evidence)
     prompt_invocation = PromptInvocationService(
         prompt_selection=prompt_selection,
@@ -400,6 +406,7 @@ def build_runtime() -> dict[str, object]:
         app_registry=app_registry,
         app_installer=app_installer,
         workflow_executor=workflow_executor,
+        policy_authority=policy_authority,
     )
     interaction_gateway = InteractionGateway(
         catalog=app_catalog,

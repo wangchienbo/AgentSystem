@@ -116,6 +116,44 @@ Implemented the first executable Phase-5 closure path so suggested skill bluepri
 - this is the first Phase-5 executable closure slice, not every future governance/reporting enhancement described in the design doc
 - it is enough to treat suggested-skill refinement as a real end-to-end path instead of separate manual calls
 
+### Module: phase 6 governance, persistence health, and layered context slice
+
+Implemented the first executable Phase-6 slice to make governance boundaries, persistence health, and layered context retrieval more explicit and inspectable.
+
+#### Implemented
+- new authority-policy model/service:
+  - `AuthorityPolicyRecord`
+  - `PolicyAuthorityService`
+- scoped enforcement now supports:
+  - reviewer-required actions
+  - reviewer allowlists
+  - reason-required actions
+  - automatic-action disallow rules
+- authority enforcement integrated into:
+  - refined app closure orchestration (`generated_app_assembly` scope)
+  - app release activation (`app_activate` scope)
+  - app rollback (`app_rollback` scope)
+- new persistence-health model/service:
+  - `PersistenceHealthSummary`
+  - `PersistenceHealthService`
+  - reports runtime JSON inventory plus quarantined/corrupted files
+- new layered context retrieval service:
+  - prompt-ready context read model built from working set + compact summary
+  - detail-ref retrieval for deeper inspection
+- new operator/API surfaces:
+  - `/policy-authority`
+  - `/persistence/health`
+  - `/context/prompt-ready`
+  - `/context/detail-refs`
+
+#### Validation
+- `tests/unit/test_phase6_governance_and_context.py` green
+- authority enforcement, corrupted-file visibility, layered context retrieval, and API reads validated
+
+#### Notes
+- this round establishes the executable Phase-6 substrate rather than every eventual governance/dashboard extension
+- file-based persistence remains the active backend, but runtime health and corrupted-state visibility are now first-class
+
 ### Module: executable skill adapter foundation + script skill generator v1
 
 Implemented the first working executable-skill/runtime/generator slice so generated script skills can now be scaffolded, registered, and executed through normal app workflow skill steps.

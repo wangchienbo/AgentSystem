@@ -9,6 +9,7 @@ from app.services.app_refinement import AppRefinementService
 from app.services.app_registry import AppRegistryService
 from app.models.skill_diagnostics import SkillDiagnostic
 from app.services.workflow_executor import WorkflowExecutorService
+from app.services.policy_authority_service import PolicyAuthorityService
 
 
 class AppRefinementOrchestratorError(ValueError):
@@ -23,13 +24,22 @@ class AppRefinementOrchestratorService:
         app_registry: AppRegistryService,
         app_installer: AppInstallerService,
         workflow_executor: WorkflowExecutorService,
+        policy_authority: PolicyAuthorityService | None = None,
     ) -> None:
         self._app_refinement = app_refinement
         self._app_registry = app_registry
         self._app_installer = app_installer
         self._workflow_executor = workflow_executor
+        self._policy_authority = policy_authority
 
     def refine_closure(self, request: SuggestedSkillRefinementClosureRequest) -> SuggestedSkillRefinementClosureResult:
+        if self._policy_authority is not None:
+            self._policy_authority.enforce(
+                scope="generated_app_assembly",
+                reviewer=request.reviewer,
+                reason=request.note,
+                automatic=False,
+            )
         refinement = self._app_refinement.build_app_from_suggested_skills(request)
         entry = self._app_registry.register_blueprint(refinement.blueprint)
 

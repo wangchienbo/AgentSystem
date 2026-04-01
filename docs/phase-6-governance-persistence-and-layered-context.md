@@ -196,6 +196,21 @@ Phase 6 is complete when:
 - layered context is an implemented runtime feature rather than a design note only
 - operator surfaces can explain policy, persistence health, and context state coherently
 
+### 6.1 First implemented Phase-6 closure slice
+
+This round implements the first executable Phase-6 closure slice:
+- explicit scoped authority policy records for reviewer/automatic/reason enforcement
+- authority enforcement wired into higher-risk app operations and refinement closure
+- persistence health summary for runtime storage, including corrupted-file visibility after quarantine
+- layered context retrieval surfaces for prompt-ready views and detail-ref summaries
+- operator/API visibility for authority summary, persistence health, and layered context reads
+
+Still pending for deeper Phase-6 follow-up:
+- broader scope coverage across more mutation surfaces (install/rollback/materialization/prompt invoke at every call site)
+- stronger backend abstraction beyond the current file-based store
+- richer long-term L3 evidence promotion and retrieval-specific ranking
+- more complete operator dashboards that unify authority, persistence, and blocked/manual recovery views
+
 ---
 
 ## 7. Recommended implementation order

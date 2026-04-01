@@ -15,6 +15,7 @@ from app.services.app_data_store import AppDataStoreError
 from app.services.app_registry import AppRegistryError
 from app.services.app_refinement import AppRefinementError
 from app.services.app_refinement_orchestrator import AppRefinementOrchestratorError
+from app.services.policy_authority_service import PolicyAuthorityError
 from app.services.app_installer import AppInstallerError
 from app.services.app_config_service import AppConfigError
 from app.services.event_bus import EventBusError
@@ -37,6 +38,7 @@ from app.models.proposal_review import ProposalReviewRequest
 from app.models.refinement_loop import RefinementFilter, RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.app_refinement import SuggestedSkillRefinementRequest, SuggestedSkillRefinementClosureRequest
+from app.models.policy_authority import AuthorityPolicyRecord
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, GeneratedSkillRevisionRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError, _diagnostic
 from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderError
@@ -155,6 +157,9 @@ context_compaction = services["context_compaction"]
 interaction_gateway = services["interaction_gateway"]
 blueprint_validation = services["blueprint_validation"]
 collection_policy_service = services["collection_policy_service"]
+policy_authority = services["policy_authority"]
+persistence_health = services["persistence_health"]
+context_retrieval = services["context_retrieval"]
 upgrade_log_service = services["upgrade_log_service"]
 telemetry_service = services["telemetry_service"]
 evaluation_summary_service = services["evaluation_summary_service"]
@@ -471,6 +476,40 @@ def refine_app_from_suggested_skills_closure(request: SuggestedSkillRefinementCl
     except (AppRefinementError, AppRefinementOrchestratorError, AppRegistryError, SkillDiagnosticError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
 
+@app.get("/policy-authority")
+def get_policy_authority_summary() -> dict:
+    return policy_authority.get_summary().model_dump(mode="json")
+
+
+@app.post("/policy-authority")
+def set_policy_authority(payload: dict) -> dict:
+    record = policy_authority.set_policy(
+        AuthorityPolicyRecord(
+            scope=payload["scope"],
+            require_reviewer=payload.get("require_reviewer", False),
+            allowed_reviewers=payload.get("allowed_reviewers", []),
+            require_reason=payload.get("require_reason", False),
+            allow_automatic=payload.get("allow_automatic", True),
+        )
+    )
+    return record.model_dump(mode="json")
+
+
+@app.get("/persistence/health")
+def get_persistence_health() -> dict:
+    return persistence_health.get_summary().model_dump(mode="json")
+
+
+@app.get("/context/prompt-ready")
+def get_prompt_ready_context(app_instance_id: str) -> dict:
+    return context_retrieval.get_prompt_ready_context(app_instance_id)
+
+
+@app.get("/context/detail-refs")
+def get_context_detail_refs(app_instance_id: str) -> dict:
+    return context_retrieval.retrieve_detail_refs(app_instance_id)
+
+
 @app.get("/experiences")
 def list_experiences() -> list[dict]:
     return [item.model_dump(mode="json") for item in experience_store.list_experiences()]
@@ -741,15 +780,28 @@ def add_app_release(blueprint_id: str, payload: dict) -> dict:
 @app.post("/registry/apps/{blueprint_id}/releases/{version}/activate")
 def activate_app_release(blueprint_id: str, version: str, payload: dict | None = None) -> dict:
     try:
-        entry = app_registry.activate_release(blueprint_id, version, reviewer=(payload or {}).get("reviewer", ""))
+        payload = payload or {}
+        policy_authority.enforce(
+            scope="app_activate",
+            reviewer=payload.get("reviewer", ""),
+            reason=payload.get("reason", ""),
+            automatic=False,
+        )
+        entry = app_registry.activate_release(blueprint_id, version, reviewer=payload.get("reviewer", ""))
         return entry.model_dump(mode="json")
-    except ValueError as error:
+    except (ValueError, PolicyAuthorityError) as error:
         raise map_domain_error(error) from error
 
 
 @app.post("/registry/apps/{blueprint_id}/rollback")
 def rollback_app_release(blueprint_id: str, payload: dict) -> dict:
     try:
+        policy_authority.enforce(
+            scope="app_rollback",
+            reviewer=payload.get("reviewer", ""),
+            reason=payload.get("rollback_reason", ""),
+            automatic=False,
+        )
         entry = app_registry.rollback_release(
             blueprint_id,
             payload["target_version"],
@@ -757,7 +809,7 @@ def rollback_app_release(blueprint_id: str, payload: dict) -> dict:
             rollback_reason=payload.get("rollback_reason", ""),
         )
         return entry.model_dump(mode="json")
-    except ValueError as error:
+    except (ValueError, PolicyAuthorityError) as error:
         raise map_domain_error(error) from error
 
 
