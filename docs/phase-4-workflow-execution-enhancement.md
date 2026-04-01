@@ -209,10 +209,30 @@ This round delivers the first Phase-4 slice:
 - retry/recovery and observability compatibility was extended so the new unresolved states do not break existing operator/API contracts
 
 Still pending for later Phase-4 slices:
-- first-class `data.read/write/list` primitives (separate from legacy `state.*` naming)
-- first-class `context.append/set_goal/set_stage` workflow primitives
-- explicit `waiting_for_event` execution path with resume linkage
 - richer data/context mutation trace summaries
+- more selective step-level resume instead of current workflow-level rerun semantics
+- deeper event-driven continuation beyond the current minimal wait/resume contract
+
+### 8.2 Additional implemented slices (completed in follow-up rounds)
+
+Follow-up rounds extended the first Phase-4 slice with:
+- first-class workflow data primitives:
+  - `data.write`
+  - `data.read`
+  - `data.list`
+- first-class workflow context primitives:
+  - `context.append`
+  - `context.set_goal`
+  - `context.set_stage`
+- first-class workflow control / wait primitives:
+  - `workflow.pause_for_human`
+  - `workflow.wait_for_event`
+  - `workflow.fail`
+  - `workflow.complete`
+- minimal interrupted-workflow resume path:
+  - `resume_last_interrupted()` service support
+  - `/apps/{app_instance_id}/workflows/resume-last-interrupted` API support
+  - resume metadata reusing retry/recovery comparison contracts for paused/waiting executions
 
 ---
 

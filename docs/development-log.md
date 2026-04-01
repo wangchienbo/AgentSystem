@@ -57,6 +57,39 @@ Implemented the first code slice of Phase 4 so workflow execution can represent 
 - this round is the first Phase-4 compatibility slice, not the full Phase-4 deliverable yet
 - next Phase-4 slices should add first-class `data.*` and `context.*` workflow primitives plus explicit event-wait/resume linkage
 
+### Module: phase 4 workflow data/context/control primitives + interrupted resume path
+
+Extended the Phase-4 workflow execution work beyond the initial state/observability compatibility slice.
+
+#### Implemented
+- workflow data primitives:
+  - `data.write`
+  - `data.read`
+  - `data.list`
+- workflow context primitives:
+  - `context.append`
+  - `context.set_goal`
+  - `context.set_stage`
+- workflow control / wait primitives:
+  - `workflow.pause_for_human`
+  - `workflow.wait_for_event`
+  - `workflow.fail`
+  - `workflow.complete`
+- interrupted-workflow resume support:
+  - new `resume_last_interrupted()` service path
+  - new `/apps/{app_instance_id}/workflows/resume-last-interrupted` API
+  - paused/waiting executions now reuse recovery comparison metadata on resume
+
+#### Validation
+- `tests/unit/test_workflow_executor_phase4_primitives.py` green
+- `tests/unit/test_workflow_executor_phase4_control.py` green
+- `tests/unit/test_workflow_resume_phase4.py` green
+- previously-added workflow diagnostics / overview / dashboard compatibility regression slices remained green during Phase-4 follow-up work
+
+#### Notes
+- Phase 4 is now substantially implemented at the workflow contract layer
+- remaining future improvement areas are mostly about richer mutation summaries and more selective resume/event-continuation semantics rather than missing core workflow primitives
+
 ### Module: executable skill adapter foundation + script skill generator v1
 
 Implemented the first working executable-skill/runtime/generator slice so generated script skills can now be scaffolded, registered, and executed through normal app workflow skill steps.

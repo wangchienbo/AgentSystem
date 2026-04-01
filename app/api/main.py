@@ -829,6 +829,18 @@ def retry_last_failed_workflow(app_instance_id: str) -> dict:
         raise map_domain_error(error) from error
 
 
+@app.post("/apps/{app_instance_id}/workflows/resume-last-interrupted")
+def resume_last_interrupted_workflow(app_instance_id: str, payload: dict | None = None) -> dict:
+    try:
+        payload = payload or {}
+        return workflow_executor.resume_last_interrupted(
+            app_instance_id,
+            resume_inputs=payload.get("resume_inputs", {}),
+        ).model_dump(mode="json")
+    except (WorkflowExecutorError,) as error:
+        raise map_domain_error(error) from error
+
+
 @app.get("/workflows/diagnostics")
 def get_workflow_diagnostics(
     app_instance_id: str,

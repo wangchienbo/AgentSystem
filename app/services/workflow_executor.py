@@ -267,7 +267,7 @@ class WorkflowExecutorService:
                     detail={"reason": str(error), "ref": ref, "kind": kind, "policy_blocked": True},
                     output={},
                 )
-        if kind == "module" and ref == "state.set":
+        if kind == "module" and ref in {"state.set", "data.write"}:
             key = str(config.get("key", f"workflow.{workflow_id}.{step_id}"))
             value = self._resolve_value(config.get("value", inputs), execution_context)
             record = self._data_store.put_record(
@@ -276,6 +276,14 @@ class WorkflowExecutorService:
                 value=value if isinstance(value, dict) else {"value": value},
                 tags=["workflow", workflow_id, step_id],
             )
+            if self._context_store is not None and ref == "data.write":
+                self._context_store.append_entry(
+                    app_instance_id,
+                    section="artifacts",
+                    key=f"data-write:{key}",
+                    value={"record_id": record.record_id, "key": key, "value": record.value},
+                    tags=["workflow", "data-write"],
+                )
             return WorkflowStepExecution(
                 step_id=step_id,
                 ref=ref,
@@ -285,7 +293,7 @@ class WorkflowExecutorService:
                 output={"record_id": record.record_id, "key": key, "value": record.value},
             )
 
-        if kind == "module" and ref == "state.get":
+        if kind == "module" and ref in {"state.get", "data.read"}:
             key = str(config.get("key", ""))
             if not key:
                 return WorkflowStepExecution(
@@ -302,9 +310,9 @@ class WorkflowExecutorService:
                 self._context_store.append_entry(
                     app_instance_id,
                     section="artifacts",
-                    key=f"state-read:{key}",
+                    key=f"{'data-read' if ref == 'data.read' else 'state-read'}:{key}",
                     value={} if record is None else record.value,
-                    tags=["workflow", "state-get"],
+                    tags=["workflow", "data-read" if ref == "data.read" else "state-get"],
                 )
             return WorkflowStepExecution(
                 step_id=step_id,
@@ -313,6 +321,160 @@ class WorkflowExecutorService:
                 status="completed" if record is not None else "skipped",
                 detail={"key": key, "found": record is not None},
                 output={} if record is None else {"key": key, "value": record.value},
+            )
+
+        if kind == "module" and ref == "data.list":
+            prefix = config.get("prefix")
+            records = self._data_store.list_records(f"{app_instance_id}:app_data")
+            if prefix is not None:
+                records = [item for item in records if item.key.startswith(str(prefix))]
+            items = [{"record_id": item.record_id, "key": item.key, "value": item.value, "tags": list(item.tags)} for item in records]
+            if self._context_store is not None:
+                self._context_store.append_entry(
+                    app_instance_id,
+                    section="artifacts",
+                    key=f"data-list:{step_id}",
+                    value={"count": len(items), "prefix": prefix},
+                    tags=["workflow", "data-list"],
+                )
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="completed",
+                detail={"count": len(items), "prefix": prefix},
+                output={"items": items, "count": len(items)},
+            )
+
+        if kind == "module" and ref == "context.append":
+            if self._context_store is None:
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="skipped",
+                    detail={"reason": "context store unavailable"},
+                    output={},
+                )
+            section = str(config.get("section", "artifacts"))
+            key = str(config.get("key", step_id))
+            value = self._resolve_value(config.get("value", inputs), execution_context)
+            tags = self._resolve_value(config.get("tags", []), execution_context)
+            entry = self._context_store.append_entry(
+                app_instance_id,
+                section=section,
+                key=key,
+                value=value,
+                tags=list(tags) if isinstance(tags, list) else [],
+            )
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="completed",
+                detail={"entry_id": entry.entry_id, "section": section, "key": key},
+                output={"entry_id": entry.entry_id, "section": section, "key": key, "value": value},
+            )
+
+        if kind == "module" and ref == "context.set_goal":
+            if self._context_store is None:
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="skipped",
+                    detail={"reason": "context store unavailable"},
+                    output={},
+                )
+            goal = self._resolve_value(config.get("goal", config.get("value", "")), execution_context)
+            context = self._context_store.update_context(app_instance_id, current_goal=str(goal))
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="completed",
+                detail={"current_goal": context.current_goal},
+                output={"current_goal": context.current_goal},
+            )
+
+        if kind == "module" and ref == "context.set_stage":
+            if self._context_store is None:
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="skipped",
+                    detail={"reason": "context store unavailable"},
+                    output={},
+                )
+            stage = self._resolve_value(config.get("stage", config.get("value", "")), execution_context)
+            context = self._context_store.update_context(app_instance_id, current_stage=str(stage))
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="completed",
+                detail={"current_stage": context.current_stage},
+                output={"current_stage": context.current_stage},
+            )
+
+        if kind == "module" and ref == "workflow.pause_for_human":
+            if self._context_store is not None:
+                self._context_store.append_entry(
+                    app_instance_id,
+                    section="questions",
+                    key=f"pause-for-human:{step_id}",
+                    value={"message": config.get("message"), "required_action": config.get("required_action")},
+                    tags=["workflow", "pause-for-human"],
+                )
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="paused_for_human",
+                detail={"reason": str(config.get("message", "manual action required")), "manual_action_required": True},
+                output={"manual_action_required": True, "message": config.get("message"), "required_action": config.get("required_action")},
+            )
+
+        if kind == "module" and ref == "workflow.wait_for_event":
+            event_name = str(config.get("event_name", ""))
+            if self._context_store is not None:
+                self._context_store.append_entry(
+                    app_instance_id,
+                    section="open_loops",
+                    key=f"wait-for-event:{step_id}",
+                    value={"event_name": event_name, "resume_hint": config.get("resume_hint")},
+                    tags=["workflow", "wait-for-event"],
+                )
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="waiting_for_event",
+                detail={"event_name": event_name, "resume_hint": config.get("resume_hint")},
+                output={"event_name": event_name, "resume_hint": config.get("resume_hint")},
+            )
+
+        if kind == "module" and ref == "workflow.fail":
+            reason = self._resolve_value(config.get("reason", "workflow marked failed"), execution_context)
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="failed",
+                detail={"reason": str(reason), "forced_failure": True},
+                output={"forced_failure": True, "reason": str(reason)},
+            )
+
+        if kind == "module" and ref == "workflow.complete":
+            result_value = self._resolve_value(config.get("result", config.get("value", {})), execution_context)
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="completed",
+                detail={"forced_completion": True},
+                output={"forced_completion": True, "result": result_value},
             )
 
         if kind == "module" and ref == "prompt.invoke":
@@ -577,6 +739,37 @@ class WorkflowExecutorService:
             self._history[-1] = retried
             self._persist_history()
         return retried
+
+    def resume_last_interrupted(self, app_instance_id: str, resume_inputs: dict[str, Any] | None = None) -> WorkflowExecutionResult:
+        history = self.list_history(app_instance_id)
+        resume_candidates = [item for item in history if item.status in {"paused_for_human", "waiting_for_event"}]
+        if not resume_candidates:
+            raise WorkflowExecutorError(f"No paused or waiting workflow execution found for app instance: {app_instance_id}")
+        last = resume_candidates[-1]
+        base_inputs = deepcopy(last.outputs.get("inputs", {})) if isinstance(last.outputs, dict) else {}
+        merged_inputs = (base_inputs if isinstance(base_inputs, dict) else {}) | (resume_inputs or {})
+        resumed = self.execute_workflow(
+            app_instance_id=app_instance_id,
+            workflow_id=last.workflow_id,
+            trigger=f"resume:{last.trigger}",
+            inputs=merged_inputs,
+        )
+        previous_failed = set(last.failed_step_ids)
+        resumed_failed = set(resumed.failed_step_ids)
+        resumed.retry_of_completed_at = last.completed_at
+        resumed.retry_comparison = WorkflowRetryComparison(
+            previous_status=last.status,
+            retried_status=resumed.status,
+            previous_failed_step_ids=list(last.failed_step_ids),
+            retried_failed_step_ids=list(resumed.failed_step_ids),
+            resolved_failed_step_ids=sorted(previous_failed - resumed_failed),
+            newly_failed_step_ids=sorted(resumed_failed - previous_failed),
+            unchanged_failed_step_ids=sorted(previous_failed & resumed_failed),
+        )
+        if self._history:
+            self._history[-1] = resumed
+            self._persist_history()
+        return resumed
 
     def _persist_history(self) -> None:
         if self._store is None:
