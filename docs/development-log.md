@@ -26,6 +26,37 @@ Converted the previously implicit “what comes next” discussion into three co
 - this step is an execution-planning/documentation deliverable only; it intentionally does not yet implement the Phase 4/5/6 code paths
 - current branch context already points at app-refinement-from-suggested-skills, so these docs are intended to be the immediate implementation guide for the next modules
 
+### Module: phase 4 workflow execution state + observability compatibility slice
+
+Implemented the first code slice of Phase 4 so workflow execution can represent unresolved/manual/policy-blocked work without collapsing everything into the old completed-vs-partial model.
+
+#### Implemented
+- extended workflow step status modeling with:
+  - `paused_for_human`
+  - `blocked_by_policy`
+  - `waiting_for_event` (model-level support reserved for the next slice)
+- extended workflow execution results with:
+  - `unresolved_step_ids`
+  - `blocked_step_ids`
+  - `waiting_step_ids`
+  - `pause_step_ids`
+- changed `human_task` workflow steps from generic skipped placeholders to explicit paused/manual-work state
+- changed policy-blocked workflow steps to preserve structured blocked state instead of collapsing into generic failure only
+- preserved compatibility by still surfacing blocked steps in `failed_step_ids` for existing observability/API consumers
+
+#### Observability compatibility work
+- updated workflow failure listing, diagnostics, latest recovery, health summary, timeline, stats, and dashboard flows so `blocked_by_policy` participates in failure/recovery views
+- extended retry/recovery summary logic so unresolved states beyond plain `partial` do not break operator-facing contracts
+- updated timeline model contracts so non-legacy execution states can serialize through API responses safely
+
+#### Validation
+- focused workflow executor / diagnostics / overview / dashboard regression slices re-run green during implementation
+- additional workflow API contract / stats / dashboard / execution-flow regression slice re-run green
+
+#### Notes
+- this round is the first Phase-4 compatibility slice, not the full Phase-4 deliverable yet
+- next Phase-4 slices should add first-class `data.*` and `context.*` workflow primitives plus explicit event-wait/resume linkage
+
 ### Module: executable skill adapter foundation + script skill generator v1
 
 Implemented the first working executable-skill/runtime/generator slice so generated script skills can now be scaffolded, registered, and executed through normal app workflow skill steps.

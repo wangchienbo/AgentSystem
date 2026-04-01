@@ -5,7 +5,7 @@ from typing import Literal, Any
 
 from pydantic import BaseModel, Field
 
-WorkflowStepStatus = Literal["completed", "skipped", "failed"]
+WorkflowStepStatus = Literal["completed", "skipped", "failed", "paused_for_human", "waiting_for_event", "blocked_by_policy"]
 
 
 class WorkflowStepExecution(BaseModel):
@@ -18,8 +18,8 @@ class WorkflowStepExecution(BaseModel):
 
 
 class WorkflowRetryComparison(BaseModel):
-    previous_status: Literal["completed", "partial"]
-    retried_status: Literal["completed", "partial"]
+    previous_status: Literal["completed", "partial", "paused_for_human", "waiting_for_event", "blocked_by_policy"]
+    retried_status: Literal["completed", "partial", "paused_for_human", "waiting_for_event", "blocked_by_policy"]
     previous_failed_step_ids: list[str] = Field(default_factory=list)
     retried_failed_step_ids: list[str] = Field(default_factory=list)
     resolved_failed_step_ids: list[str] = Field(default_factory=list)
@@ -32,11 +32,15 @@ class WorkflowExecutionResult(BaseModel):
     blueprint_id: str = Field(..., min_length=1)
     workflow_id: str = Field(..., min_length=1)
     trigger: str = Field(default="manual")
-    status: Literal["completed", "partial"] = "completed"
+    status: Literal["completed", "partial", "paused_for_human", "waiting_for_event", "blocked_by_policy"] = "completed"
     outputs: dict[str, Any] = Field(default_factory=dict)
     steps: list[WorkflowStepExecution] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     failed_step_ids: list[str] = Field(default_factory=list)
+    unresolved_step_ids: list[str] = Field(default_factory=list)
+    blocked_step_ids: list[str] = Field(default_factory=list)
+    waiting_step_ids: list[str] = Field(default_factory=list)
+    pause_step_ids: list[str] = Field(default_factory=list)
     retry_of_completed_at: datetime | None = None
     retry_comparison: WorkflowRetryComparison | None = None

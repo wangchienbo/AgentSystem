@@ -200,6 +200,20 @@ Phase 4 is complete when:
 - observability surfaces explain unresolved work clearly
 - tests cover service + API + golden-path execution behavior
 
+### 8.1 First implemented slice (completed in this round)
+
+This round delivers the first Phase-4 slice:
+- workflow step/execution-state contract now includes `paused_for_human`, `blocked_by_policy`, and supporting unresolved/blocking step ids
+- human-task workflow steps no longer degrade into generic skipped placeholders; they surface as explicit paused/manual work
+- policy-blocked workflow steps now remain visible through failure, diagnostics, recovery, overview, timeline, and dashboard reads
+- retry/recovery and observability compatibility was extended so the new unresolved states do not break existing operator/API contracts
+
+Still pending for later Phase-4 slices:
+- first-class `data.read/write/list` primitives (separate from legacy `state.*` naming)
+- first-class `context.append/set_goal/set_stage` workflow primitives
+- explicit `waiting_for_event` execution path with resume linkage
+- richer data/context mutation trace summaries
+
 ---
 
 ## 9. Recommended implementation order

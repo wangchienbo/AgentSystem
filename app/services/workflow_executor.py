@@ -134,7 +134,22 @@ class WorkflowExecutorService:
                 tags=["workflow", "result"],
             )
 
-        execution_status = "completed" if all(step.status == "completed" for step in steps) else "partial"
+        blocked_step_ids = [step.step_id for step in steps if step.status == "blocked_by_policy"]
+        waiting_step_ids = [step.step_id for step in steps if step.status == "waiting_for_event"]
+        pause_step_ids = [step.step_id for step in steps if step.status == "paused_for_human"]
+        failed_step_ids = [step.step_id for step in steps if step.status in {"failed", "blocked_by_policy"}]
+        unresolved_step_ids = [step.step_id for step in steps if step.status in {"failed", "blocked_by_policy", "waiting_for_event", "paused_for_human"}]
+
+        if blocked_step_ids:
+            execution_status = "blocked_by_policy"
+        elif waiting_step_ids:
+            execution_status = "waiting_for_event"
+        elif pause_step_ids:
+            execution_status = "paused_for_human"
+        elif all(step.status == "completed" for step in steps):
+            execution_status = "completed"
+        else:
+            execution_status = "partial"
         result_record = self._data_store.put_record(
             namespace_id=f"{app_instance_id}:runtime_state",
             key=f"workflow_execution:{workflow.id}",
@@ -143,6 +158,11 @@ class WorkflowExecutorService:
                 "trigger": trigger,
                 "status": execution_status,
                 "steps": [step.model_dump(mode="json") for step in steps],
+                "failed_step_ids": failed_step_ids,
+                "unresolved_step_ids": unresolved_step_ids,
+                "blocked_step_ids": blocked_step_ids,
+                "waiting_step_ids": waiting_step_ids,
+                "pause_step_ids": pause_step_ids,
             },
             tags=["workflow", "execution", workflow.id],
         )
@@ -167,7 +187,11 @@ class WorkflowExecutorService:
             outputs=workflow_outputs,
             steps=steps,
             completed_at=completed_at,
-            failed_step_ids=[step.step_id for step in steps if step.status == "failed"],
+            failed_step_ids=failed_step_ids,
+            unresolved_step_ids=unresolved_step_ids,
+            blocked_step_ids=blocked_step_ids,
+            waiting_step_ids=waiting_step_ids,
+            pause_step_ids=pause_step_ids,
         )
         self._history.append(result)
         self._persist_history()
@@ -206,7 +230,7 @@ class WorkflowExecutorService:
         if self._context_compaction is not None:
             if previous_stage is not None and previous_stage != f"workflow:{workflow.id}" and self._context_compaction.should_compact(app_instance_id, "stage_change"):
                 self._context_compaction.compact(app_instance_id, reason="stage_change")
-            event_name = "workflow_failure" if result.status == "partial" and any(step.status == "failed" for step in result.steps) else "workflow_complete"
+            event_name = "workflow_failure" if result.status in {"partial", "blocked_by_policy"} and any(step.status in {"failed", "blocked_by_policy"} for step in result.steps) else "workflow_complete"
             if self._context_compaction.should_compact(app_instance_id, event_name):
                 self._context_compaction.compact(app_instance_id, reason=event_name)
         return result
@@ -239,7 +263,7 @@ class WorkflowExecutorService:
                     step_id=step_id,
                     ref=ref,
                     kind=kind,
-                    status="failed",
+                    status="blocked_by_policy",
                     detail={"reason": str(error), "ref": ref, "kind": kind, "policy_blocked": True},
                     output={},
                 )
@@ -316,7 +340,7 @@ class WorkflowExecutorService:
                     step_id=step_id,
                     ref=ref,
                     kind=kind,
-                    status="failed",
+                    status="blocked_by_policy",
                     detail={"reason": "prompt invocation requires user approval", "policy_blocked": True},
                     output={},
                 )
@@ -384,12 +408,29 @@ class WorkflowExecutorService:
                 step_id=step_id,
                 ref=ref,
                 kind=kind,
-                status="skipped",
-                detail={"reason": "human task placeholder", "ref": ref},
-                output={"placeholder": "human_task", "ref": ref},
+                status="paused_for_human",
+                detail={"reason": "human task requires manual action", "ref": ref, "manual_action_required": True},
+                output={"placeholder": "human_task", "ref": ref, "manual_action_required": True},
             )
 
         if kind == "skill":
+            if ref not in blueprint.required_skills:
+                if self._context_store is not None:
+                    self._context_store.append_entry(
+                        app_instance_id,
+                        section="constraints",
+                        key=f"skill-policy:{step_id}",
+                        value={"ref": ref, "kind": kind, "status": "blocked", "reason": "skill not declared in blueprint"},
+                        tags=["workflow", "policy", "skill-step"],
+                    )
+                return WorkflowStepExecution(
+                    step_id=step_id,
+                    ref=ref,
+                    kind=kind,
+                    status="blocked_by_policy",
+                    detail={"reason": "skill not declared in blueprint", "ref": ref, "kind": kind, "policy_blocked": True},
+                    output={},
+                )
             if self._skill_runtime is None:
                 if self._context_store is not None:
                     self._context_store.append_entry(
@@ -500,11 +541,16 @@ class WorkflowExecutorService:
 
     def list_recent_failures(self, app_instance_id: str | None = None) -> list[WorkflowExecutionResult]:
         history = self.list_history(app_instance_id)
-        return [item for item in history if item.status == "partial" and any(step.status == "failed" for step in item.steps)]
+        return [
+            item
+            for item in history
+            if item.status in {"partial", "blocked_by_policy"}
+            and any(step.status in {"failed", "blocked_by_policy"} for step in item.steps)
+        ]
 
     def retry_last_failure(self, app_instance_id: str) -> WorkflowExecutionResult:
         history = self.list_history(app_instance_id)
-        retry_candidates = [item for item in history if item.status == "partial"]
+        retry_candidates = [item for item in history if item.status in {"partial", "blocked_by_policy", "paused_for_human", "waiting_for_event"}]
         if not retry_candidates:
             raise WorkflowExecutorError(f"No failed workflow execution found for app instance: {app_instance_id}")
         last = retry_candidates[-1]
