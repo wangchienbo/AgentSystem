@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import subprocess
 from typing import Callable
 
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
@@ -11,6 +9,7 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.schema_registry import SchemaRegistryError, SchemaRegistryService
 from app.services.model_client import ModelClientError
 from app.services.telemetry_service import TelemetryService
+from app.services.executable_skill_adapter import ExecutableSkillAdapter, ExecutableSkillAdapterError
 
 SkillHandler = Callable[[SkillExecutionRequest], SkillExecutionResult]
 
@@ -36,6 +35,7 @@ class SkillRuntimeService:
         self._schema_registry = schema_registry
         self._telemetry_service = telemetry_service
         self._executions: dict[str, SkillExecutionResult] = {}
+        self._executable_adapter = ExecutableSkillAdapter()
 
     def register_handler(self, skill_id: str, handler: SkillHandler, entry: SkillRegistryEntry | None = None) -> None:
         self._handlers[skill_id] = handler
@@ -43,16 +43,16 @@ class SkillRuntimeService:
             self._entries[skill_id] = entry
 
     def execute(self, request: SkillExecutionRequest) -> SkillExecutionResult:
-        if request.skill_id not in self._handlers:
-            raise SkillRuntimeError(f"Skill handler not found: {request.skill_id}")
         entry = self._entries.get(request.skill_id)
         adapter_kind = entry.runtime_adapter if entry is not None else "callable"
-        if adapter_kind not in {"callable", "script"}:
+        if adapter_kind not in {"callable", "script", "executable"}:
             raise SkillRuntimeError(f"Unsupported skill runtime adapter: {adapter_kind}")
+        if adapter_kind == "callable" and request.skill_id not in self._handlers:
+            raise SkillRuntimeError(f"Skill handler not found: {request.skill_id}")
         try:
             self._validate_request_contract(request, entry)
-            if adapter_kind == "script":
-                result = self._execute_script(request)
+            if adapter_kind in {"script", "executable"}:
+                result = self._executable_adapter.execute(entry, request) if entry is not None else self._execute_script(request)
             else:
                 result = self._handlers[request.skill_id](request)
             self._validate_result_contract(result, entry)
@@ -79,6 +79,20 @@ class SkillRuntimeService:
                     "message": str(error),
                     "retryable": error.retryable,
                     "status_code": error.status_code,
+                },
+            )
+        except ExecutableSkillAdapterError as error:
+            result = SkillExecutionResult(
+                skill_id=request.skill_id,
+                status="failed",
+                output={},
+                error=str(error),
+                error_detail={
+                    "kind": "executable_adapter_error",
+                    "subkind": error.kind,
+                    "message": str(error),
+                    "retryable": False,
+                    **error.detail,
                 },
             )
         except Exception as error:  # noqa: BLE001

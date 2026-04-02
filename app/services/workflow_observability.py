@@ -47,7 +47,7 @@ class WorkflowObservabilityService:
             )
         )
         latest_execution = max(history, key=lambda item: item.completed_at) if history else None
-        failures = [item for item in history if item.status == "partial" and item.failed_step_ids]
+        failures = [item for item in history if item.status in {"partial", "blocked_by_policy"} and item.failed_step_ids]
         latest_failure = max(failures, key=lambda item: item.completed_at) if failures else None
         retries = [item for item in history if item.retry_comparison is not None]
         latest_retry = max(retries, key=lambda item: item.completed_at) if retries else None
@@ -55,8 +55,8 @@ class WorkflowObservabilityService:
         if latest_retry is not None and latest_retry.retry_comparison is not None:
             comparison = latest_retry.retry_comparison
             recovery_state = WorkflowRecoveryState(
-                recovered=comparison.previous_status == "partial" and comparison.retried_status == "completed",
-                still_failing=comparison.retried_status == "partial",
+                recovered=comparison.previous_status in {"partial", "blocked_by_policy", "paused_for_human", "waiting_for_event"} and comparison.retried_status == "completed",
+                still_failing=comparison.retried_status in {"partial", "blocked_by_policy", "paused_for_human", "waiting_for_event"},
                 resolved_failed_step_ids=list(comparison.resolved_failed_step_ids),
                 unchanged_failed_step_ids=list(comparison.unchanged_failed_step_ids),
                 newly_failed_step_ids=list(comparison.newly_failed_step_ids),
@@ -84,8 +84,8 @@ class WorkflowObservabilityService:
             workflow_id=latest_retry.workflow_id,
             retried_at=latest_retry.completed_at.isoformat(),
             retry_of_completed_at=None if latest_retry.retry_of_completed_at is None else latest_retry.retry_of_completed_at.isoformat(),
-            recovered=comparison.previous_status == "partial" and comparison.retried_status == "completed",
-            still_failing=comparison.retried_status == "partial",
+            recovered=comparison.previous_status in {"partial", "blocked_by_policy", "paused_for_human", "waiting_for_event"} and comparison.retried_status == "completed",
+            still_failing=comparison.retried_status in {"partial", "blocked_by_policy", "paused_for_human", "waiting_for_event"},
             previous_failed_step_ids=list(comparison.previous_failed_step_ids),
             retried_failed_step_ids=list(comparison.retried_failed_step_ids),
             resolved_failed_step_ids=list(comparison.resolved_failed_step_ids),
@@ -223,13 +223,13 @@ class WorkflowObservabilityService:
             )
         )
         latest_event_at = history[0].completed_at.isoformat() if history else None
-        total_failures = sum(1 for item in history if item.status == "partial" and item.failed_step_ids)
+        total_failures = sum(1 for item in history if item.status in {"partial", "blocked_by_policy"} and item.failed_step_ids)
         total_retries = sum(1 for item in history if item.retry_comparison is not None)
         total_recoveries = sum(
             1
             for item in history
             if item.retry_comparison is not None
-            and item.retry_comparison.previous_status == "partial"
+            and item.retry_comparison.previous_status in {"partial", "blocked_by_policy", "paused_for_human", "waiting_for_event"}
             and item.retry_comparison.retried_status == "completed"
         )
         total_completed = sum(1 for item in history if item.status == "completed")
@@ -301,22 +301,22 @@ class WorkflowObservabilityService:
         )
 
     def _is_unresolved(self, item: WorkflowExecutionResult) -> bool:
-        if item.status == "partial" and item.failed_step_ids:
+        if item.status in {"partial", "blocked_by_policy"} and item.failed_step_ids:
             return True
         comparison = item.retry_comparison
         if comparison is None:
             return False
-        return comparison.retried_status == "partial" and bool(
+        return comparison.retried_status in {"partial", "blocked_by_policy", "paused_for_human", "waiting_for_event"} and bool(
             comparison.unchanged_failed_step_ids or comparison.newly_failed_step_ids
         )
 
     def _classify_timeline_event_kind(self, item: WorkflowExecutionResult) -> Literal["failure", "retry", "recovery", "completed", "partial"]:
         comparison = item.retry_comparison
-        if comparison is not None and comparison.previous_status == "partial" and comparison.retried_status == "completed":
+        if comparison is not None and comparison.previous_status in {"partial", "blocked_by_policy", "paused_for_human", "waiting_for_event"} and comparison.retried_status == "completed":
             return "recovery"
         if comparison is not None:
             return "retry"
-        if item.status == "partial" and item.failed_step_ids:
+        if item.status in {"partial", "blocked_by_policy"} and item.failed_step_ids:
             return "failure"
         if item.status == "completed":
             return "completed"

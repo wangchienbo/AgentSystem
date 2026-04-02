@@ -1,5 +1,247 @@
 # Development Log
 
+## 2026-04-01
+
+### Module: phase 4/5/6 executable roadmap documentation
+
+Converted the previously implicit “what comes next” discussion into three concrete implementation-phase design documents so the next development rounds can be executed as planned modules instead of ad-hoc follow-up work.
+
+#### Added
+- `docs/phase-4-workflow-execution-enhancement.md`
+  - defines workflow primitive expansion, richer execution-state contracts, recovery semantics, and manual/event-wait handling
+- `docs/phase-5-refinement-and-assembly-closure.md`
+  - defines the one-call suggested-skill -> materialize -> assemble -> install/run refinement closure
+- `docs/phase-6-governance-persistence-and-layered-context.md`
+  - defines the next governance, persistence, and layered-context implementation phase
+
+#### Updated docs
+- `docs/requirements.md`
+  - links near-term roadmap gaps to explicit Phase 4/5/6 documents
+- `docs/design.md`
+  - links near-term design gaps to explicit Phase 4/5/6 documents
+- `docs/testing.md`
+  - aligns next testing priorities with the same phase roadmap
+
+#### Notes
+- this step is an execution-planning/documentation deliverable only; it intentionally does not yet implement the Phase 4/5/6 code paths
+- current branch context already points at app-refinement-from-suggested-skills, so these docs are intended to be the immediate implementation guide for the next modules
+
+### Module: phase 4 workflow execution state + observability compatibility slice
+
+Implemented the first code slice of Phase 4 so workflow execution can represent unresolved/manual/policy-blocked work without collapsing everything into the old completed-vs-partial model.
+
+#### Implemented
+- extended workflow step status modeling with:
+  - `paused_for_human`
+  - `blocked_by_policy`
+  - `waiting_for_event` (model-level support reserved for the next slice)
+- extended workflow execution results with:
+  - `unresolved_step_ids`
+  - `blocked_step_ids`
+  - `waiting_step_ids`
+  - `pause_step_ids`
+- changed `human_task` workflow steps from generic skipped placeholders to explicit paused/manual-work state
+- changed policy-blocked workflow steps to preserve structured blocked state instead of collapsing into generic failure only
+- preserved compatibility by still surfacing blocked steps in `failed_step_ids` for existing observability/API consumers
+
+#### Observability compatibility work
+- updated workflow failure listing, diagnostics, latest recovery, health summary, timeline, stats, and dashboard flows so `blocked_by_policy` participates in failure/recovery views
+- extended retry/recovery summary logic so unresolved states beyond plain `partial` do not break operator-facing contracts
+- updated timeline model contracts so non-legacy execution states can serialize through API responses safely
+
+#### Validation
+- focused workflow executor / diagnostics / overview / dashboard regression slices re-run green during implementation
+- additional workflow API contract / stats / dashboard / execution-flow regression slice re-run green
+
+#### Notes
+- this round is the first Phase-4 compatibility slice, not the full Phase-4 deliverable yet
+- next Phase-4 slices should add first-class `data.*` and `context.*` workflow primitives plus explicit event-wait/resume linkage
+
+### Module: phase 4 workflow data/context/control primitives + interrupted resume path
+
+Extended the Phase-4 workflow execution work beyond the initial state/observability compatibility slice.
+
+#### Implemented
+- workflow data primitives:
+  - `data.write`
+  - `data.read`
+  - `data.list`
+- workflow context primitives:
+  - `context.append`
+  - `context.set_goal`
+  - `context.set_stage`
+- workflow control / wait primitives:
+  - `workflow.pause_for_human`
+  - `workflow.wait_for_event`
+  - `workflow.fail`
+  - `workflow.complete`
+- interrupted-workflow resume support:
+  - new `resume_last_interrupted()` service path
+  - new `/apps/{app_instance_id}/workflows/resume-last-interrupted` API
+  - paused/waiting executions now reuse recovery comparison metadata on resume
+
+#### Validation
+- `tests/unit/test_workflow_executor_phase4_primitives.py` green
+- `tests/unit/test_workflow_executor_phase4_control.py` green
+- `tests/unit/test_workflow_resume_phase4.py` green
+- previously-added workflow diagnostics / overview / dashboard compatibility regression slices remained green during Phase-4 follow-up work
+
+#### Notes
+- Phase 4 is now substantially implemented at the workflow contract layer
+- remaining future improvement areas are mostly about richer mutation summaries and more selective resume/event-continuation semantics rather than missing core workflow primitives
+
+### Module: phase 5 suggested-skill refinement closure slice
+
+Implemented the first executable Phase-5 closure path so suggested skill blueprints can flow through materialization, app assembly, candidate registration, and optional validation from one API call.
+
+#### Implemented
+- new `AppRefinementOrchestratorService`
+- new `SuggestedSkillRefinementClosureRequest/Result` models
+- new `/apps/refine-from-suggested-skills/closure` API
+- closure path now performs:
+  - select suggested skill blueprints
+  - materialize missing skills through existing skill factory flow
+  - assemble refined app blueprint
+  - register the blueprint
+  - create a draft candidate release record
+  - optionally install the refined candidate
+  - optionally execute the generated workflow as a smoke/validation run
+- closure response exposes materialized/reused skill ids, release metadata, compare summary, optional install result, optional execution result, and structured execution diagnostics
+
+#### Validation
+- `tests/unit/test_phase5_refinement_closure.py` green
+- both materialize+assemble and install+run closure paths validated
+
+#### Notes
+- this is the first Phase-5 executable closure slice, not every future governance/reporting enhancement described in the design doc
+- it is enough to treat suggested-skill refinement as a real end-to-end path instead of separate manual calls
+
+### Module: phase 6 governance, persistence health, and layered context slice
+
+Implemented the first executable Phase-6 slice to make governance boundaries, persistence health, and layered context retrieval more explicit and inspectable.
+
+#### Implemented
+- new authority-policy model/service:
+  - `AuthorityPolicyRecord`
+  - `PolicyAuthorityService`
+- scoped enforcement now supports:
+  - reviewer-required actions
+  - reviewer allowlists
+  - reason-required actions
+  - automatic-action disallow rules
+- authority enforcement integrated into:
+  - refined app closure orchestration (`generated_app_assembly` scope)
+  - app release activation (`app_activate` scope)
+  - app rollback (`app_rollback` scope)
+- new persistence-health model/service:
+  - `PersistenceHealthSummary`
+  - `PersistenceHealthService`
+  - reports runtime JSON inventory plus quarantined/corrupted files
+- new layered context retrieval service:
+  - prompt-ready context read model built from working set + compact summary
+  - detail-ref retrieval for deeper inspection
+- new operator/API surfaces:
+  - `/policy-authority`
+  - `/persistence/health`
+  - `/context/prompt-ready`
+  - `/context/detail-refs`
+
+#### Validation
+- `tests/unit/test_phase6_governance_and_context.py` green
+- authority enforcement, corrupted-file visibility, layered context retrieval, and API reads validated
+
+#### Notes
+- this round establishes the executable Phase-6 substrate rather than every eventual governance/dashboard extension
+- file-based persistence remains the active backend, but runtime health and corrupted-state visibility are now first-class
+
+### Module: executable skill adapter hardening + generated scaffold contract split
+
+Extended the first executable-skill/runtime/generator slice so the process adapter exposes more actionable failure semantics and generated skill scaffolds now carry separate request/result/error contracts.
+
+#### Updated runtime behavior
+- `app/services/executable_skill_adapter.py`
+  - now uses manifest-declared timeout instead of a hidden fixed timeout
+  - now emits structured subkinds for common executable failure classes:
+    - `entrypoint_missing`
+    - `timeout`
+    - `non_zero_exit`
+    - `invalid_json`
+    - `invalid_result_payload`
+    - `skill_id_mismatch`
+  - now preserves stdout/stderr previews and return-code details for runtime diagnostics
+- `app/services/skill_runtime.py`
+  - now preserves executable adapter `subkind` and structured diagnostic detail in runtime failure envelopes
+
+#### Updated generated-skill scaffolding
+- `app/services/generated_skill_asset_store.py`
+  - now emits `input.schema.json`, `output.schema.json`, and `error.schema.json` instead of one shared schema file
+  - now writes richer manifest contract refs pointing at those concrete schema assets
+  - now writes richer README and smoke-test output expectations
+  - now tags generated scaffolds with template/source metadata for later governance and inspection
+- `app/services/script_skill_generator.py`
+  - now preserves manifest risk metadata on generated registry entries
+  - now marks generated executable skills with `origin=generated`
+
+#### Tests
+- `tests/unit/test_executable_skill_adapter.py`
+  - expanded with entrypoint-missing, timeout, non-zero-exit stderr detail, invalid-json subkind, and skill-id-mismatch coverage
+- `tests/unit/test_script_skill_generator.py`
+  - expanded with scaffold contract-file coverage and schema-registry contract validation coverage
+- `docs/testing-detail.md`
+  - aligned executable/generator expectations with the richer runtime and scaffold contract behavior
+
+#### Validation
+- focused pytest slice re-run for executable adapter + generator + generated executable app-flow coverage in the project virtualenv
+
+### Module: executable/generated manifest gate completion
+
+Finished the remaining install-time governance slice for executable/generated skills so the package gate now validates concrete entrypoint metadata instead of relying only on runtime failure handling.
+
+#### Updated
+- `app/models/generated_skill.py`
+  - `GeneratedSkillAsset` now exposes dedicated input/output/error schema paths
+- `app/services/generated_skill_asset_store.py`
+  - now returns explicit schema-asset paths in generated asset metadata
+- `app/services/skill_manifest_validator.py`
+  - now validates executable/script entry metadata more strictly:
+    - executable entry must be non-empty
+    - executable entrypoint must exist
+    - timeout must remain sane (`>= 1`)
+  - keeps schema-ref resolution checks when a schema registry is available
+- `tests/unit/test_skill_manifest_validator.py`
+  - expanded with empty-entry and missing-entrypoint coverage
+- `tests/unit/test_generated_executable_skill_app_flow.py`
+  - now exercises generated executable skill flow with schema registry contract registration in place
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_manifest_validator.py tests/unit/test_executable_skill_adapter.py tests/unit/test_script_skill_generator.py tests/unit/test_generated_executable_skill_app_flow.py`
+- result: `19 passed`
+
+### Module: executable skill adapter and generator planning
+
+Produced a concrete development plan for the next platform phase: governed executable skill runtime support plus a script-skill generator that integrates with normal skill/app management instead of bypassing it.
+
+#### Added
+- `docs/executable-skill-plan.md`
+  - defines the executable skill runtime contract
+  - defines JSON stdin/stdout invocation protocol
+  - defines registry/runtime/app-management integration expectations
+  - defines the phased Script Skill Generator v1 roadmap
+
+#### Updated docs
+- `docs/requirements.md`
+  - records executable-skill and script-skill-generator requirements tied to app management compatibility
+- `docs/design.md`
+  - documents executable skills as a runtime-adapter concern rather than an app-only primitive
+- `docs/testing.md`
+  - adds adapter and generator testing expectations
+- `docs/testing-detail.md`
+  - adds implementation-focused executable adapter / generator validation cases
+
+#### Notes
+- This step is a design-and-planning deliverable intended to de-risk the next development phase before code changes begin.
+
+
 ## 2026-03-31
 
 ### Module: expanded prompt output contracts

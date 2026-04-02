@@ -57,9 +57,9 @@ def classify_health(
     if recovery_state is not None and recovery_state.recovered:
         rule = HEALTH_RULES[0]
         return rule["health_status"], rule["severity"], rule["last_transition"]
-    if latest_execution.status == "partial" and latest_failed_step_ids:
+    if latest_execution.status in {"partial", "blocked_by_policy"} and latest_failed_step_ids:
         rule = HEALTH_RULES[1]
-        last_transition = "failure->retry-partial" if has_recent_retry else rule["last_transition"]
+        last_transition = "failure->retry-partial" if has_recent_retry else ("blocked_by_policy" if latest_execution.status == "blocked_by_policy" else rule["last_transition"])
         return rule["health_status"], rule["severity"], last_transition
     if latest_execution.status == "completed":
         rule = HEALTH_RULES[2]

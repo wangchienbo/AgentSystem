@@ -71,6 +71,11 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 - those richer signals should be structured and inspectable (empty text, very short text, expected-output satisfaction, workflow-success hint) rather than buried only inside one derived score
 - the same quality signals should flow into operator-facing replay/acceptance/archive summaries so review tooling can explain prompt quality regressions without reconstructing them from raw payloads
 - expected-output validation should cover a practical family of prompt-task shapes (JSON objects, slugs, markdown summaries, bullet lists, key/value text, approval decisions) so prompt-quality review can track more than one narrow output format
+- executable skills should be integrated as a runtime-adapter concern, not as a special app-only primitive: app/workflow layers continue referencing skills by `skill_id`, while runtime dispatch decides whether the skill is builtin-callable or process-executable
+- the executable-skill v1 contract should use a bounded JSON stdin/stdout protocol, manifest-declared entrypoint/runtime metadata, timeout governance, and structured runtime failure mapping (for example entrypoint missing / timeout / non-zero exit / invalid JSON / invalid result payload / skill-id mismatch) so generated script skills remain compatible with app management and review tooling
+- generated executable skills should enter the system through normal skill registry/runtime paths, then be consumable by app install/workflow execution without introducing a separate app-specific adapter layer
+- generated executable skill scaffolds should separate input/output/error contracts into distinct schema assets instead of collapsing them into one generic schema file, so registry validation, runtime envelope validation, and future review tooling can reason over request/result/error semantics independently
+- manifest validation for executable/generated skills should check more than command-prefix policy: the install-time package gate should also verify non-empty entry metadata, entrypoint existence, timeout sanity, and schema-ref resolvability when a schema registry is available
 - ranking should remain deterministic-first initially (query match + evidence type + priority + recency) before any future model-assisted reranking is introduced
 
 Network reachability and intelligence availability are separate concerns:
@@ -823,6 +828,11 @@ The next most important missing pieces are:
 - stronger permission and policy enforcement
 - durable production-grade persistence backends
 - layered context compaction and retrieval
+
+These gaps are now grouped into three execution phases:
+- **Phase 4**: workflow execution enhancement (`docs/phase-4-workflow-execution-enhancement.md`)
+- **Phase 5**: suggested-skill -> app refinement closure (`docs/phase-5-refinement-and-assembly-closure.md`)
+- **Phase 6**: governance, production persistence, and layered context (`docs/phase-6-governance-persistence-and-layered-context.md`)
 
 ## 13. Layered Context Architecture
 

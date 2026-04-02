@@ -168,10 +168,13 @@ def test_workflow_executor_supports_workflow_selection_and_placeholders(tmp_path
     )
 
     assert result.workflow_id == "wf.secondary"
-    assert result.status == "partial"
+    assert result.status == "paused_for_human"
     assert len(result.steps) == 2
-    assert all(step.status == "skipped" for step in result.steps)
+    assert result.steps[0].status == "paused_for_human"
+    assert result.steps[1].status == "skipped"
     assert result.failed_step_ids == []
+    assert result.pause_step_ids == ["ask.human"]
+    assert result.unresolved_step_ids == ["ask.human"]
     runtime_records = data_store.list_records(f"{install_result.app_instance_id}:runtime_state")
     assert any(item.key == "workflow_execution:wf.secondary" for item in runtime_records)
     context = context_store.get_context(install_result.app_instance_id)
@@ -406,9 +409,11 @@ def test_workflow_executor_blocks_prompt_invoke_without_user_approval(tmp_path: 
         workflow_id="wf.prompt.approval",
     )
 
-    assert result.status == "partial"
-    assert result.steps[0].status == "failed"
+    assert result.status == "blocked_by_policy"
+    assert result.steps[0].status == "blocked_by_policy"
     assert result.steps[0].detail["policy_blocked"] is True
+    assert result.blocked_step_ids == ["prompt.run"]
+    assert result.unresolved_step_ids == ["prompt.run"]
     events = executor._skill_risk_policy.list_events(skill_id="prompt.invoke")
     assert any(item.event_type == "approval_required" for item in events)
 
