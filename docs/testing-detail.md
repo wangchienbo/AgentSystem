@@ -293,7 +293,7 @@ requires_openai_auth = true
 - expected_output 契约应覆盖不止一种输出形态，至少包括 `json_object`、`slug_text`、`bullet_list`、`key_value`、`approval_decision`，并验证匹配/不匹配会进入 quality signals
 - executable skill adapter 应验证 JSON stdin/stdout 协议、entrypoint 缺失、超时、非零退出码、stderr/stdout 诊断、stdout 非 JSON、结果 payload 非法、skill_id 不匹配等失败映射行为
 - script skill generator 应验证生成目录包含 manifest/input.schema/output.schema/error.schema/entrypoint/smoke-test/README，并能被 registry/runtime/app installer 接入后通过 workflow skill step 执行
-- generated executable skill 的契约测试应验证 input/output/error schema 可被 schema registry 注册并用于 request/result 校验
+- generated executable skill 的契约测试应验证 input/output/error schema 可被 schema registry 注册并用于 request/result 校验；manifest validator 也应覆盖 entry 非空、entrypoint 存在、timeout 合法等安装前约束
 - 至少应有一条 generated executable skill 的 app-flow 测试：skill 生成并注册后，被 app blueprint 引用，安装后通过正常 skill step 执行成功
 
 ---

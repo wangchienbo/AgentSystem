@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from pathlib import Path
+
 import pytest
 
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
@@ -79,33 +81,59 @@ def test_manifest_validator_rejects_disallowed_script_command_prefix() -> None:
     entry = build_entry()
     entry.runtime_adapter = "script"
     entry.manifest.runtime_adapter = "script"
-    entry.manifest.adapter = SkillAdapterSpec(kind="script", command=["curl", "https://example.com"])
+    entry.manifest.adapter = SkillAdapterSpec(kind="script", command=["curl", "https://example.com"], entry="script.py")
 
     with pytest.raises(SkillManifestValidationError, match="command prefix not allowed"):
         validator.validate(entry)
 
 
-def test_manifest_validator_requires_shell_risk_opt_in_for_shell_scripts() -> None:
+def test_manifest_validator_requires_shell_risk_opt_in_for_shell_scripts(tmp_path: Path) -> None:
+    script_path = tmp_path / "script.sh"
+    script_path.write_text("#!/bin/sh\necho ok\n")
     validator = SkillManifestValidatorService()
     entry = build_entry()
     entry.runtime_adapter = "script"
     entry.manifest.runtime_adapter = "script"
-    entry.manifest.adapter = SkillAdapterSpec(kind="script", command=["bash", "script.sh"])
+    entry.manifest.adapter = SkillAdapterSpec(kind="script", command=["bash", "script.sh"], entry=str(script_path))
     entry.manifest.risk = SkillManifestRisk(allow_shell=False)
 
     with pytest.raises(SkillManifestValidationError, match="require risk.allow_shell=true"):
         validator.validate(entry)
 
 
-def test_manifest_validator_accepts_shell_script_with_explicit_risk_opt_in() -> None:
+def test_manifest_validator_accepts_shell_script_with_explicit_risk_opt_in(tmp_path: Path) -> None:
+    script_path = tmp_path / "script.sh"
+    script_path.write_text("#!/bin/sh\necho ok\n")
     validator = SkillManifestValidatorService()
     entry = build_entry()
     entry.runtime_adapter = "script"
     entry.manifest.runtime_adapter = "script"
-    entry.manifest.adapter = SkillAdapterSpec(kind="script", command=["bash", "script.sh"])
+    entry.manifest.adapter = SkillAdapterSpec(kind="script", command=["bash", "script.sh"], entry=str(script_path))
     entry.manifest.risk = SkillManifestRisk(allow_shell=True, risk_level="R2_shell")
 
     validator.validate(entry)
+
+
+def test_manifest_validator_rejects_empty_executable_entry(tmp_path: Path) -> None:
+    validator = SkillManifestValidatorService()
+    entry = build_entry()
+    entry.runtime_adapter = "executable"
+    entry.manifest.runtime_adapter = "executable"
+    entry.manifest.adapter = SkillAdapterSpec(kind="executable", command=["python3"], entry="")
+
+    with pytest.raises(SkillManifestValidationError, match="entry must not be empty"):
+        validator.validate(entry)
+
+
+def test_manifest_validator_rejects_missing_executable_entrypoint(tmp_path: Path) -> None:
+    validator = SkillManifestValidatorService()
+    entry = build_entry()
+    entry.runtime_adapter = "executable"
+    entry.manifest.runtime_adapter = "executable"
+    entry.manifest.adapter = SkillAdapterSpec(kind="executable", command=["python3"], entry=str(tmp_path / "missing.py"))
+
+    with pytest.raises(SkillManifestValidationError, match="entrypoint not found"):
+        validator.validate(entry)
 
 
 def test_manifest_validator_rejects_missing_executable_entrypoint(tmp_path: Path) -> None:

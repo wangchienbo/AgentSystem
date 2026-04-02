@@ -193,6 +193,30 @@ Extended the first executable-skill/runtime/generator slice so the process adapt
 #### Validation
 - focused pytest slice re-run for executable adapter + generator + generated executable app-flow coverage in the project virtualenv
 
+### Module: executable/generated manifest gate completion
+
+Finished the remaining install-time governance slice for executable/generated skills so the package gate now validates concrete entrypoint metadata instead of relying only on runtime failure handling.
+
+#### Updated
+- `app/models/generated_skill.py`
+  - `GeneratedSkillAsset` now exposes dedicated input/output/error schema paths
+- `app/services/generated_skill_asset_store.py`
+  - now returns explicit schema-asset paths in generated asset metadata
+- `app/services/skill_manifest_validator.py`
+  - now validates executable/script entry metadata more strictly:
+    - executable entry must be non-empty
+    - executable entrypoint must exist
+    - timeout must remain sane (`>= 1`)
+  - keeps schema-ref resolution checks when a schema registry is available
+- `tests/unit/test_skill_manifest_validator.py`
+  - expanded with empty-entry and missing-entrypoint coverage
+- `tests/unit/test_generated_executable_skill_app_flow.py`
+  - now exercises generated executable skill flow with schema registry contract registration in place
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_manifest_validator.py tests/unit/test_executable_skill_adapter.py tests/unit/test_script_skill_generator.py tests/unit/test_generated_executable_skill_app_flow.py`
+- result: `19 passed`
+
 ### Module: executable skill adapter and generator planning
 
 Produced a concrete development plan for the next platform phase: governed executable skill runtime support plus a script-skill generator that integrates with normal skill/app management instead of bypassing it.

@@ -52,8 +52,12 @@ class SkillManifestValidatorService:
                 )
             if manifest.adapter.invocation_protocol not in {"", "json_stdio"}:
                 raise SkillManifestValidationError("Executable adapter invocation_protocol must be empty or json_stdio")
+            if manifest.adapter.timeout_seconds < 1:
+                raise SkillManifestValidationError("Executable adapter timeout_seconds must be >= 1")
             entrypoint = manifest.adapter.entry.strip()
-            if entrypoint and not Path(entrypoint).exists():
+            if not entrypoint:
+                raise SkillManifestValidationError("Executable adapter entry must not be empty")
+            if not Path(entrypoint).exists():
                 raise SkillManifestValidationError(f"Executable adapter entrypoint not found: {entrypoint}")
             if manifest.risk.allow_shell and command_head not in {"bash", "sh"}:
                 raise SkillManifestValidationError(
