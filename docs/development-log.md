@@ -154,39 +154,44 @@ Implemented the first executable Phase-6 slice to make governance boundaries, pe
 - this round establishes the executable Phase-6 substrate rather than every eventual governance/dashboard extension
 - file-based persistence remains the active backend, but runtime health and corrupted-state visibility are now first-class
 
-### Module: executable skill adapter foundation + script skill generator v1
+### Module: executable skill adapter hardening + generated scaffold contract split
 
-Implemented the first working executable-skill/runtime/generator slice so generated script skills can now be scaffolded, registered, and executed through normal app workflow skill steps.
+Extended the first executable-skill/runtime/generator slice so the process adapter exposes more actionable failure semantics and generated skill scaffolds now carry separate request/result/error contracts.
 
-#### Added
+#### Updated runtime behavior
 - `app/services/executable_skill_adapter.py`
-  - executes executable skills through a JSON stdin/stdout process contract
-- `app/models/generated_skill.py`
-  - defines generated-skill request and asset metadata models
-- `app/services/generated_skill_asset_store.py`
-  - creates generated skill scaffold directories with manifest/schema/entrypoint/README/smoke test
-- `app/services/script_skill_generator.py`
-  - generates and registers executable script skills through normal skill-control flows
-- `tests/unit/test_executable_skill_adapter.py`
-  - validates executable adapter happy path, runtime dispatch, and invalid-json failure mapping
-- `tests/unit/test_script_skill_generator.py`
-  - validates scaffold generation and generated skill runtime execution
-- `tests/unit/test_generated_executable_skill_app_flow.py`
-  - validates a generated executable skill can be referenced by an app and executed through a normal workflow skill step
-
-#### Updated
-- `app/models/skill_adapter.py`
-  - extends adapter metadata with invocation protocol and timeout
-- `app/services/skill_manifest_validator.py`
-  - validates executable/script adapter invocation metadata
+  - now uses manifest-declared timeout instead of a hidden fixed timeout
+  - now emits structured subkinds for common executable failure classes:
+    - `entrypoint_missing`
+    - `timeout`
+    - `non_zero_exit`
+    - `invalid_json`
+    - `invalid_result_payload`
+    - `skill_id_mismatch`
+  - now preserves stdout/stderr previews and return-code details for runtime diagnostics
 - `app/services/skill_runtime.py`
-  - dispatches executable skills through the new executable adapter
-- `app/services/workflow_executor.py`
-  - hardens skill-step policy blocking for undeclared skills
+  - now preserves executable adapter `subkind` and structured diagnostic detail in runtime failure envelopes
+
+#### Updated generated-skill scaffolding
+- `app/services/generated_skill_asset_store.py`
+  - now emits `input.schema.json`, `output.schema.json`, and `error.schema.json` instead of one shared schema file
+  - now writes richer manifest contract refs pointing at those concrete schema assets
+  - now writes richer README and smoke-test output expectations
+  - now tags generated scaffolds with template/source metadata for later governance and inspection
+- `app/services/script_skill_generator.py`
+  - now preserves manifest risk metadata on generated registry entries
+  - now marks generated executable skills with `origin=generated`
+
+#### Tests
+- `tests/unit/test_executable_skill_adapter.py`
+  - expanded with entrypoint-missing, timeout, non-zero-exit stderr detail, invalid-json subkind, and skill-id-mismatch coverage
+- `tests/unit/test_script_skill_generator.py`
+  - expanded with scaffold contract-file coverage and schema-registry contract validation coverage
+- `docs/testing-detail.md`
+  - aligned executable/generator expectations with the richer runtime and scaffold contract behavior
 
 #### Validation
-- `python -m pytest -q tests/unit/test_executable_skill_adapter.py tests/unit/test_script_skill_generator.py tests/unit/test_generated_executable_skill_app_flow.py`
-- result: passing locally in the project virtualenv
+- focused pytest slice re-run for executable adapter + generator + generated executable app-flow coverage in the project virtualenv
 
 ### Module: executable skill adapter and generator planning
 
