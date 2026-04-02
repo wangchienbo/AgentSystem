@@ -101,6 +101,9 @@ class GeneratedSkillAssetStore:
             asset_dir=str(asset_dir),
             manifest_path=str(manifest_path),
             schema_path=str(input_schema_path),
+            input_schema_path=str(input_schema_path),
+            output_schema_path=str(output_schema_path),
+            error_schema_path=str(error_schema_path),
             entrypoint_path=str(entrypoint_path),
             readme_path=str(readme_path),
         )
