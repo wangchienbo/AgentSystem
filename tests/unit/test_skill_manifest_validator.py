@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
@@ -104,3 +106,19 @@ def test_manifest_validator_accepts_shell_script_with_explicit_risk_opt_in() -> 
     entry.manifest.risk = SkillManifestRisk(allow_shell=True, risk_level="R2_shell")
 
     validator.validate(entry)
+
+
+def test_manifest_validator_rejects_missing_executable_entrypoint(tmp_path: Path) -> None:
+    validator = SkillManifestValidatorService()
+    entry = build_entry()
+    entry.runtime_adapter = "executable"
+    entry.manifest.runtime_adapter = "executable"
+    entry.manifest.adapter = SkillAdapterSpec(
+        kind="executable",
+        command=["python3"],
+        entry=str(tmp_path / "missing.py"),
+        invocation_protocol="json_stdio",
+    )
+
+    with pytest.raises(SkillManifestValidationError, match="entrypoint not found"):
+        validator.validate(entry)
