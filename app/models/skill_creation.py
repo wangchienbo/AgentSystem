@@ -19,7 +19,7 @@ class SkillCreationRequest(BaseModel):
     skill_id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
     description: str = Field(default="")
-    adapter_kind: Literal["callable", "script"] = "script"
+    adapter_kind: Literal["callable", "script", "executable"] = "script"
     generation_operation: str = Field(default="")
     handler_entry: str = Field(default="")
     command: list[str] = Field(default_factory=list)
@@ -82,7 +82,7 @@ class GeneratedSkillVersionComparison(BaseModel):
 
 
 class BlueprintMaterializationRequest(BaseModel):
-    adapter_kind: Literal["callable", "script"] | None = None
+    adapter_kind: Literal["callable", "script", "executable"] | None = None
     generation_operation: str = Field(default="")
     handler_entry: str = Field(default="")
     description: str = Field(default="")
