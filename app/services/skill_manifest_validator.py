@@ -41,31 +41,33 @@ class SkillManifestValidatorService:
         if manifest.runtime_adapter == "callable" and not isinstance(manifest.adapter.entry, str):
             raise SkillManifestValidationError("Callable adapter entry must be a string")
         if manifest.runtime_adapter in {"script", "executable"}:
+            adapter_label = "Script" if manifest.runtime_adapter == "script" else "Executable"
             if not isinstance(manifest.adapter.command, list):
-                raise SkillManifestValidationError("Executable adapter command must be a list")
+                raise SkillManifestValidationError(f"{adapter_label} adapter command must be a list")
             if not manifest.adapter.command:
-                raise SkillManifestValidationError("Executable adapter command must not be empty")
+                raise SkillManifestValidationError(f"{adapter_label} adapter command must not be empty")
             command_head = manifest.adapter.command[0]
             if command_head not in ALLOWED_SCRIPT_COMMAND_PREFIXES:
                 raise SkillManifestValidationError(
-                    f"Executable adapter command prefix not allowed: {command_head}"
+                    f"{adapter_label} adapter command prefix not allowed: {command_head}"
                 )
             if manifest.adapter.invocation_protocol not in {"", "json_stdio"}:
-                raise SkillManifestValidationError("Executable adapter invocation_protocol must be empty or json_stdio")
+                raise SkillManifestValidationError(f"{adapter_label} adapter invocation_protocol must be empty or json_stdio")
             if manifest.adapter.timeout_seconds < 1:
-                raise SkillManifestValidationError("Executable adapter timeout_seconds must be >= 1")
-            entrypoint = manifest.adapter.entry.strip()
-            if not entrypoint:
-                raise SkillManifestValidationError("Executable adapter entry must not be empty")
-            if not Path(entrypoint).exists():
-                raise SkillManifestValidationError(f"Executable adapter entrypoint not found: {entrypoint}")
+                raise SkillManifestValidationError(f"{adapter_label} adapter timeout_seconds must be >= 1")
+            if manifest.runtime_adapter == "executable":
+                entrypoint = manifest.adapter.entry.strip()
+                if not entrypoint:
+                    raise SkillManifestValidationError("Executable adapter entry must not be empty")
+                if not Path(entrypoint).exists():
+                    raise SkillManifestValidationError(f"Executable adapter entrypoint not found: {entrypoint}")
             if manifest.risk.allow_shell and command_head not in {"bash", "sh"}:
                 raise SkillManifestValidationError(
-                    "allow_shell may only be set for shell-based executable adapters"
+                    f"allow_shell may only be set for shell-based {manifest.runtime_adapter} adapters"
                 )
             if command_head in {"bash", "sh"} and not manifest.risk.allow_shell:
                 raise SkillManifestValidationError(
-                    "Shell-based executable adapters require risk.allow_shell=true"
+                    f"Shell-based {manifest.runtime_adapter} adapters require risk.allow_shell=true"
                 )
         contract = manifest.contract
         if not isinstance(contract.input_schema_ref, str) or not isinstance(contract.output_schema_ref, str) or not isinstance(contract.error_schema_ref, str):
