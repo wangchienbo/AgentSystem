@@ -17,6 +17,7 @@ class SuggestedSkillRefinementRequest(BaseModel):
     skill_ids: list[str] = Field(default_factory=list)
     workflow_id: str = Field(default="wf.suggested.refinement")
     persist_missing_skills: bool = True
+    adapter_kind: str | None = None
 
 
 class SuggestedSkillRefinementResult(BaseModel):

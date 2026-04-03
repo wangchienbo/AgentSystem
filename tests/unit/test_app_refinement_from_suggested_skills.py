@@ -78,3 +78,54 @@ def test_skill_suggestion_service_can_feed_refinement_selection() -> None:
     result = suggestion.suggest(SkillSuggestionRequest(experience_id="exp.refine.001", persist=True))
     related = store.suggest_skills_for_experience("exp.refine.001")
     assert result.suggestion.skill_id in [item.skill_id for item in related]
+
+
+def test_app_refinement_closure_can_materialize_executable_skill_path() -> None:
+    review_install = client.post(
+        "/registry/apps/bp.workspace.assistant/install",
+        json={"user_id": "app-refine-exec-user"},
+    )
+    assert review_install.status_code == 200
+    app_instance_id = review_install.json()["app_instance_id"]
+
+    client.post(
+        "/events/publish",
+        json={
+            "event_name": "assistant.responded",
+            "source": "api-test",
+            "app_instance_id": app_instance_id,
+            "payload": {"kind": "reply"},
+        },
+    )
+    review_response = client.post(
+        "/practice/review",
+        json={"app_instance_id": app_instance_id},
+    )
+    experience_id = review_response.json()["experience"]["experience_id"]
+
+    suggestion_response = client.post(
+        "/skills/suggest-from-experience",
+        json={"experience_id": experience_id, "persist": True},
+    )
+    assert suggestion_response.status_code == 200
+
+    closure_response = client.post(
+        "/apps/refine-from-suggested-skills/closure",
+        json={
+            "blueprint_id": "bp.refined.exec.closure",
+            "name": "Executable Closure Refinement",
+            "goal": "assemble app refinement from suggested skills through executable path",
+            "experience_id": experience_id,
+            "workflow_id": "wf.refined.exec.closure",
+            "adapter_kind": "executable",
+            "version": "candidate-exec-1",
+            "note": "closure executable candidate",
+        },
+    )
+    assert closure_response.status_code == 200, closure_response.text
+    payload = closure_response.json()
+    assert payload["blueprint"]["id"] == "bp.refined.exec.closure"
+    assert payload["materialized_skill_ids"]
+    created = payload["created_skills"]
+    assert created
+    assert all(item["runtime_adapter"] == "executable" for item in created)

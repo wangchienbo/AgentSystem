@@ -7,4 +7,7 @@ config/model.local.json
 data/runtime/
 data/generated_callable_skills/
 data/test-*/
+# generated executable skill assets are core system assets; keep selected ones versioned
+!data/namespaces/
+!data/namespaces/generated_executable_skills/
 =*

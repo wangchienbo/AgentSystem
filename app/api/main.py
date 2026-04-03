@@ -531,8 +531,10 @@ def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterialization
     try:
         blueprint = experience_store.get_skill_blueprint(skill_id)
         safety_profile = blueprint.safety_profile or {}
-        effective_adapter_kind = request.adapter_kind or (
-            "callable" if safety_profile.get("prefer_callable_materialization") else "callable"
+        requested_adapter_kind = request.adapter_kind
+        effective_adapter_kind, governance_adjusted, governance_reason = skill_factory.choose_adapter_kind_for_blueprint(
+            blueprint,
+            requested_adapter_kind,
         )
         if (
             effective_adapter_kind == "script"
@@ -567,7 +569,8 @@ def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterialization
             output_schema=request.schemas.output,
             error_schema=request.schemas.error,
         )
-        creation_request.command = request.command
+        if request.command:
+            creation_request.command = request.command
         creation_request.tags = request.tags
         if (
             effective_adapter_kind == "script"
@@ -583,6 +586,10 @@ def materialize_skill_blueprint(skill_id: str, request: BlueprintMaterialization
         registered_skill = skill_control.get_skill(creation_result.skill_id)
         return {
             "skill_blueprint": blueprint.model_dump(mode="json"),
+            "requested_adapter_kind": requested_adapter_kind,
+            "selected_adapter_kind": effective_adapter_kind,
+            "governance_adjusted": governance_adjusted,
+            "governance_reason": governance_reason,
             "creation_request": creation_request.model_dump(mode="json"),
             "creation_result": creation_result.model_dump(mode="json"),
             "registered_skill": registered_skill.model_dump(mode="json"),

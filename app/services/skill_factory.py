@@ -16,7 +16,7 @@ from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_authoring import SkillAuthoringService
 from app.services.skill_risk_policy import SkillRiskPolicyService
-from app.services.skill_control import SkillControlService
+from app.services.skill_control import SkillControlService, SkillControlError
 from app.services.skill_runtime import SkillRuntimeService
 
 
@@ -85,11 +85,31 @@ class SkillFactoryService:
             "safety_profile": safety_profile,
         }
 
+    def choose_adapter_kind_for_blueprint(self, blueprint: SkillBlueprint, requested_adapter_kind: str | None = None) -> tuple[str, bool, str]:
+        safety_profile = blueprint.safety_profile or {}
+        requested = (requested_adapter_kind or "").strip()
+        if requested:
+            if requested == "executable":
+                if safety_profile.get("allow_shell") or safety_profile.get("allow_network"):
+                    return "callable", True, "governance_downgraded_executable_due_to_risk_profile"
+                return "executable", False, "requested_executable_allowed"
+            return requested, False, "requested_adapter_used"
+        if safety_profile.get("prefer_callable_materialization", False):
+            return "callable", False, "blueprint_prefers_callable_materialization"
+        if (
+            safety_profile.get("prefer_deterministic", True)
+            and safety_profile.get("prefer_local_only", False)
+            and not safety_profile.get("allow_network", False)
+            and not safety_profile.get("allow_shell", False)
+        ):
+            return "executable", False, "deterministic_local_blueprint_allows_executable"
+        return "callable", False, "default_callable_materialization"
+
     def build_creation_request_from_blueprint(
         self,
         blueprint: SkillBlueprint,
         *,
-        adapter_kind: str = "callable",
+        adapter_kind: str | None = "callable",
         generation_operation: str | None = None,
         handler_entry: str | None = None,
         description: str | None = None,
@@ -99,11 +119,12 @@ class SkillFactoryService:
         error_schema: dict | None = None,
     ) -> SkillCreationRequest:
         defaults = self.build_creation_defaults_from_blueprint(blueprint)
-        return SkillCreationRequest(
+        effective_adapter_kind, _adjusted, _reason = self.choose_adapter_kind_for_blueprint(blueprint, adapter_kind)
+        request = SkillCreationRequest(
             skill_id=blueprint.skill_id,
             name=blueprint.name,
             description=description or blueprint.goal,
-            adapter_kind=adapter_kind,
+            adapter_kind=effective_adapter_kind,
             capability_profile=defaults["capability_profile"],
             manifest_risk=defaults["manifest_risk"],
             generation_operation=generation_operation,
@@ -120,6 +141,9 @@ class SkillFactoryService:
                 },
             },
         )
+        if effective_adapter_kind == "executable" and not request.command:
+            request.command = ["python3"]
+        return request
 
     def revise_generated_skill(self, skill_id: str, request: GeneratedSkillRevisionRequest) -> GeneratedSkillRevisionResult:
         if self._generated_assets is None:
@@ -338,6 +362,63 @@ class SkillFactoryService:
                 ) from error
             self._skill_control.register(entry)
             self._skill_runtime.register_handler(request.skill_id, handler, entry=entry)
+            return entry
+        if request.adapter_kind == "executable":
+            if self._generated_assets is None:
+                raise SkillFactoryError("Executable skill creation requires generated asset storage")
+            from app.models.generated_skill import GeneratedSkillRequest
+            from app.models.skill_adapter import SkillAdapterSpec
+            from app.models.skill_control import SkillRegistryEntry, SkillVersion
+            from app.models.skill_manifest import SkillContractRef, SkillManifest
+            from app.services.generated_skill_asset_store import GeneratedSkillAssetStore as ExecutableAssetStore
+
+            data_store = getattr(self._generated_assets, "_data_store", None)
+            if data_store is None:
+                raise SkillFactoryError("Executable skill creation requires asset storage base dir")
+            executable_store = ExecutableAssetStore(base_dir=str(data_store.base_path / "generated_executable_skills"))
+            template_type = "text_transform"
+            if request.schemas.output.get("properties", {}).get("slug") is not None:
+                template_type = "slugify"
+            asset = executable_store.create_scaffold(
+                GeneratedSkillRequest(
+                    skill_id=request.skill_id,
+                    name=request.name,
+                    description=request.description,
+                    template_type=template_type,
+                )
+            )
+            entry = SkillRegistryEntry(
+                skill_id=request.skill_id,
+                name=request.name,
+                active_version="0.1.0",
+                versions=[SkillVersion(version="0.1.0", content=request.description or request.name)],
+                runtime_adapter="executable",
+                capability_profile=request.capability_profile,
+                origin="generated",
+                manifest=SkillManifest(
+                    skill_id=request.skill_id,
+                    name=request.name,
+                    version="0.1.0",
+                    description=request.description,
+                    runtime_adapter="executable",
+                    adapter=SkillAdapterSpec(
+                        kind="executable",
+                        command=["python3"],
+                        entry=asset.entrypoint_path,
+                        invocation_protocol="json_stdio",
+                        timeout_seconds=15,
+                    ),
+                    contract=SkillContractRef(
+                        input_schema_ref=schema_refs["input"],
+                        output_schema_ref=schema_refs["output"],
+                        error_schema_ref=schema_refs["error"],
+                    ),
+                    tags=request.tags,
+                    risk=request.manifest_risk,
+                ),
+            )
+            self._skill_control.register(entry)
+            self._skill_runtime.register_handler(request.skill_id, self._script_placeholder, entry=entry)
             return entry
         if not request.command:
             raise _diagnostic(

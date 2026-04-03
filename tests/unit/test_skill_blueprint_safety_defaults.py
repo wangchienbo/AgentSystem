@@ -82,4 +82,53 @@ def test_skill_factory_can_build_creation_request_from_blueprint(tmp_path) -> No
     assert request.capability_profile.risk_level == "R0_safe_read"
     assert request.capability_profile.execution_locality == "local"
     assert request.capability_profile.network_requirement == "N0_none"
-    assert request.generation_operation == "normalize_object_keys"
+    assert request.command == []
+
+
+def test_skill_factory_choose_adapter_kind_for_blueprint_can_select_executable_and_downgrade() -> None:
+    factory = SkillFactoryService(
+        skill_control=SkillControlService(),
+        skill_runtime=SkillRuntimeService(),
+        schema_registry=SchemaRegistryService(),
+    )
+    safe_blueprint = SkillBlueprint(
+        skill_id="skill.safe.exec",
+        name="Safe Exec Blueprint",
+        goal="deterministic local transformation",
+        inputs=["text"],
+        outputs=["text"],
+        steps=["transform text locally"],
+        safety_profile={
+            "preferred_risk_level": "R0_safe_read",
+            "prefer_local_only": True,
+            "prefer_deterministic": True,
+            "allow_network": False,
+            "allow_shell": False,
+            "allow_filesystem_write": False,
+        },
+    )
+    adapter, adjusted, reason = factory.choose_adapter_kind_for_blueprint(safe_blueprint, None)
+    assert adapter == "executable"
+    assert adjusted is False
+    assert reason == "deterministic_local_blueprint_allows_executable"
+
+    risky_blueprint = SkillBlueprint(
+        skill_id="skill.risky.exec",
+        name="Risky Exec Blueprint",
+        goal="networked or shell-backed work",
+        inputs=["text"],
+        outputs=["text"],
+        steps=["perform risky work"],
+        safety_profile={
+            "preferred_risk_level": "R2_shell",
+            "prefer_local_only": True,
+            "prefer_deterministic": True,
+            "allow_network": False,
+            "allow_shell": True,
+            "allow_filesystem_write": False,
+        },
+    )
+    adapter, adjusted, reason = factory.choose_adapter_kind_for_blueprint(risky_blueprint, "executable")
+    assert adapter == "callable"
+    assert adjusted is True
+    assert reason == "governance_downgraded_executable_due_to_risk_profile"

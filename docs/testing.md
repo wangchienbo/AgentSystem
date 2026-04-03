@@ -72,6 +72,8 @@ Used for lightweight client-level validation such as:
 - executable-skill adapter coverage for json-stdio invocation, timeout, invalid output, and stderr/error mapping
 - script-skill generator coverage for scaffold layout, manifest/schema generation, registry registration, and app install/workflow execution through generated executable skills
 - generated executable skill end-to-end coverage through normal app workflow skill steps
+- blueprint materialization safety-default / adapter-governance coverage, including executable materialization selection and suggested-skill executable closure paths
+- manifest validation separation coverage so script adapters are not rejected by executable-entrypoint rules while executable adapters still require concrete entry metadata
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

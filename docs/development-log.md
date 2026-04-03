@@ -217,6 +217,47 @@ Finished the remaining install-time governance slice for executable/generated sk
 - `./.venv/bin/pytest -q tests/unit/test_skill_manifest_validator.py tests/unit/test_executable_skill_adapter.py tests/unit/test_script_skill_generator.py tests/unit/test_generated_executable_skill_app_flow.py`
 - result: `19 passed`
 
+### Module: blueprint materialization + script manifest validation stabilization
+
+Closed a concrete regression cluster around generated-skill materialization after executable-path work tightened adapter validation. The breakage showed up as blueprint materialization failures, executable closure failures, and unrelated-looking `/skills/create` script API failures that were actually caused by validator cross-wiring.
+
+#### Fixed
+- `app/services/skill_factory.py`
+  - fixed executable generated-asset scaffold path resolution to use the real `AppDataStore.base_path`
+  - preserved conservative callable defaults in `build_creation_request_from_blueprint()` while still allowing explicit/governed executable selection
+  - kept executable blueprint materialization able to auto-populate the default `python3` command path when executable materialization is intentionally selected
+- `app/services/app_refinement.py`
+  - aligned suggested-skill refinement materialization with blueprint/governance adapter selection before creating missing skills
+  - preserved callable generation-operation behavior while allowing executable closure materialization paths to succeed
+- `app/services/skill_manifest_validator.py`
+  - split `script` and `executable` validation semantics correctly
+  - script adapters now require a valid command but do **not** require a non-empty filesystem entrypoint
+  - executable adapters continue to require both command and concrete entrypoint existence
+
+#### Regression symptoms resolved
+- `tests/unit/test_skill_blueprint_safety_defaults.py::test_skill_factory_can_build_creation_request_from_blueprint`
+- `tests/unit/test_skill_blueprint_materialization_api.py`
+- `tests/unit/test_app_refinement_from_suggested_skills.py`
+- `tests/unit/test_skill_factory_api.py` script-create/generated-app coverage that was failing with:
+  - `Executable adapter entry must not be empty`
+
+#### Validation
+- `./.venv/bin/pytest -q tests/unit/test_skill_blueprint_safety_defaults.py tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_app_refinement_from_suggested_skills.py`
+  - result: green
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py`
+  - result: green
+- `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py tests/unit/test_generated_callable_skill.py tests/unit/test_skill_blueprint_safety_defaults.py tests/unit/test_skill_blueprint_materialization_api.py tests/unit/test_app_refinement_from_suggested_skills.py`
+  - result: `28 passed`
+
+#### Notes
+- the root issue was not one isolated bug but two neighboring contract mistakes:
+  - executable generated-skill scaffolding used the wrong app-data-store path attribute
+  - manifest validation accidentally treated script adapters as executable adapters
+- this slice restores confidence that generated skill creation now behaves consistently across:
+  - direct `/skills/create` script flows
+  - blueprint materialization
+  - suggested-skill executable closure assembly
+
 ### Module: executable skill adapter and generator planning
 
 Produced a concrete development plan for the next platform phase: governed executable skill runtime support plus a script-skill generator that integrates with normal skill/app management instead of bypassing it.
