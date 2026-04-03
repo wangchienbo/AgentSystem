@@ -37,10 +37,15 @@ class AppRefinementService:
                 continue
             except SkillControlError:
                 pass
+            chosen_adapter, _adjusted, _reason = self._skill_factory.choose_adapter_kind_for_blueprint(
+                blueprint,
+                request.adapter_kind,
+            )
+            generation_operation = "normalize_object_keys" if chosen_adapter == "callable" else ""
             creation_request = self._skill_factory.build_creation_request_from_blueprint(
                 blueprint,
-                adapter_kind="callable",
-                generation_operation="normalize_object_keys",
+                adapter_kind=chosen_adapter,
+                generation_operation=generation_operation,
                 description=blueprint.goal,
             )
             created_skills.append(self._skill_factory.create_skill(creation_request))
