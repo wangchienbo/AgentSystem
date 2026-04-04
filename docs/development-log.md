@@ -1,5 +1,44 @@
 # Development Log
 
+## 2026-04-04
+
+### Module: file-based skill asset governance foundation
+
+Implemented the first formal skill-asset governance slice so generated executable skills are no longer just loose scaffolds under `data/`, but governed file-based assets with metadata, index state, and consistency checks.
+
+#### Implemented
+- added `app/models/skill_asset.py` with:
+  - asset metadata model
+  - asset index entry/model
+  - consistency result/issue models
+- added `app/services/skill_asset_service.py` with:
+  - candidate asset scaffold creation
+  - metadata.json generation
+  - asset index maintenance (`data/skill_assets/index.json`)
+  - candidate -> core promote flow
+  - rebuild-index support
+  - consistency checking for manifest/metadata/entrypoint/smoke-test presence and index alignment
+- rewired `app/services/generated_skill_asset_store.py` to use the governed file-asset service for generated executable skill scaffolds
+- added `docs/skill-asset-governance.md`
+- updated README + structure/testing docs to reference the new governance layer
+
+#### Validation
+- added `tests/unit/test_skill_asset_service.py`
+- validated:
+  - candidate asset creation writes metadata + index
+  - candidate promote to core works
+  - consistency checker detects missing smoke test
+- focused regression slice remained green:
+  - `test_skill_asset_service.py`
+  - `test_app_refinement_from_suggested_skills.py`
+  - `test_skill_blueprint_materialization_api.py`
+  - `test_skill_blueprint_safety_defaults.py`
+  - `test_generated_executable_skill_app_flow.py`
+
+#### Notes
+- this is the first asset-governance slice, not the full lifecycle implementation yet
+- generated executable assets still need deeper integration with refinement/materialization result metadata and operator-facing asset APIs in the next round
+
 ## 2026-04-01
 
 ### Module: phase 4/5/6 executable roadmap documentation

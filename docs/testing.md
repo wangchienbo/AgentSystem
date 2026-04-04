@@ -74,6 +74,7 @@ Used for lightweight client-level validation such as:
 - generated executable skill end-to-end coverage through normal app workflow skill steps
 - blueprint materialization safety-default / adapter-governance coverage, including executable materialization selection and suggested-skill executable closure paths
 - manifest validation separation coverage so script adapters are not rejected by executable-entrypoint rules while executable adapters still require concrete entry metadata
+- file-based skill asset governance coverage for candidate/core asset creation, asset index rebuild, promote flow, and consistency-check failure detection
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

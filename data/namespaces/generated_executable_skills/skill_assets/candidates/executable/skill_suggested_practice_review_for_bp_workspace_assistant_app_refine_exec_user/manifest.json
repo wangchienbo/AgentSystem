@@ -1,0 +1,33 @@
+{
+  "skill_id": "skill.suggested.practice.review.for.bp.workspace.assistant.app.refine.exec.user",
+  "name": "Review runtime practice for bp.workspace.assistant app assistant execution",
+  "version": "0.1.0",
+  "description": "Analyze recent runtime events, stored configuration records, and shared context for the long-running workspace assistant app to extract reusable optimization suggestions for skills or workflows.",
+  "runtime_adapter": "executable",
+  "adapter": {
+    "kind": "executable",
+    "command": [
+      "python3"
+    ],
+    "entry": "data/namespaces/generated_executable_skills/skill_assets/candidates/executable/skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user/main.py",
+    "invocation_protocol": "json_stdio",
+    "timeout_seconds": 15
+  },
+  "contract": {
+    "input_schema_ref": "data/namespaces/generated_executable_skills/skill_assets/candidates/executable/skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user/input.schema.json",
+    "output_schema_ref": "data/namespaces/generated_executable_skills/skill_assets/candidates/executable/skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user/output.schema.json",
+    "error_schema_ref": "data/namespaces/generated_executable_skills/skill_assets/candidates/executable/skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user/error.schema.json"
+  },
+  "tags": [
+    "generated",
+    "text_transform",
+    "template:text_transform",
+    "source:local_generator"
+  ],
+  "risk": {
+    "risk_level": "R1_local_write",
+    "allow_network": false,
+    "allow_filesystem_write": true,
+    "allow_shell": false
+  }
+}
