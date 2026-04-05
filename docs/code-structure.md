@@ -83,8 +83,11 @@ Read:
 1. `app/models/skill_control.py`
 2. `app/models/skill_manifest.py`
 3. `app/models/skill_adapter.py`
-4. `app/services/skill_manifest_validator.py`
-5. `app/services/skill_runtime.py`
+4. `app/models/skill_asset.py`
+5. `app/services/skill_manifest_validator.py`
+6. `app/services/skill_runtime.py`
+7. `app/services/skill_asset_service.py`
+8. `docs/skill-asset-governance.md`
 
 ## Planned telemetry / upgrade evidence layer
 

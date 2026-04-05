@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-04T09:17:19.162355+00:00",
+  "assets": [
+    {
+      "skill_id": "skill.suggested.practice.review.for.bp.workspace.assistant.app.refine.exec.user",
+      "asset_slug": "skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user",
+      "asset_status": "candidate",
+      "asset_origin": "generated",
+      "runtime_adapter": "executable",
+      "version": "0.1.0",
+      "content_maturity": "scaffold",
+      "path": "skill_assets/candidates/executable/skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user",
+      "manifest_path": "skill_assets/candidates/executable/skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user/manifest.json",
+      "metadata_path": "skill_assets/candidates/executable/skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user/metadata.json",
+      "accepted": false,
+      "accepted_at": null
+    },
+    {
+      "skill_id": "skill.blueprint.exec.allowed",
+      "asset_slug": "skill_blueprint_exec_allowed",
+      "asset_status": "candidate",
+      "asset_origin": "generated",
+      "runtime_adapter": "executable",
+      "version": "0.1.0",
+      "content_maturity": "scaffold",
+      "path": "skill_assets/candidates/executable/skill_blueprint_exec_allowed",
+      "manifest_path": "skill_assets/candidates/executable/skill_blueprint_exec_allowed/manifest.json",
+      "metadata_path": "skill_assets/candidates/executable/skill_blueprint_exec_allowed/metadata.json",
+      "accepted": false,
+      "accepted_at": null
+    }
+  ]
+}

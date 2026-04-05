@@ -1,5 +1,118 @@
 # Development Log
 
+## 2026-04-06
+
+### Module: refinement closure asset metadata exposure
+
+Extended the suggested-skill refinement/materialization flow so file-backed generated skill asset metadata is surfaced in creation results and closure responses, making operator-facing refinement output aware of persisted asset lifecycle state.
+
+#### Implemented
+- extended `SkillCreationResult` with file-asset metadata fields:
+  - `asset_status`
+  - `asset_origin`
+  - `content_maturity`
+  - `asset_path`
+  - `asset_metadata`
+- updated `SkillFactoryService` so generated skill creation resolves persisted `metadata.json` from the governed skill-asset filesystem after asset persistence
+- updated suggested-skill refinement closure output to include `materialized_assets`, exposing per-skill asset metadata alongside created skill ids
+- exposed additional lifecycle helpers on `GeneratedSkillAssetStore` for:
+  - archive
+  - restore archived -> candidate
+  - deprecate core asset
+- kept generated asset metadata aligned with the file-backed skill-asset index/state already introduced in the governance layer
+
+#### Validation
+- validated by inspecting the active refinement/materialization diff and confirming the closure/result contracts now propagate persisted asset metadata through the operator-facing response path
+- no dedicated new test file added in the current working diff yet
+
+#### Notes
+- this slice focuses on response/metadata visibility and store-surface alignment rather than introducing a new end-to-end lifecycle API
+- repository data fixtures/index entries under `data/namespaces/generated_executable_skills/skill_assets/` changed alongside the code path as part of exercising the generated asset flow
+
+## 2026-04-05
+
+### Module: skill asset lifecycle API closure and storage alignment
+
+Closed the operator-facing skill asset API slice so generated executable assets can now be listed and transitioned through candidate/core/deprecated/archived states via FastAPI endpoints backed by the real runtime store service.
+
+#### Implemented
+- added `/skill-assets` API endpoints in `app/api/main.py` for:
+  - list
+  - consistency check
+  - promote
+  - archive
+  - restore
+  - deprecate
+  - rebuild-index
+- aligned runtime wiring so the active `app/services/generated_skill_assets.py` store exposes the file-backed asset lifecycle methods expected by the API layer
+- fixed asset storage semantics in `app/services/skill_asset_service.py`:
+  - split `deprecated` assets into a dedicated filesystem root instead of aliasing them to `archived`
+  - updated deprecate flow to physically move `core -> deprecated`
+  - extended index rebuild to scan `deprecated` assets explicitly
+- kept the legacy/generated scaffold path working while exposing the new governance lifecycle through the API surface
+
+#### Validation
+- added `tests/unit/test_skill_asset_api.py`
+- test covers end-to-end API lifecycle:
+  - create skill scaffold
+  - list assets
+  - promote to core
+  - deprecate
+  - archive deprecated asset
+  - restore archived asset to candidate
+  - fetch consistency result
+- made the API test self-cleaning so repeated runs do not fail from leftover asset directories
+- focused regression slice re-run green:
+  - `test_generated_skill_persistence.py`
+  - `test_generated_skill_revision_service.py`
+  - `test_generated_skill_durability.py`
+  - `test_generated_callable_skill.py`
+  - `test_skill_factory_risk_gating.py`
+  - `test_skill_blueprint_safety_defaults.py`
+  - `test_skill_asset_api.py`
+
+#### Notes
+- there is still adjacent in-flight refinement work in the tree; this module specifically closes the skill-asset API/storage alignment slice and stabilizes its tests
+
+## 2026-04-04
+
+### Module: file-based skill asset governance foundation
+
+Implemented the first formal skill-asset governance slice so generated executable skills are no longer just loose scaffolds under `data/`, but governed file-based assets with metadata, index state, and consistency checks.
+
+#### Implemented
+- added `app/models/skill_asset.py` with:
+  - asset metadata model
+  - asset index entry/model
+  - consistency result/issue models
+- added `app/services/skill_asset_service.py` with:
+  - candidate asset scaffold creation
+  - metadata.json generation
+  - asset index maintenance (`data/skill_assets/index.json`)
+  - candidate -> core promote flow
+  - rebuild-index support
+  - consistency checking for manifest/metadata/entrypoint/smoke-test presence and index alignment
+- rewired `app/services/generated_skill_asset_store.py` to use the governed file-asset service for generated executable skill scaffolds
+- added `docs/skill-asset-governance.md`
+- updated README + structure/testing docs to reference the new governance layer
+
+#### Validation
+- added `tests/unit/test_skill_asset_service.py`
+- validated:
+  - candidate asset creation writes metadata + index
+  - candidate promote to core works
+  - consistency checker detects missing smoke test
+- focused regression slice remained green:
+  - `test_skill_asset_service.py`
+  - `test_app_refinement_from_suggested_skills.py`
+  - `test_skill_blueprint_materialization_api.py`
+  - `test_skill_blueprint_safety_defaults.py`
+  - `test_generated_executable_skill_app_flow.py`
+
+#### Notes
+- this is the first asset-governance slice, not the full lifecycle implementation yet
+- generated executable assets still need deeper integration with refinement/materialization result metadata and operator-facing asset APIs in the next round
+
 ## 2026-04-01
 
 ### Module: phase 4/5/6 executable roadmap documentation

@@ -37,6 +37,11 @@ class SkillCreationResult(BaseModel):
     schema_refs: dict[str, str] = Field(default_factory=dict)
     runtime_adapter: str
     smoke_test: SkillExecutionResult
+    asset_status: str | None = None
+    asset_origin: str | None = None
+    content_maturity: str | None = None
+    asset_path: str | None = None
+    asset_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class GeneratedSkillRevisionRequest(BaseModel):

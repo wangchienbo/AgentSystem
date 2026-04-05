@@ -45,6 +45,7 @@ See:
 - `docs/skill-design-principles.md` — canonical reference for future core-skill design
 - `docs/code-structure.md` — lightweight map of bootstrap/runtime/system-skill layout
 - `docs/system-relationship-map.md` — required co-maintained system map; update it whenever structural code, feature boundaries, shared contracts, or important tests change
+- `docs/skill-asset-governance.md` — file-based governance model for candidate/core/archived skill assets and their consistency rules
 - `docs/telemetry-and-upgrade-logging.md` — telemetry, feedback, collection levels, and append-only upgrade-evidence design
 - `docs/implementation-plan-telemetry.md` — phased implementation plan and requirement-reduction boundary for the telemetry/evolution layer
 - `docs/testing.md`

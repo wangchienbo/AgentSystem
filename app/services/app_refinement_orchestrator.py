@@ -99,6 +99,17 @@ class AppRefinementOrchestratorService:
             reused_skill_ids=refinement.reused_skill_ids,
             selected_blueprints=refinement.selected_blueprints,
             materialized_skill_ids=[item.skill_id for item in refinement.created_skills],
+            materialized_assets=[
+                {
+                    "skill_id": item.skill_id,
+                    "asset_status": item.asset_status,
+                    "asset_origin": item.asset_origin,
+                    "content_maturity": item.content_maturity,
+                    "asset_path": item.asset_path,
+                    "asset_metadata": item.asset_metadata,
+                }
+                for item in refinement.created_skills
+            ],
             release_entry=release_entry,
             install_result=install_result,
             execution_result=execution_result,
