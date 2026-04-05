@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from typing import Any
+from pathlib import Path
 
 from app.models.skill_creation import GeneratedSkillVersionComparison, SkillCreationRequest, SkillSchemaDefinition
 from app.models.skill_control import SkillRegistryEntry
 from app.services.app_data_store import AppDataStore
 from app.services.skill_authoring import SkillAuthoringService
+from app.services.skill_asset_service import SkillAssetService
+from app.models.generated_skill import GeneratedSkillAsset, GeneratedSkillRequest
 
 
 class GeneratedSkillAssetStore:
@@ -13,6 +16,7 @@ class GeneratedSkillAssetStore:
         self._data_store = data_store
         self._authoring = authoring or SkillAuthoringService()
         self._namespace_id = self._data_store.ensure_skill_asset_namespace().namespace_id
+        self._file_asset_service = SkillAssetService(str(Path('data/namespaces/generated_executable_skills')))
 
     def persist_generated_skill(
         self,
@@ -134,3 +138,24 @@ class GeneratedSkillAssetStore:
     def list_generated_assets(self) -> list[dict[str, Any]]:
         records = self._data_store.list_records(self._namespace_id)
         return [record.value for record in records if record.key.startswith("generated-skill:")]
+
+    def list_assets(self, status: str | None = None):
+        return self._file_asset_service.list_assets(status=status)
+
+    def promote_candidate_to_core(self, skill_id: str, accepted_by: str = ""):
+        return self._file_asset_service.promote_candidate_to_core(skill_id, accepted_by=accepted_by)
+
+    def archive_asset(self, skill_id: str, status: str = "candidate"):
+        return self._file_asset_service.archive_asset(skill_id, status=status)
+
+    def restore_archived_to_candidate(self, skill_id: str):
+        return self._file_asset_service.restore_archived_to_candidate(skill_id)
+
+    def deprecate_core_asset(self, skill_id: str):
+        return self._file_asset_service.deprecate_core_asset(skill_id)
+
+    def check_consistency(self, skill_id: str | None = None):
+        return self._file_asset_service.check_consistency(skill_id=skill_id)
+
+    def rebuild_index(self):
+        return self._file_asset_service.rebuild_index()

@@ -15,6 +15,7 @@ class SkillAssetService:
         self._core_root = self._assets_root / "core"
         self._candidate_root = self._assets_root / "candidates"
         self._archived_root = self._assets_root / "archived"
+        self._deprecated_root = self._assets_root / "deprecated"
         self._index_path = self._assets_root / "index.json"
         self._assets_root.mkdir(parents=True, exist_ok=True)
         self._write_index(self._load_index())
@@ -28,7 +29,7 @@ class SkillAssetService:
             "core": self._core_root,
             "candidate": self._candidate_root,
             "archived": self._archived_root,
-            "deprecated": self._archived_root,
+            "deprecated": self._deprecated_root,
             "draft": self._candidate_root,
         }[status]
         return root / adapter_kind / slug
@@ -183,7 +184,103 @@ class SkillAssetService:
             entrypoint_path=str(core_dir / "main.py"),
             readme_path=str(core_dir / "README.md"),
         )
+        self._remove_index_entry(skill_id, "candidate")
         self._upsert_index(metadata=metadata, asset=asset)
+        return metadata
+
+    def archive_asset(self, skill_id: str, status: str = "candidate") -> SkillAssetMetadata:
+        source_dir = self.resolve_asset_dir(skill_id, status=status)
+        archived_dir = self.resolve_asset_dir(skill_id, status="archived")
+        if not source_dir.exists():
+            raise ValueError(f"Skill asset not found for archive: {skill_id}@{status}")
+        archived_dir.parent.mkdir(parents=True, exist_ok=True)
+        if archived_dir.exists():
+            raise ValueError(f"Archived skill asset already exists: {skill_id}")
+        source_dir.rename(archived_dir)
+        metadata_path = archived_dir / "metadata.json"
+        metadata = SkillAssetMetadata.model_validate_json(metadata_path.read_text())
+        metadata.archived_from = status
+        metadata.asset_status = "archived"
+        metadata.updated_at = datetime.now(UTC).isoformat()
+        metadata_path.write_text(metadata.model_dump_json(indent=2))
+        self._remove_index_entry(skill_id, status)
+        self._upsert_index(
+            metadata=metadata,
+            asset=GeneratedSkillAsset(
+                skill_id=skill_id,
+                asset_dir=str(archived_dir),
+                manifest_path=str(archived_dir / "manifest.json"),
+                schema_path=str(archived_dir / "input.schema.json"),
+                input_schema_path=str(archived_dir / "input.schema.json"),
+                output_schema_path=str(archived_dir / "output.schema.json"),
+                error_schema_path=str(archived_dir / "error.schema.json"),
+                entrypoint_path=str(archived_dir / "main.py"),
+                readme_path=str(archived_dir / "README.md"),
+            ),
+        )
+        return metadata
+
+    def restore_archived_to_candidate(self, skill_id: str) -> SkillAssetMetadata:
+        archived_dir = self.resolve_asset_dir(skill_id, status="archived")
+        candidate_dir = self.resolve_asset_dir(skill_id, status="candidate")
+        if not archived_dir.exists():
+            raise ValueError(f"Archived skill asset not found: {skill_id}")
+        candidate_dir.parent.mkdir(parents=True, exist_ok=True)
+        if candidate_dir.exists():
+            raise ValueError(f"Candidate skill asset already exists: {skill_id}")
+        archived_dir.rename(candidate_dir)
+        metadata_path = candidate_dir / "metadata.json"
+        metadata = SkillAssetMetadata.model_validate_json(metadata_path.read_text())
+        metadata.asset_status = "candidate"
+        metadata.updated_at = datetime.now(UTC).isoformat()
+        metadata_path.write_text(metadata.model_dump_json(indent=2))
+        self._remove_index_entry(skill_id, "archived")
+        self._upsert_index(
+            metadata=metadata,
+            asset=GeneratedSkillAsset(
+                skill_id=skill_id,
+                asset_dir=str(candidate_dir),
+                manifest_path=str(candidate_dir / "manifest.json"),
+                schema_path=str(candidate_dir / "input.schema.json"),
+                input_schema_path=str(candidate_dir / "input.schema.json"),
+                output_schema_path=str(candidate_dir / "output.schema.json"),
+                error_schema_path=str(candidate_dir / "error.schema.json"),
+                entrypoint_path=str(candidate_dir / "main.py"),
+                readme_path=str(candidate_dir / "README.md"),
+            ),
+        )
+        return metadata
+
+    def deprecate_core_asset(self, skill_id: str) -> SkillAssetMetadata:
+        core_dir = self.resolve_asset_dir(skill_id, status="core")
+        deprecated_dir = self.resolve_asset_dir(skill_id, status="deprecated")
+        if not core_dir.exists():
+            raise ValueError(f"Core skill asset not found: {skill_id}")
+        deprecated_dir.parent.mkdir(parents=True, exist_ok=True)
+        if deprecated_dir.exists():
+            raise ValueError(f"Deprecated skill asset already exists: {skill_id}")
+        core_dir.rename(deprecated_dir)
+        metadata_path = deprecated_dir / "metadata.json"
+        metadata = SkillAssetMetadata.model_validate_json(metadata_path.read_text())
+        metadata.asset_status = "deprecated"
+        metadata.updated_at = datetime.now(UTC).isoformat()
+        metadata_path.write_text(metadata.model_dump_json(indent=2))
+        manifest_path = deprecated_dir / "manifest.json"
+        self._remove_index_entry(skill_id, "core")
+        self._upsert_index(
+            metadata=metadata,
+            asset=GeneratedSkillAsset(
+                skill_id=skill_id,
+                asset_dir=str(deprecated_dir),
+                manifest_path=str(manifest_path),
+                schema_path=str(deprecated_dir / "input.schema.json"),
+                input_schema_path=str(deprecated_dir / "input.schema.json"),
+                output_schema_path=str(deprecated_dir / "output.schema.json"),
+                error_schema_path=str(deprecated_dir / "error.schema.json"),
+                entrypoint_path=str(deprecated_dir / "main.py"),
+                readme_path=str(deprecated_dir / "README.md"),
+            ),
+        )
         return metadata
 
     def list_assets(self, status: str | None = None) -> list[SkillAssetIndexEntry]:
@@ -226,7 +323,7 @@ class SkillAssetService:
 
     def rebuild_index(self) -> SkillAssetIndex:
         assets: list[SkillAssetIndexEntry] = []
-        for status_root, status in [(self._core_root, "core"), (self._candidate_root, "candidate"), (self._archived_root, "archived")]:
+        for status_root, status in [(self._core_root, "core"), (self._candidate_root, "candidate"), (self._archived_root, "archived"), (self._deprecated_root, "deprecated")]:
             if not status_root.exists():
                 continue
             for metadata_path in status_root.glob("*/*/metadata.json"):
@@ -270,6 +367,12 @@ class SkillAssetService:
         )
         index.assets = [item for item in index.assets if not (item.skill_id == entry.skill_id and item.asset_status == entry.asset_status)]
         index.assets.append(entry)
+        index.updated_at = datetime.now(UTC).isoformat()
+        self._write_index(index)
+
+    def _remove_index_entry(self, skill_id: str, status: str) -> None:
+        index = self._load_index()
+        index.assets = [item for item in index.assets if not (item.skill_id == skill_id and item.asset_status == status)]
         index.updated_at = datetime.now(UTC).isoformat()
         self._write_index(index)
 

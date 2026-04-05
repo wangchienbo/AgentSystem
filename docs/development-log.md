@@ -1,5 +1,50 @@
 # Development Log
 
+## 2026-04-05
+
+### Module: skill asset lifecycle API closure and storage alignment
+
+Closed the operator-facing skill asset API slice so generated executable assets can now be listed and transitioned through candidate/core/deprecated/archived states via FastAPI endpoints backed by the real runtime store service.
+
+#### Implemented
+- added `/skill-assets` API endpoints in `app/api/main.py` for:
+  - list
+  - consistency check
+  - promote
+  - archive
+  - restore
+  - deprecate
+  - rebuild-index
+- aligned runtime wiring so the active `app/services/generated_skill_assets.py` store exposes the file-backed asset lifecycle methods expected by the API layer
+- fixed asset storage semantics in `app/services/skill_asset_service.py`:
+  - split `deprecated` assets into a dedicated filesystem root instead of aliasing them to `archived`
+  - updated deprecate flow to physically move `core -> deprecated`
+  - extended index rebuild to scan `deprecated` assets explicitly
+- kept the legacy/generated scaffold path working while exposing the new governance lifecycle through the API surface
+
+#### Validation
+- added `tests/unit/test_skill_asset_api.py`
+- test covers end-to-end API lifecycle:
+  - create skill scaffold
+  - list assets
+  - promote to core
+  - deprecate
+  - archive deprecated asset
+  - restore archived asset to candidate
+  - fetch consistency result
+- made the API test self-cleaning so repeated runs do not fail from leftover asset directories
+- focused regression slice re-run green:
+  - `test_generated_skill_persistence.py`
+  - `test_generated_skill_revision_service.py`
+  - `test_generated_skill_durability.py`
+  - `test_generated_callable_skill.py`
+  - `test_skill_factory_risk_gating.py`
+  - `test_skill_blueprint_safety_defaults.py`
+  - `test_skill_asset_api.py`
+
+#### Notes
+- there is still adjacent in-flight refinement work in the tree; this module specifically closes the skill-asset API/storage alignment slice and stabilizes its tests
+
 ## 2026-04-04
 
 ### Module: file-based skill asset governance foundation

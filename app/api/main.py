@@ -146,6 +146,7 @@ refinement_rollout = services["refinement_rollout"]
 app_installer = services["app_installer"]
 app_catalog = services["app_catalog"]
 skill_runtime = services["skill_runtime"]
+generated_skill_assets = services["generated_skill_assets"]
 skill_risk_policy = services["skill_risk_policy"]
 skill_factory = services["skill_factory"]
 app_refinement = services["app_refinement"]
@@ -517,6 +518,55 @@ def list_experiences() -> list[dict]:
 @app.post("/experiences")
 def add_experience(record: ExperienceRecord) -> dict:
     return experience_store.add_experience(record).model_dump(mode="json")
+
+@app.get("/skill-assets")
+def list_skill_assets(status: str | None = None) -> list[dict]:
+    return [item.model_dump(mode="json") for item in generated_skill_assets.list_assets(status=status)]
+
+
+@app.get("/skill-assets/{skill_id}/consistency")
+def get_skill_asset_consistency(skill_id: str) -> list[dict]:
+    return [item.model_dump(mode="json") for item in generated_skill_assets.check_consistency(skill_id=skill_id)]
+
+
+@app.post("/skill-assets/{skill_id}/promote")
+def promote_skill_asset(skill_id: str, payload: dict | None = None) -> dict:
+    accepted_by = (payload or {}).get("accepted_by", "")
+    try:
+        return generated_skill_assets.promote_candidate_to_core(skill_id, accepted_by=accepted_by).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/skill-assets/{skill_id}/archive")
+def archive_skill_asset(skill_id: str, payload: dict | None = None) -> dict:
+    status = (payload or {}).get("status", "candidate")
+    try:
+        return generated_skill_assets.archive_asset(skill_id, status=status).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/skill-assets/{skill_id}/restore")
+def restore_skill_asset(skill_id: str) -> dict:
+    try:
+        return generated_skill_assets.restore_archived_to_candidate(skill_id).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/skill-assets/{skill_id}/deprecate")
+def deprecate_skill_asset(skill_id: str) -> dict:
+    try:
+        return generated_skill_assets.deprecate_core_asset(skill_id).model_dump(mode="json")
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/skill-assets/rebuild-index")
+def rebuild_skill_asset_index() -> dict:
+    return generated_skill_assets.rebuild_index().model_dump(mode="json")
+
 
 @app.get("/skill-blueprints")
 def list_skill_blueprints() -> list[dict]:
