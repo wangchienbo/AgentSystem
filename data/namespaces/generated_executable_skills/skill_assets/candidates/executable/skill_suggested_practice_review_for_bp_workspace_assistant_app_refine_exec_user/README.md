@@ -1,4 +1,4 @@
-# Review runtime practice for bp.workspace.assistant app assistant execution
+# Practice Review and Skill Refinement for Long-Running Workspace Assistant App
 
 Generated candidate executable skill scaffold for `skill.suggested.practice.review.for.bp.workspace.assistant.app.refine.exec.user`.
 

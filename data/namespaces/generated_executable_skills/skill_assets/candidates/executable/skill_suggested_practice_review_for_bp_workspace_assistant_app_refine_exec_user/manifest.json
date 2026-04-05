@@ -1,8 +1,8 @@
 {
   "skill_id": "skill.suggested.practice.review.for.bp.workspace.assistant.app.refine.exec.user",
-  "name": "Review runtime practice for bp.workspace.assistant app assistant execution",
+  "name": "Practice Review and Skill Refinement for Long-Running Workspace Assistant App",
   "version": "0.1.0",
-  "description": "Analyze recent runtime events, stored configuration records, and shared context for the long-running workspace assistant app to extract reusable optimization suggestions for skills or workflows.",
+  "description": "Review runtime practice data and shared context for a long-running workspace assistant app, then extract reusable optimization guidance for skills or workflows.",
   "runtime_adapter": "executable",
   "adapter": {
     "kind": "executable",

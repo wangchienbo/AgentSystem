@@ -46,6 +46,7 @@ class SuggestedSkillRefinementClosureResult(BaseModel):
     reused_skill_ids: list[str] = Field(default_factory=list)
     selected_blueprints: list[SkillBlueprint] = Field(default_factory=list)
     materialized_skill_ids: list[str] = Field(default_factory=list)
+    materialized_assets: list[dict[str, Any]] = Field(default_factory=list)
     release_entry: dict[str, Any] | None = None
     install_result: dict[str, Any] | None = None
     execution_result: dict[str, Any] | None = None

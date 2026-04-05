@@ -27,6 +27,15 @@ class GeneratedSkillAssetStore:
     def list_assets(self, status: str | None = None):
         return self._asset_service.list_assets(status=status)
 
+    def archive_asset(self, skill_id: str, status: str = "candidate"):
+        return self._asset_service.archive_asset(skill_id, status=status)
+
+    def restore_archived_to_candidate(self, skill_id: str):
+        return self._asset_service.restore_archived_to_candidate(skill_id)
+
+    def deprecate_core_asset(self, skill_id: str):
+        return self._asset_service.deprecate_core_asset(skill_id)
+
     def check_consistency(self, skill_id: str | None = None):
         return self._asset_service.check_consistency(skill_id=skill_id)
 

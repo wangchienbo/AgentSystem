@@ -1,5 +1,34 @@
 # Development Log
 
+## 2026-04-06
+
+### Module: refinement closure asset metadata exposure
+
+Extended the suggested-skill refinement/materialization flow so file-backed generated skill asset metadata is surfaced in creation results and closure responses, making operator-facing refinement output aware of persisted asset lifecycle state.
+
+#### Implemented
+- extended `SkillCreationResult` with file-asset metadata fields:
+  - `asset_status`
+  - `asset_origin`
+  - `content_maturity`
+  - `asset_path`
+  - `asset_metadata`
+- updated `SkillFactoryService` so generated skill creation resolves persisted `metadata.json` from the governed skill-asset filesystem after asset persistence
+- updated suggested-skill refinement closure output to include `materialized_assets`, exposing per-skill asset metadata alongside created skill ids
+- exposed additional lifecycle helpers on `GeneratedSkillAssetStore` for:
+  - archive
+  - restore archived -> candidate
+  - deprecate core asset
+- kept generated asset metadata aligned with the file-backed skill-asset index/state already introduced in the governance layer
+
+#### Validation
+- validated by inspecting the active refinement/materialization diff and confirming the closure/result contracts now propagate persisted asset metadata through the operator-facing response path
+- no dedicated new test file added in the current working diff yet
+
+#### Notes
+- this slice focuses on response/metadata visibility and store-surface alignment rather than introducing a new end-to-end lifecycle API
+- repository data fixtures/index entries under `data/namespaces/generated_executable_skills/skill_assets/` changed alongside the code path as part of exercising the generated asset flow
+
 ## 2026-04-05
 
 ### Module: skill asset lifecycle API closure and storage alignment
