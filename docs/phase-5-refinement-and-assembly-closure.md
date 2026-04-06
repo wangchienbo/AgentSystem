@@ -226,6 +226,28 @@ Still pending for deeper Phase-5 follow-up:
 - stronger policy-block/materialization-diagnostics coverage across more risk variants
 - rollout queue/dashboard linkage for refined candidates
 
+### 8.2 Current diagnostics boundary (2026-04-06)
+
+The closure path now covers a limited but useful subset of structured failure normalization:
+
+- execution-stage non-completed outcomes (`partial`, `paused_for_human`, `waiting_for_event`) emit closure diagnostics with retry hints
+- install-stage requests missing required install context (`user_id`) emit a structured `install_error` diagnostic instead of surfacing as an orchestration-level 500
+
+However, two intended follow-up areas remain constrained by the current API/model shape:
+
+1. **policy-authority normalization is not yet a small patch**
+   - authority enforcement currently runs before refinement/materialization
+   - `SuggestedSkillRefinementClosureResult` still requires non-null `blueprint` and `app_result`
+   - therefore a governance rejection cannot yet be returned as a normal closure payload without first relaxing the result contract or introducing a more envelope-like response shape
+
+2. **real installer-exception normalization needs a better test injection seam**
+   - the current closure API validates/assembles candidate blueprints early enough that many malformed inputs fail before install time
+   - this makes it difficult to deterministically drive installer-only validation failures from the public closure API without introducing a more controllable refinement/assembly test seam
+
+Recommended next-step options from this point:
+- extend the closure response contract so governance-blocked attempts can return diagnostics without requiring a fully materialized refinement result
+- add a lower-level refinement/assembly test harness (or service-level seam) that can intentionally produce installer-time validation failures for diagnostic coverage
+
 ---
 
 ## 9. Recommended implementation order

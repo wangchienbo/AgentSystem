@@ -2,6 +2,28 @@
 
 ## 2026-04-06
 
+### Module: phase-5 closure diagnostics boundary clarification
+
+Recorded the actual boundary of the current refinement-closure diagnostics slice after probing the remaining negative-path follow-ups, so future work does not keep retrying payload shapes that are blocked by the present response contract and assembly seams.
+
+#### Implemented
+- updated `docs/phase-5-refinement-and-assembly-closure.md` with an explicit diagnostics-boundary note summarizing:
+  - what is already normalized (`execution` non-completed + missing-`user_id` install diagnostics)
+  - why policy-authority normalization is blocked by the current non-null closure result contract
+  - why real installer-exception normalization needs a better refinement/assembly test seam
+- captured the recommended next-step directions as:
+  - closure response contract relaxation / envelope design for governance-blocked attempts
+  - lower-level refinement/assembly test injection for deterministic installer-failure diagnostics
+
+#### Validation
+- validated by re-reading the closure orchestrator, closure result model, policy authority enforcement order, and refinement/assembly path constraints before updating the phase-5 doc
+
+#### Notes
+- this is a documentation/roadmap clarification slice, not a new behavior change
+- the goal is to stop repeated false starts on negative-path payloads that cannot cleanly reach the intended failure stage under the current contract
+
+## 2026-04-06
+
 ### Module: refinement closure install diagnostic normalization
 
 Normalized one common refinement-closure negative path so install/run requests that are missing required install context now return closure diagnostics instead of surfacing as an unstructured 500-style orchestration failure.
