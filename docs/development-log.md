@@ -2,6 +2,30 @@
 
 ## 2026-04-06
 
+### Module: generated skill asset path source hardening
+
+Unified generated skill asset file-path resolution so runtime and tests no longer depend on repository-absolute asset paths when resolving persisted file-backed asset metadata.
+
+#### Implemented
+- updated `app/services/generated_skill_assets.py` so the file-backed skill-asset service is rooted from `AppDataStore.base_path / "generated_executable_skills"` instead of a fixed repository `data/...` path
+- added `resolve_file_asset_metadata(skill_id)` on `GeneratedSkillAssetStore` so file-asset metadata lookup lives with the asset store rather than in higher-level orchestration code
+- updated `app/services/skill_factory.py` to obtain file-asset metadata through the generated-asset store instead of scanning a hard-coded `/root/project/AgentSystem/.../skill_assets` location
+- removed duplicated file-asset path knowledge from `SkillFactoryService`, tightening the boundary between skill creation orchestration and asset persistence/layout details
+
+#### Validation
+- re-ran focused regression slice green:
+  - `tests/unit/test_generated_skill_persistence.py`
+  - `tests/unit/test_generated_skill_revision_service.py`
+  - `tests/unit/test_skill_asset_service.py`
+  - `tests/unit/test_skill_asset_api.py`
+  - `tests/unit/test_phase5_refinement_closure.py`
+
+#### Notes
+- this slice fixes path-source consistency for generated/file-backed skill assets but does not yet fully isolate API tests from the shared repo-managed runtime data root
+- API test/runtime data-root isolation remains a follow-up cleanup task
+
+## 2026-04-06
+
 ### Module: refinement closure asset metadata exposure
 
 Extended the suggested-skill refinement/materialization flow so file-backed generated skill asset metadata is surfaced in creation results and closure responses, making operator-facing refinement output aware of persisted asset lifecycle state.

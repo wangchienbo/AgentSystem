@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 from pathlib import Path
 
@@ -16,7 +17,8 @@ class GeneratedSkillAssetStore:
         self._data_store = data_store
         self._authoring = authoring or SkillAuthoringService()
         self._namespace_id = self._data_store.ensure_skill_asset_namespace().namespace_id
-        self._file_asset_service = SkillAssetService(str(Path('data/namespaces/generated_executable_skills')))
+        self._file_asset_base_dir = self._data_store.base_path / "generated_executable_skills"
+        self._file_asset_service = SkillAssetService(str(self._file_asset_base_dir))
 
     def persist_generated_skill(
         self,
@@ -159,3 +161,16 @@ class GeneratedSkillAssetStore:
 
     def rebuild_index(self):
         return self._file_asset_service.rebuild_index()
+
+    def resolve_file_asset_metadata(self, skill_id: str) -> dict[str, Any]:
+        base = self._file_asset_base_dir / "skill_assets"
+        if not base.exists():
+            return {}
+        for metadata_path in base.glob(f"**/{skill_id.replace('.', '_')}/metadata.json"):
+            try:
+                payload = json.loads(metadata_path.read_text())
+            except json.JSONDecodeError:
+                continue
+            payload["path"] = str(metadata_path.parent)
+            return payload
+        return {}
