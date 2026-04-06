@@ -2,6 +2,30 @@
 
 ## 2026-04-06
 
+### Module: refinement closure install diagnostic normalization
+
+Normalized one common refinement-closure negative path so install/run requests that are missing required install context now return closure diagnostics instead of surfacing as an unstructured 500-style orchestration failure.
+
+#### Implemented
+- updated `app/services/app_refinement_orchestrator.py` so install/run requests without `user_id` are converted into a structured `install_error` diagnostic rather than raising `AppRefinementOrchestratorError`
+- preserved closure output shape for this failure mode, including release metadata and compare summary, while leaving `install_result` / `execution_result` unset
+- kept install-stage diagnostic payloads consistent with the existing execution-stage diagnostic pattern by including:
+  - `stage`
+  - `kind`
+  - `hint`
+  - `details`
+  - `suggested_retry_request`
+- retained the separate catch path for concrete `AppInstallerError` responses so installer-surface diagnostics can be extended further in later slices
+
+#### Validation
+- re-ran `tests/unit/test_phase5_refinement_closure.py` green after adding install-failure closure coverage
+
+#### Notes
+- this slice intentionally narrows to a stable, reproducible install-context failure (`missing user_id`) rather than overextending into less stable partial-execution closure fixtures in the same commit
+- broader phase-5 diagnostics follow-up still remains for richer installer exceptions, policy-block normalization, and retryability coverage across more closure failure modes
+
+## 2026-04-06
+
 ### Module: skill asset lifecycle test isolation cleanup
 
 Removed the repo-mutating skill-asset lifecycle API test pattern by converting the lifecycle coverage to an isolated temp-root service test, so routine regression runs no longer leave generated executable asset scaffolds under the repository-managed `data/` tree.

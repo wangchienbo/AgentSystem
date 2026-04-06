@@ -101,3 +101,55 @@ def test_phase5_refinement_closure_installs_and_runs_candidate() -> None:
     assert payload["execution_result"] is not None
     assert payload["execution_result"]["workflow_id"] == "wf.phase5.candidate.run"
     assert payload["release_entry"]["candidate_version"] == "candidate-1"
+
+
+def test_phase5_refinement_closure_reports_install_failure_as_diagnostic() -> None:
+    blueprint_response = client.post(
+        "/skill-blueprints",
+        json={
+            "skill_id": "skill.phase5.install.fail",
+            "name": "Phase5 Install Fail",
+            "goal": "trigger install diagnostic",
+            "inputs": ["payload"],
+            "outputs": ["result"],
+            "steps": ["normalize keys", "return normalized object"],
+            "related_experience_ids": ["exp.phase5.3"],
+            "safety_profile": {
+                "preferred_risk_level": "R0_safe_read",
+                "prefer_deterministic": True,
+                "prefer_callable_materialization": True,
+                "allow_network": False,
+                "allow_shell": False,
+                "allow_filesystem_write": False,
+            },
+        },
+    )
+    assert blueprint_response.status_code == 200
+
+    closure_response = client.post(
+        "/apps/refine-from-suggested-skills/closure",
+        json={
+            "blueprint_id": "bp.phase5.install.fail",
+            "name": "Phase5 Install Fail App",
+            "goal": "assemble and install candidate from suggested skills",
+            "skill_ids": ["skill.phase5.install.fail"],
+            "workflow_id": "wf.phase5.install.fail",
+            "persist_missing_skills": True,
+            "install": True,
+            "run": False,
+            "user_id": "",
+            "reviewer": "phase5-reviewer",
+            "version": "candidate-1",
+            "note": "phase5 install diagnostic"
+        },
+    )
+    assert closure_response.status_code == 200
+    payload = closure_response.json()
+    assert payload["release_entry"] is not None
+    assert payload["compare_summary"]["blueprint_id"] == "bp.phase5.install.fail"
+    assert payload["install_result"] is None
+    assert payload["execution_result"] is None
+    assert len(payload["diagnostics"]) == 1
+    assert payload["diagnostics"][0]["stage"] == "install"
+    assert payload["diagnostics"][0]["kind"] == "install_error"
+    assert payload["diagnostics"][0]["retryable"] is False
