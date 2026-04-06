@@ -9,7 +9,7 @@ from app.services.app_refinement import AppRefinementService
 from app.services.app_registry import AppRegistryService
 from app.models.skill_diagnostics import SkillDiagnostic
 from app.services.workflow_executor import WorkflowExecutorService
-from app.services.policy_authority_service import PolicyAuthorityService
+from app.services.policy_authority_service import PolicyAuthorityError, PolicyAuthorityService
 
 
 class AppRefinementOrchestratorError(ValueError):
@@ -34,12 +34,38 @@ class AppRefinementOrchestratorService:
 
     def refine_closure(self, request: SuggestedSkillRefinementClosureRequest) -> SuggestedSkillRefinementClosureResult:
         if self._policy_authority is not None:
-            self._policy_authority.enforce(
-                scope="generated_app_assembly",
-                reviewer=request.reviewer,
-                reason=request.note,
-                automatic=False,
-            )
+            try:
+                self._policy_authority.enforce(
+                    scope="generated_app_assembly",
+                    reviewer=request.reviewer,
+                    reason=request.note,
+                    automatic=False,
+                )
+            except PolicyAuthorityError as error:
+                return SuggestedSkillRefinementClosureResult(
+                    blueprint=None,
+                    app_result=None,
+                    compare_summary={"blueprint_id": request.blueprint_id},
+                    diagnostics=[
+                        SkillDiagnostic(
+                            stage="assemble",
+                            kind="policy_blocked",
+                            message=str(error),
+                            retryable=False,
+                            hint="Provide the required reviewer/reason or adjust the authority policy before retrying closure.",
+                            details={
+                                "scope": "generated_app_assembly",
+                                "reviewer": request.reviewer,
+                                "reason": request.note,
+                            },
+                            suggested_retry_request={
+                                "blueprint_id": request.blueprint_id,
+                                "reviewer": request.reviewer or "<reviewer>",
+                                "note": request.note or "<reason>",
+                            },
+                        ).model_dump(mode="json")
+                    ],
+                )
         refinement = self._app_refinement.build_app_from_suggested_skills(request)
         entry = self._app_registry.register_blueprint(refinement.blueprint)
 

@@ -1,5 +1,32 @@
 # Development Log
 
+## 2026-04-07
+
+### Module: refinement closure partial-result policy blocking
+
+Extended the refinement-closure result contract so authority-blocked closure attempts can return a structured partial result with diagnostics instead of failing the API call before any closure payload is available.
+
+#### Implemented
+- updated `SuggestedSkillRefinementClosureResult` so `blueprint` and `app_result` may be `null`, allowing closure responses to represent blocked/partial outcomes in addition to successful refinement results
+- updated `AppRefinementOrchestratorService.refine_closure()` to catch `PolicyAuthorityError` and return a closure payload with:
+  - `blueprint = null`
+  - `app_result = null`
+  - minimal `compare_summary` carrying the requested `blueprint_id`
+  - structured `policy_blocked` diagnostics instead of surfacing a 500-style orchestration failure
+- added regression coverage proving authority-gated closure requests now return HTTP 200 + diagnostics while preserving the rest of the successful closure contract for normal paths
+- preserved the previously added install-stage diagnostic normalization and successful refinement behavior
+
+#### Validation
+- re-ran:
+  - `tests/unit/test_phase5_refinement_closure.py`
+  - `tests/unit/test_phase6_governance_and_context.py`
+  - `tests/unit/test_app_refinement_from_suggested_skills.py`
+- result: 11 tests passed
+
+#### Notes
+- `SkillDiagnostic.stage` does not yet include a dedicated `governance` literal, so the new policy-blocked closure diagnostic currently uses the nearest allowed stage bucket (`assemble`) with `kind="policy_blocked"`
+- a later cleanup can extend diagnostic-stage vocabulary if operator/reporting surfaces benefit from a first-class governance stage
+
 ## 2026-04-06
 
 ### Module: phase-5 closure diagnostics boundary clarification

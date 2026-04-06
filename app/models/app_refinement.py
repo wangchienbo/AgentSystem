@@ -40,8 +40,8 @@ class SuggestedSkillRefinementClosureRequest(SuggestedSkillRefinementRequest):
 
 
 class SuggestedSkillRefinementClosureResult(BaseModel):
-    blueprint: AppBlueprint
-    app_result: AppFromSkillsResult
+    blueprint: AppBlueprint | None = None
+    app_result: AppFromSkillsResult | None = None
     created_skills: list[SkillCreationResult] = Field(default_factory=list)
     reused_skill_ids: list[str] = Field(default_factory=list)
     selected_blueprints: list[SkillBlueprint] = Field(default_factory=list)

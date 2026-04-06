@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.api.main import app
+from app.api.main import app, policy_authority
 
 client = TestClient(app)
 
@@ -153,3 +153,45 @@ def test_phase5_refinement_closure_reports_install_failure_as_diagnostic() -> No
     assert payload["diagnostics"][0]["stage"] == "install"
     assert payload["diagnostics"][0]["kind"] == "install_error"
     assert payload["diagnostics"][0]["retryable"] is False
+
+
+def test_phase5_refinement_closure_reports_policy_block_as_diagnostic() -> None:
+    previous = policy_authority.get_policy("generated_app_assembly")
+    policy_authority.set_policy(
+        previous.model_copy(update={
+            "require_reviewer": True,
+            "allowed_reviewers": ["ops-reviewer"],
+            "require_reason": True,
+            "allow_automatic": False,
+        })
+    )
+    try:
+        closure_response = client.post(
+            "/apps/refine-from-suggested-skills/closure",
+            json={
+                "blueprint_id": "bp.phase5.policy.blocked",
+                "name": "Phase5 Policy Blocked App",
+                "goal": "blocked by authority before refinement",
+                "skill_ids": ["skill.phase5.normalize"],
+                "workflow_id": "wf.phase5.policy.blocked",
+                "persist_missing_skills": True,
+                "install": False,
+                "run": False,
+                "reviewer": "unauthorized-reviewer",
+                "version": "candidate-1",
+                "note": "phase5 policy blocked"
+            },
+        )
+        assert closure_response.status_code == 200
+        payload = closure_response.json()
+        assert payload["blueprint"] is None
+        assert payload["app_result"] is None
+        assert payload["compare_summary"]["blueprint_id"] == "bp.phase5.policy.blocked"
+        assert len(payload["diagnostics"]) == 1
+        diagnostic = payload["diagnostics"][0]
+        assert diagnostic["stage"] == "assemble"
+        assert diagnostic["kind"] == "policy_blocked"
+        assert diagnostic["retryable"] is False
+        assert diagnostic["details"]["scope"] == "generated_app_assembly"
+    finally:
+        policy_authority.set_policy(previous)

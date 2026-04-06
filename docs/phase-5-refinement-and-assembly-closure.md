@@ -226,26 +226,32 @@ Still pending for deeper Phase-5 follow-up:
 - stronger policy-block/materialization-diagnostics coverage across more risk variants
 - rollout queue/dashboard linkage for refined candidates
 
-### 8.2 Current diagnostics boundary (2026-04-06)
+### 8.2 Current diagnostics boundary (updated 2026-04-07)
 
-The closure path now covers a limited but useful subset of structured failure normalization:
+The closure path now covers a broader but still partial subset of structured failure normalization:
 
 - execution-stage non-completed outcomes (`partial`, `paused_for_human`, `waiting_for_event`) emit closure diagnostics with retry hints
 - install-stage requests missing required install context (`user_id`) emit a structured `install_error` diagnostic instead of surfacing as an orchestration-level 500
+- authority-blocked closure attempts now return a normal closure payload with partial/null refinement fields plus structured `policy_blocked` diagnostics
 
-However, two intended follow-up areas remain constrained by the current API/model shape:
+The key contract change that enabled governance normalization is:
+- `SuggestedSkillRefinementClosureResult.blueprint` may now be `null`
+- `SuggestedSkillRefinementClosureResult.app_result` may now be `null`
 
-1. **policy-authority normalization is not yet a small patch**
-   - authority enforcement currently runs before refinement/materialization
-   - `SuggestedSkillRefinementClosureResult` still requires non-null `blueprint` and `app_result`
-   - therefore a governance rejection cannot yet be returned as a normal closure payload without first relaxing the result contract or introducing a more envelope-like response shape
+This allows the closure endpoint to represent a blocked attempt without pretending that refinement/assembly completed successfully.
 
-2. **real installer-exception normalization needs a better test injection seam**
+Still constrained / still pending:
+
+1. **policy diagnostics still use an approximate stage bucket**
+   - `SkillDiagnostic.stage` does not yet expose a dedicated `governance` literal
+   - current policy-blocked closure diagnostics therefore use the nearest allowed stage bucket with `kind="policy_blocked"`
+
+2. **real installer-exception normalization still needs a better test injection seam**
    - the current closure API validates/assembles candidate blueprints early enough that many malformed inputs fail before install time
-   - this makes it difficult to deterministically drive installer-only validation failures from the public closure API without introducing a more controllable refinement/assembly test seam
+   - this still makes it difficult to deterministically drive installer-only validation failures from the public closure API without introducing a more controllable refinement/assembly test seam
 
 Recommended next-step options from this point:
-- extend the closure response contract so governance-blocked attempts can return diagnostics without requiring a fully materialized refinement result
+- extend `SkillDiagnostic.stage` vocabulary if governance/operator surfaces benefit from a first-class governance stage
 - add a lower-level refinement/assembly test harness (or service-level seam) that can intentionally produce installer-time validation failures for diagnostic coverage
 
 ---
