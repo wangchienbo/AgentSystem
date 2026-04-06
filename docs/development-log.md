@@ -2,6 +2,36 @@
 
 ## 2026-04-06
 
+### Module: skill asset lifecycle test isolation cleanup
+
+Removed the repo-mutating skill-asset lifecycle API test pattern by converting the lifecycle coverage to an isolated temp-root service test, so routine regression runs no longer leave generated executable asset scaffolds under the repository-managed `data/` tree.
+
+#### Implemented
+- rewrote `tests/unit/test_skill_asset_api.py` to use `SkillAssetService` directly with a `tmp_path`-scoped generated-asset root instead of the global FastAPI app/runtime
+- preserved lifecycle coverage for:
+  - candidate scaffold creation
+  - asset listing
+  - promote to core
+  - deprecate
+  - archive
+  - restore archived -> candidate
+  - consistency verification
+- removed the test's dependency on the globally bootstrapped API runtime and on repository-managed `data/namespaces/generated_executable_skills/...` paths
+- eliminated the main regression path that was leaving `skill_api_asset/` scaffolds and `skill_assets/index.json` changes in the working tree after local test runs
+
+#### Validation
+- re-ran focused regression slice green:
+  - `tests/unit/test_skill_asset_api.py`
+  - `tests/unit/test_skill_asset_service.py`
+  - `tests/unit/test_generated_skill_persistence.py`
+  - `tests/unit/test_generated_skill_revision_service.py`
+
+#### Notes
+- this cleanup intentionally favors isolated lifecycle/service coverage over shared global-app API wiring for this one test case
+- broader app-factory/runtime-injection refactoring for API tests remains optional future work, but is no longer required just to keep generated-skill asset regressions from dirtying the repo
+
+## 2026-04-06
+
 ### Module: generated skill asset path source hardening
 
 Unified generated skill asset file-path resolution so runtime and tests no longer depend on repository-absolute asset paths when resolving persisted file-backed asset metadata.

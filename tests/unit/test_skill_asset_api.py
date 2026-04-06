@@ -1,63 +1,44 @@
 from __future__ import annotations
 
 from pathlib import Path
-import shutil
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from app.models.generated_skill import GeneratedSkillRequest
 from app.services.skill_asset_service import SkillAssetService
 
-client = TestClient(app)
 
-
-def test_skill_asset_api_promote_archive_restore_and_consistency() -> None:
+def test_skill_asset_service_promote_archive_restore_and_consistency(tmp_path: Path) -> None:
     skill_id = "skill.api.asset"
-    asset_service = SkillAssetService("data/namespaces/generated_executable_skills")
-    for status in ["candidate", "core", "deprecated", "archived"]:
-        path = asset_service.resolve_asset_dir(skill_id, status=status)
-        if path.exists():
-            shutil.rmtree(path)
-    asset_service.rebuild_index()
+    service = SkillAssetService(str(tmp_path / "generated_executable_skills"))
 
-    materialize = client.post(
-        "/skills/create",
-        json={
-            "skill_id": skill_id,
-            "name": "API Asset",
-            "description": "asset api test",
-            "adapter_kind": "executable",
-            "generation_operation": "text_transform",
-            "tags": ["asset-api"],
-            "smoke_test_inputs": {"text": "hello"},
-            "schemas": {
-                "input": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"], "additionalProperties": False},
-                "output": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"], "additionalProperties": False},
-                "error": {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": True},
-            },
-        },
+    asset, metadata = service.create_asset_scaffold(
+        GeneratedSkillRequest(
+            skill_id=skill_id,
+            name="API Asset",
+            description="asset api test",
+            template_type="text_transform",
+        ),
+        status="candidate",
     )
-    assert materialize.status_code == 200
+    assert metadata.asset_status == "candidate"
+    assert Path(asset.asset_dir).exists()
 
-    assets = client.get("/skill-assets").json()
-    assert any(item["skill_id"] == skill_id for item in assets)
+    assets = service.list_assets()
+    assert any(item.skill_id == skill_id for item in assets)
 
-    promote = client.post(f"/skill-assets/{skill_id}/promote", json={"accepted_by": "tester"})
-    assert promote.status_code == 200
-    assert promote.json()["asset_status"] == "core"
+    promoted = service.promote_candidate_to_core(skill_id, accepted_by="tester")
+    assert promoted.asset_status == "core"
+    assert promoted.accepted is True
+    assert promoted.accepted_by == "tester"
 
-    deprecate = client.post(f"/skill-assets/{skill_id}/deprecate")
-    assert deprecate.status_code == 200
-    assert deprecate.json()["asset_status"] == "deprecated"
+    deprecated = service.deprecate_core_asset(skill_id)
+    assert deprecated.asset_status == "deprecated"
 
-    archive = client.post(f"/skill-assets/{skill_id}/archive", json={"status": "deprecated"})
-    assert archive.status_code == 200
-    assert archive.json()["asset_status"] == "archived"
+    archived = service.archive_asset(skill_id, status="deprecated")
+    assert archived.asset_status == "archived"
 
-    restore = client.post(f"/skill-assets/{skill_id}/restore")
-    assert restore.status_code == 200
-    assert restore.json()["asset_status"] == "candidate"
+    restored = service.restore_archived_to_candidate(skill_id)
+    assert restored.asset_status == "candidate"
 
-    consistency = client.get(f"/skill-assets/{skill_id}/consistency")
-    assert consistency.status_code == 200
-    assert consistency.json()
+    consistency = service.check_consistency(skill_id)
+    assert consistency
+    assert consistency[0].ok is True
