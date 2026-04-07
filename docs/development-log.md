@@ -1,5 +1,36 @@
 # Development Log
 
+## 2026-04-08
+
+### Module: api flow test runtime/data-root isolation follow-up
+
+Closed the remaining repo-dirtying API-flow regression path by isolating selected FastAPI tests from the default module-import runtime, so generated skill asset and namespace writes no longer leak into repository-managed `data/` during routine test runs.
+
+#### Implemented
+- updated `app/bootstrap/runtime.py` so runtime bootstrap can accept explicit runtime-store and app-data base directories instead of always using the repository defaults
+- added `tests/unit/api_test_helper.py` to build an isolated FastAPI test app backed by tmp-path runtime/data roots while still bootstrapping the same runtime services, builtin skills, and demo catalog fixtures needed by API-flow coverage
+- migrated the repo-dirtying API-flow tests away from the global `app.api.main.app` singleton to isolated test clients for:
+  - practice review
+  - skill suggestion
+  - suggested-skill app refinement
+  - priority analysis
+  - proposal review
+- preserved operator/API-flow coverage while preventing those tests from mutating repository-managed generated executable skill assets and index state
+
+#### Validation
+- re-ran:
+  - `tests/unit/test_practice_review.py`
+  - `tests/unit/test_skill_suggestion.py`
+  - `tests/unit/test_app_refinement_from_suggested_skills.py`
+  - `tests/unit/test_priority_analysis.py`
+  - `tests/unit/test_proposal_review.py`
+- result: 15 tests passed
+- confirmed `git diff --name-only -- data` stayed empty after the regression slice
+
+#### Notes
+- this follow-up isolates the currently identified high-noise API-flow tests without requiring an immediate full app-factory migration of `app/api/main.py`
+- a later cleanup can still introduce a first-class application factory for the production API module if broader test/runtime configurability becomes important
+
 ## 2026-04-07
 
 ### Module: refinement closure partial-result policy blocking

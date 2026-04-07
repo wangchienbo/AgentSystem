@@ -1,8 +1,4 @@
 from pathlib import Path
-
-from fastapi.testclient import TestClient
-
-from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
@@ -21,9 +17,7 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.self_refinement import SelfRefinementService
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
 def test_priority_analysis_ranks_runtime_policy_first_when_low_risk(tmp_path: Path) -> None:
@@ -113,7 +107,8 @@ def test_priority_analysis_ranks_runtime_policy_first_when_low_risk(tmp_path: Pa
     assert "open_loops" in workflow_priority.context_signals
 
 
-def test_priority_analysis_api_flow() -> None:
+def test_priority_analysis_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     install_response = client.post(
         "/registry/apps/bp.workspace.assistant/install",
         json={"user_id": "priority-api-user"},

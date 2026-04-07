@@ -1,16 +1,14 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
 from app.models.experience import ExperienceRecord
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.services.experience_store import ExperienceStore
 from app.services.skill_suggestion import SkillSuggestionService
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-client = TestClient(app)
-
-
-def test_app_refinement_from_suggested_skills_api_flow() -> None:
+def test_app_refinement_from_suggested_skills_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     review_install = client.post(
         "/registry/apps/bp.workspace.assistant/install",
         json={"user_id": "app-refine-user"},
@@ -80,7 +78,8 @@ def test_skill_suggestion_service_can_feed_refinement_selection() -> None:
     assert result.suggestion.skill_id in [item.skill_id for item in related]
 
 
-def test_app_refinement_closure_can_materialize_executable_skill_path() -> None:
+def test_app_refinement_closure_can_materialize_executable_skill_path(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     review_install = client.post(
         "/registry/apps/bp.workspace.assistant/install",
         json={"user_id": "app-refine-exec-user"},
