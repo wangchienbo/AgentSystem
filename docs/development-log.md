@@ -2,6 +2,25 @@
 
 ## 2026-04-08
 
+### Module: phase5 phase6 api isolation follow-up
+
+Finished the next high-noise closure/governance cleanup by moving the remaining phase-5 / phase-6 API assertions off the shared `app.api.main.app` singleton and onto the tmp-path isolated test app helper.
+
+#### Implemented
+- migrated `tests/unit/test_phase5_refinement_closure.py` to the isolated API client helper
+- migrated the API-facing coverage in `tests/unit/test_phase6_governance_and_context.py` to the isolated API client helper while keeping the local service-level tests unchanged
+- updated the phase-5 policy-block test to restore the `generated_app_assembly` authority policy through an explicit default policy payload instead of assuming the isolated helper exposes an already-materialized default-scope record in policy summary output
+
+#### Validation
+- re-ran:
+  - `tests/unit/test_phase5_refinement_closure.py`
+  - `tests/unit/test_phase6_governance_and_context.py`
+- result: 8 tests passed
+
+#### Notes
+- this closes the previously identified phase-5 / phase-6 refinement-governance API slice without changing production API wiring
+- the next cleanup candidates are the remaining workflow/interaction API tests that still exercise repo-backed singleton runtime state
+
 ### Module: second-wave refinement api-flow isolation
 
 Extended the tmp-path API isolation approach into the higher-noise self-refinement / governance test slice so those API-flow regressions no longer depend on the global `app.api.main.app` singleton or the repository-backed runtime/data roots.

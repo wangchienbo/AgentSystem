@@ -1,11 +1,10 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app, policy_authority
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_phase5_refinement_closure_materializes_and_assembles_candidate() -> None:
+def test_phase5_refinement_closure_materializes_and_assembles_candidate(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     blueprint_response = client.post(
         "/skill-blueprints",
         json={
@@ -53,7 +52,8 @@ def test_phase5_refinement_closure_materializes_and_assembles_candidate() -> Non
     assert payload["diagnostics"] == []
 
 
-def test_phase5_refinement_closure_installs_and_runs_candidate() -> None:
+def test_phase5_refinement_closure_installs_and_runs_candidate(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     blueprint_response = client.post(
         "/skill-blueprints",
         json={
@@ -103,7 +103,8 @@ def test_phase5_refinement_closure_installs_and_runs_candidate() -> None:
     assert payload["release_entry"]["candidate_version"] == "candidate-1"
 
 
-def test_phase5_refinement_closure_reports_install_failure_as_diagnostic() -> None:
+def test_phase5_refinement_closure_reports_install_failure_as_diagnostic(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     blueprint_response = client.post(
         "/skill-blueprints",
         json={
@@ -155,16 +156,23 @@ def test_phase5_refinement_closure_reports_install_failure_as_diagnostic() -> No
     assert payload["diagnostics"][0]["retryable"] is False
 
 
-def test_phase5_refinement_closure_reports_policy_block_as_diagnostic() -> None:
-    previous = policy_authority.get_policy("generated_app_assembly")
-    policy_authority.set_policy(
-        previous.model_copy(update={
-            "require_reviewer": True,
-            "allowed_reviewers": ["ops-reviewer"],
-            "require_reason": True,
-            "allow_automatic": False,
-        })
-    )
+def test_phase5_refinement_closure_reports_policy_block_as_diagnostic(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    previous_policy = {
+        "scope": "generated_app_assembly",
+        "require_reviewer": False,
+        "allowed_reviewers": [],
+        "require_reason": False,
+        "allow_automatic": True,
+    }
+    set_response = client.post("/policy-authority", json={
+        "scope": "generated_app_assembly",
+        "require_reviewer": True,
+        "allowed_reviewers": ["ops-reviewer"],
+        "require_reason": True,
+        "allow_automatic": False,
+    })
+    assert set_response.status_code == 200
     try:
         closure_response = client.post(
             "/apps/refine-from-suggested-skills/closure",
@@ -194,4 +202,5 @@ def test_phase5_refinement_closure_reports_policy_block_as_diagnostic() -> None:
         assert diagnostic["retryable"] is False
         assert diagnostic["details"]["scope"] == "generated_app_assembly"
     finally:
-        policy_authority.set_policy(previous)
+        restore_response = client.post("/policy-authority", json=previous_policy)
+        assert restore_response.status_code == 200
