@@ -38,6 +38,68 @@ def create_isolated_test_client(tmp_path: Path) -> TestClient:
             return func
         return decorator
 
+
+    @_register("get", "/catalog/apps")
+    def list_catalog_apps() -> list[dict]:
+        return [item.model_dump(mode="json") for item in services["app_catalog"].list_apps()]
+
+    @_register("post", "/interaction/command")
+    def handle_interaction_command(payload: dict) -> dict:
+        from app.models.interaction import UserCommand
+        return services["interaction_gateway"].handle_command(UserCommand(**payload)).model_dump(mode="json")
+
+    @_register("get", "/runtime/persistence")
+    def get_runtime_persistence_snapshot() -> dict:
+        runtime_store = services["runtime_store"]
+        return {
+            "app_instances": runtime_store.load_json("app_instances", {}),
+            "lifecycle_events": runtime_store.load_json("lifecycle_events", {}),
+            "runtime_leases": runtime_store.load_json("runtime_leases", {}),
+            "runtime_checkpoints": runtime_store.load_json("runtime_checkpoints", {}),
+            "runtime_pending_tasks": runtime_store.load_json("runtime_pending_tasks", {}),
+            "runtime_schedules": runtime_store.load_json("runtime_schedules", {}),
+            "supervision_policies": runtime_store.load_json("supervision_policies", {}),
+            "supervision_statuses": runtime_store.load_json("supervision_statuses", {}),
+            "registry_entries": runtime_store.load_json("registry_entries", {}),
+            "registry_blueprints": runtime_store.load_json("registry_blueprints", {}),
+            "data_namespaces": runtime_store.load_json("data_namespaces", {}),
+            "data_records": runtime_store.load_json("data_records", {}),
+            "event_log": runtime_store.load_json("event_log", []),
+            "event_subscriptions": runtime_store.load_json("event_subscriptions", {}),
+            "patch_proposals": runtime_store.load_json("patch_proposals", {}),
+            "proposal_reviews": runtime_store.load_json("proposal_reviews", {}),
+            "app_contexts": runtime_store.load_json("app_contexts", {}),
+            "context_summaries": runtime_store.load_json("context_summaries", {}),
+            "context_policies": runtime_store.load_json("context_policies", {}),
+        }
+
+    @_register("post", "/apps/{app_instance_id}/workflows/execute")
+    def execute_workflow(app_instance_id: str, payload: dict | None = None) -> dict:
+        payload = payload or {}
+        return services["workflow_executor"].execute_workflow(
+            app_instance_id=app_instance_id,
+            workflow_id=payload.get("workflow_id"),
+            trigger=payload.get("trigger", "manual"),
+            inputs=payload.get("inputs", {}),
+        ).model_dump(mode="json")
+
+    @_register("post", "/apps/{app_instance_id}/workflows/resume-last-interrupted")
+    def resume_last_interrupted(app_instance_id: str, payload: dict | None = None) -> dict:
+        payload = payload or {}
+        return services["workflow_executor"].resume_last_interrupted(
+            app_instance_id,
+            resume_inputs=payload.get("resume_inputs", {}),
+        ).model_dump(mode="json")
+
+    @_register("get", "/data/namespaces/{namespace_id}/records")
+    def list_records(namespace_id: str) -> list[dict]:
+        return [item.model_dump(mode="json") for item in services["app_data_store"].list_records(namespace_id)]
+
+    @_register("post", "/workflow-subscriptions")
+    def create_workflow_subscription(payload: dict) -> dict:
+        from app.models.workflow_subscription import WorkflowEventSubscription
+        return services["workflow_subscription"].subscribe(WorkflowEventSubscription(**payload)).model_dump(mode="json")
+
     @_register("get", "/data/namespaces")
     def list_namespaces(app_instance_id: str | None = None) -> list[dict]:
         return [item.model_dump(mode="json") for item in services["app_data_store"].list_namespaces(app_instance_id)]
@@ -53,12 +115,19 @@ def create_isolated_test_client(tmp_path: Path) -> TestClient:
 
     @_register("post", "/events/publish")
     def publish_event(payload: dict) -> dict:
-        return services["event_bus"].publish(
+        result = services["event_bus"].publish(
             payload["event_name"],
             source=payload["source"],
             app_instance_id=payload.get("app_instance_id"),
             payload=payload.get("payload", {}),
-        ).model_dump(mode="json")
+        )
+        workflow_runs = services["workflow_subscription"].trigger(
+            event_name=payload["event_name"],
+            payload=payload.get("payload", {}),
+        )
+        response = result.model_dump(mode="json")
+        response["workflow_runs"] = [item.model_dump(mode="json") for item in workflow_runs]
+        return response
 
     @_register("post", "/practice/review")
     def practice_review(payload: dict) -> dict:

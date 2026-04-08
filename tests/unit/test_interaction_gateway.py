@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
 from app.models.app_instance import AppInstance
 from app.models.interaction import AppCatalogEntry, UserCommand
@@ -16,9 +13,8 @@ from app.services.lifecycle import AppLifecycleService
 from app.services.requirement_router import RequirementRouter
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
+from tests.unit.api_test_helper import create_isolated_test_client
 
-
-client = TestClient(app)
 
 
 def test_interaction_gateway_opens_service_app(tmp_path: Path) -> None:
@@ -170,7 +166,8 @@ def test_runtime_state_store_persists_files(tmp_path: Path) -> None:
     assert Path(base_dir, "runtime_pending_tasks.json").exists()
 
 
-def test_interaction_api_and_persistence_snapshot() -> None:
+def test_interaction_api_and_persistence_snapshot(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     catalog_response = client.get("/catalog/apps")
     assert catalog_response.status_code == 200
     assert len(catalog_response.json()) >= 2

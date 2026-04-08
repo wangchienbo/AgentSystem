@@ -2,6 +2,36 @@
 
 ## 2026-04-08
 
+### Module: workflow and interaction api isolation follow-up
+
+Extended the isolated tmp-path API test helper into the workflow/interaction operator slice so the remaining event-driven workflow API regressions no longer depend on the shared production app singleton or repository-backed runtime state.
+
+#### Implemented
+- migrated the API-facing tests in:
+  - `tests/unit/test_interaction_gateway.py`
+  - `tests/unit/test_workflow_resume_phase4.py`
+  - `tests/unit/test_workflow_subscription.py`
+  from the global `app.api.main.app` singleton to `create_isolated_test_client(tmp_path)`
+- extended `tests/unit/api_test_helper.py` with the workflow/interaction routes needed by that slice, including:
+  - catalog listing
+  - interaction command handling
+  - runtime persistence snapshot
+  - workflow execute / resume-last-interrupted
+  - workflow subscription creation
+  - data-record listing by namespace
+- aligned isolated `/events/publish` behavior with the production API contract by returning `workflow_runs` after triggering workflow subscriptions, so event-driven regression assertions remain contract-accurate inside the isolated helper app
+
+#### Validation
+- re-ran:
+  - `tests/unit/test_interaction_gateway.py`
+  - `tests/unit/test_workflow_resume_phase4.py`
+  - `tests/unit/test_workflow_subscription.py`
+- result: 9 tests passed
+
+#### Notes
+- this expands the isolated API surface further without forcing a full production app-factory refactor
+- remaining larger cleanup candidates now include generated-skill API flows and the broader workflow-executor API coverage that still hang off the global singleton
+
 ### Module: phase5 phase6 api isolation follow-up
 
 Finished the next high-noise closure/governance cleanup by moving the remaining phase-5 / phase-6 API assertions off the shared `app.api.main.app` singleton and onto the tmp-path isolated test app helper.
