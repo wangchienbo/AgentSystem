@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
 from app.models.experience import ExperienceRecord
 from app.models.patch_proposal import SelfRefinementRequest
@@ -25,9 +22,8 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.self_refinement import SelfRefinementService
+from tests.unit.api_test_helper import create_isolated_test_client
 
-
-client = TestClient(app)
 
 
 class StubCompletedProcess:
@@ -151,7 +147,8 @@ def test_refinement_loop_turns_priority_into_hypothesis_and_rollout(tmp_path: Pa
     assert loop.memory.list_queue(app_instance_id=app_instance_id)
 
 
-def test_refinement_loop_query_api_flow() -> None:
+def test_refinement_loop_query_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     hypotheses_response = client.get("/self-refinement/hypotheses")
     assert hypotheses_response.status_code == 200
     assert isinstance(hypotheses_response.json(), list)

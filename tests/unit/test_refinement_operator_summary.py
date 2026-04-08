@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
@@ -21,10 +18,9 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.self_refinement import SelfRefinementService
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.services.refinement_memory import RefinementMemoryStore
 
-
-client = TestClient(app)
 
 
 def test_refinement_operator_summary_aggregates_priority_review_and_governance(tmp_path: Path) -> None:
@@ -114,7 +110,8 @@ def test_refinement_operator_summary_aggregates_priority_review_and_governance(t
     assert summary.governance.overview.app_instance_id == app_instance_id
 
 
-def test_refinement_operator_summary_api_surface() -> None:
+def test_refinement_operator_summary_api_surface(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.get("/self-refinement/operator-summary", params={"app_instance_id": "app.missing", "recent_limit": 2})
     assert response.status_code == 200
     payload = response.json()

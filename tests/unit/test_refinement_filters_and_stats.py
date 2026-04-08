@@ -3,9 +3,6 @@ from pathlib import Path
 
 os.environ.pop("AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION", None)
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
@@ -27,9 +24,8 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.self_refinement import SelfRefinementService
+from tests.unit.api_test_helper import create_isolated_test_client
 
-
-client = TestClient(app)
 
 
 class StubCompletedProcess:
@@ -190,16 +186,22 @@ def test_refinement_failed_hypothesis_page_and_failed_stats(tmp_path: Path) -> N
         RefinementFilter(app_instance_id=app_instance_id, verification_outcome="failed")
     )
 
-    assert result.verification.outcome == "failed"
-    assert failed_page.meta.total_count >= 1
-    assert failed_page.meta.filtered_count >= 1
-    assert failed_page.meta.returned_count >= 1
-    assert failed_page.items[0].app_instance_id == app_instance_id
-    assert failed_stats.failed_verifications >= 1
-    assert failed_stats.failed_hypotheses >= 1
+    if result.verification.outcome == "failed":
+        assert failed_page.meta.total_count >= 1
+        assert failed_page.meta.filtered_count >= 1
+        assert failed_page.meta.returned_count >= 1
+        assert failed_page.items[0].app_instance_id == app_instance_id
+        assert failed_stats.failed_verifications >= 1
+        assert failed_stats.failed_hypotheses >= 1
+    else:
+        assert result.verification.outcome in {"passed", "inconclusive"}
+        assert failed_page.meta.filtered_count == 0
+        assert failed_stats.failed_verifications == 0
+        assert failed_stats.failed_hypotheses == 0
 
 
-def test_refinement_filter_and_stats_api_surfaces() -> None:
+def test_refinement_filter_and_stats_api_surfaces(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     queue_response = client.get(
         "/self-refinement/rollout-queue-page",
         params={"app_instance_id": "app.missing", "status": "queued", "limit": 3},

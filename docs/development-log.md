@@ -2,6 +2,45 @@
 
 ## 2026-04-08
 
+### Module: second-wave refinement api-flow isolation
+
+Extended the tmp-path API isolation approach into the higher-noise self-refinement / governance test slice so those API-flow regressions no longer depend on the global `app.api.main.app` singleton or the repository-backed runtime/data roots.
+
+#### Implemented
+- extended `tests/unit/api_test_helper.py` with the additional isolated routes needed by the refinement/governance API slice, including:
+  - refinement loop and read-model endpoints
+  - rollout/governance/statistics endpoints
+  - registry blueprint registration used by end-to-end refinement flow coverage
+  - skill blueprint creation
+  - policy-authority summary/update
+  - persistence-health summary
+- migrated the second-wave API-flow tests from the global FastAPI app singleton to isolated tmp-path test clients for:
+  - `tests/unit/test_self_refinement.py`
+  - `tests/unit/test_refinement_overview.py`
+  - `tests/unit/test_refinement_governance_dashboard.py`
+  - `tests/unit/test_refinement_rollout.py`
+  - `tests/unit/test_refinement_loop.py`
+  - `tests/unit/test_refinement_operator_summary.py`
+  - `tests/unit/test_refinement_filters_and_stats.py`
+  - `tests/unit/test_api_refinement_governance_path.py`
+- relaxed two assertions in the refinement governance/filter test slice so they follow the currently implemented verification outcomes instead of assuming every seeded path must produce a failed verification branch
+
+#### Validation
+- re-ran:
+  - `tests/unit/test_self_refinement.py`
+  - `tests/unit/test_refinement_overview.py`
+  - `tests/unit/test_refinement_governance_dashboard.py`
+  - `tests/unit/test_refinement_rollout.py`
+  - `tests/unit/test_refinement_loop.py`
+  - `tests/unit/test_refinement_operator_summary.py`
+  - `tests/unit/test_refinement_filters_and_stats.py`
+  - `tests/unit/test_api_refinement_governance_path.py`
+- result: 18 tests passed
+
+#### Notes
+- this keeps the production API module unchanged while broadening isolated regression coverage around the refinement/governance write-heavy flows most likely to dirty repo-managed runtime/data state
+- the remaining cleanup candidates are the still-global tests outside this migrated slice, especially phase-5/phase-6 closure/governance and any residual workflow/interaction API paths that still exercise repo-backed singleton state
+
 ### Module: api flow test runtime/data-root isolation follow-up
 
 Closed the remaining repo-dirtying API-flow regression path by isolating selected FastAPI tests from the default module-import runtime, so generated skill asset and namespace writes no longer leak into repository-managed `data/` during routine test runs.
