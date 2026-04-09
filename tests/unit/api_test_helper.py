@@ -17,7 +17,7 @@ from app.models.patch_proposal import SelfRefinementRequest
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.priority_analysis import PriorityAnalysisRequest
 from app.models.refinement_loop import RefinementLoopRequest
-from app.api.operator_filters import build_refinement_filter
+from app.api.operator_filters import build_refinement_filter, build_workflow_observability_filter
 from app.models.policy_authority import AuthorityPolicyRecord
 from app.services.priority_analysis import PriorityAnalysisError
 
@@ -91,6 +91,170 @@ def create_isolated_test_client(tmp_path: Path) -> TestClient:
             resume_inputs=payload.get("resume_inputs", {}),
         ).model_dump(mode="json")
 
+    @_register("post", "/apps/{app_instance_id}/workflows/retry-last-failure")
+    def retry_last_failure(app_instance_id: str) -> dict:
+        return services["workflow_executor"].retry_last_failure(app_instance_id).model_dump(mode="json")
+
+    @_register("get", "/workflows/history")
+    def list_workflow_history(app_instance_id: str | None = None) -> list[dict]:
+        return [item.model_dump(mode="json") for item in services["workflow_executor"].list_history(app_instance_id)]
+
+    @_register("get", "/workflows/failures")
+    def list_workflow_failures(
+        app_instance_id: str | None = None,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+    ) -> list[dict]:
+        failures = services["workflow_executor"].list_recent_failures(app_instance_id)
+        if workflow_id is not None:
+            failures = [item for item in failures if item.workflow_id == workflow_id]
+        if failed_step_id is not None:
+            failures = [item for item in failures if failed_step_id in item.failed_step_ids]
+        return [item.model_dump(mode="json") for item in failures]
+
+    @_register("get", "/workflows/latest")
+    def get_latest_workflow_execution(app_instance_id: str | None = None) -> dict:
+        history = services["workflow_executor"].list_history(app_instance_id)
+        if not history:
+            return {"execution": None}
+        latest = max(history, key=lambda item: item.completed_at)
+        return {"execution": latest.model_dump(mode="json")}
+
+    @_register("get", "/workflows/diagnostics")
+    def get_workflow_diagnostics(
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+    ) -> dict:
+        filters = build_workflow_observability_filter(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+        )
+        return services["workflow_observability"].get_diagnostics_summary(
+            app_instance_id=filters.app_instance_id,
+            workflow_id=filters.workflow_id,
+            failed_step_id=filters.failed_step_id,
+        ).model_dump(mode="json")
+
+    @_register("get", "/workflows/latest-recovery")
+    def get_latest_workflow_recovery(app_instance_id: str, workflow_id: str | None = None) -> dict:
+        recovery = services["workflow_observability"].get_latest_recovery_summary(app_instance_id, workflow_id=workflow_id)
+        return {"recovery": None if recovery is None else recovery.model_dump(mode="json")}
+
+    @_register("get", "/workflows/overview")
+    def get_workflow_overview(app_instance_id: str, workflow_id: str | None = None, failed_step_id: str | None = None) -> dict:
+        filters = build_workflow_observability_filter(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+        )
+        return services["workflow_observability"].get_overview(
+            app_instance_id=filters.app_instance_id,
+            workflow_id=filters.workflow_id,
+            failed_step_id=filters.failed_step_id,
+        ).model_dump(mode="json")
+
+    @_register("get", "/workflows/observability-history")
+    def list_workflow_observability_history(
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        limit: int | None = None,
+        unresolved_only: bool = False,
+        since: str | None = None,
+        cursor: str | None = None,
+    ) -> dict:
+        filters = build_workflow_observability_filter(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            limit=limit,
+            unresolved_only=unresolved_only,
+            since=since,
+            cursor=cursor,
+        )
+        return services["workflow_observability"].list_observability_history(
+            app_instance_id=filters.app_instance_id,
+            workflow_id=filters.workflow_id,
+            failed_step_id=filters.failed_step_id,
+            limit=filters.limit,
+            unresolved_only=filters.unresolved_only,
+            since=filters.since,
+            cursor=filters.cursor,
+        ).model_dump(mode="json")
+
+    @_register("get", "/workflows/timeline")
+    def list_workflow_timeline(
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        limit: int | None = None,
+        unresolved_only: bool = False,
+        since: str | None = None,
+        cursor: str | None = None,
+    ) -> dict:
+        filters = build_workflow_observability_filter(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            limit=limit,
+            unresolved_only=unresolved_only,
+            since=since,
+            cursor=cursor,
+        )
+        return services["workflow_observability"].list_timeline_events(
+            app_instance_id=filters.app_instance_id,
+            workflow_id=filters.workflow_id,
+            failed_step_id=filters.failed_step_id,
+            limit=filters.limit,
+            unresolved_only=filters.unresolved_only,
+            since=filters.since,
+            cursor=filters.cursor,
+        ).model_dump(mode="json")
+
+    @_register("get", "/workflows/stats")
+    def get_workflow_stats(
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        since: str | None = None,
+    ) -> dict:
+        filters = build_workflow_observability_filter(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            since=since,
+        )
+        return services["workflow_observability"].get_stats_summary(
+            app_instance_id=filters.app_instance_id,
+            workflow_id=filters.workflow_id,
+            failed_step_id=filters.failed_step_id,
+            since=filters.since,
+        ).model_dump(mode="json")
+
+    @_register("get", "/workflows/dashboard")
+    def get_workflow_dashboard(
+        app_instance_id: str,
+        workflow_id: str | None = None,
+        failed_step_id: str | None = None,
+        since: str | None = None,
+        timeline_limit: int = 5,
+    ) -> dict:
+        filters = build_workflow_observability_filter(
+            app_instance_id=app_instance_id,
+            workflow_id=workflow_id,
+            failed_step_id=failed_step_id,
+            since=since,
+        )
+        return services["workflow_observability"].get_dashboard_summary(
+            app_instance_id=filters.app_instance_id,
+            workflow_id=filters.workflow_id,
+            failed_step_id=filters.failed_step_id,
+            since=filters.since,
+            timeline_limit=timeline_limit,
+        ).model_dump(mode="json")
+
     @_register("get", "/data/namespaces/{namespace_id}/records")
     def list_records(namespace_id: str) -> list[dict]:
         return [item.model_dump(mode="json") for item in services["app_data_store"].list_records(namespace_id)]
@@ -113,11 +277,15 @@ def create_isolated_test_client(tmp_path: Path) -> TestClient:
             tags=payload.get("tags", []),
         ).model_dump(mode="json")
 
+    @_register("get", "/events")
+    def list_events(event_name: str | None = None) -> list[dict]:
+        return [item.model_dump(mode="json") for item in services["event_bus"].list_events(event_name)]
+
     @_register("post", "/events/publish")
     def publish_event(payload: dict) -> dict:
         result = services["event_bus"].publish(
             payload["event_name"],
-            source=payload["source"],
+            source=payload.get("source", "system"),
             app_instance_id=payload.get("app_instance_id"),
             payload=payload.get("payload", {}),
         )

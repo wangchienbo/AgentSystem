@@ -140,6 +140,37 @@ Finished the next generated-callable API cleanup by moving the remaining create/
 - this removes another generated-skill API-flow dependency on the repository-backed singleton runtime without changing production API wiring
 - the next larger cleanup target on this line remains `tests/unit/test_workflow_executor.py`
 
+### Module: workflow executor api-flow isolation follow-up
+
+Moved the remaining workflow-executor operator/API regressions off the global FastAPI singleton so the observability and execution API coverage now runs against the tmp-path isolated helper app as well.
+
+#### Implemented
+- migrated the API-flow tests in `tests/unit/test_workflow_executor.py` that previously used `TestClient(app.api.main.app)` to `create_isolated_test_client(tmp_path)` while leaving the service-level executor tests unchanged
+- extended `tests/unit/api_test_helper.py` with the workflow execution and observability routes needed by that slice, including:
+  - `POST /apps/{app_instance_id}/workflows/retry-last-failure`
+  - `GET /workflows/history`
+  - `GET /workflows/failures`
+  - `GET /workflows/latest`
+  - `GET /workflows/diagnostics`
+  - `GET /workflows/latest-recovery`
+  - `GET /workflows/overview`
+  - `GET /workflows/observability-history`
+  - `GET /workflows/timeline`
+  - `GET /workflows/stats`
+  - `GET /workflows/dashboard`
+  - `GET /events`
+- aligned the helper event-publish route with the production API default by allowing `source` to fall back to `"system"` when omitted
+- reused `build_workflow_observability_filter(...)` inside the helper so operator-facing query semantics stay aligned with the production API surface
+
+#### Validation
+- re-ran:
+  - `tests/unit/test_workflow_executor.py`
+- result: 18 tests passed
+
+#### Notes
+- this closes the remaining workflow-executor API slice that still depended on repository-backed singleton runtime state
+- production API wiring remains unchanged; the cleanup stays confined to the isolated helper/test surface
+
 ## 2026-04-07
 
 ### Module: refinement closure partial-result policy blocking
