@@ -142,6 +142,36 @@ Finished the next generated-callable API cleanup by moving the remaining create/
 
 ### Module: workflow executor api-flow isolation follow-up
 
+Moved the remaining workflow-executor API-flow regressions off the shared production FastAPI singleton and onto the tmp-path isolated helper app, so the workflow observability and execution API slice no longer depends on repository-backed singleton runtime state.
+
+#### Implemented
+- migrated the API-flow tests in `tests/unit/test_workflow_executor.py` that previously used the module-level `TestClient(app)` to `create_isolated_test_client(tmp_path)`
+- extended `tests/unit/api_test_helper.py` with the workflow executor / observability routes required by that slice, including:
+  - `POST /apps/{app_instance_id}/workflows/retry-last-failure`
+  - `GET /workflows/history`
+  - `GET /workflows/failures`
+  - `GET /workflows/latest`
+  - `GET /workflows/diagnostics`
+  - `GET /workflows/latest-recovery`
+  - `GET /workflows/overview`
+  - `GET /workflows/observability-history`
+  - `GET /workflows/timeline`
+  - `GET /workflows/stats`
+  - `GET /workflows/dashboard`
+  - `GET /events`
+- kept the lower-level service tests in the same module unchanged, so the isolation work stays focused on the API-flow surface that previously exercised the global app singleton
+
+#### Validation
+- re-ran:
+  - `tests/unit/test_workflow_executor.py`
+- result: 18 tests passed
+
+#### Notes
+- this closes the remaining workflow-executor API singleton dependency identified in the current cleanup pass without requiring a production app-factory rewrite
+- the isolated helper now covers the operator-facing workflow observability surface closely enough for this regression slice
+
+### Module: workflow executor api-flow isolation follow-up
+
 Moved the remaining workflow-executor operator/API regressions off the global FastAPI singleton so the observability and execution API coverage now runs against the tmp-path isolated helper app as well.
 
 #### Implemented
