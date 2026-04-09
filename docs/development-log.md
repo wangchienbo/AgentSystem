@@ -119,6 +119,27 @@ Closed the remaining repo-dirtying API-flow regression path by isolating selecte
 - this follow-up isolates the currently identified high-noise API-flow tests without requiring an immediate full app-factory migration of `app/api/main.py`
 - a later cleanup can still introduce a first-class application factory for the production API module if broader test/runtime configurability becomes important
 
+### Module: generated callable api-flow isolation follow-up
+
+Finished the next generated-callable API cleanup by moving the remaining create/install-run API-flow tests off the global FastAPI singleton and onto the tmp-path isolated helper app.
+
+#### Implemented
+- migrated the first three API-flow tests in `tests/unit/test_generated_callable_skill.py` from the shared `app.api.main.app` test client to `create_isolated_test_client(tmp_path)`
+- extended `tests/unit/api_test_helper.py` with the isolated routes required by that slice:
+  - `POST /skills/create`
+  - `POST /apps/from-skills/install-run`
+- kept the lower-level persistence/reload coverage in the same module unchanged, so only the repo-dirtying API path moved to isolated runtime/data roots
+- corrected the request-model import used by the isolated install-run route so it matches the current skill-creation model layout
+
+#### Validation
+- re-ran:
+  - `tests/unit/test_generated_callable_skill.py`
+- result: 4 tests passed
+
+#### Notes
+- this removes another generated-skill API-flow dependency on the repository-backed singleton runtime without changing production API wiring
+- the next larger cleanup target on this line remains `tests/unit/test_workflow_executor.py`
+
 ## 2026-04-07
 
 ### Module: refinement closure partial-result policy blocking

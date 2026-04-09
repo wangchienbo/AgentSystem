@@ -303,6 +303,32 @@ def create_isolated_test_client(tmp_path: Path) -> TestClient:
     def run_refinement_loop(payload: dict) -> dict:
         return services["refinement_loop"].run(RefinementLoopRequest(**payload)).model_dump(mode="json")
 
+
+    @_register("post", "/skills/create")
+    def create_skill(payload: dict) -> dict:
+        from app.models.skill_creation import SkillCreationRequest
+        return services["skill_factory"].create_skill(SkillCreationRequest(**payload)).model_dump(mode="json")
+
+    @_register("post", "/apps/from-skills/install-run")
+    def create_install_and_run_app_from_skills(payload: dict) -> dict:
+        from app.models.skill_creation import AppFromSkillsInstallRunRequest
+        request = AppFromSkillsInstallRunRequest(**payload)
+        blueprint, result = services["skill_factory"].build_blueprint_from_skills(request)
+        services["app_registry"].register_blueprint(blueprint)
+        install = services["app_installer"].install_app(blueprint_id=blueprint.id, user_id=request.user_id)
+        execution = services["workflow_executor"].execute_workflow(
+            app_instance_id=install.app_instance_id,
+            workflow_id=result.workflow_id,
+            trigger=request.trigger,
+            inputs=request.workflow_inputs,
+        )
+        return {
+            "blueprint": blueprint.model_dump(mode="json"),
+            "result": result.model_dump(mode="json"),
+            "install": install.model_dump(mode="json"),
+            "execution": execution.model_dump(mode="json"),
+        }
+
     @_register("post", "/skill-blueprints")
     def create_skill_blueprint(payload: dict) -> dict:
         return services["experience_store"].add_skill_blueprint(SkillBlueprint(**payload)).model_dump(mode="json")
