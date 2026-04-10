@@ -10,42 +10,23 @@ project:
   status: active
 
 scopes:
+  - id: project-bootstrap-control
+    kind: project-control
+    purpose: Bootstrap and maintain project-level control routing, scope governance, and subordinate-skill governance.
+    owners: [agent]
   - id: platform-core
     kind: project-domain
-    purpose: Core app-os substrate, contracts, registry, lifecycle, runtime, persistence, and platform governance foundations.
-    owners:
-      - agent
+    purpose: Core app-os substrate, contracts, registry, lifecycle, runtime, persistence, and standard interfaces.
+    owners: [agent]
   - id: runtime-and-control-plane
     kind: project-domain
-    purpose: Runtime host, scheduler, supervisor, interaction gateway, control-plane reads, and operator intervention surfaces.
-    owners:
-      - agent
+    purpose: Runtime host, scheduler, supervisor, interaction gateway, and operator-facing control surfaces.
+    owners: [agent]
   - id: skill-evolution-toolchain
     kind: project-domain
-    purpose: Experience, skill suggestion, generated skill flows, executable skills, review, acceptance, rollback, and governance-aware skill growth.
-    owners:
-      - agent
+    purpose: Experience, suggestion, generated skill flows, executable skills, and reusable capability growth.
+    owners: [agent]
   - id: telemetry-evidence-governance
     kind: project-domain
-    purpose: Telemetry, upgrade evidence, refinement governance, risk governance, operator dashboards, and review surfaces.
-    owners:
-      - agent
-
-dependencies:
-  - from: runtime-and-control-plane
-    to: platform-core
-    kind: depends-on
-  - from: skill-evolution-toolchain
-    to: platform-core
-    kind: depends-on
-  - from: telemetry-evidence-governance
-    to: platform-core
-    kind: depends-on
-  - from: skill-evolution-toolchain
-    to: telemetry-evidence-governance
-    kind: depends-on
-
-artifacts:
-  modules_dir: /root/project/AgentSystem/control-plane/modules
-  interfaces_dir: /root/project/AgentSystem/control-plane/interfaces
-  tasks_dir: /root/project/AgentSystem/control-plane/tasks
+    purpose: Telemetry, upgrade evidence, risk/review/refinement governance, and operator dashboard surfaces.
+    owners: [agent]

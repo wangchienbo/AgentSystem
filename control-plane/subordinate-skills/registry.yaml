@@ -1,0 +1,43 @@
+subordinate_skills:
+  - subordinate_skill_id: project-manager
+    category: functional
+    scope_id: project-bootstrap-control
+    purpose: project-level routing, planning, and control oversight
+    source: generated-local
+    version: bootstrap-v1
+    lifecycle_status: active
+  - subordinate_skill_id: app-manager
+    category: functional
+    scope_id: project-bootstrap-control
+    purpose: app-level scope handling and escalation to project scope
+    source: generated-local
+    version: bootstrap-v1
+    lifecycle_status: active
+  - subordinate_skill_id: context-assembler
+    category: functional
+    scope_id: project-bootstrap-control
+    purpose: minimal context assembly for project-governed work
+    source: generated-local
+    version: bootstrap-v1
+    lifecycle_status: active
+  - subordinate_skill_id: skill-governor
+    category: functional
+    scope_id: project-bootstrap-control
+    purpose: decide subordinate-skill creation, merge, update, or avoidance
+    source: generated-local
+    version: bootstrap-v1
+    lifecycle_status: active
+  - subordinate_skill_id: control-plane-maintainer
+    category: functional
+    scope_id: project-bootstrap-control
+    purpose: maintain anchor and project control artifacts
+    source: generated-local
+    version: bootstrap-v1
+    lifecycle_status: active
+  - subordinate_skill_id: subordinate-skill-manager
+    category: functional
+    scope_id: project-bootstrap-control
+    purpose: discover, install, update, align, and retire subordinate skills under governance
+    source: generated-local
+    version: bootstrap-v1
+    lifecycle_status: active

@@ -1,24 +1,17 @@
 # 2026-04-11 Project control regenerated
 
 ## Summary
-Regenerated AgentSystem project control artifacts from scratch using the new control-skill-factory direction.
+Regenerated AgentSystem project control artifacts after extending the meta-skill with subordinate-skill category governance and governed subordinate-skill download/update rules.
 
 ## What changed
-- created fresh `PROJECT_CONTROL.md` as the routing anchor for the master control skill
-- created fresh minimal control-plane skeleton under `control-plane/`
-- created first generated master control skill under `skills/generated/agentsystem-master-control/`
-- encoded foundational subordinate capabilities directly inside the master control skill:
-  - project-manager
-  - app-manager
-  - context-assembler
-  - skill-governor
-  - control-plane-maintainer
+- replaced prior freshly generated project control artifacts
+- regenerated anchor with clearer routing role
+- regenerated master control skill with explicit subordinate-skill model
+- added subordinate-skill registry artifact
+- added built-in subordinate-skill-manager capability
+- distinguished functional subordinate skills from structural subordinate skills
 
-## Design direction
+## Key rules
 - anchor first responsibility: register and locate the master control skill
-- master control skill is the project's internal control layer, not the outer assistant persona
-- structural governance should route through the master control layer before implementation proceeds
-- persistent subordinate skills should only be created when scope evidence is strong enough
-
-## Notes
-No prior in-repo `PROJECT_CONTROL.md`, `control-plane/`, or generated master-control skill was found in the current checkout before regeneration.
+- subordinate skill is the parent category; module skill is only one structural subtype
+- subordinate-skill download/update is allowed only under governance and durable registry tracking

@@ -1,6 +1,6 @@
 ---
 name: agentsystem-master-control
-description: Master control skill for AgentSystem. Use for project-scoped governance, architecture routing, context assembly, app/domain boundary decisions, control-plane maintenance, and deciding when subordinate skills should be created or revised.
+description: Master control skill for AgentSystem. Use for project-scoped governance, architecture routing, context assembly, subordinate-skill governance, app/domain boundary decisions, control-plane maintenance, and deciding when subordinate skills should be created, reused, updated, downloaded, or retired.
 ---
 
 # AgentSystem Master Control
@@ -9,7 +9,7 @@ Project-internal control layer for AgentSystem.
 
 This skill is the required middle layer for non-trivial project-scoped governance work.
 It does not replace the outer assistant persona.
-It governs routing, scoping, decomposition, control-plane maintenance, and subordinate-skill creation policy for the AgentSystem repository.
+It governs routing, scoping, decomposition, control-plane maintenance, subordinate-skill governance, and structural evolution for the AgentSystem repository.
 
 ## Core boundary
 
@@ -23,7 +23,8 @@ It must not create persistent subordinate skills casually or without clear scope
 - project-level routing and scope selection
 - app/domain/module decomposition decisions
 - project-scoped context assembly discipline
-- subordinate skill creation, revision, merge, or retirement decisions
+- subordinate-skill category and lifecycle governance
+- subordinate-skill discovery, reuse, install, update, merge, retirement, and registry maintenance
 - maintenance of project control artifacts
 - cross-scope dependency and impact tracking
 
@@ -34,18 +35,12 @@ It must not create persistent subordinate skills casually or without clear scope
 - bypass durable file-backed project governance
 - assume every request is project-level
 - create low-value child skills for one-off work
+- treat module skill as the only kind of subordinate skill
 
 ## Anchor relationship and entry model
 
 The routing anchor for this skill is `/root/project/AgentSystem/PROJECT_CONTROL.md`.
 That anchor's first job is to register and locate this master control skill for outer agents and fresh sessions.
-
-Normal model:
-1. outer agent reads the anchor
-2. outer agent routes into this master control skill when trigger conditions match
-3. this skill determines whether to stay at project scope or delegate downward
-
-This skill may read the anchor for consistency and recovery checks, but does not depend on the anchor to find itself during normal operation.
 
 ## Trigger conditions
 
@@ -53,83 +48,117 @@ Use this skill when the request involves:
 - project architecture or restructuring
 - deciding ownership or scope boundaries
 - deciding whether work belongs to project, app, domain, or module scope
-- creating or revising subordinate skills
+- subordinate-skill governance or subordinate-skill lifecycle decisions
 - cross-module or cross-app impact analysis
 - updating project control artifacts
 - deciding what context should be loaded for a non-trivial change
-
-Usually do not use this skill for tiny obvious edits with narrow local scope.
 
 ## Standard workflow
 
 1. determine whether the request is project-scoped or safely local
 2. if project-scoped, read only the minimum relevant control artifacts
 3. identify target scope and impacted neighboring scopes
-4. decide whether to keep work in project control or delegate
-5. if delegation is needed, decide whether an existing subordinate scope is sufficient or a new one should be created
-6. after meaningful structural changes, update control artifacts immediately
+4. decide whether to keep work in project control or delegate downward
+5. decide whether an existing subordinate skill should be reused or updated before creating a new one
+6. after meaningful structural changes, update control artifacts and subordinate-skill registry immediately
 
 ## Context assembly policy
 
 Prefer this order:
 1. project anchor for routing confirmation when needed
-2. `control-plane/project-map.yaml` for current structural state
-3. target scope records under `control-plane/modules/` and relevant task files
-4. impacted contracts/interfaces when they exist
-5. local implementation files only as needed
+2. `control-plane/project-map.yaml`
+3. `control-plane/subordinate-skills/registry.yaml` when subordinate-skill governance matters
+4. target scope records and task files
+5. interfaces/contracts when relevant
+6. local implementation files only as needed
 
 Avoid whole-repo loading by default.
 Use the smallest sufficient working set.
 
+## Subordinate-skill model and categories
+
+Subordinate skill is the general class of child capabilities governed by this master control layer.
+Subordinate skills are divided into:
+- functional subordinate skills
+- structural subordinate skills
+
+A module skill is a structural subordinate skill, not the entire meaning of subordinate skill.
+
+### Functional subordinate skills
+These support the master control layer's own operation and governance logic.
+They may initially exist as internal roles or procedures, but remain durable governed capabilities.
+
+### Structural subordinate skills
+These correspond to stable app, domain, or module boundaries inside AgentSystem.
+They should only become persistent when boundary evidence is strong enough.
+
 ## Foundational subordinate capabilities
 
-This skill must operate with the following built-in subordinate capabilities from day one, even if they are represented as internal roles rather than separate installable skills.
+This master control skill must operate with the following built-in functional subordinate capabilities from day one:
+- `project-manager`
+- `app-manager`
+- `context-assembler`
+- `skill-governor`
+- `control-plane-maintainer`
+- `subordinate-skill-manager`
 
-### 1. project-manager
-Responsibilities:
-- maintain project-level planning and routing
-- keep project-domain scope ownership coherent
-- decide when work is truly project-level
+### project-manager
+Maintains project-level planning, scope routing, and project-scoped task governance.
 
-### 2. app-manager
-Responsibilities:
-- interpret app-level boundaries inside AgentSystem
-- identify when a request should move from project scope into app or domain scope
-- escalate back to project scope when cross-app or cross-domain effects appear
+### app-manager
+Handles app-level scope interpretation and escalation between app scope and project scope.
 
-### 3. context-assembler
-Responsibilities:
-- gather the minimum sufficient context for the request
-- avoid unnecessary repository-wide loading
-- prioritize anchor, project-map, scope records, and then local implementation files
+### context-assembler
+Builds the minimal sufficient context set for project-governed work.
 
-### 4. skill-governor
-Responsibilities:
-- decide when a persistent subordinate skill should be created, revised, merged, or avoided
-- require stable scope, ownership, and escalation rules before persistent child-skill creation
+### skill-governor
+Decides whether subordinate skills should be created, updated, merged, or avoided.
 
-### 5. control-plane-maintainer
-Responsibilities:
-- update the anchor and project control artifacts after structural change
-- keep project-map, scope records, and task records synchronized enough for resumability
+### control-plane-maintainer
+Keeps anchor and control-plane artifacts synchronized with structural changes.
 
-## Subordinate-skill creation policy
+### subordinate-skill-manager
+Discovers, installs, updates, aligns, and retires subordinate skills under governance rules.
+It must prefer existing trusted local skills first, then trusted external sources when justified.
+Any external subordinate-skill download or update must be recorded in the subordinate-skill registry.
 
-Create a persistent subordinate skill only when several of the following are true:
-- there is a stable responsibility boundary
-- there is a recognizable owned file set, interface surface, or runtime boundary
-- the scope will recur across multiple tasks
-- re-orientation cost is high enough to justify specialization
-- durable ownership and escalation rules are needed
+## Subordinate-skill lifecycle policy
 
-For every persistent subordinate skill, record:
+Before creating a new persistent subordinate skill, check whether:
+- an existing local subordinate skill already covers the scope
+- an existing subordinate skill should be updated instead of duplicated
+- the requested capability is functional or structural
+- the scope is stable enough to justify persistence
+
+For each durable subordinate skill, record:
+- subordinate skill id
+- category
 - scope id
 - purpose
-- owned files or contract surfaces
+- source
+- version
+- lifecycle status
 - dependencies
-- constraints
-- allowed operations
-- escalation conditions back to this master control skill
+- compatibility notes
+- update policy
+- escalation conditions
+
+## External download and update policy
+
+Automatic download or update of subordinate skills is allowed only under governance.
+This requires:
+- a scope-justified need
+- trusted source preference
+- durable registry recording
+- version/source tracking
+- compatibility note recording when material
+- refusal of uncontrolled skill sprawl
+
+Prefer this order:
+1. reuse existing local governed subordinate skill
+2. update existing local governed subordinate skill
+3. generate a new local subordinate skill
+4. download or update from a trusted external source only when justified
 
 ## Control-plane artifacts
 
@@ -139,35 +168,21 @@ Maintain at least:
 - `/root/project/AgentSystem/control-plane/modules/`
 - `/root/project/AgentSystem/control-plane/interfaces/`
 - `/root/project/AgentSystem/control-plane/tasks/`
-
-Keep these artifacts concise, durable, and structural.
-Do not turn them into chat transcripts.
-
-## Initial AgentSystem project domains
-
-Use these as the initial project-domain guide unless later evidence justifies reshaping:
-- `platform-core`
-- `runtime-and-control-plane`
-- `skill-evolution-toolchain`
-- `telemetry-evidence-governance`
-
-These are initial governance domains, not frozen forever.
+- `/root/project/AgentSystem/control-plane/subordinate-skills/registry.yaml`
 
 ## Consistency and recovery
 
-On meaningful project-governance entry:
+On meaningful governance entry:
 - ensure the anchor still points to this skill
 - ensure `project-map.yaml` exists
-- ensure `modules/` and `tasks/` exist
+- ensure subordinate-skill registry exists
 - repair or recreate the minimum skeleton if missing
-
-If the control layer becomes stale, repair the minimum viable routing and scope state before proceeding with major structural changes.
 
 ## Update obligations
 
-After meaningful structural or governance changes:
-- update `project-map.yaml`
-- update affected scope/module files
-- update task records
+After meaningful structural or subordinate-skill lifecycle changes:
+- update `project-map.yaml` when scope structure shifts
+- update affected scope/task/interface files
+- update subordinate-skill registry
 - update anchor registration if the master control skill path changes
 - reflect major cross-cutting structure changes in `docs/system-relationship-map.md` when applicable
