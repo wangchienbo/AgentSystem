@@ -1,20 +1,14 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
 from app.models.skill_adapter import SkillAdapterSpec
 
 
-client = TestClient(app)
-
-
-def test_generated_app_assembly_returns_structured_policy_blocked_diagnostic() -> None:
-    from app.api.main import skill_control
-
-    skill_control.register(
+def test_generated_app_assembly_returns_structured_policy_blocked_diagnostic(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    client.app.state.services["skill_control"].register(
         SkillRegistryEntry(
             skill_id="skill.policy.blocked.api",
             name="skill.policy.blocked.api",

@@ -1,16 +1,13 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app, skill_control
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
 from app.services.skill_control import SkillControlError
 
-
-client = TestClient(app)
-
-
-def _register_blocked_skill() -> None:
+def _register_blocked_skill(client) -> None:
+    skill_control = client.app.state.services["skill_control"]
     try:
         skill_control.get_skill("skill.override.api")
         return
@@ -40,8 +37,9 @@ def _register_blocked_skill() -> None:
     )
 
 
-def test_risk_override_allows_generated_app_assembly_after_approval() -> None:
-    _register_blocked_skill()
+def test_risk_override_allows_generated_app_assembly_after_approval(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    _register_blocked_skill(client)
     client.post("/skill-risk/skill.override.api/revoke", params={"reviewer": "setup", "reason": "reset test state"})
 
     blocked = client.post(

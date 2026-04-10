@@ -1,13 +1,14 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app, telemetry_service, evaluation_summary_service
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.evaluation import CandidateEvaluationRecord
 from app.models.telemetry import FeedbackRecord, InteractionTelemetryRecord, VersionBindingRecord
 
-client = TestClient(app)
 
-
-def test_telemetry_and_evaluation_read_apis() -> None:
+def test_telemetry_and_evaluation_read_apis(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    telemetry_service = client.app.state.services["telemetry_service"]
+    evaluation_summary_service = client.app.state.services["evaluation_summary_service"]
     telemetry_service.record_interaction(
         InteractionTelemetryRecord(interaction_id="api.i.1", app_id="app.api", total_tokens=123, success=True)
     )
@@ -54,7 +55,10 @@ def test_telemetry_and_evaluation_read_apis() -> None:
     assert candidate.json()["candidate_id"] == "api.c.1"
 
 
-def test_core_skill_read_apis() -> None:
+def test_core_skill_read_apis(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    telemetry_service = client.app.state.services["telemetry_service"]
+    evaluation_summary_service = client.app.state.services["evaluation_summary_service"]
     telemetry_service.record_interaction(
         InteractionTelemetryRecord(interaction_id="api.i.2", app_id="app.core", total_tokens=200, total_latency_ms=40, success=False)
     )

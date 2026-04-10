@@ -1,16 +1,11 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.skill_risk_policy import SkillRiskPolicyService
 
-
-client = TestClient(app)
-
-
 def test_skill_risk_policy_stats_and_dashboard_service_view(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     store = RuntimeStateStore(base_dir=str(tmp_path / "skill-risk-dashboard"))
     service = SkillRiskPolicyService(store=store)
 
@@ -39,7 +34,8 @@ def test_skill_risk_policy_stats_and_dashboard_service_view(tmp_path: Path) -> N
     assert dashboard.recent_events.meta.has_more is True
 
 
-def test_skill_risk_dashboard_api_surface() -> None:
+def test_skill_risk_dashboard_api_surface(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     stats = client.get("/skill-risk/stats")
     assert stats.status_code == 200
     stats_payload = stats.json()

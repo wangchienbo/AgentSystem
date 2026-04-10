@@ -1,5 +1,75 @@
 # Development Log
 
+## 2026-04-10
+
+### Module: isolated api coverage expansion across skill, policy, requirement, telemetry, and evidence surfaces
+
+Extended the tmp-path isolated FastAPI test helper across the remaining API-heavy unit slices that were still pinned to the global `app.api.main.app` singleton, continuing the shift toward isolated runtime/data roots and exposing real policy/runtime contracts that had previously been blurred by shared singleton state.
+
+#### Implemented
+- migrated the skill / policy / diagnostics API slice to `create_isolated_test_client(tmp_path)` for:
+  - `tests/unit/test_policy_permission_enforcement.py`
+  - `tests/unit/test_skill_diagnostics_api.py`
+  - `tests/unit/test_skill_policy_diagnostics_api.py`
+  - `tests/unit/test_skill_control.py`
+  - `tests/unit/test_skill_runtime.py`
+- expanded `tests/unit/api_test_helper.py` to cover additional isolated routes and contract-accurate error mapping for:
+  - skill control CRUD/revision/rollback/version comparison surfaces
+  - generated app assembly/install-run and diagnostics retry surfaces
+  - skill risk events, decisions, approvals, revocations, stats, and dashboard endpoints
+  - skill blueprint materialization and related policy override paths
+  - requirement clarify / readiness / blueprint-draft endpoints
+  - self-refinement dashboard and failed-hypothesis reads
+  - evidence index / promoted / signals / stats reads
+  - telemetry, evaluation, and core-skill read-only reporting endpoints
+- aligned isolated helper behavior with the production API for requirement readiness by ingesting unresolved clarification evidence during `/requirements/readiness`
+- instantiated the core skill toolchain helpers (`CoreReplaySelectorSkill`, `CoreCostAnalyzerSkill`, `CoreAcceptanceReportSkill`, `CoreArchiveSummarySkill`) inside the isolated helper so telemetry- and evaluation-derived read endpoints behave like the production API surface
+- corrected several assertions to match the isolated runtime's real policy semantics, especially where blocked module/event/skill allowlist paths now report `blocked_by_policy` instead of the older `partial` expectation that had been masked by shared singleton state
+- continued migrating the following API-facing tests off the global singleton and onto isolated tmp-path clients:
+  - `tests/unit/test_skill_blueprint_materialization_api.py`
+  - `tests/unit/test_skill_blueprint_materialization_override_api.py`
+  - `tests/unit/test_skill_factory_api.py`
+  - `tests/unit/test_skill_risk_dashboard.py`
+  - `tests/unit/test_skill_risk_override_api.py`
+  - `tests/unit/test_requirement_blueprint_api.py`
+  - `tests/unit/test_requirement_clarifier_api.py`
+  - `tests/unit/test_skill_manifest.py`
+  - `tests/unit/test_skill_metadata.py`
+  - `tests/unit/test_refinement_dashboard.py`
+  - `tests/unit/test_log_evidence_api.py`
+  - `tests/unit/test_telemetry_api.py`
+
+#### Validation
+- re-ran:
+  - `tests/unit/test_policy_permission_enforcement.py`
+  - `tests/unit/test_skill_diagnostics_api.py`
+  - `tests/unit/test_skill_policy_diagnostics_api.py`
+  - `tests/unit/test_skill_control.py`
+  - `tests/unit/test_skill_runtime.py`
+- result: 25 tests passed
+- re-ran:
+  - `tests/unit/test_skill_blueprint_materialization_api.py`
+  - `tests/unit/test_skill_blueprint_materialization_override_api.py`
+  - `tests/unit/test_skill_factory_api.py`
+  - `tests/unit/test_skill_risk_dashboard.py`
+  - `tests/unit/test_skill_risk_override_api.py`
+- result: 22 tests passed
+- re-ran:
+  - `tests/unit/test_requirement_blueprint_api.py`
+  - `tests/unit/test_requirement_clarifier_api.py`
+  - `tests/unit/test_skill_manifest.py`
+  - `tests/unit/test_skill_metadata.py`
+  - `tests/unit/test_refinement_dashboard.py`
+- result: 9 tests passed
+- re-ran:
+  - `tests/unit/test_log_evidence_api.py`
+  - `tests/unit/test_telemetry_api.py`
+- result: 4 tests passed
+
+#### Notes
+- the helper has now grown from a narrow workflow/interaction isolation shim into a much broader contract-accurate isolated API surface for skill governance, generated app assembly, requirements, evidence, telemetry, and operator/reporting reads
+- the repeated `partial -> blocked_by_policy` assertion corrections are a useful signal that isolated runtime execution is surfacing the actual intended policy contract, rather than reproducing behavior accidentally preserved by shared singleton state
+
 ## 2026-04-08
 
 ### Module: workflow and interaction api isolation follow-up

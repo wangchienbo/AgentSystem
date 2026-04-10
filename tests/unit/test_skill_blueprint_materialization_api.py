@@ -1,12 +1,10 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_materialize_low_risk_blueprint_blocks_shell_script_materialization() -> None:
+def test_materialize_low_risk_blueprint_blocks_shell_script_materialization(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     add_blueprint = client.post(
         "/skill-blueprints",
         json={
@@ -54,7 +52,8 @@ def test_materialize_low_risk_blueprint_blocks_shell_script_materialization() ->
 
 
 
-def test_materialize_blueprint_defaults_to_callable_when_safety_profile_prefers_it() -> None:
+def test_materialize_blueprint_defaults_to_callable_when_safety_profile_prefers_it(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     add_blueprint = client.post(
         "/skill-blueprints",
         json={
@@ -115,7 +114,8 @@ def test_materialize_blueprint_defaults_to_callable_when_safety_profile_prefers_
 
 
 
-def test_materialize_skill_blueprint_uses_safety_defaults_in_creation_request() -> None:
+def test_materialize_skill_blueprint_uses_safety_defaults_in_creation_request(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     add_blueprint = client.post(
         "/skill-blueprints",
         json={
@@ -189,7 +189,8 @@ def test_materialize_skill_blueprint_uses_safety_defaults_in_creation_request() 
     assert registered_skill["manifest"]["risk"]["allow_shell"] is False
 
 
-def test_materialize_blueprint_can_select_executable_with_governance_metadata() -> None:
+def test_materialize_blueprint_can_select_executable_with_governance_metadata(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     add_blueprint = client.post(
         "/skill-blueprints",
         json={

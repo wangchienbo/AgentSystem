@@ -1,12 +1,9 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def _ensure_blueprint() -> None:
+def _ensure_blueprint(client) -> None:
     client.post(
         "/skill-blueprints",
         json={
@@ -29,8 +26,9 @@ def _ensure_blueprint() -> None:
     )
 
 
-def test_blueprint_materialization_can_be_unblocked_by_materialization_scope_override() -> None:
-    _ensure_blueprint()
+def test_blueprint_materialization_can_be_unblocked_by_materialization_scope_override(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    _ensure_blueprint(client)
     client.post(
         "/skill-risk/skill.blueprint.override.shell/revoke",
         params={"reviewer": "setup", "reason": "reset test state", "scope": "blueprint_materialization"},

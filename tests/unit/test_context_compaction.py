@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_context import AppSharedContext
 from app.models.context_policy import ContextCompactionPolicy
 from app.models.context_summary import ContextSummary
@@ -12,10 +10,8 @@ from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_state_store import RuntimeStateStore
 
 
-client = TestClient(app)
 
-
-def _register_context_app(blueprint_id: str) -> None:
+def _register_context_app(client, blueprint_id: str) -> None:
     response = client.post(
         "/registry/apps",
         json={
@@ -47,8 +43,9 @@ def _register_context_app(blueprint_id: str) -> None:
     assert response.status_code == 200
 
 
-def test_context_compaction_api_flow() -> None:
-    _register_context_app("bp.context.compaction.api")
+def test_context_compaction_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    _register_context_app(client, "bp.context.compaction.api")
     install_response = client.post(
         "/registry/apps/bp.context.compaction.api/install",
         json={"user_id": "context-compaction-user"},

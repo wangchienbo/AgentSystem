@@ -1,12 +1,10 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_requirement_clarify_api_returns_structured_spec() -> None:
+def test_requirement_clarify_api_returns_structured_spec(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post("/requirements/clarify", json={"text": "写一个表单字段校验 skill，把输入统一转换成结构化 JSON，并检查缺失字段"})
 
     assert response.status_code == 200
@@ -17,7 +15,8 @@ def test_requirement_clarify_api_returns_structured_spec() -> None:
 
 
 
-def test_requirement_readiness_api_returns_actionable_summary() -> None:
+def test_requirement_readiness_api_returns_actionable_summary(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post("/requirements/readiness", json={"text": "这个流程有很多页面点击和表单操作，我先演示一遍，你再生成应用"})
 
     assert response.status_code == 200

@@ -1,19 +1,18 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_list_skills_exposes_builtin_origin() -> None:
+def test_list_skills_exposes_builtin_origin(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.get("/skills")
     assert response.status_code == 200
     system_app_config = next(item for item in response.json() if item["skill_id"] == "system.app_config")
     assert system_app_config["origin"] == "builtin"
 
 
-def test_create_script_skill_via_api_and_smoke_execute() -> None:
+def test_create_script_skill_via_api_and_smoke_execute(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/skills/create",
         json={
@@ -67,7 +66,8 @@ def test_create_script_skill_via_api_and_smoke_execute() -> None:
     assert detail_response.json()["origin"] == "generated"
 
 
-def test_revise_generated_skill_via_api_updates_active_version_and_versions() -> None:
+def test_revise_generated_skill_via_api_updates_active_version_and_versions(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_response = client.post(
         "/skills/create",
         json={
@@ -147,7 +147,8 @@ def test_revise_generated_skill_via_api_updates_active_version_and_versions() ->
     assert compare_payload["generation_operation_changed"] is False
 
 
-def test_revise_generated_skill_can_record_draft_governance_metadata() -> None:
+def test_revise_generated_skill_can_record_draft_governance_metadata(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_response = client.post(
         "/skills/create",
         json={
@@ -204,7 +205,8 @@ def test_revise_generated_skill_can_record_draft_governance_metadata() -> None:
     assert payload[1]["reviewer"] == "alice"
 
 
-def test_activate_draft_generated_revision_promotes_it_to_active() -> None:
+def test_activate_draft_generated_revision_promotes_it_to_active(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_response = client.post(
         "/skills/create",
         json={
@@ -268,7 +270,8 @@ def test_activate_draft_generated_revision_promotes_it_to_active() -> None:
     assert payload[1]["approved_at"] is not None
 
 
-def test_rollback_generated_skill_via_api_restores_previous_active_version() -> None:
+def test_rollback_generated_skill_via_api_restores_previous_active_version(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_response = client.post(
         "/skills/create",
         json={
@@ -336,7 +339,8 @@ def test_rollback_generated_skill_via_api_restores_previous_active_version() -> 
 
 
 
-def test_create_app_blueprint_from_generated_skills_via_api() -> None:
+def test_create_app_blueprint_from_generated_skills_via_api(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_skill = client.post(
         "/skills/create",
         json={
@@ -408,7 +412,8 @@ def test_create_app_blueprint_from_generated_skills_via_api() -> None:
     assert registered["runtime_profile_summary"]["invocation_posture"] == "automatic"
 
 
-def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
+def test_create_install_and_run_app_from_generated_skills_via_api(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_skill = client.post(
         "/skills/create",
         json={
@@ -470,7 +475,8 @@ def test_create_install_and_run_app_from_generated_skills_via_api() -> None:
     assert payload["execution"]["steps"][0]["output"]["adapter"] == "script"
 
 
-def test_create_structured_transform_generated_app_exposes_shape_specific_metadata() -> None:
+def test_create_structured_transform_generated_app_exposes_shape_specific_metadata(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_normalize = client.post(
         "/skills/create",
         json={
@@ -530,7 +536,8 @@ def test_create_structured_transform_generated_app_exposes_shape_specific_metada
     assert payload["blueprint"]["views"][1]["actions"][0]["id"] == "transform-structured-data"
 
 
-def test_create_multi_step_generated_app_with_step_mappings() -> None:
+def test_create_multi_step_generated_app_with_step_mappings(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_slugify = client.post(
         "/skills/create",
         json={
@@ -649,7 +656,8 @@ def test_create_multi_step_generated_app_with_step_mappings() -> None:
     assert payload["execution"]["steps"][1]["output"]["normalized"]["source_title"] == "A Better App OS, For Real"
 
 
-def test_create_multi_step_generated_app_with_transform_and_default_mapping() -> None:
+def test_create_multi_step_generated_app_with_transform_and_default_mapping(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_slugify = client.post(
         "/skills/create",
         json={
@@ -759,7 +767,8 @@ def test_create_multi_step_generated_app_with_transform_and_default_mapping() ->
     assert normalized["priority"] == 7
 
 
-def test_generated_app_returns_mapping_suggestions_for_safe_schema_matches() -> None:
+def test_generated_app_returns_mapping_suggestions_for_safe_schema_matches(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_producer = client.post(
         "/skills/create",
         json={
@@ -855,7 +864,8 @@ def test_generated_app_returns_mapping_suggestions_for_safe_schema_matches() -> 
     assert payload["unresolved_inputs"]["skill.2"] == ["missing_field"]
 
 
-def test_generated_app_auto_applies_high_confidence_suggestions_on_install_run() -> None:
+def test_generated_app_auto_applies_high_confidence_suggestions_on_install_run(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_producer = client.post(
         "/skills/create",
         json={
@@ -954,7 +964,8 @@ def test_generated_app_auto_applies_high_confidence_suggestions_on_install_run()
     assert any(item["target_field"] == "slug" and item["confidence"] == "high" for item in payload["result"]["suggested_mappings"])
 
 
-def test_create_real_slugify_skill_and_run_generated_app() -> None:
+def test_create_real_slugify_skill_and_run_generated_app(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_skill = client.post(
         "/skills/create",
         json={

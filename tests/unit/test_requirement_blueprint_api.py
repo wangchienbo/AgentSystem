@@ -1,12 +1,10 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_requirement_blueprint_draft_api_returns_blueprint_for_ready_app_request() -> None:
+def test_requirement_blueprint_draft_api_returns_blueprint_for_ready_app_request(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/requirements/blueprint-draft",
         json={"text": "帮我做一个客服审批系统 app，要能提交工单、分配处理人，并记录失败重试日志和权限边界"},
@@ -22,7 +20,8 @@ def test_requirement_blueprint_draft_api_returns_blueprint_for_ready_app_request
 
 
 
-def test_requirement_blueprint_draft_api_returns_structured_shape_when_app_is_transform_like() -> None:
+def test_requirement_blueprint_draft_api_returns_structured_shape_when_app_is_transform_like(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/requirements/blueprint-draft",
         json={"text": "帮我做一个数据处理 app，把表单字段统一转换成结构化 JSON 输出"},
@@ -35,7 +34,8 @@ def test_requirement_blueprint_draft_api_returns_structured_shape_when_app_is_tr
 
 
 
-def test_requirement_blueprint_draft_api_fails_for_non_ready_requirement() -> None:
+def test_requirement_blueprint_draft_api_fails_for_non_ready_requirement(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/requirements/blueprint-draft",
         json={"text": "这个流程有很多页面点击和表单操作，我先演示一遍，你再生成应用"},
