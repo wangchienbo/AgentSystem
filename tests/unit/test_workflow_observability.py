@@ -219,7 +219,7 @@ def test_workflow_observability_history_supports_limit_and_unresolved_filters() 
     )
     assert len(unresolved.items) >= 1
     assert unresolved.meta.unresolved_count >= 1
-    assert all(item.status == "partial" or (item.retry_comparison is not None and item.retry_comparison.retried_status == "partial") for item in unresolved.items)
+    assert all(item.status == "blocked_by_policy" or (item.retry_comparison is not None and item.retry_comparison.retried_status == "blocked_by_policy") for item in unresolved.items)
     assert any(item.workflow_id == second.workflow_id for item in unresolved.items)
 
 
@@ -367,7 +367,7 @@ def test_workflow_observability_filter_model_drives_history_queries() -> None:
 
     assert len(history) == 1
     assert history[0].workflow_id == "wf.obs.filter-model"
-    assert history[0].status == "partial"
+    assert history[0].status == "blocked_by_policy"
 
 
 
