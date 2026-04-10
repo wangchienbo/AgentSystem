@@ -2,6 +2,33 @@
 
 ## 2026-04-10
 
+### Module: project control layer initialization for AgentSystem
+
+Initialized the first in-repo AgentSystem project control layer so future structural work can route through a project control plane instead of relying only on README/docs entry and implicit chat context.
+
+#### Implemented
+- added `PROJECT_CONTROL.md` as the project-management anchor at the repository root
+- added `control-plane/project-map.yaml` with an initial module graph, owners, file-scope mapping, relationships, and current focus
+- added an initial `skills-generated` module record under `control-plane/modules/`
+- added an initial `skills-generated` task record under `control-plane/tasks/`
+- added an initial interface contract between generated-skill/app assembly and registry/blueprint governance under `control-plane/interfaces/`
+- added `docs/project-control-init.md` to explain the intent and current scope of the control-plane initialization
+- set the first control-plane-guided structural focus to app-skill-factory-related system capabilities, explicitly routing that future work through the project control layer before broader system integration
+
+#### Validation
+- verified the control-plane files were created in-repo at:
+  - `PROJECT_CONTROL.md`
+  - `control-plane/project-map.yaml`
+  - `control-plane/modules/skills-generated.md`
+  - `control-plane/tasks/skills-generated.md`
+  - `control-plane/interfaces/skills-generated-to-registry-blueprints-control-plane.md`
+  - `docs/project-control-init.md`
+
+#### Notes
+- this initialization intentionally keeps the in-repo control plane lean; the initial goal is to establish the anchor, map, and first governed module/interface path rather than immediately document every module in full detail
+- future structural changes (especially app/meta-skill introduction) should now route through this control layer first
+
+
 ### Module: isolated api coverage expansion across skill, policy, requirement, telemetry, and evidence surfaces
 
 Extended the tmp-path isolated FastAPI test helper across the remaining API-heavy unit slices that were still pinned to the global `app.api.main.app` singleton, continuing the shift toward isolated runtime/data roots and exposing real policy/runtime contracts that had previously been blurred by shared singleton state.
