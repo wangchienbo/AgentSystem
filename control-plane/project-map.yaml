@@ -1,238 +1,51 @@
 project:
   id: agentsystem
   name: AgentSystem
-  goal: App OS prototype for building, managing, and running AI-native applications
-  architecture_style: modular-monolith
+  root: /root/project/AgentSystem
+  anchor: /root/project/AgentSystem/PROJECT_CONTROL.md
+  master_control_skill:
+    id: agentsystem-master-control
+    path: /root/project/AgentSystem/skills/generated/agentsystem-master-control/SKILL.md
+  focus: project-bootstrap-control
   status: active
 
-control_state: bootstrapping
+scopes:
+  - id: platform-core
+    kind: project-domain
+    purpose: Core app-os substrate, contracts, registry, lifecycle, runtime, persistence, and platform governance foundations.
+    owners:
+      - agent
+  - id: runtime-and-control-plane
+    kind: project-domain
+    purpose: Runtime host, scheduler, supervisor, interaction gateway, control-plane reads, and operator intervention surfaces.
+    owners:
+      - agent
+  - id: skill-evolution-toolchain
+    kind: project-domain
+    purpose: Experience, skill suggestion, generated skill flows, executable skills, review, acceptance, rollback, and governance-aware skill growth.
+    owners:
+      - agent
+  - id: telemetry-evidence-governance
+    kind: project-domain
+    purpose: Telemetry, upgrade evidence, refinement governance, risk governance, operator dashboards, and review surfaces.
+    owners:
+      - agent
 
-owners:
-  - id: human-architect
-    type: human
-    scope: [project-map, interfaces, module-governance]
-  - id: agent-runtime
-    type: agent
-    scope: [app-runtime-core, data-context-layer, workflow-observability]
-  - id: agent-skills
-    type: agent
-    scope: [skills-generated, interaction-requirement-routing]
-  - id: agent-learning
-    type: agent
-    scope: [learning-refinement, telemetry-evolution]
+dependencies:
+  - from: runtime-and-control-plane
+    to: platform-core
+    kind: depends-on
+  - from: skill-evolution-toolchain
+    to: platform-core
+    kind: depends-on
+  - from: telemetry-evidence-governance
+    to: platform-core
+    kind: depends-on
+  - from: skill-evolution-toolchain
+    to: telemetry-evidence-governance
+    kind: depends-on
 
-modules:
-  - id: app-runtime-core
-    name: App Runtime Core
-    purpose: lifecycle, runtime host, eventing, scheduler, supervision, workflow execution substrate
-    owner: agent-runtime
-    status: active
-    skill_status: planned
-    depends_on: []
-    provides: [runtime-host-api, lifecycle-events, execution-substrate]
-    consumes: []
-    primary_paths:
-      - app/bootstrap/runtime.py
-      - app/services/lifecycle.py
-      - app/services/runtime_host.py
-      - app/services/runtime_state_store.py
-      - app/services/scheduler.py
-      - app/services/supervisor.py
-      - app/services/event_bus.py
-      - app/services/workflow_executor.py
-      - app/services/workflow_subscription.py
-    related_paths:
-      - docs/code-structure.md
-      - docs/system-relationship-map.md
-    interface_paths:
-      - app/services/workflow_observability.py
-      - app/services/app_installer.py
-
-  - id: registry-blueprints-control-plane
-    name: Registry Blueprints Control Plane
-    purpose: blueprint validation, registry, install posture, release/control-plane governance
-    owner: human-architect
-    status: active
-    skill_status: planned
-    depends_on: [app-runtime-core]
-    provides: [blueprint-registry-api, release-governance-api]
-    consumes: [execution-substrate]
-    primary_paths:
-      - app/services/app_registry.py
-      - app/services/app_installer.py
-      - app/services/blueprint_validation.py
-      - app/services/app_catalog.py
-      - app/services/app_profile_resolver.py
-    related_paths:
-      - app/models/app_blueprint.py
-      - app/models/registry.py
-    interface_paths:
-      - app/services/interaction_gateway.py
-      - app/bootstrap/catalog.py
-
-  - id: data-context-layer
-    name: Data Context Layer
-    purpose: app data namespaces, shared app context, context shaping, persistence-facing coordination
-    owner: agent-runtime
-    status: active
-    skill_status: planned
-    depends_on: [app-runtime-core]
-    provides: [app-data-api, app-context-api, context-compaction]
-    consumes: [lifecycle-events]
-    primary_paths:
-      - app/services/app_data_store.py
-      - app/services/app_context_store.py
-      - app/services/context_compaction.py
-    related_paths:
-      - app/models/app_context.py
-    interface_paths:
-      - app/services/practice_review.py
-      - app/services/self_refinement.py
-      - app/services/priority_analysis.py
-
-  - id: skills-generated
-    name: Skills Generated Layer
-    purpose: skill registry/control, manifests, adapters, runtime, generated skill authoring, generated app assembly
-    owner: agent-skills
-    status: active
-    skill_status: planned
-    depends_on: [app-runtime-core, registry-blueprints-control-plane]
-    provides: [skill-registry-api, generated-skill-api, skill-runtime-api]
-    consumes: [execution-substrate, blueprint-registry-api]
-    primary_paths:
-      - app/services/skill_control.py
-      - app/services/skill_runtime.py
-      - app/services/skill_factory.py
-      - app/services/skill_authoring.py
-      - app/services/skill_manifest_validator.py
-      - app/services/generated_callable_materializer.py
-      - app/services/generated_skill_assets.py
-      - app/services/system_skill_registry.py
-      - app/bootstrap/skills.py
-    related_paths:
-      - app/models/skill_control.py
-      - app/models/skill_manifest.py
-      - app/models/skill_adapter.py
-      - docs/skill-asset-governance.md
-      - docs/skill-design-principles.md
-    interface_paths:
-      - app/services/app_registry.py
-      - app/services/workflow_executor.py
-      - app/api/main.py
-
-  - id: workflow-observability
-    name: Workflow Observability
-    purpose: diagnostics, history, retries, operator filters and dashboard read models
-    owner: agent-runtime
-    status: active
-    skill_status: planned
-    depends_on: [app-runtime-core, skills-generated]
-    provides: [workflow-observability-api]
-    consumes: [execution-substrate, skill-runtime-api]
-    primary_paths:
-      - app/services/workflow_observability.py
-      - app/services/workflow_observability_helpers.py
-      - app/api/operator_filters.py
-    related_paths:
-      - app/models/workflow_observability.py
-      - app/models/operator_contracts.py
-      - app/models/operator_filters.py
-      - app/models/operator_dashboards.py
-    interface_paths:
-      - app/services/workflow_executor.py
-      - app/services/skill_runtime.py
-
-  - id: interaction-requirement-routing
-    name: Interaction Requirement Routing
-    purpose: interaction gateway, requirement routing, clarification, and blueprint draft handoff
-    owner: agent-skills
-    status: active
-    skill_status: planned
-    depends_on: [registry-blueprints-control-plane, data-context-layer]
-    provides: [interaction-gateway-api, requirement-routing-api]
-    consumes: [blueprint-registry-api, app-context-api]
-    primary_paths:
-      - app/services/interaction_gateway.py
-      - app/services/requirement_router.py
-      - app/services/requirement_clarifier.py
-      - app/services/requirement_blueprint_builder.py
-    related_paths:
-      - app/models/requirement_intent.py
-    interface_paths:
-      - app/services/app_catalog.py
-      - app/services/app_installer.py
-
-  - id: learning-refinement
-    name: Learning Refinement
-    purpose: practice review, refinement loop, rollout, proposal review, priority analysis, failed-hypothesis governance
-    owner: agent-learning
-    status: active
-    skill_status: planned
-    depends_on: [data-context-layer, workflow-observability]
-    provides: [refinement-governance-api, practice-review-api]
-    consumes: [app-context-api, workflow-observability-api]
-    primary_paths:
-      - app/services/practice_review.py
-      - app/services/self_refinement.py
-      - app/services/refinement_loop.py
-      - app/services/refinement_memory.py
-      - app/services/refinement_rollout.py
-      - app/services/proposal_review.py
-      - app/services/priority_analysis.py
-      - app/services/refinement_failure_analysis.py
-    related_paths:
-      - app/models/refinement_loop.py
-    interface_paths:
-      - app/services/app_context_store.py
-      - app/services/workflow_observability.py
-      - app/services/skill_factory.py
-
-  - id: telemetry-evolution
-    name: Telemetry Evolution Layer
-    purpose: telemetry, feedback, version binding, upgrade evidence, candidate evaluation and core skill reporting
-    owner: agent-learning
-    status: active
-    skill_status: planned
-    depends_on: [workflow-observability, skills-generated, learning-refinement]
-    provides: [telemetry-api, feedback-api, evaluation-summary-api]
-    consumes: [workflow-observability-api, generated-skill-api, refinement-governance-api]
-    primary_paths:
-      - app/services/telemetry_service.py
-      - app/services/evaluation_summary_service.py
-      - app/services/core_skill_toolchain.py
-    related_paths:
-      - app/models/telemetry.py
-      - app/models/evaluation.py
-      - docs/telemetry-and-upgrade-logging.md
-      - docs/implementation-plan-telemetry.md
-    interface_paths:
-      - app/services/workflow_observability.py
-      - app/services/skill_factory.py
-
-relationships:
-  - from: app-runtime-core
-    to: workflow-observability
-    type: emits_execution_history_to
-  - from: app-runtime-core
-    to: registry-blueprints-control-plane
-    type: hosts_install_and_runtime_execution_for
-  - from: data-context-layer
-    to: learning-refinement
-    type: supplies_context_and_data_to
-  - from: workflow-observability
-    to: learning-refinement
-    type: supplies_failure_and_retry_signals_to
-  - from: skills-generated
-    to: telemetry-evolution
-    type: emits_generated_skill_and_runtime_evidence_to
-  - from: learning-refinement
-    to: telemetry-evolution
-    type: emits_refinement_and_rollout_evidence_to
-
-current_focus:
-  module: skills-generated
-  task: design and place app-skill-factory-related system capabilities under project-control governance
-  impacted_modules:
-    - interaction-requirement-routing
-    - registry-blueprints-control-plane
-    - learning-refinement
+artifacts:
+  modules_dir: /root/project/AgentSystem/control-plane/modules
+  interfaces_dir: /root/project/AgentSystem/control-plane/interfaces
+  tasks_dir: /root/project/AgentSystem/control-plane/tasks

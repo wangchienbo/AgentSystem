@@ -1,37 +1,49 @@
 # PROJECT_CONTROL.md
 
-This repository uses a project control layer.
+## Purpose
 
-## Mandatory entry rule
+This file is the routing anchor for AgentSystem's project master control skill.
+Its first job is to register and locate the master control skill for project-scoped governance work.
 
-Before doing project-scoped development or project-management work:
-1. read `control-plane/project-map.yaml`
-2. identify the active module
-3. read `control-plane/modules/<module-id>.md`
-4. read directly relevant `control-plane/interfaces/*.md`
-5. avoid whole-repo loading unless necessary
+## Registered master control skill
 
-## Mandatory middle-layer rule
+- Skill id: `agentsystem-master-control`
+- Skill path: `/root/project/AgentSystem/skills/generated/agentsystem-master-control/SKILL.md`
+- Governed scope: the full AgentSystem repository at `/root/project/AgentSystem`
 
-The project control skill is the required middle layer for:
-- module discovery
-- module understanding
-- module graph updates
-- project-structure changes
-- adding, deleting, splitting, or merging modules
-- creating or revising module skills
-- interface contract updates
-- project-scoped retrieval/search intended to reason about module ownership or impact
-- introducing new meta-skills or app-design control layers into the system
+## When to enter the master control skill first
 
-## First-entry self-check
+Enter the master control skill before proceeding when the request involves any of the following:
+- project-level planning, restructuring, or roadmap shaping
+- architecture or boundary decisions across apps, services, or subsystems
+- deciding whether work belongs to project, app, domain, or module scope
+- creating, revising, merging, or retiring subordinate skills
+- updating project governance, control-plane artifacts, or structural ownership
+- cross-module or cross-app impact analysis
+- deciding what context should be loaded for a non-trivial project change
 
-On first entry, the control skill should verify:
-- `PROJECT_CONTROL.md` exists
-- `control-plane/project-map.yaml` exists
-- `control-plane/modules/` exists
-- `control-plane/interfaces/` exists
-- `control-plane/tasks/` exists
-- the active module in `control-plane/project-map.yaml` is resolvable
+Do not require the master control skill for an obviously small, local, single-file change with clear narrow scope.
 
-If any control-plane artifact is missing or stale, repair the control plane before continuing normal project-management work.
+## Entry model
+
+Outer agents or fresh sessions should read this file first to discover and route into the master control skill.
+The master control skill may consult this file for consistency or recovery checks, but does not rely on it to locate itself during normal operation.
+
+## Control-plane artifacts
+
+The master control skill governs and maintains these project control artifacts:
+- `/root/project/AgentSystem/control-plane/project-map.yaml`
+- `/root/project/AgentSystem/control-plane/modules/`
+- `/root/project/AgentSystem/control-plane/interfaces/`
+- `/root/project/AgentSystem/control-plane/tasks/`
+
+## Minimal routing rules
+
+- Prefer anchor-guided routing over direct whole-repo loading.
+- Prefer project/app/module scoped context over broad repository context.
+- Structural work should pass through the master control layer before implementation proceeds.
+- Critical project governance state must be kept in durable files, not only in chat history.
+
+## Recovery rule
+
+If the registered master control skill or control-plane artifacts are missing or inconsistent, repair the minimum required control skeleton before continuing structural governance work.
