@@ -5,26 +5,31 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class MetaAppBootstrapRequest(BaseModel):
-    """Request for bootstrapping an app-scoped control structure inside AgentSystem."""
-
-    app_name: str = Field(..., min_length=1)
-    goal: str = Field(..., min_length=1)
-    app_kind: str = Field(default="service")
-    context: dict[str, Any] = Field(default_factory=dict)
-
-
-class MetaAppScopeRecord(BaseModel):
-    scope_id: str
-    purpose: str
-    category: str = "app-module"
-    owned_paths: list[str] = Field(default_factory=list)
+class AppControlSkillManifest(BaseModel):
+    """Manifest for a generated app-level control skill."""
+    skill_id: str
+    name: str
+    description: str
+    version: str = "1.0.0"
+    handler_entry: str = ""
+    tags: list[str] = Field(default_factory=list)
+    capability_profile: dict[str, Any] = Field(default_factory=dict)
 
 
-class MetaAppBootstrapResult(BaseModel):
+class SubordinateSkillSuggestion(BaseModel):
+    """A suggested subordinate skill for the app."""
+    suggested_name: str
+    scope: str
+    responsibility: str
+    priority: str = "medium"  # high / medium / low
+
+
+class AppControlSkillResult(BaseModel):
+    """Full output of the meta-app control skill generator."""
     app_name: str
-    anchor_name: str
-    project_map_name: str
-    module_records: list[MetaAppScopeRecord] = Field(default_factory=list)
-    subordinate_registry_name: str
-    notes: list[str] = Field(default_factory=list)
+    app_slug: str
+    anchor_file: str
+    control_skill: AppControlSkillManifest
+    subordinate_suggestions: list[SubordinateSkillSuggestion] = Field(default_factory=list)
+    decomposition_plan: list[str] = Field(default_factory=list)
+    governance_notes: list[str] = Field(default_factory=list)

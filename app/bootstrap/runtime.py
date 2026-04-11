@@ -64,6 +64,7 @@ from app.services.upgrade_log_service import UpgradeLogService
 from app.services.workflow_executor import WorkflowExecutorService
 from app.services.workflow_observability import WorkflowObservabilityService
 from app.services.workflow_subscription import WorkflowSubscriptionService
+from app.services.meta_app.bootstrap import MetaAppBootstrapService
 
 
 def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_dir: str | None = None) -> dict[str, object]:
@@ -417,6 +418,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         context_store=app_context_store,
         telemetry_service=telemetry_service,
     )
+    meta_app_bootstrap = MetaAppBootstrapService()
     skill_factory.reload_generated_skills()
 
     return locals()
