@@ -68,9 +68,10 @@ Prefer this order:
 1. project anchor for routing confirmation when needed
 2. `control-plane/project-map.yaml`
 3. `control-plane/subordinate-skills/registry.yaml` when subordinate-skill governance matters
-4. target scope records and task files
-5. interfaces/contracts when relevant
-6. local implementation files only as needed
+4. `control-plane/subordinate-skills/structural-candidates.yaml` when structural promotion decisions matter
+5. target scope records and task files
+6. interfaces/contracts when relevant
+7. local implementation files only as needed
 
 Avoid whole-repo loading by default.
 Use the smallest sufficient working set.

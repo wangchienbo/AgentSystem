@@ -26,3 +26,4 @@ This anchor exists to locate the master control skill. It is not the full contro
 - `/root/project/AgentSystem/control-plane/interfaces/`
 - `/root/project/AgentSystem/control-plane/tasks/`
 - `/root/project/AgentSystem/control-plane/subordinate-skills/registry.yaml`
+- `/root/project/AgentSystem/control-plane/subordinate-skills/structural-candidates.yaml`
