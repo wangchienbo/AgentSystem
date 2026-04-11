@@ -5,4 +5,5 @@
 - [x] establish structural subordinate candidate artifact
 - [x] encode functional vs structural subordinate distinction
 - [x] encode first-run bootstrap handoff rules
+- [x] encode explicit master-control initialization rules
 - [ ] validate first structural subordinate promotion under real project work

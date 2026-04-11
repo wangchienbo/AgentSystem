@@ -12,7 +12,7 @@ project:
 scopes:
   - id: project-bootstrap-control
     kind: project-control
-    purpose: Bootstrap and maintain project-level control routing, scope governance, subordinate-skill governance, and first-run handoff readiness.
+    purpose: Bootstrap and maintain project-level control routing, scope governance, subordinate-skill governance, and first-run initialization readiness.
     owners: [agent]
   - id: platform-core
     kind: project-domain
