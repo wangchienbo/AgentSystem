@@ -6,36 +6,39 @@ project:
   master_control_skill:
     id: agentsystem-master-control
     path: /root/project/AgentSystem/skills/generated/agentsystem-master-control/SKILL.md
-  focus: first-structural-subordinates-initialized
+  focus: recursive-bootstrap-initialized
   status: active
+
 scopes:
-- id: project-bootstrap-control
-  kind: project-control
-  purpose: Bootstrap and maintain project-level control routing, scope governance,
-    subordinate-skill governance, and first-run initialization readiness.
-  owners:
-  - agent
-- id: platform-core
-  kind: project-domain
-  purpose: Core app-os substrate, contracts, registry, lifecycle, runtime, persistence,
-    and standard interfaces.
-  owners:
-  - agent
-- id: runtime-and-control-plane
-  kind: project-domain
-  purpose: Runtime host, scheduler, supervisor, interaction gateway, and operator-facing
-    control surfaces.
-  owners:
-  - agent
-- id: skill-evolution-toolchain
-  kind: project-domain
-  purpose: Experience, suggestion, generated skill flows, executable skills, and reusable
-    capability growth.
-  owners:
-  - agent
-- id: telemetry-evidence-governance
-  kind: project-domain
-  purpose: Telemetry, upgrade evidence, risk/review/refinement governance, and operator
-    dashboard surfaces.
-  owners:
-  - agent
+  - id: project-bootstrap-control
+    kind: project-control
+    purpose: Bootstrap and maintain project-level control routing, recursive initialization, and subordinate-skill governance.
+    owners: [agent]
+  - id: api-surface
+    kind: module
+    purpose: API entrypoints, route declarations, and externally visible control surfaces.
+    owners: [agent]
+  - id: bootstrap-runtime
+    kind: module
+    purpose: Runtime construction, skill wiring, and demo/catalog bootstrap assembly.
+    owners: [agent]
+  - id: core-domain-models
+    kind: module
+    purpose: Core domain models, manifests, adapters, profiles, and structural contracts.
+    owners: [agent]
+  - id: runtime-services
+    kind: module
+    purpose: Runtime services, lifecycle, scheduling, supervision, execution, registry, and operational service logic.
+    owners: [agent]
+  - id: system-skills
+    kind: module
+    purpose: Built-in system skill implementations and their registration/runtime integration.
+    owners: [agent]
+  - id: telemetry-governance-docs
+    kind: module
+    purpose: Telemetry, evidence, governance, and roadmap-oriented design documentation.
+    owners: [agent]
+  - id: tests-and-fixtures
+    kind: module
+    purpose: End-to-end and unit validation coverage plus fixtures supporting runtime and governance verification.
+    owners: [agent]
