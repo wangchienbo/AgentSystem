@@ -65,6 +65,8 @@ from app.services.workflow_executor import WorkflowExecutorService
 from app.services.workflow_observability import WorkflowObservabilityService
 from app.services.workflow_subscription import WorkflowSubscriptionService
 from app.services.meta_app.bootstrap import MetaAppBootstrapService
+from app.models.maoxuan_skill import MaoxuanSkillRequest
+from app.services.system_skills.maoxuan import MaoxuanSkillService
 
 
 def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_dir: str | None = None) -> dict[str, object]:
@@ -264,6 +266,18 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         "schema://prompt.selection.skill/error",
         {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
     )
+    schema_registry.register(
+        "schema://system.maoxuan/input",
+        MaoxuanSkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://system.maoxuan/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://system.maoxuan/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
     skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)
     blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
@@ -419,6 +433,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         telemetry_service=telemetry_service,
     )
     meta_app_bootstrap = MetaAppBootstrapService()
+    maoxuan_service = MaoxuanSkillService()
     skill_factory.reload_generated_skills()
 
     return locals()
