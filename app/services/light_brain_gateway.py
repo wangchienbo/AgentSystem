@@ -61,6 +61,8 @@ class LightBrainGateway:
         self._catalog = app_catalog
         self._skill_registry = skill_registry
         self._meta_app_orchestrator = meta_app_orchestrator
+        self._name: str | None = None
+        self._load_identity()
 
     # -- public API ----------------------------------------------------------
 
@@ -166,7 +168,7 @@ class LightBrainGateway:
         available_apps: list[dict[str, Any]],
     ) -> ChatMessageResponse:
         """Route interpreted command to the right handler."""
-        handlers = {
+        self._handlers = {
             "greet": self._handle_greet,
             "list_apps": self._handle_list_apps,
             "query_status": self._handle_query_status,
@@ -181,7 +183,7 @@ class LightBrainGateway:
             "delete_app": self._handle_delete_app,
         }
 
-        handler = handlers.get(command.intent)
+        handler = self._handlers.get(command.intent)
         if handler:
             return await handler(command, session_id, available_apps)
 
@@ -199,15 +201,43 @@ class LightBrainGateway:
 
     # -- built-in handlers ---------------------------------------------------
 
+    def _load_identity(self) -> None:
+        """Load persisted identity, or generate one on first run."""
+        import json, os
+        identity_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "lightbrain", "identity.json")
+        os.makedirs(os.path.dirname(identity_path), exist_ok=True)
+        if os.path.exists(identity_path):
+            with open(identity_path) as f:
+                data = json.load(f)
+                self._name = data.get("name")
+        if not self._name:
+            # Generate identity on first run
+            import random
+            prefixes = ["星", "渊", "岚", "溯", "曜", "穹", "澈", "翎", "朔", "玄", "霁", "衡"]
+            suffixes = ["枢", "鉴", "策", "弈", "衡", "衍", "序", "衍", "弦", "翎"]
+            self._name = random.choice(prefixes) + random.choice(suffixes)
+            with open(identity_path, "w") as f:
+                json.dump({"name": self._name, "role": "agent-system-interface"}, f)
+
     async def _handle_greet(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
         running = [a for a in apps if a.get("status") == "running"]
         total = len(apps)
+
+        # Self-description based on actual responsibilities
+        capabilities = self._enumerate_capabilities()
+        self_desc = "我是一套 Agent 驱动的系统，我的职责是：\n\n" + capabilities
+
+        app_status = f"\n当前有 {total} 个 App"
+        if running:
+            app_status += f"，其中 {len(running)} 个在运行"
+
+        name_line = f"你可以叫我「{self._name}」。\n\n" if self._name else ""
         return ChatMessageResponse(
             type="text",
-            content=f"你好！我是你的 AgentSystem 光脑 🧠\n\n"
-                    f"当前有 {total} 个 App，其中 {len(running)} 个在运行。\n\n"
+            content=f"你好！{self_desc}{app_status}\n\n"
+                    f"{name_line}"
                     f"你可以对我说：\n"
                     f'• "帮我建一个监控 App"\n'
                     f'• "看看我的 App 列表"\n'
@@ -216,6 +246,25 @@ class LightBrainGateway:
             session_id=session_id,
             actions=command.suggested_actions,
         )
+
+    def _enumerate_capabilities(self) -> str:
+        """List what I can do based on registered command handlers."""
+        caps = []
+        if "create_app" in self._handlers:
+            caps.append("🔨 根据你的需求，创建并配置各种功能 App")
+        if "list_apps" in self._handlers:
+            caps.append("📱 管理你所有的 App —— 查看、启动、停止、暂停、恢复、修改、删除")
+        if "query_status" in self._handlers:
+            caps.append("📊 汇报系统的整体运行状态")
+        if "query_help" in self._handlers:
+            caps.append("❓ 回答你关于我能力的问题")
+        if "query_app" in self._handlers:
+            caps.append("🔍 查询单个 App 的详细信息")
+
+        if not caps:
+            caps.append("处理你的指令，管理 App 的生命周期")
+
+        return "\n".join(caps)
 
     async def _handle_list_apps(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
