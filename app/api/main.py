@@ -1,4 +1,7 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+import os
 
 from app.core.errors import map_domain_error
 
@@ -1761,3 +1764,65 @@ def chat_session_messages(session_id: str, limit: int = 20) -> dict:
     """Get recent messages from a conversation session."""
     messages = light_brain_gateway.get_session_messages(session_id, limit)
     return {"session_id": session_id, "messages": messages, "count": len(messages)}
+
+
+# ===========================================================================
+# Static Files & Streaming (Phase 8.5/8.6)
+# ===========================================================================
+
+# Serve static files
+_static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+if os.path.exists(_static_dir):
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+
+@app.get("/")
+def serve_index():
+    """Serve the web chat UI."""
+    index_path = os.path.join(_static_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"error": "Web UI not found"}
+
+
+@app.post("/chat/message/stream")
+async def chat_message_stream(request: ChatMessageRequest):
+    """Stream a chat response using Server-Sent Events (SSE).
+
+    Supports client-side abort for timely interruption.
+    """
+    import json
+    import asyncio
+
+    async def event_generator():
+        try:
+            reply = await light_brain_gateway.process_message(request)
+            content = reply.content
+            # Stream character by character (or chunk by chunk)
+            chunk_size = 4
+            for i in range(0, len(content), chunk_size):
+                chunk = content[i:i+chunk_size]
+                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.01)  # Small delay for smooth streaming
+            
+            # Send complete reply with actions
+            yield f"data: {json.dumps({
+                'type': 'complete',
+                'content': content,
+                'reply_type': reply.type,
+                'session_id': reply.session_id,
+                'actions': [a.model_dump(mode='json') for a in reply.actions],
+                'requires_input': reply.requires_input,
+            }, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
