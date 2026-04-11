@@ -441,4 +441,23 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     maoxuan_service = MaoxuanSkillService()
     skill_factory.reload_generated_skills()
 
+    # -- LightBrain interaction gateway -----------------------------------------
+    from app.services.light_brain_gateway import LightBrainGateway
+    from app.services.light_brain_interpreter import LightBrainInterpreter
+    from app.services.light_brain_memory import LightBrainMemory
+
+    light_brain_memory = LightBrainMemory()
+    light_brain_interpreter = LightBrainInterpreter()
+    light_brain_gateway = LightBrainGateway(
+        memory=light_brain_memory,
+        interpreter=light_brain_interpreter,
+        app_catalog=app_catalog,
+        app_registry_service=app_registry,
+        app_lifecycle_service=lifecycle,
+        app_runtime_host=runtime_host,
+        app_installer=app_installer,
+        skill_registry=skill_factory,
+        meta_app_orchestrator=meta_app_orchestrator,
+    )
+
     return locals()

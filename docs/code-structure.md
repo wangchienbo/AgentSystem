@@ -1,5 +1,7 @@
 # Code Structure
 
+> **Core Architecture Philosophy**: AgentSystem is a **stateful, persistent App OS**. Apps are the fundamental unit of isolation and capability (光脑 model). User commands are translated into workflows that orchestrate app lifecycle operations. Everything persists — apps, data, configurations, and execution context survive restarts.
+
 ## Related Maps
 
 - See `docs/system-relationship-map.md` for the cross-cutting module / feature / test relationship graph used for change-impact analysis.
@@ -61,6 +63,36 @@ These should be treated as migration shims, not the long-term home of the implem
 - `app/services/app_profile_resolver.py`
 
 These compute the minimal runtime posture inferred from registered skill metadata.
+
+## LLM Interaction Layer
+
+### Phase 7 interaction services
+- `app/services/llm_interaction_gateway.py`
+  - LLM-driven unified interaction entry point
+  - routes user messages to appropriate subsystems
+  - manages conversation sessions and response serialization
+- `app/services/conversation_session.py`
+  - conversation session manager
+  - message history, context tracking, compaction
+- `app/services/conversation_router.py`
+  - LLM-powered intent classification and parameter extraction
+  - returns routing results with confidence, clarification needs, and action suggestions
+- `app/services/response_serializer.py`
+  - serializes interaction responses into channel-friendly formats
+  - supports text, card, list, confirm, and error response types
+
+### Phase 7 models
+- `app/models/chat.py`
+  - ChatMessageRequest / ChatMessageResponse models
+  - InteractionResponse data model
+  - ActionSuggestion model
+
+### Phase 7 API endpoints
+- `POST /chat/message` — main conversation entry point
+- `POST /chat/message/stream` — streaming conversation (SSE)
+- `GET /chat/sessions` — list conversation sessions
+- `DELETE /chat/sessions/{session_id}` — reset session
+- `POST /chat/actions/{action_id}` — execute user-selected action
 
 ## What to read first for future changes
 

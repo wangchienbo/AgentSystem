@@ -1,19 +1,21 @@
 # AgentSystem System Relationship Map
 
-> 目标：把**模块、功能、测试**放进同一张“关系网”里。只要存在明显依赖、调用、覆盖、影响或共同演化关系，就连一条边。
+> **核心架构理念**：AgentSystem 是**有状态、全持久化的 App OS**。App 是功能模块和隔离边界（光脑模型），用户命令 = 工作流，工作流负责启动、停止、修改和管理 App。
+
+> 目标：把**模块、功能、测试**放进同一张"关系网"里。只要存在明显依赖、调用、覆盖、影响或共同演化关系，就连一条边。
 >
-> 用途：后续改动时，用这份文档快速检查“会牵动哪些地方、哪些测试要补跑、哪些文档要更新”，尽量减少漏改。
+> 用途：后续改动时，用这份文档快速检查"会牵动哪些地方、哪些测试要补跑、哪些文档要更新"，尽量减少漏改。
 
 ---
 
 ## 1. 使用方式
 
-当你准备改某个模块时，建议按下面顺序使用这份图：
+当你准备改某个模块时,建议按下面顺序使用这份图:
 
 1. 先在 **功能关系图** 里定位能力域
 2. 再看 **模块关系图** 找直接依赖
 3. 再看 **测试映射图** 找应补跑的单测 / 集成测试
-4. 最后看 **改动检查清单**，避免漏掉 docs / API / runtime wiring / persistence
+4. 最后看 **改动检查清单**,避免漏掉 docs / API / runtime wiring / persistence
 
 ---
 
@@ -58,7 +60,7 @@ graph TD
 
 ---
 
-## 3. 模块关系网（按域分组）
+## 3. 模块关系网(按域分组)
 
 ### 3.1 App / Runtime Core
 
@@ -208,7 +210,31 @@ graph TD
     IG --> RH[services/runtime_host.py]
     API[api/main.py] --> RR
     API --> IG
+    API --> LIG[services/llm_interaction_gateway.py]
 ```
+
+### 3.7.1 LLM Interaction Gateway (Phase 7)
+
+```mermaid
+graph TD
+    API[api/main.py::/chat/*] --> LIG[services/llm_interaction_gateway.py]
+    LIG --> CR[services/conversation_router.py]
+    LIG --> CS[services/conversation_session.py]
+    LIG --> RS[services/response_serializer.py]
+    LIG --> MAO[services/meta_app/orchestrator.py]
+    LIG --> AR[services/app_registry.py]
+    LIG --> LC[services/lifecycle.py]
+    LIG --> RH[services/runtime_host.py]
+    LIG --> SC[services/skill_control.py]
+    LIG --> SF[services/skill_factory.py]
+    LIG --> SSR[services/system_skill_registry.py]
+    LIG --> AC[services/app_context_store.py]
+    CR --> MCL[services/model_client.py]
+    CS --> RS2[services/runtime_state_store.py]
+    LIG --> MCH[models/chat.py]
+```
+
+> Integration note: LLM interaction gateway depends on all existing subsystem services it routes to. Changes in any routed service should be treated as potentially affecting the conversation router's extracted parameters and response construction.
 
 ### 3.8 External Model / Config
 
@@ -244,7 +270,7 @@ graph TD
 
 ## 4. Operator Surface Contract Map
 
-> 这是最近持续在统一的一条主线，和后续运维视图、自我迭代都强相关。
+> 这是最近持续在统一的一条主线,和后续运维视图、自我迭代都强相关。
 
 ```mermaid
 graph LR
@@ -266,7 +292,7 @@ graph LR
     APIO --> RF
 ```
 
-**改这里通常会影响：**
+**改这里通常会影响:**
 - `app/models/workflow_observability.py`
 - `app/models/refinement_loop.py`
 - `app/api/operator_filters.py`
@@ -470,7 +496,7 @@ graph TD
     F --> T1[tests/unit/test_skill_suggestion.py]
     F --> T2[tests/unit/test_skill_runtime.py]
 
-> Suggestion note: skill suggestion now depends not only on experience data and optional model synthesis, but also on risk governance state when available. Changes in risk policy summaries — especially blueprint-materialization pressure — can therefore alter generated-skill suggestion behavior and preferred artifact shape.
+> Suggestion note: skill suggestion now depends not only on experience data and optional model synthesis, but also on risk governance state when available. Changes in risk policy summaries - especially blueprint-materialization pressure - can therefore alter generated-skill suggestion behavior and preferred artifact shape.
     F --> T3[tests/unit/test_skill_runtime_adapters.py]
     F --> T4[tests/unit/test_skill_control.py]
     F --> T5[tests/unit/test_skill_authoring.py]
@@ -516,21 +542,47 @@ graph TD
     F --> T2[tests/e2e/test_api_usable_flow.py]
 ```
 
+## 5.12 LLM Interaction Gateway (Phase 7)
+
+```mermaid
+graph TD
+    F[功能: LLM-Powered Conversation Interface]
+    F --> LIG[services/llm_interaction_gateway.py]
+    F --> CR[services/conversation_router.py]
+    F --> CS[services/conversation_session.py]
+    F --> RS[services/response_serializer.py]
+    F --> MCH[models/chat.py]
+    F --> MCL[services/model_client.py]
+    F --> MAO[services/meta_app/orchestrator.py]
+    F --> AR[services/app_registry.py]
+    F --> LC[services/lifecycle.py]
+    F --> RH[services/runtime_host.py]
+    F --> SC[services/skill_control.py]
+    F --> A[api/main.py::/chat/*]
+    F --> T1[tests/unit/test_conversation_session.py]
+    F --> T2[tests/unit/test_conversation_router.py]
+    F --> T3[tests/unit/test_llm_interaction_gateway.py]
+    F --> T4[tests/unit/test_response_serializer.py]
+    F --> T5[tests/e2e/test_llm_chat_flow.py]
+```
+
+> Phase 7 note: the LLM interaction gateway wraps all existing subsystem services. Changes in routed services (meta-app, registry, lifecycle, skill control) should be treated as potentially affecting conversation response construction and action suggestion generation.
+
 ---
 
-## 6. 测试关系网（按“改哪里，先跑哪些”组织）
+## 6. 测试关系网(按"改哪里,先跑哪些"组织)
 
 ### 6.1 改 `app/api/main.py`
 
-优先跑：
+优先跑:
 - `tests/unit/test_api_golden_path.py`
 - `tests/unit/test_api_refinement_governance_path.py`
 - 对应功能域的 unit tests
-- `tests/e2e/test_api_usable_flow.py`（如果改动较大）
+- `tests/e2e/test_api_usable_flow.py`(如果改动较大)
 
 ### 6.2 改 `app/bootstrap/runtime.py`
 
-优先跑：
+优先跑:
 - `tests/unit/test_bootstrap_smoke.py`
 - `tests/unit/test_runtime_model_refiner_toggle.py`
 - `tests/unit/test_lifecycle_runtime.py`
@@ -538,7 +590,7 @@ graph TD
 
 ### 6.3 改 workflow observability / operator contract
 
-优先跑：
+优先跑:
 - `tests/unit/test_workflow_observability.py`
 - `tests/unit/test_workflow_execution_failure_observability.py`
 - `tests/unit/test_observability.py`
@@ -549,7 +601,7 @@ graph TD
 
 ### 6.4 改 refinement governance / self-refinement
 
-优先跑：
+优先跑:
 - `tests/unit/test_self_refinement.py`
 - `tests/unit/test_priority_analysis.py`
 - `tests/unit/test_refinement_loop.py`
@@ -561,7 +613,7 @@ graph TD
 
 ### 6.5 改 skill runtime / generated skills
 
-优先跑：
+优先跑:
 - `tests/unit/test_skill_runtime.py`
 - `tests/unit/test_skill_runtime_adapters.py`
 - `tests/unit/test_skill_control.py`
@@ -571,29 +623,39 @@ graph TD
 - `tests/unit/test_generated_skill_durability.py`
 - `tests/unit/test_generated_app_durability.py`
 
+### 6.6 改 LLM interaction gateway / conversation router
+
+优先跑:
+- `tests/unit/test_conversation_session.py`
+- `tests/unit/test_conversation_router.py`
+- `tests/unit/test_llm_interaction_gateway.py`
+- `tests/unit/test_response_serializer.py`
+- `tests/e2e/test_llm_chat_flow.py`
+- 如果被路由的 service 也改了,同时跑对应域测试
+
 ---
 
-## 7. 改动检查清单（防漏改）
+## 7. 改动检查清单(防漏改)
 
-### 7.1 改模型（`app/models/*`）时
+### 7.1 改模型(`app/models/*`)时
 
-检查：
-- 哪些 service 构造 / 返回它？
-- 哪些 API endpoint 直接 `model_dump` 它？
-- 哪些测试在断言字段名？
-- docs 里的 contract / design / testing 是否需要同步？
+检查:
+- 哪些 service 构造 / 返回它?
+- 哪些 API endpoint 直接 `model_dump` 它?
+- 哪些测试在断言字段名?
+- docs 里的 contract / design / testing 是否需要同步?
 
-### 7.2 改 service（`app/services/*`）时
+### 7.2 改 service(`app/services/*`)时
 
-检查：
-- runtime bootstrap 有没有 wiring 变化？
-- API 是否需要新增/修改入口？
-- persistence 是否需要迁移或兼容？
-- 对应 unit tests / golden path tests 是否要补？
+检查:
+- runtime bootstrap 有没有 wiring 变化?
+- API 是否需要新增/修改入口?
+- persistence 是否需要迁移或兼容?
+- 对应 unit tests / golden path tests 是否要补?
 
 ### 7.3 改 API helper / operator contract 时
 
-检查：
+检查:
 - `app/api/main.py`
 - `app/api/operator_filters.py`
 - `app/models/operator_*`
@@ -602,7 +664,7 @@ graph TD
 
 ### 7.4 改 self-refinement / model path 时
 
-检查：
+检查:
 - `app/bootstrap/runtime.py`
 - `services/self_refinement.py`
 - `services/model_self_refiner.py`
@@ -613,7 +675,7 @@ graph TD
 
 ### 7.5 改 refinement loop / rollout 验证策略时
 
-检查：
+检查:
 - `services/refinement_loop.py`
 - `services/refinement_rollout.py`
 - `services/refinement_memory.py`
@@ -627,7 +689,7 @@ graph TD
 
 ## 8. 关系边定义说明
 
-本图里的边不是只表示“import”。它表示下面任意一种关系：
+本图里的边不是只表示"import"。它表示下面任意一种关系:
 
 - 直接调用 / 依赖
 - 运行时 wiring
@@ -637,7 +699,7 @@ graph TD
 - 测试对模块/功能的覆盖
 - 后续演化时应一起检查的耦合关系
 
-也就是说，这是一张**改动影响网**，不是纯代码静态依赖图。
+也就是说,这是一张**改动影响网**,不是纯代码静态依赖图。
 
 ---
 
@@ -646,30 +708,30 @@ graph TD
 > **强制维护规则**
 >
 > `docs/system-relationship-map.md` 是 AgentSystem 的长期系统关系索引。
-> 以后无论是人工开发还是系统自我迭代，只要发生以下任一种改动，都必须同步更新本文件：
+> 以后无论是人工开发还是系统自我迭代,只要发生以下任一种改动,都必须同步更新本文件:
 >
 > - 新增/删除/重命名模块
 > - 新增/删除/重命名 API、service、model、bootstrap wiring
 > - 新增功能域或功能边界变化
 > - 新增、删除或迁移重要测试
 > - 新增 shared contract / shared helper
-> - 任何导致“改哪里会牵动哪些地方”答案变化的结构调整
+> - 任何导致"改哪里会牵动哪些地方"答案变化的结构调整
 >
-> 原则：**代码变了，关系网也要变。**
-> 不允许把本文件当成一次性文档；它必须和系统一起演化。
+> 原则:**代码变了,关系网也要变。**
+> 不允许把本文件当成一次性文档;它必须和系统一起演化。
 
-后续每完成一个模块，建议同步更新这里至少一处：
+后续每完成一个模块,建议同步更新这里至少一处:
 
-- 新增能力域 → 在“功能 -> 模块 -> 测试映射图”补一块
-- 新增 shared contract → 在“Operator Surface Contract Map”补节点
-- 新增重要测试 → 挂到对应功能图和“改哪里先跑哪些”里
-- 如果两个模块开始频繁一起改 → 即使不是直接 import，也补一条边
+- 新增能力域 → 在"功能 -> 模块 -> 测试映射图"补一块
+- 新增 shared contract → 在"Operator Surface Contract Map"补节点
+- 新增重要测试 → 挂到对应功能图和"改哪里先跑哪些"里
+- 如果两个模块开始频繁一起改 → 即使不是直接 import,也补一条边
 
-> 原则：**宁可多连一条边，也不要少连一条会导致漏改的边。**
+> 原则:**宁可多连一条边,也不要少连一条会导致漏改的边。**
 
 ### 6.6 改 telemetry / upgrade-log / collection-policy 时
 
-优先跑：
+优先跑:
 - 未来 telemetry collection tests
 - 未来 collection policy level tests
 - 未来 append-only upgrade-log tests

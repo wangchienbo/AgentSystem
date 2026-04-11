@@ -227,12 +227,12 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
         ).model_dump(mode="json")
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
 
-    return {
     def maoxuan_capability_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
         skill_request = MaoxuanSkillRequest(**request.inputs)
         output = maoxuan_service.execute(skill_request)
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
 
+    return {
         "skill.echo": demo_echo_skill,
         "system.app_config": system_app_config_skill,
         "system.state": system_state_skill,

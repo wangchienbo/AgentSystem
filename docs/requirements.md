@@ -2,14 +2,22 @@
 
 ## 1. Purpose
 
-AgentSystem aims to become an **App OS**: a system that can define, install, run, supervise, evolve, and persist AI-native applications as first-class long-lived objects.
+AgentSystem is designed as a **stateful, persistent App OS** — a system that can define, install, run, supervise, evolve, and persist AI-native applications as first-class long-lived objects.
 
-The system should not be treated as a single assistant workflow runner. Instead, it should behave more like an operating system for apps:
-- apps are registered and installed
-- apps have runtime policy and lifecycle
-- apps own isolated data namespaces
-- apps maintain app-local shared context for internal execution
+The system is not a single assistant workflow runner. It is an operating system for apps, inspired by concepts like the "光脑" (Light Brain) from science fiction: each app is an isolated, persistent functional module with its own data namespace, runtime policy, and lifecycle. Apps are the fundamental unit of isolation and capability — analogous to how an OS isolates processes, AgentSystem isolates apps.
+
+Core architectural philosophy:
+- **Stateful & Persistent**: The system is inherently stateful. Apps, their data, configurations, and execution context persist across restarts and sessions. Nothing is ephemeral by default.
+- **App-Level Isolation**: Apps are the isolation boundary (like the 光脑 model). Each app runs in its own namespace with separated data, context, and runtime policy. Apps do not directly access each other's state.
+- **User Commands = Workflows**: Every user command is translated into a workflow. Workflows are the control mechanism — they can start, stop, modify, query, and compose apps. The user never directly manipulates app internals; they issue commands, and workflows orchestrate the result.
+- **Functional Modules = Apps**: Every functional capability in the system is an app. Apps are installable, persistable, and governable units. Skills are reusable capabilities that apps depend on, not standalone products.
+
+The system should behave like an operating system for apps:
+- apps are registered, installed, and persisted
+- apps have runtime policy, lifecycle, and isolation boundaries
+- apps own isolated data namespaces and app-local shared context
 - apps can be long-running services or one-shot pipelines
+- user commands are workflows that start, stop, modify, and manage apps
 - runtime behavior can be reviewed into experience
 - experience can evolve into reusable skills
 - a user-facing control plane can observe and intervene without being required for every app-internal step
@@ -143,7 +151,35 @@ Not required for current milestone:
 
 ## 5. Functional Requirements
 
-### 5.1 Requirement intake
+### 5.1 LLM-Powered Interaction Gateway
+The system must expose a unified natural-language interaction entry point so users can interact with the system through conversation rather than direct API calls.
+
+The LLM interaction gateway must:
+- accept user messages through multiple channels (webchat, QQBot, etc.)
+- use an LLM-powered conversation router to understand user intent
+- extract structured parameters from natural language input
+- decide whether clarification is needed before proceeding
+- dispatch to the appropriate subsystem (meta-app, app management, skill management, status query)
+- maintain per-user conversation sessions with history and context
+- return structured responses with actionable follow-up suggestions
+- support conversation compaction to prevent context explosion
+- degrade gracefully to rule-based matching when the model is unavailable
+
+The conversation router must classify user intent into at least:
+- `create_app` — create a new app through the meta-app design layer
+- `manage_app` — manage existing apps (list/start/stop/pause/status)
+- `manage_skill` — manage skills (list/enable/disable/create)
+- `query_status` — query system/app/skill status
+- `query_help` — help and capability explanation
+- `clarify` — requires further clarification
+
+The interaction gateway must also support:
+- session management (create, reset, list, compact)
+- structured response types (text, card, list, form, confirm, progress, error)
+- action suggestions that users can select to continue the conversation
+- token usage tracking per session
+
+### 5.2 Requirement intake
 The system must support routing user requirements into:
 - `app`
 - `skill`

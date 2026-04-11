@@ -8,7 +8,10 @@ For delivery scope and planned requirement reductions, also consult `docs/implem
 
 This document defines how AgentSystem should be validated against its current implemented architecture and its near-term roadmap.
 
-The testing goal is not only to validate isolated functions, but to verify that the system behaves coherently as an App OS with:
+The testing goal is not only to validate isolated functions, but to verify that the system behaves coherently as a **stateful, persistent App OS** with:
+- app-level isolation (光脑 model): each app has separated data, context, and runtime policy
+- full persistence: apps, data, configurations, and execution context survive restarts
+- user commands translated into workflows that orchestrate app lifecycle operations
 - telemetry / feedback / upgrade logging separation
 - collection policy levels and app/skill-scoped control
 - cost-aware self-iteration evidence
@@ -84,6 +87,24 @@ Used to validate full user/system flows:
 - store data
 - review runtime practice
 - generate a candidate skill blueprint
+
+### 2.3.1 LLM interaction layer tests
+Used to validate the user-facing conversation layer:
+- conversation session lifecycle (create, reset, compact, expire)
+- message history management and compaction behavior
+- intent classification accuracy for each defined intent category
+- parameter extraction correctness from varied natural language inputs
+- clarification trigger behavior when required parameters are missing
+- end-to-end create_app flow through LLM interaction gateway
+- end-to-end manage_app flow through LLM interaction gateway
+- end-to-end query_status flow through LLM interaction gateway
+- response type construction (text, card, list, confirm, error)
+- action suggestion generation and execution routing
+- fallback behavior when model is unavailable
+- multi-channel message format adaptation
+- session isolation between different user_id + channel combinations
+- streaming response (SSE) delivery for long-running operations
+- conversation router JSON output stability and schema compliance
 
 ---
 
@@ -488,6 +509,7 @@ The current execution roadmap for these testing additions is:
 - **Phase 4**: `docs/phase-4-workflow-execution-enhancement.md`
 - **Phase 5**: `docs/phase-5-refinement-and-assembly-closure.md`
 - **Phase 6**: `docs/phase-6-governance-persistence-and-layered-context.md`
+- **Phase 7**: `docs/phase-7-llm-interaction-layer.md`
 
 ---
 

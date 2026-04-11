@@ -52,6 +52,7 @@ from app.models.app_instance import AppInstance
 from app.models.interaction import UserCommand
 from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
+from app.models.chat import ChatMessageRequest, ChatActionRequest, SessionListResponse
 from app.services.skill_control import SkillControlError
 from app.services.skill_retry_advisor import SkillRetryAdvisorService
 from app.services.core_skill_toolchain import (
@@ -168,6 +169,7 @@ telemetry_service = services["telemetry_service"]
 evaluation_summary_service = services["evaluation_summary_service"]
 prompt_selection = services["prompt_selection"]
 prompt_invocation = services["prompt_invocation"]
+light_brain_gateway = services["light_brain_gateway"]
 core_replay_selector = CoreReplaySelectorSkill(telemetry_service)
 core_cost_analyzer = CoreCostAnalyzerSkill(telemetry_service)
 core_acceptance_report = CoreAcceptanceReportSkill(evaluation_summary_service)
@@ -1706,3 +1708,56 @@ def reset_supervision(app_instance_id: str) -> dict:
         return supervisor.reset(app_instance_id).model_dump(mode="json")
     except (LifecycleError, RuntimeHostError, SupervisorError) as error:
         raise map_domain_error(error) from error
+
+
+# ===========================================================================
+# LightBrain Chat Routes (Phase 8)
+# ===========================================================================
+
+@app.post("/chat/message")
+async def chat_message(request: ChatMessageRequest) -> dict:
+    """Main conversation entry point — send a message to the LightBrain."""
+    try:
+        reply = await light_brain_gateway.process_message(request)
+        return reply.model_dump(mode="json")
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+
+
+@app.post("/chat/actions/{action_id}")
+async def chat_action(action_id: str, request: ChatActionRequest) -> dict:
+    """Execute a user-selected action (button click) from a previous reply."""
+    try:
+        reply = await light_brain_gateway.execute_action(
+            user_id=request.user_id,
+            session_id=request.session_id,
+            action_id=action_id,
+            action_params=request.action_params,
+        )
+        return reply.model_dump(mode="json")
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+
+
+@app.get("/chat/sessions")
+def chat_sessions(user_id: str | None = None) -> dict:
+    """List conversation sessions."""
+    sessions = light_brain_gateway.list_sessions(user_id)
+    return {
+        "sessions": [s.model_dump(mode="json") for s in sessions],
+        "total": len(sessions),
+    }
+
+
+@app.delete("/chat/sessions/{session_id}")
+def chat_delete_session(session_id: str) -> dict:
+    """Reset / delete a conversation session."""
+    deleted = light_brain_gateway.delete_session(session_id)
+    return {"deleted": deleted, "session_id": session_id}
+
+
+@app.get("/chat/sessions/{session_id}/messages")
+def chat_session_messages(session_id: str, limit: int = 20) -> dict:
+    """Get recent messages from a conversation session."""
+    messages = light_brain_gateway.get_session_messages(session_id, limit)
+    return {"session_id": session_id, "messages": messages, "count": len(messages)}

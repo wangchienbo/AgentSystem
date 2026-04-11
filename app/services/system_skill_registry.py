@@ -506,37 +506,3 @@ def register_builtin_handlers(skill_runtime: SkillRuntimeService, handlers: dict
     for skill_id, handler in handlers.items():
         entry = skill_control.get_skill(skill_id) if skill_id in SYSTEM_SKILL_SPECS else None
         skill_runtime.register_handler(skill_id, handler, entry=entry)
-    "system.maoxuan": {
-        "name": "Mao Zedong Thinking Framework",
-        "immutable_interface": True,
-        "version": "1.0.0",
-        "content": "mao zedong perspective analysis handler",
-        "capability_profile": SkillCapabilityProfile(
-            intelligence_level="L1_assisted",
-            network_requirement="N2_required",
-            runtime_criticality="C2_required_runtime",
-            execution_locality="local",
-            invocation_default="automatic",
-            risk_level="R0_safe_read",
-        ),
-        "manifest": authoring.build_callable_entry(
-            skill_id="system.maoxuan",
-            name="Mao Zedong Thinking Framework",
-            handler_entry="app.bootstrap.skills:maoxuan_capability_skill",
-            description="Analyze problems using Mao Zedong's thinking framework from Mao Xuan Selected Works",
-            input_schema_ref="schema://system.maoxuan/input",
-            output_schema_ref="schema://system.maoxuan/output",
-            error_schema_ref="schema://system.maoxuan/error",
-            tags=["system", "maoxuan", "analysis", "strategic-thinking"],
-            immutable_interface=True,
-            capability_profile=SkillCapabilityProfile(
-                intelligence_level="L1_assisted",
-                network_requirement="N2_required",
-                runtime_criticality="C2_required_runtime",
-                execution_locality="local",
-                invocation_default="automatic",
-                risk_level="R0_safe_read",
-            ),
-            content="mao zedong perspective analysis handler",
-        ).manifest,
-    },

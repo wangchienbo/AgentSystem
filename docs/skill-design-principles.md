@@ -4,6 +4,8 @@ This document is the canonical reference for designing platform skills, system-d
 
 It exists so future skill design does not drift across ad-hoc conversations or implicit assumptions.
 
+> **Context**: Skills exist to serve **Apps** — the fundamental unit of this stateful, persistent App OS. Apps are isolated functional modules (光脑 model), and user commands are workflows that orchestrate app lifecycle operations. Skills are reusable capabilities that apps depend on, not standalone products.
+
 ## 1. Purpose
 
 This document defines the stable design principles that future skills should follow.
@@ -84,6 +86,9 @@ This means the main growth path should be governed skill growth, not repeated co
 | `blueprint.generate` | builder assistance | build_only | not necessarily | no | yes | typically intelligent and explicit-use |
 | `workflow.suggest` | builder/runtime optional assistance | build_only_or_optional_runtime | not necessarily | no | yes | should be carefully tagged if runtime-visible |
 | `self_refinement` | proposal generation | build_only_or_optional_runtime | not necessarily | no | yes | token spend and autonomy should remain governed |
+| `system.interaction_router` | LLM-powered user interaction routing and dispatch | required_runtime | yes | no (LLM is the core purpose) | yes | routes natural language to subsystems; must degrade gracefully to rule-based matching when model unavailable |
+| `system.conversation_session` | conversation session lifecycle and context management | required_runtime | yes | yes | yes | session isolation, history compaction, and context tracking; no intelligence needed |
+| `system.response_serializer` | interaction response serialization for multi-channel output | required_runtime | yes | yes | yes | deterministic serialization of text/card/list/confirm/error response types |
 
 ## 4. Skill Design Checklist
 
@@ -126,3 +131,43 @@ Confirm that:
 - `docs/testing.md` should define validation targets that keep core skills aligned with this document.
 - `docs/system-relationship-map.md` must be updated whenever core-skill/runtime/self-iteration changes alter system coupling, feature boundaries, or validation impact.
 - `README.md` and `TOOLS.md` should point here so future implementation work can find it quickly.
+
+## 7. Phase 7: LLM Interaction Layer Skill Design Principles
+
+The LLM interaction layer introduces three new core system skills:
+
+### 7.1 `system.interaction_router`
+- **Role**: LLM-powered intent classification and parameter extraction from natural language
+- **Runtime criticality**: required_runtime (for the LLM-powered path)
+- **Local-first**: yes (degrades to rule-based matching when model unavailable)
+- **Default intelligence**: yes (LLM is the core purpose of this skill)
+- **Strict contract**: yes (JSON routing result with intent, confidence, params, clarification flags)
+- **Design notes**:
+  - Must support graceful degradation to the existing `RequirementRouter` when model is unavailable
+  - Intent classification should be stable and deterministic given the same input
+  - Confidence scores should be meaningful (high = route directly, low = ask for clarification)
+  - Extracted parameters must match the structured request schemas of target subsystems
+  - Action suggestions should be actionable and match available API endpoints
+
+### 7.2 `system.conversation_session`
+- **Role**: Session lifecycle, message history, context tracking, and compaction
+- **Runtime criticality**: required_runtime
+- **Local-first**: yes (fully deterministic, no intelligence needed)
+- **Default intelligence**: no
+- **Strict contract**: yes (session state, message records, compaction summaries)
+- **Design notes**:
+  - Session isolation by user_id + channel is mandatory
+  - Message history must be bounded (compact when exceeds threshold)
+  - Compaction must preserve key context (decisions, constraints, open loops)
+  - Session state must survive runtime restarts (persist to state store)
+
+### 7.3 `system.response_serializer`
+- **Role**: Serialize interaction responses into channel-friendly formats
+- **Runtime criticality**: required_runtime
+- **Local-first**: yes (fully deterministic)
+- **Default intelligence**: no
+- **Strict contract**: yes (response type, action list, data payload)
+- **Design notes**:
+  - Must support multiple response types: text, card, list, form, confirm, progress, error
+  - Action suggestions must be serializable for channel-specific rendering (buttons, menus, etc.)
+  - Must remain channel-abstracted at the service layer, with channel adapters handling format specifics

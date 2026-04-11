@@ -4,12 +4,20 @@
 
 Detailed companion reference: `docs/telemetry-and-upgrade-logging.md`.
 
+AgentSystem is designed as a **stateful, persistent App OS** rather than a single assistant runtime.
+Its core job is to manage apps as long-lived, isolated system objects — each app is a persistent functional module with its own data, context, and lifecycle — while allowing the system to learn from runtime practice and gradually improve its reusable capability layer.
 
-AgentSystem is designed as an **App OS** rather than a single assistant runtime.
-Its core job is to manage apps as long-lived system objects while allowing the system to learn from runtime practice and gradually improve its reusable capability layer.
+### Core Architecture Philosophy
+
+The system's fundamental identity is a **stateful operating system for apps**, not an ephemeral workflow engine:
+- **Stateful & Persistent by Default**: Everything persists — apps, their data, configurations, execution context, and runtime state. The system survives restarts and rebuilds without losing operational continuity.
+- **App-Level Isolation (光脑 Model)**: Inspired by the "光脑" (Light Brain) concept from science fiction, each app is an isolated, self-contained functional module. Apps are the unit of isolation, governance, and persistence — analogous to how an OS isolates processes, AgentSystem isolates apps. No app directly accesses another app's data or context.
+- **User Commands → Workflows → App Operations**: Users never directly manipulate app internals. Every user command is translated into a workflow, and workflows are the control mechanism that starts, stops, pauses, modifies, queries, and composes apps. This is the primary interaction model.
+- **Functional Modules = Persistable Apps**: Every functional capability in the system is an app. Apps are installable, persistable, and governable units. Skills are reusable capabilities that apps depend on.
 
 The current design direction is:
 - user interacts with the system through a control plane and unified gateway
+- user commands become workflows that orchestrate app lifecycle operations
 - the core platform stays thin and standard-oriented while higher-order behaviors should remain skill-centric wherever practical
 - runtime operational telemetry and upgrade/evolution evidence are separated by design
 - self-iteration must remain evidence-bound, user-governed, and cost-aware
@@ -276,6 +284,12 @@ Ordinary skills should not directly mutate platform-core standards or safety bou
 
 ```text
 [ User / API / Chat Input ]
+            |
+            v
+[ LLM Interaction Gateway ] ← NEW: unified natural-language entry point
+            |
+            v
+[ Conversation Router (LLM) ] ← NEW: intent classification + parameter extraction
             |
             v
 [ Control Plane / Interaction Gateway ]
