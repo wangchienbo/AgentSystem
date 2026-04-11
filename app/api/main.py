@@ -9,6 +9,9 @@ from app.bootstrap.runtime import build_runtime
 from app.bootstrap.skills import bootstrap_builtin_skills
 from app.bootstrap.catalog import bootstrap_demo_catalog
 from app.services.lifecycle import LifecycleError
+from app.services.blueprint_compare import BlueprintCompareError
+from app.services.upgrade_service import UpgradeError
+from app.services.rollback_service import RollbackError
 from app.services.runtime_host import RuntimeHostError
 from app.services.scheduler import SchedulerError
 from app.services.supervisor import SupervisorError
@@ -50,8 +53,11 @@ from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, 
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.app_blueprint import AppBlueprint
+from app.services.upgrade_service import UpgradeRequest
+from app.services.rollback_service import RollbackRequest
 from app.models.demonstration import DemonstrationRecord
-from app.models.app_instance import AppInstance
+from app.models.app_instance import AppInstance, AppStatus
+from app.models.telemetry import FeedbackRecord
 from app.models.interaction import UserCommand
 from app.models.registry import AppRegistryEntry
 from app.models.scheduling import ScheduleRecord, SupervisionPolicy
@@ -168,7 +174,11 @@ policy_authority = services["policy_authority"]
 persistence_health = services["persistence_health"]
 context_retrieval = services["context_retrieval"]
 upgrade_log_service = services["upgrade_log_service"]
+blueprint_compare = services["blueprint_compare"]
+upgrade_service = services["upgrade_service"]
+rollback_service = services["rollback_service"]
 telemetry_service = services["telemetry_service"]
+feedback_service = services["feedback_service"]
 evaluation_summary_service = services["evaluation_summary_service"]
 prompt_selection = services["prompt_selection"]
 prompt_invocation = services["prompt_invocation"]
@@ -695,8 +705,29 @@ def extract_demonstration(record: DemonstrationRecord) -> dict:
 
 
 @app.get("/apps")
-def list_apps() -> list[dict]:
-    return [item.model_dump(mode="json") for item in lifecycle.list_instances()]
+def list_apps(status: str | None = None) -> list[dict]:
+    instances = lifecycle.list_instances()
+    if status is not None:
+        instances = [i for i in instances if i.status == status]
+    return [item.model_dump(mode="json") for item in instances]
+
+
+@app.post("/apps/{app_instance_id}/archive")
+def archive_app(app_instance_id: str, payload: dict | None = None) -> dict:
+    reason = (payload or {}).get("reason", "")
+    try:
+        return lifecycle.archive(app_instance_id, reason=reason).model_dump(mode="json")
+    except LifecycleError as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/apps/{app_instance_id}/unarchive")
+def unarchive_app(app_instance_id: str, payload: dict | None = None) -> dict:
+    reason = (payload or {}).get("reason", "")
+    try:
+        return lifecycle.unarchive(app_instance_id, reason=reason).model_dump(mode="json")
+    except LifecycleError as error:
+        raise map_domain_error(error) from error
 
 
 @app.post("/apps")
@@ -913,6 +944,51 @@ def install_blueprint(blueprint_id: str, payload: dict[str, str]) -> dict:
         return app_installer.install_app(blueprint_id=blueprint_id, user_id=payload["user_id"]).model_dump(mode="json")
     except (AppRegistryError, AppInstallerError, LifecycleError, RuntimeHostError) as error:
         raise map_domain_error(error) from error
+
+
+# ===========================================================================
+# App Upgrade / Rollback Routes (Phase 9)
+# ===========================================================================
+
+@app.post("/apps/{app_instance_id}/upgrade")
+def upgrade_app(app_instance_id: str, request: UpgradeRequest) -> dict:
+    """Upgrade an app instance to a new blueprint version."""
+    try:
+        new_bp = app_registry.get_blueprint(request.blueprint_id)
+        result = upgrade_service.upgrade(
+            app_instance_id=app_instance_id,
+            new_blueprint=new_bp,
+            reviewer=request.reviewer,
+            reason=request.reason,
+            skip_compare=request.skip_compare,
+            require_reviewer=request.require_reviewer,
+        )
+        return result.model_dump(mode="json")
+    except (UpgradeError, BlueprintCompareError, LifecycleError, AppRegistryError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/apps/{app_instance_id}/rollback")
+def rollback_app(app_instance_id: str, payload: dict | None = None) -> dict:
+    """Rollback an app instance to its pre-upgrade snapshot."""
+    p = payload or {}
+    try:
+        result = rollback_service.rollback(
+            app_instance_id=app_instance_id,
+            reviewer=p.get("reviewer", ""),
+            reason=p.get("reason", ""),
+            force=p.get("force", False),
+        )
+        return result.model_dump(mode="json")
+    except (RollbackError, UpgradeError, LifecycleError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.get("/apps/{app_instance_id}/upgrade-log")
+def get_app_upgrade_log(app_instance_id: str) -> list[dict]:
+    """Get upgrade log events for an app instance."""
+    events = upgrade_service.get_upgrade_log(app_instance_id)
+    return [item.model_dump(mode="json") for item in events]
 
 
 @app.get("/catalog/apps")
@@ -1355,6 +1431,31 @@ def list_telemetry_feedback(scope_id: str | None = None) -> list[dict]:
     return [item.model_dump(mode="json") for item in telemetry_service.list_feedback(scope_id=scope_id)]
 
 
+# ===========================================================================
+# Feedback API (Phase 9.4)
+# ===========================================================================
+
+@app.post("/feedback")
+def submit_feedback(record: FeedbackRecord) -> dict:
+    return feedback_service.submit_feedback(record).model_dump(mode="json")
+
+
+@app.get("/feedback")
+def query_feedback(
+    app_id: str | None = None,
+    skill_id: str | None = None,
+    limit: int = 20,
+) -> list[dict]:
+    return [item.model_dump(mode="json") for item in feedback_service.get_feedback(
+        app_id=app_id, skill_id=skill_id, limit=limit,
+    )]
+
+
+@app.get("/feedback/{app_id}/summary")
+def get_feedback_summary(app_id: str) -> dict:
+    return feedback_service.get_feedback_summary(app_id)
+
+
 @app.get("/telemetry/version-bindings/{interaction_id}")
 def get_version_binding(interaction_id: str) -> dict:
     item = telemetry_service.get_version_binding(interaction_id)
@@ -1709,6 +1810,22 @@ def attempt_restart(app_instance_id: str) -> dict:
 def reset_supervision(app_instance_id: str) -> dict:
     try:
         return supervisor.reset(app_instance_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SupervisorError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/supervision/{app_instance_id}/probe-circuit")
+def probe_circuit(app_instance_id: str) -> dict:
+    try:
+        return supervisor.probe_circuit(app_instance_id).model_dump(mode="json")
+    except (LifecycleError, RuntimeHostError, SupervisorError) as error:
+        raise map_domain_error(error) from error
+
+
+@app.post("/supervision/{app_instance_id}/circuit-reset")
+def circuit_reset(app_instance_id: str) -> dict:
+    try:
+        return supervisor.circuit_reset(app_instance_id).model_dump(mode="json")
     except (LifecycleError, RuntimeHostError, SupervisorError) as error:
         raise map_domain_error(error) from error
 

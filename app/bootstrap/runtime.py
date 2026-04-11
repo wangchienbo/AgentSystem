@@ -19,6 +19,7 @@ from app.services.demonstration_extractor import DemonstrationExtractor
 from app.services.event_bus import EventBusService
 from app.services.evaluation_summary_service import EvaluationSummaryService
 from app.services.experience_store import ExperienceStore
+from app.services.feedback_service import FeedbackService
 from app.services.generated_skill_assets import GeneratedSkillAssetStore
 from app.services.interaction_gateway import InteractionGateway
 from app.services.lifecycle import AppLifecycleService
@@ -61,6 +62,10 @@ from app.services.supervisor import SupervisorService
 from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
 from app.services.telemetry_service import TelemetryService
 from app.services.upgrade_log_service import UpgradeLogService
+from app.services.persistence_service import PersistenceService
+from app.services.blueprint_compare import BlueprintCompareService
+from app.services.upgrade_service import UpgradeService
+from app.services.rollback_service import RollbackService
 from app.services.workflow_executor import WorkflowExecutorService
 from app.services.workflow_observability import WorkflowObservabilityService
 from app.services.workflow_subscription import WorkflowSubscriptionService
@@ -301,6 +306,16 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     policy_authority = PolicyAuthorityService(store=runtime_store)
     persistence_health = PersistenceHealthService(store=runtime_store)
     upgrade_log_service = UpgradeLogService()
+    blueprint_compare = BlueprintCompareService()
+    upgrade_service = UpgradeService(
+        lifecycle=lifecycle,
+        log_service=upgrade_log_service,
+        compare_service=blueprint_compare,
+    )
+    rollback_service = RollbackService(
+        upgrade_service=upgrade_service,
+        log_service=upgrade_log_service,
+    )
     log_evidence = LogEvidenceService(store=runtime_store)
     telemetry_service = TelemetryService(
         store=runtime_store,
@@ -439,6 +454,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         skill_factory=skill_factory,
     )
     maoxuan_service = MaoxuanSkillService()
+    persistence_service = PersistenceService()
+    feedback_service = FeedbackService(store=runtime_store)
     skill_factory.reload_generated_skills()
 
     # -- LightBrain interaction gateway -----------------------------------------
@@ -461,6 +478,23 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         skill_registry=skill_factory,
         meta_app_orchestrator=meta_app_orchestrator,
         llm_responder=llm_responder,
+        persistence_service=persistence_service,
     )
+
+    # -- Restore persisted state (if available) ---------------------------------
+    try:
+        restore_result = persistence_service.restore_state(
+            lifecycle=lifecycle,
+            runtime_host=runtime_host,
+            registry=app_registry,
+            catalog=app_catalog,
+            light_brain_memory=light_brain_memory,
+        )
+        if restore_result.get("status") == "restored":
+            pass  # State restored successfully
+    except Exception as e:
+        # Best-effort: don't crash on restore failure
+        import logging
+        logging.getLogger(__name__).warning("State restore failed, starting fresh: %s", e)
 
     return locals()

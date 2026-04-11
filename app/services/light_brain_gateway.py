@@ -50,6 +50,7 @@ class LightBrainGateway:
         skill_registry: Any = None,
         meta_app_orchestrator: Any = None,
         llm_responder: Any = None,
+        persistence_service: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -63,6 +64,7 @@ class LightBrainGateway:
         self._skill_registry = skill_registry
         self._meta_app_orchestrator = meta_app_orchestrator
         self._llm_responder = llm_responder
+        self._persistence = persistence_service
         self._name: str | None = None
         self._load_identity()
 
@@ -117,6 +119,9 @@ class LightBrainGateway:
 
         # 7. Record reply
         self._memory.record_reply(session.session_id, reply)
+
+        # 8. Persist state after each message
+        self._auto_save()
 
         return reply
 
@@ -841,3 +846,19 @@ class LightBrainGateway:
             session_id=session_id,
             requires_input=False,
         )
+
+    def _auto_save(self) -> None:
+        """Auto-save state if persistence service is available."""
+        if self._persistence is None:
+            return
+        try:
+            self._persistence.save_state(
+                lifecycle=self._lifecycle,
+                runtime_host=self._runtime_host,
+                registry=self._app_registry,
+                catalog=self._catalog,
+                light_brain_memory=self._memory,
+            )
+        except Exception:
+            # Never let persistence failures break the interaction
+            pass

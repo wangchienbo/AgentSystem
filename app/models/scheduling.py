@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 ScheduleTriggerType = Literal["interval", "event"]
 ScheduleStatus = Literal["active", "paused", "disabled"]
-SupervisorState = Literal["healthy", "restart_pending", "circuit_open"]
+SupervisorState = Literal["healthy", "restart_pending", "circuit_open", "half_open"]
 
 
 class ScheduleRecord(BaseModel):
@@ -37,6 +37,7 @@ class SupervisionPolicy(BaseModel):
     max_restart_attempts: int = Field(default=3, ge=0)
     restart_on_failure: bool = True
     open_circuit_after_failures: int = Field(default=3, ge=1)
+    circuit_breaker_timeout: int = Field(default=300, ge=1, description="Seconds before circuit_open transitions to half_open")
 
 
 class SupervisionStatus(BaseModel):
@@ -46,11 +47,12 @@ class SupervisionStatus(BaseModel):
     restart_attempts: int = 0
     last_failure_reason: str = ""
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    circuit_opened_at: datetime | None = Field(default=None, description="When the circuit was last opened")
 
 
 class SupervisionActionResult(BaseModel):
     app_instance_id: str
-    action: Literal["observe_failure", "reset", "attempt_restart"]
+    action: Literal["observe_failure", "reset", "attempt_restart", "probe_circuit", "circuit_reset"]
     state: SupervisorState
     failure_count: int
     restart_attempts: int
