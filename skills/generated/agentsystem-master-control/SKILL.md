@@ -53,6 +53,17 @@ Use this skill when the request involves:
 - updating project control artifacts
 - deciding what context should be loaded for a non-trivial change
 
+## Explicit initialization rules
+
+On first activation, this master control skill should automatically:
+1. read `PROJECT_CONTROL.md`, `control-plane/project-map.yaml`, subordinate registry, and structural-candidate artifact
+2. scan the repository structure and key project documents, including README and major design/requirements/testing references
+3. reconcile generated control state with repository reality
+4. confirm or revise the initial stable governed scopes
+5. decide whether any first structural subordinate skills should be created immediately
+6. create the necessary first subordinate skills in this master control skill's own role
+7. update registry, candidates, project map, module records, task records, and related control artifacts to reflect the initialized structure
+
 ## Standard workflow
 
 1. determine whether the request is project-scoped or safely local
@@ -197,12 +208,15 @@ Maintain at least:
 
 ## First-run initialization
 
-On first bootstrap handoff from the meta-skill, this master control skill should:
-- validate anchor and control-plane consistency
-- validate subordinate-skill registry existence
-- validate structural-candidate artifact existence
-- evaluate whether any immediate subordinate-skill creation is necessary
-- if needed, create only the minimal first subordinate skills in its own role
+On first bootstrap handoff from the meta-skill, this master control skill should execute its explicit initialization rules automatically.
+This includes:
+- validating anchor and control-plane consistency
+- validating subordinate-skill registry existence
+- validating structural-candidate artifact existence
+- scanning repository structure and key project documents
+- reconciling control artifacts with current repository reality
+- evaluating whether any immediate subordinate-skill creation is necessary
+- creating the minimal necessary first subordinate skills in its own role
 
 ## Consistency and recovery
 
