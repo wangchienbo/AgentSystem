@@ -8,5 +8,7 @@
 - [x] integrate system.meta_app as design-layer entry point for app creation
 - [x] add MetaAppCreationOrchestrator bridging LLM design and deterministic assembly
 - [x] add POST /apps/from-meta-app API endpoint with optional auto-install
+- [x] orchestrator creates subordinate skill stubs from LLM design plan before blueprint assembly
 - [ ] refine app-level control-plane artifacts after real meta-app usage
 - [ ] integrate maoxuan-skill into meta-app analysis for strategic problem diagnosis
+- [ ] add e2e test for full meta-app → skill creation → blueprint → install flow

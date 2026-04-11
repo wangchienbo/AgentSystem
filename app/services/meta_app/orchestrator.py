@@ -9,7 +9,11 @@ from app.models.app_instance import AppInstance
 from app.models.app_meta_app import AppCreationFromMetaAppRequest
 from app.models.meta_app import AppControlSkillResult
 from app.models.meta_app_skill import MetaAppSkillRequest
-from app.models.skill_blueprint import SkillBlueprint
+from app.models.skill_creation import (
+    AppFromSkillsRequest,
+    SkillCreationRequest,
+    SkillSchemaDefinition,
+)
 from app.services.meta_app.bootstrap import MetaAppBootstrapService
 from app.services.skill_factory import SkillFactoryService, SkillFactoryError
 
@@ -25,6 +29,7 @@ class AppCreationOrchestrationResult:
     control_plan: AppControlSkillResult
     blueprint: AppBlueprint | None = None
     created_skill_ids: list[str] = field(default_factory=list)
+    installed_app: AppInstance | None = None
     error: str = ""
 
 
@@ -33,12 +38,9 @@ class MetaAppCreationOrchestrator:
 
     Flow:
     1. Call meta_app_bootstrap (LLM) to design app control structure
-    2. Use the plan to guide skill assembly via skill_factory
-    3. Return both the control plan and the generated blueprint
-
-    This is the bridge between:
-    - LLM layer (understanding, design, planning) ← system.meta_app
-    - Deterministic layer (assembly, registration, execution) ← skill_factory
+    2. Create the suggested subordinate skills via skill_factory
+    3. Build blueprint from the created skills
+    4. Optionally install the app
     """
 
     def __init__(
@@ -50,9 +52,11 @@ class MetaAppCreationOrchestrator:
         self._meta_app = meta_app_bootstrap
         self._skill_factory = skill_factory
 
-    def create_app_through_meta_app(self, request: AppCreationFromMetaAppRequest) -> AppCreationOrchestrationResult:
-        """Step 1: Call LLM to design app control structure.
-        Step 2: Use existing skill infrastructure to build the blueprint."""
+    def create_app_through_meta_app(
+        self,
+        request: AppCreationFromMetaAppRequest,
+    ) -> AppCreationOrchestrationResult:
+        """Full flow: LLM design → skill creation → blueprint assembly."""
 
         # Step 1: LLM design layer — produce app control plan
         meta_request = MetaAppSkillRequest(
@@ -65,41 +69,110 @@ class MetaAppCreationOrchestrator:
         )
         control_plan = self._meta_app.bootstrap(meta_request)
 
-        # Step 2: Deterministic assembly — build blueprint from existing skills
-        # For now, route through the existing skill-based creation path.
-        # The control plan provides structural guidance; skill_factory does the wiring.
+        # Step 2: Create subordinate skills from the LLM plan
+        created_skill_ids = self._create_subordinate_skills(
+            control_plan, request.app_name, request.goal,
+        )
+
+        # Step 3: Build blueprint from created skills
+        blueprint: AppBlueprint | None = None
         try:
-            blueprint, app_result = self._skill_factory.build_blueprint_from_skills(
-                self._build_app_from_skills_request(request, control_plan),
-            )
-            return AppCreationOrchestrationResult(
-                app_name=request.app_name,
-                control_plan=control_plan,
-                blueprint=blueprint,
-                created_skill_ids=app_result.skill_ids if hasattr(app_result, "skill_ids") else [],
-            )
+            if created_skill_ids:
+                blueprint_id = f"bp-{control_plan.app_slug}"
+                bp_request = AppFromSkillsRequest(
+                    blueprint_id=blueprint_id,
+                    name=request.app_name,
+                    goal=request.goal,
+                    skill_ids=created_skill_ids,
+                    step_inputs=request.workflow_inputs,
+                )
+                blueprint, _app_result = self._skill_factory.build_blueprint_from_skills(bp_request)
         except (SkillFactoryError, ValueError) as exc:
-            # Return partial result: we still have the control plan even if assembly failed
             return AppCreationOrchestrationResult(
                 app_name=request.app_name,
                 control_plan=control_plan,
-                error=str(exc),
+                created_skill_ids=created_skill_ids,
+                error=f"Blueprint assembly failed: {exc}",
             )
 
-    def _build_app_from_skills_request(self, request: AppCreationFromMetaAppRequest, control_plan: AppControlSkillResult) -> Any:
-        """Translate meta-app output into skill_factory input.
-
-        This is where the LLM design meets deterministic assembly.
-        For the first integration, we pass through to the existing path
-        while recording the meta-app control plan alongside it.
-        """
-        from app.models.app_blueprint import AppFromSkillsRequest
-
-        # Use the user's skill selection or fall back to all available skills
-        # In a full implementation, the LLM would select specific skills
-        return AppFromSkillsRequest(
+        return AppCreationOrchestrationResult(
             app_name=request.app_name,
-            goal=request.goal,
-            trigger=request.trigger,
-            workflow_inputs=request.workflow_inputs,
+            control_plan=control_plan,
+            blueprint=blueprint,
+            created_skill_ids=created_skill_ids,
+        )
+
+    def _create_subordinate_skills(
+        self,
+        control_plan: AppControlSkillResult,
+        app_name: str,
+        app_goal: str,
+    ) -> list[str]:
+        """Create skill stubs for each suggested subordinate in the control plan."""
+        created: list[str] = []
+        for suggestion in control_plan.subordinate_suggestions:
+            skill_id = suggestion.suggested_name
+            # Skip if already exists
+            try:
+                self._skill_factory._skill_control.get_skill(skill_id)
+                created.append(skill_id)
+                continue
+            except Exception:
+                pass
+
+            # Generate stub handler code
+            handler_code = self._generate_skill_stub_code(
+                skill_id=skill_id,
+                name=suggestion.responsibility,
+                scope=suggestion.scope,
+                app_name=app_name,
+                app_goal=app_goal,
+            )
+
+            # Write handler to disk
+            import os
+            skills_dir = f"skills/generated/{skill_id}"
+            os.makedirs(skills_dir, exist_ok=True)
+            handler_path = f"{skills_dir}/handler.py"
+            with open(handler_path, "w") as f:
+                f.write(handler_code)
+
+            # Create the skill in the registry
+            creation_request = SkillCreationRequest(
+                skill_id=skill_id,
+                name=suggestion.responsibility,
+                description=f"Subordinate skill for {app_name}: {suggestion.responsibility}",
+                adapter_kind="script",
+                handler_entry=handler_path,
+                tags=[control_plan.app_slug, suggestion.priority, "generated-by-meta-app"],
+                schemas=SkillSchemaDefinition(
+                    input={"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
+                    output={"type": "object", "properties": {"result": {"type": "string"}, "skill_id": {"type": "string"}}},
+                    error={"type": "object", "properties": {"message": {"type": "string"}}},
+                ),
+            )
+            self._skill_factory.create_skill(creation_request)
+            created.append(skill_id)
+
+        return created
+
+    @staticmethod
+    def _generate_skill_stub_code(
+        skill_id: str,
+        name: str,
+        scope: str,
+        app_name: str,
+        app_goal: str,
+    ) -> str:
+        """Generate a minimal Python handler for a subordinate skill stub."""
+        return (
+            f'"""Auto-generated skill stub: {skill_id}\n'
+            f"App: {app_name} | Goal: {app_goal}\n"
+            f"Purpose: {name}\n"
+            f"Scope: {scope}\n"
+            'This is a placeholder — refine the handler for production use.\n'
+            '"""\n\n'
+            f"def handle(request: dict) -> dict:\n"
+            f'    text = request.get("text", "")\n'
+            f'    return {{"skill_id": "{skill_id}", "result": f"Processed: {{text}}", "status": "stub"}}\n'
         )

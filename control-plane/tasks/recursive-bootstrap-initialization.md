@@ -4,4 +4,6 @@
 - [x] establish functional subordinate registry
 - [x] scan repo and docs for practical working granularity
 - [x] generate structural subordinate skills for api, bootstrap, models, runtime services, system skills, docs governance, and tests
+- [x] integrate meta-app as LLM-powered design layer for app creation
+- [x] integrate maoxuan-skill as strategic thinking system skill
 - [ ] refine interfaces and owned file boundaries under real development work
