@@ -103,7 +103,7 @@ class LightBrainInterpreter:
             and hasattr(self, "_llm_responder")
             and self._llm_responder is not None
         ):
-            llm_result = self._try_llm_fallback(stripped, available_apps)
+            llm_result, _ = self._try_llm_fallback(stripped, available_apps)
             if llm_result is not None:
                 return llm_result
 
@@ -295,37 +295,37 @@ class LightBrainInterpreter:
         self,
         message: str,
         available_apps: list[dict[str, Any]] | None,
-    ) -> InterpretedCommand | None:
-        """Try LLM intent parsing. Returns None on any failure."""
+    ) -> tuple[InterpretedCommand | None, Any | None]:
+        """Try LLM intent parsing. Returns (command, usage) tuple."""
         # Check cache first
         cache_key = self._cache_key(message, available_apps)
         if cache_key in self._llm_cache:
             cached = self._llm_cache[cache_key].model_copy()
             cached.raw_interpretation = f"llm-cache: cached result for '{message[:50]}'"
-            return cached
+            return cached, None
 
-        result = self._interpret_with_llm(message, available_apps)
+        result, usage = self._interpret_with_llm(message, available_apps)
         if result is not None:
             # Cache the result
             self._llm_cache[cache_key] = result
-            return result
-        return None
+            return result, usage
+        return None, usage
 
     def _interpret_with_llm(
         self,
         message: str,
         available_apps: list[dict[str, Any]] | None,
-    ) -> InterpretedCommand | None:
+    ) -> tuple[InterpretedCommand | None, TokenUsage | None]:
         """Ask the LLM responder to parse intent from the message.
 
-        Returns an InterpretedCommand on success, None on any failure.
+        Returns (command, usage) tuple. Command is None on any failure.
         """
         if not hasattr(self, "_llm_responder") or self._llm_responder is None:
-            return None
+            return None, None
 
-        parsed = self._llm_responder.parse_intent(message, available_apps)
+        parsed, usage = self._llm_responder.parse_intent(message, available_apps)
         if not parsed or not isinstance(parsed, dict):
-            return None
+            return None, usage
 
         # Extract and validate fields
         intent = parsed.get("intent", "unclear")
@@ -362,7 +362,7 @@ class LightBrainInterpreter:
             clarification_question=clarification_question,
             suggested_actions=suggested_actions,
             raw_interpretation=f"llm: parsed intent='{intent}' confidence={confidence:.2f}",
-        )
+        ), usage
 
     # -- private helpers -----------------------------------------------------
 

@@ -56,6 +56,15 @@ class InlineItem(BaseModel):
     actions: list[ActionSuggestion] = Field(default_factory=list)
 
 
+class TokenUsage(BaseModel):
+    """Token usage metadata for a single interaction."""
+    prompt_tokens: int = Field(default=0, ge=0)
+    completion_tokens: int = Field(default=0, ge=0)
+    total_tokens: int = Field(default=0, ge=0)
+    model: str = Field(default="", description="Model used for this interaction")
+    cached: bool = Field(default=False, description="Whether this was served from cache (zero cost)")
+
+
 class ChatMessageResponse(BaseModel):
     """LightBrain's structured reply to a user message."""
     type: Literal["text", "card", "list", "form", "confirm", "progress", "error"] = Field(default="text")
@@ -63,6 +72,8 @@ class ChatMessageResponse(BaseModel):
     data: dict[str, Any] | None = Field(default=None, description="Structured data payload")
     actions: list[ActionSuggestion] = Field(default_factory=list, description="Clickable buttons/options")
     inline_items: list[InlineItem] | None = Field(default=None, description="Embedded list items")
+    requires_input: bool = Field(default=False, description="Whether the reply expects further user input")
+    usage: TokenUsage | None = Field(default=None, description="Token usage for this interaction")
     session_id: str = Field(..., description="Session this reply belongs to")
     related_app: str | None = Field(default=None, description="App this reply references")
     requires_input: bool = Field(default=False, description="Whether further user input is expected")

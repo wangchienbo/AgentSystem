@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from app.models.chat import ChatMessageResponse, ActionSuggestion
+from app.models.chat import ChatMessageResponse, ActionSuggestion, TokenUsage
 from app.services.model_config_loader import ModelConfigLoader, ModelConfigError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
 
@@ -47,13 +47,13 @@ class LLMResponder:
         *,
         app_context: list[dict[str, Any]] | None = None,
         max_tokens: int = 500,
-    ) -> str | None:
+    ) -> tuple[str | None, TokenUsage | None]:
         """Generate a contextual reply using the LLM.
 
-        Returns None if the model is unavailable, so the caller can fall back.
+        Returns (text, usage) tuple. Text is None if the model is unavailable.
         """
         if not self._available or not self._client:
-            return None
+            return None, None
 
         try:
             sys_prompt = (
@@ -69,22 +69,23 @@ class LLMResponder:
                 )
                 sys_prompt += f"\n\nCurrent Apps: {app_list}"
 
-            return self._client.generate_response(
+            text, usage = self._client.generate_response(
                 system_prompt=sys_prompt,
                 user_message=user_message,
                 max_tokens=max_tokens,
                 temperature=0.7,
             )
+            return text, TokenUsage(**usage) if usage else None
         except (ModelClientError, Exception):
-            return None
+            return None, None
 
-    def parse_intent(self, user_message: str, available_apps: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+    def parse_intent(self, user_message: str, available_apps: list[dict[str, Any]] | None = None) -> tuple[dict[str, Any] | None, TokenUsage | None]:
         """Ask the LLM to parse user intent into a structured command.
 
-        Returns None if parsing fails or model is unavailable.
+        Returns (parsed_dict, usage) tuple. Dict is None if parsing fails.
         """
         if not self._available or not self._client:
-            return None
+            return None, None
 
         try:
             app_info = ""
@@ -108,7 +109,7 @@ class LLMResponder:
                 f"{app_info}"
             )
 
-            result = self._client.generate_response(
+            result, usage = self._client.generate_response(
                 system_prompt=sys_prompt,
                 user_message=user_message,
                 max_tokens=300,
@@ -122,6 +123,6 @@ class LLMResponder:
                     # Strip markdown code blocks
                     lines = result.split("\n")
                     result = "\n".join(lines[1:-1])
-                return json.loads(result)
+                return json.loads(result), usage
         except (ModelClientError, json.JSONDecodeError, Exception):
-            return None
+            return None, None

@@ -297,11 +297,11 @@ class MockLLMResponder:
     
     def parse_intent(self, message, available_apps=None):
         self._call_count += 1
-        return self._parse_result
+        return self._parse_result, None
     
     def generate_reply(self, system_context, user_message, **kwargs):
         self._call_count += 1
-        return "我是通过 LLM 生成的回复。"
+        return "我是通过 LLM 生成的回复。", None
 
 
 class TestLLMFallback:

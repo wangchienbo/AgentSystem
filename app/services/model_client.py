@@ -93,6 +93,8 @@ class OpenAIResponsesClient:
                         retryable=response.status_code >= 500,
                     )
                 content_parts: list[str] = []
+                prompt_tokens = 0
+                completion_tokens = 0
                 for line in response.iter_lines():
                     if not line.startswith("data: "):
                         continue
@@ -105,9 +107,19 @@ class OpenAIResponsesClient:
                         delta = chunk.get("choices", [{}])[0].get("delta", {})
                         if "content" in delta and delta["content"]:
                             content_parts.append(delta["content"])
+                        # Extract usage from the last chunk (some providers include it)
+                        usage = chunk.get("usage", {})
+                        if usage:
+                            prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
+                            completion_tokens = usage.get("completion_tokens", completion_tokens)
                     except (json.JSONDecodeError, IndexError, KeyError):
                         continue
-        return "".join(content_parts)
+                # If provider didn't send usage, estimate from content
+                if prompt_tokens == 0 and completion_tokens == 0:
+                    full_text = "".join(content_parts)
+                    prompt_tokens = sum(len(m.get("content", "")) for m in messages) // 4
+                    completion_tokens = len(full_text) // 4
+        return "".join(content_parts), {"model": model_name, "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "total_tokens": prompt_tokens + completion_tokens}
 
     def generate_response(
         self,
@@ -117,8 +129,8 @@ class OpenAIResponsesClient:
         model: str | None = None,
         max_tokens: int = 500,
         temperature: float = 0.7,
-    ) -> str:
-        """Convenience: system + user message → assistant text."""
+    ) -> tuple[str, dict]:
+        """Convenience: system + user message → assistant text and usage."""
         return self.chat(
             [
                 {"role": "system", "content": system_prompt},

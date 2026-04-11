@@ -107,7 +107,7 @@ class LightBrainGateway:
 
         # 6b. LLM enhancement (if available)
         if self._llm_responder and getattr(self._llm_responder, 'available', False):
-            enhanced = self._llm_responder.generate_reply(
+            enhanced, usage = self._llm_responder.generate_reply(
                 system_context=f"你是 AgentSystem，一个 AI 驱动的系统。你的名字是「{self._name}」。你的职责是帮助用户管理 App。",
                 user_message=request.message,
                 app_context=available_apps,
@@ -116,6 +116,9 @@ class LightBrainGateway:
             if enhanced and enhanced.strip():
                 # Keep the structured reply type and actions, but replace text
                 reply.content = enhanced.strip()
+                # Attach usage info if we got it
+                if usage:
+                    reply.usage = usage
 
         # 7. Record reply
         self._memory.record_reply(session.session_id, reply)
