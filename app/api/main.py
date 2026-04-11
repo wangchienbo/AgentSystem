@@ -38,6 +38,7 @@ from app.models.proposal_review import ProposalReviewRequest
 from app.models.refinement_loop import RefinementFilter, RefinementLoopRequest
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.models.app_refinement import SuggestedSkillRefinementRequest, SuggestedSkillRefinementClosureRequest
+from app.models.app_meta_app import AppCreationFromMetaAppRequest
 from app.models.policy_authority import AuthorityPolicyRecord
 from app.models.skill_creation import AppFromSkillsInstallRunRequest, AppFromSkillsRequest, BlueprintMaterializationRequest, GeneratedSkillRevisionRequest, SkillCreationRequest
 from app.services.skill_factory import SkillFactoryError, _diagnostic
@@ -151,6 +152,7 @@ skill_risk_policy = services["skill_risk_policy"]
 skill_factory = services["skill_factory"]
 app_refinement = services["app_refinement"]
 app_refinement_orchestrator = services["app_refinement_orchestrator"]
+meta_app_orchestrator = services["meta_app_orchestrator"]
 workflow_executor = services["workflow_executor"]
 workflow_subscription = services["workflow_subscription"]
 workflow_observability = services["workflow_observability"]
@@ -476,6 +478,28 @@ def refine_app_from_suggested_skills_closure(request: SuggestedSkillRefinementCl
         return result.model_dump(mode="json")
     except (AppRefinementError, AppRefinementOrchestratorError, AppRegistryError, SkillDiagnosticError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
+
+@app.post("/apps/from-meta-app")
+def create_app_through_meta_app(request: AppCreationFromMetaAppRequest) -> dict:
+    try:
+        result = meta_app_orchestrator.create_app_through_meta_app(request)
+        payload = {
+            "app_name": result.app_name,
+            "control_plan": result.control_plan.model_dump(mode="json"),
+            "skill_ids": result.created_skill_ids,
+        }
+        if result.blueprint is not None:
+            payload["blueprint"] = result.blueprint.model_dump(mode="json")
+            app_registry.register_blueprint(result.blueprint)
+        if result.error:
+            payload["error"] = result.error
+        if request.auto_install and result.blueprint is not None and not result.error:
+            install = app_installer.install_app(blueprint_id=result.blueprint.id, user_id=request.user_id or "system")
+            payload["install"] = install.model_dump(mode="json")
+        return payload
+    except ValueError as error:
+        raise map_domain_error(error) from error
+
 
 @app.get("/policy-authority")
 def get_policy_authority_summary() -> dict:

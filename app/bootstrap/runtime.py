@@ -65,6 +65,7 @@ from app.services.workflow_executor import WorkflowExecutorService
 from app.services.workflow_observability import WorkflowObservabilityService
 from app.services.workflow_subscription import WorkflowSubscriptionService
 from app.services.meta_app.bootstrap import MetaAppBootstrapService
+from app.services.meta_app.orchestrator import MetaAppCreationOrchestrator
 from app.models.maoxuan_skill import MaoxuanSkillRequest
 from app.services.system_skills.maoxuan import MaoxuanSkillService
 
@@ -433,6 +434,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         telemetry_service=telemetry_service,
     )
     meta_app_bootstrap = MetaAppBootstrapService()
+    meta_app_orchestrator = MetaAppCreationOrchestrator(
+        meta_app_bootstrap=meta_app_bootstrap,
+        skill_factory=skill_factory,
+    )
     maoxuan_service = MaoxuanSkillService()
     skill_factory.reload_generated_skills()
 
