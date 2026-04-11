@@ -94,13 +94,13 @@ def test_golden_path_register_install_interact_execute_retry_and_observe() -> No
         trigger="manual",
         inputs={"token": "golden-token"},
     )
-    assert execution.status == "partial"
+    assert execution.status == "blocked_by_policy"
     assert execution.failed_step_ids == ["blocked.skill"]
     assert execution.outputs["inputs"]["token"] == "golden-token"
 
     retried = executor.retry_last_failure(decision.app_instance_id)
     assert retried.trigger == "retry:manual"
-    assert retried.status == "partial"
+    assert retried.status == "blocked_by_policy"
     assert retried.retry_comparison is not None
     assert retried.retry_comparison.previous_failed_step_ids == ["blocked.skill"]
     assert retried.retry_comparison.unchanged_failed_step_ids == ["blocked.skill"]

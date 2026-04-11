@@ -1,17 +1,15 @@
 import os
+from pathlib import Path
 
 os.environ.pop("AGENTSYSTEM_ENABLE_MODEL_REFINER", None)
 os.environ.setdefault("AGENTSYSTEM_DISABLE_REFINEMENT_GROUPED_REGRESSION", "1")
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-client = TestClient(app)
+def test_api_refinement_governance_flow_from_review_to_dashboard(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
 
-
-def test_api_refinement_governance_flow_from_review_to_dashboard() -> None:
     register_response = client.post(
         "/registry/apps",
         json={

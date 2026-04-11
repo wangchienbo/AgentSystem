@@ -1,12 +1,10 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_create_script_skill_without_command_returns_structured_diagnostic() -> None:
+def test_create_script_skill_without_command_returns_structured_diagnostic(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/skills/create",
         json={
@@ -29,7 +27,8 @@ def test_create_script_skill_without_command_returns_structured_diagnostic() -> 
     assert payload["hint"]
 
 
-def test_create_callable_skill_with_unknown_generation_operation_returns_structured_diagnostic() -> None:
+def test_create_callable_skill_with_unknown_generation_operation_returns_structured_diagnostic(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/skills/create",
         json={
@@ -53,7 +52,8 @@ def test_create_callable_skill_with_unknown_generation_operation_returns_structu
     assert payload["details"]["generation_operation"] == "not_supported_yet"
 
 
-def test_install_run_contract_failure_returns_structured_execute_diagnostic() -> None:
+def test_install_run_contract_failure_returns_structured_execute_diagnostic(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_skill = client.post(
         "/skills/create",
         json={
@@ -114,7 +114,8 @@ def test_install_run_contract_failure_returns_structured_execute_diagnostic() ->
     assert payload["suggested_retry_request"]
 
 
-def test_app_from_skills_rejects_invalid_step_mapping_request() -> None:
+def test_app_from_skills_rejects_invalid_step_mapping_request(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/apps/from-skills",
         json={
@@ -136,7 +137,8 @@ def test_app_from_skills_rejects_invalid_step_mapping_request() -> None:
     assert "requires from_step or from_inputs" in payload.lower()
 
 
-def test_app_from_skills_rejects_unsupported_transform_request() -> None:
+def test_app_from_skills_rejects_unsupported_transform_request(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/apps/from-skills",
         json={
@@ -158,7 +160,8 @@ def test_app_from_skills_rejects_unsupported_transform_request() -> None:
     assert "unsupported transform" in payload.lower()
 
 
-def test_install_run_risk_gating_returns_structured_policy_diagnostic() -> None:
+def test_install_run_risk_gating_returns_structured_policy_diagnostic(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_skill = client.post(
         "/skills/create",
         json={
@@ -226,7 +229,8 @@ def test_install_run_risk_gating_returns_structured_policy_diagnostic() -> None:
     assert any(item["event_type"] == "policy_blocked" for item in events.json())
 
 
-def test_diagnose_retry_returns_suggested_request() -> None:
+def test_diagnose_retry_returns_suggested_request(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/skills/diagnose-retry",
         json={

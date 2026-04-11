@@ -1,8 +1,7 @@
+from pathlib import Path
 import uuid
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_blueprint import AppBlueprint
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
@@ -13,15 +12,13 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 
 
-client = TestClient(app)
 
-
-def test_app_context_store_create_update_and_append() -> None:
+def test_app_context_store_create_update_and_append(tmp_path: Path) -> None:
     suffix = uuid.uuid4().hex
-    store = RuntimeStateStore(base_dir=f"data/test-app-context-{suffix}")
+    store = RuntimeStateStore(base_dir=str(tmp_path / f"runtime-{suffix}"))
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
-    data_store = AppDataStore(base_dir=f"data/test-app-context-ns-{suffix}", store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / f"namespaces-{suffix}"), store=store)
     registry = AppRegistryService(store=store)
     context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
     installer = AppInstallerService(
@@ -68,7 +65,8 @@ def test_app_context_store_create_update_and_append() -> None:
 
 
 
-def test_app_context_api_flow() -> None:
+def test_app_context_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     install_response = client.post(
         "/registry/apps/bp.workspace.assistant/install",
         json={"user_id": "context-api-user"},

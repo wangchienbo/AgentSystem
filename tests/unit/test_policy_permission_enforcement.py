@@ -1,12 +1,10 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_workflow_module_permission_enforcement_blocks_undeclared_module() -> None:
+def test_workflow_module_permission_enforcement_blocks_undeclared_module(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -57,7 +55,7 @@ def test_workflow_module_permission_enforcement_blocks_undeclared_module() -> No
     )
     assert execute_response.status_code == 200
     payload = execute_response.json()
-    assert payload["status"] == "partial"
+    assert payload["status"] == "blocked_by_policy"
     assert payload["failed_step_ids"] == ["blocked.module"]
     assert payload["steps"][0]["detail"]["policy_blocked"] is True
     assert "module not declared in blueprint" in payload["steps"][0]["detail"]["reason"]
@@ -67,7 +65,8 @@ def test_workflow_module_permission_enforcement_blocks_undeclared_module() -> No
     assert any("module not declared in blueprint" in str(item["value"].get("reason", "")) for item in constraint_entries)
 
 
-def test_workflow_event_permission_enforcement_blocks_undeclared_event_when_event_publish_is_enabled() -> None:
+def test_workflow_event_permission_enforcement_blocks_undeclared_event_when_event_publish_is_enabled(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -118,13 +117,14 @@ def test_workflow_event_permission_enforcement_blocks_undeclared_event_when_even
     )
     assert execute_response.status_code == 200
     payload = execute_response.json()
-    assert payload["status"] == "partial"
+    assert payload["status"] == "blocked_by_policy"
     assert payload["failed_step_ids"] == ["blocked.event"]
     assert payload["steps"][0]["detail"]["policy_blocked"] is True
     assert "event not permitted by blueprint policy" in payload["steps"][0]["detail"]["reason"]
 
 
-def test_workflow_module_permission_enforcement_allows_declared_module() -> None:
+def test_workflow_module_permission_enforcement_allows_declared_module(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={

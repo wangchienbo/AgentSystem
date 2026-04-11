@@ -4,12 +4,12 @@ from app.models.app_refinement import (
     SuggestedSkillRefinementClosureRequest,
     SuggestedSkillRefinementClosureResult,
 )
-from app.services.app_installer import AppInstallerService
+from app.services.app_installer import AppInstallerError, AppInstallerService
 from app.services.app_refinement import AppRefinementService
 from app.services.app_registry import AppRegistryService
 from app.models.skill_diagnostics import SkillDiagnostic
 from app.services.workflow_executor import WorkflowExecutorService
-from app.services.policy_authority_service import PolicyAuthorityService
+from app.services.policy_authority_service import PolicyAuthorityError, PolicyAuthorityService
 
 
 class AppRefinementOrchestratorError(ValueError):
@@ -34,12 +34,38 @@ class AppRefinementOrchestratorService:
 
     def refine_closure(self, request: SuggestedSkillRefinementClosureRequest) -> SuggestedSkillRefinementClosureResult:
         if self._policy_authority is not None:
-            self._policy_authority.enforce(
-                scope="generated_app_assembly",
-                reviewer=request.reviewer,
-                reason=request.note,
-                automatic=False,
-            )
+            try:
+                self._policy_authority.enforce(
+                    scope="generated_app_assembly",
+                    reviewer=request.reviewer,
+                    reason=request.note,
+                    automatic=False,
+                )
+            except PolicyAuthorityError as error:
+                return SuggestedSkillRefinementClosureResult(
+                    blueprint=None,
+                    app_result=None,
+                    compare_summary={"blueprint_id": request.blueprint_id},
+                    diagnostics=[
+                        SkillDiagnostic(
+                            stage="assemble",
+                            kind="policy_blocked",
+                            message=str(error),
+                            retryable=False,
+                            hint="Provide the required reviewer/reason or adjust the authority policy before retrying closure.",
+                            details={
+                                "scope": "generated_app_assembly",
+                                "reviewer": request.reviewer,
+                                "reason": request.note,
+                            },
+                            suggested_retry_request={
+                                "blueprint_id": request.blueprint_id,
+                                "reviewer": request.reviewer or "<reviewer>",
+                                "note": request.note or "<reason>",
+                            },
+                        ).model_dump(mode="json")
+                    ],
+                )
         refinement = self._app_refinement.build_app_from_suggested_skills(request)
         entry = self._app_registry.register_blueprint(refinement.blueprint)
 
@@ -59,38 +85,72 @@ class AppRefinementOrchestratorService:
         diagnostics: list[dict] = []
         if request.install or request.run:
             if not request.user_id:
-                raise AppRefinementOrchestratorError("user_id is required when install or run is requested")
-            install = self._app_installer.install_app(refinement.blueprint.id, user_id=request.user_id)
-            install_result = install.model_dump(mode="json")
-            if request.run:
-                execution = self._workflow_executor.execute_workflow(
-                    app_instance_id=install.app_instance_id,
-                    workflow_id=refinement.app_result.workflow_id,
-                    trigger=request.trigger,
-                    inputs=request.workflow_inputs,
+                diagnostics.append(
+                    SkillDiagnostic(
+                        stage="install",
+                        kind="install_error",
+                        message="user_id is required when install or run is requested",
+                        retryable=False,
+                        hint="Provide a user_id for install/run validation.",
+                        details={"blueprint_id": refinement.blueprint.id, "install": request.install, "run": request.run},
+                        suggested_retry_request={
+                            "blueprint_id": refinement.blueprint.id,
+                            "user_id": "<user-id>",
+                            "install": request.install,
+                            "run": request.run,
+                        },
+                    ).model_dump(mode="json")
                 )
-                execution_result = execution.model_dump(mode="json")
-                if execution.status != "completed":
+            else:
+                try:
+                    install = self._app_installer.install_app(refinement.blueprint.id, user_id=request.user_id)
+                    install_result = install.model_dump(mode="json")
+                except AppInstallerError as error:
                     diagnostics.append(
                         SkillDiagnostic(
-                            stage="execute",
-                            kind="execution_error",
-                            message="Refined app candidate execution did not complete successfully",
-                            retryable=execution.status in {"partial", "paused_for_human", "waiting_for_event"},
-                            hint="Inspect unresolved/failed step ids and retry or resume with corrected inputs.",
-                            details={
-                                "workflow_id": refinement.app_result.workflow_id,
-                                "status": execution.status,
-                                "failed_step_ids": list(execution.failed_step_ids),
-                                "unresolved_step_ids": list(execution.unresolved_step_ids),
-                            },
+                            stage="install",
+                            kind="install_error",
+                            message=str(error),
+                            retryable=False,
+                            hint="Inspect blueprint validation/install constraints and retry with corrected app inputs or blueprint wiring.",
+                            details={"blueprint_id": refinement.blueprint.id, "user_id": request.user_id},
                             suggested_retry_request={
                                 "blueprint_id": refinement.blueprint.id,
-                                "workflow_id": refinement.app_result.workflow_id,
-                                "workflow_inputs": request.workflow_inputs,
+                                "user_id": request.user_id,
+                                "install": True,
+                                "run": request.run,
                             },
                         ).model_dump(mode="json")
                     )
+                if request.run and install_result is not None:
+                    execution = self._workflow_executor.execute_workflow(
+                        app_instance_id=install.app_instance_id,
+                        workflow_id=refinement.app_result.workflow_id,
+                        trigger=request.trigger,
+                        inputs=request.workflow_inputs,
+                    )
+                    execution_result = execution.model_dump(mode="json")
+                    if execution.status != "completed":
+                        diagnostics.append(
+                            SkillDiagnostic(
+                                stage="execute",
+                                kind="execution_error",
+                                message="Refined app candidate execution did not complete successfully",
+                                retryable=execution.status in {"partial", "paused_for_human", "waiting_for_event"},
+                                hint="Inspect unresolved/failed step ids and retry or resume with corrected inputs.",
+                                details={
+                                    "workflow_id": refinement.app_result.workflow_id,
+                                    "status": execution.status,
+                                    "failed_step_ids": list(execution.failed_step_ids),
+                                    "unresolved_step_ids": list(execution.unresolved_step_ids),
+                                },
+                                suggested_retry_request={
+                                    "blueprint_id": refinement.blueprint.id,
+                                    "workflow_id": refinement.app_result.workflow_id,
+                                    "workflow_inputs": request.workflow_inputs,
+                                },
+                            ).model_dump(mode="json")
+                        )
 
         return SuggestedSkillRefinementClosureResult(
             blueprint=refinement.blueprint,

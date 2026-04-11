@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
@@ -24,9 +21,8 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.self_refinement import SelfRefinementService
+from tests.unit.api_test_helper import create_isolated_test_client
 
-
-client = TestClient(app)
 
 
 class StubCompletedProcess:
@@ -129,7 +125,8 @@ def test_refinement_rollout_queue_lifecycle(tmp_path: Path) -> None:
         assert rolled_back.status == "rolled_back"
 
 
-def test_refinement_rollout_queue_api_surfaces() -> None:
+def test_refinement_rollout_queue_api_surfaces(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     queue_response = client.get("/self-refinement/rollout-queue")
     assert queue_response.status_code == 200
     assert isinstance(queue_response.json(), list)

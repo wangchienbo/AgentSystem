@@ -1,14 +1,11 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
 from app.models.experience import ExperienceRecord
 from app.models.skill_suggestion import SkillSuggestionRequest
 from app.services.experience_store import ExperienceStore
 from app.services.skill_risk_policy import SkillRiskPolicyService
 from app.services.skill_suggestion import SkillSuggestionService
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
 class StubModelSuggester:
@@ -154,7 +151,8 @@ def test_skill_suggestion_includes_risk_governance_context_when_policy_pressure_
 
 
 
-def test_skill_suggestion_api_flow() -> None:
+def test_skill_suggestion_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     review_install = client.post(
         "/registry/apps/bp.workspace.assistant/install",
         json={"user_id": "skill-suggest-user"},

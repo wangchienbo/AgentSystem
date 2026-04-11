@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
-import json
 
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_blueprint import SkillBlueprint
@@ -297,7 +295,7 @@ class SkillFactoryService:
         asset_metadata: dict = {}
         if self._generated_assets is not None:
             self._generated_assets.persist_generated_skill(request=request, schema_refs=schema_refs, entry=entry)
-            asset_metadata = self._resolve_file_asset_metadata(request.skill_id)
+            asset_metadata = self._generated_assets.resolve_file_asset_metadata(request.skill_id)
         return SkillCreationResult(
             skill_id=request.skill_id,
             schema_refs=schema_refs,
@@ -309,19 +307,6 @@ class SkillFactoryService:
             asset_path=asset_metadata.get("path"),
             asset_metadata=asset_metadata,
         )
-
-    def _resolve_file_asset_metadata(self, skill_id: str) -> dict:
-        base = Path("/root/project/AgentSystem/data/namespaces/generated_executable_skills/skill_assets")
-        if not base.exists():
-            return {}
-        for metadata_path in base.glob(f"**/{skill_id.replace('.', '_')}/metadata.json"):
-            try:
-                payload = json.loads(metadata_path.read_text())
-            except json.JSONDecodeError:
-                continue
-            payload["path"] = str(metadata_path.parent)
-            return payload
-        return {}
 
     def _build_entry_and_register_runtime(self, request: SkillCreationRequest, schema_refs: dict[str, str]) -> SkillRegistryEntry:
         if request.adapter_kind == "callable":

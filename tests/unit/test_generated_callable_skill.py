@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
 from app.models.skill_creation import SkillCreationRequest, SkillSchemaDefinition
 from app.models.skill_runtime import SkillExecutionRequest
 from app.services.app_data_store import AppDataStore
@@ -13,12 +10,12 @@ from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_control import SkillControlService
 from app.services.skill_factory import SkillFactoryService
 from app.services.skill_runtime import SkillRuntimeService
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-client = TestClient(app)
 
-
-def test_create_real_callable_skill_via_api_and_install_run() -> None:
+def test_create_real_callable_skill_via_api_and_install_run(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_response = client.post(
         "/skills/create",
         json={
@@ -93,7 +90,8 @@ def test_create_real_callable_skill_via_api_and_install_run() -> None:
     assert run_payload["execution"]["steps"][0]["output"]["adapter"] == "callable"
 
 
-def test_create_real_callable_validation_skill_via_api_and_install_run() -> None:
+def test_create_real_callable_validation_skill_via_api_and_install_run(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_response = client.post(
         "/skills/create",
         json={
@@ -168,7 +166,8 @@ def test_create_real_callable_validation_skill_via_api_and_install_run() -> None
     assert run_payload["execution"]["steps"][0]["output"]["adapter"] == "callable"
 
 
-def test_create_real_callable_metadata_parsing_skill_via_api_and_install_run() -> None:
+def test_create_real_callable_metadata_parsing_skill_via_api_and_install_run(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_response = client.post(
         "/skills/create",
         json={

@@ -1,12 +1,10 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_system_skills_expose_capability_profiles_via_api() -> None:
+def test_system_skills_expose_capability_profiles_via_api(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.get("/skills")
     assert response.status_code == 200
     skills = {item["skill_id"]: item for item in response.json()}

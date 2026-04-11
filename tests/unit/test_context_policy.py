@@ -1,12 +1,9 @@
-from fastapi.testclient import TestClient
-
-from app.api.main import app
-
-
-client = TestClient(app)
+from pathlib import Path
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def _register_context_app(blueprint_id: str, *, workflows: list[dict] | None = None, required_skills: list[str] | None = None) -> None:
+
+def _register_context_app(client, blueprint_id: str, *, workflows: list[dict] | None = None, required_skills: list[str] | None = None) -> None:
     response = client.post(
         "/registry/apps",
         json={
@@ -33,8 +30,9 @@ def _register_context_app(blueprint_id: str, *, workflows: list[dict] | None = N
     assert response.status_code == 200
 
 
-def test_context_policy_and_auto_compaction_flow() -> None:
-    _register_context_app("bp.context.policy.api")
+def test_context_policy_and_auto_compaction_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    _register_context_app(client, "bp.context.policy.api")
     install_response = client.post(
         "/registry/apps/bp.context.policy.api/install",
         json={"user_id": "context-policy-user"},
@@ -64,8 +62,9 @@ def test_context_policy_and_auto_compaction_flow() -> None:
     assert layers_response.json()["layers"]["summary"] is not None
 
 
-def test_context_policy_compacts_on_stage_change_and_persists_runtime_snapshot() -> None:
-    _register_context_app(
+def test_context_policy_compacts_on_stage_change_and_persists_runtime_snapshot(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    _register_context_app(client,
         "bp.context.stage.change",
         workflows=[
             {"id": "wf.alpha", "name": "alpha", "triggers": ["manual"], "steps": []},
@@ -108,8 +107,9 @@ def test_context_policy_compacts_on_stage_change_and_persists_runtime_snapshot()
     assert app_instance_id in persistence_response.json()["context_policies"]
 
 
-def test_skill_execution_receives_working_set() -> None:
-    _register_context_app(
+def test_skill_execution_receives_working_set(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    _register_context_app(client,
         "bp.skill.working-set",
         workflows=[
             {

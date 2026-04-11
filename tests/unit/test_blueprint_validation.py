@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
@@ -20,8 +18,6 @@ from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_control import SkillControlService
 from app.services.skill_validation import SkillValidationService
 
-
-client = TestClient(app)
 
 
 def _register_skill(
@@ -62,7 +58,8 @@ def _register_skill(
     )
 
 
-def test_blueprint_validation_missing_fields() -> None:
+def test_blueprint_validation_missing_fields(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     payload = {
         "id": "bp_001",
         "name": "Test Blueprint",
@@ -82,7 +79,8 @@ def test_blueprint_validation_missing_fields() -> None:
     assert "workflows" in data["missing"]
 
 
-def test_blueprint_validation_rejects_undeclared_runtime_skill() -> None:
+def test_blueprint_validation_rejects_undeclared_runtime_skill(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     payload = {
         "id": "bp.invalid.undeclared",
         "name": "Invalid Undeclared Skill",

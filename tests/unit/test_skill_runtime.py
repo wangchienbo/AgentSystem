@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
@@ -20,9 +18,6 @@ from app.services.scheduler import SchedulerService
 from app.services.schema_registry import SchemaRegistryService
 from app.services.skill_runtime import SkillRuntimeService
 from app.services.workflow_executor import WorkflowExecutorService
-
-
-client = TestClient(app)
 
 
 def _manifest_entry(skill_id: str, input_ref: str = "", output_ref: str = "", error_ref: str = "") -> SkillRegistryEntry:
@@ -242,9 +237,9 @@ def test_skill_runtime_enforces_blueprint_skill_allowlist(tmp_path: Path) -> Non
 
     result = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.skill.policy")
 
-    assert result.status == "partial"
+    assert result.status == "blocked_by_policy"
     assert result.steps[0].status == "completed"
-    assert result.steps[1].status == "failed"
+    assert result.steps[1].status == "blocked_by_policy"
     assert "not declared in blueprint" in result.steps[1].detail["reason"]
     context = context_store.get_context(install_result.app_instance_id)
     assert any(item.section == "constraints" and item.key == "skill-policy:blocked" for item in context.entries)
@@ -329,7 +324,8 @@ def test_skill_runtime_rejects_invalid_output_contract_after_execution(tmp_path:
     assert result.error_detail["kind"] == "contract_violation"
 
 
-def test_skill_runtime_api_flow() -> None:
+def test_skill_runtime_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={

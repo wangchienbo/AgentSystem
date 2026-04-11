@@ -1,14 +1,10 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_blueprint import AppBlueprint
 from app.services.app_registry import AppRegistryService
 from app.services.runtime_state_store import RuntimeStateStore
 
-
-client = TestClient(app)
 
 
 def build_blueprint(
@@ -135,7 +131,8 @@ def test_registry_attention_actions_service(tmp_path: Path) -> None:
 
 
 
-def test_registry_operator_surface_api_flow() -> None:
+def test_registry_operator_surface_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={

@@ -63,7 +63,7 @@ def test_workflow_execution_records_failed_step_ids_for_policy_block() -> None:
 
     result = executor.execute_workflow(install_result.app_instance_id, workflow_id="wf.failure.observe")
 
-    assert result.status == "partial"
+    assert result.status == "blocked_by_policy"
     assert result.failed_step_ids == ["blocked.skill"]
-    assert result.steps[0].status == "failed"
+    assert result.steps[0].status == "blocked_by_policy"
     assert result.steps[0].detail["reason"] == "skill not declared in blueprint"

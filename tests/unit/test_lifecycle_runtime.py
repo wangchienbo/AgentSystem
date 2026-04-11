@@ -1,12 +1,10 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_instance import AppInstance
 from app.services.lifecycle import AppLifecycleService, LifecycleError
 from app.services.runtime_host import AppRuntimeHostService
 
-
-client = TestClient(app)
 
 
 def build_instance(status: str = "draft") -> AppInstance:
@@ -74,7 +72,8 @@ def test_runtime_host_healthcheck_and_task_queue() -> None:
     assert overview.latest_checkpoint is not None
 
 
-def test_app_runtime_api_flow() -> None:
+def test_app_runtime_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_response = client.post(
         "/apps",
         json={
@@ -110,12 +109,14 @@ def test_app_runtime_api_flow() -> None:
     assert runtime_response.json()["latest_checkpoint"] is not None
 
 
-def test_unknown_app_returns_404() -> None:
+def test_unknown_app_returns_404(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.get("/apps/unknown.app")
     assert response.status_code == 404
 
 
-def test_invalid_start_transition_returns_400() -> None:
+def test_invalid_start_transition_returns_400(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     client.post(
         "/apps",
         json={

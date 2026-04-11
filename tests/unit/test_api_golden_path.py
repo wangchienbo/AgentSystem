@@ -1,12 +1,10 @@
-from fastapi.testclient import TestClient
-
-from app.api.main import app
-
-
-client = TestClient(app)
+from pathlib import Path
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_api_golden_path_flow_from_registry_to_dashboard() -> None:
+
+def test_api_golden_path_flow_from_registry_to_dashboard(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -61,7 +59,7 @@ def test_api_golden_path_flow_from_registry_to_dashboard() -> None:
     )
     assert execute_response.status_code == 200
     execution = execute_response.json()
-    assert execution["status"] == "partial"
+    assert execution["status"] == "blocked_by_policy"
     assert execution["failed_step_ids"] == ["blocked.skill"]
     assert execution["outputs"]["inputs"]["token"] == "api-golden-token"
 

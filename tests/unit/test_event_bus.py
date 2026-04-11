@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_instance import AppInstance
 from app.models.event_bus import EventSubscription
 from app.models.scheduling import ScheduleRecord
@@ -12,8 +10,6 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 
-
-client = TestClient(app)
 
 
 def build_instance() -> AppInstance:
@@ -78,7 +74,8 @@ def test_scheduler_creates_event_subscription_for_event_schedule() -> None:
     assert subscriptions[0].schedule_id == "sch.event.subscription.001"
 
 
-def test_event_bus_api_flow() -> None:
+def test_event_bus_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     create_response = client.post(
         "/apps",
         json={
@@ -128,7 +125,8 @@ def test_event_bus_api_flow() -> None:
     assert subscriptions_response.json()[0]["schedule_id"] == "sch.api.event.001"
 
 
-def test_manual_subscription_api() -> None:
+def test_manual_subscription_api(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     response = client.post(
         "/events/subscriptions",
         json={

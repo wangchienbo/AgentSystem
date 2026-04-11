@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_blueprint import AppBlueprint
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
@@ -24,10 +22,6 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.self_refinement import SelfRefinementService
 
-
-client = TestClient(app)
-
-
 class StubCompletedProcess:
     def __init__(self, returncode: int = 1, stdout: str = "failed", stderr: str = "") -> None:
         self.returncode = returncode
@@ -40,6 +34,7 @@ def failing_verification_executor(_runner_path: str) -> StubCompletedProcess:
 
 
 def test_refinement_dashboard_tracks_failed_hypothesis_archive(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     store = RuntimeStateStore(base_dir=str(tmp_path / "refinement-dashboard-store"))
     data_store = AppDataStore(base_dir=str(tmp_path / "refinement-dashboard-ns"), store=store)
     experience_store = ExperienceStore()
@@ -127,7 +122,8 @@ def test_refinement_dashboard_tracks_failed_hypothesis_archive(tmp_path: Path) -
     assert dashboard.recent_hypotheses[0].repeat_risk in {"low", "medium", "high"}
 
 
-def test_refinement_dashboard_api_surface() -> None:
+def test_refinement_dashboard_api_surface(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     dashboard_response = client.get("/self-refinement/dashboard", params={"app_instance_id": "app.missing", "limit": 3})
     assert dashboard_response.status_code == 200
     dashboard = dashboard_response.json()

@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
+from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_blueprint import AppBlueprint
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
@@ -19,9 +17,6 @@ from app.services.prompt_selection_service import PromptSelectionService
 from app.services.log_evidence_service import LogEvidenceService
 from app.services.context_compaction import ContextCompactionService
 from app.services.skill_risk_policy import SkillRiskPolicyService
-
-
-client = TestClient(app)
 
 
 class _FakeLoader:
@@ -482,7 +477,8 @@ def test_workflow_executor_supports_conditional_steps_and_outputs_summary(tmp_pa
     assert all(item.key != "copy-disabled" for item in records)
 
 
-def test_workflow_latest_api_returns_newest_execution() -> None:
+def test_workflow_latest_api_returns_newest_execution(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -544,7 +540,8 @@ def test_workflow_latest_api_returns_newest_execution() -> None:
 
 
 
-def test_workflow_failures_api_supports_workflow_and_failed_step_filters() -> None:
+def test_workflow_failures_api_supports_workflow_and_failed_step_filters(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -632,7 +629,8 @@ def test_workflow_failures_api_supports_workflow_and_failed_step_filters() -> No
 
 
 
-def test_retry_last_failure_returns_comparison_details() -> None:
+def test_retry_last_failure_returns_comparison_details(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -711,7 +709,8 @@ def test_retry_last_failure_returns_comparison_details() -> None:
 
 
 
-def test_workflow_diagnostics_api_returns_latest_failure_and_retry_summary() -> None:
+def test_workflow_diagnostics_api_returns_latest_failure_and_retry_summary(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -778,7 +777,8 @@ def test_workflow_diagnostics_api_returns_latest_failure_and_retry_summary() -> 
 
 
 
-def test_workflow_diagnostics_supports_failed_step_filter_and_latest_recovery() -> None:
+def test_workflow_diagnostics_supports_failed_step_filter_and_latest_recovery(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -871,7 +871,8 @@ def test_workflow_diagnostics_supports_failed_step_filter_and_latest_recovery() 
 
 
 
-def test_workflow_overview_api_aggregates_diagnostics_and_recovery() -> None:
+def test_workflow_overview_api_aggregates_diagnostics_and_recovery(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -943,7 +944,8 @@ def test_workflow_overview_api_aggregates_diagnostics_and_recovery() -> None:
 
 
 
-def test_workflow_overview_reports_healthy_status_for_completed_workflow() -> None:
+def test_workflow_overview_reports_healthy_status_for_completed_workflow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -1004,7 +1006,8 @@ def test_workflow_overview_reports_healthy_status_for_completed_workflow() -> No
 
 
 
-def test_workflow_overview_reports_unknown_for_partial_without_failed_steps() -> None:
+def test_workflow_overview_reports_unknown_for_partial_without_failed_steps(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -1072,7 +1075,8 @@ def test_workflow_overview_reports_unknown_for_partial_without_failed_steps() ->
 
 
 
-def test_workflow_api_contracts_share_observability_filter_semantics() -> None:
+def test_workflow_api_contracts_share_observability_filter_semantics(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -1173,7 +1177,8 @@ def test_workflow_api_contracts_share_observability_filter_semantics() -> None:
 
 
 
-def test_workflow_stats_api_returns_aggregate_observability_totals() -> None:
+def test_workflow_stats_api_returns_aggregate_observability_totals(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -1240,7 +1245,8 @@ def test_workflow_stats_api_returns_aggregate_observability_totals() -> None:
 
 
 
-def test_workflow_dashboard_api_returns_operator_read_model() -> None:
+def test_workflow_dashboard_api_returns_operator_read_model(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={
@@ -1307,7 +1313,8 @@ def test_workflow_dashboard_api_returns_operator_read_model() -> None:
 
 
 
-def test_workflow_execution_api_flow() -> None:
+def test_workflow_execution_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={

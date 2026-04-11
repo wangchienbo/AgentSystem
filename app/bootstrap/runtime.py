@@ -66,7 +66,7 @@ from app.services.workflow_observability import WorkflowObservabilityService
 from app.services.workflow_subscription import WorkflowSubscriptionService
 
 
-def build_runtime() -> dict[str, object]:
+def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_dir: str | None = None) -> dict[str, object]:
     router = RequirementRouter()
     requirement_clarifier = RequirementClarifierService(router=router)
     requirement_blueprint_builder = RequirementBlueprintBuilderService()
@@ -268,8 +268,8 @@ def build_runtime() -> dict[str, object]:
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
     experience_store = ExperienceStore()
     demonstration_extractor = DemonstrationExtractor()
-    runtime_store = RuntimeStateStore()
-    app_data_store = AppDataStore(store=runtime_store)
+    runtime_store = RuntimeStateStore(base_dir=runtime_store_base_dir or "data/runtime")
+    app_data_store = AppDataStore(base_dir=app_data_base_dir or "data/namespaces", store=runtime_store)
     app_data_store.ensure_skill_asset_namespace()
     app_config_service = AppConfigService(data_store=app_data_store, store=runtime_store)
     system_state_service = SystemStateService(data_store=app_data_store, store=runtime_store)

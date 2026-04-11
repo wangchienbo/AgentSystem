@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
@@ -14,8 +11,7 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.workflow_executor import WorkflowExecutorService
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
 def _build_services(tmp_path: Path):
@@ -80,7 +76,8 @@ def test_resume_last_interrupted_supports_paused_and_waiting_workflows(tmp_path:
     assert resumed.retry_comparison.previous_status == "paused_for_human"
 
 
-def test_resume_last_interrupted_api_flow() -> None:
+def test_resume_last_interrupted_api_flow(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     register_response = client.post(
         "/registry/apps",
         json={

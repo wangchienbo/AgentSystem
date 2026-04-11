@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
-from app.api.main import app
 from app.models.app_blueprint import AppBlueprint
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
@@ -18,8 +15,8 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.services.workflow_executor import WorkflowExecutorService
+from tests.unit.api_test_helper import create_isolated_test_client
 
-client = TestClient(app)
 
 
 def _build_context_stack(tmp_path: Path):
@@ -129,7 +126,8 @@ def test_phase6_context_retrieval_returns_layered_prompt_ready_view(tmp_path: Pa
     assert "summary_refs" in detail_refs
 
 
-def test_phase6_authority_and_persistence_health_api() -> None:
+def test_phase6_authority_and_persistence_health_api(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
     set_response = client.post(
         "/policy-authority",
         json={

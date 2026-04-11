@@ -1,12 +1,11 @@
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from app.api.main import app, log_evidence
-
-
-client = TestClient(app)
+from tests.unit.api_test_helper import create_isolated_test_client
 
 
-def test_evidence_api_lists_signals_and_promoted_entries() -> None:
+def test_evidence_api_lists_signals_and_promoted_entries(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    log_evidence = client.app.state.services["log_evidence"]
     log_evidence.ingest_workflow_failure(
         app_instance_id="app.api",
         workflow_id="wf.api",
@@ -45,7 +44,9 @@ def test_evidence_api_lists_signals_and_promoted_entries() -> None:
 
 
 
-def test_clarify_unresolved_can_feed_evidence_pipeline() -> None:
+def test_clarify_unresolved_can_feed_evidence_pipeline(tmp_path: Path) -> None:
+    client = create_isolated_test_client(tmp_path)
+    log_evidence = client.app.state.services["log_evidence"]
     log_evidence.ingest_clarify_unresolved(
         request_text="做一个系统",
         requirement_type="unclear",
