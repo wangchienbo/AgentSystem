@@ -28,7 +28,7 @@ scopes:
     owners: [agent]
   - id: runtime-services
     kind: module
-    purpose: Runtime services, lifecycle, scheduling, supervision, execution, registry, and operational service logic.
+    purpose: Runtime services, lifecycle, scheduling, supervision, execution, registry, validation, persistence-adjacent service logic, and operational orchestration services.
     owners: [agent]
   - id: system-skills
     kind: module

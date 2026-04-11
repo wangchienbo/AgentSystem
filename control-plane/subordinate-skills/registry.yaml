@@ -4,89 +4,89 @@ subordinate_skills:
     scope_id: project-bootstrap-control
     purpose: project-level routing, planning, and control oversight
     source: generated-local
-    version: recursive-bootstrap-v1
+    version: recursive-bootstrap-v2
     lifecycle_status: active
   - subordinate_skill_id: app-manager
     category: functional
     scope_id: project-bootstrap-control
     purpose: app-level scope handling and escalation to project scope
     source: generated-local
-    version: recursive-bootstrap-v1
+    version: recursive-bootstrap-v2
     lifecycle_status: active
   - subordinate_skill_id: context-assembler
     category: functional
     scope_id: project-bootstrap-control
     purpose: minimal context assembly for project-governed work
     source: generated-local
-    version: recursive-bootstrap-v1
+    version: recursive-bootstrap-v2
     lifecycle_status: active
   - subordinate_skill_id: skill-governor
     category: functional
     scope_id: project-bootstrap-control
     purpose: decide subordinate-skill creation, merge, update, or avoidance
     source: generated-local
-    version: recursive-bootstrap-v1
+    version: recursive-bootstrap-v2
     lifecycle_status: active
   - subordinate_skill_id: control-plane-maintainer
     category: functional
     scope_id: project-bootstrap-control
     purpose: maintain anchor and project control artifacts
     source: generated-local
-    version: recursive-bootstrap-v1
+    version: recursive-bootstrap-v2
     lifecycle_status: active
   - subordinate_skill_id: subordinate-skill-manager
     category: functional
     scope_id: project-bootstrap-control
     purpose: discover, install, update, align, and retire subordinate skills under governance
     source: generated-local
-    version: recursive-bootstrap-v1
+    version: recursive-bootstrap-v2
     lifecycle_status: active
   - subordinate_skill_id: api-surface-control
     category: structural
     scope_id: api-surface
     purpose: Structural subordinate control for API entrypoints and route surfaces.
     source: generated-local
-    version: recursive-init-v1
+    version: recursive-init-v2
     lifecycle_status: active
   - subordinate_skill_id: bootstrap-runtime-control
     category: structural
     scope_id: bootstrap-runtime
     purpose: Structural subordinate control for runtime/bootstrap assembly.
     source: generated-local
-    version: recursive-init-v1
+    version: recursive-init-v2
     lifecycle_status: active
   - subordinate_skill_id: core-domain-models-control
     category: structural
     scope_id: core-domain-models
     purpose: Structural subordinate control for core models, manifests, adapters, and profiles.
     source: generated-local
-    version: recursive-init-v1
+    version: recursive-init-v2
     lifecycle_status: active
   - subordinate_skill_id: runtime-services-control
     category: structural
     scope_id: runtime-services
     purpose: Structural subordinate control for runtime and operational services.
     source: generated-local
-    version: recursive-init-v1
+    version: recursive-init-v2
     lifecycle_status: active
   - subordinate_skill_id: system-skills-control
     category: structural
     scope_id: system-skills
     purpose: Structural subordinate control for built-in system skills and registry integration.
     source: generated-local
-    version: recursive-init-v1
+    version: recursive-init-v2
     lifecycle_status: active
   - subordinate_skill_id: telemetry-governance-docs-control
     category: structural
     scope_id: telemetry-governance-docs
     purpose: Structural subordinate control for telemetry/evidence/governance documentation surfaces.
     source: generated-local
-    version: recursive-init-v1
+    version: recursive-init-v2
     lifecycle_status: active
   - subordinate_skill_id: tests-and-fixtures-control
     category: structural
     scope_id: tests-and-fixtures
     purpose: Structural subordinate control for tests and fixtures.
     source: generated-local
-    version: recursive-init-v1
+    version: recursive-init-v2
     lifecycle_status: active

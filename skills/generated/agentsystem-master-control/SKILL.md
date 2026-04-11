@@ -11,13 +11,6 @@ This skill is the required middle layer for non-trivial project-scoped governanc
 It does not replace the outer assistant persona.
 It governs routing, scoping, decomposition, control-plane maintenance, subordinate-skill governance, and structural evolution for the AgentSystem repository.
 
-## Core boundary
-
-This skill governs project structure and routing.
-It must not become a competing user-facing assistant persona.
-It must not default to whole-repo context loading.
-It must not create persistent subordinate skills casually or without clear scope evidence.
-
 ## What this control skill governs
 - project-level routing and scope selection
 - app/domain/module decomposition decisions
@@ -47,34 +40,8 @@ Prefer this order:
 5. relevant interfaces/contracts
 6. local implementation files only as needed
 
-Avoid whole-repo loading by default after initialization; prefer the smallest sufficient working set.
-
-## Subordinate-skill model and categories
-Subordinate skill is the general class of child capabilities governed by this master control layer.
-Subordinate skills are divided into:
-- functional subordinate skills
-- structural subordinate skills
-
-## Foundational functional subordinate capabilities
-- `project-manager`
-- `app-manager`
-- `context-assembler`
-- `skill-governor`
-- `control-plane-maintainer`
-- `subordinate-skill-manager`
-
 ## Structural subordinate creation rule
 During initialization and later restructuring, continue decomposing until the repository reaches practical working granularity. Users should not need to manually request second-layer decomposition during ordinary bootstrap.
-
-## Control-plane artifacts
-Maintain at least:
-- `PROJECT_CONTROL.md`
-- `control-plane/project-map.yaml`
-- `control-plane/modules/`
-- `control-plane/interfaces/`
-- `control-plane/tasks/`
-- `control-plane/subordinate-skills/registry.yaml`
-- `control-plane/subordinate-skills/structural-candidates.yaml`
 
 ## Escalation rule
 Escalate back to this master control skill when a requested change crosses structural subordinate boundaries, revises project decomposition, or requires new subordinate creation/merge/retirement.
