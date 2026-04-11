@@ -10,6 +10,7 @@ from app.models.risk_governance_skill import RiskGovernanceSkillRequest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.system_skill import SystemAuditRequest, SystemStateRequest
 from app.models.workflow_insight_skill import WorkflowInsightSkillRequest
+from app.models.meta_app_skill import MetaAppSkillRequest
 from app.services.model_client import OpenAIResponsesClient
 from app.services.model_config_loader import ModelConfigLoader
 from app.services.skill_runtime import SkillRuntimeService
@@ -29,6 +30,7 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
     skill_risk_policy = services["skill_risk_policy"]
     prompt_selection = services["prompt_selection"]
     prompt_invocation = services["prompt_invocation"]
+    meta_app_bootstrap = services["meta_app_bootstrap"]
 
     def demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
         payload = request.config.get("payload", request.inputs)
@@ -216,6 +218,13 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
                 )
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
 
+    def system_meta_app_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+        skill_request = MetaAppSkillRequest(**request.inputs)
+        output = meta_app_bootstrap.bootstrap(
+            request=skill_request,
+        ).model_dump(mode="json")
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
+
     return {
         "skill.echo": demo_echo_skill,
         "system.app_config": system_app_config_skill,
@@ -229,6 +238,7 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
         "workflow.insight.skill": workflow_insight_capability_skill,
         "risk.governance.skill": risk_governance_capability_skill,
         "prompt.selection.skill": prompt_selection_capability_skill,
+        "system.meta_app": system_meta_app_skill,
     }
 
 

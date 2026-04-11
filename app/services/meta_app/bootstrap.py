@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.models.meta_app import MetaAppBootstrapRequest, MetaAppBootstrapResult
+from app.models.meta_app_skill import MetaAppSkillRequest
 from app.services.meta_app.governance import MetaAppGovernanceService
 from app.services.meta_app.structure import MetaAppStructureService
 
@@ -12,7 +13,7 @@ class MetaAppBootstrapService:
         self._structure = MetaAppStructureService()
         self._governance = MetaAppGovernanceService()
 
-    def bootstrap(self, request: MetaAppBootstrapRequest) -> MetaAppBootstrapResult:
+    def bootstrap(self, request: MetaAppBootstrapRequest | MetaAppSkillRequest) -> MetaAppBootstrapResult:
         scopes = self._structure.infer_initial_scopes(request.app_name, request.goal)
         notes = self._governance.build_governance_notes(scopes)
         app_slug = request.app_name.strip().lower().replace(" ", "-")
