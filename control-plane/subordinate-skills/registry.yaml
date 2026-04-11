@@ -100,3 +100,10 @@ subordinate_skills:
   source: generated-local
   version: meta-app-v1
   lifecycle_status: active
+- subordinate_skill_id: maoxuan-skill
+  category: functional
+  scope_id: system-skills
+  purpose: Mao Zedong thinking framework for strategic analysis and problem diagnosis
+  source: generated-local
+  version: maoxuan-v1
+  lifecycle_status: active
