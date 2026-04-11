@@ -445,9 +445,11 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.light_brain_gateway import LightBrainGateway
     from app.services.light_brain_interpreter import LightBrainInterpreter
     from app.services.light_brain_memory import LightBrainMemory
+    from app.services.llm_responder import LLMResponder
 
     light_brain_memory = LightBrainMemory()
     light_brain_interpreter = LightBrainInterpreter()
+    llm_responder = LLMResponder()
     light_brain_gateway = LightBrainGateway(
         memory=light_brain_memory,
         interpreter=light_brain_interpreter,
@@ -458,6 +460,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         app_installer=app_installer,
         skill_registry=skill_factory,
         meta_app_orchestrator=meta_app_orchestrator,
+        llm_responder=llm_responder,
     )
 
     return locals()

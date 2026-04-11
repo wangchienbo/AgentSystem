@@ -49,6 +49,7 @@ class LightBrainGateway:
         app_catalog: Any = None,
         skill_registry: Any = None,
         meta_app_orchestrator: Any = None,
+        llm_responder: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -61,6 +62,7 @@ class LightBrainGateway:
         self._catalog = app_catalog
         self._skill_registry = skill_registry
         self._meta_app_orchestrator = meta_app_orchestrator
+        self._llm_responder = llm_responder
         self._name: str | None = None
         self._load_identity()
 
@@ -96,6 +98,18 @@ class LightBrainGateway:
         # 5. Execute command → get reply
         reply = await self._execute_command(command, session.session_id, available_apps)
         reply.session_id = session.session_id
+
+        # 5b. LLM enhancement (if available)
+        if self._llm_responder and getattr(self._llm_responder, 'available', False):
+            enhanced = self._llm_responder.generate_reply(
+                system_context=f"你是 AgentSystem，一个 AI 驱动的系统。你的名字是「{self._name}」。你的职责是帮助用户管理 App。",
+                user_message=request.message,
+                app_context=available_apps,
+                max_tokens=300,
+            )
+            if enhanced and enhanced.strip():
+                # Keep the structured reply type and actions, but replace text
+                reply.content = enhanced.strip()
 
         # 6. Record reply
         self._memory.record_reply(session.session_id, reply)
