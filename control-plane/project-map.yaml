@@ -8,37 +8,54 @@ project:
     path: /root/project/AgentSystem/skills/generated/agentsystem-master-control/SKILL.md
   focus: recursive-bootstrap-initialized
   status: active
-
 scopes:
-  - id: project-bootstrap-control
-    kind: project-control
-    purpose: Bootstrap and maintain project-level control routing, recursive initialization, and subordinate-skill governance.
-    owners: [agent]
-  - id: api-surface
-    kind: module
-    purpose: API entrypoints, route declarations, and externally visible control surfaces.
-    owners: [agent]
-  - id: bootstrap-runtime
-    kind: module
-    purpose: Runtime construction, skill wiring, and demo/catalog bootstrap assembly.
-    owners: [agent]
-  - id: core-domain-models
-    kind: module
-    purpose: Core domain models, manifests, adapters, profiles, and structural contracts.
-    owners: [agent]
-  - id: runtime-services
-    kind: module
-    purpose: Runtime services, lifecycle, scheduling, supervision, execution, registry, validation, persistence-adjacent service logic, and operational orchestration services.
-    owners: [agent]
-  - id: system-skills
-    kind: module
-    purpose: Built-in system skill implementations and their registration/runtime integration.
-    owners: [agent]
-  - id: telemetry-governance-docs
-    kind: module
-    purpose: Telemetry, evidence, governance, and roadmap-oriented design documentation.
-    owners: [agent]
-  - id: tests-and-fixtures
-    kind: module
-    purpose: End-to-end and unit validation coverage plus fixtures supporting runtime and governance verification.
-    owners: [agent]
+- id: project-bootstrap-control
+  kind: project-control
+  purpose: Bootstrap and maintain project-level control routing, recursive initialization,
+    and subordinate-skill governance.
+  owners:
+  - agent
+- id: api-surface
+  kind: module
+  purpose: API entrypoints, route declarations, and externally visible control surfaces.
+  owners:
+  - agent
+- id: bootstrap-runtime
+  kind: module
+  purpose: Runtime construction, skill wiring, and demo/catalog bootstrap assembly.
+  owners:
+  - agent
+- id: core-domain-models
+  kind: module
+  purpose: Core domain models, manifests, adapters, profiles, and structural contracts.
+  owners:
+  - agent
+- id: runtime-services
+  kind: module
+  purpose: Runtime services, lifecycle, scheduling, supervision, execution, registry,
+    validation, persistence-adjacent service logic, and operational orchestration
+    services.
+  owners:
+  - agent
+- id: system-skills
+  kind: module
+  purpose: Built-in system skill implementations and their registration/runtime integration.
+  owners:
+  - agent
+- id: telemetry-governance-docs
+  kind: module
+  purpose: Telemetry, evidence, governance, and roadmap-oriented design documentation.
+  owners:
+  - agent
+- id: tests-and-fixtures
+  kind: module
+  purpose: End-to-end and unit validation coverage plus fixtures supporting runtime
+    and governance verification.
+  owners:
+  - agent
+- id: meta-app
+  kind: module
+  purpose: Project-internal meta-app bootstrap and governance capability for app-scoped
+    control structures.
+  owners:
+  - agent
