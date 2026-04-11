@@ -121,6 +121,7 @@ Keeps anchor and control-plane artifacts synchronized with structural changes.
 Discovers, installs, updates, aligns, and retires subordinate skills under governance rules.
 It must prefer existing trusted local skills first, then trusted external sources when justified.
 Any external subordinate-skill download or update must be recorded in the subordinate-skill registry.
+It also participates in first-run initialization by helping evaluate structural subordinate candidates and determining whether any immediate subordinate-skill creation is justified.
 
 ## Subordinate-skill lifecycle policy
 
@@ -142,6 +143,28 @@ For each durable subordinate skill, record:
 - compatibility notes
 - update policy
 - escalation conditions
+
+## Structural subordinate candidate policy
+
+Maintain a durable structural-candidate artifact at:
+- `/root/project/AgentSystem/control-plane/subordinate-skills/structural-candidates.yaml`
+
+Use it to track stable app/domain/module scopes that might later become structural subordinate skills.
+Not every structural candidate should be promoted immediately.
+
+For each structural candidate, record:
+- candidate id
+- candidate type
+- scope id
+- current recommendation
+- rationale
+- promotion conditions
+
+Promotion from candidate to structural subordinate skill should happen only when:
+- repeated work confirms a durable stable boundary
+- owned files or interface surfaces are clear enough
+- re-orientation cost is high enough to justify persistent specialization
+- the skill-governor and subordinate-skill-manager agree that reuse/update is worse than promotion
 
 ## External download and update policy
 
@@ -169,6 +192,16 @@ Maintain at least:
 - `/root/project/AgentSystem/control-plane/interfaces/`
 - `/root/project/AgentSystem/control-plane/tasks/`
 - `/root/project/AgentSystem/control-plane/subordinate-skills/registry.yaml`
+- `/root/project/AgentSystem/control-plane/subordinate-skills/structural-candidates.yaml`
+
+## First-run initialization
+
+On first bootstrap handoff from the meta-skill, this master control skill should:
+- validate anchor and control-plane consistency
+- validate subordinate-skill registry existence
+- validate structural-candidate artifact existence
+- evaluate whether any immediate subordinate-skill creation is necessary
+- if needed, create only the minimal first subordinate skills in its own role
 
 ## Consistency and recovery
 
@@ -176,6 +209,7 @@ On meaningful governance entry:
 - ensure the anchor still points to this skill
 - ensure `project-map.yaml` exists
 - ensure subordinate-skill registry exists
+- ensure structural-candidate artifact exists
 - repair or recreate the minimum skeleton if missing
 
 ## Update obligations

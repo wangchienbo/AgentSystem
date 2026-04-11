@@ -1,0 +1,33 @@
+structural_subordinate_candidates:
+  - candidate_id: platform-core-domain
+    candidate_type: domain
+    scope_id: platform-core
+    recommendation: hold-as-scope
+    rationale: Broad stable domain exists, but should remain a governed scope until repeated specialized work justifies an externalized structural subordinate skill.
+    promotion_conditions:
+      - repeated focused work on registry/lifecycle/contracts without heavy cross-domain overlap
+      - clear owned file/contract surface for durable specialization
+  - candidate_id: runtime-and-control-plane-domain
+    candidate_type: domain
+    scope_id: runtime-and-control-plane
+    recommendation: hold-as-scope
+    rationale: Strong runtime/control boundary exists, but still interacts broadly with platform core and operator surfaces; keep as scope first.
+    promotion_conditions:
+      - repeated runtime-host/scheduler/supervisor/control-surface work
+      - clearer stable owned file clusters and interfaces
+  - candidate_id: skill-evolution-toolchain-domain
+    candidate_type: domain
+    scope_id: skill-evolution-toolchain
+    recommendation: hold-as-scope
+    rationale: Stable conceptual domain with likely future specialization, but still broad and evolving.
+    promotion_conditions:
+      - repeated generated-skill / suggestion / executable-skill changes
+      - stable durable workflows worth a dedicated structural subordinate skill
+  - candidate_id: telemetry-evidence-governance-domain
+    candidate_type: domain
+    scope_id: telemetry-evidence-governance
+    recommendation: hold-as-scope
+    rationale: Strong governance domain exists, but still spans multiple read models and review surfaces; do not externalize too early.
+    promotion_conditions:
+      - repeated focused governance/reporting/risk/dashboard changes
+      - stable bounded artifact and interface ownership
