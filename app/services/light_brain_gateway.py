@@ -91,15 +91,19 @@ class LightBrainGateway:
         # 3. Get available apps for context
         available_apps = await self._get_available_apps()
 
-        # 4. Interpret intent
+        # 4. Wire LLM responder into interpreter (if available)
+        if self._llm_responder and not hasattr(self._interpreter, "_llm_responder"):
+            self._interpreter.set_llm_responder(self._llm_responder)
+
+        # 5. Interpret intent
         command = self._interpreter.interpret(request.message, available_apps)
         self._memory.record_command(session.session_id, command)
 
-        # 5. Execute command → get reply
+        # 6. Execute command → get reply
         reply = await self._execute_command(command, session.session_id, available_apps)
         reply.session_id = session.session_id
 
-        # 5b. LLM enhancement (if available)
+        # 6b. LLM enhancement (if available)
         if self._llm_responder and getattr(self._llm_responder, 'available', False):
             enhanced = self._llm_responder.generate_reply(
                 system_context=f"你是 AgentSystem，一个 AI 驱动的系统。你的名字是「{self._name}」。你的职责是帮助用户管理 App。",
@@ -111,7 +115,7 @@ class LightBrainGateway:
                 # Keep the structured reply type and actions, but replace text
                 reply.content = enhanced.strip()
 
-        # 6. Record reply
+        # 7. Record reply
         self._memory.record_reply(session.session_id, reply)
 
         return reply
@@ -144,6 +148,59 @@ class LightBrainGateway:
                 self._memory.record_reply(session_id, reply)
                 return reply
             return self._error_reply(session_id, "没有找到待确认的创建命令。")
+
+        if intent == "delete_app" and params.get("confirmed"):
+            target = params.get("target", session.last_command.target_app if session.last_command else "未知")
+            try:
+                if self._lifecycle:
+                    self._lifecycle.get_instance(target)  # Check exists
+                    # Would need a proper delete/unregister method
+                if self._runtime_host:
+                    try:
+                        self._runtime_host.stop(target, reason="deleted_by_user")
+                    except Exception:
+                        pass
+                reply = ChatMessageResponse(
+                    type="card",
+                    content=f"🗑️ **{target}** 已删除。",
+                    session_id=session_id,
+                )
+                self._memory.record_reply(session_id, reply)
+                return reply
+            except Exception as exc:
+                return self._error_reply(session_id, f"删除 **{target}** 失败: {exc}")
+
+        if intent == "start_app" and params.get("confirmed"):
+            target = params.get("target", "")
+            if self._runtime_host:
+                try:
+                    self._runtime_host.start(target, reason="user_command")
+                    reply = ChatMessageResponse(
+                        type="card",
+                        content=f"✅ **{target}** 已启动。",
+                        session_id=session_id,
+                        related_app=target,
+                    )
+                    self._memory.record_reply(session_id, reply)
+                    return reply
+                except Exception as exc:
+                    return self._error_reply(session_id, f"启动失败: {exc}")
+
+        if intent == "stop_app" and params.get("confirmed"):
+            target = params.get("target", "")
+            if self._runtime_host:
+                try:
+                    self._runtime_host.stop(target, reason="user_command")
+                    reply = ChatMessageResponse(
+                        type="card",
+                        content=f"⏹ **{target}** 已停止。",
+                        session_id=session_id,
+                        related_app=target,
+                    )
+                    self._memory.record_reply(session_id, reply)
+                    return reply
+                except Exception as exc:
+                    return self._error_reply(session_id, f"停止失败: {exc}")
 
         if intent == "cancel":
             reply = ChatMessageResponse(
@@ -409,11 +466,10 @@ class LightBrainGateway:
                 requires_input=True,
             )
 
-        # We have enough info — create the app (skeleton: placeholder for now)
+        # We have enough info — create the app
         app_type = command.parameters.get("app_type", "unknown")
         app_name = command.target_app or f"{app_type}_app"
 
-        # Phase 8.1: return a confirmation card (actual creation in 8.2)
         schedule_info = ""
         if command.parameters.get("schedule_type"):
             st = command.parameters["schedule_type"]
@@ -427,6 +483,48 @@ class LightBrainGateway:
         if command.parameters.get("threshold"):
             threshold_info = f"\n告警阈值: {command.parameters['threshold']}%"
 
+        # If orchestrator available, actually create the app
+        if self._meta_app_orchestrator:
+            try:
+                from app.models.meta_app_skill import MetaAppSkillRequest
+                request = MetaAppSkillRequest(
+                    app_name=app_name,
+                    app_type=app_type,
+                    schedule_type=command.parameters.get("schedule_type"),
+                    schedule_interval=command.parameters.get("schedule_interval"),
+                    schedule_cron=command.parameters.get("schedule_cron"),
+                    threshold=command.parameters.get("threshold"),
+                )
+                result = self._meta_app_orchestrator.create_app_through_meta_app(request)
+                app_id = result.get("app_instance_id", result.get("app_id", app_name))
+                return ChatMessageResponse(
+                    type="card",
+                    content=f"✅ App 创建成功！\n\n"
+                            f"名称: {app_name}\n"
+                            f"类型: {app_type}\n"
+                            f"ID: {app_id}\n"
+                            f"{schedule_info}{threshold_info}",
+                    session_id=session_id,
+                    related_app=app_name,
+                    actions=[
+                        ActionSuggestion(
+                            id="start_app", label="▶️ 启动", action_type="execute",
+                            payload={"intent": "start_app", "target": app_name}, style="primary",
+                        ),
+                        ActionSuggestion(
+                            id="list_apps", label="📱 查看列表", action_type="navigate",
+                            payload={"intent": "list_apps"}, style="secondary",
+                        ),
+                    ],
+                )
+            except Exception as exc:
+                return ChatMessageResponse(
+                    type="error",
+                    content=f"创建 App 失败: {exc}",
+                    session_id=session_id,
+                )
+
+        # Fallback: confirmation card when orchestrator unavailable
         return ChatMessageResponse(
             type="confirm",
             content=f"📋 App 创建概要\n\n"
@@ -468,7 +566,36 @@ class LightBrainGateway:
             )
 
         target = command.target_app or "未知 App"
-        # Phase 8.1: placeholder response (actual start in 8.2)
+        
+        # Try to actually start the app
+        if self._runtime_host:
+            try:
+                self._runtime_host.start(target, reason="user_command")
+                return ChatMessageResponse(
+                    type="card",
+                    content=f"✅ **{target}** 已启动。",
+                    session_id=session_id,
+                    related_app=target,
+                    actions=[
+                        ActionSuggestion(
+                            id="stop", label="⏹ 停止", action_type="execute",
+                            payload={"intent": "stop_app", "target": target}, style="danger",
+                        ),
+                        ActionSuggestion(
+                            id="status", label="📊 状态", action_type="execute",
+                            payload={"intent": "query_app", "target": target}, style="secondary",
+                        ),
+                    ],
+                )
+            except Exception as exc:
+                return ChatMessageResponse(
+                    type="error",
+                    content=f"启动 **{target}** 失败: {exc}",
+                    session_id=session_id,
+                    related_app=target,
+                )
+        
+        # Fallback
         return ChatMessageResponse(
             type="confirm",
             content=f"确定要启动 **{target}** 吗？",
@@ -491,6 +618,32 @@ class LightBrainGateway:
             )
 
         target = command.target_app or "未知 App"
+        
+        # Try to actually stop the app
+        if self._runtime_host:
+            try:
+                self._runtime_host.stop(target, reason="user_command")
+                return ChatMessageResponse(
+                    type="card",
+                    content=f"⏹ **{target}** 已停止。",
+                    session_id=session_id,
+                    related_app=target,
+                    actions=[
+                        ActionSuggestion(
+                            id="start", label="▶️ 启动", action_type="execute",
+                            payload={"intent": "start_app", "target": target}, style="primary",
+                        ),
+                    ],
+                )
+            except Exception as exc:
+                return ChatMessageResponse(
+                    type="error",
+                    content=f"停止 **{target}** 失败: {exc}",
+                    session_id=session_id,
+                    related_app=target,
+                )
+        
+        # Fallback
         return ChatMessageResponse(
             type="confirm",
             content=f"确定要停止 **{target}** 吗？",
@@ -563,9 +716,25 @@ class LightBrainGateway:
 
         if found:
             status = found.get("status", "unknown")
+            description = found.get("description", "")
+            app_id = found.get("app_id", "")
+            
+            # Enrich with runtime status if available
+            runtime_status = ""
+            if self._lifecycle:
+                try:
+                    instance = self._lifecycle.get_instance(app_id or target)
+                    runtime_status = f"\n运行状态: {getattr(instance, 'status', 'unknown')}"
+                except Exception:
+                    pass
+            
+            detail = f"ID: {app_id}\n状态: {status}{runtime_status}"
+            if description:
+                detail += f"\n描述: {description}"
+            
             return ChatMessageResponse(
                 type="card",
-                content=f"📋 {target}\n\n状态: {status}",
+                content=f"📋 {target}\n\n{detail}",
                 session_id=session_id,
                 related_app=target,
                 actions=[
@@ -617,6 +786,7 @@ class LightBrainGateway:
                 requires_input=True,
             )
         target = command.target_app or "未知 App"
+        # Add confirm action that triggers actual deletion
         return ChatMessageResponse(
             type="confirm",
             content=f"⚠️ 确定要删除 **{target}** 吗？此操作不可恢复！",

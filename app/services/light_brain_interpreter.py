@@ -1,11 +1,13 @@
-"""LightBrain Interpreter — rule-based intent parsing.
+"""LightBrain Interpreter — rule-based intent parsing with optional LLM fallback.
 
 Translates natural language user messages into structured InterpretedCommand objects.
-Phase 8.1 uses keyword/pattern matching; Phase 8.3 upgrades to LLM-based parsing.
+Phase 8.1 uses keyword/pattern matching; Phase 8.3 adds LLM-based parsing fallback.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from typing import Any
 
@@ -13,7 +15,22 @@ from app.models.chat import ActionSuggestion, InterpretedCommand
 
 
 class LightBrainInterpreter:
-    """Rule-based interpreter that maps user messages to structured commands."""
+    """Rule-based interpreter that maps user messages to structured commands.
+
+    Phase 8.3: optionally falls back to LLM parsing when rule-based confidence
+    is low (returns 'unclear' with confidence < 0.5). Results are cached so
+    identical messages don't trigger repeated LLM calls.
+    """
+
+    # Valid intent values the LLM may return
+    VALID_INTENTS = {
+        "greet", "list_apps", "create_app", "start_app", "stop_app",
+        "pause_app", "resume_app", "query_app", "modify_app", "delete_app",
+        "query_status", "query_help", "unclear",
+    }
+
+    # LLM intent parsing result cache: key -> InterpretedCommand
+    _llm_cache: dict[str, InterpretedCommand] = {}
 
     # -- intent patterns -----------------------------------------------------
 
@@ -46,29 +63,54 @@ class LightBrainInterpreter:
         re.compile(r"把.([\u4e00-\u9fa5a-zA-Z0-9_\-]{2,20})\s*(改成|改为|改成|设置成|设置|调整为|调整为)"),
     ]
 
+    # -- public API ----------------------------------------------------------
+
+    def set_llm_responder(self, llm_responder: Any) -> None:
+        """Set an optional LLM responder for fallback intent parsing.
+
+        The responder must have a ``parse_intent(user_message, available_apps)``
+        method that returns a dict (or None on failure).
+        """
+        self._llm_responder = llm_responder
+
+    @classmethod
+    def clear_llm_cache(cls) -> None:
+        """Clear the LLM parsing result cache. Useful for testing."""
+        cls._llm_cache.clear()
+
     def interpret(
         self,
         message: str,
         available_apps: list[dict[str, Any]] | None = None,
     ) -> InterpretedCommand:
-        """Parse a user message into a structured command."""
+        """Parse a user message into a structured command.
+
+        Rule-based matching runs first (zero cost). If it returns "unclear"
+        with low confidence (< 0.5) and an LLM responder is available, the
+        LLM is consulted as a fallback.
+        """
         stripped = message.strip()
         if not stripped:
             return self._empty_command()
 
-        # 1. Try to match intent
+        # 1. Rule-based intent matching (always runs first)
         intent, confidence, matched_text = self._match_intent(stripped)
 
-        # 2. Try to extract app name
+        # 2. Check if we should fall back to LLM
+        if (
+            intent == "unclear"
+            and confidence < 0.5
+            and hasattr(self, "_llm_responder")
+            and self._llm_responder is not None
+        ):
+            llm_result = self._try_llm_fallback(stripped, available_apps)
+            if llm_result is not None:
+                return llm_result
+
+        # 3. Standard rule-based path
         target_app = self._extract_app_name(stripped, available_apps)
-
-        # 3. Extract parameters based on intent
         parameters = self._extract_parameters(stripped, intent)
-
-        # 4. Build suggested actions
         suggested_actions = self._build_actions(intent, target_app, available_apps)
-
-        # 5. Determine if clarification is needed
         requires_clarification, clarification_question = self._needs_clarification(
             intent, target_app, parameters
         )
@@ -238,6 +280,91 @@ class LightBrainInterpreter:
             return True, "你想操作哪个 App？请告诉我 App 的名称。"
 
         return False, None
+
+    # -- LLM fallback --------------------------------------------------------
+
+    def _cache_key(self, message: str, available_apps: list[dict[str, Any]] | None) -> str:
+        """Generate a deterministic cache key for a message + app context."""
+        h = hashlib.md5(message.encode("utf-8")).hexdigest()[:12]
+        if available_apps:
+            app_names = ",".join(sorted(a.get("name", "") for a in available_apps))
+            h += ":" + hashlib.md5(app_names.encode("utf-8")).hexdigest()[:8]
+        return h
+
+    def _try_llm_fallback(
+        self,
+        message: str,
+        available_apps: list[dict[str, Any]] | None,
+    ) -> InterpretedCommand | None:
+        """Try LLM intent parsing. Returns None on any failure."""
+        # Check cache first
+        cache_key = self._cache_key(message, available_apps)
+        if cache_key in self._llm_cache:
+            cached = self._llm_cache[cache_key].model_copy()
+            cached.raw_interpretation = f"llm-cache: cached result for '{message[:50]}'"
+            return cached
+
+        result = self._interpret_with_llm(message, available_apps)
+        if result is not None:
+            # Cache the result
+            self._llm_cache[cache_key] = result
+            return result
+        return None
+
+    def _interpret_with_llm(
+        self,
+        message: str,
+        available_apps: list[dict[str, Any]] | None,
+    ) -> InterpretedCommand | None:
+        """Ask the LLM responder to parse intent from the message.
+
+        Returns an InterpretedCommand on success, None on any failure.
+        """
+        if not hasattr(self, "_llm_responder") or self._llm_responder is None:
+            return None
+
+        parsed = self._llm_responder.parse_intent(message, available_apps)
+        if not parsed or not isinstance(parsed, dict):
+            return None
+
+        # Extract and validate fields
+        intent = parsed.get("intent", "unclear")
+        if intent not in self.VALID_INTENTS:
+            intent = "unclear"
+
+        confidence = parsed.get("confidence", 0.3)
+        if not isinstance(confidence, (int, float)):
+            confidence = 0.3
+        confidence = max(0.0, min(1.0, float(confidence)))
+
+        target_app = parsed.get("target_app")
+        if target_app is not None and not isinstance(target_app, str):
+            target_app = str(target_app)
+
+        parameters = parsed.get("parameters", {})
+        if not isinstance(parameters, dict):
+            parameters = {}
+
+        requires_clarification = bool(parsed.get("requires_clarification", False))
+        clarification_question = parsed.get("clarification_question")
+        if clarification_question is not None and not isinstance(clarification_question, str):
+            clarification_question = str(clarification_question)
+
+        # Build suggested actions from the LLM-derived intent
+        suggested_actions = self._build_actions(intent, target_app, available_apps)
+
+        return InterpretedCommand(
+            intent=intent,
+            confidence=confidence,
+            target_app=target_app,
+            parameters=parameters,
+            requires_clarification=requires_clarification,
+            clarification_question=clarification_question,
+            suggested_actions=suggested_actions,
+            raw_interpretation=f"llm: parsed intent='{intent}' confidence={confidence:.2f}",
+        )
+
+    # -- private helpers -----------------------------------------------------
 
     def _empty_command(self) -> InterpretedCommand:
         return InterpretedCommand(
