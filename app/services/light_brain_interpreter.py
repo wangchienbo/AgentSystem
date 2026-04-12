@@ -11,6 +11,8 @@ import json
 import re
 from typing import Any
 
+from app.services.tool_registry import ToolRegistry
+
 from app.models.chat import ActionSuggestion, InterpretedCommand
 
 
@@ -92,6 +94,10 @@ class LightBrainInterpreter:
         method that returns a dict (or None on failure).
         """
         self._llm_responder = llm_responder
+
+    def set_tool_registry(self, tool_registry: ToolRegistry) -> None:
+        """Set the tool registry for tool-aware intent parsing."""
+        self._tool_registry = tool_registry
 
     @classmethod
     def clear_llm_cache(cls) -> None:
@@ -343,7 +349,14 @@ class LightBrainInterpreter:
         if not hasattr(self, "_llm_responder") or self._llm_responder is None:
             return None, None
 
-        parsed, usage = self._llm_responder.parse_intent(message, available_apps)
+        # Phase E.3: Tool-aware LLM parsing
+        if hasattr(self, '_tool_registry') and self._tool_registry is not None:
+            # Use tool-aware parsing with registry context
+            parsed, usage = self._llm_responder.parse_intent_with_tools(
+                message, self._tool_registry, available_apps
+            ) if hasattr(self._llm_responder, 'parse_intent_with_tools') else self._llm_responder.parse_intent(message, available_apps)
+        else:
+            parsed, usage = self._llm_responder.parse_intent(message, available_apps)
         if not parsed or not isinstance(parsed, dict):
             return None, usage
 

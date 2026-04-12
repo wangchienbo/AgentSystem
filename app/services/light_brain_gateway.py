@@ -22,6 +22,7 @@ from app.models.chat import (
 )
 from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryError
 from app.services.light_brain_interpreter import LightBrainInterpreter
+from app.services.tool_registry import ToolRegistry
 
 
 class LightBrainGatewayError(Exception):
@@ -54,6 +55,7 @@ class LightBrainGateway:
         interactive_app: Any = None,
         interactive_app_workflow: Any = None,
         permission_skill: Any = None,
+        tool_registry: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -71,6 +73,9 @@ class LightBrainGateway:
         self._interactive_app = interactive_app
         self._interactive_app_workflow = interactive_app_workflow
         self._permission_skill = permission_skill
+        self._tool_registry = tool_registry
+        if self._tool_registry is None:
+            self._tool_registry = self._build_default_tool_registry()
         self._name: str | None = None
         self._load_identity()
 
@@ -151,6 +156,8 @@ class LightBrainGateway:
                 system_context=system_ctx,
                 user_message=request.message,
                 app_context=available_apps,
+                tool_registry=self._tool_registry,
+                executed_tool=command.intent if command.intent not in _LLM_SKIP_INTENTS else None,
                 max_tokens=300,
             )
             if enhanced and enhanced.strip():
@@ -414,6 +421,73 @@ class LightBrainGateway:
         return self._error_reply(session_id, f"我还不会处理这个指令。试试说创建 App 或看看我的 App。")
 
     # -- built-in handlers ---------------------------------------------------
+
+
+    def _build_default_tool_registry(self):
+        """Initialize default tool registry with built-in handler descriptions."""
+        from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
+        registry = ToolRegistry()
+
+        # App lifecycle tools
+        registry.register(ToolDefinition(
+            name="start_app",
+            description="启动一个已安装的 App。用户说'启动XX'、'运行XX'、'开启XX'时使用。",
+            parameters=[ToolParameter("app_name", "string", "要启动的 App 名称", required=True)],
+            category="app_lifecycle", priority=10,
+        ))
+        registry.register(ToolDefinition(
+            name="stop_app",
+            description="停止一个正在运行的 App。用户说'停止XX'、'关闭XX'时使用。",
+            parameters=[ToolParameter("app_name", "string", "要停止的 App 名称", required=True)],
+            category="app_lifecycle", priority=8,
+        ))
+        registry.register(ToolDefinition(
+            name="create_app",
+            description="根据用户需求创建一个新的 App。",
+            parameters=[
+                ToolParameter("app_type", "string", "App 类型或用途", required=True),
+                ToolParameter("description", "string", "App 的详细描述", required=False),
+            ],
+            category="app_lifecycle", priority=9,
+        ))
+
+        # App management tools
+        registry.register(ToolDefinition(
+            name="list_apps",
+            description="列出用户的所有 App。用户说'看看我的App'、'App列表'时使用。",
+            parameters=[],
+            category="app_management", priority=7,
+        ))
+        registry.register(ToolDefinition(
+            name="query_app",
+            description="查询某个 App 的详细信息或状态。",
+            parameters=[ToolParameter("app_name", "string", "要查询的 App 名称", required=True)],
+            category="app_management", priority=6,
+        ))
+
+        # Permission tools
+        registry.register(ToolDefinition(
+            name="show_permissions",
+            description="查看某个用户的权限。如果不指定用户，查看当前用户自己的权限。",
+            parameters=[ToolParameter("target_user", "string", "要查询的用户，留空表示自己", required=False)],
+            category="permission", priority=8,
+        ))
+        registry.register(ToolDefinition(
+            name="list_users",
+            description="列出系统中的所有用户。",
+            parameters=[],
+            category="permission", priority=6,
+        ))
+
+        # System tools
+        registry.register(ToolDefinition(
+            name="query_status",
+            description="查询系统整体运行状态。用户说'系统状态'、'运行情况'时使用。",
+            parameters=[],
+            category="system", priority=7,
+        ))
+
+        return registry
 
     def _load_identity(self) -> None:
         """Load persisted identity, or generate one on first run."""

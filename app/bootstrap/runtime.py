@@ -495,10 +495,12 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.light_brain_interpreter import LightBrainInterpreter
     from app.services.light_brain_memory import LightBrainMemory
     from app.services.llm_responder import LLMResponder
+    from app.services.tool_registry import ToolRegistry
 
     light_brain_memory = LightBrainMemory()
     light_brain_interpreter = LightBrainInterpreter()
     llm_responder = LLMResponder()
+    tool_registry = ToolRegistry()
     light_brain_gateway = LightBrainGateway(
         memory=light_brain_memory,
         interpreter=light_brain_interpreter,
@@ -514,7 +516,11 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         interactive_app=interactive_app,
         interactive_app_workflow=interactive_app_workflow,
         permission_skill=permission_skill,
+        tool_registry=tool_registry,
     )
+
+    # Wire tool registry into interpreter for tool-aware LLM parsing
+    light_brain_interpreter.set_tool_registry(tool_registry)
     # Wire LLM to workflow after gateway is created
     interactive_app_workflow._llm = llm_responder
 
