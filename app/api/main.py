@@ -1898,12 +1898,23 @@ async def chat_action(action_id: str, request: ChatActionRequest) -> dict:
 
 @app.get("/chat/sessions")
 def chat_sessions(user_id: str | None = None) -> dict:
-    """List conversation sessions."""
+    """List conversation sessions, sorted by last_active_at desc."""
     sessions = light_brain_gateway.list_sessions(user_id)
+    # Sort by last_active_at descending (most recent first)
+    sessions.sort(key=lambda s: s.last_active_at, reverse=True)
     return {
         "sessions": [s.model_dump(mode="json") for s in sessions],
         "total": len(sessions),
     }
+
+
+@app.get("/chat/sessions/last")
+def chat_last_session(user_id: str) -> dict:
+    """Get the most recent session for a user."""
+    session = light_brain_gateway.get_last_session(user_id)
+    if not session:
+        return {"session": None}
+    return {"session": session.to_summary().model_dump(mode="json")}
 
 
 @app.delete("/chat/sessions/{session_id}")

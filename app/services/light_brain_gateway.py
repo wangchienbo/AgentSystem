@@ -278,6 +278,16 @@ class LightBrainGateway:
             session_id=session_id,
         )
 
+    def get_last_session(self, user_id: str) -> _SessionRecord | None:
+        """Get the most recently active session for a user."""
+        user_sessions = [
+            s for s in self._memory._sessions.values()
+            if s.user_id == user_id and s.messages
+        ]
+        if not user_sessions:
+            return None
+        return max(user_sessions, key=lambda s: s.last_active_at)
+
     def list_sessions(self, user_id: str | None = None) -> list[SessionSummary]:
         return self._memory.list_sessions(user_id)
 

@@ -793,18 +793,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            loadSessions();
             loadTokenStats();
             loadUserContext();
             loadPrefs();
             document.getElementById('inputBox').focus();
-
-            // Update welcome message with user name
-            const welcome = document.getElementById('welcome');
-            if (welcome && currentUserId !== 'web-user') {
-                const h2 = welcome.querySelector('h2');
-                if (h2) h2.textContent = `你好，我是 AgentSystem · ${currentUserId}`;
-            }
 
             // Load user memory context
             try {
@@ -818,38 +810,65 @@
                 }).then(r => r.json());
                 if (ctx.success && ctx.data.initialized) {
                     window.userMemory = ctx.data;
-                    console.log('User memory loaded:', ctx.data.context_summary);
+                }
+            } catch (e) { /* silent */ }
+
+            // Auto-load the most recent session, or show welcome
+            try {
+                const r = await fetch(`${API}/chat/sessions/last?user_id=${currentUserId}`);
+                const data = await r.json();
+                if (data.session && data.session.message_count > 0) {
+                    // Load the last session immediately
+                    loadSession(data.session.session_id, data.session.title);
+                } else {
+                    // No previous sessions — show personalized welcome
+                    updateWelcomeMessage();
                 }
             } catch (e) {
-                console.warn('Memory load failed:', e);
+                updateWelcomeMessage();
             }
+
+            // Load session list
+            loadSessions();
         });
+
+        function updateWelcomeMessage() {
+            const welcome = document.getElementById('welcome');
+            if (welcome && currentUserId !== 'web-user') {
+                const h2 = welcome.querySelector('h2');
+                if (h2) h2.textContent = `你好，${currentUserId}`;
+            }
+        }
 
         function newSession() {
             sessionId = null;
-            document.getElementById('messages').innerHTML = `
+            const messages = document.getElementById('messages');
+            messages.innerHTML = `
                 <div class="welcome" id="welcome">
                     <div class="welcome-icon">✦</div>
-                    <h2>新对话</h2>
+                    <h2>你好，${currentUserId}</h2>
                     <p>开始一个新的对话</p>
                 </div>`;
+            loadSessions();
             document.getElementById('inputBox').focus();
         }
 
         async function loadSessions() {
             try {
-                const r = await fetch(`${API}/chat/sessions`);
+                const r = await fetch(`${API}/chat/sessions?user_id=${currentUserId}`);
                 const data = await r.json();
                 const list = document.getElementById('sessionList');
                 list.innerHTML = '';
-                data.sessions.slice(0, 20).forEach(s => {
+                data.sessions.slice(0, 30).forEach(s => {
                     const div = document.createElement('div');
                     div.className = 'session-item' + (s.session_id === sessionId ? ' active' : '');
+                    const title = s.title || s.session_id.slice(0, 12);
+                    const time = formatSessionTime(s.last_active_at);
                     div.innerHTML = `
-                        <span class="label">${s.session_id.slice(0, 12)}</span>
-                        <span class="time">${new Date(s.created_at).toLocaleDateString()}</span>
+                        <span class="label" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+                        <span class="time">${time}</span>
                         <button class="delete-btn" onclick="event.stopPropagation();deleteSession('${s.session_id}')">×</button>`;
-                    div.onclick = () => loadSession(s.session_id);
+                    div.onclick = () => loadSession(s.session_id, title);
                     list.appendChild(div);
                 });
             } catch (e) {
@@ -857,18 +876,44 @@
             }
         }
 
-        async function loadSession(id) {
+        function formatSessionTime(isoStr) {
+            const d = new Date(isoStr);
+            const now = new Date();
+            const diff = now - d;
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return `${Math.floor(diff/60000)}分钟前`;
+            if (diff < 86400000) return `${Math.floor(diff/3600000)}小时前`;
+            if (diff < 172800000) return '昨天';
+            return `${d.getMonth()+1}/${d.getDate()}`;
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        async function loadSession(id, title) {
             sessionId = id;
             const messages = document.getElementById('messages');
             messages.innerHTML = '';
             try {
-                const r = await fetch(`${API}/chat/sessions/${id}/messages`);
+                const r = await fetch(`${API}/chat/sessions/${id}/messages?limit=100`);
                 const data = await r.json();
-                data.messages.forEach(msg => {
-                    appendMessage(msg.role === 'user' ? 'user' : 'system', msg.content);
-                });
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        appendMessage(msg.role === 'user' ? 'user' : 'system', msg.content);
+                    });
+                } else {
+                    // Empty session — show welcome
+                    messages.innerHTML = `
+                        <div class="welcome" id="welcome">
+                            <div class="welcome-icon">✦</div>
+                            <h2>${title || '新对话'}</h2>
+                            <p>继续之前的对话</p>
+                        </div>`;
+                }
             } catch (e) {
                 console.error('Failed to load session:', e);
+                appendMessage('system', '⚠️ 加载失败：' + e.message);
             }
             loadSessions();
             scrollToBottom();

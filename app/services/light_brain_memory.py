@@ -52,6 +52,14 @@ class _SessionRecord:
         self.last_active_at = datetime.now(UTC)
 
     def to_summary(self) -> SessionSummary:
+        # Auto-generate title from first user message
+        title = ""
+        for msg in self.messages:
+            if msg.get("role") == "user":
+                title = msg.get("content", "")[:40]
+                break
+        if not title:
+            title = "空对话"
         return SessionSummary(
             session_id=self.session_id,
             user_id=self.user_id,
@@ -60,6 +68,7 @@ class _SessionRecord:
             last_active_at=self.last_active_at,
             message_count=len(self.messages),
             related_apps=sorted(self.related_apps),
+            title=title,
         )
 
     def to_dict(self) -> dict[str, Any]:

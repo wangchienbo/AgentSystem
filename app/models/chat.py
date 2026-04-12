@@ -89,6 +89,7 @@ class SessionSummary(BaseModel):
     last_active_at: datetime
     message_count: int
     related_apps: list[str] = Field(default_factory=list)
+    title: str = ""  # Auto-generated from first user message
 
 
 class SessionListResponse(BaseModel):
