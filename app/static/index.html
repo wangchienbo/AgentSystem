@@ -10,94 +10,43 @@
         :root {
             --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26;
             --border: #2a2a3a; --text: #e8e8f0; --text-dim: #8888a0;
-            --accent: #6c5ce7; --accent-glow: rgba(108, 92, 231, 0.3);
-            --success: #00d68f; --danger: #ff6b6b; --warning: #ffd43b;
-            --radius: 12px; --radius-sm: 8px;
-            --sidebar-w: 300px;
+            --accent: #6c5ce7; --success: #00d68f; --danger: #ff6b6b; --warning: #ffd43b;
+            --radius: 12px; --radius-sm: 8px; --sidebar-w: 300px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body {
-            height: 100%; height: 100dvh; overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', sans-serif;
-            background: var(--bg); color: var(--text);
-            -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
-        }
-
-        /* === App Layout === */
+        html, body { height: 100%; height: 100dvh; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', sans-serif; background: var(--bg); color: var(--text); -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
         .app { display: flex; height: 100%; height: 100dvh; overflow: hidden; }
-
-        /* === Sidebar === */
-        .sidebar {
-            width: var(--sidebar-w); background: var(--surface);
-            border-right: 1px solid var(--border); display: flex; flex-direction: column;
-            flex-shrink: 0; z-index: 100; transition: transform 0.3s ease;
-        }
-        .sidebar-header {
-            padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-            display: flex; align-items: center; justify-content: space-between;
-        }
+        .sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 100; transition: transform 0.3s ease; }
+        .sidebar-header { padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
         .sidebar-header h1 { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         .sidebar-header .dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
-
-        .sidebar-user {
-            padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-            display: flex; align-items: center; gap: 10px; cursor: pointer;
-        }
+        .sidebar-user { padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; gap: 10px; cursor: pointer; }
         .sidebar-user:active { background: var(--surface-2); }
         .sidebar-user .avatar-sm { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 14px; }
         .sidebar-user .info { flex: 1; min-width: 0; }
         .sidebar-user .name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sidebar-user .role-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+        .role-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
         .role-badge.admin { background: rgba(255,212,59,0.15); color: var(--warning); }
         .role-badge.user { background: rgba(108,92,231,0.15); color: var(--accent); }
-
-        .new-chat-btn {
-            margin: 12px 16px; padding: 12px; background: var(--accent); color: white;
-            border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: 14px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            flex-shrink: 0; touch-action: manipulation;
-        }
+        .new-chat-btn { margin: 12px 16px; padding: 12px; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; touch-action: manipulation; }
         .new-chat-btn:active { opacity: 0.85; }
-
         .session-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px; min-height: 0; overscroll-behavior: contain; }
-        .session-item {
-            padding: 12px 14px; border-radius: var(--radius-sm); cursor: pointer;
-            margin-bottom: 4px; display: flex; align-items: center; gap: 10px;
-            touch-action: manipulation; transition: background 0.15s;
-        }
+        .session-item { padding: 12px 14px; border-radius: var(--radius-sm); cursor: pointer; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; touch-action: manipulation; transition: background 0.15s; }
         .session-item:active { background: var(--surface-2); }
         .session-item.active { background: var(--surface-2); border-left: 3px solid var(--accent); }
         .session-item .s-icon { font-size: 16px; flex-shrink: 0; }
         .session-item .s-info { flex: 1; min-width: 0; }
         .session-item .s-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .session-item .s-time { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-        .session-item .s-del {
-            opacity: 0; background: none; border: none; color: var(--danger);
-            cursor: pointer; font-size: 16px; padding: 4px 8px; flex-shrink: 0;
-        }
-        .session-item:active .s-del { opacity: 0.6; }
-
-        .sidebar-footer {
-            border-top: 1px solid var(--border); padding: 12px 16px; flex-shrink: 0;
-            display: flex; gap: 8px;
-        }
-        .sidebar-footer button {
-            flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-            background: var(--surface-2); color: var(--text); font-size: 13px; cursor: pointer;
-            touch-action: manipulation;
-        }
+        .session-item .s-del { opacity: 0; background: none; border: none; color: var(--danger); cursor: pointer; font-size: 16px; padding: 4px 8px; flex-shrink: 0; }
+        .session-item:hover .s-del { opacity: 0.7; }
+        .sidebar-footer { border-top: 1px solid var(--border); padding: 12px 16px; flex-shrink: 0; display: flex; gap: 8px; }
+        .sidebar-footer button { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font-size: 13px; cursor: pointer; touch-action: manipulation; }
         .sidebar-footer button:active { background: var(--accent); border-color: var(--accent); color: white; }
-
-        /* === Main Chat Area === */
         .main { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100%; height: 100dvh; overflow: hidden; }
-
-        .main-header {
-            padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-            display: flex; align-items: center; gap: 12px; background: var(--surface);
-        }
+        .main-header { padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; gap: 12px; background: var(--surface); }
         .menu-btn { display: none; background: none; border: none; color: var(--text); font-size: 22px; cursor: pointer; padding: 4px; touch-action: manipulation; }
         .main-header .title { font-size: 15px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
         .messages { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 20px; min-height: 0; }
         .message { margin-bottom: 20px; display: flex; gap: 10px; animation: fadeIn 0.3s ease; }
         .message.user { flex-direction: row-reverse; }
@@ -105,10 +54,7 @@
         .avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
         .message.user .avatar { background: var(--accent); }
         .message.system .avatar { background: var(--surface-2); border: 1px solid var(--border); }
-        .bubble {
-            max-width: 80%; padding: 12px 16px; border-radius: var(--radius);
-            line-height: 1.6; font-size: 14px; word-wrap: break-word; overflow-wrap: break-word;
-        }
+        .bubble { max-width: 80%; padding: 12px 16px; border-radius: var(--radius); line-height: 1.6; font-size: 14px; word-wrap: break-word; overflow-wrap: break-word; }
         .message.user .bubble { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
         .message.system .bubble { background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
         .bubble p { margin-bottom: 6px; }
@@ -116,139 +62,74 @@
         .bubble code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
         .bubble pre { background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; }
         .bubble pre code { background: none; padding: 0; }
-
         .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-        .action-btn {
-            padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border);
-            background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px;
-            touch-action: manipulation;
-        }
+        .action-btn { padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; touch-action: manipulation; }
         .action-btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
         .action-btn:disabled { opacity: 0.5; }
-
         .typing { display: flex; gap: 4px; padding: 12px 16px; }
         .typing span { width: 6px; height: 6px; background: var(--text-dim); border-radius: 50%; animation: bounce 1.4s infinite; }
         .typing span:nth-child(2) { animation-delay: 0.2s; }
         .typing span:nth-child(3) { animation-delay: 0.4s; }
         @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-8px); } }
-
         .streaming::after { content: '▋'; animation: blink 0.8s infinite; color: var(--accent); }
         @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
-
-        /* Welcome */
         .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 30px; }
         .welcome-icon { font-size: 42px; margin-bottom: 14px; }
         .welcome h2 { font-size: 22px; margin-bottom: 8px; }
         .welcome p { color: var(--text-dim); margin-bottom: 20px; font-size: 14px; }
         .quick-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-        .quick-btn {
-            padding: 10px 16px; background: var(--surface-2); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); color: var(--text); cursor: pointer; font-size: 13px;
-            touch-action: manipulation;
-        }
+        .quick-btn { padding: 10px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); cursor: pointer; font-size: 13px; touch-action: manipulation; }
         .quick-btn:active { border-color: var(--accent); }
-
-        /* Connection bar */
         .connection-bar { padding: 5px 16px; font-size: 12px; text-align: center; flex-shrink: 0; }
         .connection-bar.online { background: rgba(0,214,143,0.1); color: var(--success); }
         .connection-bar.offline { background: rgba(255,107,107,0.1); color: var(--danger); }
-        .connection-bar.reconnecting { background: rgba(255,212,59,0.1); color: var(--warning); }
-
-        /* Input area */
         .input-area { padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
         .input-wrapper { display: flex; gap: 10px; align-items: flex-end; }
-        .input-box {
-            flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 12px 14px; color: var(--text); font-size: 15px; resize: none; max-height: 120px;
-            min-height: 44px; height: 44px; line-height: 1.4; font-family: inherit;
-            touch-action: manipulation;
-        }
+        .input-box { flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; color: var(--text); font-size: 15px; resize: none; max-height: 120px; min-height: 44px; height: 44px; line-height: 1.4; font-family: inherit; touch-action: manipulation; }
         .input-box:focus { outline: none; border-color: var(--accent); }
-        .send-btn {
-            width: 44px; height: 44px; border-radius: 50%; background: var(--accent);
-            border: none; color: white; cursor: pointer; display: flex; align-items: center;
-            justify-content: center; flex-shrink: 0; touch-action: manipulation;
-        }
+        .send-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; touch-action: manipulation; }
         .send-btn:active { opacity: 0.85; }
         .send-btn:disabled { opacity: 0.5; }
         .stop-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--danger); border: none; color: white; cursor: pointer; display: none; align-items: center; justify-content: center; flex-shrink: 0; touch-action: manipulation; }
-
-        /* === Modal overlay (settings, admin, custom) === */
-        .overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200;
-            display: none; align-items: flex-end; justify-content: center;
-        }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
         .overlay.open { display: flex; }
-        .modal {
-            background: var(--surface); border-radius: var(--radius) var(--radius) 0 0;
-            width: 100%; max-width: 500px; max-height: 85vh; overflow-y: auto;
-            overscroll-behavior: contain; padding: 24px 20px; padding-bottom: max(24px, env(safe-area-inset-bottom));
-            animation: slideUp 0.3s ease;
-        }
+        .modal { background: var(--surface); border-radius: var(--radius) var(--radius) 0 0; width: 100%; max-width: 500px; max-height: 85vh; overflow-y: auto; overscroll-behavior: contain; padding: 24px 20px; padding-bottom: max(24px, env(safe-area-inset-bottom)); animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .modal h3 { font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
         .modal h3 .close-btn { background: none; border: none; color: var(--text-dim); font-size: 22px; cursor: pointer; padding: 4px; }
         .modal .section { margin-bottom: 18px; }
         .modal label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--text-dim); }
-        .modal input, .modal select, .modal textarea {
-            width: 100%; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); color: var(--text); font-size: 14px;
-        }
+        .modal input, .modal select, .modal textarea { width: 100%; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; }
         .modal textarea { resize: vertical; min-height: 80px; font-family: inherit; }
-        .modal .btn-full {
-            width: 100%; padding: 12px; border: none; border-radius: var(--radius-sm);
-            background: var(--accent); color: white; font-size: 14px; cursor: pointer;
-            touch-action: manipulation;
-        }
+        .modal .btn-full { width: 100%; padding: 12px; border: none; border-radius: var(--radius-sm); background: var(--accent); color: white; font-size: 14px; cursor: pointer; touch-action: manipulation; }
         .modal .btn-full:active { opacity: 0.85; }
         .modal .btn-danger { background: var(--danger); }
-        .modal .btn-outline { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
-
         .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-        .tag {
-            display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px;
-            border-radius: 16px; background: var(--surface-2); border: 1px solid var(--border);
-            font-size: 13px; cursor: pointer; touch-action: manipulation;
-        }
+        .tag { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; cursor: pointer; touch-action: manipulation; }
         .tag.active { background: var(--accent); border-color: var(--accent); color: white; }
-        .tag .x { opacity: 0.6; margin-left: 2px; }
-
         .add-row { display: flex; gap: 8px; margin-top: 8px; }
         .add-row input { flex: 1; }
         .add-row button { padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
-
-        /* Custom commands */
-        .cmd-item {
-            padding: 10px 12px; background: var(--surface-2); border-radius: var(--radius-sm);
-            margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;
-        }
+        .cmd-item { padding: 10px 12px; background: var(--surface-2); border-radius: var(--radius-sm); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
         .cmd-item .cmd-label { font-size: 13px; font-weight: 500; }
         .cmd-item .cmd-prompt { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
         .cmd-item button { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 16px; padding: 4px 8px; }
-
-        /* Admin panel items */
-        .admin-user-item {
-            padding: 12px; background: var(--surface-2); border-radius: var(--radius-sm);
-            margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;
-        }
+        .admin-user-item { padding: 12px; background: var(--surface-2); border-radius: var(--radius-sm); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
         .admin-user-item .u-info { flex: 1; }
         .admin-user-item .u-name { font-size: 14px; font-weight: 500; }
         .admin-user-item .u-meta { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
         .admin-user-item .u-actions { display: flex; gap: 6px; }
         .admin-user-item .u-actions button { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12px; cursor: pointer; }
-        .admin-user-item .u-actions button.danger { border-color: var(--danger); color: var(--danger); }
-
-        /* Toast */
-        .toast {
-            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-            padding: 10px 20px; background: var(--surface-2); border: 1px solid var(--border);
-            border-radius: var(--radius); font-size: 14px; z-index: 300;
-            animation: toastIn 0.3s ease, toastOut 0.3s ease 2.5s forwards;
-        }
+        .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); padding: 10px 20px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; z-index: 300; animation: toastIn 0.3s ease, toastOut 0.3s ease 2.5s forwards; }
         @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(20px); } }
         @keyframes toastOut { to { opacity: 0; } }
-
-        /* === MOBILE === */
+        .confirm-dialog { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .confirm-dialog.open { display: flex; }
+        .confirm-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; max-width: 360px; width: 100%; text-align: center; }
+        .confirm-box .q { font-size: 15px; margin-bottom: 20px; }
+        .confirm-box .btns { display: flex; gap: 10px; }
+        .confirm-box .btns button { flex: 1; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); cursor: pointer; font-size: 14px; background: var(--surface-2); color: var(--text); }
+        .confirm-box .btns .yes { background: var(--accent); border-color: var(--accent); color: white; }
         @media (max-width: 768px) {
             .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 85vw; max-width: 320px; transform: translateX(-100%); z-index: 150; }
             .sidebar.open { transform: translateX(0); }
@@ -257,73 +138,40 @@
             .menu-btn { display: block; }
             .bubble { max-width: 90%; }
             .messages { padding: 16px 12px; }
-            .input-area { padding: 10px 12px; }
             .modal { max-height: 90vh; }
-            .welcome { padding: 20px; }
-            .welcome h2 { font-size: 20px; }
             .quick-actions { flex-direction: column; }
-            .quick-btn { text-align: center; }
         }
-
         @media (min-width: 769px) {
             .sidebar-backdrop { display: none !important; }
             .modal { border-radius: var(--radius); margin-bottom: 40px; max-height: 80vh; }
             .overlay { align-items: center; }
             @keyframes slideUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         }
-
-        /* Confirm dialog */
-        .confirm-dialog {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300;
-            display: none; align-items: center; justify-content: center; padding: 20px;
-        }
-        .confirm-dialog.open { display: flex; }
-        .confirm-box {
-            background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 24px; max-width: 360px; width: 100%; text-align: center;
-        }
-        .confirm-box .q { font-size: 15px; margin-bottom: 20px; }
-        .confirm-box .btns { display: flex; gap: 10px; }
-        .confirm-box .btns button {
-            flex: 1; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);
-            cursor: pointer; font-size: 14px; background: var(--surface-2); color: var(--text);
-        }
-        .confirm-box .btns .yes { background: var(--accent); border-color: var(--accent); color: white; }
     </style>
 </head>
 <body>
     <div class="app">
-        <!-- Sidebar backdrop (mobile) -->
         <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
-
-        <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <h1><span class="dot"></span> AgentSystem</h1>
-            </div>
+            <div class="sidebar-header"><h1><span class="dot"></span> AgentSystem</h1></div>
             <div class="sidebar-user" onclick="openSettings()">
                 <div class="avatar-sm">✦</div>
-                <div class="info">
-                    <div class="name" id="sidebarUserName">加载中...</div>
-                </div>
+                <div class="info"><div class="name" id="sidebarUserName">加载中...</div></div>
                 <span class="role-badge user" id="sidebarRoleBadge">USER</span>
             </div>
             <button class="new-chat-btn" onclick="newSession()">✨ 新建对话</button>
-            <div class="session-list" id="sessionList"></div>
+            <div class="session-list" id="sessionList"><div style="text-align:center;color:var(--text-dim);padding:40px 20px;font-size:13px">暂无对话</div></div>
             <div class="sidebar-footer">
                 <button onclick="openCustomPanel()">🔧 自定义</button>
                 <button onclick="openSettings()">⚙️ 设置</button>
                 <button onclick="doLogout()">退出</button>
             </div>
         </aside>
-
-        <!-- Main -->
         <main class="main">
             <header class="main-header">
                 <button class="menu-btn" onclick="toggleSidebar()">☰</button>
                 <span class="title" id="mainTitle">AgentSystem</span>
             </header>
-
             <div class="messages" id="messages">
                 <div class="welcome" id="welcome">
                     <div class="welcome-icon">✦</div>
@@ -337,9 +185,7 @@
                     </div>
                 </div>
             </div>
-
             <div class="connection-bar online" id="connBar">● 已连接</div>
-
             <div class="input-area">
                 <div class="input-wrapper">
                     <textarea class="input-box" id="inputBox" rows="1" placeholder="输入你的指令..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
@@ -349,141 +195,407 @@
             </div>
         </main>
     </div>
-
-    <!-- Settings Modal -->
-    <div class="overlay" id="settingsOverlay" onclick="closeOverlay(event, 'settingsOverlay')">
+    <div class="overlay" id="settingsOverlay" onclick="closeOverlay(event,'settingsOverlay')">
         <div class="modal" onclick="event.stopPropagation()">
             <h3>⚙️ 设置 <button class="close-btn" onclick="closeModal('settingsOverlay')">&times;</button></h3>
-            <div class="section">
-                <label>显示名称</label>
-                <input id="settName" placeholder="你的名称" onchange="saveName()">
-            </div>
-            <div class="section">
-                <label>修改密码</label>
-                <input id="settOldPw" type="password" placeholder="当前密码" style="margin-bottom:6px">
-                <input id="settNewPw" type="password" placeholder="新密码（至少4位）">
-                <button class="btn-full" style="margin-top:8px" onclick="changePassword()">修改密码</button>
-            </div>
-            <div class="section">
-                <label>交互风格</label>
-                <div class="tag-row" id="styleTags">
-                    <span class="tag" data-v="简洁" onclick="toggleTag(this)">简洁</span>
-                    <span class="tag" data-v="详细" onclick="toggleTag(this)">详细</span>
-                    <span class="tag" data-v="幽默" onclick="toggleTag(this)">幽默</span>
-                    <span class="tag" data-v="专业" onclick="toggleTag(this)">专业</span>
-                    <span class="tag" data-v="口语化" onclick="toggleTag(this)">口语化</span>
-                    <span class="tag" data-v="技术型" onclick="toggleTag(this)">技术型</span>
-                </div>
-            </div>
-            <div class="section">
-                <label>回复语言</label>
-                <select id="settLang"><option value="中文">中文</option><option value="English">English</option><option value="混合">混合</option></select>
-            </div>
-            <div class="section">
-                <label>自定义指令（注入系统提示词）</label>
-                <textarea id="settInstr" placeholder="每行一条，例如：&#10;- 多用示例&#10;- 不要用emoji&#10;- 代码用中文注释"></textarea>
-            </div>
-            <div class="section">
-                <label>自定义偏好标签</label>
-                <div class="tag-row" id="customTags"></div>
-                <div class="add-row"><input id="newTagInput" placeholder="添加自定义标签..."><button onclick="addCustomTag()">添加</button></div>
-            </div>
+            <div class="section"><label>显示名称</label><input id="settName" onchange="saveName()"></div>
+            <div class="section"><label>修改密码</label><input id="settOldPw" type="password" placeholder="当前密码" style="margin-bottom:6px"><input id="settNewPw" type="password" placeholder="新密码（至少4位）"><button class="btn-full" style="margin-top:8px" onclick="changePassword()">修改密码</button></div>
+            <div class="section"><label>交互风格</label><div class="tag-row" id="styleTags"></div></div>
+            <div class="section"><label>回复语言</label><select id="settLang"><option value="中文">中文</option><option value="English">English</option><option value="混合">混合</option></select></div>
+            <div class="section"><label>自定义指令</label><textarea id="settInstr" placeholder="每行一条"></textarea></div>
+            <div class="section"><label>自定义偏好标签</label><div class="tag-row" id="customTags"></div><div class="add-row"><input id="newTagInput" placeholder="添加标签..."><button onclick="addCustomTag()">添加</button></div></div>
             <button class="btn-full" onclick="savePrefs()">💾 保存偏好</button>
         </div>
     </div>
-
-    <!-- Custom Commands Panel -->
-    <div class="overlay" id="customOverlay" onclick="closeOverlay(event, 'customOverlay')">
+    <div class="overlay" id="customOverlay" onclick="closeOverlay(event,'customOverlay')">
         <div class="modal" onclick="event.stopPropagation()">
             <h3>🔧 自定义交互 <button class="close-btn" onclick="closeModal('customOverlay')">&times;</button></h3>
-            <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px">创建个人快捷指令，一键触发常用操作。</p>
             <div id="customCmdList"></div>
-            <div class="section" style="margin-top:16px">
-                <label>新建快捷指令</label>
-                <input id="cmdLabel" placeholder="指令名称（如：查看服务器状态）" style="margin-bottom:6px">
-                <textarea id="cmdPrompt" placeholder="实际发送的指令内容..."></textarea>
-                <button class="btn-full" style="margin-top:8px" onclick="addCustomCmd()">添加指令</button>
-            </div>
+            <div class="section" style="margin-top:16px"><label>新建快捷指令</label><input id="cmdLabel" placeholder="指令名称" style="margin-bottom:6px"><textarea id="cmdPrompt" placeholder="实际发送的指令..."></textarea><button class="btn-full" style="margin-top:8px" onclick="addCustomCmd()">添加指令</button></div>
         </div>
     </div>
-
-    <!-- Admin Panel -->
-    <div class="overlay" id="adminOverlay" onclick="closeOverlay(event, 'adminOverlay')">
+    <div class="overlay" id="adminOverlay" onclick="closeOverlay(event,'adminOverlay')">
         <div class="modal" onclick="event.stopPropagation()">
             <h3>👑 管理员面板 <button class="close-btn" onclick="closeModal('adminOverlay')">&times;</button></h3>
-            <div class="section">
-                <label>用户管理</label>
-                <div id="adminUserList"></div>
-            </div>
-            <div class="section">
-                <label>危险操作</label>
-                <button class="btn-full btn-danger" onclick="wipeAllUsers()">⚠️ 清空所有用户数据</button>
-            </div>
+            <div class="section"><label>用户管理</label><div id="adminUserList"></div></div>
+            <div class="section"><button class="btn-full btn-danger" onclick="wipeAllUsers()">⚠️ 清空所有用户数据</button></div>
         </div>
     </div>
-
-    <!-- Confirm Dialog -->
     <div class="confirm-dialog" id="confirmDialog">
-        <div class="confirm-box">
-            <div class="q" id="confirmQ"></div>
-            <div class="btns">
-                <button onclick="confirmNo()">取消</button>
-                <button class="yes" id="confirmYesBtn">确定</button>
-            </div>
-        </div>
+        <div class="confirm-box"><div class="q" id="confirmQ"></div><div class="btns"><button onclick="confirmNo()">取消</button><button class="yes" id="confirmYesBtn">确定</button></div></div>
     </div>
+<script>
+const API = window.location.origin;
+let sessionId = null, currentStream = null, isStreaming = false;
+let currentUser = null, customTags = [], customCmds = [], confirmCallback = null;
 
-    <script>
-    const API = window.location.origin;
-    let sessionId = null, currentStream = null, isStreaming = false;
-    let reconnectAttempts = 0, reconnectTimer = null;
-    const MAX_RECONNECT = 5;
-    let currentUser = null;
-    let customTags = [];
-    let customCmds = [];
-    let confirmCallback = null;
+/* ===== Init ===== */
+(async function init() {
+    const token = localStorage.getItem('as_token');
+    if (!token) { window.location.href = '/'; return; }
+    try {
+        const r = await fetch(API + '/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!r.ok) { localStorage.removeItem('as_token'); window.location.href = '/'; return; }
+        currentUser = await r.json();
+    } catch { localStorage.removeItem('as_token'); window.location.href = '/'; return; }
+    document.getElementById('sidebarUserName').textContent = currentUser.display_name || currentUser.user_id;
+    const badge = document.getElementById('sidebarRoleBadge');
+    badge.textContent = currentUser.role === 'admin' ? 'ADMIN' : 'USER';
+    badge.className = 'role-badge ' + (currentUser.role === 'admin' ? 'admin' : 'user');
+    loadCustomData();
+    // Auto-load last session with history
+    try {
+        const r = await fetch(API + '/chat/sessions/last?user_id=' + encodeURIComponent(currentUser.user_id));
+        const d = await r.json();
+        if (d.session && d.session.message_count > 0) {
+            await loadSession(d.session.session_id, d.session.title || '新对话');
+        } else { showWelcome(); }
+    } catch { showWelcome(); }
+    loadSessions();
+    document.getElementById('inputBox').focus();
+})();
 
-    // ===== Auth & Init =====
-    (async function init() {
-        const token = localStorage.getItem('as_token');
-        if (!token) { window.location.href = '/'; return; }
+/* ===== Session Management ===== */
+async function loadSessions() {
+    try {
+        const r = await fetch(API + '/chat/sessions?user_id=' + encodeURIComponent(currentUser.user_id));
+        const d = await r.json();
+        renderSessionList(d.sessions || []);
+    } catch { /* silent */ }
+}
 
-        try {
-            const r = await fetch(`${API}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } });
-            if (!r.ok) { localStorage.removeItem('as_token'); window.location.href = '/'; return; }
-            currentUser = await r.json();
-        } catch { localStorage.removeItem('as_token'); window.location.href = '/'; return; }
-
-        // Setup UI
-        document.getElementById('sidebarUserName').textContent = currentUser.display_name || currentUser.user_id;
-        const badge = document.getElementById('sidebarRoleBadge');
-        badge.textContent = currentUser.role === 'admin' ? 'ADMIN' : 'USER';
-        badge.className = 'role-badge ' + (currentUser.role === 'admin' ? 'admin' : 'user');
-
-        // Load custom data
-        loadCustomData();
-
-        // Auto-load last session or show welcome
-        try {
-            const r = await fetch(`${API}/chat/sessions/last?user_id=${currentUser.user_id}`);
-            const d = await r.json();
-            if (d.session && d.session.message_count > 0) {
-                loadSession(d.session.session_id, d.session.title);
-            } else {
-                updateWelcome();
-            }
-        } catch { updateWelcome(); }
-
-        loadSessions();
-        document.getElementById('inputBox').focus();
-    })();
-
-    function updateWelcome() {
-        const h2 = document.querySelector('#welcome h2');
-        if (h2) h2.textContent = `你好，${currentUser.display_name || currentUser.user_id}`;
+function renderSessionList(sessions) {
+    const el = document.getElementById('sessionList');
+    if (!sessions.length) {
+        el.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:40px 20px;font-size:13px">暂无对话</div>';
+        return;
     }
+    el.innerHTML = sessions.map(s => {
+        const active = s.session_id === sessionId ? ' active' : '';
+        const time = formatTime(s.last_active_at || s.created_at);
+        const title = (s.title || s.first_message || '新对话').substring(0, 24);
+        return '<div class="session-item' + active + '" onclick="loadSession(\'' + s.session_id + '\',\'' + escHtml(title) + '\')">' +
+            '<span class="s-icon">💬</span>' +
+            '<div class="s-info"><div class="s-title">' + escHtml(title) + '</div><div class="s-time">' + time + '</div></div>' +
+            '<button class="s-del" onclick="event.stopPropagation();deleteSession(\'' + s.session_id + '\')">&times;</button>' +
+            '</div>';
+    }).join('');
+}
 
-    function doLogout() {
-        showConfirm('确定退出登录？', () => {
-            localStorage.removeItem('as_token');
-            window.location.href = '/
+async function loadSession(id, title) {
+    if (isStreaming) return;
+    sessionId = id;
+    document.getElementById('mainTitle').textContent = title || '对话';
+    // Load history from API
+    try {
+        const r = await fetch(API + '/chat/sessions/' + id + '/messages?limit=50');
+        const d = await r.json();
+        const msgs = d.messages || [];
+        const container = document.getElementById('messages');
+        const welcome = document.getElementById('welcome');
+        if (welcome) welcome.style.display = 'none';
+        Array.from(container.querySelectorAll('.message')).forEach(el => el.remove());
+        if (!msgs.length) {
+            if (welcome) welcome.style.display = 'flex';
+        } else {
+            for (const m of msgs) {
+                if (m.role === 'user') {
+                    appendBubble('user', escHtml(m.content), false);
+                } else if (m.role === 'assistant') {
+                    appendBubble('system', renderMd(m.content), false, m.actions);
+                }
+            }
+        }
+    } catch { /* show welcome on failure */ }
+    scrollToBottom();
+    loadSessions(); // refresh sidebar highlight
+}
+
+function newSession() {
+    if (isStreaming) return;
+    sessionId = null;
+    document.getElementById('mainTitle').textContent = 'AgentSystem';
+    const container = document.getElementById('messages');
+    Array.from(container.querySelectorAll('.message')).forEach(el => el.remove());
+    const welcome = document.getElementById('welcome');
+    if (welcome) welcome.style.display = 'flex';
+    loadSessions(); // refresh sidebar
+    closeSidebar();
+}
+
+async function deleteSession(id) {
+    showConfirm('确定删除此对话？', async function() {
+        try {
+            await fetch(API + '/chat/sessions/' + id, { method: 'DELETE' });
+            if (sessionId === id) newSession();
+            else loadSessions();
+        } catch { toast('删除失败'); }
+    });
+}
+
+/* ===== Send Message ===== */
+async function sendMessage() {
+    const input = document.getElementById('inputBox');
+    const text = input.value.trim();
+    if (!text || isStreaming) return;
+    input.value = '';
+    autoResize(input);
+    if (!sessionId) {
+        // Create new session implicitly
+        sessionId = generateId();
+    }
+    const container = document.getElementById('messages');
+    const welcome = document.getElementById('welcome');
+    if (welcome) welcome.style.display = 'none';
+    appendBubble('user', escHtml(text), false);
+    scrollToBottom();
+    showTyping(true);
+
+    try {
+        const body = { user_id: currentUser.user_id, message: text, session_id: sessionId };
+        const r = await fetch(API + '/chat/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await r.json();
+        showTyping(false);
+        const content = data.content || '';
+        appendBubble('system', renderMd(content), false, data.actions);
+        sessionId = data.session_id || sessionId;
+        loadSessions();
+    } catch (e) {
+        showTyping(false);
+        appendBubble('system', '❌ 发送失败：' + e.message, false);
+    }
+    scrollToBottom();
+}
+
+function sendQuick(text) {
+    document.getElementById('inputBox').value = text;
+    sendMessage();
+}
+
+/* ===== Bubble Helpers ===== */
+function appendBubble(role, html, streaming, actions) {
+    const container = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'message ' + role;
+    const avatarContent = role === 'user' ? '👤' : '✦';
+    let actionsHtml = '';
+    if (actions && actions.length) {
+        actionsHtml = '<div class="actions">' + actions.map(a =>
+            '<button class="action-btn' + (a.primary ? ' primary' : '') + '" onclick="sendQuick(\'' + escHtml(a.label) + '\')">' + escHtml(a.label) + '</button>'
+        ).join('') + '</div>';
+    }
+    div.innerHTML = '<div class="avatar">' + avatarContent + '</div><div class="bubble' + (streaming ? ' streaming' : '') + '">' + html + '</div>' + actionsHtml;
+    container.appendChild(div);
+    scrollToBottom();
+}
+
+function showTyping(show) {
+    let el = document.getElementById('typingIndicator');
+    if (show && !el) {
+        const container = document.getElementById('messages');
+        el = document.createElement('div');
+        el.id = 'typingIndicator';
+        el.className = 'message system';
+        el.innerHTML = '<div class="avatar">✦</div><div class="typing"><span></span><span></span><span></span></div>';
+        container.appendChild(el);
+        scrollToBottom();
+    } else if (!show && el) {
+        el.remove();
+    }
+}
+
+function scrollToBottom() {
+    const c = document.getElementById('messages');
+    requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
+}
+
+function showWelcome() {
+    const container = document.getElementById('messages');
+    Array.from(container.querySelectorAll('.message')).forEach(el => el.remove());
+    const welcome = document.getElementById('welcome');
+    if (welcome) welcome.style.display = 'flex';
+    document.getElementById('mainTitle').textContent = 'AgentSystem';
+}
+
+/* ===== Streaming ===== */
+function stopStreaming() {
+    if (currentStream) { currentStream.abort(); currentStream = null; }
+    isStreaming = false;
+    document.getElementById('sendBtn').style.display = '';
+    document.getElementById('stopBtn').style.display = 'none';
+}
+
+/* ===== Input ===== */
+function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+function autoResize(el) {
+    el.style.height = '44px';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+/* ===== Utilities ===== */
+function formatTime(ts) {
+    if (!ts) return '';
+    try {
+        const d = new Date(ts);
+        const now = new Date();
+        const diff = now - d;
+        if (diff < 86400000 && d.getDate() === now.getDate()) {
+            return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+        }
+        return (d.getMonth() + 1) + '/' + d.getDate();
+    } catch { return ''; }
+}
+function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function renderMd(text) {
+    if (!text) return '';
+    let s = escHtml(text);
+    s = s.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/\n/g, '<br>');
+    return s;
+}
+function generateId() {
+    return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+}
+
+/* ===== Sidebar ===== */
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarBackdrop').classList.toggle('show');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('show');
+}
+
+/* ===== Modal ===== */
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeOverlay(e, id) { if (e.target === e.currentTarget) closeModal(id); }
+function openSettings() {
+    document.getElementById('settName').value = currentUser.display_name || '';
+    renderStyleTags();
+    document.getElementById('settingsOverlay').classList.add('open');
+    closeSidebar();
+}
+function openCustomPanel() { renderCustomCmds(); document.getElementById('customOverlay').classList.add('open'); closeSidebar(); }
+
+/* ===== Confirm ===== */
+function showConfirm(q, cb) {
+    document.getElementById('confirmQ').textContent = q;
+    confirmCallback = cb;
+    document.getElementById('confirmDialog').classList.add('open');
+    document.getElementById('confirmYesBtn').onclick = function() { confirmDialog.classList.remove('open'); if (confirmCallback) confirmCallback(); };
+}
+function confirmNo() { document.getElementById('confirmDialog').classList.remove('open'); confirmCallback = null; }
+
+/* ===== Toast ===== */
+function toast(msg) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+}
+
+/* ===== Preferences ===== */
+const STYLE_OPTIONS = ['简洁', '详细', '幽默', '专业', '口语化', '技术型'];
+function renderStyleTags() {
+    const el = document.getElementById('styleTags');
+    el.innerHTML = STYLE_OPTIONS.map(v => {
+        const active = customTags.indexOf(v) >= 0 ? ' active' : '';
+        return '<span class="tag' + active + '" onclick="toggleTag(this)" data-v="' + v + '">' + v + '</span>';
+    }).join('');
+}
+function toggleTag(el) { el.classList.toggle('active'); }
+function addCustomTag() {
+    const input = document.getElementById('newTagInput');
+    const v = input.value.trim();
+    if (!v) return;
+    if (customTags.indexOf(v) < 0) { customTags.push(v); renderCustomTags(); }
+    input.value = '';
+}
+function renderCustomTags() {
+    const el = document.getElementById('customTags');
+    el.innerHTML = customTags.map(v => '<span class="tag active">' + escHtml(v) + ' <span class="x" onclick="removeCustomTag(\'' + escHtml(v) + '\')">&times;</span></span>').join('');
+}
+function removeCustomTag(v) { customTags = customTags.filter(t => t !== v); renderCustomTags(); }
+function savePrefs() {
+    const styles = [];
+    document.querySelectorAll('#styleTags .tag.active').forEach(el => styles.push(el.dataset.v));
+    const data = { user_id: currentUser.user_id, preferences: { style: styles, language: document.getElementById('settLang').value, custom_instructions: document.getElementById('settInstr').value, custom_tags: customTags } };
+    fetch(API + '/user/preferences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(() => toast('已保存')).catch(() => toast('保存失败'));
+    closeModal('settingsOverlay');
+}
+function saveName() {
+    const name = document.getElementById('settName').value.trim();
+    if (name) fetch(API + '/user/display-name', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.user_id, display_name: name }) }).then(() => { document.getElementById('sidebarUserName').textContent = name; toast('已更新'); }).catch(() => toast('更新失败'));
+}
+function changePassword() {
+    const oldPw = document.getElementById('settOldPw').value;
+    const newPw = document.getElementById('settNewPw').value;
+    if (!oldPw || !newPw || newPw.length < 4) { toast('密码至少4位'); return; }
+    fetch(API + '/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: currentUser.user_id, old_password: oldPw, new_password: newPw }) }).then(r => { if (r.ok) { toast('密码已修改'); document.getElementById('settOldPw').value = ''; document.getElementById('settNewPw').value = ''; } else toast('修改失败'); }).catch(() => toast('修改失败'));
+}
+
+/* ===== Custom Commands ===== */
+function loadCustomData() {
+    try { customTags = JSON.parse(localStorage.getItem('as_custom_tags') || '[]'); } catch { customTags = []; }
+    try { customCmds = JSON.parse(localStorage.getItem('as_custom_cmds') || '[]'); } catch { customCmds = []; }
+    renderCustomTags();
+}
+function renderCustomCmds() {
+    const el = document.getElementById('customCmdList');
+    if (!customCmds.length) { el.innerHTML = '<p style="color:var(--text-dim);font-size:13px">暂无快捷指令</p>'; return; }
+    el.innerHTML = customCmds.map((c, i) => '<div class="cmd-item"><div><div class="cmd-label">' + escHtml(c.label) + '</div><div class="cmd-prompt">' + escHtml(c.prompt) + '</div></div><button onclick="removeCustomCmd(' + i + ')">&times;</button></div>').join('');
+}
+function addCustomCmd() {
+    const label = document.getElementById('cmdLabel').value.trim();
+    const prompt = document.getElementById('cmdPrompt').value.trim();
+    if (!label || !prompt) { toast('请填写完整'); return; }
+    customCmds.push({ label: label, prompt: prompt });
+    localStorage.setItem('as_custom_cmds', JSON.stringify(customCmds));
+    document.getElementById('cmdLabel').value = '';
+    document.getElementById('cmdPrompt').value = '';
+    renderCustomCmds();
+    toast('已添加');
+}
+function removeCustomCmd(i) { customCmds.splice(i, 1); localStorage.setItem('as_custom_cmds', JSON.stringify(customCmds)); renderCustomCmds(); }
+
+/* ===== Admin ===== */
+function openAdminPanel() {
+    if (currentUser.role !== 'admin' && currentUser.role !== 'root') { toast('无权限'); return; }
+    loadAdminUsers();
+    document.getElementById('adminOverlay').classList.add('open');
+    closeSidebar();
+}
+function loadAdminUsers() {
+    fetch(API + '/admin/users').then(r => r.json()).then(d => {
+        const el = document.getElementById('adminUserList');
+        if (!d.users || !d.users.length) { el.innerHTML = '<p style="color:var(--text-dim);font-size:13px">暂无用户</p>'; return; }
+        el.innerHTML = d.users.map(u => '<div class="admin-user-item"><div class="u-info"><div class="u-name">' + escHtml(u.display_name || u.user_id) + '</div><div class="u-meta">' + u.user_id + ' · ' + u.role + '</div></div><div class="u-actions"><button onclick="toggleAdmin(\'' + u.user_id + '\',' + (u.is_admin ? 'false' : 'true') + ')">' + (u.is_admin ? '撤销' : '授权') + '</button><button class="danger" onclick="deleteUser(\'' + u.user_id + '\')">删除</button></div></div>').join('');
+    }).catch(() => toast('加载失败'));
+}
+function toggleAdmin(uid, val) {
+    const method = val ? 'POST' : 'DELETE';
+    fetch(API + '/admin/users/' + uid + '/role' + (val ? '' : ''), { method: method, headers: { 'Content-Type': 'application/json' }, body: val ? JSON.stringify({ user_id: uid, role: 'admin' }) : null }).then(() => { loadAdminUsers(); toast('已更新'); }).catch(() => toast('操作失败'));
+}
+function deleteUser(uid) { showConfirm('确定删除用户 ' + uid + '？', function() { fetch(API + '/admin/users/' + uid, { method: 'DELETE' }).then(() => { loadAdminUsers(); toast('已删除'); }).catch(() => toast('删除失败')); }); }
+function wipeAllUsers() { showConfirm('确定清空所有用户数据？此操作不可撤销！', function() { fetch(API + '/admin/wipe-all', { method: 'POST' }).then(() => { toast('已清空'); closeModal('adminOverlay'); }).catch(() => toast('操作失败')); }); }
+
+/* ===== Logout ===== */
+function doLogout() {
+    showConfirm('确定退出登录？', function() { localStorage.removeItem('as_token'); window.location.href = '/'; });
+}
+</script>
+</body>
+</html>
