@@ -1,11 +1,12 @@
 from pydantic import BaseModel
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from typing import Any
 
 from app.core.errors import map_domain_error
+from app.api.middleware import setup_middleware
 
 from app.bootstrap.runtime import build_runtime
 from app.bootstrap.skills import bootstrap_builtin_skills
@@ -76,6 +77,10 @@ from app.api.operator_filters import build_refinement_filter, build_workflow_obs
 
 
 app = FastAPI(title="AgentSystem App OS", version="0.1.0")
+
+# Phase F.4: Security middleware (CORS, security headers, request logging, rate limiting)
+setup_middleware(app)
+
 retry_advisor = SkillRetryAdvisorService()
 
 
@@ -239,6 +244,18 @@ def require_owner(actor_id: str, resource_type: str, resource_id: str) -> None:
             raise PermissionDenied(
                 f"User '{actor_id}' does not own {resource_type}:{resource_id}"
             )
+
+
+# Phase F.4: Auth decorator for protecting sensitive endpoints
+def require_auth(request=None):
+    """Extract user_id from token. Raises HTTPException if not authenticated."""
+    # Phase F.4: Skip auth in test/dev environments
+    if os.environ.get("AGENTSYSTEM_SKIP_AUTH") == "1":
+        return "test-admin"
+    user_id = _get_token_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required. Provide a valid Bearer token.")
+    return user_id
 auth_service = services.get("auth_service")
 session_router = services.get("session_router")
 pipeline_service = services.get("pipeline_service")
@@ -298,7 +315,8 @@ def get_skill(skill_id: str) -> dict:
         raise map_domain_error(error) from error
 
 @app.post("/skills/{skill_id}/replace")
-def replace_skill(skill_id: str, payload: dict[str, str]) -> dict:
+def replace_skill(skill_id: str, payload: dict[str, str], request: Request = None) -> dict:
+    actor_id = require_auth(request)  # Phase F.4: require auth
     try:
         return skill_control.replace_skill(
             skill_id=skill_id,
@@ -325,23 +343,26 @@ def rollback_skill(skill_id: str, payload: dict[str, str]) -> dict:
         raise map_domain_error(error) from error
 
 @app.post("/skills/{skill_id}/disable")
-def disable_skill(skill_id: str) -> dict:
+def disable_skill(skill_id: str, request: Request = None) -> dict:
+    actor_id = require_auth(request)  # Phase F.4
     try:
         return skill_control.disable_skill(skill_id).model_dump(mode="json")
     except SkillControlError as error:
         raise map_domain_error(error) from error
 
 @app.post("/skills/{skill_id}/enable")
-def enable_skill(skill_id: str) -> dict:
+def enable_skill(skill_id: str, request: Request = None) -> dict:
+    actor_id = require_auth(request)  # Phase F.4
     try:
         return skill_control.enable_skill(skill_id).model_dump(mode="json")
     except SkillControlError as error:
         raise map_domain_error(error) from error
 
 @app.post("/skills/create")
-def create_skill(request: SkillCreationRequest) -> dict:
+def create_skill(payload: SkillCreationRequest, request: Request = None) -> dict:
+    actor_id = require_auth(request)  # Phase F.4
     try:
-        return skill_factory.create_skill(request).model_dump(mode="json")
+        return skill_factory.create_skill(payload).model_dump(mode="json")
     except (SkillDiagnosticError, SkillControlError, SkillRuntimeError, ValueError) as error:
         raise map_domain_error(error) from error
 
@@ -455,7 +476,8 @@ def revoke_skill_risk_override(
     return skill_risk_policy.revoke_override(skill_id=skill_id, reviewer=reviewer, reason=reason).model_dump(mode="json")
 
 @app.post("/apps/from-skills")
-def create_app_from_skills(request: AppFromSkillsRequest) -> dict:
+def create_app_from_skills(request: AppFromSkillsRequest, http_request: Request = None) -> dict:
+    actor_id = require_auth(http_request)  # Phase F.4
     try:
         blueprint, result = skill_factory.build_blueprint_from_skills(request)
         app_registry.register_blueprint(blueprint)
@@ -467,7 +489,8 @@ def create_app_from_skills(request: AppFromSkillsRequest) -> dict:
         raise map_domain_error(error) from error
 
 @app.post("/apps/from-skills/install-run")
-def create_install_and_run_app_from_skills(request: AppFromSkillsInstallRunRequest) -> dict:
+def create_install_and_run_app_from_skills(request: AppFromSkillsInstallRunRequest, http_request: Request = None) -> dict:
+    actor_id = require_auth(http_request)  # Phase F.4
     try:
         blueprint, result = skill_factory.build_blueprint_from_skills(request)
         app_registry.register_blueprint(blueprint)
@@ -554,7 +577,8 @@ def refine_app_from_suggested_skills_closure(request: SuggestedSkillRefinementCl
         raise map_domain_error(error) from error
 
 @app.post("/apps/from-meta-app")
-def create_app_through_meta_app(request: AppCreationFromMetaAppRequest) -> dict:
+def create_app_through_meta_app(request: AppCreationFromMetaAppRequest, http_request: Request = None) -> dict:
+    actor_id = require_auth(http_request)  # Phase F.4
     try:
         result = meta_app_orchestrator.create_app_through_meta_app(request)
         payload = {
