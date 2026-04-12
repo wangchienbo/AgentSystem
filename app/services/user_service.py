@@ -51,7 +51,7 @@ PERMISSION_MATRIX: dict[tuple[str, str], set[str]] = {
 
     # user: only own resources
     (Role.USER, "own"):    {Permission.READ, Permission.WRITE, Permission.DELETE, Permission.EXECUTE},
-    (Role.USER, "other"):  set(),
+    (Role.USER, "other"):  {Permission.READ},
     (Role.USER, "system"): set(),
 }
 
@@ -221,6 +221,10 @@ class UserRecord:
             "sudoers": self.sudoers,
             "owned_resources": self.owned_resources,
         }
+
+    def to_public_dict(self) -> dict[str, Any]:
+        """Alias for to_safe_dict. Public-facing dict (no password hash)."""
+        return self.to_safe_dict()
 
     def to_safe_dict(self) -> dict[str, Any]:
         """Public-facing dict (no password hash)."""
