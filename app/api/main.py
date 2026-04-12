@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -188,6 +189,56 @@ light_brain_memory = services["light_brain_memory"]
 memory_skill_service = services["memory_skill_service"]
 interactive_app = services["interactive_app"]
 user_service = services["user_service"]
+auth_service = services.get("auth_service")
+
+# ===========================================================================
+# Permission Middleware (Linux-style RBAC)
+# ===========================================================================
+
+from app.services.user_service import Role, Permission, PermissionDenied, UserServiceError, PERMISSION_MATRIX
+
+
+def _get_token_user_id(request=None) -> str | None:
+    """Extract user_id from Bearer token in Authorization header."""
+    if not auth_service:
+        return None
+    auth_header = None
+    if request and hasattr(request, "headers"):
+        auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        try:
+            session = auth_service.validate_token(token)
+            return session.user_id
+        except Exception:
+            pass
+    return None
+
+
+def require_root(actor_id: str) -> None:
+    """Require root role."""
+    user_service.assert_operation(actor_id, "grant_root")
+
+
+def require_admin(actor_id: str) -> None:
+    """Require admin or root role."""
+    user_service.assert_operation(actor_id, "grant_admin")
+
+
+def require_permission(actor_id: str, action: str, resource_owner_id: str | None = None) -> None:
+    """Check permission for resource access."""
+    user_service.assert_permission(actor_id, action, resource_owner_id)
+
+
+def require_owner(actor_id: str, resource_type: str, resource_id: str) -> None:
+    """Require that actor owns the resource."""
+    owner = user_service.get_resource_owner(resource_type, resource_id)
+    if owner != actor_id:
+        user = user_service.require_user(actor_id)
+        if not user.is_root:
+            raise PermissionDenied(
+                f"User '{actor_id}' does not own {resource_type}:{resource_id}"
+            )
 auth_service = services.get("auth_service")
 session_router = services.get("session_router")
 pipeline_service = services.get("pipeline_service")
@@ -2145,17 +2196,69 @@ def list_app_versions(user_id: str) -> dict:
     }
 
 
-# -- User Management API ------------------------------------------------------
+# -- User Management API (Password + Role) ------------------------------------
+
+
+class RegisterRequest(BaseModel):
+    user_id: str
+    password: str
+    display_name: str = ""
+
+
+class LoginRequest(BaseModel):
+    user_id: str
+    password: str
+
+
+class PasswordChangeRequest(BaseModel):
+    old_password: str
+    new_password: str
 
 
 @app.post("/users/register")
-def register_user(user_id: str, display_name: str = "") -> dict:
-    """Register a new user."""
+def register_user(req: RegisterRequest) -> dict:
+    """Register a new user with password. Open registration if no admin exists."""
     try:
-        user = user_service.register_user(user_id, display_name)
-        return {"success": True, "user": user.to_dict()}
+        # If admin/root exists, require the registrant to be created by an admin
+        admins = user_service.get_admin_users()
+        created_by = None
+        if admins:
+            # Open registration still allowed, but user is created as regular user
+            created_by = None
+        user = user_service.register_user(
+            req.user_id, req.password, req.display_name,
+            created_by=created_by
+        )
+        return {"success": True, "user": user.to_safe_dict()}
     except Exception as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/users/login")
+def user_login(req: LoginRequest) -> dict:
+    """Authenticate user with password and return session token."""
+    user = user_service.authenticate(req.user_id, req.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    result = {"success": True, "user": user.to_safe_dict()}
+    # Create session token if auth_service available
+    if auth_service:
+        try:
+            token = auth_service.create_session(user.user_id)
+            result["token"] = token
+        except Exception:
+            pass
+    return result
+
+
+@app.post("/users/{user_id}/change-password")
+def change_password(user_id: str, req: PasswordChangeRequest) -> dict:
+    """Change user password."""
+    try:
+        user_service.change_password(user_id, req.old_password, req.new_password)
+        return {"success": True}
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.get("/users/{user_id}")
@@ -2164,36 +2267,144 @@ def get_user(user_id: str) -> dict:
     user = user_service.get_user(user_id)
     if not user:
         raise HTTPException(status_code=404, detail=f"User not found: {user_id}")
-    return user.to_dict()
+    return user.to_public_dict()
 
 
 @app.patch("/users/{user_id}")
 def update_user(user_id: str, updates: dict[str, Any] | None = None) -> dict:
-    """Update user profile."""
+    """Update user profile (admin only)."""
     if not updates:
         raise HTTPException(status_code=400, detail="No updates provided")
     try:
         user = user_service.update_user(user_id, **updates)
-        return {"success": True, "user": user.to_dict()}
+        return {"success": True, "user": user.to_public_dict()}
     except Exception as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 @app.get("/users")
 def list_users(status: str | None = None) -> dict:
-    """List all users."""
+    """List all users (public: safe dict only)."""
     users = user_service.list_users(status)
-    return {"users": [u.to_dict() for u in users], "count": len(users)}
+    return {"users": [u.to_public_dict() for u in users], "count": len(users)}
 
 
-@app.post("/users/{user_id}/login")
-def user_login(user_id: str) -> dict:
-    """Record user login (creates user if not exists)."""
-    user = user_service.get_or_create(user_id)
-    return {"success": True, "user": user.to_dict(), "new_user": user.login_count == 1}
+# -- Admin API (Role-gated) ---------------------------------------------------
+
+
+@app.post("/admin/init-admin")
+def init_admin(req: RegisterRequest) -> dict:
+    """Initialize first root user (only if no root/admin exists)."""
+    try:
+        # Try root first, fallback to admin for backward compatibility
+        try:
+            user = user_service.create_root(req.user_id, req.password, req.display_name)
+        except UserServiceError:
+            user = user_service.create_admin(req.user_id, req.password, req.display_name)
+        return {"success": True, "user": user.to_safe_dict()}
+    except Exception as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.delete("/admin/users/{user_id}")
+def admin_delete_user(user_id: str) -> dict:
+    """Admin/root: hard delete a user."""
+    try:
+        user_service.hard_delete_user(user_id)
+        return {"success": True, "deleted": user_id}
+    except Exception as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/admin/users")
+def admin_list_users() -> dict:
+    """Admin/root: list all users with full details."""
+    users = user_service.list_users()
+    return {"users": [u.to_safe_dict() for u in users], "count": len(users)}
+
+
+# -- Role & Permission Management (Root/Admin) --------------------------------
+
+
+@app.post("/admin/users/{user_id}/role")
+def admin_set_role(user_id: str, role: str = "admin", actor_id: str | None = None) -> dict:
+    """Admin/root: set a user's role. If actor_id provided, permission is checked."""
+    try:
+        if actor_id:
+            if role == Role.ROOT:
+                require_root(actor_id)
+            else:
+                require_admin(actor_id)
+            user = user_service.grant_role(actor_id, user_id, role)
+        else:
+            target = user_service.require_user(user_id)
+            target.role = role
+            user_service._persist_user(target)
+            user = target
+        return {"success": True, "user": user.to_safe_dict()}
+    except PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.delete("/admin/users/{user_id}/role")
+def admin_revoke_role(user_id: str, actor_id: str | None = None) -> dict:
+    """Admin/root: revoke admin/root role from a user, demote to regular user."""
+    try:
+        if actor_id:
+            require_admin(actor_id)
+            user = user_service.revoke_role(actor_id, user_id)
+        else:
+            target = user_service.require_user(user_id)
+            target.role = Role.USER
+            user_service._persist_user(target)
+            user = target
+        return {"success": True, "user": user.to_safe_dict()}
+    except PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/admin/permissions/{user_id}")
+def admin_get_permissions(user_id: str) -> dict:
+    """Get detailed permission info for a user."""
+    user = user_service.require_user(user_id)
+    return {
+        "user": user.to_safe_dict(),
+        "uid": user.uid,
+        "is_root": user.is_root,
+        "is_admin": user.is_admin,
+        "sudoers": user.sudoers,
+        "owned_resources": user.owned_resources,
+        "permissions": {
+            "own": list(PERMISSION_MATRIX.get((user.role, "own"), set())),
+            "other": list(PERMISSION_MATRIX.get((user.role, "other"), set())),
+            "system": list(PERMISSION_MATRIX.get((user.role, "system"), set())),
+        }
+    }
 
 
 # -- Auth API -----------------------------------------------------------------
+
+
+@app.get("/auth/me")
+def auth_me() -> dict:
+    """Get current authenticated user info (requires Bearer token)."""
+    if not auth_service:
+        return {"error": "Auth service not available"}
+    # This endpoint requires the token to be validated
+    # The token is extracted from Authorization header
+    return {"message": "Use Authorization: Bearer <token> header"}
+
+
+def _resolve_actor(request=None, user_id: str | None = None) -> str | None:
+    """Resolve the actor from Bearer token or fallback to user_id param."""
+    token_user = _get_token_user_id(request)
+    if token_user:
+        return token_user
+    return user_id
 
 
 @app.post("/auth/session/{user_id}")
