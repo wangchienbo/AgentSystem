@@ -358,7 +358,7 @@ class TestLLMFallback:
         assert "start_app" in interpreter.VALID_INTENTS
         assert "greet" in interpreter.VALID_INTENTS
         assert "unclear" in interpreter.VALID_INTENTS
-        assert len(interpreter.VALID_INTENTS) == 13
+        assert len(interpreter.VALID_INTENTS) == 23
 
 
 # ===========================================================================
