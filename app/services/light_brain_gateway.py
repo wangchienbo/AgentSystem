@@ -53,6 +53,7 @@ class LightBrainGateway:
         persistence_service: Any = None,
         interactive_app: Any = None,
         interactive_app_workflow: Any = None,
+        permission_skill: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -69,6 +70,7 @@ class LightBrainGateway:
         self._persistence = persistence_service
         self._interactive_app = interactive_app
         self._interactive_app_workflow = interactive_app_workflow
+        self._permission_skill = permission_skill
         self._name: str | None = None
         self._load_identity()
 
@@ -111,8 +113,9 @@ class LightBrainGateway:
         reply = await self._execute_command(command, session.session_id, available_apps)
         reply.session_id = session.session_id
 
-        # 6b. LLM enhancement (if available)
-        if self._llm_responder and getattr(self._llm_responder, 'available', False):
+        # 6b. LLM enhancement (if available) — skip for permission/structured commands
+        _LLM_SKIP_INTENTS = {"grant_admin", "grant_root", "revoke_role", "show_permissions", "list_users", "show_self", "query_status", "list_apps", "greet", "query_help"}
+        if self._llm_responder and getattr(self._llm_responder, 'available', False) and command.intent not in _LLM_SKIP_INTENTS:
             # Build system context with memory and preferences
             system_ctx = f"你是 AgentSystem，一个 AI 驱动的系统。你的名字是「{self._name}」。你的职责是帮助用户管理 App。"
 
@@ -386,6 +389,12 @@ class LightBrainGateway:
             "delete_app": self._handle_delete_app,
             "modify_interactive_app": self._handle_modify_interactive_app,
             "self_modify": self._handle_modify_interactive_app,
+            "grant_admin": self._handle_permission,
+            "grant_root": self._handle_permission,
+            "revoke_role": self._handle_permission,
+            "show_permissions": self._handle_permission,
+            "list_users": self._handle_permission,
+            "show_self": self._handle_permission,
         }
 
         handler = self._handlers.get(command.intent)
@@ -1023,6 +1032,44 @@ class LightBrainGateway:
             session_id=session_id,
             requires_input=False,
         )
+
+    async def _handle_permission(
+        self,
+        command: InterpretedCommand,
+        session_id: str,
+        available_apps: list[dict[str, Any]],
+    ) -> ChatMessageResponse:
+        """Handle permission management commands through the chat interface."""
+        if not self._permission_skill:
+            return self._error_reply(session_id, "⚠️ 权限管理模块未加载。")
+
+        user_id = command.user_id or ""
+        if not user_id:
+            return self._error_reply(session_id, "⚠️ 无法识别用户身份。")
+
+        # Import and use the permission skill parser
+        from app.services.system_skills.permission import parse_permission_command
+
+        cmd = parse_permission_command(command.raw_input or "", user_id)
+        if not cmd:
+            return ChatMessageResponse(
+                type="text",
+                content="我没理解你的权限管理指令。试试说：\n• 列出所有用户\n• 查看我的权限\n• 给 xxx 管理员权限\n• 撤销 xxx 的管理员权限",
+                session_id=session_id,
+                requires_input=True,
+            )
+
+        result = self._permission_skill.execute(cmd, user_id)
+
+        if result.get("success"):
+            return ChatMessageResponse(
+                type="text",
+                content=result.get("message", "操作成功"),
+                session_id=session_id,
+                requires_input=False,
+            )
+        else:
+            return self._error_reply(session_id, result.get("message", "操作失败"))
 
     def _auto_save(self) -> None:
         """Auto-save state if persistence service is available."""

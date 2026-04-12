@@ -28,6 +28,7 @@ class LightBrainInterpreter:
         "pause_app", "resume_app", "query_app", "modify_app", "delete_app",
         "query_status", "query_help", "unclear",
         "modify_interactive_app", "self_modify", "query_user", "register_user",
+        "grant_admin", "grant_root", "revoke_role", "show_permissions", "list_users", "show_self",
     }
 
     # LLM intent parsing result cache: key -> InterpretedCommand
@@ -59,6 +60,19 @@ class LightBrainInterpreter:
         ("modify_interactive_app", re.compile(r"(自己改|自修改|self.modify|改自己|改一下自己|优化自己|修改自己)", re.IGNORECASE), "Self-modify interactive app"),
         ("modify_interactive_app", re.compile(r"(界面太|太暗|太亮|太丑|不好看|不好看|优化一下|好看一点)", re.IGNORECASE), "UI improvement request"),
         ("modify_interactive_app", re.compile(r"(换个|切换).*(主题|颜色|风格|皮肤)", re.IGNORECASE), "Theme switch"),
+        # Permission management (root/admin) — use \s* for flexible spacing
+        ("grant_admin", re.compile(r"(给|授予|赋|提升|升级)\s*[^\s，,。.!！]+\s*(管理员|admin|sudo)"), "Grant admin role"),
+        ("grant_admin", re.compile(r"(grant|give)\s*(admin|sudo|manager)\s*(to|for)\s*"), "Grant admin role (EN)"),
+        ("grant_root", re.compile(r"(给|授予|赋|提升|升级)\s*[^\s，,。.!！]+\s*(root|超级管理员|最高权限)"), "Grant root role"),
+        ("grant_root", re.compile(r"(promote|upgrade)\s*[^\s，,。.!！]+\s*to\s*root"), "Grant root role (EN)"),
+        ("revoke_role", re.compile(r"(撤销|取消|剥夺|移除|降级)\s*[^\s，,。.!！]+\s*(的)?\s*(管理员|admin|sudo|权限|角色)"), "Revoke role"),
+        ("revoke_role", re.compile(r"(revoke|remove|demote)\s*(admin|sudo|role|permission)"), "Revoke role (EN)"),
+        ("show_permissions", re.compile(r"(查看|显示|查询)\s*[^\s，,。.!！]*\s*权限"), "Show permissions"),
+        ("show_permissions", re.compile(r"(show|check|get)\s*(permission|role)"), "Show permissions (EN)"),
+        ("list_users", re.compile(r"(列出|查看|显示|查询)\s*(所有|全部)?\s*(用户|成员|账号)"), "List users"),
+        ("list_users", re.compile(r"(list|show|get)\s*(all\s*)?(user|member)"), "List users (EN)"),
+        ("show_self", re.compile(r"(我[^的]*什么|我的|查看我的)\s*(权限|角色|级别|身份)"), "Show own permissions"),
+        ("show_self", re.compile(r"(my|what\s*are\s*my)\s*(permission|role|level)"), "Show own permissions (EN)"),
     ]
 
     # -- known app name patterns ---------------------------------------------

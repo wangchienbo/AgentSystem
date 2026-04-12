@@ -486,6 +486,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     feedback_service = FeedbackService(store=runtime_store)
     skill_factory.reload_generated_skills()
 
+    # -- Permission Skill (through main controller) ----------------------------
+    from app.services.system_skills.permission import PermissionSkillService
+    permission_skill = PermissionSkillService(user_service=user_service)
+
     # -- LightBrain interaction gateway -----------------------------------------
     from app.services.light_brain_gateway import LightBrainGateway
     from app.services.light_brain_interpreter import LightBrainInterpreter
@@ -509,6 +513,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         persistence_service=persistence_service,
         interactive_app=interactive_app,
         interactive_app_workflow=interactive_app_workflow,
+        permission_skill=permission_skill,
     )
     # Wire LLM to workflow after gateway is created
     interactive_app_workflow._llm = llm_responder
