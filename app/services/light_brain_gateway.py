@@ -81,6 +81,31 @@ class LightBrainGateway:
         self._name: str | None = None
         self._load_identity()
 
+        # Phase F.4: Multi-turn state — track active skill per session
+        self._active_skills: dict[str, dict[str, Any]] = {}
+
+    # -- multi-turn state management (Phase F.4) ----------------------------
+
+    def _get_active_skill(self, session_id: str) -> dict[str, Any] | None:
+        """Get the active skill context for a session, if any."""
+        return self._active_skills.get(session_id)
+
+    def _set_active_skill(self, session_id: str, skill_id: str, state: dict[str, Any] | None = None) -> None:
+        """Mark a skill as active for a session (waiting for user input)."""
+        self._active_skills[session_id] = {
+            "skill_id": skill_id,
+            "state": state or {},
+            "set_at": datetime.now(UTC).isoformat(),
+        }
+
+    def _clear_active_skill(self, session_id: str) -> None:
+        """Clear the active skill context for a session."""
+        self._active_skills.pop(session_id, None)
+
+    def get_active_skills(self) -> dict[str, dict[str, Any]]:
+        """Return a snapshot of all active skill states (for debugging/inspection)."""
+        return dict(self._active_skills)
+
     # -- public API ----------------------------------------------------------
 
     async def process_message(self, request: ChatMessageRequest) -> ChatMessageResponse:
@@ -103,22 +128,45 @@ class LightBrainGateway:
         # 2. Record user message
         self._memory.record_user_message(session.session_id, request.message)
 
-        # 3. Get available apps for context
+        # 3. Phase F.4: Check for active skill (multi-turn continuation)
+        active = self._get_active_skill(session.session_id)
+        if active:
+            # Continue the active skill conversation
+            reply = await self._handle_active_skill_continuation(
+                session.session_id, request.message, active,
+            )
+            reply.session_id = session.session_id
+            self._memory.record_reply(session.session_id, reply)
+            self._auto_save()
+            return reply
+
+        # 4. Get available apps for context
         available_apps = await self._get_available_apps()
 
-        # 4. Wire LLM responder into interpreter (if available)
+        # 5. Wire LLM responder into interpreter (if available)
         if self._llm_responder and not hasattr(self._interpreter, "_llm_responder"):
             self._interpreter.set_llm_responder(self._llm_responder)
 
-        # 5. Interpret intent
+        # 6. Interpret intent
         command = self._interpreter.interpret(request.message, available_apps)
         command.user_id = request.user_id
         command.raw_input = request.message
         self._memory.record_command(session.session_id, command)
 
-        # 6. Execute command → get reply
+        # 7. Execute command → get reply
         reply = await self._execute_command(command, session.session_id, available_apps)
         reply.session_id = session.session_id
+
+        # 7b. Phase F.4: Track active skill state based on reply
+        if reply.requires_input:
+            # The handler is waiting for user follow-up — track it
+            self._set_active_skill(session.session_id, command.intent or "unknown", {
+                "parameters": command.parameters,
+                "target_app": command.target_app,
+            })
+        else:
+            # Interaction complete, clear any prior active state
+            self._clear_active_skill(session.session_id)
 
         # 6b. LLM enhancement (if available) — skip for permission/structured commands
         _LLM_SKIP_INTENTS = {"grant_admin", "grant_root", "revoke_role", "show_permissions", "list_users", "show_self", "query_status", "list_apps", "greet", "query_help"}
@@ -373,6 +421,68 @@ class LightBrainGateway:
             "cached_calls": cached_calls,
             "sessions": per_session,
         }
+
+    # -- multi-turn active skill continuation (Phase F.4) -------------------
+
+    async def _handle_active_skill_continuation(
+        self,
+        session_id: str,
+        user_message: str,
+        active: dict[str, Any],
+    ) -> ChatMessageResponse:
+        """Handle a user message when there's an active skill waiting for input.
+
+        This implements Phase F.4 multi-turn state management: instead of
+        re-interpreting the intent, route directly to the active skill.
+        """
+        skill_id = active.get("skill_id", "unknown")
+        state = active.get("state", {})
+
+        # Route based on which skill is active
+        if skill_id == "create_app" or skill_id == "app_creator":
+            # User is providing details for app creation
+            command = InterpretedCommand(
+                intent="create_app",
+                target_app=state.get("target_app", ""),
+                parameters={**state.get("parameters", {}), "follow_up": user_message},
+                requires_clarification=False,
+            )
+            available_apps = await self._get_available_apps()
+            reply = await self._execute_create_app(command, session_id, available_apps)
+            # If this reply still requires input, keep the active state
+            if reply.requires_input:
+                self._set_active_skill(session_id, "create_app", state)
+            else:
+                self._clear_active_skill(session_id)
+            return reply
+
+        elif skill_id in ("start_app", "stop_app", "pause_app", "resume_app", "delete_app", "modify_app", "query_app"):
+            # User clarified which app to act on
+            command = InterpretedCommand(
+                intent=skill_id,
+                target_app=user_message.strip(),
+                parameters={"from_active_skill": True},
+                requires_clarification=False,
+            )
+            available_apps = await self._get_available_apps()
+            reply = await self._execute_command(command, session_id, available_apps)
+            if reply.requires_input:
+                self._set_active_skill(session_id, skill_id, state)
+            else:
+                self._clear_active_skill(session_id)
+            return reply
+
+        else:
+            # Unknown active skill — clear and fall through to normal intent
+            self._clear_active_skill(session_id)
+            available_apps = await self._get_available_apps()
+            command = self._interpreter.interpret(user_message, available_apps)
+            command.raw_input = user_message
+            self._memory.record_command(session_id, command)
+            reply = await self._execute_command(command, session_id, available_apps)
+            if reply.requires_input:
+                self._set_active_skill(session_id, command.intent or "unknown", {})
+            return reply
 
     # -- command execution ---------------------------------------------------
 
