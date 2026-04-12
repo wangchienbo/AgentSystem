@@ -2522,3 +2522,105 @@ def complete_pipeline(pipeline_id: str) -> dict:
         return {"error": "Pipeline service not available"}
     record = pipeline_service.complete_pipeline(pipeline_id)
     return {"success": True, "pipeline": record.to_dict()}
+
+
+# -- Pipeline Execution Engine (Phase B) --------------------------------------
+
+
+from app.services.pipeline_executor import (
+    PipelineExecutor, PipelineStep, ExecutorType, StepStatus,
+    ExecutionResult, SHELL_WHITELIST, SHELL_BLACKLIST,
+)
+
+_pipeline_executor = PipelineExecutor(
+    workspace=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+)
+
+
+class PipelineExecuteRequest:
+    """Request model for pipeline execution."""
+    def __init__(self, data: dict):
+        self.user_id = data.get("user_id")
+        self.steps = [
+            PipelineStep(
+                step_id=s.get("step_id", f"step_{i}"),
+                executor_type=ExecutorType(s.get("executor_type", "shell")),
+                command=s.get("command", ""),
+                args=s.get("args", {}),
+                timeout=s.get("timeout", 30),
+                depends_on=s.get("depends_on", []),
+            )
+            for i, s in enumerate(data.get("steps", []))
+        ]
+
+
+@app.post("/pipelines/{pipeline_id}/execute")
+async def execute_pipeline(pipeline_id: str, body: dict | None = None) -> dict:
+    """Execute a pipeline with real step execution (shell/python/llm/api)."""
+    if not pipeline_service:
+        return {"error": "Pipeline service not available"}
+
+    record = pipeline_service.get_pipeline(pipeline_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Pipeline not found: {pipeline_id}")
+
+    # Build steps from pipeline record or request body
+    if body and body.get("steps"):
+        req = PipelineExecuteRequest(body)
+        steps = req.steps
+        user_id = req.user_id or record.user_id
+    else:
+        steps = [PipelineStep.from_dict(s) for s in record.steps]
+        user_id = record.user_id
+
+    if not steps:
+        raise HTTPException(status_code=400, detail="No steps to execute")
+
+    # Execute
+    results = await _pipeline_executor.execute_pipeline(steps, user_id=user_id)
+
+    # Update pipeline record
+    record.steps = [s.to_dict() for s in steps]
+    if all(r.status == StepStatus.SUCCESS for r in results):
+        pipeline_service.complete_pipeline(pipeline_id)
+    else:
+        failed = [r for r in results if r.status != StepStatus.SUCCESS]
+        pipeline_service.fail_pipeline(pipeline_id, f"{len(failed)} step(s) failed")
+
+    return {
+        "pipeline_id": pipeline_id,
+        "status": record.status.value,
+        "results": [r.__dict__ for r in results],
+        "total_steps": len(results),
+        "success_count": sum(1 for r in results if r.status == StepStatus.SUCCESS),
+        "failed_count": sum(1 for r in results if r.status != StepStatus.SUCCESS),
+    }
+
+
+@app.post("/pipelines/execute-direct")
+async def execute_pipeline_direct(body: dict) -> dict:
+    """Execute pipeline steps directly without a pipeline record."""
+    req = PipelineExecuteRequest(body)
+    if not req.steps:
+        raise HTTPException(status_code=400, detail="No steps provided")
+
+    results = await _pipeline_executor.execute_pipeline(req.steps, user_id=req.user_id)
+
+    return {
+        "results": [r.__dict__ for r in results],
+        "total_steps": len(results),
+        "success_count": sum(1 for r in results if r.status == StepStatus.SUCCESS),
+        "failed_count": sum(1 for r in results if r.status != StepStatus.SUCCESS),
+    }
+
+
+@app.get("/pipelines/executor/info")
+def executor_info() -> dict:
+    """Get executor configuration info."""
+    return {
+        "supported_executors": [e.value for e in ExecutorType],
+        "shell_whitelist": sorted(SHELL_WHITELIST),
+        "shell_blacklist": sorted(SHELL_BLACKLIST),
+        "default_timeout": 30,
+        "max_output_size": 10000,
+    }
