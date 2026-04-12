@@ -181,16 +181,17 @@ def test_prompt_selection_skill_can_invoke_model_ready_prompt(tmp_path: Path, mo
         def resolve_api_key(self, config):
             return "sk-test"
 
-    class _FakeClient:
-        def __init__(self, config, api_key):
-            self.config = config
-            self.api_key = api_key
-
+    class _FakeModelClient:
         def request(self, input_payload, *, extra_payload=None):
             return {"id": "resp_123", "input_echo": input_payload, "extra_payload": extra_payload}
 
-    monkeypatch.setattr(builtin_skills, "ModelConfigLoader", _FakeLoader)
-    monkeypatch.setattr(builtin_skills, "OpenAIResponsesClient", _FakeClient)
+    mock_model_client = _FakeModelClient()
+    # Patch the prompt_invocation service's model_router directly
+    prompt_invocation = services["prompt_invocation"]
+    monkeypatch.setattr(prompt_invocation, "_model_router", None)
+    # Now it falls back to _model_loader/_client_factory, which we patch
+    monkeypatch.setattr(prompt_invocation, "_model_loader", _FakeLoader())
+    monkeypatch.setattr(prompt_invocation, "_client_factory", lambda config, api_key: mock_model_client)
 
     result = skill_runtime.execute(
         SkillExecutionRequest(
