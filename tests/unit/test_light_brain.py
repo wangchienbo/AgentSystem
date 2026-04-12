@@ -359,3 +359,269 @@ class TestLLMFallback:
         assert "greet" in interpreter.VALID_INTENTS
         assert "unclear" in interpreter.VALID_INTENTS
         assert len(interpreter.VALID_INTENTS) == 13
+
+
+# ===========================================================================
+# Persistence Service tests (Phase 8.5)
+# ===========================================================================
+
+class TestPersistenceService:
+    """Test save/restore roundtrip for app state persistence."""
+
+    def setup_method(self):
+        import tempfile
+        from app.services.persistence_service import PersistenceService
+        self.tmpdir = tempfile.mkdtemp()
+        self.persistence = PersistenceService(data_dir=self.tmpdir)
+
+    def _build_services(self):
+        """Build a minimal set of services for persistence testing."""
+        import tempfile
+        from app.services.lifecycle import AppLifecycleService
+        from app.services.runtime_host import AppRuntimeHostService
+        from app.services.app_registry import AppRegistryService
+        from app.services.app_catalog import AppCatalogService
+        from app.services.light_brain_memory import LightBrainMemory
+        from app.models.app_instance import AppInstance
+        from app.models.app_blueprint import AppBlueprint
+        from app.models.runtime_policy import RuntimePolicy
+        from app.models.app_profile import AppRuntimeProfile
+        from app.models.interaction import AppCatalogEntry
+
+        memdir = tempfile.mkdtemp()
+        memory = LightBrainMemory(data_dir=memdir)
+        lifecycle = AppLifecycleService()
+        runtime_host = AppRuntimeHostService(lifecycle=lifecycle)
+        registry = AppRegistryService()
+        catalog = AppCatalogService()
+
+        # Register a blueprint
+        bp = AppBlueprint(
+            id="bp-monitor",
+            name="监控 App",
+            version="0.1.0",
+            goal="系统监控",
+            app_shape="generic",
+            required_skills={"skill-a", "skill-b"},
+            runtime_policy=RuntimePolicy(),
+            runtime_profile=AppRuntimeProfile(),
+        )
+        registry.register_blueprint(bp, description="A monitoring app")
+
+        # Create and register an app instance
+        instance = AppInstance(
+            id="app-monitor-001",
+            blueprint_id="bp-monitor",
+            owner_user_id="u1",
+            status="installed",
+            data_namespace="users/u1/apps/app-monitor-001",
+        )
+        runtime_host.register_instance(instance)
+        runtime_host.start("app-monitor-001", reason="test")
+        runtime_host.enqueue_task("app-monitor-001", "check_cpu")
+
+        # Register catalog entry
+        catalog.register(AppCatalogEntry(
+            app_id="app-monitor-001",
+            name="监控 App",
+            description="系统监控应用",
+            execution_mode="service",
+            trigger_phrases=["监控", "monitor"],
+            blueprint_id="bp-monitor",
+        ))
+
+        # Create a session
+        memory.create_session(user_id="u1", channel="webchat", session_id="sess-test")
+        memory.record_user_message("sess-test", "你好")
+
+        return lifecycle, runtime_host, registry, catalog, memory
+
+    def test_save_state_creates_file(self):
+        """save_state should write the state file to disk."""
+        lifecycle, runtime_host, registry, catalog, memory = self._build_services()
+
+        path = self.persistence.save_state(
+            lifecycle=lifecycle,
+            runtime_host=runtime_host,
+            registry=registry,
+            catalog=catalog,
+            light_brain_memory=memory,
+        )
+
+        assert path.exists()
+        assert path.name == "agent_state.json"
+
+    def test_restore_roundtrip(self):
+        """Save state, then restore into fresh services — all data should match."""
+        lifecycle, runtime_host, registry, catalog, memory = self._build_services()
+
+        # Save
+        self.persistence.save_state(
+            lifecycle=lifecycle,
+            runtime_host=runtime_host,
+            registry=registry,
+            catalog=catalog,
+            light_brain_memory=memory,
+        )
+
+        # Build fresh services (simulating restart)
+        lifecycle2, runtime_host2, registry2, catalog2, memory2 = self._build_services()
+
+        # Clear the fresh services to simulate cold start
+        lifecycle2._instances.clear()
+        lifecycle2._events.clear()
+        runtime_host2._leases.clear()
+        runtime_host2._checkpoints.clear()
+        runtime_host2._pending_tasks.clear()
+        registry2._blueprints.clear()
+        registry2._entries.clear()
+        catalog2._apps.clear()
+
+        # Restore
+        result = self.persistence.restore_state(
+            lifecycle=lifecycle2,
+            runtime_host=runtime_host2,
+            registry=registry2,
+            catalog=catalog2,
+            light_brain_memory=memory2,
+        )
+
+        assert result["status"] == "restored"
+        assert result.get("app_instances", 0) >= 1
+        assert result.get("registry_entries", 0) >= 2  # blueprint + entry
+
+        # Verify app instance restored
+        instance = lifecycle2.get_instance("app-monitor-001")
+        assert instance is not None
+        assert instance.blueprint_id == "bp-monitor"
+        assert instance.owner_user_id == "u1"
+
+        # Verify lease restored
+        assert "app-monitor-001" in runtime_host2._leases
+        lease = runtime_host2._leases["app-monitor-001"]
+        assert lease.status == "running"
+
+        # Verify pending tasks restored
+        assert "check_cpu" in runtime_host2._pending_tasks.get("app-monitor-001", [])
+
+        # Verify blueprint restored
+        bp = registry2.get_blueprint("bp-monitor")
+        assert bp.name == "监控 App"
+        assert bp.app_shape == "generic"
+
+        # Verify catalog entry restored
+        entries = catalog2.list_apps()
+        assert len(entries) >= 1
+        assert entries[0].name == "监控 App"
+
+    def test_restore_no_state_file(self):
+        """When no state file exists, restore should return gracefully."""
+        lifecycle, runtime_host, registry, catalog, memory = self._build_services()
+
+        # Clear fresh
+        lifecycle._instances.clear()
+
+        result = self.persistence.restore_state(
+            lifecycle=lifecycle,
+            runtime_host=runtime_host,
+            registry=registry,
+            catalog=catalog,
+            light_brain_memory=memory,
+        )
+
+        assert result["status"] == "no_state_file"
+        assert len(lifecycle.list_instances()) == 0
+
+    def test_restore_corrupted_file(self):
+        """Corrupted JSON should be quarantined and restore should degrade gracefully."""
+        import json
+        state_file = self.persistence.state_file
+        state_file.write_text("{not valid json", encoding="utf-8")
+
+        result = self.persistence.restore_state()
+        assert result["status"] == "quarantined_corrupted"
+        assert not state_file.exists()
+
+    def test_restore_empty_file(self):
+        """Empty state file should be quarantined."""
+        state_file = self.persistence.state_file
+        state_file.write_text("", encoding="utf-8")
+
+        result = self.persistence.restore_state()
+        assert result["status"] == "quarantined_empty"
+
+    def test_gateway_auto_save_with_persistence(self):
+        """Gateway with persistence_service should auto-save after messages."""
+        import tempfile
+        from app.services.lifecycle import AppLifecycleService
+        from app.services.runtime_host import AppRuntimeHostService
+        from app.services.app_registry import AppRegistryService
+        from app.services.app_catalog import AppCatalogService
+        from app.services.light_brain_memory import LightBrainMemory
+        from app.services.light_brain_gateway import LightBrainGateway
+        from app.services.persistence_service import PersistenceService
+        from app.models.app_instance import AppInstance
+        from app.models.app_blueprint import AppBlueprint
+        from app.models.runtime_policy import RuntimePolicy
+        from app.models.app_profile import AppRuntimeProfile
+        from app.models.interaction import AppCatalogEntry
+        from app.models.chat import ChatMessageRequest
+
+        # Build services
+        memdir = tempfile.mkdtemp()
+        persist_dir = tempfile.mkdtemp()
+        memory = LightBrainMemory(data_dir=memdir)
+        interpreter = LightBrainInterpreter()
+        lifecycle = AppLifecycleService()
+        runtime_host = AppRuntimeHostService(lifecycle=lifecycle)
+        registry = AppRegistryService()
+        catalog = AppCatalogService()
+        persistence = PersistenceService(data_dir=persist_dir)
+
+        # Register blueprint and instance
+        bp = AppBlueprint(
+            id="bp-test",
+            name="测试",
+            version="0.1.0",
+            goal="test",
+            app_shape="generic",
+            required_skills=set(),
+            runtime_policy=RuntimePolicy(),
+            runtime_profile=AppRuntimeProfile(),
+        )
+        registry.register_blueprint(bp)
+        instance = AppInstance(
+            id="app-test",
+            blueprint_id="bp-test",
+            owner_user_id="u1",
+            status="installed",
+            data_namespace="users/u1/apps/app-test",
+        )
+        runtime_host.register_instance(instance)
+
+        catalog.register(AppCatalogEntry(
+            app_id="app-test",
+            name="测试",
+            description="Test",
+            execution_mode="service",
+            trigger_phrases=["测试"],
+            blueprint_id="bp-test",
+        ))
+
+        gateway = LightBrainGateway(
+            memory=memory,
+            interpreter=interpreter,
+            app_registry_service=registry,
+            app_lifecycle_service=lifecycle,
+            app_runtime_host=runtime_host,
+            app_catalog=catalog,
+            persistence_service=persistence,
+        )
+
+        # Process a message — should trigger auto-save
+        import asyncio
+        request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        asyncio.get_event_loop().run_until_complete(gateway.process_message(request))
+
+        # State file should exist
+        assert persistence.state_file.exists()
