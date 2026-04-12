@@ -50,6 +50,7 @@ class LightBrainGateway:
         app_catalog: Any = None,
         skill_registry: Any = None,
         meta_app_orchestrator: Any = None,
+        app_design_orchestrator: Any = None,
         llm_responder: Any = None,
         persistence_service: Any = None,
         interactive_app: Any = None,
@@ -68,6 +69,7 @@ class LightBrainGateway:
         self._catalog = app_catalog
         self._skill_registry = skill_registry
         self._meta_app_orchestrator = meta_app_orchestrator
+        self._app_design_orchestrator = app_design_orchestrator
         self._llm_responder = llm_responder
         self._persistence = persistence_service
         self._interactive_app = interactive_app

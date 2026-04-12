@@ -13,6 +13,7 @@ from typing import Any
 from app.models.chat import ChatMessageResponse, ActionSuggestion, TokenUsage
 from app.services.model_config_loader import ModelConfigLoader, ModelConfigError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
+from app.services.model_router import ModelRouter
 from app.services.tool_registry import ToolRegistry
 
 
@@ -23,10 +24,22 @@ class LLMResponderError(Exception):
 class LLMResponder:
     """Uses the remote LLM to generate contextual replies."""
 
-    def __init__(self, model_client: OpenAIResponsesClient | None = None) -> None:
+    def __init__(
+        self,
+        model_client: OpenAIResponsesClient | None = None,
+        model_router: ModelRouter | None = None,
+    ) -> None:
+        self._model_router = model_router
         if model_client:
             self._client = model_client
             self._available = True
+        elif model_router:
+            try:
+                self._client = model_router.get_client("llm_responder")
+                self._available = True
+            except Exception:
+                self._client = None
+                self._available = False
         else:
             try:
                 loader = ModelConfigLoader()

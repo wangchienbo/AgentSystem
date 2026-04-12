@@ -11,6 +11,7 @@ from app.models.meta_app import (
 from app.models.meta_app_skill import MetaAppSkillRequest
 from app.services.model_client import OpenAIResponsesClient
 from app.services.model_config_loader import ModelConfigLoader, ModelConfigError
+from app.services.model_router import ModelRouter
 
 
 class MetaAppModelClientError(Exception):
@@ -31,8 +32,13 @@ class MetaAppBootstrapService:
     4. Hand off to deterministic layers (skill_factory, installer) for execution
     """
 
-    def __init__(self, loader: ModelConfigLoader | None = None) -> None:
+    def __init__(
+        self,
+        loader: ModelConfigLoader | None = None,
+        model_router: ModelRouter | None = None,
+    ) -> None:
         self._loader = loader or ModelConfigLoader()
+        self._model_router = model_router
 
     def _is_model_available(self) -> bool:
         try:
@@ -166,9 +172,14 @@ class MetaAppBootstrapService:
             return self._infer_fallback(request)
 
         try:
-            config = self._loader.load()
-            api_key = self._loader.resolve_api_key(config)
-            client = OpenAIResponsesClient(config=config, api_key=api_key)
+            # Phase F.1: Use ModelRouter if available, fallback to loader
+            if self._model_router:
+                complexity = request.complexity if hasattr(request, 'complexity') else "moderate"
+                client = self._model_router.get_client("architect", complexity)
+            else:
+                config = self._loader.load()
+                api_key = self._loader.resolve_api_key(config)
+                client = OpenAIResponsesClient(config=config, api_key=api_key)
             prompt = self._build_prompt(request)
             response = client.probe(prompt)
             payload = self._extract_json(response)

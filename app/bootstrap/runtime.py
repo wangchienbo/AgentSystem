@@ -89,6 +89,12 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     requirement_blueprint_builder = RequirementBlueprintBuilderService()
     skill_control = SkillControlService()
     schema_registry = SchemaRegistryService()
+
+    # Phase F.1: Unified Model Router
+    from app.services.model_router import ModelRouter
+    from app.services.tool_calling_engine import ToolCallingEngine
+    model_router = ModelRouter(skill_control=skill_control)
+    tool_calling_engine = ToolCallingEngine(model_router=model_router)
     schema_registry.register(
         "schema://system.app_config/input",
         {
@@ -353,14 +359,14 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         context_store=app_context_store,
     )
     skill_risk_policy = SkillRiskPolicyService(store=runtime_store, log_evidence_service=log_evidence)
-    model_skill_suggester = ModelSkillSuggester()
+    model_skill_suggester = ModelSkillSuggester(model_router=model_router)
     skill_suggestion = SkillSuggestionService(
         experience_store=experience_store,
         model_suggester=model_skill_suggester,
         risk_policy=skill_risk_policy,
     )
     app_registry = AppRegistryService(store=runtime_store)
-    model_self_refiner = ModelSelfRefiner() if os.getenv("AGENTSYSTEM_ENABLE_MODEL_REFINER") == "1" else None
+    model_self_refiner = ModelSelfRefiner(model_router=model_router) if os.getenv("AGENTSYSTEM_ENABLE_MODEL_REFINER") == "1" else None
     self_refinement = SelfRefinementService(
         experience_store=experience_store,
         registry=app_registry,
@@ -447,6 +453,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     prompt_selection = PromptSelectionService(context_compaction=context_compaction, log_evidence=log_evidence)
     prompt_invocation = PromptInvocationService(
         prompt_selection=prompt_selection,
+        model_router=model_router,
         telemetry_service=telemetry_service,
         evaluation_summary_service=evaluation_summary_service,
         skill_risk_policy_service=skill_risk_policy,
@@ -468,12 +475,24 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         context_store=app_context_store,
         telemetry_service=telemetry_service,
     )
-    meta_app_bootstrap = MetaAppBootstrapService()
+    meta_app_bootstrap = MetaAppBootstrapService(model_router=model_router)
     meta_app_orchestrator = MetaAppCreationOrchestrator(
         meta_app_bootstrap=meta_app_bootstrap,
         skill_factory=skill_factory,
     )
-    maoxuan_service = MaoxuanSkillService()
+
+    # Phase F.3: App Designer (Path B) — LLM-driven app creation with skill composition
+    from app.services.app_designer.intent_analyzer import AppIntentAnalyzer
+    from app.services.app_designer.architect import AppArchitect
+    from app.services.app_designer.orchestrator import AppDesignOrchestrator
+    app_intent_analyzer = AppIntentAnalyzer(model_router=model_router)
+    app_architect = AppArchitect(model_router=model_router, skill_registry=skill_factory)
+    app_design_orchestrator = AppDesignOrchestrator(
+        intent_analyzer=app_intent_analyzer,
+        architect=app_architect,
+        skill_factory=skill_factory,
+    )
+    maoxuan_service = MaoxuanSkillService(model_router=model_router)
     memory_skill_service = MemorySkillService()
     user_service = UserService()
     interactive_app = InteractiveAppService()
@@ -499,7 +518,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
 
     light_brain_memory = LightBrainMemory()
     light_brain_interpreter = LightBrainInterpreter()
-    llm_responder = LLMResponder()
+    llm_responder = LLMResponder(model_router=model_router)
     tool_registry = ToolRegistry()
     light_brain_gateway = LightBrainGateway(
         memory=light_brain_memory,
@@ -511,6 +530,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         app_installer=app_installer,
         skill_registry=skill_factory,
         meta_app_orchestrator=meta_app_orchestrator,
+        app_design_orchestrator=app_design_orchestrator,
         llm_responder=llm_responder,
         persistence_service=persistence_service,
         interactive_app=interactive_app,

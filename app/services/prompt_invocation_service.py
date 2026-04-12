@@ -6,6 +6,7 @@ from app.models.evaluation import CandidateEvaluationRecord
 from app.models.telemetry import InteractionTelemetryRecord, StepTelemetryRecord
 from app.services.model_client import OpenAIResponsesClient
 from app.services.model_config_loader import ModelConfigLoader
+from app.services.model_router import ModelRouter
 from app.services.prompt_selection_service import PromptSelectionService
 
 
@@ -14,6 +15,7 @@ class PromptInvocationService:
         self,
         prompt_selection: PromptSelectionService,
         model_loader: ModelConfigLoader | None = None,
+        model_router: ModelRouter | None = None,
         client_factory=None,
         telemetry_service=None,
         evaluation_summary_service=None,
@@ -21,6 +23,7 @@ class PromptInvocationService:
     ) -> None:
         self._prompt_selection = prompt_selection
         self._model_loader = model_loader or ModelConfigLoader()
+        self._model_router = model_router
         self._client_factory = client_factory or OpenAIResponsesClient
         self._telemetry_service = telemetry_service
         self._evaluation_summary_service = evaluation_summary_service
@@ -65,9 +68,13 @@ class PromptInvocationService:
             include_prompt_assembly=include_prompt_assembly,
         )
         assembled_prompt = selection.get("assembled_prompt", "")
-        config = self._model_loader.load()
-        api_key = self._model_loader.resolve_api_key(config)
-        client = self._client_factory(config=config, api_key=api_key)
+        # Phase F.1: Use ModelRouter if available
+        if self._model_router:
+            client = self._model_router.get_client("prompt_invocation")
+        else:
+            config = self._model_loader.load()
+            api_key = self._model_loader.resolve_api_key(config)
+            client = self._client_factory(config=config, api_key=api_key)
         model_result = client.request(assembled_prompt, extra_payload=extra_payload)
         normalized = self._normalize_model_result(model_result)
         latency_ms = max(int((datetime.now(UTC) - started_at).total_seconds() * 1000), 0)

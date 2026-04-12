@@ -7,11 +7,17 @@ from app.models.experience import ExperienceRecord
 from app.models.patch_proposal import PatchProposal
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
 from app.services.model_config_loader import ModelConfigError, ModelConfigLoader
+from app.services.model_router import ModelRouter
 
 
 class ModelSelfRefiner:
-    def __init__(self, loader: ModelConfigLoader | None = None) -> None:
+    def __init__(
+        self,
+        loader: ModelConfigLoader | None = None,
+        model_router: ModelRouter | None = None,
+    ) -> None:
         self._loader = loader or ModelConfigLoader()
+        self._model_router = model_router
 
     def is_available(self) -> bool:
         try:
@@ -22,9 +28,13 @@ class ModelSelfRefiner:
             return False
 
     def propose(self, app_instance_id: str, blueprint: AppBlueprint, experience: ExperienceRecord) -> list[PatchProposal]:
-        config = self._loader.load()
-        api_key = self._loader.resolve_api_key(config)
-        client = OpenAIResponsesClient(config=config, api_key=api_key)
+        # Phase F.1: Use ModelRouter if available
+        if self._model_router:
+            client = self._model_router.get_client("self_refiner", "complex")
+        else:
+            config = self._loader.load()
+            api_key = self._loader.resolve_api_key(config)
+            client = OpenAIResponsesClient(config=config, api_key=api_key)
         response = client.probe(self._build_prompt(app_instance_id, blueprint, experience))
         payload = self._extract_json_payload(response)
         proposals = payload.get("proposals", [])

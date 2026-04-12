@@ -4,6 +4,7 @@ from __future__ import annotations
 from app.models.maoxuan_skill import MaoxuanSkillRequest
 from app.services.model_client import OpenAIResponsesClient
 from app.services.model_config_loader import ModelConfigLoader, ModelConfigError
+from app.services.model_router import ModelRouter
 
 
 class MaoxuanSkillError(ValueError):
@@ -30,8 +31,13 @@ class MaoxuanSkillService:
         "respond in character as the Mao Zedong thinking framework."
     )
 
-    def __init__(self, loader: ModelConfigLoader | None = None) -> None:
+    def __init__(
+        self,
+        loader: ModelConfigLoader | None = None,
+        model_router: ModelRouter | None = None,
+    ) -> None:
         self._loader = loader or ModelConfigLoader()
+        self._model_router = model_router
 
     def is_available(self) -> bool:
         try:
@@ -44,9 +50,13 @@ class MaoxuanSkillService:
     def execute(self, request: MaoxuanSkillRequest) -> dict:
         if not self.is_available():
             raise MaoxuanSkillError("Model not configured for Maoxuan skill")
-        config = self._loader.load()
-        api_key = self._loader.resolve_api_key(config)
-        client = OpenAIResponsesClient(config=config, api_key=api_key)
+        # Phase F.1: Use ModelRouter if available (skill:maoxuan)
+        if self._model_router:
+            client = self._model_router.get_client("skill:maoxuan")
+        else:
+            config = self._loader.load()
+            api_key = self._loader.resolve_api_key(config)
+            client = OpenAIResponsesClient(config=config, api_key=api_key)
         prompt = self._build_prompt(request)
         response = client.probe(prompt)
         return self._extract_response(response)

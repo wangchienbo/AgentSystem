@@ -6,16 +6,26 @@ from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
 from app.services.model_config_loader import ModelConfigError, ModelConfigLoader
+from app.services.model_router import ModelRouter
 
 
 class ModelSkillSuggester:
-    def __init__(self, loader: ModelConfigLoader | None = None) -> None:
+    def __init__(
+        self,
+        loader: ModelConfigLoader | None = None,
+        model_router: ModelRouter | None = None,
+    ) -> None:
         self._loader = loader or ModelConfigLoader()
+        self._model_router = model_router
 
     def suggest(self, experience: ExperienceRecord, fallback_skill_id: str) -> SkillBlueprint:
-        config = self._loader.load()
-        api_key = self._loader.resolve_api_key(config)
-        client = OpenAIResponsesClient(config=config, api_key=api_key)
+        # Phase F.1: Use ModelRouter if available
+        if self._model_router:
+            client = self._model_router.get_client("skill_suggester", "moderate")
+        else:
+            config = self._loader.load()
+            api_key = self._loader.resolve_api_key(config)
+            client = OpenAIResponsesClient(config=config, api_key=api_key)
         prompt = self._build_prompt(experience=experience, fallback_skill_id=fallback_skill_id)
         response = client.probe(prompt)
         payload = self._extract_json_payload(response)

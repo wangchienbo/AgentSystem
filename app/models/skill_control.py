@@ -23,6 +23,9 @@ class SkillCapabilityProfile(BaseModel):
     execution_locality: SkillExecutionLocality = "local"
     invocation_default: SkillInvocationDefault = "automatic"
     risk_level: str = Field(default="R0_safe_read", min_length=1)
+    # Phase F.1: Model routing — skill can declare preferred model
+    model_preference: str | None = None  # Direct model name ("gpt-4o-mini") or cost tier ("cheap"/"balanced"/"strong")
+    supports_tool_calling: bool = False  # Whether this skill supports native multi-turn tool calling
 
 
 SkillRevisionStatus = Literal["active", "superseded", "rolled_back", "draft"]
