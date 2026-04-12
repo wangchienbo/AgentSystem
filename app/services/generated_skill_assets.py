@@ -20,12 +20,14 @@ class GeneratedSkillAssetStore:
         request: SkillCreationRequest,
         schema_refs: dict[str, str],
         entry: SkillRegistryEntry,
+        version_override: str | None = None,
     ) -> None:
         existing = self.get_generated_asset(request.skill_id) or {}
         revisions = list(existing.get("revisions", []))
-        version_record = next((item for item in revisions if item.get("version") == entry.active_version), None)
+        effective_version = version_override if version_override is not None else entry.active_version
+        version_record = next((item for item in revisions if item.get("version") == effective_version), None)
         payload = {
-            "version": entry.active_version,
+            "version": effective_version,
             "description": request.description,
             "adapter_kind": request.adapter_kind,
             "generation_operation": request.generation_operation,
@@ -40,8 +42,8 @@ class GeneratedSkillAssetStore:
                 "output": request.schemas.output,
                 "error": request.schemas.error,
             },
-            "note": next((item.note for item in entry.versions if item.version == entry.active_version), ""),
-            "created_at": next((item.created_at.isoformat() for item in entry.versions if item.version == entry.active_version), ""),
+            "note": next((item.note for item in entry.versions if item.version == effective_version), ""),
+            "created_at": next((item.created_at.isoformat() for item in entry.versions if item.version == effective_version), ""),
         }
         if version_record is None:
             revisions.append(payload)
@@ -186,3 +188,31 @@ class GeneratedSkillAssetStore:
     def list_generated_assets(self) -> list[dict[str, Any]]:
         records = self._data_store.list_records(self._namespace_id)
         return [record.value for record in records if record.key.startswith("generated-skill:")]
+
+    def resolve_file_asset_metadata(self, skill_id: str) -> dict[str, Any]:
+        """Resolve file asset metadata for a generated skill.
+
+        Returns metadata dict compatible with SkillCreationResult fields:
+        asset_status, asset_origin, content_maturity, path, asset_metadata.
+        """
+        asset = self.get_generated_asset(skill_id)
+        if asset is None:
+            return {}
+        adapter_kind = asset.get("adapter_kind", "script")
+        entry_info = asset.get("entry", {})
+        active_version = entry_info.get("active_version", "")
+        return {
+            "asset_status": "persisted",
+            "asset_origin": "generated",
+            "content_maturity": "complete" if active_version else "draft",
+            "path": f"generated-skill:{skill_id}",
+            "skill_id": skill_id,
+            "adapter_kind": adapter_kind,
+            "version": active_version,
+            "handler_entry": asset.get("handler_entry", ""),
+            "generation_operation": asset.get("generation_operation", ""),
+            "command": asset.get("command", []),
+            "schemas": asset.get("schemas", {}),
+            "schema_refs": asset.get("schema_refs", {}),
+            "revisions": asset.get("revisions", []),
+        }

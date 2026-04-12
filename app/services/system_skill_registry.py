@@ -478,6 +478,40 @@ SYSTEM_SKILL_SPECS: dict[str, dict] = {
             content="protected control surface",
         ).manifest,
     },
+    "system.memory": {
+        "name": "System Memory",
+        "immutable_interface": True,
+        "version": "1.0.0",
+        "content": "system memory handler",
+        "capability_profile": SkillCapabilityProfile(
+            intelligence_level="L0_deterministic",
+            network_requirement="N0_none",
+            runtime_criticality="C2_required_runtime",
+            execution_locality="local",
+            invocation_default="automatic",
+            risk_level="R1_local_write",
+        ),
+        "manifest": authoring.build_callable_entry(
+            skill_id="system.memory",
+            name="System Memory",
+            handler_entry="app.bootstrap.skills:system_memory_skill",
+            description="Cross-session user memory and context persistence",
+            input_schema_ref="schema://system.memory/input",
+            output_schema_ref="schema://system.memory/output",
+            error_schema_ref="schema://system.memory/error",
+            tags=["system", "memory", "persistence"],
+            immutable_interface=True,
+            capability_profile=SkillCapabilityProfile(
+                intelligence_level="L0_deterministic",
+                network_requirement="N0_none",
+                runtime_criticality="C2_required_runtime",
+                execution_locality="local",
+                invocation_default="automatic",
+                risk_level="R1_local_write",
+            ),
+            content="system memory handler",
+        ).manifest,
+    },
 }
 
 

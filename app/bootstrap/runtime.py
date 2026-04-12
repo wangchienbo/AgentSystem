@@ -72,7 +72,15 @@ from app.services.workflow_subscription import WorkflowSubscriptionService
 from app.services.meta_app.bootstrap import MetaAppBootstrapService
 from app.services.meta_app.orchestrator import MetaAppCreationOrchestrator
 from app.models.maoxuan_skill import MaoxuanSkillRequest
+from app.models.memory_skill import MemorySkillRequest
 from app.services.system_skills.maoxuan import MaoxuanSkillService
+from app.services.system_skills.memory import MemorySkillService
+from app.services.interactive_app import InteractiveAppService
+from app.services.interactive_app_workflow import InteractiveAppWorkflow
+from app.services.user_service import UserService
+from app.services.auth_service import AuthService
+from app.services.session_router import SessionRouter
+from app.services.pipeline_service import PipelineService
 
 
 def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_dir: str | None = None) -> dict[str, object]:
@@ -284,6 +292,18 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         "schema://system.maoxuan/error",
         {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
     )
+    schema_registry.register(
+        "schema://system.memory/input",
+        MemorySkillRequest.model_json_schema(),
+    )
+    schema_registry.register(
+        "schema://system.memory/output",
+        {"type": "object", "additionalProperties": True},
+    )
+    schema_registry.register(
+        "schema://system.memory/error",
+        {"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"], "additionalProperties": False},
+    )
     skill_validation = SkillValidationService(skill_control=skill_control, schema_registry=schema_registry)
     blueprint_validation = BlueprintValidationService(skill_validation=skill_validation)
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
@@ -454,6 +474,14 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         skill_factory=skill_factory,
     )
     maoxuan_service = MaoxuanSkillService()
+    memory_skill_service = MemorySkillService()
+    user_service = UserService()
+    interactive_app = InteractiveAppService()
+    interactive_app_workflow = InteractiveAppWorkflow(
+        interactive_app=interactive_app,
+        memory_service=memory_skill_service,
+        llm_responder=None,  # Will be set after llm_responder is created
+    )
     persistence_service = PersistenceService()
     feedback_service = FeedbackService(store=runtime_store)
     skill_factory.reload_generated_skills()
@@ -479,7 +507,16 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         meta_app_orchestrator=meta_app_orchestrator,
         llm_responder=llm_responder,
         persistence_service=persistence_service,
+        interactive_app=interactive_app,
+        interactive_app_workflow=interactive_app_workflow,
     )
+    # Wire LLM to workflow after gateway is created
+    interactive_app_workflow._llm = llm_responder
+
+    # -- Auth & Session & Pipeline services -------------------------------------
+    auth_service = AuthService(user_service=user_service)
+    session_router = SessionRouter(user_service=user_service)
+    pipeline_service = PipelineService()
 
     # -- Restore persisted state (if available) ---------------------------------
     try:

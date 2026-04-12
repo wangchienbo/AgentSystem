@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import os
+from typing import Any
 
 from app.core.errors import map_domain_error
 
@@ -183,6 +184,13 @@ evaluation_summary_service = services["evaluation_summary_service"]
 prompt_selection = services["prompt_selection"]
 prompt_invocation = services["prompt_invocation"]
 light_brain_gateway = services["light_brain_gateway"]
+light_brain_memory = services["light_brain_memory"]
+memory_skill_service = services["memory_skill_service"]
+interactive_app = services["interactive_app"]
+user_service = services["user_service"]
+auth_service = services.get("auth_service")
+session_router = services.get("session_router")
+pipeline_service = services.get("pipeline_service")
 core_replay_selector = CoreReplaySelectorSkill(telemetry_service)
 core_cost_analyzer = CoreCostAnalyzerSkill(telemetry_service)
 core_acceptance_report = CoreAcceptanceReportSkill(evaluation_summary_service)
@@ -1838,7 +1846,36 @@ def circuit_reset(app_instance_id: str) -> dict:
 async def chat_message(request: ChatMessageRequest) -> dict:
     """Main conversation entry point — send a message to the LightBrain."""
     try:
+        # Inject memory context from MemorySkill
+        if request.user_id and not request.memory_context:
+            ctx = memory_skill_service.get_full_context(request.user_id)
+            if ctx and ctx.get("context_summary"):
+                request.memory_context = ctx["context_summary"]
+            elif ctx and ctx.get("preferences"):
+                prefs = ctx.get("preferences", {})
+                if prefs:
+                    request.memory_context = f"用户偏好：{json.dumps(prefs, ensure_ascii=False)}"
+            # Fallback: inject cross-session conversation history
+            if not request.memory_context:
+                try:
+                    summary = light_brain_memory.summarize_recent_activity(request.user_id)
+                    if summary:
+                        request.memory_context = f"跨会话历史：\n{summary}"
+                except Exception:
+                    pass
+
         reply = await light_brain_gateway.process_message(request)
+
+        # Post-reply: auto-summarize and update context_summary if empty
+        if request.user_id and reply:
+            try:
+                ctx = memory_skill_service.get_full_context(request.user_id)
+                if not ctx or not ctx.get("context_summary"):
+                    summary = light_brain_memory.summarize_recent_activity(request.user_id, max_msgs=30)
+                    if summary:
+                        memory_skill_service.update_context_summary(request.user_id, summary)
+            except Exception:
+                pass
         return reply.model_dump(mode="json")
     except Exception as error:
         raise HTTPException(status_code=500, detail=str(error)) from error
@@ -1883,6 +1920,13 @@ def chat_session_messages(session_id: str, limit: int = 20) -> dict:
     return {"session_id": session_id, "messages": messages, "count": len(messages)}
 
 
+@app.get("/chat/token-usage")
+def chat_token_usage(user_id: str | None = None, session_id: str | None = None) -> dict:
+    """Get token usage statistics across sessions."""
+    usage_data = light_brain_gateway.get_token_usage(user_id, session_id)
+    return usage_data
+
+
 # ===========================================================================
 # Static Files & Streaming (Phase 8.5/8.6)
 # ===========================================================================
@@ -1895,11 +1939,25 @@ if os.path.exists(_static_dir):
 
 @app.get("/")
 def serve_index():
-    """Serve the web chat UI."""
+    """Serve the login page."""
+    login_path = os.path.join(_static_dir, "login.html")
+    if os.path.exists(login_path):
+        return FileResponse(login_path)
+    return {"error": "Login page not found"}
+
+
+@app.get("/chat/{user_id}")
+def serve_user_chat(user_id: str):
+    """Serve user-specific chat UI."""
+    # Check for user-customized frontend
+    user_frontend = interactive_app.get_user_frontend_path(user_id)
+    if user_frontend and os.path.exists(user_frontend):
+        return FileResponse(user_frontend)
+    # Fallback to default chat UI
     index_path = os.path.join(_static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return {"error": "Web UI not found"}
+    return {"error": "Chat UI not found"}
 
 
 @app.post("/chat/message/stream")
@@ -1911,6 +1969,24 @@ async def chat_message_stream(request: ChatMessageRequest):
     import json
     import asyncio
 
+    # Inject memory context from MemorySkill
+    if request.user_id and not request.memory_context:
+        ctx = memory_skill_service.get_full_context(request.user_id)
+        if ctx and ctx.get("context_summary"):
+            request.memory_context = ctx["context_summary"]
+        elif ctx and ctx.get("preferences"):
+            prefs = ctx.get("preferences", {})
+            if prefs:
+                request.memory_context = f"用户偏好：{json.dumps(prefs, ensure_ascii=False)}"
+        # Fallback: inject cross-session conversation history
+        if not request.memory_context:
+            try:
+                summary = light_brain_memory.summarize_recent_activity(request.user_id)
+                if summary:
+                    request.memory_context = f"跨会话历史：\n{summary}"
+            except Exception:
+                pass
+
     async def event_generator():
         try:
             reply = await light_brain_gateway.process_message(request)
@@ -1921,8 +1997,22 @@ async def chat_message_stream(request: ChatMessageRequest):
                 chunk = content[i:i+chunk_size]
                 yield f"data: {json.dumps({'type': 'chunk', 'content': chunk}, ensure_ascii=False)}\n\n"
                 await asyncio.sleep(0.01)  # Small delay for smooth streaming
-            
+
+            # Post-reply: auto-summarize and update context_summary if empty
+            if request.user_id and reply:
+                try:
+                    ctx = memory_skill_service.get_full_context(request.user_id)
+                    if not ctx or not ctx.get("context_summary"):
+                        summary = light_brain_memory.summarize_recent_activity(request.user_id, max_msgs=30)
+                        if summary:
+                            memory_skill_service.update_context_summary(request.user_id, summary)
+                except Exception:
+                    pass
+
             # Send complete reply with actions
+            usage_data = None
+            if reply.usage:
+                usage_data = reply.usage.model_dump(mode='json')
             yield f"data: {json.dumps({
                 'type': 'complete',
                 'content': content,
@@ -1930,6 +2020,7 @@ async def chat_message_stream(request: ChatMessageRequest):
                 'session_id': reply.session_id,
                 'actions': [a.model_dump(mode='json') for a in reply.actions],
                 'requires_input': reply.requires_input,
+                'usage': usage_data,
             }, ensure_ascii=False)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)}, ensure_ascii=False)}\n\n"
@@ -1943,3 +2034,269 @@ async def chat_message_stream(request: ChatMessageRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# -- Memory Skill API -----------------------------------------------------------
+
+from app.models.memory_skill import MemorySkillRequest
+
+
+@app.post("/memory")
+def memory_operation(request: MemorySkillRequest) -> dict:
+    """Memory skill operations for cross-session user context."""
+    try:
+        if request.operation == "get_profile":
+            profile = memory_skill_service.get_profile(request.user_id)
+            return {"success": True, "data": profile.to_dict() if profile else {"user_id": request.user_id, "initialized": False}}
+        elif request.operation == "add_feedback":
+            entry = memory_skill_service.add_feedback(request.user_id, request.feedback, request.source)
+            return {"success": True, "data": entry}
+        elif request.operation == "update_preference":
+            memory_skill_service.update_preference(request.user_id, request.preference_key, request.preference_value)
+            return {"success": True, "data": {"user_id": request.user_id, "key": request.preference_key, "updated": True}}
+        elif request.operation == "get_recent_feedback":
+            return {"success": True, "data": {"feedback": memory_skill_service.get_recent_feedback(request.user_id, request.limit)}}
+        elif request.operation == "get_context_summary":
+            return {"success": True, "data": {"summary": memory_skill_service.get_context_summary(request.user_id)}}
+        elif request.operation == "update_context_summary":
+            memory_skill_service.update_context_summary(request.user_id, request.summary)
+            return {"success": True, "data": {"user_id": request.user_id, "updated": True}}
+        elif request.operation == "record_app_usage":
+            memory_skill_service.record_app_usage(request.user_id, request.app_id, request.action, request.details)
+            return {"success": True, "data": {"user_id": request.user_id, "app_id": request.app_id, "recorded": True}}
+        elif request.operation == "get_full_context":
+            return {"success": True, "data": memory_skill_service.get_full_context(request.user_id)}
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown operation: {request.operation}")
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+
+
+# -- Interactive App API --------------------------------------------------------
+
+
+@app.get("/app/status")
+def interactive_app_status(user_id: str = "web-user") -> dict:
+    """Get Interactive App status and version info for a user."""
+    return interactive_app.get_user_status(user_id)
+
+
+@app.get("/app/user/{user_id}/config")
+def get_user_config(user_id: str) -> dict:
+    """Get user-specific configuration."""
+    return interactive_app.get_user_config(user_id)
+
+
+@app.post("/app/user/{user_id}/config")
+def save_user_config(user_id: str, config: dict[str, Any] | None = None) -> dict:
+    """Save user-specific configuration."""
+    interactive_app.save_user_config(user_id, config or {})
+    return {"success": True, "user_id": user_id}
+
+
+@app.post("/app/self-modify")
+def self_modify_app(user_id: str, request: str = "", description: str = "") -> dict:
+    """Self-modify the Interactive App: create new version and activate it."""
+    try:
+        from app.services.interactive_app_workflow import InteractiveAppWorkflow
+        workflow = services.get("interactive_app_workflow")
+        if workflow:
+            result = workflow.modify_app(user_id, request or description, auto_activate=True, require_confirmation=False)
+            return result
+        return {"error": "InteractiveAppWorkflow not available"}
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+
+
+@app.post("/app/version/{user_id}/create")
+def create_app_version(user_id: str, code_changes: dict[str, str], description: str = "") -> dict:
+    """Create a new version for a user without activating."""
+    version_id = interactive_app.create_user_version(user_id, code_changes, description)
+    return {"version_id": version_id, "user_id": user_id, "status": "created"}
+
+
+@app.post("/app/version/{user_id}/{version_id}/activate")
+def activate_app_version(user_id: str, version_id: str) -> dict:
+    """Activate a specific version for a user (hot-swap)."""
+    try:
+        return interactive_app.activate_user_version(user_id, version_id)
+    except Exception as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/app/versions/{user_id}")
+def list_app_versions(user_id: str) -> dict:
+    """List all versions for a user."""
+    return {
+        "user_id": user_id,
+        "versions": interactive_app.get_user_version_history(user_id),
+        "current": interactive_app.get_user_current_version(user_id),
+    }
+
+
+# -- User Management API ------------------------------------------------------
+
+
+@app.post("/users/register")
+def register_user(user_id: str, display_name: str = "") -> dict:
+    """Register a new user."""
+    try:
+        user = user_service.register_user(user_id, display_name)
+        return {"success": True, "user": user.to_dict()}
+    except Exception as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/users/{user_id}")
+def get_user(user_id: str) -> dict:
+    """Get user profile."""
+    user = user_service.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User not found: {user_id}")
+    return user.to_dict()
+
+
+@app.patch("/users/{user_id}")
+def update_user(user_id: str, updates: dict[str, Any] | None = None) -> dict:
+    """Update user profile."""
+    if not updates:
+        raise HTTPException(status_code=400, detail="No updates provided")
+    try:
+        user = user_service.update_user(user_id, **updates)
+        return {"success": True, "user": user.to_dict()}
+    except Exception as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/users")
+def list_users(status: str | None = None) -> dict:
+    """List all users."""
+    users = user_service.list_users(status)
+    return {"users": [u.to_dict() for u in users], "count": len(users)}
+
+
+@app.post("/users/{user_id}/login")
+def user_login(user_id: str) -> dict:
+    """Record user login (creates user if not exists)."""
+    user = user_service.get_or_create(user_id)
+    return {"success": True, "user": user.to_dict(), "new_user": user.login_count == 1}
+
+
+# -- Auth API -----------------------------------------------------------------
+
+
+@app.post("/auth/session/{user_id}")
+def create_session(user_id: str) -> dict:
+    """Create an authenticated session for a user."""
+    if not auth_service:
+        return {"error": "Auth service not available"}
+    try:
+        token = auth_service.create_session(user_id)
+        return {"success": True, "token": token, "user_id": user_id}
+    except Exception as error:
+        raise HTTPException(status_code=401, detail=str(error)) from error
+
+
+@app.get("/auth/session/{token}")
+def validate_session(token: str) -> dict:
+    """Validate a session token."""
+    if not auth_service:
+        return {"error": "Auth service not available"}
+    try:
+        session = auth_service.validate_token(token)
+        return {"valid": True, "user_id": session.user_id, "expires_at": session.expires_at}
+    except Exception as error:
+        raise HTTPException(status_code=401, detail=str(error)) from error
+
+
+@app.get("/auth/sessions/{user_id}")
+def get_user_sessions(user_id: str) -> dict:
+    """Get all active sessions for a user."""
+    if not auth_service:
+        return {"error": "Auth service not available"}
+    sessions = auth_service.get_user_sessions(user_id)
+    return {"user_id": user_id, "sessions": sessions, "count": len(sessions)}
+
+
+@app.delete("/auth/session/{token}")
+def revoke_session(token: str) -> dict:
+    """Revoke a session token."""
+    if not auth_service:
+        return {"error": "Auth service not available"}
+    revoked = auth_service.revoke_token(token)
+    return {"success": revoked}
+
+
+# -- Pipeline API -------------------------------------------------------------
+
+
+@app.get("/pipelines/stats")
+def pipeline_stats() -> dict:
+    """Get pipeline statistics."""
+    if not pipeline_service:
+        return {"error": "Pipeline service not available"}
+    return pipeline_service.get_stats()
+
+
+@app.post("/pipelines")
+def create_pipeline(
+    pipeline_type: str = "system",
+    user_id: str | None = None,
+    app_id: str | None = None,
+    trigger: str = "manual",
+) -> dict:
+    """Create a new pipeline."""
+    if not pipeline_service:
+        return {"error": "Pipeline service not available"}
+    try:
+        from app.services.pipeline_service import PipelineType
+        ptype = PipelineType(pipeline_type)
+        record = pipeline_service.create_pipeline(ptype, user_id, app_id, trigger)
+        return {"success": True, "pipeline": record.to_dict()}
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.get("/pipelines")
+def list_pipelines(
+    pipeline_type: str | None = None,
+    user_id: str | None = None,
+    status: str | None = None,
+) -> dict:
+    """List pipelines with filters."""
+    if not pipeline_service:
+        return {"error": "Pipeline service not available"}
+    from app.services.pipeline_service import PipelineType, PipelineStatus
+    ptype = PipelineType(pipeline_type) if pipeline_type else None
+    pstatus = PipelineStatus(status) if status else None
+    records = pipeline_service.list_pipelines(ptype, user_id, pstatus)
+    return {"pipelines": [r.to_dict() for r in records], "count": len(records)}
+
+
+@app.get("/pipelines/{pipeline_id}")
+def get_pipeline(pipeline_id: str) -> dict:
+    """Get a pipeline by ID."""
+    if not pipeline_service:
+        return {"error": "Pipeline service not available"}
+    record = pipeline_service.get_pipeline(pipeline_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Pipeline not found: {pipeline_id}")
+    return record.to_dict()
+
+
+@app.post("/pipelines/{pipeline_id}/start")
+def start_pipeline(pipeline_id: str) -> dict:
+    """Start a pipeline."""
+    if not pipeline_service:
+        return {"error": "Pipeline service not available"}
+    record = pipeline_service.start_pipeline(pipeline_id)
+    return {"success": True, "pipeline": record.to_dict()}
+
+
+@app.post("/pipelines/{pipeline_id}/complete")
+def complete_pipeline(pipeline_id: str) -> dict:
+    """Complete a pipeline."""
+    if not pipeline_service:
+        return {"error": "Pipeline service not available"}
+    record = pipeline_service.complete_pipeline(pipeline_id)
+    return {"success": True, "pipeline": record.to_dict()}

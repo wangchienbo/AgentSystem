@@ -23,12 +23,15 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', sans-serif;
             background: var(--bg);
             color: var(--text);
-            height: 100vh;
-            overflow: hidden;
         }
 
         /* Layout */
@@ -36,6 +39,8 @@
             display: grid;
             grid-template-columns: 280px 1fr;
             height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
         }
 
         /* Sidebar */
@@ -44,11 +49,14 @@
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
         }
 
         .sidebar-header {
             padding: 20px;
             border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
         }
 
         .sidebar-header h1 {
@@ -85,6 +93,7 @@
             justify-content: center;
             gap: 8px;
             transition: all 0.2s;
+            flex-shrink: 0;
         }
 
         .new-chat-btn:hover {
@@ -96,6 +105,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 8px;
+            min-height: 0;
         }
 
         .session-item {
@@ -137,11 +147,91 @@
 
         .session-item:hover .delete-btn { opacity: 1; }
 
+        /* User section */
+        .user-section {
+            border-top: 1px solid var(--border);
+            padding: 12px 16px;
+            background: var(--surface-2);
+            flex-shrink: 0;
+        }
+        .user-info {
+            display: flex; align-items: center; gap: 10px;
+            cursor: pointer; padding: 8px; border-radius: var(--radius-sm);
+            transition: background 0.15s;
+        }
+        .user-info:hover { background: var(--surface); }
+        .user-avatar { font-size: 28px; }
+        .user-name { font-size: 14px; font-weight: 500; }
+        .user-status { font-size: 11px; color: var(--text-dim); }
+        .user-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
+        .user-btn { background: none; border: 1px solid var(--border); color: var(--text);
+            padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .user-btn:hover { background: var(--accent); border-color: var(--accent); color: white; }
+
+        /* User settings panel */
+        .user-settings {
+            position: fixed; top: 0; right: 0; width: 380px; height: 100vh;
+            background: var(--surface); border-left: 1px solid var(--border);
+            box-shadow: -8px 0 32px rgba(0,0,0,0.5); padding: 24px;
+            transform: translateX(100%); transition: transform 0.3s ease;
+            z-index: 1000; overflow-y: auto;
+        }
+        .user-settings.open { transform: translateX(0); }
+        .user-settings h3 { margin-bottom: 20px; font-size: 18px; }
+        .settings-section { margin-bottom: 20px; }
+        .settings-section label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--text-dim); }
+        .settings-section input, .settings-section select, .settings-section textarea {
+            width: 100%; padding: 10px; background: var(--surface-2); border: 1px solid var(--border);
+            border-radius: 6px; color: var(--text); font-size: 14px;
+        }
+        .settings-section textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+
+        /* Preference tags */
+        .pref-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .pref-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 6px 12px; border-radius: 16px;
+            background: var(--surface-2); border: 1px solid var(--border);
+            font-size: 13px; cursor: pointer; transition: all 0.15s;
+        }
+        .pref-tag:hover { border-color: var(--accent); }
+        .pref-tag.active { background: var(--accent); border-color: var(--accent); color: white; }
+        .pref-tag .remove { font-size: 14px; opacity: 0.6; margin-left: 4px; }
+        .pref-tag .remove:hover { opacity: 1; }
+        .save-btn {
+            width: 100%; padding: 10px; background: var(--accent); color: white;
+            border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+            transition: all 0.15s; margin-top: 8px;
+        }
+        .save-btn:hover { background: #7c6df7; }
+        .pref-add-row { display: flex; gap: 8px; margin-top: 8px; }
+        .pref-add-row input {
+            flex: 1; padding: 8px 12px; background: var(--surface-2);
+            border: 1px solid var(--border); border-radius: 6px;
+            color: var(--text); font-size: 13px;
+        }
+        .pref-add-row button {
+            padding: 8px 16px; background: var(--accent); color: white;
+            border: none; border-radius: 6px; cursor: pointer; font-size: 13px;
+        }
+        .settings-close { position: absolute; top: 16px; right: 16px; background: none; border: none;
+            color: var(--text); font-size: 20px; cursor: pointer; }
+        .version-list { list-style: none; padding: 0; }
+        .version-list li { padding: 10px; margin-bottom: 6px; background: var(--surface-2);
+            border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+        .version-list .version-id { font-size: 12px; color: var(--accent); }
+        .version-list .version-desc { font-size: 13px; }
+        .version-list .version-time { font-size: 11px; color: var(--text-dim); }
+        .version-list button { background: var(--accent); border: none; color: white;
+            padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
         /* Main */
         .main {
             display: flex;
             flex-direction: column;
             min-width: 0;
+            height: 100vh;
+            overflow: hidden;
         }
 
         /* Messages */
@@ -150,6 +240,7 @@
             overflow-y: auto;
             padding: 24px;
             scroll-behavior: smooth;
+            min-height: 0;
         }
 
         .messages::-webkit-scrollbar { width: 6px; }
@@ -184,12 +275,14 @@
         .message.system .avatar { background: var(--surface-2); border: 1px solid var(--border); }
 
         .bubble {
-            max-width: 70%;
+            max-width: 75%;
             padding: 14px 18px;
             border-radius: var(--radius);
             line-height: 1.6;
             font-size: 14px;
             position: relative;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .message.user .bubble {
@@ -282,11 +375,24 @@
             30% { transform: translateY(-8px); }
         }
 
-        /* Input area */
+        /* Connection status bar */
+        .connection-bar {
+            padding: 6px 24px;
+            font-size: 12px;
+            text-align: center;
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+        .connection-bar.online { background: rgba(0, 214, 143, 0.1); color: var(--success); }
+        .connection-bar.offline { background: rgba(255, 107, 107, 0.1); color: var(--danger); }
+        .connection-bar.reconnecting { background: rgba(255, 212, 59, 0.1); color: var(--warning); animation: pulse 1s infinite; }
+
+        /* Input area - FIXED at bottom */
         .input-area {
             padding: 16px 24px;
             border-top: 1px solid var(--border);
             background: var(--surface);
+            flex-shrink: 0;
         }
 
         .input-wrapper {
@@ -306,6 +412,7 @@
             resize: none;
             max-height: 150px;
             min-height: 48px;
+            height: 48px;
             line-height: 1.5;
             font-family: inherit;
             transition: border-color 0.2s;
@@ -518,6 +625,73 @@
             border-color: var(--danger);
             color: var(--danger);
         }
+
+        /* Token usage badge */
+        .token-usage {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding: 4px 10px;
+            background: rgba(108, 92, 231, 0.08);
+            border-radius: 6px;
+            font-size: 11px;
+            color: var(--text-dim);
+            width: fit-content;
+        }
+
+        .token-usage .tokens {
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .token-usage .model {
+            opacity: 0.6;
+        }
+
+        .token-usage .cached {
+            color: var(--success);
+            font-weight: 500;
+        }
+
+        /* Token stats panel */
+        .token-stats {
+            padding: 8px 20px;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+            font-size: 12px;
+            color: var(--text-dim);
+            flex-shrink: 0;
+        }
+
+        .token-stats .stats-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+
+        .token-stats .stats-val {
+            color: var(--accent);
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .token-stats-toggle {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 11px;
+            padding: 4px 0;
+            width: 100%;
+            text-align: center;
+            opacity: 0.6;
+            transition: opacity 0.15s;
+        }
+
+        .token-stats-toggle:hover {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -532,6 +706,21 @@
             </button>
             <div class="session-list" id="sessionList">
                 <!-- Sessions populated by JS -->
+            </div>
+            <!-- User profile section -->
+            <div class="user-section" id="userSection">
+                <div class="user-info" onclick="showUserSettings()">
+                    <div class="user-avatar">👤</div>
+                    <div class="user-details">
+                        <div class="user-name" id="userName">加载中...</div>
+                        <div class="user-status" id="userStatus">在线</div>
+                    </div>
+                </div>
+                <div class="user-actions">
+                    <button class="user-btn" onclick="showVersions()" title="版本历史">📦</button>
+                    <button class="user-btn" onclick="showSettings()" title="设置">⚙️</button>
+                    <button class="user-btn" onclick="logout()" title="退出">🚪</button>
+                </div>
             </div>
         </div>
 
@@ -551,6 +740,9 @@
                 </div>
             </div>
 
+            <!-- Connection status bar -->
+            <div class="connection-bar online" id="connectionBar">● 已连接</div>
+
             <div class="input-area">
                 <div class="input-wrapper">
                     <textarea class="input-box" id="inputBox" rows="1"
@@ -569,6 +761,14 @@
                         </svg>
                     </button>
                 </div>
+                <button class="token-stats-toggle" onclick="toggleTokenStats()">📊 Token 消耗</button>
+                <div class="token-stats" id="tokenStats" style="display:none">
+                    <div class="stats-row"><span>总调用</span><span class="stats-val" id="statCalls">0</span></div>
+                    <div class="stats-row"><span>Prompt</span><span class="stats-val" id="statPrompt">0</span></div>
+                    <div class="stats-row"><span>Completion</span><span class="stats-val" id="statCompletion">0</span></div>
+                    <div class="stats-row"><span>总计</span><span class="stats-val" id="statTotal">0</span></div>
+                    <div class="stats-row"><span>缓存命中</span><span class="stats-val" id="statCached">0</span></div>
+                </div>
             </div>
         </div>
     </div>
@@ -578,11 +778,51 @@
         let sessionId = null;
         let currentStream = null;
         let isStreaming = false;
+        let tokenStatsVisible = false;
+        let reconnectAttempts = 0;
+        let reconnectTimer = null;
+        const MAX_RECONNECT = 5;
 
         // Init
-        document.addEventListener('DOMContentLoaded', () => {
+        // Extract user_id from URL path (/chat/{user_id})
+        let currentUserId = 'web-user';
+        const pathParts = window.location.pathname.split('/');
+        const chatIndex = pathParts.indexOf('chat');
+        if (chatIndex >= 0 && pathParts.length > chatIndex + 1) {
+            currentUserId = pathParts[chatIndex + 1];
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
             loadSessions();
+            loadTokenStats();
+            loadUserContext();
+            loadPrefs();
             document.getElementById('inputBox').focus();
+
+            // Update welcome message with user name
+            const welcome = document.getElementById('welcome');
+            if (welcome && currentUserId !== 'web-user') {
+                const h2 = welcome.querySelector('h2');
+                if (h2) h2.textContent = `你好，我是 AgentSystem · ${currentUserId}`;
+            }
+
+            // Load user memory context
+            try {
+                const ctx = await fetch('/memory', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        operation: 'get_full_context',
+                        user_id: currentUserId
+                    })
+                }).then(r => r.json());
+                if (ctx.success && ctx.data.initialized) {
+                    window.userMemory = ctx.data;
+                    console.log('User memory loaded:', ctx.data.context_summary);
+                }
+            } catch (e) {
+                console.warn('Memory load failed:', e);
+            }
         });
 
         function newSession() {
@@ -657,12 +897,51 @@
             sendMessage();
         }
 
+        // ===== Connection management =====
+        function setConnectionStatus(status, text) {
+            const bar = document.getElementById('connectionBar');
+            if (bar) { bar.className = `connection-bar ${status}`; bar.textContent = text; }
+        }
+
+        function scheduleReconnect(body, bubbleEl, fullContent) {
+            if (reconnectAttempts >= MAX_RECONNECT) {
+                setConnectionStatus('offline', '✕ 连接已断开，请刷新页面重试');
+                if (fullContent) {
+                    updateStreamingBubble(bubbleEl, fullContent + '\n\n[连接已断开，请刷新重试]', false);
+                }
+                return;
+            }
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+            reconnectAttempts++;
+            setConnectionStatus('reconnecting', `⟳ 连接断开，${Math.ceil(delay/1000)}秒后重连 (${reconnectAttempts}/${MAX_RECONNECT})...`);
+            reconnectTimer = setTimeout(() => {
+                setConnectionStatus('reconnecting', '⟳ 正在重新连接...');
+                // Fallback to non-streaming endpoint
+                fetch(`${API}/chat/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                }).then(r => r.json()).then(data => {
+                    reconnectAttempts = 0;
+                    setConnectionStatus('online', '● 已连接');
+                    if (data.content) {
+                        updateStreamingBubble(bubbleEl, (fullContent ? fullContent + '\n\n' : '') + data.content, false, data.actions, data.usage);
+                    }
+                }).catch(() => {
+                    scheduleReconnect(body, bubbleEl, fullContent);
+                }).finally(() => {
+                    isStreaming = false; currentStream = null;
+                    document.getElementById('sendBtn').style.display = 'flex';
+                    document.getElementById('stopBtn').style.display = 'none';
+                });
+            }, delay);
+        }
+
         async function sendMessage() {
             const input = document.getElementById('inputBox');
             const text = input.value.trim();
             if (!text || isStreaming) return;
 
-            // Hide welcome
             const welcome = document.getElementById('welcome');
             if (welcome) welcome.remove();
 
@@ -670,21 +949,25 @@
             input.value = '';
             input.style.height = 'auto';
 
-            // Start streaming
             isStreaming = true;
             document.getElementById('sendBtn').style.display = 'none';
             document.getElementById('stopBtn').style.display = 'flex';
+            setConnectionStatus('online', '● 正在回复...');
 
             const bubbleEl = appendStreamingBubble();
             let fullContent = '';
 
             try {
                 const body = {
-                    user_id: 'web-user',
+                    user_id: currentUserId,
                     channel: 'webchat',
                     message: text,
                 };
                 if (sessionId) body.session_id = sessionId;
+
+                if (window.userMemory && window.userMemory.context_summary) {
+                    body.memory_context = window.userMemory.context_summary;
+                }
 
                 const controller = new AbortController();
                 currentStream = controller;
@@ -695,6 +978,9 @@
                     body: JSON.stringify(body),
                     signal: controller.signal,
                 });
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                reconnectAttempts = 0;
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -718,39 +1004,47 @@
                             } else if (data.type === 'complete') {
                                 fullContent = data.content;
                                 sessionId = data.session_id;
-                                updateStreamingBubble(bubbleEl, fullContent, false, data.actions);
-                                loadSessions();
+                                updateStreamingBubble(bubbleEl, fullContent, false, data.actions, data.usage);
+                                loadSessions(); loadTokenStats();
                             } else if (data.type === 'error') {
                                 updateStreamingBubble(bubbleEl, '⚠️ ' + data.message, false);
                             }
-                        } catch (e) {
-                            // Skip malformed SSE data
-                        }
+                        } catch (e) { /* skip malformed */ }
                     }
                 }
             } catch (e) {
                 if (e.name === 'AbortError') {
                     if (fullContent) {
                         updateStreamingBubble(bubbleEl, fullContent + '\n\n[已停止生成]', false);
-                    } else {
-                        bubbleEl.remove();
-                        appendMessage('system', '[已停止]');
-                    }
+                    } else { bubbleEl.remove(); appendMessage('system', '[已停止]'); }
                 } else {
-                    if (fullContent) {
-                        updateStreamingBubble(bubbleEl, fullContent, false);
-                    } else {
-                        appendMessage('system', '⚠️ 请求失败：' + e.message);
-                    }
+                    // Auto-reconnect with fallback
+                    const body = { user_id: currentUserId, channel: 'webchat', message: text };
+                    if (sessionId) body.session_id = sessionId;
+                    scheduleReconnect(body, bubbleEl, fullContent);
+                    return; // Don't reset isStreaming yet
                 }
             } finally {
                 isStreaming = false;
                 currentStream = null;
                 document.getElementById('sendBtn').style.display = 'flex';
                 document.getElementById('stopBtn').style.display = 'none';
+                setConnectionStatus('online', '● 已连接');
                 document.getElementById('inputBox').focus();
             }
         }
+
+        // Detect tab visibility change - reset reconnect on return
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && isStreaming) {
+                // Tab came back while streaming - let it continue
+                setConnectionStatus('online', '● 页面已恢复');
+            }
+        });
+
+        // Clear reconnect timer on page hide
+        window.addEventListener('beforeunload', () => { clearReconnectTimer(); });
+        function clearReconnectTimer() { if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; } }
 
         function stopStreaming() {
             if (currentStream) {
@@ -758,7 +1052,7 @@
             }
         }
 
-        function appendMessage(role, content, actions = null) {
+        function appendMessage(role, content, actions = null, usage = null) {
             const messages = document.getElementById('messages');
             const div = document.createElement('div');
             div.className = `message ${role}`;
@@ -780,15 +1074,27 @@
             }
 
             // Convert newlines to paragraphs
-            const html = content.split('\n').filter(Boolean).map(p =>
-                `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`(.+?)`/g, '<code>$1</code>')}</p>`
+            const safeContent = content || '(空响应)';
+            const html = safeContent.split('\n').filter(Boolean).map(p =>
+                `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/` + '`' + `(.+?)` + '`' + `/g, '<code>$1</code>')}</p>`
             ).join('');
+
+            let usageHtml = '';
+            if (usage) {
+                const cachedBadge = usage.cached ? '<span class="cached">⚡ 缓存</span>' : '';
+                usageHtml = `<div class="token-usage">
+                    <span class="tokens">${usage.total_tokens.toLocaleString()} tokens</span>
+                    <span class="model">${usage.model || ''}</span>
+                    ${cachedBadge}
+                </div>`;
+            }
 
             div.innerHTML = `
                 <div class="avatar">${avatar}</div>
                 <div class="bubble">
                     ${html}
                     ${actionsHtml}
+                    ${usageHtml}
                 </div>`;
 
             messages.appendChild(div);
@@ -824,14 +1130,15 @@
             return div.querySelector('.bubble');
         }
 
-        function updateStreamingBubble(bubbleEl, content, isStreaming, actions = null) {
+        function updateStreamingBubble(bubbleEl, content, isStreaming, actions = null, usage = null) {
             if (isStreaming) {
                 bubbleEl.classList.add('streaming');
             } else {
                 bubbleEl.classList.remove('streaming');
             }
 
-            const html = content.split('\n').filter(Boolean).map(p =>
+            const safeContent = content || '(空响应)';
+            const html = safeContent.split('\n').filter(Boolean).map(p =>
                 `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/` + '`' + `(.+?)` + '`' + `/g, '<code>$1</code>')}</p>`
             ).join('');
 
@@ -850,7 +1157,17 @@
                     '</div>';
             }
 
-            bubbleEl.innerHTML = html + actionsHtml;
+            let usageHtml = '';
+            if (usage && !isStreaming) {
+                const cachedBadge = usage.cached ? '<span class="cached">⚡ 缓存</span>' : '';
+                usageHtml = `<div class="token-usage">
+                    <span class="tokens">${usage.total_tokens.toLocaleString()} tokens</span>
+                    <span class="model">${usage.model || ''}</span>
+                    ${cachedBadge}
+                </div>`;
+            }
+
+            bubbleEl.innerHTML = html + actionsHtml + usageHtml;
             scrollToBottom();
         }
 
@@ -865,15 +1182,35 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        user_id: 'web-user',
+                        user_id: currentUserId,
                         session_id: sessionId,
                         action_params: payload,
                     }),
                 });
                 const data = await r.json();
-                appendMessage('system', data.content, data.actions);
+                appendMessage('system', data.content, data.actions, data.usage);
             } catch (e) {
                 appendMessage('system', '⚠️ 操作失败：' + e.message);
+            }
+        }
+
+        function toggleTokenStats() {
+            tokenStatsVisible = !tokenStatsVisible;
+            document.getElementById('tokenStats').style.display = tokenStatsVisible ? 'block' : 'none';
+            if (tokenStatsVisible) loadTokenStats();
+        }
+
+        async function loadTokenStats() {
+            try {
+                const r = await fetch(`${API}/chat/token-usage`);
+                const data = await r.json();
+                document.getElementById('statCalls').textContent = data.total_llm_calls.toLocaleString();
+                document.getElementById('statPrompt').textContent = data.total_prompt_tokens.toLocaleString();
+                document.getElementById('statCompletion').textContent = data.total_completion_tokens.toLocaleString();
+                document.getElementById('statTotal').textContent = data.total_tokens.toLocaleString();
+                document.getElementById('statCached').textContent = data.cached_calls.toLocaleString();
+            } catch (e) {
+                // Stats endpoint not available yet
             }
         }
 
@@ -881,6 +1218,326 @@
             const messages = document.getElementById('messages');
             messages.scrollTop = messages.scrollHeight;
         }
+        function loadTokenStats() {
+            fetch(`${API}/api/usage/stats`)
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('statCalls').textContent = data.total_calls || 0;
+                    document.getElementById('statPrompt').textContent = data.total_prompt_tokens?.toLocaleString() || 0;
+                    document.getElementById('statCompletion').textContent = data.total_completion_tokens?.toLocaleString() || 0;
+                    document.getElementById('statTotal').textContent = data.total_tokens?.toLocaleString() || 0;
+                    document.getElementById('statCached').textContent = data.cached_tokens?.toLocaleString() || 0;
+                })
+                .catch(() => {});
+        }
+
+        // ---- User Context Functions ----
+
+        async function loadUserContext() {
+            if (!currentUserId) return;
+
+            // Load user profile
+            try {
+                const r = await fetch(`${API}/users/${currentUserId}`);
+                const user = await r.json();
+                if (user.user_id) {
+                    document.getElementById('userName').textContent = user.display_name || user.user_id;
+                    document.getElementById('userStatus').textContent = `在线 · ${user.login_count} 次登录`;
+                    document.getElementById('settingsDisplayName').value = user.display_name || '';
+                }
+            } catch (e) {
+                console.warn('User profile load failed:', e);
+            }
+
+            // Load App version info
+            try {
+                const r = await fetch(`${API}/app/status?user_id=${currentUserId}`);
+                const status = await r.json();
+                document.getElementById('versionInfo').innerHTML =
+                    `当前版本: <b>${status.current_version || 'v0'}</b><br>` +
+                    `版本总数: ${status.version_count || 0}`;
+            } catch (e) {
+                console.warn('App status load failed:', e);
+            }
+
+            // Load memory context summary
+            try {
+                const ctx = await fetch('/memory', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ operation: 'get_full_context', user_id: currentUserId })
+                }).then(r => r.json());
+                if (ctx.success && ctx.data) {
+                    window.userMemory = ctx.data;
+                    document.getElementById('memoryContext').innerHTML =
+                        ctx.data.context_summary || '无历史记忆';
+                    console.log('User memory loaded:', ctx.data);
+                } else {
+                    document.getElementById('memoryContext').textContent = '无历史记忆';
+                }
+            } catch (e) {
+                console.warn('Memory load failed:', e);
+                document.getElementById('memoryContext').textContent = '加载失败';
+            }
+        }
+
+        function showSettings() {
+            document.getElementById('settingsPanel').classList.add('open');
+            loadUserContext();
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsPanel').classList.remove('open');
+        }
+
+        async function saveSettings() {
+            const name = document.getElementById('settingsDisplayName').value.trim();
+            if (name) {
+                try {
+                    await fetch(`${API}/users/${currentUserId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ display_name: name })
+                    });
+                    document.getElementById('userName').textContent = name;
+                } catch (e) {
+                    console.warn('Save settings failed:', e);
+                }
+            }
+        }
+
+        async function changeTheme() {
+            const theme = document.getElementById('settingsTheme').value;
+            try {
+                await fetch(`${API}/app/self-modify?user_id=${currentUserId}&request=切换到${theme === 'dark' ? '深色' : '浅色'}主题`, {
+                    method: 'POST'
+                });
+                alert('主题已更新，刷新页面生效');
+                window.location.reload();
+            } catch (e) {
+                console.warn('Theme change failed:', e);
+            }
+        }
+
+        async function showVersions() {
+            const panel = document.getElementById('versionPanel');
+            panel.classList.add('open');
+
+            try {
+                const r = await fetch(`${API}/app/versions/${currentUserId}`);
+                const data = await r.json();
+                const list = document.getElementById('versionList');
+
+                if (data.versions && data.versions.length > 0) {
+                    list.innerHTML = data.versions.map(v => `
+                        <li>
+                            <div>
+                                <div class="version-desc">${v.description || '无描述'}</div>
+                                <div class="version-id">${v.version_id}</div>
+                                <div class="version-time">${new Date(v.created_at).toLocaleString('zh-CN')}</div>
+                            </div>
+                            <button onclick="activateVersion('${v.version_id}')">激活</button>
+                        </li>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<li style="color:var(--text-dim)">暂无版本历史</li>';
+                }
+            } catch (e) {
+                document.getElementById('versionList').innerHTML = '<li style="color:var(--danger)">加载失败</li>';
+            }
+        }
+
+        function closeVersions() {
+            document.getElementById('versionPanel').classList.remove('open');
+        }
+
+        async function activateVersion(versionId) {
+            if (!confirm(`确定要激活版本 ${versionId} 吗？`)) return;
+
+            try {
+                const r = await fetch(`${API}/app/version/${currentUserId}/${versionId}/activate`, {
+                    method: 'POST'
+                });
+                const data = await r.json();
+                if (data.status === 'activated') {
+                    alert('版本已激活，刷新页面生效');
+                    window.location.reload();
+                } else {
+                    alert('激活失败: ' + (data.detail || '未知错误'));
+                }
+            } catch (e) {
+                alert('激活失败: ' + e.message);
+            }
+        }
+
+        function showUserSettings() {
+            showSettings();
+        }
+
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                window.location.href = '/';
+            }
+        }
+
+        // ===== Interaction Preferences =====
+
+        async function loadPrefs() {
+            try {
+                const ctx = await fetch('/memory', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ operation: 'get_full_context', user_id: currentUserId })
+                }).then(r => r.json());
+                if (ctx.success && ctx.data && ctx.data.initialized) {
+                    const prefs = ctx.data.preferences || {};
+                    // Style tags
+                    if (prefs.style) {
+                        document.querySelectorAll('#prefStyleTags .pref-tag').forEach(t => {
+                            t.classList.toggle('active', prefs.style.includes(t.dataset.val));
+                        });
+                    }
+                    // Language
+                    if (prefs.language) {
+                        document.getElementById('prefLanguage').value = prefs.language;
+                    }
+                    // Custom prefs
+                    const customTags = prefs.custom_tags || [];
+                    window._customTags = customTags;
+                    renderCustomTags(customTags);
+                    // Custom instructions
+                    if (prefs.custom_instructions) {
+                        document.getElementById('prefCustom').value = prefs.custom_instructions;
+                    }
+                }
+            } catch (e) { console.warn('Prefs load failed:', e); }
+        }
+
+        function togglePrefTag(el) {
+            el.classList.toggle('active');
+        }
+
+        function renderCustomTags(tags) {
+            const container = document.getElementById('prefCustomTags');
+            container.innerHTML = tags.map((t, i) =>
+                `<span class="pref-tag active" data-idx="${i}">${t}<span class="remove" onclick="removeCustomPref(${i})">×</span></span>`
+            ).join('');
+            window._customTags = tags;
+        }
+
+        function addCustomPref() {
+            const input = document.getElementById('prefNewInput');
+            const val = input.value.trim();
+            if (!val) return;
+            window._customTags = window._customTags || [];
+            window._customTags.push(val);
+            renderCustomTags(window._customTags);
+            input.value = '';
+        }
+
+        function removeCustomPref(idx) {
+            window._customTags = window._customTags || [];
+            window._customTags.splice(idx, 1);
+            renderCustomTags(window._customTags);
+        }
+
+        async function saveAllPrefs() {
+            const styles = Array.from(document.querySelectorAll('#prefStyleTags .pref-tag.active')).map(t => t.dataset.val);
+            const language = document.getElementById('prefLanguage').value;
+            const customInstructions = document.getElementById('prefCustom').value.trim();
+            const customTags = window._customTags || [];
+
+            try {
+                await Promise.all([
+                    fetch('/memory', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ operation: 'update_preference', user_id: currentUserId, preference_key: 'style', preference_value: styles })
+                    }),
+                    fetch('/memory', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ operation: 'update_preference', user_id: currentUserId, preference_key: 'language', preference_value: language })
+                    }),
+                    fetch('/memory', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ operation: 'update_preference', user_id: currentUserId, preference_key: 'custom_instructions', preference_value: customInstructions })
+                    }),
+                    fetch('/memory', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ operation: 'update_preference', user_id: currentUserId, preference_key: 'custom_tags', preference_value: customTags })
+                    }),
+                ]);
+                alert('偏好已保存 ✅');
+                window.userMemory = null;
+                loadUserContext();
+            } catch (e) { alert('保存失败: ' + e.message); }
+        }
+
+        // Load user context on page load
+        if (typeof loadUserContext === 'function') {
+            // Will be called after DOM ready
+        }
+
     </script>
+    <!-- User Settings Panel -->
+    <div class="user-settings" id="settingsPanel">
+        <button class="settings-close" onclick="closeSettings()">✕</button>
+        <h3>⚙️ 用户设置</h3>
+        <div class="settings-section">
+            <label>显示名称</label>
+            <input id="settingsDisplayName" placeholder="你的显示名称" onchange="saveSettings()">
+        </div>
+        <div class="settings-section">
+            <label>交互风格</label>
+            <div class="pref-tags" id="prefStyleTags">
+                <span class="pref-tag" data-val="简洁" onclick="togglePrefTag(this)">简洁</span>
+                <span class="pref-tag" data-val="详细" onclick="togglePrefTag(this)">详细</span>
+                <span class="pref-tag" data-val="幽默" onclick="togglePrefTag(this)">幽默</span>
+                <span class="pref-tag" data-val="专业" onclick="togglePrefTag(this)">专业</span>
+                <span class="pref-tag" data-val="口语化" onclick="togglePrefTag(this)">口语化</span>
+                <span class="pref-tag" data-val="技术型" onclick="togglePrefTag(this)">技术型</span>
+            </div>
+        </div>
+        <div class="settings-section">
+            <label>回复语言</label>
+            <select id="prefLanguage">
+                <option value="中文">中文</option>
+                <option value="English">English</option>
+                <option value="中文/English 混合">中文/English 混合</option>
+            </select>
+        </div>
+        <div class="settings-section">
+            <label>自定义指令（每行一条，会注入到系统提示词）</label>
+            <textarea id="prefCustom" placeholder="例如：\n- 回答时多用示例\n- 不要使用emoji\n- 代码用中文注释"></textarea>
+        </div>
+        <div class="settings-section">
+            <label>添加自定义偏好</label>
+            <div class="pref-add-row">
+                <input id="prefNewInput" placeholder="输入自定义偏好...">
+                <button onclick="addCustomPref()">添加</button>
+            </div>
+            <div class="pref-tags" id="prefCustomTags"></div>
+        </div>
+        <button class="save-btn" onclick="saveAllPrefs()">💾 保存偏好</button>
+        <div class="settings-section" style="margin-top:20px;">
+            <label>记忆上下文</label>
+            <div id="memoryContext" style="font-size:13px;color:var(--text-dim);padding:8px;background:var(--surface-2);border-radius:6px;min-height:60px;">加载中...</div>
+        </div>
+        <div class="settings-section">
+            <label>App 版本</label>
+            <div id="versionInfo" style="font-size:13px;color:var(--text-dim);padding:8px;background:var(--surface-2);border-radius:6px;">加载中...</div>
+        </div>
+    </div>
+
+    <!-- Version History Panel -->
+    <div class="user-settings" id="versionPanel">
+        <button class="settings-close" onclick="closeVersions()">✕</button>
+        <h3>📦 版本历史</h3>
+        <ul class="version-list" id="versionList"><li>加载中...</li></ul>
+    </div>
+
 </body>
 </html>

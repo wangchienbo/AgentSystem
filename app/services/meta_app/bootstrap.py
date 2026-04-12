@@ -165,12 +165,16 @@ class MetaAppBootstrapService:
         if not self._is_model_available():
             return self._infer_fallback(request)
 
-        config = self._loader.load()
-        api_key = self._loader.resolve_api_key(config)
-        client = OpenAIResponsesClient(config=config, api_key=api_key)
-        prompt = self._build_prompt(request)
-        response = client.probe(prompt)
-        payload = self._extract_json(response)
+        try:
+            config = self._loader.load()
+            api_key = self._loader.resolve_api_key(config)
+            client = OpenAIResponsesClient(config=config, api_key=api_key)
+            prompt = self._build_prompt(request)
+            response = client.probe(prompt)
+            payload = self._extract_json(response)
+        except (MetaAppModelClientError, ModelConfigError, Exception) as exc:
+            # LLM call failed for any reason — fall back to rule-based inference
+            return self._infer_fallback(request)
 
         slug = payload.get("app_slug", _slug(request.app_name))
         control_skill_id = f"{slug}-control"

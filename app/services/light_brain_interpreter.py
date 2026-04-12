@@ -27,6 +27,7 @@ class LightBrainInterpreter:
         "greet", "list_apps", "create_app", "start_app", "stop_app",
         "pause_app", "resume_app", "query_app", "modify_app", "delete_app",
         "query_status", "query_help", "unclear",
+        "modify_interactive_app", "self_modify", "query_user", "register_user",
     }
 
     # LLM intent parsing result cache: key -> InterpretedCommand
@@ -53,6 +54,11 @@ class LightBrainInterpreter:
         ("query_status", re.compile(r"(系统状态|状态|健康|运行情况|运行正常|整体情况|概况)", re.IGNORECASE), "System status query"),
         ("query_help", re.compile(r"(帮助|help|怎么用|如何使用|能做什么|功能|说明)", re.IGNORECASE), "Help query"),
         ("greet", re.compile(r"^(你好|嗨|hi|hello|hey|哈喽|早上好|下午好|晚上好|早上好|下午好|晚上好)", re.IGNORECASE), "Greeting"),
+        ("modify_interactive_app", re.compile(r"(修改|改一下|优化|调整|美化|换|换一|设计|重新设计).*(界面|聊天|页面|前端|主题|样式|UI|外观|皮肤|风格)", re.IGNORECASE), "Modify interactive app UI"),
+        ("modify_interactive_app", re.compile(r"(加个|添加|增加|来个|做个|搞个).*(侧边栏|顶部|导航|按钮|快捷|深色|浅色|亮|暗)", re.IGNORECASE), "Add UI element"),
+        ("modify_interactive_app", re.compile(r"(自己改|自修改|self.modify|改自己|改一下自己|优化自己|修改自己)", re.IGNORECASE), "Self-modify interactive app"),
+        ("modify_interactive_app", re.compile(r"(界面太|太暗|太亮|太丑|不好看|不好看|优化一下|好看一点)", re.IGNORECASE), "UI improvement request"),
+        ("modify_interactive_app", re.compile(r"(换个|切换).*(主题|颜色|风格|皮肤)", re.IGNORECASE), "Theme switch"),
     ]
 
     # -- known app name patterns ---------------------------------------------

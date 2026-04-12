@@ -182,7 +182,15 @@ class LightBrainMemory:
         if not record:
             raise LightBrainMemoryError(f"Session not found: {session_id}")
         record.last_reply = reply
-        record.add_message("assistant", reply.content)
+        # Include token usage in the stored message if available
+        msg_data: dict[str, Any] = {
+            "role": "assistant",
+            "content": reply.content,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+        if reply.usage:
+            msg_data["usage"] = reply.usage.model_dump(mode="json")
+        record.messages.append(msg_data)
         if reply.related_app:
             record.related_apps.add(reply.related_app)
         if record.needs_compaction():
@@ -194,6 +202,33 @@ class LightBrainMemory:
         if not record:
             raise LightBrainMemoryError(f"Session not found: {session_id}")
         return record.messages[-limit:]
+
+    def get_user_recent_messages(self, user_id: str, limit: int = 30) -> list[dict[str, Any]]:
+        """Get recent messages across ALL sessions for a user, ordered by time."""
+        all_msgs: list[tuple[str, dict[str, Any]]] = []
+        for record in self._sessions.values():
+            if record.user_id == user_id:
+                for msg in record.messages:
+                    all_msgs.append((msg.get("timestamp", ""), msg))
+        all_msgs.sort(key=lambda x: x[0], reverse=True)
+        return [msg for _, msg in all_msgs[:limit]]
+
+    def summarize_recent_activity(self, user_id: str, max_msgs: int = 20) -> str:
+        """Generate a text summary of user's recent conversation activity."""
+        msgs = self.get_user_recent_messages(user_id, limit=max_msgs)
+        if not msgs:
+            return ""
+        # Reverse to chronological order
+        msgs = list(reversed(msgs))
+        user_turns = [m for m in msgs if m.get("role") == "user"]
+        assistant_turns = [m for m in msgs if m.get("role") == "assistant"]
+        parts = [f"最近对话 {len(msgs)} 条（用户{len(user_turns)}条，助手{len(assistant_turns)}条）"]
+        # Summarize user's key topics (last 10 user messages)
+        for m in user_turns[-10:]:
+            content = m.get("content", "")[:100]
+            if content:
+                parts.append(f"  用户：{content}")
+        return "\n".join(parts)
 
     # -- persistence --------------------------------------------------------
 

@@ -21,6 +21,7 @@ class ChatMessageRequest(BaseModel):
     channel: str = Field(default="webchat", description="Channel: webchat, qqbot, etc.")
     message: str = Field(..., min_length=1, description="User's natural language message")
     session_id: str | None = Field(default=None, description="Existing session ID; auto-created if omitted")
+    memory_context: str | None = Field(default=None, description="Cross-session memory context summary")
 
 
 class ChatActionRequest(BaseModel):
@@ -101,7 +102,7 @@ class SessionListResponse(BaseModel):
 
 class InterpretedCommand(BaseModel):
     """Structured command parsed from a user's natural language message."""
-    intent: str = Field(..., description="Intent: create_app, start_app, stop_app, query_app, query_status, list_apps, modify_app, delete_app, query_help")
+    intent: str = Field(..., description="Intent: create_app, start_app, stop_app, query_app, query_status, list_apps, modify_app, delete_app, query_help, modify_interactive_app")
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     target_app: str | None = Field(default=None, description="Target app name or ID if applicable")
     parameters: dict[str, Any] = Field(default_factory=dict, description="Extracted structured parameters")
@@ -109,6 +110,8 @@ class InterpretedCommand(BaseModel):
     clarification_question: str | None = Field(default=None)
     suggested_actions: list[ActionSuggestion] = Field(default_factory=list)
     raw_interpretation: str = Field(default="", description="LLM/rule reasoning trace for debugging")
+    user_id: str | None = Field(default=None, description="User who issued this command")
+    raw_input: str | None = Field(default=None, description="Original user message")
 
 
 # ---------------------------------------------------------------------------

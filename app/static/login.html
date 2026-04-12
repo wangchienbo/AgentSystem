@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentSystem - 登录</title>
+    <style>
+        :root {
+            --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26;
+            --border: #2a2a3a; --text: #e8e8f0; --text-dim: #8888a0;
+            --accent: #6c5ce7; --accent-glow: rgba(108, 92, 231, 0.3);
+            --success: #00d68f; --danger: #ff6b6b; --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            background: var(--bg); color: var(--text);
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        }
+        .login-container {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 48px; width: 100%; max-width: 420px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        h1 { font-size: 28px; margin-bottom: 4px; text-align: center; }
+        .subtitle { color: var(--text-dim); text-align: center; margin-bottom: 32px; font-size: 14px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-dim); }
+        input {
+            width: 100%; padding: 12px 16px; background: var(--surface-2);
+            border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+            font-size: 16px; outline: none; transition: border-color 0.2s;
+        }
+        input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+        .btn-group { display: flex; gap: 12px; margin-top: 24px; }
+        .btn {
+            flex: 1; padding: 14px; border: none; border-radius: 8px;
+            font-size: 16px; font-weight: 500; cursor: pointer; transition: opacity 0.2s;
+        }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: var(--border); }
+        .error { color: var(--danger); font-size: 13px; margin-top: 12px; text-align: center; display: none; }
+        .info { color: var(--text-dim); font-size: 12px; margin-top: 24px; text-align: center; line-height: 1.6; }
+        .stats {
+            margin-top: 16px; padding: 12px; background: var(--surface-2);
+            border-radius: 8px; text-align: center; font-size: 13px; color: var(--text-dim);
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>✦ AgentSystem</h1>
+        <p class="subtitle">App-OS 多用户交互平台</p>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="userId">用户 ID</label>
+                <input type="text" id="userId" placeholder="输入你的用户名" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="displayName">显示名称（可选）</label>
+                <input type="text" id="displayName" placeholder="给自己起个名字" autocomplete="name">
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">进入</button>
+                <button type="button" class="btn btn-secondary" onclick="registerUser()">注册</button>
+            </div>
+            <p class="error" id="error"></p>
+        </form>
+        <div class="stats" id="stats">正在加载用户统计...</div>
+        <p class="info">
+            首次登录自动注册。<br>
+            每用户拥有独立工作空间和记忆。<br>
+            用户间完全隔离，互不可见。
+        </p>
+    </div>
+
+    <script>
+        const API = window.location.origin;
+        const form = document.getElementById('loginForm');
+        const errorEl = document.getElementById('error');
+
+        // Load user stats
+        fetch(`${API}/users`)
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('stats').textContent = `已有 ${data.count} 位用户`;
+            })
+            .catch(() => {
+                document.getElementById('stats').textContent = '多用户系统';
+            });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await loginOrRegister();
+        });
+
+        async function loginOrRegister() {
+            const userId = document.getElementById('userId').value.trim();
+            const displayName = document.getElementById('displayName').value.trim();
+            if (!userId) {
+                showError('请输入用户名');
+                return;
+            }
+
+            try {
+                // Try login (auto-creates if not exists)
+                const r = await fetch(`${API}/users/${userId}/login`, { method: 'POST' });
+                const data = await r.json();
+
+                if (!data.success) {
+                    showError(data.detail || '登录失败');
+                    return;
+                }
+
+                // Initialize user memory
+                await fetch(`${API}/memory`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ operation: 'get_profile', user_id: userId })
+                }).catch(() => {});
+
+                // Redirect to user chat
+                window.location.href = `/chat/${userId}`;
+            } catch (e) {
+                showError('网络错误: ' + e.message);
+            }
+        }
+
+        async function registerUser() {
+            const userId = document.getElementById('userId').value.trim();
+            const displayName = document.getElementById('displayName').value.trim();
+            if (!userId) {
+                showError('请输入用户名');
+                return;
+            }
+
+            try {
+                const r = await fetch(`${API}/users/register?user_id=${encodeURIComponent(userId)}&display_name=${encodeURIComponent(displayName)}`, {
+                    method: 'POST'
+                });
+                const data = await r.json();
+
+                if (data.success) {
+                    alert('注册成功！点击确定进入系统');
+                    window.location.href = `/chat/${userId}`;
+                } else {
+                    showError(data.detail || '注册失败');
+                }
+            } catch (e) {
+                showError('网络错误: ' + e.message);
+            }
+        }
+
+        function showError(msg) {
+            errorEl.textContent = msg;
+            errorEl.style.display = 'block';
+            setTimeout(() => { errorEl.style.display = 'none'; }, 5000);
+        }
+
+        document.getElementById('userId').focus();
+    </script>
+</body>
+</html>

@@ -51,6 +51,8 @@ class LightBrainGateway:
         meta_app_orchestrator: Any = None,
         llm_responder: Any = None,
         persistence_service: Any = None,
+        interactive_app: Any = None,
+        interactive_app_workflow: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -65,6 +67,8 @@ class LightBrainGateway:
         self._meta_app_orchestrator = meta_app_orchestrator
         self._llm_responder = llm_responder
         self._persistence = persistence_service
+        self._interactive_app = interactive_app
+        self._interactive_app_workflow = interactive_app_workflow
         self._name: str | None = None
         self._load_identity()
 
@@ -99,6 +103,8 @@ class LightBrainGateway:
 
         # 5. Interpret intent
         command = self._interpreter.interpret(request.message, available_apps)
+        command.user_id = request.user_id
+        command.raw_input = request.message
         self._memory.record_command(session.session_id, command)
 
         # 6. Execute command → get reply
@@ -107,8 +113,39 @@ class LightBrainGateway:
 
         # 6b. LLM enhancement (if available)
         if self._llm_responder and getattr(self._llm_responder, 'available', False):
+            # Build system context with memory and preferences
+            system_ctx = f"你是 AgentSystem，一个 AI 驱动的系统。你的名字是「{self._name}」。你的职责是帮助用户管理 App。"
+
+            # Inject user interaction preferences
+            if request.user_id:
+                try:
+                    from app.services.system_skills.memory import MemorySkillService
+                    mem_svc = MemorySkillService()
+                    profile = mem_svc.get_profile(request.user_id)
+                    if profile and profile.preferences:
+                        prefs = profile.preferences
+                        parts = []
+                        style = prefs.get('style', [])
+                        if style:
+                            parts.append(f"回复风格：{', '.join(style)}")
+                        lang = prefs.get('language')
+                        if lang:
+                            parts.append(f"回复语言：{lang}")
+                        custom = prefs.get('custom_instructions')
+                        if custom:
+                            parts.append(f"自定义指令：\n{custom}")
+                        tags = prefs.get('custom_tags', [])
+                        if tags:
+                            parts.append(f"用户偏好标签：{', '.join(tags)}")
+                        if parts:
+                            system_ctx += "\n\n用户交互偏好设置：\n" + "\n".join(parts)
+                except Exception:
+                    pass  # Silently ignore preference load failures
+
+            if request.memory_context:
+                system_ctx += f"\n\n用户记忆上下文：{request.memory_context}"
             enhanced, usage = self._llm_responder.generate_reply(
-                system_context=f"你是 AgentSystem，一个 AI 驱动的系统。你的名字是「{self._name}」。你的职责是帮助用户管理 App。",
+                system_context=system_ctx,
                 user_message=request.message,
                 app_context=available_apps,
                 max_tokens=300,
@@ -148,14 +185,26 @@ class LightBrainGateway:
         intent = params.get("intent", "")
 
         if intent == "create_app" and params.get("confirmed"):
+            # Rebuild command from action_params if last_command is lost (e.g., page refresh)
             command = session.last_command
+            if not command and params.get("app_name"):
+                command = InterpretedCommand(
+                    intent="create_app",
+                    target_app=params["app_name"],
+                    parameters=params.get("parameters", {"app_type": params.get("app_type", "unknown")}),
+                    requires_clarification=False,
+                )
             if command:
                 available_apps = await self._get_available_apps()
                 reply = await self._execute_create_app(command, session_id, available_apps)
                 reply.session_id = session_id
                 self._memory.record_reply(session_id, reply)
                 return reply
-            return self._error_reply(session_id, "没有找到待确认的创建命令。")
+            return ChatMessageResponse(
+                type="error",
+                content="没有找到待确认的创建命令。请重新发送创建请求。",
+                session_id=session_id,
+            )
 
         if intent == "delete_app" and params.get("confirmed"):
             target = params.get("target", session.last_command.target_app if session.last_command else "未知")
@@ -238,6 +287,71 @@ class LightBrainGateway:
     def get_session_messages(self, session_id: str, limit: int = 20) -> list[dict[str, Any]]:
         return self._memory.get_recent_messages(session_id, limit)
 
+    def get_token_usage(
+        self,
+        user_id: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Aggregate token usage statistics across sessions."""
+        sessions = self._memory.list_sessions(user_id)
+        total_prompt = 0
+        total_completion = 0
+        total_tokens = 0
+        total_calls = 0
+        cached_calls = 0
+        per_session: list[dict] = []
+
+        for summary in sessions:
+            if session_id and summary.session_id != session_id:
+                continue
+            record = self._memory.get_session(summary.session_id)
+            if not record:
+                continue
+
+            session_prompt = 0
+            session_completion = 0
+            session_tokens = 0
+            session_calls = 0
+            session_cached = 0
+
+            # Scan messages for usage data
+            for msg in record.messages:
+                if msg.get("role") != "assistant":
+                    continue
+                usage = msg.get("usage")
+                if usage:
+                    session_prompt += usage.get("prompt_tokens", 0)
+                    session_completion += usage.get("completion_tokens", 0)
+                    session_tokens += usage.get("total_tokens", 0)
+                    session_calls += 1
+                    if usage.get("cached"):
+                        session_cached += 1
+
+            total_prompt += session_prompt
+            total_completion += session_completion
+            total_tokens += session_tokens
+            total_calls += session_calls
+            cached_calls += session_cached
+
+            if session_calls > 0:
+                per_session.append({
+                    "session_id": summary.session_id,
+                    "prompt_tokens": session_prompt,
+                    "completion_tokens": session_completion,
+                    "total_tokens": session_tokens,
+                    "llm_calls": session_calls,
+                    "cached_calls": session_cached,
+                })
+
+        return {
+            "total_prompt_tokens": total_prompt,
+            "total_completion_tokens": total_completion,
+            "total_tokens": total_tokens,
+            "total_llm_calls": total_calls,
+            "cached_calls": cached_calls,
+            "sessions": per_session,
+        }
+
     # -- command execution ---------------------------------------------------
 
     async def _execute_command(
@@ -260,6 +374,8 @@ class LightBrainGateway:
             "query_app": self._handle_query_app,
             "modify_app": self._handle_modify_app,
             "delete_app": self._handle_delete_app,
+            "modify_interactive_app": self._handle_modify_interactive_app,
+            "self_modify": self._handle_modify_interactive_app,
         }
 
         handler = self._handlers.get(command.intent)
@@ -546,7 +662,8 @@ class LightBrainGateway:
             actions=[
                 ActionSuggestion(
                     id="confirm_create", label="✅ 确认创建", action_type="confirm",
-                    payload={"intent": "create_app", "confirmed": True, "app_name": app_name, "app_type": app_type},
+                    payload={"intent": "create_app", "confirmed": True, "app_name": app_name, "app_type": app_type,
+                             "parameters": command.parameters},
                     style="primary",
                 ),
                 ActionSuggestion(
@@ -806,6 +923,53 @@ class LightBrainGateway:
             ],
             requires_input=True,
         )
+
+    async def _handle_modify_interactive_app(
+        self, command: InterpretedCommand, session_id: str, apps: list[dict],
+    ) -> ChatMessageResponse:
+        """Handle user request to modify the Interactive App UI."""
+        user_request = command.raw_input or command.clarification_question or "优化界面"
+
+        try:
+            if hasattr(self, "_interactive_app_workflow") and self._interactive_app_workflow:
+                # Execute self-modification workflow
+                result = self._interactive_app_workflow.modify_app(
+                    user_id=command.user_id or "web-user",
+                    user_request=user_request,
+                    auto_activate=True,
+                    require_confirmation=False,
+                )
+                return ChatMessageResponse(
+                    type="card",
+                    content=f"✅ 界面已更新！\n\n"
+                            f"修改内容: {user_request}\n"
+                            f"新版本: {result['new_version']}\n"
+                            f"修改文件: {', '.join(result['files_changed'])}\n\n"
+                            f"请刷新页面查看新界面。",
+                    session_id=session_id,
+                    actions=[
+                        ActionSuggestion(
+                            id="refresh_page", label="🔄 刷新页面", action_type="navigate",
+                            payload={"intent": "refresh", "url": "/"}, style="primary",
+                        ),
+                    ],
+                    requires_input=False,
+                )
+            else:
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"🔧 自修改功能尚未完全启用。\n\n"
+                            f"你的需求是：{user_request}\n"
+                            f"我已记录这个需求，后续会实现。",
+                    session_id=session_id,
+                    requires_input=False,
+                )
+        except Exception as exc:
+            return ChatMessageResponse(
+                type="error",
+                content=f"❌ 界面修改失败: {exc}",
+                session_id=session_id,
+            )
 
     # -- helpers -------------------------------------------------------------
 

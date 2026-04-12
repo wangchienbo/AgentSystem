@@ -12,6 +12,7 @@ from app.models.system_skill import SystemAuditRequest, SystemStateRequest
 from app.models.workflow_insight_skill import WorkflowInsightSkillRequest
 from app.models.meta_app_skill import MetaAppSkillRequest
 from app.models.maoxuan_skill import MaoxuanSkillRequest
+from app.models.memory_skill import MemorySkillRequest
 from app.services.model_client import OpenAIResponsesClient
 from app.services.model_config_loader import ModelConfigLoader
 from app.services.skill_runtime import SkillRuntimeService
@@ -33,6 +34,7 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
     prompt_invocation = services["prompt_invocation"]
     meta_app_bootstrap = services["meta_app_bootstrap"]
     maoxuan_service = services["maoxuan_service"]
+    memory_skill_service = services["memory_skill_service"]
 
     def demo_echo_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
         payload = request.config.get("payload", request.inputs)
@@ -232,6 +234,32 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
         output = maoxuan_service.execute(skill_request)
         return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
 
+    def system_memory_skill(request: SkillExecutionRequest) -> SkillExecutionResult:
+        skill_request = MemorySkillRequest(**request.inputs)
+        if skill_request.operation == "get_profile":
+            profile = memory_skill_service.get_profile(skill_request.user_id)
+            output = profile.to_dict() if profile else {"user_id": skill_request.user_id, "initialized": False}
+        elif skill_request.operation == "add_feedback":
+            output = memory_skill_service.add_feedback(skill_request.user_id, skill_request.feedback, skill_request.source)
+        elif skill_request.operation == "update_preference":
+            memory_skill_service.update_preference(skill_request.user_id, skill_request.preference_key, skill_request.preference_value)
+            output = {"user_id": skill_request.user_id, "key": skill_request.preference_key, "updated": True}
+        elif skill_request.operation == "get_recent_feedback":
+            output = {"feedback": memory_skill_service.get_recent_feedback(skill_request.user_id, skill_request.limit)}
+        elif skill_request.operation == "get_context_summary":
+            output = {"summary": memory_skill_service.get_context_summary(skill_request.user_id)}
+        elif skill_request.operation == "update_context_summary":
+            memory_skill_service.update_context_summary(skill_request.user_id, skill_request.summary)
+            output = {"user_id": skill_request.user_id, "updated": True}
+        elif skill_request.operation == "record_app_usage":
+            memory_skill_service.record_app_usage(skill_request.user_id, skill_request.app_id, skill_request.action, skill_request.details)
+            output = {"user_id": skill_request.user_id, "app_id": skill_request.app_id, "recorded": True}
+        elif skill_request.operation == "get_full_context":
+            output = memory_skill_service.get_full_context(skill_request.user_id)
+        else:
+            output = {"error": f"Unknown memory operation: {skill_request.operation}"}
+        return SkillExecutionResult(skill_id=request.skill_id, status="completed", output=output)
+
     return {
         "skill.echo": demo_echo_skill,
         "system.app_config": system_app_config_skill,
@@ -247,6 +275,7 @@ def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, calla
         "prompt.selection.skill": prompt_selection_capability_skill,
         "system.meta_app": system_meta_app_skill,
         "system.maoxuan": maoxuan_capability_skill,
+        "system.memory": system_memory_skill,
     }
 
 
