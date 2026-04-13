@@ -46,6 +46,28 @@ class WorkerManager:
 
     # -- Registration & Start -------------------------------------------------
 
+    def register(
+        self,
+        worker: SkillWorker,
+        config: dict[str, Any] | None = None,
+    ) -> None:
+        """Synchronously register a Worker and its queue on the Bus.
+
+        This does NOT start the message loop — use `register_and_start` for that.
+        Useful during bootstrap when running in a sync context.
+        """
+        worker_id = worker.worker_id
+        if worker_id in self._workers:
+            logger.warning("Worker already registered: %s, skipping", worker_id)
+            return
+
+        queue: asyncio.Queue = asyncio.Queue()
+        self._bus.register_worker(worker_id, queue)
+        self._workers[worker_id] = worker
+        self._queues[worker_id] = queue
+        self._restart_counts[worker_id] = 0
+        logger.info("Worker registered (sync): %s", worker_id)
+
     async def register_and_start(
         self,
         worker: SkillWorker,

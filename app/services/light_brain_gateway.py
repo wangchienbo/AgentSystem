@@ -57,6 +57,7 @@ class LightBrainGateway:
         interactive_app_workflow: Any = None,
         permission_skill: Any = None,
         tool_registry: Any = None,
+        orchestrator_bridge: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -80,6 +81,9 @@ class LightBrainGateway:
             self._tool_registry = self._build_default_tool_registry()
         self._name: str | None = None
         self._load_identity()
+
+        # G.1/G.2: Orchestrator bridge — new execution chain
+        self._orchestrator_bridge = orchestrator_bridge
 
         # Phase F.4: Multi-turn state — track active skill per session
         self._active_skills: dict[str, dict[str, Any]] = {}
@@ -492,7 +496,35 @@ class LightBrainGateway:
         session_id: str,
         available_apps: list[dict[str, Any]],
     ) -> ChatMessageResponse:
-        """Route interpreted command to the right handler."""
+        """Route interpreted command to the right handler.
+
+        G.1/G.2: Try the new orchestrator bridge first; if it returns
+        a result use it, otherwise fall back to the legacy handler chain.
+        """
+        # ── G.1/G.2: Try new chain first ──────────────────────────────
+        if self._orchestrator_bridge and self._orchestrator_bridge.is_available():
+            try:
+                bridge_result = await self._orchestrator_bridge.execute_command(
+                    user_id=command.user_id or "",
+                    app_instance_id="default",
+                    text=command.raw_input or "",
+                    session_id=session_id,
+                )
+                if bridge_result is not None:
+                    # Bridge handled it — convert to ChatMessageResponse
+                    return ChatMessageResponse(
+                        type=bridge_result.get("type", "text"),
+                        content=bridge_result.get("content", ""),
+                        session_id=session_id,
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Bridge execution failed, falling back to legacy: %s", e,
+                )
+            # bridge_result was None → fall through to legacy
+
+        # ── Legacy handler chain (backward compatible) ────────────────
         self._handlers = {
             "greet": self._handle_greet,
             "list_apps": self._handle_list_apps,

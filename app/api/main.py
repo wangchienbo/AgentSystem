@@ -196,6 +196,13 @@ interactive_app = services["interactive_app"]
 user_service = services["user_service"]
 auth_service = services.get("auth_service")
 
+# -- G.1/G.2: Orchestrator bridge, LogCenter, SkillMeta -----------------------
+g1g2_bridge = services.get("g1g2_bridge")
+g1g2_log_center = services.get("g1g2_log_center")
+g1g2_meta_service = services.get("g1g2_meta_service")
+g1g2_bus = services.get("g1g2_bus")
+g1g2_worker_manager = services.get("g1g2_worker_manager")
+
 # ===========================================================================
 # Permission Middleware (Linux-style RBAC)
 # ===========================================================================
@@ -2120,6 +2127,84 @@ async def chat_message_stream(request: ChatMessageRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# -- G.1/G.2: System Status, Skills, Logs, Traces ------------------------------
+
+@app.get("/system/status")
+def system_status() -> dict:
+    """Overall system status including G.1/G.2 module health."""
+    status = {
+        "bridge_available": g1g2_bridge.is_available() if g1g2_bridge else False,
+        "bus_workers": 0,
+        "registered_skills": 0,
+        "log_entries": 0,
+    }
+    if g1g2_bus:
+        status["bus_workers"] = len(g1g2_bus.list_workers())
+    if g1g2_bridge:
+        status["registered_skills"] = len(g1g2_bridge.get_available_skills())
+    if g1g2_log_center:
+        status["log_entries"] = g1g2_log_center.stats().get("total_entries", 0)
+    return status
+
+
+@app.get("/system/skills")
+def system_skills() -> dict:
+    """List all registered skills via the orchestrator bridge."""
+    if not g1g2_bridge:
+        return {"skills": [], "error": "Bridge not available"}
+    skills = g1g2_bridge.get_available_skills()
+    return {"skills": skills, "total": len(skills)}
+
+
+@app.get("/system/logs")
+def system_logs(
+    trace_id: str | None = None,
+    skill_id: str | None = None,
+    app_instance_id: str | None = None,
+    user_id: str | None = None,
+    level: str | None = None,
+    limit: int = 50,
+) -> dict:
+    """Query execution logs from the LogCenter."""
+    if not g1g2_log_center:
+        return {"logs": [], "error": "LogCenter not available"}
+    from app.models.log_center import LogQuery
+    logs = g1g2_log_center.query(LogQuery(
+        trace_id=trace_id,
+        skill_id=skill_id,
+        app_instance_id=app_instance_id,
+        user_id=user_id,
+        level=level,  # type: ignore[arg-type]
+        limit=limit,
+    ))
+    return {"logs": [log.model_dump(mode="json") for log in logs], "total": len(logs)}
+
+
+@app.get("/system/traces/{trace_id}")
+def system_trace_detail(trace_id: str) -> dict:
+    """Get full trace timeline for a specific trace_id."""
+    if not g1g2_log_center:
+        return {"error": "LogCenter not available"}
+    logs = g1g2_log_center.get_trace(trace_id)
+    if not logs:
+        return {"trace_id": trace_id, "logs": [], "found": False}
+    return {
+        "trace_id": trace_id,
+        "logs": [log.model_dump(mode="json") for log in logs],
+        "total": len(logs),
+        "found": True,
+    }
+
+
+@app.get("/system/bus/workers")
+def system_bus_workers() -> dict:
+    """List all Workers registered on the MessageBus."""
+    if not g1g2_bus:
+        return {"workers": [], "error": "MessageBus not available"}
+    workers = g1g2_bus.list_workers()
+    return {"workers": workers, "total": len(workers)}
 
 
 # -- Memory Skill API -----------------------------------------------------------

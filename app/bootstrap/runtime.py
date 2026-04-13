@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 
 from app.services.app_catalog import AppCatalogService
@@ -81,6 +82,15 @@ from app.services.user_service import UserService
 from app.services.auth_service import AuthService
 from app.services.session_router import SessionRouter
 from app.services.pipeline_service import PipelineService
+
+# ── G.1/G.2: MessageBus, Workers, LogCenter, SkillMeta, PathStore ─────
+from app.core.message_bus import MessageBus
+from app.core.worker_manager import WorkerManager
+from app.core.gateway_orchestrator_bridge import GatewayOrchestratorBridge
+from app.services.log_center import LogCenter
+from app.services.skill_meta_service import SkillMetaService
+from app.services.path_store import PathStore
+from app.models.log_center import LogCollectionConfig
 
 
 def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_dir: str | None = None) -> dict[str, object]:
@@ -509,6 +519,27 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.system_skills.permission import PermissionSkillService
     permission_skill = PermissionSkillService(user_service=user_service)
 
+    # -- G.1/G.2: MessageBus + Workers + LogCenter + SkillMeta + PathStore ---
+    g1g2_bus = MessageBus()
+    g1g2_worker_manager = WorkerManager(message_bus=g1g2_bus)
+    g1g2_log_center = LogCenter()
+    g1g2_meta_service = SkillMetaService()
+    g1g2_path_store = PathStore()
+    g1g2_bridge = GatewayOrchestratorBridge(
+        bus=g1g2_bus,
+        worker_manager=g1g2_worker_manager,
+        log_center=g1g2_log_center,
+        meta_service=g1g2_meta_service,
+        path_store=g1g2_path_store,
+    )
+    logger = logging.getLogger(__name__)
+    logger.info(
+        "G.1/G.2 modules instantiated: bus=%s, workers=%s, log=%s, meta=%s, paths=%s, bridge=%s",
+        type(g1g2_bus).__name__, type(g1g2_worker_manager).__name__,
+        type(g1g2_log_center).__name__, type(g1g2_meta_service).__name__,
+        type(g1g2_path_store).__name__, type(g1g2_bridge).__name__,
+    )
+
     # -- LightBrain interaction gateway -----------------------------------------
     from app.services.light_brain_gateway import LightBrainGateway
     from app.services.light_brain_interpreter import LightBrainInterpreter
@@ -537,12 +568,49 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         interactive_app_workflow=interactive_app_workflow,
         permission_skill=permission_skill,
         tool_registry=tool_registry,
+        orchestrator_bridge=g1g2_bridge,
     )
 
     # Wire tool registry into interpreter for tool-aware LLM parsing
     light_brain_interpreter.set_tool_registry(tool_registry)
     # Wire LLM to workflow after gateway is created
     interactive_app_workflow._llm = llm_responder
+
+    # -- G.1/G.2: Register Gateway handlers as Workers on the MessageBus -------
+    # Wrap Gateway async handlers and register them as Bus Workers so the
+    # Orchestrator can route to them through the new chain.
+    g1g2_system_skill_meta: dict[str, Any] = {
+        "greet": {"name": "greet", "description": "打招呼/问候"},
+        "list_apps": {"name": "list_apps", "description": "查看 App 列表"},
+        "query_status": {"name": "query_status", "description": "查询系统状态"},
+        "query_help": {"name": "query_help", "description": "查看帮助"},
+        "create_app": {"name": "create_app", "description": "创建 App"},
+        "start_app": {"name": "start_app", "description": "启动 App"},
+        "stop_app": {"name": "stop_app", "description": "停止 App"},
+        "pause_app": {"name": "pause_app", "description": "暂停 App"},
+        "resume_app": {"name": "resume_app", "description": "恢复 App"},
+        "query_app": {"name": "query_app", "description": "查询 App 详情"},
+        "modify_app": {"name": "modify_app", "description": "修改 App"},
+        "delete_app": {"name": "delete_app", "description": "删除 App"},
+        "grant_admin": {"name": "grant_admin", "description": "授予管理员权限"},
+        "grant_root": {"name": "grant_root", "description": "授予 root 权限"},
+        "revoke_role": {"name": "revoke_role", "description": "撤销角色"},
+        "show_permissions": {"name": "show_permissions", "description": "查看权限"},
+        "list_users": {"name": "list_users", "description": "列出用户"},
+        "show_self": {"name": "show_self", "description": "查看自身信息"},
+    }
+    registered_count = g1g2_bridge.register_gateway_handlers(
+        gateway=light_brain_gateway,
+    )
+    # Also register meta entries for skills that may not have a direct handler
+    g1g2_bridge.register_system_skills(
+        handlers={},
+        meta_entries=g1g2_system_skill_meta,
+    )
+    logger.info(
+        "G.1/G.2: %d gateway handlers registered as Workers, %d meta skills registered",
+        registered_count, len(g1g2_system_skill_meta),
+    )
 
     # -- Auth & Session & Pipeline services -------------------------------------
     auth_service = AuthService(user_service=user_service)
@@ -562,7 +630,6 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             pass  # State restored successfully
     except Exception as e:
         # Best-effort: don't crash on restore failure
-        import logging
         logging.getLogger(__name__).warning("State restore failed, starting fresh: %s", e)
 
     return locals()
