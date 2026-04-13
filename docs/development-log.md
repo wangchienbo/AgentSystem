@@ -1748,3 +1748,64 @@ Completed the first useful Phase-8.2 compare hardening pass by explicitly testin
 #### Validation
 - `./.venv/bin/pytest -q tests/unit/test_skill_factory_api.py -k "compare_generated_skill_reports_tag_schema_and_risk_deltas or revise_generated_skill_via_api or rollback_generated_skill_via_api"`
 - result: `3 passed`
+
+---
+
+### Phase H: Dynamic Path Composition — LLM-driven skill chain composition
+**Date:** 2026-04-13
+**Status:** ✅ Complete, tested, committed, pushed
+
+#### What was implemented
+- **DynamicPathComposer service** — when no pre-defined YAML path matches a user request, the system:
+  1. Discovers all available skills from `SkillMetaService` + `MessageBus`
+  2. Asks LLM to compose an ordered execution plan (skill chain)
+  3. Validates I/O compatibility between consecutive steps
+  4. Executes the plan step-by-step via `MessageBus` RPC
+  5. On any failure, gracefully degrades to `UniversalSkill`
+
+#### New files
+- `app/models/dynamic_path.py`: `DynamicPathStep`, `DynamicPathPlan` Pydantic models
+- `app/services/dynamic_path_composer.py`: `DynamicPathComposer` service
+  - Skill discovery with safe JSON serialization (handles MagicMock)
+  - LLM planning prompt with structured output requirement
+  - Retry logic for malformed LLM JSON responses (max 2 retries)
+  - Plan validation: skill existence, forward-reference integrity
+  - Input resolution engine: `$user.X`, `$step_N.Y`, literal values
+  - User input parser (key:value extraction from plain text)
+  - Graceful fallback to UniversalSkill
+- `tests/test_dynamic_path_composer.py`: 44 unit tests covering:
+  - Data model validation (DynamicPathStep, DynamicPathPlan)
+  - Skill discovery (meta + bus workers, dedup, JSON safety)
+  - LLM planning (success, retry, all-retries-fail, prompt building, JSON parsing)
+  - Plan validation (valid, invalid skill, forward refs, backward refs)
+  - Input resolution (user fields, step outputs, literals, missing values)
+  - User input parsing (plain text, key:value, Chinese colons)
+  - Output extraction (dict, string JSON, plain string, other types)
+  - Fallback (to universal, no universal available)
+  - Full compose-and-execute flow (success, no skills, step failure)
+  - AppOrchestrator integration (uses composer, falls back when composer fails)
+
+#### Modified files
+- `app/services/app_orchestrator.py`: Added `dynamic_composer` parameter to `__init__`, integrated into `process()` — tries dynamic composition when no YAML path matches
+- `app/core/gateway_orchestrator_bridge.py`: Added `dynamic_composer` parameter, passes it to `AppOrchestrator` instances
+- `app/bootstrap/runtime.py`: Instantiates `DynamicPathComposer` and wires it into the bridge
+- `app/services/app_orchestrator.py`: Fixed `_invoke_universal()` to include required fields (`app_instance_id`, `workflow_id`, `step_id`)
+
+#### Architecture
+```
+User → Gateway → Bridge → Orchestrator → (YAML path match?)
+  → Yes: execute pre-defined path
+  → No:  DynamicPathComposer.compose_and_execute()
+    → Discover skills → LLM plan → Validate → Execute chain
+    → Any failure: fallback to UniversalSkill
+```
+
+#### Testing
+- `pytest tests/test_dynamic_path_composer.py` → 44 passed
+- `pytest tests/test_phase_g_core.py tests/test_phase_g2.py` → 18 passed (no regressions)
+- Total: 62 tests passing
+
+#### Next steps
+- Gateway restart + E2E verification with real LLM calls
+- Multi-model configuration integration (currently uses "balanced" tier)
+- Plan caching for repeated requests
