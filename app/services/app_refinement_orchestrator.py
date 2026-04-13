@@ -66,8 +66,13 @@ class AppRefinementOrchestratorService:
                         ).model_dump(mode="json")
                     ],
                 )
+        # -- Dry-run mode: analyze what skills are needed WITHOUT creating them --
+        if request.dry_run:
+            return self._dry_run_analysis(request)
+
         refinement = self._app_refinement.build_app_from_suggested_skills(request)
         entry = self._app_registry.register_blueprint(refinement.blueprint)
+        compare_summary = self._build_compare_summary(refinement.blueprint)
 
         release = self._app_registry.add_release(
             refinement.blueprint.id,
@@ -78,7 +83,6 @@ class AppRefinementOrchestratorService:
         )
         release_entry = release.model_dump(mode="json")
         release_entry["candidate_version"] = request.version
-        compare_summary = self._build_compare_summary(refinement.blueprint)
 
         install_result = None
         execution_result = None
@@ -175,6 +179,47 @@ class AppRefinementOrchestratorService:
             execution_result=execution_result,
             compare_summary=compare_summary,
             diagnostics=diagnostics,
+        )
+
+    def _dry_run_analysis(self, request: SuggestedSkillRefinementClosureRequest) -> SuggestedSkillRefinementClosureResult:
+        """Analyze what skills are needed for refinement WITHOUT creating them."""
+        try:
+            selected = self._app_refinement._select_blueprints(request)
+        except Exception as e:
+            return SuggestedSkillRefinementClosureResult(
+                blueprint=None,
+                app_result=None,
+                diagnostics=[{
+                    "stage": "dry_run",
+                    "kind": "analysis_error",
+                    "message": str(e),
+                    "retryable": True,
+                }],
+            )
+
+        created_skills: list = []
+        reused_skill_ids: list[str] = []
+        for blueprint in selected:
+            try:
+                self._app_refinement._skill_control.get_skill(blueprint.skill_id)
+                reused_skill_ids.append(blueprint.skill_id)
+            except Exception:
+                # Skill doesn't exist — would need to be created
+                created_skills.append({
+                    "skill_id": blueprint.skill_id,
+                    "name": blueprint.name,
+                    "status": "would_create",
+                })
+                reused_skill_ids.append(blueprint.skill_id)
+
+        return SuggestedSkillRefinementClosureResult(
+            blueprint=None,
+            app_result=None,
+            created_skills=[],
+            reused_skill_ids=reused_skill_ids,
+            selected_blueprints=selected,
+            compare_summary={"blueprint_id": request.blueprint_id, "selected_count": len(selected)},
+            diagnostics=created_skills,
         )
 
     def _build_compare_summary(self, blueprint) -> dict:

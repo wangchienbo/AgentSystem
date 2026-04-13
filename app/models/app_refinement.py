@@ -31,6 +31,7 @@ class SuggestedSkillRefinementResult(BaseModel):
 class SuggestedSkillRefinementClosureRequest(SuggestedSkillRefinementRequest):
     install: bool = False
     run: bool = False
+    dry_run: bool = Field(default=False, description="If True, analyze needed skills without creating them")
     user_id: str = Field(default="")
     workflow_inputs: dict[str, Any] = Field(default_factory=dict)
     trigger: str = Field(default="manual")

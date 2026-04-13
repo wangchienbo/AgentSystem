@@ -872,6 +872,24 @@ class LightBrainGateway:
                         content=f"创建 App 失败: {result.error}",
                         session_id=session_id,
                     )
+
+                # -- Permission check: regular user creating app with new skills --
+                user_id = command.user_id or "web-user"
+                new_skill_ids = getattr(result, 'created_skill_ids', []) or []
+                if new_skill_ids:
+                    perm = self._check_app_modify_permission(user_id, app_name)
+                    if not perm["can_create_skills"]:
+                        return ChatMessageResponse(
+                            type="text",
+                            content=(
+                                f"⚠️ 创建 **{app_name}** 需要以下新 skill：\n"
+                                f"`{', '.join(new_skill_ids)}`\n\n"
+                                f"**Skill 是系统共有资产**，只有 **管理员及以上** 用户才能创建。\n\n"
+                                f"请联系管理员来帮你创建这些 skill，或者用已有 skill 重新组合一个 App。"
+                            ),
+                            session_id=session_id,
+                            related_app=app_name,
+                        )
                 app_id = ""
                 if result.installed_app:
                     app_id = result.installed_app.id
@@ -1183,7 +1201,8 @@ class LightBrainGateway:
             type="confirm",
             content=(
                 f"将 **{display_name}** 修改为：{modification}\n\n"
-                f"系统会为你生成新的 skill 并安装到 App 中，确认继续？"
+                f"确认后系统会分析需求，使用已有 skill 或生成新 skill 来完成修改。\n\n"
+                f"⚠️ 注意：如果修改需要生成新 skill，仅管理员及以上用户可执行。"
             ),
             session_id=session_id,
             related_app=display_name,
@@ -1214,7 +1233,14 @@ class LightBrainGateway:
     async def _execute_modify_app(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
-        """Execute the actual App modification via the refinement orchestrator."""
+        """Execute the actual App modification via the refinement orchestrator.
+
+        Permission model:
+        - Skill = shared asset, only admin+ can create/modify skills
+        - App = user asset, belongs to whoever created it
+        - To modify an App: user's role level must be >= app owner's role level
+        - If modification requires new skills: only admin+ can proceed
+        """
         params = command.parameters or {}
         target_input = params.get("target_app", command.target_app) or "未知 App"
         target = self._resolve_instance_id(target_input)
@@ -1222,7 +1248,17 @@ class LightBrainGateway:
         modification = params.get("modification", "未指定")
         user_id = command.user_id or "web-user"
 
-        # Check if we have the refinement orchestrator
+        # -- Step 1: Permission check — can this user modify the app? --
+        perm_result = self._check_app_modify_permission(user_id, target)
+        if not perm_result["allowed"]:
+            return ChatMessageResponse(
+                type="text",
+                content=perm_result["message"],
+                session_id=session_id,
+                related_app=display_name,
+            )
+        can_create_skills = perm_result["can_create_skills"]
+
         if not self._app_refinement_orchestrator:
             return ChatMessageResponse(
                 type="text",
@@ -1232,27 +1268,64 @@ class LightBrainGateway:
             )
 
         try:
-            # Build a refinement request that tells the orchestrator what to do
             from app.models.app_refinement import SuggestedSkillRefinementClosureRequest
-            request = SuggestedSkillRefinementClosureRequest(
+
+            # -- Step 2: Dry-run analysis — what skills are needed? --
+            dry_request = SuggestedSkillRefinementClosureRequest(
                 blueprint_id=target,
                 name=display_name,
                 goal=f"修改 {display_name}：{modification}",
                 user_id=user_id,
-                install=True,
+                install=False,  # Dry run: don't install yet
                 run=False,
                 trigger="manual",
                 reviewer=user_id,
-                version="modified-1",
-                note=f"用户修改：{modification}",
+                version="dry-run",
+                note=f"权限检查：{modification}",
             )
+            dry_result = self._app_refinement_orchestrator.refine_closure(dry_request)
 
-            result = self._app_refinement_orchestrator.refine_closure(request)
+            # Dry-run stores would-create skills in diagnostics (safe, no side effects)
+            would_create = [d for d in (dry_result.diagnostics or []) if d.get("status") == "would_create"]
+            skill_names = [d["skill_id"] for d in would_create]
+            reused = dry_result.reused_skill_ids or []
+            needs_new_skills = len(skill_names) > 0
 
-            # Build success response
-            skill_names = [s.skill_id for s in result.created_skills] if result.created_skills else []
-            reused = result.reused_skill_ids or []
+            # -- Step 3: If new skills needed but user can't create → block before any creation --
+            if needs_new_skills and not can_create_skills:
+                return ChatMessageResponse(
+                    type="text",
+                    content=(
+                        f"⚠️ **{display_name}** 的修改需要以下新 skill：\n"
+                        f"`{', '.join(skill_names)}`\n\n"
+                        f"**Skill 是系统共有资产**，只有 **管理员及以上** 用户才能创建。\n\n"
+                        f"请联系管理员来帮你创建这些 skill，或者使用已有 skill 重新组合一个 App。"
+                    ),
+                    session_id=session_id,
+                    related_app=display_name,
+                )
 
+            # -- Step 4: Permission passed — execute the real modification --
+            if needs_new_skills:
+                # Admin creating new skills — proceed with full execution
+                request = SuggestedSkillRefinementClosureRequest(
+                    blueprint_id=target,
+                    name=display_name,
+                    goal=f"修改 {display_name}：{modification}",
+                    user_id=user_id,
+                    install=True,
+                    run=False,
+                    trigger="manual",
+                    reviewer=user_id,
+                    version="modified-1",
+                    note=f"用户修改：{modification}",
+                )
+                result = self._app_refinement_orchestrator.refine_closure(request)
+            else:
+                # Only reusing existing skills — use dry_result as the result
+                result = dry_result
+
+            # -- Step 3: Success --
             summary_parts = [f"✅ **{display_name}** 修改完成！"]
             if skill_names:
                 summary_parts.append(f"🆕 新生成 skill：{', '.join(skill_names)}")
@@ -1284,6 +1357,86 @@ class LightBrainGateway:
                 session_id=session_id,
                 related_app=display_name,
             )
+
+    # ===========================================================================
+    # Permission helpers for App modification
+    # ===========================================================================
+
+    _ROLE_LEVEL = {"user": 0, "admin": 1, "root": 2}
+
+    def _check_app_modify_permission(self, user_id: str, app_id: str) -> dict:
+        """Check if user can modify an App.
+
+        Returns dict with:
+        - allowed: bool
+        - can_create_skills: bool (admin+ only)
+        - message: str (reason if denied)
+        """
+        try:
+            from app.services.user_service import Role, UserService
+            user_svc = self._get_user_service()
+            if not user_svc:
+                # No user service = allow (fallback for single-user mode)
+                return {"allowed": True, "can_create_skills": True, "message": ""}
+
+            user = user_svc.get_user(user_id)
+            if not user:
+                return {"allowed": False, "can_create_skills": False,
+                        "message": f"⚠️ 用户 '{user_id}' 未注册，无法执行修改操作。"}
+
+            user_level = self._ROLE_LEVEL.get(user.role, 0)
+            is_admin = user.is_admin
+
+            # Find app owner role
+            app_owner_role = self._get_app_owner_role(app_id)
+            app_level = self._ROLE_LEVEL.get(app_owner_role, 0)
+
+            if user_level < app_level:
+                return {
+                    "allowed": False, "can_create_skills": False,
+                    "message": (
+                        f"⚠️ 你没有权限修改 **{app_id}**。\n\n"
+                        f"该 App 的创建者权限级别为 **{app_owner_role}**，\n"
+                        f"只有权限 ≥ {app_owner_role} 的用户才能修改它。\n"
+                        f"你的角色: {user.role}"
+                    ),
+                }
+
+            return {"allowed": True, "can_create_skills": is_admin, "message": ""}
+
+        except Exception as e:
+            return {"allowed": False, "can_create_skills": False,
+                    "message": f"⚠️ 权限检查失败：{e}"}
+
+    def _get_user_service(self):
+        """Get UserService from available services."""
+        if hasattr(self, "_permission_skill") and self._permission_skill:
+            return getattr(self._permission_skill, "_user_service", None)
+        return None
+
+    def _get_app_owner_role(self, app_id: str) -> str:
+        """Get the owner role of an App."""
+        try:
+            if self._lifecycle:
+                instance = self._lifecycle.get_instance(app_id)
+                if instance and hasattr(instance, "owner_user_id"):
+                    # Look up the owner's role
+                    user_svc = self._get_user_service()
+                    if user_svc:
+                        owner = user_svc.get_user(instance.owner_user_id)
+                        if owner:
+                            return owner.role
+        except Exception:
+            pass
+        # Fallback: check blueprint
+        try:
+            if self._app_registry:
+                bp = self._app_registry.get_blueprint(app_id)
+                if bp and hasattr(bp, "owner_role"):
+                    return bp.owner_role
+        except Exception:
+            pass
+        return "user"  # Default fallback
 
     async def _handle_delete_app(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
