@@ -99,15 +99,16 @@ class AppOrchestrator(SkillWorker):
 
         user_inputs = request.inputs
         session_id = request.config.get("session_id", "default")
+        # Normalize input — Bridge sends "text", chat sends "message"
+        user_message = user_inputs.get("message") or user_inputs.get("text", "")
 
         # 1. Match path
         path = self._match_path(user_inputs)
         if not path:
             # No pre-defined path matched — try dynamic composition
             if self._dynamic_composer:
-                message = user_inputs.get("message", "")
                 dynamic_result = await self._dynamic_composer.compose_and_execute(
-                    message,
+                    user_message,
                     session_id=session_id,
                     user_id=request.user_id or "",
                     config=request.config,
@@ -160,9 +161,10 @@ class AppOrchestrator(SkillWorker):
                 if query in path.name.lower() or query in path.path_id.lower():
                     return path
 
-        # Keyword match in message
-        if "message" in inputs:
-            msg = inputs["message"].lower()
+        # Keyword match in message or text
+        msg = inputs.get("message") or inputs.get("text", "")
+        if msg:
+            msg = msg.lower()
             for path in self._paths.values():
                 if any(kw in msg for kw in path.name.lower().split()):
                     return path

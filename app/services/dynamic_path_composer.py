@@ -232,11 +232,22 @@ class DynamicPathComposer:
             raise DynamicPathComposerError("ModelRouter not available")
 
         client = self._router.get_client("dynamic_path_composer", "balanced")
-        response = await client.respond(
-            system_message="You are a skill chain planner. Always respond with valid JSON only.",
-            messages=[{"role": "user", "content": prompt}],
+        # OpenAIResponsesClient.chat is sync, wrap in executor
+        import asyncio
+        loop = asyncio.get_event_loop()
+        text, _ = await loop.run_in_executor(
+            None,
+            lambda: client.chat(
+                messages=[
+                    {"role": "system", "content": "You are a skill chain planner. Always respond with valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=2048,
+                temperature=0.3,
+                stream=False,
+            ),
         )
-        return response
+        return text
 
     def _parse_plan_response(self, text: str) -> DynamicPathPlan | None:
         """Extract and parse JSON plan from LLM response."""
