@@ -58,6 +58,7 @@ class LightBrainGateway:
         permission_skill: Any = None,
         tool_registry: Any = None,
         orchestrator_bridge: Any = None,
+        app_refinement_orchestrator: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -84,6 +85,7 @@ class LightBrainGateway:
 
         # G.1/G.2: Orchestrator bridge — new execution chain
         self._orchestrator_bridge = orchestrator_bridge
+        self._app_refinement_orchestrator = app_refinement_orchestrator
 
         # Phase F.4: Multi-turn state — track active skill per session
         self._active_skills: dict[str, dict[str, Any]] = {}
@@ -1157,6 +1159,7 @@ class LightBrainGateway:
     async def _handle_modify_app(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
+        # Phase 1: clarification needed
         if command.requires_clarification:
             return ChatMessageResponse(
                 type="text",
@@ -1165,18 +1168,122 @@ class LightBrainGateway:
                 actions=command.suggested_actions,
                 requires_input=True,
             )
+
+        # Phase 2: user confirmed the modification (via action button with confirmed=True)
+        params = command.parameters or {}
+        if params.get("confirmed"):
+            return await self._execute_modify_app(command, session_id, apps)
+
+        # Phase 1b: show confirmation dialog with proper action buttons
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
         display_name = self._resolve_display_name(target, "")
-        modification = command.parameters.get("modification", "未指定")
+        modification = params.get("modification", "未指定")
         return ChatMessageResponse(
             type="confirm",
-            content=f"将 **{display_name}** 修改为：{modification}\n\n确认吗？",
+            content=(
+                f"将 **{display_name}** 修改为：{modification}\n\n"
+                f"系统会为你生成新的 skill 并安装到 App 中，确认继续？"
+            ),
             session_id=session_id,
             related_app=display_name,
-            actions=command.suggested_actions,
+            actions=[
+                ActionSuggestion(
+                    id="confirm_modify",
+                    label="✅ 确认修改",
+                    action_type="confirm",
+                    payload={
+                        "intent": "modify_app",
+                        "target_app": target,
+                        "modification": modification,
+                        "confirmed": True,
+                    },
+                    style="primary",
+                ),
+                ActionSuggestion(
+                    id="cancel",
+                    label="❌ 取消",
+                    action_type="cancel",
+                    payload={"intent": "cancel"},
+                    style="ghost",
+                ),
+            ],
             requires_input=True,
         )
+
+    async def _execute_modify_app(
+        self, command: InterpretedCommand, session_id: str, apps: list[dict],
+    ) -> ChatMessageResponse:
+        """Execute the actual App modification via the refinement orchestrator."""
+        params = command.parameters or {}
+        target_input = params.get("target_app", command.target_app) or "未知 App"
+        target = self._resolve_instance_id(target_input)
+        display_name = self._resolve_display_name(target, "")
+        modification = params.get("modification", "未指定")
+        user_id = command.user_id or "web-user"
+
+        # Check if we have the refinement orchestrator
+        if not self._app_refinement_orchestrator:
+            return ChatMessageResponse(
+                type="text",
+                content=f"⚠️ App 修改功能尚未完全启用（refinement orchestrator 未注入）。\n\n你的需求已记录：**{display_name}** 需要 **{modification}**\n请在下次系统更新后重试。",
+                session_id=session_id,
+                related_app=display_name,
+            )
+
+        try:
+            # Build a refinement request that tells the orchestrator what to do
+            from app.models.app_refinement import SuggestedSkillRefinementClosureRequest
+            request = SuggestedSkillRefinementClosureRequest(
+                blueprint_id=target,
+                name=display_name,
+                goal=f"修改 {display_name}：{modification}",
+                user_id=user_id,
+                install=True,
+                run=False,
+                trigger="manual",
+                reviewer=user_id,
+                version="modified-1",
+                note=f"用户修改：{modification}",
+            )
+
+            result = self._app_refinement_orchestrator.refine_closure(request)
+
+            # Build success response
+            skill_names = [s.skill_id for s in result.created_skills] if result.created_skills else []
+            reused = result.reused_skill_ids or []
+
+            summary_parts = [f"✅ **{display_name}** 修改完成！"]
+            if skill_names:
+                summary_parts.append(f"🆕 新生成 skill：{', '.join(skill_names)}")
+            if reused:
+                summary_parts.append(f"♻️ 复用已有 skill：{', '.join(reused)}")
+            summary_parts.append(f"\n修改内容：{modification}")
+
+            if result.diagnostics:
+                warnings = [d.get("message", "未知问题") for d in result.diagnostics]
+                summary_parts.append(f"\n⚠️ 注意：{'；'.join(warnings)}")
+
+            return ChatMessageResponse(
+                type="text",
+                content="\n".join(summary_parts),
+                session_id=session_id,
+                related_app=display_name,
+                actions=[
+                    ActionSuggestion(
+                        id="list_apps", label="📱 查看 App", action_type="navigate",
+                        payload={"intent": "list_apps"}, style="secondary",
+                    ),
+                ],
+            )
+
+        except Exception as e:
+            return ChatMessageResponse(
+                type="text",
+                content=f"❌ 修改 **{display_name}** 时出错：{e}\n\n请重试或联系系统管理员。",
+                session_id=session_id,
+                related_app=display_name,
+            )
 
     async def _handle_delete_app(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],

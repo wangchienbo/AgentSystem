@@ -595,6 +595,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         permission_skill=permission_skill,
         tool_registry=tool_registry,
         orchestrator_bridge=g1g2_bridge,
+        app_refinement_orchestrator=app_refinement_orchestrator,
     )
 
     # Wire tool registry into interpreter for tool-aware LLM parsing
