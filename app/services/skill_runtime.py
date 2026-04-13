@@ -10,6 +10,16 @@ from app.services.schema_registry import SchemaRegistryError, SchemaRegistryServ
 from app.services.model_client import ModelClientError
 from app.services.telemetry_service import TelemetryService
 from app.services.executable_skill_adapter import ExecutableSkillAdapter, ExecutableSkillAdapterError
+from app.core.skill_invoker import (
+    InvocationContext,
+    SkillCycleError,
+    SkillDepthLimitError,
+    SkillInvoker,
+    SkillInvocationError,
+    create_invocation_context,
+    get_invoker_from_request,
+    get_context_from_request,
+)
 
 SkillHandler = Callable[[SkillExecutionRequest], SkillExecutionResult]
 
@@ -49,16 +59,21 @@ class SkillRuntimeService:
             raise SkillRuntimeError(f"Unsupported skill runtime adapter: {adapter_kind}")
         if adapter_kind == "callable" and request.skill_id not in self._handlers:
             raise SkillRuntimeError(f"Skill handler not found: {request.skill_id}")
+
+        # Phase F.10: Inject SkillInvoker for callable skills only
+        # Script/executable skills run in subprocess and can't use the invoker
+        enriched_request = self._enrich_invocation_context(request) if adapter_kind == "callable" else request
+
         try:
-            self._validate_request_contract(request, entry)
+            self._validate_request_contract(enriched_request, entry)
             if adapter_kind in {"script", "executable"}:
-                result = self._executable_adapter.execute(entry, request) if entry is not None else self._execute_script(request)
+                result = self._executable_adapter.execute(entry, enriched_request) if entry is not None else self._execute_script(enriched_request)
             else:
-                result = self._handlers[request.skill_id](request)
+                result = self._handlers[enriched_request.skill_id](enriched_request)
             self._validate_result_contract(result, entry)
         except SkillContractViolationError as error:
             result = SkillExecutionResult(
-                skill_id=request.skill_id,
+                skill_id=enriched_request.skill_id,
                 status="failed",
                 output={},
                 error=f"contract violation: {error}",
@@ -70,7 +85,7 @@ class SkillRuntimeService:
             )
         except ModelClientError as error:
             result = SkillExecutionResult(
-                skill_id=request.skill_id,
+                skill_id=enriched_request.skill_id,
                 status="failed",
                 output={},
                 error=str(error),
@@ -83,7 +98,7 @@ class SkillRuntimeService:
             )
         except ExecutableSkillAdapterError as error:
             result = SkillExecutionResult(
-                skill_id=request.skill_id,
+                skill_id=enriched_request.skill_id,
                 status="failed",
                 output={},
                 error=str(error),
@@ -95,9 +110,12 @@ class SkillRuntimeService:
                     **error.detail,
                 },
             )
+        except (SkillCycleError, SkillDepthLimitError):
+            # Invocation guard exceptions must propagate up the call chain
+            raise
         except Exception as error:  # noqa: BLE001
             result = SkillExecutionResult(
-                skill_id=request.skill_id,
+                skill_id=enriched_request.skill_id,
                 status="failed",
                 output={},
                 error=str(error),
@@ -107,23 +125,46 @@ class SkillRuntimeService:
                     "retryable": False,
                 },
             )
-        execution_key = f"{request.app_instance_id}:{request.workflow_id}:{request.step_id}:{request.skill_id}"
+        execution_key = f"{enriched_request.app_instance_id}:{enriched_request.workflow_id}:{enriched_request.step_id}:{enriched_request.skill_id}"
         self._executions[execution_key] = result
         self._persist()
         if self._telemetry_service is not None:
             self._telemetry_service.record_step(
                 StepTelemetryRecord(
-                    interaction_id=f"workflow:{request.app_instance_id}:{request.workflow_id}",
-                    step_id=request.step_id,
+                    interaction_id=f"workflow:{enriched_request.app_instance_id}:{enriched_request.workflow_id}",
+                    step_id=enriched_request.step_id,
                     step_type="skill",
-                    name=request.skill_id,
+                    name=enriched_request.skill_id,
                     success=result.status == "completed",
                     error_code=result.error_detail.get("kind") if result.error_detail else None,
                     payload_summary={"status": result.status},
                 ),
-                app_id=request.app_instance_id.split(":")[0] if request.app_instance_id else None,
+                app_id=enriched_request.app_instance_id.split(":")[0] if enriched_request.app_instance_id else None,
             )
         return result
+
+    def _enrich_invocation_context(self, request: SkillExecutionRequest) -> SkillExecutionRequest:
+        """Inject SkillInvoker into request.config for callable skills.
+
+        If the request already has an invoker (cross-skill call), pass it through.
+        If not (top-level call), create a fresh InvocationContext + invoker.
+        """
+        existing_invoker = get_invoker_from_request(request)
+        if existing_invoker is not None:
+            # Already part of a call chain — pass through as-is
+            return request
+
+        # Top-level call — create fresh context and invoker
+        ctx = create_invocation_context(request)
+        invoker = SkillInvoker(self.execute, ctx)
+        return SkillExecutionRequest(
+            skill_id=request.skill_id,
+            app_instance_id=request.app_instance_id,
+            workflow_id=request.workflow_id,
+            step_id=request.step_id,
+            inputs=request.inputs,
+            config={**request.config, "__invoker__": invoker, "__invocation_ctx__": ctx},
+        )
 
     def list_executions(self) -> list[SkillExecutionResult]:
         return list(self._executions.values())
