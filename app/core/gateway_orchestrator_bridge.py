@@ -25,6 +25,7 @@ from app.models.request_context import RequestContext
 from app.models.skill_meta import SkillMetaInfo
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.services.app_orchestrator import AppOrchestrator
+from app.services.dynamic_path_composer import DynamicPathComposer
 from app.services.log_center import LogCenter
 from app.services.path_store import PathStore
 from app.services.skill_meta_service import SkillMetaService
@@ -54,6 +55,7 @@ class GatewayOrchestratorBridge:
         meta_service: SkillMetaService | None = None,
         path_store: PathStore | None = None,
         universal_skill: Any = None,
+        dynamic_composer: DynamicPathComposer | None = None,
     ) -> None:
         self._bus = bus
         self._worker_manager = worker_manager
@@ -61,6 +63,7 @@ class GatewayOrchestratorBridge:
         self._meta_service = meta_service
         self._path_store = path_store or PathStore()
         self._universal_skill = universal_skill
+        self._dynamic_composer = dynamic_composer
         self._orchestrators: dict[str, AppOrchestrator] = {}
 
     # -- RequestContext injection ---------------------------------------------
@@ -93,6 +96,7 @@ class GatewayOrchestratorBridge:
                 bus=self._bus,
                 path_store=self._path_store,
                 universal_skill=self._universal_skill,
+                dynamic_composer=self._dynamic_composer,
             )
             await orch.init()
             self._orchestrators[app_instance_id] = orch

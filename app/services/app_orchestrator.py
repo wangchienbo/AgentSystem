@@ -17,6 +17,7 @@ from app.core.model_health import ModelHealthMonitor, ModelHealthStatus
 from app.core.skill_worker import SkillWorker
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.services.path_store import PathStore, PathTemplate
+from app.services.dynamic_path_composer import DynamicPathComposer
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +51,13 @@ class AppOrchestrator(SkillWorker):
         path_store: PathStore,
         model_health: ModelHealthMonitor | None = None,
         universal_skill: Any = None,
+        dynamic_composer: DynamicPathComposer | None = None,
     ) -> None:
         self._bus = bus
         self._path_store = path_store
         self._model_health = model_health
         self._universal_skill = universal_skill
+        self._dynamic_composer = dynamic_composer
         self._paths: dict[str, PathTemplate] = {}
         self._checkpoints: dict[str, dict] = {}
 
@@ -100,7 +103,22 @@ class AppOrchestrator(SkillWorker):
         # 1. Match path
         path = self._match_path(user_inputs)
         if not path:
-            # No path matched — try universal skill
+            # No pre-defined path matched — try dynamic composition
+            if self._dynamic_composer:
+                message = user_inputs.get("message", "")
+                dynamic_result = await self._dynamic_composer.compose_and_execute(
+                    message,
+                    session_id=session_id,
+                    user_id=request.user_id or "",
+                    config=request.config,
+                )
+                if dynamic_result and dynamic_result.status != "failed":
+                    logger.info(
+                        "Dynamic composition succeeded: %s",
+                        dynamic_result.output.get("result", "") if isinstance(dynamic_result.output, dict) else "",
+                    )
+                    return dynamic_result
+                # Dynamic composition failed or returned None — fall through
             return await self._invoke_universal(user_inputs)
 
         # 2. Model status check
@@ -319,6 +337,9 @@ class AppOrchestrator(SkillWorker):
                 "available_skills": available_skills,
             },
             config={},
+            app_instance_id="fallback",
+            workflow_id="universal_fallback",
+            step_id="universal",
         )
         return await self._universal_skill.process(request)
 

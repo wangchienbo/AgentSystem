@@ -533,12 +533,30 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     g1g2_path_store = PathStore(paths_dir=os.path.join(_project_root, "data", "paths"))
     # Pre-load path definitions from YAML files
     g1g2_path_store.load_all()
+    # -- Dynamic Path Composer --------------------------------------------------
+    from app.services.dynamic_path_composer import DynamicPathComposer
+    g1g2_dynamic_composer = DynamicPathComposer(
+        skill_meta_service=g1g2_meta_service,
+        message_bus=g1g2_bus,
+        model_router=model_router,
+        universal_skill=None,  # Orchestrator handles universal fallback
+    )
     g1g2_bridge = GatewayOrchestratorBridge(
         bus=g1g2_bus,
         worker_manager=g1g2_worker_manager,
         log_center=g1g2_log_center,
         meta_service=g1g2_meta_service,
         path_store=g1g2_path_store,
+        dynamic_composer=g1g2_dynamic_composer,
+    )
+
+    # -- Dynamic Path Composer (dynamic skill chain composition) ---------------
+    from app.services.dynamic_path_composer import DynamicPathComposer
+    g1g2_dynamic_composer = DynamicPathComposer(
+        skill_meta_service=g1g2_meta_service,
+        message_bus=g1g2_bus,
+        model_router=model_router,
+        universal_skill=None,  # Will be wired after universal skill is available
     )
     logger = logging.getLogger(__name__)
     logger.info(
