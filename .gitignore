@@ -12,3 +12,4 @@ data/test-*/
 !data/namespaces/generated_executable_skills/
 =*
 data/
+skills/
