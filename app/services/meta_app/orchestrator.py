@@ -40,7 +40,8 @@ class MetaAppCreationOrchestrator:
     1. Call meta_app_bootstrap (LLM) to design app control structure
     2. Create the suggested subordinate skills via skill_factory
     3. Build blueprint from the created skills
-    4. Optionally install the app
+    4. Create AppInstance and register with lifecycle + runtime_host
+    5. Register with app_registry
     """
 
     def __init__(
@@ -48,15 +49,21 @@ class MetaAppCreationOrchestrator:
         *,
         meta_app_bootstrap: MetaAppBootstrapService,
         skill_factory: SkillFactoryService,
+        lifecycle: Any = None,
+        runtime_host: Any = None,
+        app_registry: Any = None,
     ) -> None:
         self._meta_app = meta_app_bootstrap
         self._skill_factory = skill_factory
+        self._lifecycle = lifecycle
+        self._runtime_host = runtime_host
+        self._app_registry = app_registry
 
     def create_app_through_meta_app(
         self,
         request: AppCreationFromMetaAppRequest,
     ) -> AppCreationOrchestrationResult:
-        """Full flow: LLM design → skill creation → blueprint assembly."""
+        """Full flow: LLM design → skill creation → blueprint assembly → install."""
 
         # Step 1: LLM design layer — produce app control plan
         meta_request = MetaAppSkillRequest(
@@ -95,11 +102,45 @@ class MetaAppCreationOrchestrator:
                 error=f"Blueprint assembly failed: {exc}",
             )
 
+        # Step 4: Create AppInstance and register with lifecycle + runtime_host
+        installed_app: AppInstance | None = None
+        if blueprint and self._lifecycle:
+            try:
+                instance_id = control_plan.app_slug or request.app_name
+                instance = AppInstance(
+                    id=instance_id,
+                    blueprint_id=blueprint.id,
+                    owner_user_id=request.user_id or "system",
+                    status="installed",
+                    data_namespace=f"app_{instance_id}",
+                    execution_mode="service" if request.app_kind == "service" else "pipeline",
+                    system_skills=created_skill_ids,
+                    resolved_skills=created_skill_ids,
+                )
+                # Register with lifecycle (sets status to installed)
+                self._lifecycle.register_instance(instance)
+                # Register with runtime_host (creates lease)
+                if self._runtime_host:
+                    self._runtime_host.register_instance(instance)
+                # Register with app_registry
+                if self._app_registry:
+                    self._app_registry.register_blueprint(blueprint, description=f"Auto-created: {request.app_name}")
+                installed_app = instance
+            except Exception as exc:
+                return AppCreationOrchestrationResult(
+                    app_name=request.app_name,
+                    control_plan=control_plan,
+                    blueprint=blueprint,
+                    created_skill_ids=created_skill_ids,
+                    error=f"Instance registration failed: {exc}",
+                )
+
         return AppCreationOrchestrationResult(
             app_name=request.app_name,
             control_plan=control_plan,
             blueprint=blueprint,
             created_skill_ids=created_skill_ids,
+            installed_app=installed_app,
         )
 
     def _create_subordinate_skills(

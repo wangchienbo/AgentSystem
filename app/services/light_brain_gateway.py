@@ -271,7 +271,9 @@ class LightBrainGateway:
             )
 
         if intent == "delete_app" and params.get("confirmed"):
-            target = params.get("target", session.last_command.target_app if session.last_command else "未知")
+            target_input = params.get("target", session.last_command.target_app if session.last_command else "未知")
+            target = self._resolve_instance_id(target_input)
+            display_name = self._resolve_display_name(target, "")
             try:
                 if self._lifecycle:
                     self._lifecycle.get_instance(target)  # Check exists
@@ -283,24 +285,26 @@ class LightBrainGateway:
                         pass
                 reply = ChatMessageResponse(
                     type="card",
-                    content=f"🗑️ **{target}** 已删除。",
+                    content=f"🗑️ **{display_name}** 已删除。",
                     session_id=session_id,
                 )
                 self._memory.record_reply(session_id, reply)
                 return reply
             except Exception as exc:
-                return self._error_reply(session_id, f"删除 **{target}** 失败: {exc}")
+                return self._error_reply(session_id, f"删除 **{display_name}** 失败: {exc}")
 
         if intent == "start_app" and params.get("confirmed"):
-            target = params.get("target", "")
+            target_input = params.get("target", "")
+            target = self._resolve_instance_id(target_input)
+            display_name = self._resolve_display_name(target, "")
             if self._runtime_host:
                 try:
                     self._runtime_host.start(target, reason="user_command")
                     reply = ChatMessageResponse(
                         type="card",
-                        content=f"✅ **{target}** 已启动。",
+                        content=f"✅ **{display_name}** 已启动。",
                         session_id=session_id,
-                        related_app=target,
+                        related_app=display_name,
                     )
                     self._memory.record_reply(session_id, reply)
                     return reply
@@ -308,15 +312,17 @@ class LightBrainGateway:
                     return self._error_reply(session_id, f"启动失败: {exc}")
 
         if intent == "stop_app" and params.get("confirmed"):
-            target = params.get("target", "")
+            target_input = params.get("target", "")
+            target = self._resolve_instance_id(target_input)
+            display_name = self._resolve_display_name(target, "")
             if self._runtime_host:
                 try:
                     self._runtime_host.stop(target, reason="user_command")
                     reply = ChatMessageResponse(
                         type="card",
-                        content=f"⏹ **{target}** 已停止。",
+                        content=f"⏹ **{display_name}** 已停止。",
                         session_id=session_id,
-                        related_app=target,
+                        related_app=display_name,
                     )
                     self._memory.record_reply(session_id, reply)
                     return reply
@@ -864,9 +870,24 @@ class LightBrainGateway:
                         content=f"创建 App 失败: {result.error}",
                         session_id=session_id,
                     )
-                app_id = result.installed_app.instance_id if result.installed_app else app_name
-                if hasattr(result, 'control_plan') and result.control_plan:
+                app_id = ""
+                if result.installed_app:
+                    app_id = result.installed_app.id
+                elif hasattr(result, 'control_plan') and result.control_plan:
                     app_id = result.control_plan.app_slug
+                if not app_id:
+                    app_id = app_name
+                # Persist state so the app survives server restarts
+                if self._persistence:
+                    try:
+                        self._persistence.save_state(
+                            lifecycle=self._lifecycle,
+                            runtime_host=self._runtime_host,
+                            registry=self._app_registry,
+                            catalog=self._catalog,
+                        )
+                    except Exception:
+                        pass  # Best-effort persistence
                 return ChatMessageResponse(
                     type="card",
                     content=f"✅ App 创建成功！\n\n"
@@ -936,42 +957,44 @@ class LightBrainGateway:
                 requires_input=True,
             )
 
-        target = command.target_app or "未知 App"
+        target_input = command.target_app or "未知 App"
+        target = self._resolve_instance_id(target_input)
         
         # Try to actually start the app
         if self._runtime_host:
             try:
                 self._runtime_host.start(target, reason="user_command")
+                display_name = self._resolve_display_name(target, "")
                 return ChatMessageResponse(
                     type="card",
-                    content=f"✅ **{target}** 已启动。",
+                    content=f"✅ **{display_name}** 已启动。",
                     session_id=session_id,
-                    related_app=target,
+                    related_app=display_name,
                     actions=[
                         ActionSuggestion(
                             id="stop", label="⏹ 停止", action_type="execute",
-                            payload={"intent": "stop_app", "target": target}, style="danger",
+                            payload={"intent": "stop_app", "target": display_name}, style="danger",
                         ),
                         ActionSuggestion(
                             id="status", label="📊 状态", action_type="execute",
-                            payload={"intent": "query_app", "target": target}, style="secondary",
+                            payload={"intent": "query_app", "target": display_name}, style="secondary",
                         ),
                     ],
                 )
             except Exception as exc:
                 return ChatMessageResponse(
                     type="error",
-                    content=f"启动 **{target}** 失败: {exc}",
+                    content=f"启动 **{target_input}** 失败: {exc}",
                     session_id=session_id,
-                    related_app=target,
+                    related_app=target_input,
                 )
         
         # Fallback
         return ChatMessageResponse(
             type="confirm",
-            content=f"确定要启动 **{target}** 吗？",
+            content=f"确定要启动 **{target_input}** 吗？",
             session_id=session_id,
-            related_app=target,
+            related_app=target_input,
             actions=command.suggested_actions,
             requires_input=True,
         )
@@ -988,38 +1011,40 @@ class LightBrainGateway:
                 requires_input=True,
             )
 
-        target = command.target_app or "未知 App"
+        target_input = command.target_app or "未知 App"
+        target = self._resolve_instance_id(target_input)
         
         # Try to actually stop the app
         if self._runtime_host:
             try:
                 self._runtime_host.stop(target, reason="user_command")
+                display_name = self._resolve_display_name(target, "")
                 return ChatMessageResponse(
                     type="card",
-                    content=f"⏹ **{target}** 已停止。",
+                    content=f"⏹ **{display_name}** 已停止。",
                     session_id=session_id,
-                    related_app=target,
+                    related_app=display_name,
                     actions=[
                         ActionSuggestion(
                             id="start", label="▶️ 启动", action_type="execute",
-                            payload={"intent": "start_app", "target": target}, style="primary",
+                            payload={"intent": "start_app", "target": display_name}, style="primary",
                         ),
                     ],
                 )
             except Exception as exc:
                 return ChatMessageResponse(
                     type="error",
-                    content=f"停止 **{target}** 失败: {exc}",
+                    content=f"停止 **{target_input}** 失败: {exc}",
                     session_id=session_id,
-                    related_app=target,
+                    related_app=target_input,
                 )
         
         # Fallback
         return ChatMessageResponse(
             type="confirm",
-            content=f"确定要停止 **{target}** 吗？",
+            content=f"确定要停止 **{target_input}** 吗？",
             session_id=session_id,
-            related_app=target,
+            related_app=target_input,
             actions=command.suggested_actions,
             requires_input=True,
         )
@@ -1035,14 +1060,16 @@ class LightBrainGateway:
                 actions=command.suggested_actions,
                 requires_input=True,
             )
-        target = command.target_app or "未知 App"
+        target_input = command.target_app or "未知 App"
+        target = self._resolve_instance_id(target_input)
+        display_name = self._resolve_display_name(target, "")
         return ChatMessageResponse(
             type="text",
-            content=f"⏸ 正在暂停 **{target}**...",
+            content=f"⏸ 正在暂停 **{display_name}**...",
             session_id=session_id,
-            related_app=target,
+            related_app=display_name,
             actions=[
-                ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": target}, style="primary"),
+                ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
             ],
         )
 
@@ -1057,12 +1084,14 @@ class LightBrainGateway:
                 actions=command.suggested_actions,
                 requires_input=True,
             )
-        target = command.target_app or "未知 App"
+        target_input = command.target_app or "未知 App"
+        target = self._resolve_instance_id(target_input)
+        display_name = self._resolve_display_name(target, "")
         return ChatMessageResponse(
             type="text",
-            content=f"▶️ 正在恢复 **{target}**...",
+            content=f"▶️ 正在恢复 **{display_name}**...",
             session_id=session_id,
-            related_app=target,
+            related_app=display_name,
         )
 
     async def _handle_query_app(
@@ -1077,11 +1106,13 @@ class LightBrainGateway:
                 requires_input=True,
             )
 
-        target = command.target_app or "未知 App"
+        target_input = command.target_app or "未知 App"
+        target = self._resolve_instance_id(target_input)
+        display_name = self._resolve_display_name(target, "")
         # Try to find the app in available apps
         found = None
         for app in apps:
-            if app.get("name") == target or app.get("app_id") == target:
+            if app.get("name") == display_name or app.get("app_id") == target:
                 found = app
                 break
 
@@ -1094,7 +1125,7 @@ class LightBrainGateway:
             runtime_status = ""
             if self._lifecycle:
                 try:
-                    instance = self._lifecycle.get_instance(app_id or target)
+                    instance = self._lifecycle.get_instance(target)
                     runtime_status = f"\n运行状态: {getattr(instance, 'status', 'unknown')}"
                 except Exception:
                     pass
@@ -1105,18 +1136,18 @@ class LightBrainGateway:
             
             return ChatMessageResponse(
                 type="card",
-                content=f"📋 {target}\n\n{detail}",
+                content=f"📋 {display_name}\n\n{detail}",
                 session_id=session_id,
-                related_app=target,
+                related_app=display_name,
                 actions=[
-                    ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": target}, style="primary"),
-                    ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": target}, style="danger"),
+                    ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
+                    ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
                 ],
             )
 
         return ChatMessageResponse(
             type="text",
-            content=f"没有找到名为 **{target}** 的 App。",
+            content=f"没有找到名为 **{target_input}** 的 App。",
             session_id=session_id,
             actions=[
                 ActionSuggestion(id="list_apps", label="📱 查看所有 App", action_type="navigate", payload={"intent": "list_apps"}, style="primary"),
@@ -1134,13 +1165,15 @@ class LightBrainGateway:
                 actions=command.suggested_actions,
                 requires_input=True,
             )
-        target = command.target_app or "未知 App"
+        target_input = command.target_app or "未知 App"
+        target = self._resolve_instance_id(target_input)
+        display_name = self._resolve_display_name(target, "")
         modification = command.parameters.get("modification", "未指定")
         return ChatMessageResponse(
             type="confirm",
-            content=f"将 **{target}** 修改为：{modification}\n\n确认吗？",
+            content=f"将 **{display_name}** 修改为：{modification}\n\n确认吗？",
             session_id=session_id,
-            related_app=target,
+            related_app=display_name,
             actions=command.suggested_actions,
             requires_input=True,
         )
@@ -1156,13 +1189,15 @@ class LightBrainGateway:
                 actions=command.suggested_actions,
                 requires_input=True,
             )
-        target = command.target_app or "未知 App"
+        target_input = command.target_app or "未知 App"
+        target = self._resolve_instance_id(target_input)
+        display_name = self._resolve_display_name(target, "")
         # Add confirm action that triggers actual deletion
         return ChatMessageResponse(
             type="confirm",
-            content=f"⚠️ 确定要删除 **{target}** 吗？此操作不可恢复！",
+            content=f"⚠️ 确定要删除 **{display_name}** 吗？此操作不可恢复！",
             session_id=session_id,
-            related_app=target,
+            related_app=display_name,
             actions=[
                 ActionSuggestion(id="confirm_delete", label="🗑️ 确认删除", action_type="confirm", payload={"intent": "delete_app", "target": target, "confirmed": True}, style="danger"),
                 ActionSuggestion(id="cancel", label="❌ 取消", action_type="cancel", payload={"intent": "cancel"}, style="ghost"),
@@ -1220,37 +1255,127 @@ class LightBrainGateway:
     # -- helpers -------------------------------------------------------------
 
     async def _get_available_apps(self) -> list[dict[str, Any]]:
-        """Fetch app list from registry/catalog if available."""
+        """Fetch app list from lifecycle (primary source) + catalog/registry (supplemental)."""
         apps: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        # Primary: lifecycle instances (source of truth for runtime state)
+        if self._lifecycle and hasattr(self._lifecycle, "list_instances"):
+            try:
+                for inst in self._lifecycle.list_instances():
+                    app_id = getattr(inst, "id", "")
+                    if app_id in seen_ids:
+                        continue
+                    seen_ids.add(app_id)
+                    name = self._resolve_display_name(app_id, getattr(inst, "blueprint_id", ""))
+                    apps.append({
+                        "app_id": app_id,
+                        "name": name,
+                        "description": "",
+                        "status": getattr(inst, "status", "unknown"),
+                        "blueprint_id": getattr(inst, "blueprint_id", ""),
+                        "owner_user_id": getattr(inst, "owner_user_id", ""),
+                    })
+            except Exception:
+                pass
+
+        # Supplemental: catalog entries (pre-installed system apps)
         if self._catalog:
             try:
                 entries = self._catalog.list_apps()
                 for entry in entries:
+                    app_id = getattr(entry, "app_id", "")
+                    if app_id in seen_ids:
+                        continue
+                    seen_ids.add(app_id)
                     apps.append({
-                        "app_id": getattr(entry, "app_id", ""),
-                        "name": getattr(entry, "name", ""),
+                        "app_id": app_id,
+                        "name": getattr(entry, "name", app_id),
                         "description": getattr(entry, "description", ""),
                         "status": "installed",
                     })
             except Exception:
                 pass
 
+        # Supplemental: registry entries (blueprints without instances yet)
         if self._app_registry and hasattr(self._app_registry, "list_entries"):
             try:
                 entries = self._app_registry.list_entries()
                 for entry in entries:
                     name = getattr(entry, "app_id", str(entry))
-                    if not any(a["name"] == name for a in apps):
-                        apps.append({
-                            "app_id": name,
-                            "name": name,
-                            "description": "",
-                            "status": "draft",
-                        })
+                    if name in seen_ids:
+                        continue
+                    seen_ids.add(name)
+                    apps.append({
+                        "app_id": name,
+                        "name": name,
+                        "description": "",
+                        "status": "draft",
+                    })
             except Exception:
                 pass
 
         return apps
+
+    def _resolve_instance_id(self, user_input: str) -> str:
+        """Resolve a user-provided app name to the actual instance ID.
+
+        Handles cases where the user says 'translator_app' but the instance
+        ID is 'translator-app', or vice versa.
+        """
+        if not self._lifecycle or not hasattr(self._lifecycle, "list_instances"):
+            return user_input
+
+        # Direct match
+        try:
+            self._lifecycle.get_instance(user_input)
+            return user_input
+        except Exception:
+            pass
+
+        # Normalize: try replacing _ with - and vice versa
+        normalized = user_input.replace("_", "-")
+        if normalized != user_input:
+            try:
+                self._lifecycle.get_instance(normalized)
+                return normalized
+            except Exception:
+                pass
+
+        normalized2 = user_input.replace("-", "_")
+        if normalized2 != user_input:
+            try:
+                self._lifecycle.get_instance(normalized2)
+                return normalized2
+            except Exception:
+                pass
+
+        # Fuzzy: check if any instance ID contains the user input (minus common suffixes)
+        try:
+            for inst in self._lifecycle.list_instances():
+                inst_id = getattr(inst, "id", "")
+                if user_input.lower() in inst_id.lower() or inst_id.lower() in user_input.lower():
+                    return inst_id
+        except Exception:
+            pass
+
+        return user_input
+
+    @staticmethod
+    def _resolve_display_name(instance_id: str, blueprint_id: str) -> str:
+        """Derive a user-friendly display name from an instance ID."""
+        name = instance_id
+        # Handle colon-separated suffixes (e.g., "bp.usable.alpha:usable-alpha-user")
+        if ":" in name:
+            name = name.split(":")[0]
+        # Strip common prefixes
+        for prefix in ("bp.", "app.", "bp-"):
+            if name.startswith(prefix):
+                name = name[len(prefix):]
+                break
+        # Convert hyphens to underscores for user-friendly display
+        name = name.replace("-", "_")
+        return name
 
     def _error_reply(self, session_id: str, message: str) -> ChatMessageResponse:
         return ChatMessageResponse(

@@ -489,6 +489,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     meta_app_orchestrator = MetaAppCreationOrchestrator(
         meta_app_bootstrap=meta_app_bootstrap,
         skill_factory=skill_factory,
+        lifecycle=lifecycle,
+        runtime_host=runtime_host,
+        app_registry=app_registry,
     )
 
     # Phase F.3: App Designer (Path B) — LLM-driven app creation with skill composition
