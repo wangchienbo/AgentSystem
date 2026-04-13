@@ -14,6 +14,10 @@ class SkillExecutionRequest(BaseModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
     config: dict[str, Any] = Field(default_factory=dict)
 
+    # Phase G.2: Identity tracing
+    action: str = Field(default="execute", description="Skill action to invoke")
+    user_id: str = Field(default="", description="发起请求的用户")
+
 
 class SkillExecutionResult(BaseModel):
     skill_id: str = Field(..., min_length=1)
@@ -22,3 +26,7 @@ class SkillExecutionResult(BaseModel):
     error: str = ""
     error_detail: dict[str, Any] = Field(default_factory=dict)
     executed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    # Phase G.2: Tracing and performance
+    trace_id: str = Field(default="", description="全链路追踪 ID")
+    duration_ms: float = Field(default=0.0, description="执行耗时(毫秒)")
