@@ -847,17 +847,26 @@ class LightBrainGateway:
         # If orchestrator available, actually create the app
         if self._meta_app_orchestrator:
             try:
-                from app.models.meta_app_skill import MetaAppSkillRequest
-                request = MetaAppSkillRequest(
+                from app.models.app_meta_app import AppCreationFromMetaAppRequest
+                request = AppCreationFromMetaAppRequest(
                     app_name=app_name,
-                    app_type=app_type,
-                    schedule_type=command.parameters.get("schedule_type"),
-                    schedule_interval=command.parameters.get("schedule_interval"),
-                    schedule_cron=command.parameters.get("schedule_cron"),
-                    threshold=command.parameters.get("threshold"),
+                    goal=f"创建一个{app_type}类型的 App：{app_name}",
+                    app_kind="service",
+                    complexity="moderate",
+                    scope={"app_type": app_type},
+                    context=f"用户请求创建一个{app_type}应用",
                 )
                 result = self._meta_app_orchestrator.create_app_through_meta_app(request)
-                app_id = result.get("app_instance_id", result.get("app_id", app_name))
+                # Handle both dict and object results
+                if hasattr(result, 'error') and result.error:
+                    return ChatMessageResponse(
+                        type="error",
+                        content=f"创建 App 失败: {result.error}",
+                        session_id=session_id,
+                    )
+                app_id = result.installed_app.instance_id if result.installed_app else app_name
+                if hasattr(result, 'control_plan') and result.control_plan:
+                    app_id = result.control_plan.app_slug
                 return ChatMessageResponse(
                     type="card",
                     content=f"✅ App 创建成功！\n\n"

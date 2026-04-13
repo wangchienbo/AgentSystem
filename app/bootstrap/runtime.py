@@ -524,7 +524,12 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     g1g2_worker_manager = WorkerManager(message_bus=g1g2_bus)
     g1g2_log_center = LogCenter()
     g1g2_meta_service = SkillMetaService()
-    g1g2_path_store = PathStore()
+    # Use absolute path for PathStore so it finds YAML definitions reliably
+    # __file__ = app/bootstrap/runtime.py, go up 3 levels to get AgentSystem project root
+    _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    g1g2_path_store = PathStore(paths_dir=os.path.join(_project_root, "data", "paths"))
+    # Pre-load path definitions from YAML files
+    g1g2_path_store.load_all()
     g1g2_bridge = GatewayOrchestratorBridge(
         bus=g1g2_bus,
         worker_manager=g1g2_worker_manager,

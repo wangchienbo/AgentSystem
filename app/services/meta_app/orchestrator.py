@@ -144,6 +144,7 @@ class MetaAppCreationOrchestrator:
                 description=f"Subordinate skill for {app_name}: {suggestion.responsibility}",
                 adapter_kind="script",
                 handler_entry=handler_path,
+                command=["python", handler_path],
                 tags=[control_plan.app_slug, suggestion.priority, "generated-by-meta-app"],
                 schemas=SkillSchemaDefinition(
                     input={"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
