@@ -680,6 +680,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
 
     # Wire tool registry and system catalog into interpreter for tool-aware LLM parsing
     light_brain_interpreter.set_tool_registry(tool_registry)
+    light_brain_interpreter.set_llm_responder(llm_responder)
+    if system_catalog is not None:
+        light_brain_interpreter._system_catalog = system_catalog
     # Wire LLM to workflow after gateway is created
     interactive_app_workflow._llm = llm_responder
 
