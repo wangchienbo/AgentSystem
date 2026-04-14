@@ -63,6 +63,10 @@ class LightBrainGateway:
         system_catalog: Any = None,
         asset_tool_executor: Any = None,
         user_service: Any = None,
+        # G.1/G.2: MessageBus for RPC
+        message_bus: Any = None,
+        # Phase I: Config Center for default app-skill binding
+        config_center: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -95,6 +99,12 @@ class LightBrainGateway:
         self._system_catalog = system_catalog
         self._asset_tool_executor = asset_tool_executor
         self._user_service = user_service
+
+        # G.1/G.2: MessageBus for RPC-based service calls
+        self._bus = message_bus  # MessageBus instance (set by runtime)
+
+        # Phase I: Config Center for default app-skill binding
+        self._config_center = config_center
 
         # Phase F.4: Multi-turn state — track active skill per session
         self._active_skills: dict[str, dict[str, Any]] = {}
@@ -818,6 +828,57 @@ class LightBrainGateway:
         if command.target_app:
             target = self._resolve_instance_id(command.target_app)
             display_name = self._resolve_display_name(target, command.target_app)
+
+            # Try RPC first
+            if self._bus:
+                try:
+                    from app.models.skill_runtime import SkillExecutionRequest
+                    result = await self._bus.rpc(
+                        "system.app_registry",
+                        SkillExecutionRequest(
+                            skill_id="system.app_registry",
+                            action="get",
+                            inputs={"app_id": target},
+                            config={},
+                        ),
+                        timeout=5,
+                    )
+                    if result and getattr(result, "status", None) == "completed":
+                        output = result.output
+                        if output.get("found") and output.get("status"):
+                            status = output["status"]
+                            status_icons = {"running": "🟢", "paused": "🟡", "stopped": "🔴", "installed": "🔵", "error": "⛔"}
+                            icon = status_icons.get(status, "⚪")
+                            status_labels = {"running": "运行中", "paused": "已暂停", "stopped": "已停止", "installed": "已安装", "error": "故障"}
+                            label = status_labels.get(status, status)
+                            actions = []
+                            if status == "running":
+                                actions = [
+                                    ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
+                                    ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": display_name}, style="secondary"),
+                                ]
+                            elif status in ("stopped", "installed"):
+                                actions = [
+                                    ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
+                                ]
+                            elif status == "paused":
+                                actions = [
+                                    ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
+                                ]
+                            return ChatMessageResponse(
+                                type="card",
+                                content=f"{icon} **{display_name}**\n\n状态: {label}",
+                                session_id=session_id,
+                                related_app=display_name,
+                                actions=actions,
+                            )
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "AppRegistry RPC query failed, falling back to direct: %s", e,
+                    )
+
+            # Fallback: direct lookup
             found = None
             for app in apps:
                 if app.get("name") == display_name or app.get("app_id") == target:
@@ -931,6 +992,80 @@ class LightBrainGateway:
         if command.parameters.get("threshold"):
             threshold_info = f"\n告警阈值: {command.parameters['threshold']}%"
 
+        # Try RPC first
+        if self._bus:
+            try:
+                from app.models.skill_runtime import SkillExecutionRequest
+                user_id = command.user_id or ""
+                result = await self._bus.rpc(
+                    "system.meta_app",
+                    SkillExecutionRequest(
+                        skill_id="system.meta_app",
+                        action="create_app",
+                        inputs={
+                            "app_name": app_name,
+                            "app_goal": f"创建一个{app_type}类型的 App：{app_name}",
+                            "app_type": app_type,
+                            "complexity": "moderate",
+                            "user_id": user_id,
+                            "features": [],
+                            "constraints": [],
+                        },
+                        config={"session_id": session_id},
+                    ),
+                    timeout=60,
+                )
+                if result and getattr(result, "status", None) == "completed":
+                    output = result.output
+                    app_id = output.get("app_id", app_name)
+                    new_skill_ids = output.get("created_skill_ids", [])
+
+                    # -- Config Center: auto-bind app-skill defaults --
+                    if self._config_center and new_skill_ids:
+                        try:
+                            for sid in new_skill_ids:
+                                resolved = self._config_center.resolve_model_preference(app_id, sid)
+                        except Exception:
+                            pass
+
+                    # Persist state
+                    if self._persistence:
+                        try:
+                            self._persistence.save_state(
+                                lifecycle=self._lifecycle,
+                                runtime_host=self._runtime_host,
+                                registry=self._app_registry,
+                                catalog=self._catalog,
+                            )
+                        except Exception:
+                            pass
+                    return ChatMessageResponse(
+                        type="card",
+                        content=f"✅ App 创建成功！\n\n"
+                                f"名称: {app_name}\n"
+                                f"类型: {app_type}\n"
+                                f"ID: {app_id}\n"
+                                f"{schedule_info}{threshold_info}",
+                        session_id=session_id,
+                        related_app=app_name,
+                        actions=[
+                            ActionSuggestion(
+                                id="start_app", label="▶️ 启动", action_type="execute",
+                                payload={"intent": "start_app", "target": app_name}, style="primary",
+                            ),
+                            ActionSuggestion(
+                                id="list_apps", label="📱 查看列表", action_type="navigate",
+                                payload={"intent": "list_apps"}, style="secondary",
+                            ),
+                        ],
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "MetaApp RPC create failed, falling back to direct: %s", e,
+                )
+
+        # Fallback: direct call
         # If orchestrator available, actually create the app
         if self._meta_app_orchestrator:
             try:
@@ -978,6 +1113,21 @@ class LightBrainGateway:
                     app_id = result.control_plan.app_slug
                 if not app_id:
                     app_id = app_name
+
+                # -- Config Center: auto-bind app-skill defaults from config center --
+                if self._config_center and new_skill_ids:
+                    try:
+                        for sid in new_skill_ids:
+                            # Resolve default model_preference from config center
+                            resolved = self._config_center.resolve_model_preference(app_id, sid)
+                            if resolved and resolved != "strong":  # only log if not default
+                                import logging
+                                logging.getLogger(__name__).debug(
+                                    "Auto-bind config for app=%s skill=%s -> %s", app_id, sid, resolved,
+                                )
+                    except Exception:
+                        pass  # Best-effort config binding
+
                 # Persist state so the app survives server restarts
                 if self._persistence:
                     try:
@@ -1060,8 +1210,42 @@ class LightBrainGateway:
 
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
-        
-        # Try to actually start the app
+
+        # Try RPC first
+        if self._bus:
+            try:
+                from app.models.skill_runtime import SkillExecutionRequest
+                result = await self._bus.rpc(
+                    "system.lifecycle",
+                    SkillExecutionRequest(
+                        skill_id="system.lifecycle",
+                        action="start",
+                        inputs={"app_id": target, "reason": "user_command"},
+                        config={"session_id": session_id},
+                    ),
+                    timeout=10,
+                )
+                if result and getattr(result, "status", None) == "completed":
+                    display_name = self._resolve_display_name(target, "")
+                    return ChatMessageResponse(
+                        type="card",
+                        content=f"✅ **{display_name}** 已启动。",
+                        session_id=session_id,
+                        related_app=display_name,
+                        actions=[
+                            ActionSuggestion(label="查看状态", text=f"看看 {display_name} 的状态"),
+                            ActionSuggestion(label="暂停", text=f"暂停 {display_name}"),
+                            ActionSuggestion(label="停止", text=f"停止 {display_name}"),
+                        ],
+                        requires_input=False,
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Lifecycle RPC start failed, falling back to direct: %s", e,
+                )
+
+        # Fallback: direct call
         if self._runtime_host:
             try:
                 self._runtime_host.start(target, reason="user_command")
@@ -1130,8 +1314,42 @@ class LightBrainGateway:
 
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
-        
-        # Try to actually stop the app
+
+        # Try RPC first
+        if self._bus:
+            try:
+                from app.models.skill_runtime import SkillExecutionRequest
+                result = await self._bus.rpc(
+                    "system.lifecycle",
+                    SkillExecutionRequest(
+                        skill_id="system.lifecycle",
+                        action="stop",
+                        inputs={"app_id": target, "reason": "user_command"},
+                        config={"session_id": session_id},
+                    ),
+                    timeout=10,
+                )
+                if result and getattr(result, "status", None) == "completed":
+                    display_name = self._resolve_display_name(target, "")
+                    return ChatMessageResponse(
+                        type="card",
+                        content=f"⏹ **{display_name}** 已停止。",
+                        session_id=session_id,
+                        related_app=display_name,
+                        actions=[
+                            ActionSuggestion(
+                                id="start", label="▶️ 启动", action_type="execute",
+                                payload={"intent": "start_app", "target": display_name}, style="primary",
+                            ),
+                        ],
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Lifecycle RPC stop failed, falling back to direct: %s", e,
+                )
+
+        # Fallback: direct call
         if self._runtime_host:
             try:
                 self._runtime_host.stop(target, reason="user_command")
@@ -1196,6 +1414,60 @@ class LightBrainGateway:
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
         display_name = self._resolve_display_name(target, "")
+
+        # Try RPC first
+        if self._bus:
+            try:
+                from app.models.skill_runtime import SkillExecutionRequest
+                # First get instance status
+                status_result = await self._bus.rpc(
+                    "system.lifecycle",
+                    SkillExecutionRequest(
+                        skill_id="system.lifecycle",
+                        action="get_instance",
+                        inputs={"app_id": target},
+                        config={},
+                    ),
+                    timeout=5,
+                )
+                if status_result and getattr(status_result, "status", None) == "completed":
+                    current_status = status_result.output.get("status", "unknown")
+                    if current_status == "paused":
+                        return ChatMessageResponse(
+                            type="text",
+                            content=f"**{display_name}** 已经处于暂停状态。",
+                            session_id=session_id,
+                            related_app=display_name,
+                        )
+                # Pause
+                result = await self._bus.rpc(
+                    "system.lifecycle",
+                    SkillExecutionRequest(
+                        skill_id="system.lifecycle",
+                        action="pause",
+                        inputs={"app_id": target, "reason": "user_command"},
+                        config={"session_id": session_id},
+                    ),
+                    timeout=10,
+                )
+                if result and getattr(result, "status", None) == "completed":
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"⏸ **{display_name}** 已暂停。",
+                        session_id=session_id,
+                        related_app=display_name,
+                        actions=[
+                            ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
+                            ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="secondary"),
+                        ],
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Lifecycle RPC pause failed, falling back to direct: %s", e,
+                )
+
+        # Fallback: direct call
         # Try to actually pause the app
         if self._lifecycle:
             try:
@@ -1253,6 +1525,67 @@ class LightBrainGateway:
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
         display_name = self._resolve_display_name(target, "")
+
+        # Try RPC first
+        if self._bus:
+            try:
+                from app.models.skill_runtime import SkillExecutionRequest
+                # First get instance status
+                status_result = await self._bus.rpc(
+                    "system.lifecycle",
+                    SkillExecutionRequest(
+                        skill_id="system.lifecycle",
+                        action="get_instance",
+                        inputs={"app_id": target},
+                        config={},
+                    ),
+                    timeout=5,
+                )
+                if status_result and getattr(status_result, "status", None) == "completed":
+                    current_status = status_result.output.get("status", "unknown")
+                    if current_status == "running":
+                        return ChatMessageResponse(
+                            type="text",
+                            content=f"**{display_name}** 已经在运行中。",
+                            session_id=session_id,
+                            related_app=display_name,
+                        )
+                    if current_status != "paused":
+                        return ChatMessageResponse(
+                            type="text",
+                            content=f"**{display_name}** 当前处于{current_status}状态，请先暂停后再恢复。",
+                            session_id=session_id,
+                            related_app=display_name,
+                        )
+                # Resume
+                result = await self._bus.rpc(
+                    "system.lifecycle",
+                    SkillExecutionRequest(
+                        skill_id="system.lifecycle",
+                        action="resume",
+                        inputs={"app_id": target, "reason": "user_command"},
+                        config={"session_id": session_id},
+                    ),
+                    timeout=10,
+                )
+                if result and getattr(result, "status", None) == "completed":
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"▶️ **{display_name}** 已恢复运行。",
+                        session_id=session_id,
+                        related_app=display_name,
+                        actions=[
+                            ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": display_name}, style="secondary"),
+                            ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
+                        ],
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Lifecycle RPC resume failed, falling back to direct: %s", e,
+                )
+
+        # Fallback: direct call
         # Try to actually resume the app
         if self._lifecycle:
             try:
@@ -1302,6 +1635,63 @@ class LightBrainGateway:
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
         display_name = self._resolve_display_name(target, "")
+
+        # Try RPC first
+        if self._bus:
+            try:
+                from app.models.skill_runtime import SkillExecutionRequest
+                result = await self._bus.rpc(
+                    "system.app_registry",
+                    SkillExecutionRequest(
+                        skill_id="system.app_registry",
+                        action="get",
+                        inputs={"app_id": target},
+                        config={},
+                    ),
+                    timeout=5,
+                )
+                if result and getattr(result, "status", None) == "completed":
+                    output = result.output
+                    if output.get("found"):
+                        status = output.get("status", "unknown")
+                        runtime_status = ""
+                        # Also get lifecycle status
+                        if self._bus:
+                            try:
+                                lc_result = await self._bus.rpc(
+                                    "system.lifecycle",
+                                    SkillExecutionRequest(
+                                        skill_id="system.lifecycle",
+                                        action="get_instance",
+                                        inputs={"app_id": target},
+                                        config={},
+                                    ),
+                                    timeout=5,
+                                )
+                                if lc_result and getattr(lc_result, "status", None) == "completed":
+                                    lc_output = lc_result.output
+                                    if lc_output.get("found"):
+                                        runtime_status = f"\n运行状态: {lc_output.get('status', 'unknown')}"
+                            except Exception:
+                                pass
+                        detail = f"ID: {target}\n状态: {status}{runtime_status}"
+                        return ChatMessageResponse(
+                            type="card",
+                            content=f"📋 {display_name}\n\n{detail}",
+                            session_id=session_id,
+                            related_app=display_name,
+                            actions=[
+                                ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
+                                ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
+                            ],
+                        )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "AppRegistry RPC query_app failed, falling back to direct: %s", e,
+                )
+
+        # Fallback: direct lookup
         # Try to find the app in available apps
         found = None
         for app in apps:
@@ -1440,6 +1830,90 @@ class LightBrainGateway:
                 related_app=display_name,
             )
 
+        # Try RPC first
+        if self._bus:
+            try:
+                from app.models.skill_runtime import SkillExecutionRequest
+
+                # Dry-run
+                dry_result = await self._bus.rpc(
+                    "system.app_refinement",
+                    SkillExecutionRequest(
+                        skill_id="system.app_refinement",
+                        action="dry_run",
+                        inputs={
+                            "app_id": target,
+                            "description": f"修改 {display_name}：{modification}",
+                            "new_features": [modification],
+                            "user_id": user_id,
+                        },
+                        config={},
+                    ),
+                    timeout=30,
+                )
+                if dry_result and getattr(dry_result, "status", None) == "completed":
+                    dry_output = dry_result.output
+                    would_create = dry_output.get("created_skills", [])
+                    reused = dry_output.get("modified_skills", [])
+                    needs_new_skills = len(would_create) > 0
+
+                    # Check permission for new skills
+                    if needs_new_skills and not can_create_skills:
+                        return ChatMessageResponse(
+                            type="text",
+                            content=(
+                                f"⚠️ **{display_name}** 的修改需要以下新 skill：\n"
+                                f"`{', '.join(would_create)}`\n\n"
+                                f"**Skill 是系统共有资产**，只有 **管理员及以上** 用户才能创建。\n\n"
+                                f"请联系管理员来帮你创建这些 skill，或者使用已有 skill 重新组合一个 App。"
+                            ),
+                            session_id=session_id,
+                            related_app=display_name,
+                        )
+
+                    # Execute real modification
+                    result = await self._bus.rpc(
+                        "system.app_refinement",
+                        SkillExecutionRequest(
+                            skill_id="system.app_refinement",
+                            action="refine",
+                            inputs={
+                                "app_id": target,
+                                "description": f"修改 {display_name}：{modification}",
+                                "new_features": [modification],
+                                "user_id": user_id,
+                            },
+                            config={},
+                        ),
+                        timeout=60,
+                    )
+                    if result and getattr(result, "status", None) == "completed":
+                        output = result.output
+                        summary_parts = [f"✅ **{display_name}** 修改完成！"]
+                        if would_create:
+                            summary_parts.append(f"🆕 新生成 skill：{', '.join(would_create)}")
+                        if reused:
+                            summary_parts.append(f"♻️ 复用已有 skill：{', '.join(reused)}")
+                        summary_parts.append(f"\n修改内容：{modification}")
+                        return ChatMessageResponse(
+                            type="text",
+                            content="\n".join(summary_parts),
+                            session_id=session_id,
+                            related_app=display_name,
+                            actions=[
+                                ActionSuggestion(
+                                    id="list_apps", label="📱 查看 App", action_type="navigate",
+                                    payload={"intent": "list_apps"}, style="secondary",
+                                ),
+                            ],
+                        )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "AppRefinement RPC modify failed, falling back to direct: %s", e,
+                )
+
+        # Fallback: direct call
         try:
             from app.models.app_refinement import SuggestedSkillRefinementClosureRequest
 
@@ -1625,6 +2099,81 @@ class LightBrainGateway:
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
         display_name = self._resolve_display_name(target, "")
+
+        # Check confirmation
+        params = command.parameters or {}
+        if params.get("confirmed"):
+            # Try RPC first
+            if self._bus:
+                try:
+                    from app.models.skill_runtime import SkillExecutionRequest
+                    result = await self._bus.rpc(
+                        "system.lifecycle",
+                        SkillExecutionRequest(
+                            skill_id="system.lifecycle",
+                            action="delete",
+                            inputs={"app_id": target, "reason": "user_command"},
+                            config={"session_id": session_id},
+                        ),
+                        timeout=10,
+                    )
+                    if result and getattr(result, "status", None) == "completed":
+                        # Also remove from registry
+                        if self._bus:
+                            try:
+                                await self._bus.rpc(
+                                    "system.app_registry",
+                                    SkillExecutionRequest(
+                                        skill_id="system.app_registry",
+                                        action="unregister",
+                                        inputs={"app_id": target},
+                                        config={},
+                                    ),
+                                    timeout=5,
+                                )
+                            except Exception:
+                                pass
+                        return ChatMessageResponse(
+                            type="text",
+                            content=f"🗑️ **{display_name}** 已删除。",
+                            session_id=session_id,
+                            related_app=display_name,
+                            actions=[
+                                ActionSuggestion(
+                                    id="list_apps", label="📱 查看 App", action_type="navigate",
+                                    payload={"intent": "list_apps"}, style="primary",
+                                ),
+                            ],
+                        )
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "Lifecycle RPC delete failed, falling back to direct: %s", e,
+                    )
+
+            # Fallback: direct call
+            if self._lifecycle:
+                try:
+                    self._lifecycle.stop(target, reason="user_command")
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"🗑️ **{display_name}** 已删除。",
+                        session_id=session_id,
+                        related_app=display_name,
+                        actions=[
+                            ActionSuggestion(
+                                id="list_apps", label="📱 查看 App", action_type="navigate",
+                                payload={"intent": "list_apps"}, style="primary",
+                            ),
+                        ],
+                    )
+                except Exception as exc:
+                    return ChatMessageResponse(
+                        type="error",
+                        content=f"删除 **{display_name}** 失败: {exc}",
+                        session_id=session_id,
+                    )
+
         # Add confirm action that triggers actual deletion
         return ChatMessageResponse(
             type="confirm",

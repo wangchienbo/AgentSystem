@@ -652,7 +652,31 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         system_catalog=system_catalog,
         asset_tool_executor=asset_tool_executor,
         user_service=user_service,
+        message_bus=g1g2_bus,  # Pass MessageBus for RPC-based service calls
+        config_center=config_center,  # Pass ConfigCenter for default app-skill binding
     )
+
+    # -- Phase I: Register system services as MessageBus Workers ----------------
+    from app.services.system_lifecycle_worker import SystemLifecycleWorker
+    from app.services.system_app_registry_worker import SystemAppRegistryWorker
+    from app.services.system_meta_app_worker import SystemMetaAppWorker
+    from app.services.system_app_refinement_worker import SystemAppRefinementWorker
+    from app.services.system_config_center_worker import SystemConfigCenterWorker
+
+    lifecycle_worker = SystemLifecycleWorker(g1g2_bus, lifecycle)
+    app_registry_worker = SystemAppRegistryWorker(g1g2_bus, app_registry)
+    meta_app_worker = SystemMetaAppWorker(g1g2_bus, meta_app_orchestrator)
+    refinement_worker = SystemAppRefinementWorker(g1g2_bus, app_refinement_orchestrator)
+    config_center_worker = SystemConfigCenterWorker(g1g2_bus, config_center)
+
+    # Register workers on MessageBus
+    import asyncio
+    g1g2_bus.register_worker("system.lifecycle", asyncio.Queue())
+    g1g2_bus.register_worker("system.app_registry", asyncio.Queue())
+    g1g2_bus.register_worker("system.meta_app", asyncio.Queue())
+    g1g2_bus.register_worker("system.app_refinement", asyncio.Queue())
+    g1g2_bus.register_worker("system.config_center", asyncio.Queue())
+    logger.info("Phase I: 5 system service Workers registered on MessageBus")
 
     # Wire tool registry and system catalog into interpreter for tool-aware LLM parsing
     light_brain_interpreter.set_tool_registry(tool_registry)
