@@ -176,6 +176,7 @@ class LLMResponder:
         user_message: str,
         tool_registry: "ToolRegistry",
         available_apps: list[dict[str, Any]] | None = None,
+        asset_context: str | None = None,
     ) -> tuple[dict[str, Any] | None, TokenUsage | None]:
         """Ask the LLM to parse user intent using tool registry context.
 
@@ -205,10 +206,16 @@ class LLMResponder:
                     f"{a.get('name', '?')}({a.get('status', '?')})" for a in available_apps
                 )
 
+            # Asset context from system catalog
+            asset_info = ""
+            if asset_context:
+                asset_info = f"\n\n{asset_context}"
+
             sys_prompt = (
                 f"你是一个意图解析器，负责分析用户的自然语言消息并选择最合适的工具来执行。\n\n"
                 f"{tool_list}"
-                f"{app_info}\n\n"
+                f"{app_info}"
+                f"{asset_info}\n\n"
                 "分析用户消息，返回 JSON 对象：\n"
                 '- "intent": 最匹配的工具名称（从上面的列表中选择），如果不确定用 "unclear"\n'
                 '- "target_app": 如果涉及具体 App，填写 App 名称，否则 null\n'

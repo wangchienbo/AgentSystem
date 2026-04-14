@@ -124,6 +124,7 @@ class LightBrainInterpreter:
         self,
         message: str,
         available_apps: list[dict[str, Any]] | None = None,
+        user_id: str = "system",
     ) -> InterpretedCommand:
         """Parse a user message into a structured command.
 
@@ -145,7 +146,7 @@ class LightBrainInterpreter:
             and hasattr(self, "_llm_responder")
             and self._llm_responder is not None
         ):
-            llm_result, _ = self._try_llm_fallback(stripped, available_apps)
+            llm_result, _ = self._try_llm_fallback(stripped, available_apps, user_id)
             if llm_result is not None:
                 return llm_result
 
@@ -360,6 +361,7 @@ class LightBrainInterpreter:
         self,
         message: str,
         available_apps: list[dict[str, Any]] | None,
+        user_id: str = "system",
     ) -> tuple[InterpretedCommand | None, Any | None]:
         """Try LLM intent parsing. Returns (command, usage) tuple."""
         # Check cache first
@@ -369,7 +371,7 @@ class LightBrainInterpreter:
             cached.raw_interpretation = f"llm-cache: cached result for '{message[:50]}'"
             return cached, None
 
-        result, usage = self._interpret_with_llm(message, available_apps)
+        result, usage = self._interpret_with_llm(message, available_apps, user_id)
         if result is not None:
             # Cache the result
             self._llm_cache[cache_key] = result

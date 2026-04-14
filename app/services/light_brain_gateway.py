@@ -173,8 +173,8 @@ class LightBrainGateway:
         if self._llm_responder and not hasattr(self._interpreter, "_llm_responder"):
             self._interpreter.set_llm_responder(self._llm_responder)
 
-        # 6. Interpret intent
-        command = self._interpreter.interpret(request.message, available_apps)
+        # 7. Interpret intent
+        command = self._interpreter.interpret(request.message, available_apps, user_id=request.user_id)
         command.user_id = request.user_id
         command.raw_input = request.message
         self._memory.record_command(session.session_id, command)
@@ -579,6 +579,7 @@ class LightBrainGateway:
             "show_permissions": self._handle_permission,
             "list_users": self._handle_permission,
             "show_self": self._handle_permission,
+            "query_asset_detail": self._handle_query_asset_detail,
         }
 
         handler = self._handlers.get(command.intent)
@@ -1861,6 +1862,71 @@ class LightBrainGateway:
             )
         else:
             return self._error_reply(session_id, result.get("message", "操作失败"))
+
+    async def _handle_query_asset_detail(
+        self,
+        command: InterpretedCommand,
+        session_id: str,
+        available_apps: list[dict[str, Any]],
+    ) -> ChatMessageResponse:
+        """Handle query_asset_detail tool call from LLM.
+        
+        This is called when the LLM decides it needs to look up detailed usage
+        instructions for a specific asset.
+        """
+        caller_id = f"user.{command.user_id}" if command.user_id else "system"
+        asset_id = command.parameters.get("asset_id") or command.target_app
+        
+        if not asset_id:
+            return ChatMessageResponse(
+                type="text",
+                content="请告诉我你想了解哪个资产的详细使用说明？",
+                session_id=session_id,
+                requires_input=True,
+            )
+        
+        if self._asset_tool_executor:
+            result = self._asset_tool_executor.execute(
+                "query_asset_detail",
+                {"asset_id": asset_id},
+                caller_id,
+            )
+            if result.success:
+                data = result.data
+                interfaces = data.get("interfaces", {})
+                interface_lines = []
+                for key, info in interfaces.items():
+                    desc = info.get("description", "")
+                    input_schema = info.get("input_schema", {})
+                    output_schema = info.get("output_schema", {})
+                    line = f"\n**{key}** - {desc}"
+                    if input_schema:
+                        line += f"\n  输入: {json.dumps(input_schema, ensure_ascii=False)}"
+                    if output_schema:
+                        line += f"\n  输出: {json.dumps(output_schema, ensure_ascii=False)}"
+                    interface_lines.append(line)
+                
+                content = (
+                    f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
+                    f"{data.get('description', '')}\n\n"
+                    f"**可用接口：**"
+                    + "\n".join(interface_lines) if interface_lines else "\n无可用接口"
+                )
+                return ChatMessageResponse(
+                    type="text",
+                    content=content,
+                    session_id=session_id,
+                    requires_input=False,
+                )
+            else:
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"❌ 找不到资产「{asset_id}」或你没有权限查看。",
+                    session_id=session_id,
+                    requires_input=False,
+                )
+        
+        return self._error_reply(session_id, "⚠️ 资产查询模块未加载。")
 
     def _auto_save(self) -> None:
         """Auto-save state if persistence service is available."""
