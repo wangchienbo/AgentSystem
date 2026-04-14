@@ -41,21 +41,26 @@ class LightBrainInterpreter:
     INTENT_PATTERNS: list[tuple[str, re.Pattern, str]] = [
         # (intent_name, compiled_regex, description)
         ("create_app", re.compile(r"(创建|新建|建|建立|生成|做一个|搞一个).*(app|应用|程序|模块)", re.IGNORECASE), "Create a new app"),
-        ("create_app", re.compile(r"(帮我|给我|我要).*(创建|新建|建|建立).*(监控|日报|提醒|翻译|爬虫|定时|通知|记录|工具)", re.IGNORECASE), "Create app by action type"),
-        ("start_app", re.compile(r"(启动|开启|运行|开始|打开|激活).*(app|应用|程序|监控|日报|提醒|翻译|服务)", re.IGNORECASE), "Start an app"),
-        ("start_app", re.compile(r"(启动|开启|恢复|继续)", re.IGNORECASE), "Start/resume"),
-        ("stop_app", re.compile(r"(停止|关闭|关掉|暂停|停掉|终止).*(app|应用|程序|监控|日报|提醒|服务)", re.IGNORECASE), "Stop an app"),
-        ("pause_app", re.compile(r"(暂停|挂起)", re.IGNORECASE), "Pause an app"),
-        ("resume_app", re.compile(r"(恢复|继续|恢复运行)", re.IGNORECASE), "Resume an app"),
+        ("create_app", re.compile(r"(帮我|给我|我要).*(创建|新建|建|建立).*(监控|日报|提醒|翻译|爬虫|定时|通知|记录|工具|小说|日记|博客|音乐)", re.IGNORECASE), "Create app by action type"),
+        ("start_app", re.compile(r"(启动|开启|运行|开始|激活|打开).*(app|应用|程序|监控|日报|提醒|翻译|服务|小说|日记|博客|音乐|监控)", re.IGNORECASE), "Start an app"),
+        ("start_app", re.compile(r"(启动|开启|运行|开始)\s+[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Start app by name"),
+        ("start_app", re.compile(r"^(启动|开启|恢复|继续|运行)(一下)?$", re.IGNORECASE), "Start/resume"),
+        ("start_app", re.compile(r"把\s*.+\s*打开", re.IGNORECASE), "Start app (把...打开)"),
+        ("stop_app", re.compile(r"把\s*.+\s*关掉", re.IGNORECASE), "Stop app (把...关掉)"),
+        ("stop_app", re.compile(r"(停止|关闭|关掉|停掉|终止).*(app|应用|程序|监控|日报|提醒|翻译|服务|小说|日记|博客|音乐)", re.IGNORECASE), "Stop an app"),
+        ("stop_app", re.compile(r"(停止|关闭|关掉|停掉)\s+[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Stop app by name"),
+        ("pause_app", re.compile(r"(暂停|挂起).{0,5}[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Pause an app"),
+        ("resume_app", re.compile(r"(恢复|继续|恢复运行).{0,5}[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Resume an app"),
         ("modify_app", re.compile(r"(修改|更改|更新|调整|改一下|编辑|配置).*(app|应用|程序|设置|配置)", re.IGNORECASE), "Modify an app"),
         ("modify_app", re.compile(r"把.+改成|把.+改为|把.+调整为"), "Modify app (把...改成)"),
         ("delete_app", re.compile(r"(删除|删掉|移除|干掉|销毁).*(app|应用|程序)", re.IGNORECASE), "Delete an app"),
         ("query_app", re.compile(r"(查看|查询|状态|详情|信息).*(app|应用|程序)", re.IGNORECASE), "Query app status"),
         ("query_app", re.compile(r".*(异常|问题|错误|告警|报告|完成).*(今天|最近|今天有|今天发现)", re.IGNORECASE), "Query app results"),
-        ("list_apps", re.compile(r"(列出|看看|有哪些|列表|我的).*(app|应用|程序|在跑|运行)", re.IGNORECASE), "List apps"),
+        ("list_apps", re.compile(r"(列出|看看|有哪些|列表|我的|我).*(app|应用|程序|在跑|运行)", re.IGNORECASE), "List apps"),
+        ("list_apps", re.compile(r"(我的|我).*(app|应用|程序)", re.IGNORECASE), "List apps - my apps"),
         ("list_apps", re.compile(r"^.*(app|应用|程序).*(列表|有哪些|几个)", re.IGNORECASE), "List apps alt"),
-        ("query_status", re.compile(r"(系统状态|状态|健康|运行情况|运行正常|整体情况|概况)", re.IGNORECASE), "System status query"),
-        ("query_help", re.compile(r"(帮助|help|怎么用|如何使用|能做什么|功能|说明)", re.IGNORECASE), "Help query"),
+        ("query_status", re.compile(r"(系统状态|状态|健康|运行情况|运行正常|整体情况|概况|多少.*app.*在跑|多少.*在跑|多少.*运行)", re.IGNORECASE), "System status query"),
+        ("query_help", re.compile(r"(帮助|help|怎么用|如何使用|能做什么|功能|说明|教教|教程|引导|新手|入门|你能帮我做什么|你能做什么|你能干啥|有什么能力|有什么功能)", re.IGNORECASE), "Help query"),
         ("greet", re.compile(r"^(你好|嗨|hi|hello|hey|哈喽|早上好|下午好|晚上好|早上好|下午好|晚上好)", re.IGNORECASE), "Greeting"),
         ("modify_interactive_app", re.compile(r"(修改|改一下|优化|调整|美化|换|换一|设计|重新设计).*(界面|聊天|页面|前端|主题|样式|UI|外观|皮肤|风格)", re.IGNORECASE), "Modify interactive app UI"),
         ("modify_interactive_app", re.compile(r"(加个|添加|增加|来个|做个|搞个).*(侧边栏|顶部|导航|按钮|快捷|深色|浅色|亮|暗)", re.IGNORECASE), "Add UI element"),
@@ -81,8 +86,12 @@ class LightBrainInterpreter:
 
     # Extract app names from common patterns like "启动XX" "看看XX"
     APP_EXTRACT_PATTERNS: list[re.Pattern] = [
-        re.compile(r"(启动|停止|暂停|恢复|查看|看看|修改|删除|删除|关闭|开启).{0,3}?([\u4e00-\u9fa5a-zA-Z0-9_\-]{2,20})(的|这|个|一下|吗|吧|呗|！|!|\s|$)"),
+        re.compile(r"(启动|停止|暂停|恢复|查看|看看|修改|删除|删除|关闭|开启|关掉|打开|运行).{0,3}?([\u4e00-\u9fa5a-zA-Z0-9_\-]{2,20})(的|这|个|一下|吗|吧|呗|！|!|\s|$)"),
         re.compile(r"把.([\u4e00-\u9fa5a-zA-Z0-9_\-]{2,20})\s*(改成|改为|改成|设置成|设置|调整为|调整为)"),
+        # Extract app name from "把 XXX 打开/关掉/启动/停止"
+        re.compile(r"把\s*([\u4e00-\u9fa5a-zA-Z0-9_\-]{2,20})\s*(打开|关掉|启动|停止|暂停|恢复|删除|运行|关闭)"),
+        # Extract app name from create patterns like "帮我建一个XX App" "创建一个XX应用"
+        re.compile(r"(?:帮我)?(?:创建|新建|建立|生成|做一个|搞一个|建)(?:一个|个)?.{0,3}?([\u4e00-\u9fa5a-zA-Z]{2,15})\s*(?:app|应用|程序|模块|工具)", re.IGNORECASE),
     ]
 
     # -- public API ----------------------------------------------------------
@@ -180,7 +189,21 @@ class LightBrainInterpreter:
         for pattern in self.APP_EXTRACT_PATTERNS:
             match = pattern.search(message)
             if match:
-                return match.group(2).strip()
+                name = None
+                if match.lastindex is None:
+                    continue
+                # Pattern-specific group selection:
+                # - "把 XXX 打开/关掉/启动/停止" patterns: group(1) = app name
+                # - "动词...APP名..." patterns: group(2) = app name
+                # - "建...XX App" patterns: group(1) = app name
+                pat_str = pattern.pattern
+                if pat_str.startswith(r'把\s*') or '打开|关掉' in pat_str or '建' in pat_str[:10]:
+                    name = match.group(1)
+                elif match.lastindex >= 2:
+                    name = match.group(2)
+                else:
+                    name = match.group(1)
+                return name.strip() if name else None
 
         return None
 
@@ -194,11 +217,20 @@ class LightBrainInterpreter:
                 "监控": "monitor", "日报": "daily_report", "提醒": "reminder",
                 "翻译": "translator", "爬虫": "crawler", "定时": "scheduled",
                 "通知": "notification", "记录": "logger", "工具": "utility",
+                "小说": "novel", "日记": "diary", "博客": "blog", "音乐": "music",
+                "周报": "weekly_report", "笔记": "notes", "任务": "task",
+                "项目": "project", "聊天": "chat", "绘图": "drawing",
             }
             for cn, en in app_types.items():
                 if cn in message:
                     params["app_type"] = en
                     break
+
+            # Extract app name from message pattern like "帮我建一个XX App"
+            name_match = re.search(r"(?:帮我)?(?:创建|新建|建立|生成|做一个|搞一个|建)(?:一个|个)?.{0,3}?([\u4e00-\u9fa5a-zA-Z]{2,15})\s*(?:app|应用|程序|模块|工具)", message, re.IGNORECASE)
+            if name_match:
+                app_name_cn = name_match.group(1).strip()
+                params["app_name_display"] = app_name_cn
 
             # Look for time/frequency mentions
             if "每小时" in message or "每小" in message:

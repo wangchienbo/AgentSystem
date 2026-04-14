@@ -147,7 +147,7 @@ class LightBrainGateway:
             return reply
 
         # 4. Get available apps for context
-        available_apps = await self._get_available_apps()
+        available_apps = await self._get_available_apps(user_id=request.user_id)
 
         # 5. Wire LLM responder into interpreter (if available)
         if self._llm_responder and not hasattr(self._interpreter, "_llm_responder"):
@@ -261,7 +261,7 @@ class LightBrainGateway:
                     requires_clarification=False,
                 )
             if command:
-                available_apps = await self._get_available_apps()
+                available_apps = await self._get_available_apps(user_id=command.user_id)
                 reply = await self._execute_create_app(command, session_id, available_apps)
                 reply.session_id = session_id
                 self._memory.record_reply(session_id, reply)
@@ -459,7 +459,7 @@ class LightBrainGateway:
                 parameters={**state.get("parameters", {}), "follow_up": user_message},
                 requires_clarification=False,
             )
-            available_apps = await self._get_available_apps()
+            available_apps = await self._get_available_apps(user_id=command.user_id)
             reply = await self._execute_create_app(command, session_id, available_apps)
             # If this reply still requires input, keep the active state
             if reply.requires_input:
@@ -476,7 +476,7 @@ class LightBrainGateway:
                 parameters={"from_active_skill": True},
                 requires_clarification=False,
             )
-            available_apps = await self._get_available_apps()
+            available_apps = await self._get_available_apps(user_id=command.user_id)
             reply = await self._execute_command(command, session_id, available_apps)
             if reply.requires_input:
                 self._set_active_skill(session_id, skill_id, state)
@@ -487,7 +487,7 @@ class LightBrainGateway:
         else:
             # Unknown active skill — clear and fall through to normal intent
             self._clear_active_skill(session_id)
-            available_apps = await self._get_available_apps()
+            available_apps = await self._get_available_apps(user_id=command.user_id)
             command = self._interpreter.interpret(user_message, available_apps)
             command.raw_input = user_message
             self._memory.record_command(session_id, command)
@@ -509,8 +509,13 @@ class LightBrainGateway:
         G.1/G.2: Try the new orchestrator bridge first; if it returns
         a result use it, otherwise fall back to the legacy handler chain.
         """
+        # ── Local-only intents: skip bridge (avoids RPC timeout) ──────
+        _BRIDGE_SKIP_INTENTS = {"query_status", "list_apps", "greet", "query_help", "start_app", "stop_app", "pause_app", "resume_app", "query_app"}
+
         # ── G.1/G.2: Try new chain first ──────────────────────────────
-        if self._orchestrator_bridge and self._orchestrator_bridge.is_available():
+        if (self._orchestrator_bridge
+                and self._orchestrator_bridge.is_available()
+                and command.intent not in _BRIDGE_SKIP_INTENTS):
             try:
                 bridge_result = await self._orchestrator_bridge.execute_command(
                     user_id=command.user_id or "",
@@ -709,7 +714,16 @@ class LightBrainGateway:
     async def _handle_list_apps(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
-        if not apps:
+        # Show apps owned by the user + system-wide apps (owner="system" or empty)
+        user_id = command.user_id or ""
+        user_apps = []
+        for app in apps:
+            owner = app.get("owner_user_id", "")
+            if owner == user_id or owner == "system" or not owner:
+                user_apps.append(app)
+        
+        # If user has no apps at all, show empty state
+        if not user_apps:
             return ChatMessageResponse(
                 type="text",
                 content="你还没有任何 App。要我帮你创建一个吗？",
@@ -721,7 +735,7 @@ class LightBrainGateway:
 
         # Group by status
         groups: dict[str, list[dict]] = {}
-        for app in apps:
+        for app in user_apps:
             status = app.get("status", "unknown")
             groups.setdefault(status, []).append(app)
 
@@ -764,7 +778,7 @@ class LightBrainGateway:
                     actions=app_actions,
                 ))
 
-        count_text = f"你目前有 {len(apps)} 个 App"
+        count_text = f"你目前有 {len(user_apps)} 个 App"
         return ChatMessageResponse(
             type="list",
             content=count_text,
@@ -779,6 +793,49 @@ class LightBrainGateway:
     async def _handle_query_status(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
+        # If user asks about a specific app, show its status
+        if command.target_app:
+            target = self._resolve_instance_id(command.target_app)
+            display_name = self._resolve_display_name(target, command.target_app)
+            found = None
+            for app in apps:
+                if app.get("name") == display_name or app.get("app_id") == target:
+                    found = app
+                    break
+            if found:
+                status = found.get("status", "unknown")
+                status_icons = {"running": "🟢", "paused": "🟡", "stopped": "🔴", "installed": "🔵", "error": "⛔"}
+                icon = status_icons.get(status, "⚪")
+                status_labels = {"running": "运行中", "paused": "已暂停", "stopped": "已停止", "installed": "已安装", "error": "故障"}
+                label = status_labels.get(status, status)
+                actions = []
+                if status == "running":
+                    actions = [
+                        ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
+                        ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": display_name}, style="secondary"),
+                    ]
+                elif status in ("stopped", "installed"):
+                    actions = [
+                        ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
+                    ]
+                elif status == "paused":
+                    actions = [
+                        ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
+                    ]
+                return ChatMessageResponse(
+                    type="card",
+                    content=f"{icon} **{display_name}**\n\n状态: {label}",
+                    session_id=session_id,
+                    related_app=display_name,
+                    actions=actions,
+                )
+            return ChatMessageResponse(
+                type="text",
+                content=f"未找到 App：**{command.target_app}**",
+                session_id=session_id,
+            )
+
+        # No target — show system-wide status
         running = len([a for a in apps if a.get("status") == "running"])
         total = len(apps)
         return ChatMessageResponse(
@@ -837,7 +894,8 @@ class LightBrainGateway:
 
         # We have enough info — create the app
         app_type = command.parameters.get("app_type", "unknown")
-        app_name = command.target_app or f"{app_type}_app"
+        # Use extracted Chinese display name if available, otherwise fallback
+        app_name = command.target_app or command.parameters.get("app_name_display") or f"{app_type}_app"
 
         schedule_info = ""
         if command.parameters.get("schedule_type"):
@@ -856,6 +914,7 @@ class LightBrainGateway:
         if self._meta_app_orchestrator:
             try:
                 from app.models.app_meta_app import AppCreationFromMetaAppRequest
+                user_id = command.user_id or ""
                 request = AppCreationFromMetaAppRequest(
                     app_name=app_name,
                     goal=f"创建一个{app_type}类型的 App：{app_name}",
@@ -863,6 +922,7 @@ class LightBrainGateway:
                     complexity="moderate",
                     scope={"app_type": app_type},
                     context=f"用户请求创建一个{app_type}应用",
+                    user_id=user_id,
                 )
                 result = self._meta_app_orchestrator.create_app_through_meta_app(request)
                 # Handle both dict and object results
@@ -1002,6 +1062,22 @@ class LightBrainGateway:
                     ],
                 )
             except Exception as exc:
+                exc_str = str(exc)
+                # User-friendly error messages
+                if "Invalid lifecycle transition" in exc_str or "running -> running" in exc_str:
+                    display_name = self._resolve_display_name(target, target_input)
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"**{display_name}** 已经在运行中，不需要重复启动。",
+                        session_id=session_id,
+                        related_app=display_name,
+                    )
+                if "not found" in exc_str.lower() or "No instance" in exc_str:
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"未找到 App：**{target_input}**，请先创建它。",
+                        session_id=session_id,
+                    )
                 return ChatMessageResponse(
                     type="error",
                     content=f"启动 **{target_input}** 失败: {exc}",
@@ -1052,6 +1128,22 @@ class LightBrainGateway:
                     ],
                 )
             except Exception as exc:
+                exc_str = str(exc)
+                # User-friendly error messages
+                if "Invalid lifecycle transition" in exc_str or "stopped -> stopped" in exc_str:
+                    display_name = self._resolve_display_name(target, target_input)
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"**{display_name}** 已经处于停止状态。",
+                        session_id=session_id,
+                        related_app=display_name,
+                    )
+                if "not found" in exc_str.lower() or "No instance" in exc_str:
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"未找到 App：**{target_input}**，请先创建它。",
+                        session_id=session_id,
+                    )
                 return ChatMessageResponse(
                     type="error",
                     content=f"停止 **{target_input}** 失败: {exc}",
@@ -1083,9 +1175,42 @@ class LightBrainGateway:
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
         display_name = self._resolve_display_name(target, "")
+        # Try to actually pause the app
+        if self._lifecycle:
+            try:
+                instance = self._lifecycle.get_instance(target)
+                current_status = getattr(instance, 'status', 'unknown') if instance else 'unknown'
+                if current_status == 'paused':
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"**{display_name}** 已经处于暂停状态。",
+                        session_id=session_id,
+                        related_app=display_name,
+                    )
+                self._lifecycle.pause(target, reason="user_command")
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"⏸ **{display_name}** 已暂停。",
+                    session_id=session_id,
+                    related_app=display_name,
+                    actions=[
+                        ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
+                        ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="secondary"),
+                    ],
+                )
+            except Exception as exc:
+                exc_str = str(exc)
+                if "Invalid lifecycle transition" in exc_str or "stopped -> paused" in exc_str:
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"**{display_name}** 当前已停止，无法暂停。请先启动后再暂停。",
+                        session_id=session_id,
+                        related_app=display_name,
+                    )
+
         return ChatMessageResponse(
             type="text",
-            content=f"⏸ 正在暂停 **{display_name}**...",
+            content=f"⏸ **{display_name}** 已暂停。",
             session_id=session_id,
             related_app=display_name,
             actions=[
@@ -1107,11 +1232,38 @@ class LightBrainGateway:
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
         display_name = self._resolve_display_name(target, "")
+        # Try to actually resume the app
+        if self._lifecycle:
+            try:
+                instance = self._lifecycle.get_instance(target)
+                current_status = getattr(instance, 'status', 'unknown') if instance else 'unknown'
+                if current_status == 'running':
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"**{display_name}** 已经在运行中。",
+                        session_id=session_id,
+                        related_app=display_name,
+                    )
+                if current_status != 'paused':
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"**{display_name}** 当前处于{current_status}状态，请先暂停后再恢复。",
+                        session_id=session_id,
+                        related_app=display_name,
+                    )
+                self._lifecycle.resume(target, reason="user_command")
+            except Exception as exc:
+                pass  # Best-effort resume
+
         return ChatMessageResponse(
             type="text",
-            content=f"▶️ 正在恢复 **{display_name}**...",
+            content=f"▶️ **{display_name}** 已恢复运行。",
             session_id=session_id,
             related_app=display_name,
+            actions=[
+                ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": display_name}, style="secondary"),
+                ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
+            ],
         )
 
     async def _handle_query_app(
@@ -1514,8 +1666,11 @@ class LightBrainGateway:
 
     # -- helpers -------------------------------------------------------------
 
-    async def _get_available_apps(self) -> list[dict[str, Any]]:
-        """Fetch app list from lifecycle (primary source) + catalog/registry (supplemental)."""
+    async def _get_available_apps(self, user_id: str | None = None) -> list[dict[str, Any]]:
+        """Fetch app list from lifecycle (primary source) + catalog/registry (supplemental).
+        
+        If user_id is provided, only return apps owned by that user.
+        """
         apps: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
 
@@ -1526,6 +1681,10 @@ class LightBrainGateway:
                     app_id = getattr(inst, "id", "")
                     if app_id in seen_ids:
                         continue
+                    inst_owner = getattr(inst, "owner_user_id", "")
+                    # Filter by user_id if provided
+                    if user_id and inst_owner and inst_owner != user_id:
+                        continue
                     seen_ids.add(app_id)
                     name = self._resolve_display_name(app_id, getattr(inst, "blueprint_id", ""))
                     apps.append({
@@ -1534,7 +1693,7 @@ class LightBrainGateway:
                         "description": "",
                         "status": getattr(inst, "status", "unknown"),
                         "blueprint_id": getattr(inst, "blueprint_id", ""),
-                        "owner_user_id": getattr(inst, "owner_user_id", ""),
+                        "owner_user_id": inst_owner,
                     })
             except Exception:
                 pass
