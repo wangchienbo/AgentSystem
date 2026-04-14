@@ -22,7 +22,71 @@ class LightBrainInterpreter:
     Phase 8.3: optionally falls back to LLM parsing when rule-based confidence
     is low (returns 'unclear' with confidence < 0.5). Results are cached so
     identical messages don't trigger repeated LLM calls.
+    
+    Two-tier intent recognition:
+    - EXACT_MATCH_PATTERNS: 100% precise patterns, always bypass LLM (zero cost)
+    - FUZZY_MATCH_PATTERNS: fuzzy patterns, routed through LLM when fuzzy_regex_match=False
+    - fuzzy_regex_match: config switch (default False). When False, only exact matches
+      bypass LLM; everything else goes through LLM for intent analysis.
     """
+
+    # ---- EXACT MATCH PATTERNS (always bypass LLM, zero cost) ----
+    # These are 100% unambiguous — pure greetings, help requests, status queries
+    EXACT_MATCH_PATTERNS: list[tuple[str, re.Pattern, str]] = [
+        ("greet", re.compile(r"^(你好|嗨|hi|hello|hey|哈喽)$", re.IGNORECASE), "Pure greeting"),
+        ("query_help", re.compile(r"^(帮助|help|教教我|怎么用)$", re.IGNORECASE), "Pure help request"),
+        ("query_status", re.compile(r"^(系统状态|状态|运行情况)$", re.IGNORECASE), "Pure status query"),
+    ]
+
+    # ---- FUZZY MATCH PATTERNS (routed through LLM when fuzzy_regex_match=False) ----
+    FUZZY_MATCH_PATTERNS: list[tuple[str, re.Pattern, str]] = [
+        # (intent_name, compiled_regex, description)
+        ("create_app", re.compile(r"(创建|新建|建|建立|生成|做一个|搞一个).*(app|应用|程序|模块)", re.IGNORECASE), "Create a new app"),
+        ("create_app", re.compile(r"(帮我|给我|我要).*(创建|新建|建|建立).*(监控|日报|提醒|翻译|爬虫|定时|通知|记录|工具|小说|日记|博客|音乐)", re.IGNORECASE), "Create app by action type"),
+        ("start_app", re.compile(r"(启动|开启|运行|开始|激活|打开).*(app|应用|程序|监控|日报|提醒|翻译|服务|小说|日记|博客|音乐|监控)", re.IGNORECASE), "Start an app"),
+        ("start_app", re.compile(r"(启动|开启|运行|开始)\s+[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Start app by name"),
+        ("start_app", re.compile(r"^(启动|开启|恢复|继续|运行)(一下)?$", re.IGNORECASE), "Start/resume"),
+        ("start_app", re.compile(r"把\s*.+\s*打开", re.IGNORECASE), "Start app (把...打开)"),
+        ("stop_app", re.compile(r"把\s*.+\s*关掉", re.IGNORECASE), "Stop app (把...关掉)"),
+        ("stop_app", re.compile(r"(停止|关闭|关掉|停掉|终止).*(app|应用|程序|监控|日报|提醒|翻译|服务|小说|日记|博客|音乐)", re.IGNORECASE), "Stop an app"),
+        ("stop_app", re.compile(r"(停止|关闭|关掉|停掉)\s+[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Stop app by name"),
+        ("pause_app", re.compile(r"(暂停|挂起).{0,5}[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Pause an app"),
+        ("resume_app", re.compile(r"(恢复|继续|恢复运行).{0,5}[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Resume an app"),
+        ("modify_app", re.compile(r"(修改|更改|更新|调整|改一下|编辑|配置).*(app|应用|程序|设置|配置)", re.IGNORECASE), "Modify an app"),
+        ("modify_app", re.compile(r"把.+改成|把.+改为|把.+调整为"), "Modify app (把...改成)"),
+        ("delete_app", re.compile(r"(删除|删掉|移除|干掉|销毁).*(app|应用|程序)", re.IGNORECASE), "Delete an app"),
+        ("query_app", re.compile(r"(查看|查询|状态|详情|信息).*(app|应用|程序)", re.IGNORECASE), "Query app status"),
+        ("query_app", re.compile(r".*(异常|问题|错误|告警|报告|完成).*(今天|最近|今天有|今天发现)", re.IGNORECASE), "Query app results"),
+        ("list_apps", re.compile(r"(列出|看看|有哪些|列表|我的|我).*(app|应用|程序|在跑|运行)", re.IGNORECASE), "List apps"),
+        ("list_apps", re.compile(r"(我的|我).*(app|应用|程序)", re.IGNORECASE), "List apps - my apps"),
+        ("list_apps", re.compile(r"^.*(app|应用|程序).*(列表|有哪些|几个)", re.IGNORECASE), "List apps alt"),
+        ("modify_interactive_app", re.compile(r"(修改|改一下|优化|调整|美化|换|换一|设计|重新设计).*(界面|聊天|页面|前端|主题|样式|UI|外观|皮肤|风格)", re.IGNORECASE), "Modify interactive app UI"),
+        ("modify_interactive_app", re.compile(r"(加个|添加|增加|来个|做个|搞个).*(侧边栏|顶部|导航|按钮|快捷|深色|浅色|亮|暗)", re.IGNORECASE), "Add UI element"),
+        ("modify_interactive_app", re.compile(r"(自己改|自修改|self.modify|改自己|改一下自己|优化自己|修改自己)", re.IGNORECASE), "Self-modify interactive app"),
+        ("modify_interactive_app", re.compile(r"(界面太|太暗|太亮|太丑|不好看|不好看|优化一下|好看一点)", re.IGNORECASE), "UI improvement request"),
+        ("modify_interactive_app", re.compile(r"(换个|切换).*(主题|颜色|风格|皮肤)", re.IGNORECASE), "Theme switch"),
+        # Permission management
+        ("grant_admin", re.compile(r"(给|授予|赋|提升|升级)\s*[^\s，,。.!！]+\s*(管理员|admin|sudo)"), "Grant admin role"),
+        ("grant_admin", re.compile(r"(grant|give)\s*(admin|sudo|manager)\s*(to|for)\s*"), "Grant admin role (EN)"),
+        ("grant_root", re.compile(r"(给|授予|赋|提升|升级)\s*[^\s，,。.!！]+\s*(root|超级管理员|最高权限)"), "Grant root role"),
+        ("grant_root", re.compile(r"(promote|upgrade)\s*[^\s，,。.!！]+\s*to\s*root"), "Grant root role (EN)"),
+        ("revoke_role", re.compile(r"(撤销|取消|剥夺|移除|降级)\s*[^\s，,。.!！]+\s*(的)?\s*(管理员|admin|sudo|权限|角色)"), "Revoke role"),
+        ("revoke_role", re.compile(r"(revoke|remove|demote)\s*(admin|sudo|role|permission)"), "Revoke role (EN)"),
+        ("show_permissions", re.compile(r"(查看|显示|查询)\s*[^\s，,。.!！]*\s*权限"), "Show permissions"),
+        ("show_permissions", re.compile(r"(show|check|get)\s*(permission|role)"), "Show permissions (EN)"),
+        ("list_users", re.compile(r"(列出|查看|显示|查询)\s*(所有|全部)?\s*(用户|成员|账号)"), "List users"),
+        ("list_users", re.compile(r"(list|show|get)\s*(all\s*)?(user|member)"), "List users (EN)"),
+        ("show_self", re.compile(r"(我[^的]*什么|我的|查看我的)\s*(权限|角色|级别|身份)"), "Show own permissions"),
+        ("show_self", re.compile(r"(my|what\s*are\s*my)\s*(permission|role|level)"), "Show own permissions (EN)"),
+    ]
+
+    # Combined patterns for backward compatibility
+    INTENT_PATTERNS = EXACT_MATCH_PATTERNS + FUZZY_MATCH_PATTERNS
+
+    # Config: fuzzy regex matching (default False)
+    # False: only exact matches bypass LLM; everything else goes through LLM
+    # True: all patterns try regex first (current behavior)
+    fuzzy_regex_match: bool = False
 
     # Valid intent values the LLM may return
     VALID_INTENTS = {
@@ -136,21 +200,58 @@ class LightBrainInterpreter:
         if not stripped:
             return self._empty_command()
 
-        # 1. Rule-based intent matching (always runs first)
-        intent, confidence, matched_text = self._match_intent(stripped)
+        # 1. EXACT match check (always runs, zero cost)
+        intent, confidence, matched_text = self._match_exact_intent(stripped)
+        
+        # If exact match found, return immediately (bypass LLM)
+        if intent != "unclear":
+            target_app = self._extract_app_name(stripped, available_apps)
+            parameters = self._extract_parameters(stripped, intent)
+            suggested_actions = self._build_actions(intent, target_app, available_apps)
+            requires_clarification, clarification_question = self._needs_clarification(
+                intent, target_app, parameters
+            )
+            return InterpretedCommand(
+                intent=intent,
+                confidence=confidence,
+                target_app=target_app,
+                parameters=parameters,
+                requires_clarification=requires_clarification,
+                clarification_question=clarification_question,
+                suggested_actions=suggested_actions,
+                raw_interpretation=f"exact-match: matched '{matched_text}' target='{target_app}'",
+            )
 
-        # 2. Check if we should fall back to LLM
-        if (
-            intent == "unclear"
-            and confidence < 0.5
-            and hasattr(self, "_llm_responder")
-            and self._llm_responder is not None
-        ):
+        # 2. FUZZY match check (controlled by fuzzy_regex_match config)
+        if self.fuzzy_regex_match:
+            # Try fuzzy regex patterns
+            intent, confidence, matched_text = self._match_fuzzy_intent(stripped)
+            if intent != "unclear" and confidence >= 0.5:
+                # Fuzzy match succeeded with decent confidence
+                target_app = self._extract_app_name(stripped, available_apps)
+                parameters = self._extract_parameters(stripped, intent)
+                suggested_actions = self._build_actions(intent, target_app, available_apps)
+                requires_clarification, clarification_question = self._needs_clarification(
+                    intent, target_app, parameters
+                )
+                return InterpretedCommand(
+                    intent=intent,
+                    confidence=confidence,
+                    target_app=target_app,
+                    parameters=parameters,
+                    requires_clarification=requires_clarification,
+                    clarification_question=clarification_question,
+                    suggested_actions=suggested_actions,
+                    raw_interpretation=f"fuzzy-match: matched '{matched_text}' target='{target_app}'",
+                )
+
+        # 3. LLM fallback (default path when fuzzy_regex_match=False)
+        if hasattr(self, "_llm_responder") and self._llm_responder is not None:
             llm_result, _ = self._try_llm_fallback(stripped, available_apps, user_id)
             if llm_result is not None:
                 return llm_result
 
-        # 3. Standard rule-based path
+        # 4. Standard rule-based path (fallback if LLM unavailable)
         target_app = self._extract_app_name(stripped, available_apps)
         parameters = self._extract_parameters(stripped, intent)
         suggested_actions = self._build_actions(intent, target_app, available_apps)
@@ -169,8 +270,22 @@ class LightBrainInterpreter:
             raw_interpretation=f"rule-based: matched '{matched_text}' target='{target_app}'",
         )
 
+    def _match_exact_intent(self, message: str) -> tuple[str, float, str]:
+        """Return (intent, confidence, matched_pattern_desc) for EXACT matches only."""
+        for intent, pattern, desc in self.EXACT_MATCH_PATTERNS:
+            if pattern.search(message):
+                return intent, 0.95, desc
+        return "unclear", 0.1, "no exact match"
+
+    def _match_fuzzy_intent(self, message: str) -> tuple[str, float, str]:
+        """Return (intent, confidence, matched_pattern_desc) for FUZZY matches."""
+        for intent, pattern, desc in self.FUZZY_MATCH_PATTERNS:
+            if pattern.search(message):
+                return intent, 0.75, desc
+        return "unclear", 0.1, "no fuzzy match"
+
     def _match_intent(self, message: str) -> tuple[str, float, str]:
-        """Return (intent, confidence, matched_pattern_desc)."""
+        """Return (intent, confidence, matched_pattern_desc). Legacy method."""
         for intent, pattern, desc in self.INTENT_PATTERNS:
             if pattern.search(message):
                 return intent, 0.85, desc
