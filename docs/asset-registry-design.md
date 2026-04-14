@@ -1,192 +1,154 @@
-# 动态资产表架构设计
+# 系统资产自注册与持久化方案
 
-> 2026-04-14 · 替代"统一 Tool 注册"方案
+## 核心原则
 
-## 核心理念
+**一切皆表，自注册，持久化。**
 
-**不把 App/Skill/Path 封装成 Tool**。维护一张**动态资产表**，每个资产有自己的可见范围、功能列表和详情。调模型时组装资产功能概览，提供专用 Tool 查询详细使用说明（输入输出、注意事项），通过 Tool Call 让模型决定调用。
-
----
-
-## 1. 只有运行起来的才算资产
-
-| 实体 | 静态定义 | 运行实例 |
-|------|---------|---------|
-| App | ❌ 不算资产 | ✅ 注册为用户资产 |
-| Skill | ❌ 不算资产 | ✅ 注册到拥有者资产表 |
-| Path | ❌ 不算资产 | 由中心 Skill 加载，提供执行接口 |
-
-**静态的不算，分开存储系统和本用户的资产。**
-
----
-
-## 2. 两层存储
+## 系统架构
 
 ```
-AssetRegistry
-├── system_assets: dict[str, Asset]    # 系统级：能看到所有用户的全部资产 + 共有资产
-└── user_assets: dict[str, dict]       # 用户级：user_id → {asset_id: Asset}
+┌─────────────────────────────────────────────────────────┐
+│                    系统清单 (System Catalog)              │
+│  data/system_catalog.json                                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │  App 注册表   │  │  Skill 注册表 │  │  Path 注册表  │   │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘   │
+│         │                 │                 │            │
+│         └─────────────────┼─────────────────┘            │
+│                           │                              │
+│                    持久化到硬盘                            │
+└───────────────────────────┼──────────────────────────────┘
+                            │
+┌───────────────────────────┼──────────────────────────────┐
+│                    资产自注册流程                          │
+│                                                            │
+│  App 启动 → 调用 catalog.register()                        │
+│    ├─ 写入自己的详细信息                                    │
+│    ├─ 声明有哪些接口（functions）                           │
+│    ├─ 声明输入输出 schema                                   │
+│    └─ 声明 owner、visibility、权限要求                     │
+│                                                            │
+│  Skill 启动 → 同理                                          │
+│                                                            │
+│  用户首次访问 → user_service.ensure_user()                  │
+│    ├─ 写入 data/users/{user_id}.json                       │
+│    └─ 默认 role=user                                       │
+└─────────────────────────────────────────────────────────┘
 ```
 
-- **系统**可以看到所有用户的所有资产 + 共有资产
-- **App**只能看到自己绑定的运行 Skill
-- **用户**可以看到自己的全部资产 + 共有资产
+## 1. 系统清单 (SystemCatalog)
 
----
+### 持久化位置
+- `data/system_catalog.json` — 系统级 App/Skill/Path 注册表
+- `data/users/{user_id}.json` — 用户级 App 注册表
 
-## 3. 注册时机
+### 每个资产注册的信息
 
-### 3.1 系统启动
-
+```json
+{
+  "asset_id": "app.novel",
+  "asset_type": "app",
+  "owner_id": "user.alice",
+  "name": "小说创作",
+  "description": "帮助用户创作小说的 App",
+  "status": "running",
+  "visibility": "public",
+  
+  "interfaces": {
+    "write_chapter": {
+      "description": "写一个章节",
+      "input_schema": {
+        "genre": {"type": "string", "required": true},
+        "chapter_title": {"type": "string", "required": false}
+      },
+      "output_schema": {
+        "content": {"type": "string"},
+        "word_count": {"type": "integer"}
+      }
+    }
+  },
+  
+  "required_role_level": 0,
+  "created_at": "2026-04-14T05:00:00Z",
+  "updated_at": "2026-04-14T05:00:00Z",
+  "metadata": {
+    "app_instance_id": "novel_001",
+    "skill_ids": ["skill.generic_writer", "skill.novel_planner"]
+  }
+}
 ```
-系统启动 → 检查并初始化 → 加载已有用户资产
-```
 
-### 3.2 App 启动
+## 2. 资产自注册流程
 
-```
-App 启动 → 注册到用户资产表
-  → 如果该用户的资产表不存在 → 创建一个
-```
-
-### 3.3 Skill 启动
-
-```
-Skill 启动 → 注册进自己拥有者的资产表
-  → 拥有者可能是 user 或 app
-  → 没有就创建一个
-```
-
----
-
-## 4. 可见性规则
-
-### 4.1 调用时根据名字填充可用资产
+### App 启动时
 
 ```python
-def get_visible_assets(caller_name: str) -> list[Asset]:
-    if caller_name == "system":
-        return 所有用户资产 + 共有资产
-    elif caller_name.startswith("user."):
-        return 该用户的全部资产 + 共有资产
-    elif caller_name.startswith("app."):
-        return 该 App 绑定的运行 Skill + 共有资产
+# 在 AppLifecycleService.transition() 中
+def transition(self, app_instance_id, event, reason=""):
+    result = self._do_transition(app_instance_id, event, reason)
+    
+    if event == "start" and result.current_status == "running":
+        # 自注册到系统清单
+        self._catalog.register_from_app(app_instance_id)
+    
+    elif event in ("stop", "fail"):
+        self._catalog.unregister(app_instance_id)
+    
+    return result
 ```
 
----
+### 注册时写入的信息
 
-## 5. LLM 交互方式
-
-### 5.1 资产概览注入 Prompt
-
-```
-你可用的资产：
-- app.novel: [写小说, 生成章节, 修改设定]
-- skill.generic_writer: [生成文本, 续写]
-
-如需了解某个资产的详细使用说明，请调用 query_asset_detail(asset_id)。
-```
-
-### 5.2 专用查询 Tool
+每个 App/Skill 启动时调用：
 
 ```python
-ToolDefinition(
-    name="query_asset_detail",
-    description="查询某个资产的详细使用说明，包括输入输出格式和注意事项",
-    parameters=[
-        ToolParameter("asset_id", "string", "资产ID", required=True),
-    ],
+catalog.register(
+    asset_id="app.novel",
+    asset_type="app",
+    owner_id="user.alice",
+    name="小说创作",
+    description="...",
+    interfaces={...},  # 接口定义
+    required_role_level=0,
+    visibility="public",
+    metadata={...},
 )
 ```
 
-模型选择资产后，交互层根据 asset_id 路由到实际执行器。
+## 3. 用户表
 
----
-
-## 6. 固化流程（Path）
-
-### 6.1 由中心 Skill 加载
-
-Path 还是由中心 Skill 创建时加载，中心 Skill 提供：
-- `create_execution_graph(path_key)` — 根据 key 创建执行图
-- `execute_by_key(path_key, inputs)` — 按 key 执行
-
-### 6.2 两个配套 Tool
-
-提供给交互层调用：
+已有 `user_service.py`，需要接入：
 
 ```python
-# Tool 1: 固化流程
-solidify_workflow(app_id, path_key, steps)
-
-# Tool 2: 按 key 调用中心 Skill
-execute_path_by_key(app_id, path_key, inputs)
+# 在 gateway 入口
+user = user_service.ensure_user(user_id, default_role="user")
+# 首次访问自动创建并持久化到 data/users/{user_id}.json
 ```
 
----
-
-## 7. 完整调用链路
+## 4. LLM Tool Call 链路
 
 ```
-用户："帮我写一本小说"
-  ↓
-交互层：
-  1. get_visible_assets("user.alice")
-     → [app.novel, skill.generic_writer, ...]
-  2. 组装资产概览注入 prompt
-  3. 调模型
-  ↓
-模型：选择 app.novel
-  ↓
-交互层：
-  1. query_asset_detail("app.novel") 获取详情
-  2. 路由到 app.novel 的 Orchestrator
-  ↓
-Orchestrator (中心 Skill)：
-  1. 加载的 Path → create_execution_graph(key)
-  2. execute_by_key → 调用绑定 Skill
-  3. 返回结果
+用户消息
+    ↓
+意图识别
+    ├── 精确正则 → 直调
+    └── 模糊 → LLM 意图分析
+                    ↓
+            catalog.get_visible_assets(user_id)
+                    ↓
+            权限校验 (user role vs required_role_level)
+                    ↓
+            RPC 路由 → 执行
 ```
 
----
+## 修改清单
 
-## 8. 实施步骤
-
-### Phase 1: 资产表核心
-- `Asset` 数据模型
-- `AssetRegistry` 服务（两层存储）
-- `get_visible_assets(caller_name)` 可见性查询
-- `register_asset()` / `unregister_asset()` 接口
-
-### Phase 2: 启动注册
-- 系统启动时检查并初始化
-- App 启动时自动注册到用户资产表
-- Skill 启动时注册到拥有者资产表
-
-### Phase 3: LLM 集成
-- `query_asset_detail` Tool
-- Prompt 注入逻辑（资产概览）
-- 交互层路由到实际执行器
-
-### Phase 4: 固化流程
-- `solidify_workflow` Tool
-- `execute_path_by_key` Tool
-- 中心 Skill 的 Path 加载/执行接口
-
-### Phase 5: E2E 测试
-- 几十个复杂测试覆盖全链路
-- 用户交互 → App 创建 → 修改 → 执行 → 固化 → 执行
-- 如有问题修复，打通链路
-
----
-
-## 9. 与之前方案的区别
-
-| 维度 | 之前（Tool 注册） | 现在（动态资产表） |
-|------|------------------|-------------------|
-| 注册方式 | 静态注册所有 Tool | 运行时动态注册 |
-| 状态要求 | 定义即注册 | **只有运行起来才算** |
-| 存储结构 | 单一注册表 | 系统/用户分开存储 |
-| 可见性 | caller_ids 过滤 | 按 caller 名字查询 |
-| Path 处理 | 也注册为 Tool | 由中心 Skill 管理 |
-| LLM 调用 | 直接 function calling | 概览 → 查详情 → 调用 |
+| 文件 | 内容 |
+|------|------|
+| `app/services/system_catalog.py` | **新建**：系统清单服务 |
+| `app/models/asset.py` | 增强：加 interfaces、持久化 |
+| `app/services/lifecycle.py` | 注入资产注册钩子 |
+| `app/services/user_service.py` | 加 ensure_user() |
+| `app/services/light_brain_interpreter.py` | 接入 catalog 到 LLM |
+| `app/services/light_brain_gateway.py` | 接入权限校验 |
+| `data/system_catalog.json` | **新建**：持久化文件 |

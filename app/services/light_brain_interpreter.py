@@ -108,6 +108,13 @@ class LightBrainInterpreter:
         """Set the tool registry for tool-aware intent parsing."""
         self._tool_registry = tool_registry
 
+    def set_system_catalog(self, system_catalog: Any) -> None:
+        """Set the system catalog for asset-aware LLM parsing.
+        
+        The catalog provides get_visible_assets(caller_id) and build_llm_prompt(caller_id).
+        """
+        self._system_catalog = system_catalog
+
     @classmethod
     def clear_llm_cache(cls) -> None:
         """Clear the LLM parsing result cache. Useful for testing."""
@@ -373,6 +380,7 @@ class LightBrainInterpreter:
         self,
         message: str,
         available_apps: list[dict[str, Any]] | None,
+        user_id: str = "system",
     ) -> tuple[InterpretedCommand | None, TokenUsage | None]:
         """Ask the LLM responder to parse intent from the message.
 
@@ -381,8 +389,29 @@ class LightBrainInterpreter:
         if not hasattr(self, "_llm_responder") or self._llm_responder is None:
             return None, None
 
-        # Phase E.3: Tool-aware LLM parsing
-        if hasattr(self, '_tool_registry') and self._tool_registry is not None:
+        # Phase E.3: Tool-aware LLM parsing with asset catalog
+        if hasattr(self, '_system_catalog') and self._system_catalog is not None:
+            # Build asset overview prompt for LLM
+            caller_id = f"user.{user_id}" if user_id != "system" else "system"
+            asset_prompt = self._system_catalog.build_llm_prompt(caller_id)
+            
+            # Use tool-aware parsing with asset context
+            if hasattr(self._llm_responder, 'parse_intent_with_tools'):
+                if hasattr(self, '_tool_registry') and self._tool_registry is not None:
+                    parsed, usage = self._llm_responder.parse_intent_with_tools(
+                        message, self._tool_registry, available_apps,
+                        asset_context=asset_prompt,
+                    )
+                else:
+                    parsed, usage = self._llm_responder.parse_intent_with_tools(
+                        message, None, available_apps,
+                        asset_context=asset_prompt,
+                    )
+            else:
+                parsed, usage = self._llm_responder.parse_intent(
+                    message, available_apps, asset_context=asset_prompt,
+                )
+        elif hasattr(self, '_tool_registry') and self._tool_registry is not None:
             # Use tool-aware parsing with registry context
             parsed, usage = self._llm_responder.parse_intent_with_tools(
                 message, self._tool_registry, available_apps

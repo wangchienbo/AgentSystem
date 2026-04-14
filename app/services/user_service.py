@@ -7,11 +7,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 # ===========================================================================
@@ -278,6 +281,26 @@ class UserService:
         self._load_existing_users()
 
     # -- Registration --
+
+    def ensure_user(self, user_id: str, default_role: str = Role.USER, display_name: str = "") -> UserRecord:
+        """Ensure a user exists. Create with default role if not found.
+        
+        This is the self-registration entry point for users.
+        """
+        user = self._users.get(user_id)
+        if user:
+            return user
+        
+        # Auto-register with default credentials (no password required for first access)
+        record = UserRecord(
+            user_id=user_id,
+            display_name=display_name or user_id,
+            role=default_role,
+        )
+        self._users[user_id] = record
+        self._persist_user(record)
+        logger.info("Auto-registered user: %s (role=%s)", user_id, default_role)
+        return record
 
     def register_user(
         self,

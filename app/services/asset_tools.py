@@ -39,42 +39,22 @@ class AssetToolDefinition:
 def make_query_asset_detail_tool() -> AssetToolDefinition:
     return AssetToolDefinition(
         name="query_asset_detail",
-        description="查询某个资产的详细使用说明，包括输入输出格式和注意事项",
+        description="查询某个资产的详细使用说明。\n"
+                    "用法：当你在资产概览列表中看到一个感兴趣的资产，但不知道具体怎么使用时调用此工具。\n"
+                    "返回内容：资产名称、描述、所有可用接口（function）的名称、说明、输入参数格式、输出格式、注意事项。\n"
+                    "示例：query_asset_detail(asset_id='app.novel') → 返回小说 App 的 write_chapter 和 create_character 接口的完整使用说明",
         parameters=[
-            ToolParam("asset_id", "string", "资产ID，例如 app.novel", required=True),
+            ToolParam("asset_id", "string", "资产ID，例如 app.novel、skill.generic_writer、path.create_app", required=True),
         ],
     )
 
 
-def make_solidify_workflow_tool() -> AssetToolDefinition:
-    return AssetToolDefinition(
-        name="solidify_workflow",
-        description="固化一个工作流程到指定 App，将步骤序列保存为可复用的 Path",
-        parameters=[
-            ToolParam("app_id", "string", "目标 App ID，例如 app.novel", required=True),
-            ToolParam("path_key", "string", "流程 key，例如 write_chapter", required=True),
-            ToolParam("steps", "array", "步骤序列，每个步骤是包含 skill_id 和 action 的字典", required=True),
-        ],
-    )
 
-
-def make_execute_path_by_key_tool() -> AssetToolDefinition:
-    return AssetToolDefinition(
-        name="execute_path_by_key",
-        description="按 key 调用中心 Skill 的固化流程",
-        parameters=[
-            ToolParam("app_id", "string", "目标 App ID，例如 app.novel", required=True),
-            ToolParam("path_key", "string", "流程 key，例如 write_chapter", required=True),
-            ToolParam("inputs", "object", "流程输入参数", required=True),
-        ],
-    )
 
 
 def make_all_asset_tools() -> list[AssetToolDefinition]:
     return [
         make_query_asset_detail_tool(),
-        make_solidify_workflow_tool(),
-        make_execute_path_by_key_tool(),
     ]
 
 
@@ -109,10 +89,6 @@ class AssetToolExecutor:
         try:
             if tool_name == "query_asset_detail":
                 return self._query_asset_detail(arguments, caller_name)
-            elif tool_name == "solidify_workflow":
-                return self._solidify_workflow(arguments, caller_name)
-            elif tool_name == "execute_path_by_key":
-                return self._execute_path_by_key(arguments, caller_name)
             else:
                 return ToolResult(success=False, error=f"Unknown asset tool: {tool_name}")
         except Exception as e:
@@ -128,9 +104,14 @@ class AssetToolExecutor:
         if asset is None:
             return ToolResult(success=False, error=f"Asset {asset_id} not found or not visible to {caller_name}")
 
+        # Support both CatalogEntry (has .detail()) and Asset model
+        if hasattr(asset, 'detail'):
+            return ToolResult(success=True, data=asset.detail())
+
+        # Fallback for old Asset model
         return ToolResult(success=True, data={
             "asset_id": asset.asset_id,
-            "asset_type": asset.asset_type.value,
+            "asset_type": asset.asset_type.value if hasattr(asset.asset_type, 'value') else str(asset.asset_type),
             "name": asset.name,
             "description": asset.description,
             "functions": [
@@ -142,73 +123,50 @@ class AssetToolExecutor:
                     "output_schema": f.output_schema,
                     "notes": f.notes,
                 }
-                for f in asset.functions
+                for f in getattr(asset, 'functions', [])
             ],
-            "metadata": asset.metadata,
+            "metadata": getattr(asset, 'metadata', {}),
         })
 
-    def _solidify_workflow(self, args: dict, caller_name: str) -> ToolResult:
-        app_id = args.get("app_id")
-        path_key = args.get("path_key")
-        steps = args.get("steps")
-
-        if not app_id or not path_key or not steps:
-            return ToolResult(success=False, error="app_id, path_key, and steps are required")
-
-        # Verify caller has permission on the app
-        asset = self._registry.get_asset_detail(app_id, caller_name)
-        if asset is None:
-            return ToolResult(success=False, error=f"App {app_id} not found or not visible")
-
-        # Route to the app's orchestrator to solidify the path
-        if self._orchestrator_router:
-            try:
-                result = self._orchestrator_router(app_id, "solidify", {
-                    "path_key": path_key,
-                    "steps": steps,
-                })
-                return ToolResult(success=True, data=result)
-            except Exception as e:
-                return ToolResult(success=False, error=f"Solidify failed: {e}")
-
-        return ToolResult(success=False, error="Orchestrator router not configured")
-
-    def _execute_path_by_key(self, args: dict, caller_name: str) -> ToolResult:
-        app_id = args.get("app_id")
-        path_key = args.get("path_key")
-        inputs = args.get("inputs", {})
-
-        if not app_id or not path_key:
-            return ToolResult(success=False, error="app_id and path_key are required")
-
-        # Verify visibility
-        asset = self._registry.get_asset_detail(app_id, caller_name)
-        if asset is None:
-            return ToolResult(success=False, error=f"App {app_id} not found or not visible")
-
-        # Route to the app's orchestrator
-        if self._orchestrator_router:
-            try:
-                result = self._orchestrator_router(app_id, path_key, inputs)
-                return ToolResult(success=True, data=result)
-            except Exception as e:
-                return ToolResult(success=False, error=f"Execution failed: {e}")
-
-        return ToolResult(success=False, error="Orchestrator router not configured")
 
 
 # ---------------------------------------------------------------------------
 # Prompt assembler
 # ---------------------------------------------------------------------------
 
-def assemble_asset_overview_prompt(registry: AssetRegistry, caller_name: str) -> str:
-    """Assemble a concise asset overview for LLM prompt injection."""
+def assemble_asset_overview_prompt(registry: Any, caller_name: str) -> str:
+    """Assemble a concise asset overview for LLM prompt injection.
+    
+    Compatible with both AssetRegistry (Asset model) and SystemCatalog (CatalogEntry).
+    """
     assets = registry.get_visible_assets(caller_name)
     if not assets:
         return "当前没有可用的资产。"
 
-    lines = ["你可用的资产："]
+    lines = [
+        "## 可用资产概览",
+        "",
+        "以下是你可以调用的资产列表。每个资产包含：",
+        "- asset_id: 资产唯一标识",
+        "- 名称: 人类可读名称",
+        "- 接口: 该资产提供的所有可调用的功能",
+        "",
+        "**重要：如需了解某个资产的详细使用说明（输入参数格式、输出格式、注意事项），",
+        "请调用 query_asset_detail(asset_id) 工具。**",
+        "",
+    ]
     for a in assets:
-        lines.append(a.overview())
-    lines.append("\n如需了解某个资产的详细使用说明（输入输出、注意事项），请调用 query_asset_detail(asset_id)。")
+        # Support both Asset model (has .functions) and CatalogEntry (has .interfaces)
+        if hasattr(a, 'interfaces'):
+            # CatalogEntry
+            fn_names = ", ".join(f"{k}({v.get('description', '')})" for k, v in a.interfaces.items()) if a.interfaces else "无"
+        elif hasattr(a, 'functions'):
+            # Asset model
+            fn_names = ", ".join(f"{f.key}({f.name})" for f in a.functions)
+        else:
+            fn_names = "无"
+        lines.append(f"### {a.asset_id} ({a.name})")
+        lines.append(f"描述: {a.description}")
+        lines.append(f"可用接口: {fn_names if fn_names else '无'}")
+        lines.append("")
     return "\n".join(lines)

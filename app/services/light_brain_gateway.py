@@ -59,6 +59,10 @@ class LightBrainGateway:
         tool_registry: Any = None,
         orchestrator_bridge: Any = None,
         app_refinement_orchestrator: Any = None,
+        # Asset registry & tool call chain
+        system_catalog: Any = None,
+        asset_tool_executor: Any = None,
+        user_service: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -86,6 +90,11 @@ class LightBrainGateway:
         # G.1/G.2: Orchestrator bridge — new execution chain
         self._orchestrator_bridge = orchestrator_bridge
         self._app_refinement_orchestrator = app_refinement_orchestrator
+
+        # Asset registry & tool call chain
+        self._system_catalog = system_catalog
+        self._asset_tool_executor = asset_tool_executor
+        self._user_service = user_service
 
         # Phase F.4: Multi-turn state — track active skill per session
         self._active_skills: dict[str, dict[str, Any]] = {}
@@ -146,10 +155,21 @@ class LightBrainGateway:
             self._auto_save()
             return reply
 
-        # 4. Get available apps for context
+        # 4. Ensure user exists (self-registration)
+        if self._user_service and request.user_id:
+            try:
+                self._user_service.ensure_user(request.user_id)
+            except Exception:
+                pass  # Best-effort
+
+        # 5. Get available apps for context
         available_apps = await self._get_available_apps(user_id=request.user_id)
 
-        # 5. Wire LLM responder into interpreter (if available)
+        # 5b. Wire system_catalog into interpreter for asset-aware LLM parsing
+        if self._system_catalog and not hasattr(self._interpreter, "_system_catalog"):
+            self._interpreter.set_system_catalog(self._system_catalog)
+
+        # 6. Wire LLM responder into interpreter (if available)
         if self._llm_responder and not hasattr(self._interpreter, "_llm_responder"):
             self._interpreter.set_llm_responder(self._llm_responder)
 

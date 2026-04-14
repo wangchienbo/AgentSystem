@@ -571,12 +571,61 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.light_brain_interpreter import LightBrainInterpreter
     from app.services.light_brain_memory import LightBrainMemory
     from app.services.llm_responder import LLMResponder
-    from app.services.tool_registry import ToolRegistry
+    from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
+    from app.services.system_catalog import SystemCatalog, CatalogEntry
+    from app.services.asset_tools import AssetToolExecutor, make_all_asset_tools
+
+    # Asset catalog — persistent registry with self-registration
+    system_catalog = SystemCatalog()
+    logger.info("System catalog loaded: %d entries", system_catalog.count())
+
+    # Asset tool executor — bridges LLM tool calls to registry
+    asset_tool_executor = AssetToolExecutor(registry=system_catalog)
+
+    # Tool registry
+    tool_registry = ToolRegistry()
+
+    # Register asset tools into the tool registry
+    for tool_def in make_all_asset_tools():
+        tool_registry.register(ToolDefinition(
+            name=tool_def.name,
+            description=tool_def.description,
+            parameters=[ToolParameter(name=p.name, type=p.type, description=p.description, required=p.required) for p in tool_def.parameters],
+            category="asset",
+        ))
+
+    # Asset self-registration hooks — injected into lifecycle
+    def _on_asset_start(app_instance_id: str) -> None:
+        """Register an asset when it starts running."""
+        try:
+            instance = lifecycle.get_instance(app_instance_id)
+            entry = CatalogEntry(
+                asset_id=f"app.{instance.id}",
+                asset_type="app",
+                owner_id=f"user.{instance.owner_user_id}" if instance.owner_user_id != "system" else "system",
+                name=instance.id,
+                description=f"App instance: {instance.id}",
+                status="running",
+                visibility="public" if instance.owner_user_id == "system" else "private",
+            )
+            system_catalog.register(entry)
+            logger.info("Asset self-registered: %s", entry.asset_id)
+        except Exception as e:
+            logger.warning("Asset start hook failed for %s: %s", app_instance_id, e)
+
+    def _on_asset_stop(app_instance_id: str) -> None:
+        """Unregister an asset when it stops."""
+        try:
+            system_catalog.unregister(f"app.{app_instance_id}")
+            logger.info("Asset unregistered: app.%s", app_instance_id)
+        except Exception as e:
+            logger.warning("Asset stop hook failed for %s: %s", app_instance_id, e)
+
+    lifecycle.set_asset_hooks(on_asset_start=_on_asset_start, on_asset_stop=_on_asset_stop)
 
     light_brain_memory = LightBrainMemory()
     light_brain_interpreter = LightBrainInterpreter()
     llm_responder = LLMResponder(model_router=model_router)
-    tool_registry = ToolRegistry()
     light_brain_gateway = LightBrainGateway(
         memory=light_brain_memory,
         interpreter=light_brain_interpreter,
@@ -596,9 +645,12 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         tool_registry=tool_registry,
         orchestrator_bridge=g1g2_bridge,
         app_refinement_orchestrator=app_refinement_orchestrator,
+        system_catalog=system_catalog,
+        asset_tool_executor=asset_tool_executor,
+        user_service=user_service,
     )
 
-    # Wire tool registry into interpreter for tool-aware LLM parsing
+    # Wire tool registry and system catalog into interpreter for tool-aware LLM parsing
     light_brain_interpreter.set_tool_registry(tool_registry)
     # Wire LLM to workflow after gateway is created
     interactive_app_workflow._llm = llm_responder

@@ -47,6 +47,19 @@ class AppLifecycleService:
         self._events: dict[str, list[LifecycleEvent]] = {}
         self._store = store
 
+        # Asset registration hooks — set by runtime bootstrap
+        self._on_asset_start_fn = None  # called after start → running
+        self._on_asset_stop_fn = None   # called after stop/fail
+
+    def set_asset_hooks(self, on_asset_start=None, on_asset_stop=None) -> None:
+        """Set callbacks for asset self-registration.
+        
+        on_asset_start: (app_instance_id) -> None
+        on_asset_stop: (app_instance_id) -> None
+        """
+        self._on_asset_start_fn = on_asset_start
+        self._on_asset_stop_fn = on_asset_stop
+
     def register_instance(self, instance: AppInstance) -> AppInstance:
         self._instances[instance.id] = instance
         self._events.setdefault(instance.id, [])
@@ -87,6 +100,19 @@ class AppLifecycleService:
             )
         )
         self._persist()
+
+        # Asset self-registration hooks
+        if target == "running" and self._on_asset_start_fn:
+            try:
+                self._on_asset_start_fn(app_instance_id)
+            except Exception as e:
+                logger.warning("Asset start hook failed for %s: %s", app_instance_id, e)
+        elif target in ("stopped", "failed") and self._on_asset_stop_fn:
+            try:
+                self._on_asset_stop_fn(app_instance_id)
+            except Exception as e:
+                logger.warning("Asset stop hook failed for %s: %s", app_instance_id, e)
+
         return LifecycleTransitionResult(
             app_instance_id=app_instance_id,
             previous_status=previous_status,
