@@ -100,10 +100,14 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     skill_control = SkillControlService()
     schema_registry = SchemaRegistryService()
 
+    # Config Center — system-level skill template + app binding config
+    from app.services.config_center import ConfigCenterService
+    config_center = ConfigCenterService()
+
     # Phase F.1: Unified Model Router
     from app.services.model_router import ModelRouter
     from app.services.tool_calling_engine import ToolCallingEngine
-    model_router = ModelRouter(skill_control=skill_control)
+    model_router = ModelRouter(skill_control=skill_control, config_center=config_center)
     tool_calling_engine = ToolCallingEngine(model_router=model_router)
     schema_registry.register(
         "schema://system.app_config/input",

@@ -77,15 +77,25 @@ class ModelRouterError(ValueError):
 
 
 class ModelRouter:
-    """Unified model router for all LLM calls in AgentSystem."""
+    """Unified model router for all LLM calls in AgentSystem.
+
+    Configuration priority (high → low):
+    1. App-skill binding override (from ConfigCenterService)
+    2. Skill template default (from ConfigCenterService)
+    3. Skill-declared model_preference (from SkillRegistryEntry)
+    4. Caller-type routing table
+    5. Global default
+    """
 
     def __init__(
         self,
         config_path: str | None = None,
         skill_control: Any = None,
+        config_center: Any = None,
     ) -> None:
         self._config_path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
         self._skill_control = skill_control
+        self._config_center = config_center  # ConfigCenterService
         self._model_pool: dict[str, dict[str, Any]] = dict(DEFAULT_MODEL_POOL)
         self._caller_routes: dict[str, dict[str, str]] = dict(DEFAULT_CALLER_ROUTES)
         self._default_model: str = "strong"
@@ -136,10 +146,31 @@ class ModelRouter:
         """Resolve which model to use for a given caller.
 
         Priority:
-        1. Skill-declared model_preference
-        2. Caller-type routing table
-        3. Global default
+        1. App-skill binding override (from ConfigCenterService)
+        2. Skill template default (from ConfigCenterService)
+        3. Skill-declared model_preference (from SkillRegistryEntry)
+        4. Caller-type routing table
+        5. Global default
         """
+        # 0. ConfigCenter: app-skill binding + skill template defaults
+        if self._config_center:
+            app_id = None
+            skill_id = None
+
+            # Format: "skill:<skill_id>:app:<app_id>" (skill instance with app context)
+            if ":app:" in caller:
+                parts = caller.split(":")
+                skill_id = parts[1]
+                app_id = parts[3] if len(parts) > 3 else None
+            elif caller.startswith("skill:"):
+                skill_id = caller.split(":", 1)[1]
+            elif caller.startswith("app:"):
+                app_id = caller
+
+            resolved = self._config_center.resolve_model_preference(app_id, skill_id)
+            if resolved:
+                return self._resolve_by_preference(resolved, source=f"config_center:{caller}")
+
         # 1. Skill-declared preference
         if caller.startswith("skill:"):
             skill_id = caller.split(":", 1)[1]
