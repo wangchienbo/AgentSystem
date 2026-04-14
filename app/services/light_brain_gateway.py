@@ -875,46 +875,14 @@ class LightBrainGateway:
                 except Exception as e:
                     import logging
                     logging.getLogger(__name__).warning(
-                        "AppRegistry RPC query failed, falling back to direct: %s", e,
+                        "AppRegistry RPC query failed: %s", e,
                     )
 
-            # Fallback: direct lookup
-            found = None
-            for app in apps:
-                if app.get("name") == display_name or app.get("app_id") == target:
-                    found = app
-                    break
-            if found:
-                status = found.get("status", "unknown")
-                status_icons = {"running": "🟢", "paused": "🟡", "stopped": "🔴", "installed": "🔵", "error": "⛔"}
-                icon = status_icons.get(status, "⚪")
-                status_labels = {"running": "运行中", "paused": "已暂停", "stopped": "已停止", "installed": "已安装", "error": "故障"}
-                label = status_labels.get(status, status)
-                actions = []
-                if status == "running":
-                    actions = [
-                        ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
-                        ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": display_name}, style="secondary"),
-                    ]
-                elif status in ("stopped", "installed"):
-                    actions = [
-                        ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
-                    ]
-                elif status == "paused":
-                    actions = [
-                        ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
-                    ]
-                return ChatMessageResponse(
-                    type="card",
-                    content=f"{icon} **{display_name}**\n\n状态: {label}",
-                    session_id=session_id,
-                    related_app=display_name,
-                    actions=actions,
-                )
             return ChatMessageResponse(
                 type="text",
-                content=f"未找到 App：**{command.target_app}**",
+                content=f"查询 **{display_name}** 状态失败，请稍后重试。",
                 session_id=session_id,
+                related_app=display_name,
             )
 
         # No target — show system-wide status
@@ -1565,53 +1533,14 @@ class LightBrainGateway:
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
-                    "AppRegistry RPC query_app failed, falling back to direct: %s", e,
+                    "AppRegistry RPC query_app failed: %s", e,
                 )
-
-        # Fallback: direct lookup
-        # Try to find the app in available apps
-        found = None
-        for app in apps:
-            if app.get("name") == display_name or app.get("app_id") == target:
-                found = app
-                break
-
-        if found:
-            status = found.get("status", "unknown")
-            description = found.get("description", "")
-            app_id = found.get("app_id", "")
-            
-            # Enrich with runtime status if available
-            runtime_status = ""
-            if self._lifecycle:
-                try:
-                    instance = self._lifecycle.get_instance(target)
-                    runtime_status = f"\n运行状态: {getattr(instance, 'status', 'unknown')}"
-                except Exception:
-                    pass
-            
-            detail = f"ID: {app_id}\n状态: {status}{runtime_status}"
-            if description:
-                detail += f"\n描述: {description}"
-            
-            return ChatMessageResponse(
-                type="card",
-                content=f"📋 {display_name}\n\n{detail}",
-                session_id=session_id,
-                related_app=display_name,
-                actions=[
-                    ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
-                    ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
-                ],
-            )
 
         return ChatMessageResponse(
             type="text",
-            content=f"没有找到名为 **{target_input}** 的 App。",
+            content=f"查询 **{display_name}** 详情失败，请稍后重试。",
             session_id=session_id,
-            actions=[
-                ActionSuggestion(id="list_apps", label="📱 查看所有 App", action_type="navigate", payload={"intent": "list_apps"}, style="primary"),
-            ],
+            related_app=display_name,
         )
 
     async def _handle_modify_app(
