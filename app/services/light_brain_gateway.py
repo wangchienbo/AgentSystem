@@ -1062,12 +1062,22 @@ class LightBrainGateway:
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
-                    "MetaApp RPC create failed, falling back to direct: %s", e,
+                    "MetaApp RPC create failed: %s", e,
+                )
+                return ChatMessageResponse(
+                    type="error",
+                    content=f"创建 App 失败: {e}",
+                    session_id=session_id,
                 )
 
-        # Fallback: direct call
-        # If orchestrator available, actually create the app
-        if self._meta_app_orchestrator:
+        return ChatMessageResponse(
+            type="error",
+            content="系统未配置 MessageBus，无法通过 RPC 创建 App。",
+            session_id=session_id,
+        )
+
+        # Unreachable legacy path kept below intentionally disabled
+        if False and self._meta_app_orchestrator:
             try:
                 from app.models.app_meta_app import AppCreationFromMetaAppRequest
                 user_id = command.user_id or ""
@@ -1242,62 +1252,20 @@ class LightBrainGateway:
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
-                    "Lifecycle RPC start failed, falling back to direct: %s", e,
+                    "Lifecycle RPC start failed: %s", e,
                 )
-
-        # Fallback: direct call
-        if self._runtime_host:
-            try:
-                self._runtime_host.start(target, reason="user_command")
-                display_name = self._resolve_display_name(target, "")
-                return ChatMessageResponse(
-                    type="card",
-                    content=f"✅ **{display_name}** 已启动。",
-                    session_id=session_id,
-                    related_app=display_name,
-                    actions=[
-                        ActionSuggestion(
-                            id="stop", label="⏹ 停止", action_type="execute",
-                            payload={"intent": "stop_app", "target": display_name}, style="danger",
-                        ),
-                        ActionSuggestion(
-                            id="status", label="📊 状态", action_type="execute",
-                            payload={"intent": "query_app", "target": display_name}, style="secondary",
-                        ),
-                    ],
-                )
-            except Exception as exc:
-                exc_str = str(exc)
-                # User-friendly error messages
-                if "Invalid lifecycle transition" in exc_str or "running -> running" in exc_str:
-                    display_name = self._resolve_display_name(target, target_input)
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"**{display_name}** 已经在运行中，不需要重复启动。",
-                        session_id=session_id,
-                        related_app=display_name,
-                    )
-                if "not found" in exc_str.lower() or "No instance" in exc_str:
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"未找到 App：**{target_input}**，请先创建它。",
-                        session_id=session_id,
-                    )
                 return ChatMessageResponse(
                     type="error",
-                    content=f"启动 **{target_input}** 失败: {exc}",
+                    content=f"启动 **{target_input}** 失败: {e}",
                     session_id=session_id,
                     related_app=target_input,
                 )
-        
-        # Fallback
+
         return ChatMessageResponse(
-            type="confirm",
-            content=f"确定要启动 **{target_input}** 吗？",
+            type="error",
+            content="系统未配置 MessageBus，无法通过 RPC 启动 App。",
             session_id=session_id,
             related_app=target_input,
-            actions=command.suggested_actions,
-            requires_input=True,
         )
 
     async def _handle_stop_app(
@@ -1346,58 +1314,20 @@ class LightBrainGateway:
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
-                    "Lifecycle RPC stop failed, falling back to direct: %s", e,
+                    "Lifecycle RPC stop failed: %s", e,
                 )
-
-        # Fallback: direct call
-        if self._runtime_host:
-            try:
-                self._runtime_host.stop(target, reason="user_command")
-                display_name = self._resolve_display_name(target, "")
-                return ChatMessageResponse(
-                    type="card",
-                    content=f"⏹ **{display_name}** 已停止。",
-                    session_id=session_id,
-                    related_app=display_name,
-                    actions=[
-                        ActionSuggestion(
-                            id="start", label="▶️ 启动", action_type="execute",
-                            payload={"intent": "start_app", "target": display_name}, style="primary",
-                        ),
-                    ],
-                )
-            except Exception as exc:
-                exc_str = str(exc)
-                # User-friendly error messages
-                if "Invalid lifecycle transition" in exc_str or "stopped -> stopped" in exc_str:
-                    display_name = self._resolve_display_name(target, target_input)
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"**{display_name}** 已经处于停止状态。",
-                        session_id=session_id,
-                        related_app=display_name,
-                    )
-                if "not found" in exc_str.lower() or "No instance" in exc_str:
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"未找到 App：**{target_input}**，请先创建它。",
-                        session_id=session_id,
-                    )
                 return ChatMessageResponse(
                     type="error",
-                    content=f"停止 **{target_input}** 失败: {exc}",
+                    content=f"停止 **{target_input}** 失败: {e}",
                     session_id=session_id,
                     related_app=target_input,
                 )
-        
-        # Fallback
+
         return ChatMessageResponse(
-            type="confirm",
-            content=f"确定要停止 **{target_input}** 吗？",
+            type="error",
+            content="系统未配置 MessageBus，无法通过 RPC 停止 App。",
             session_id=session_id,
             related_app=target_input,
-            actions=command.suggested_actions,
-            requires_input=True,
         )
 
     async def _handle_pause_app(
@@ -1464,51 +1394,20 @@ class LightBrainGateway:
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
-                    "Lifecycle RPC pause failed, falling back to direct: %s", e,
+                    "Lifecycle RPC pause failed: %s", e,
                 )
-
-        # Fallback: direct call
-        # Try to actually pause the app
-        if self._lifecycle:
-            try:
-                instance = self._lifecycle.get_instance(target)
-                current_status = getattr(instance, 'status', 'unknown') if instance else 'unknown'
-                if current_status == 'paused':
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"**{display_name}** 已经处于暂停状态。",
-                        session_id=session_id,
-                        related_app=display_name,
-                    )
-                self._lifecycle.pause(target, reason="user_command")
                 return ChatMessageResponse(
-                    type="text",
-                    content=f"⏸ **{display_name}** 已暂停。",
+                    type="error",
+                    content=f"暂停 **{target_input}** 失败: {e}",
                     session_id=session_id,
-                    related_app=display_name,
-                    actions=[
-                        ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
-                        ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="secondary"),
-                    ],
+                    related_app=target_input,
                 )
-            except Exception as exc:
-                exc_str = str(exc)
-                if "Invalid lifecycle transition" in exc_str or "stopped -> paused" in exc_str:
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"**{display_name}** 当前已停止，无法暂停。请先启动后再暂停。",
-                        session_id=session_id,
-                        related_app=display_name,
-                    )
 
         return ChatMessageResponse(
-            type="text",
-            content=f"⏸ **{display_name}** 已暂停。",
+            type="error",
+            content="系统未配置 MessageBus，无法通过 RPC 暂停 App。",
             session_id=session_id,
-            related_app=display_name,
-            actions=[
-                ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
-            ],
+            related_app=target_input,
         )
 
     async def _handle_resume_app(
@@ -1582,42 +1481,20 @@ class LightBrainGateway:
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
-                    "Lifecycle RPC resume failed, falling back to direct: %s", e,
+                    "Lifecycle RPC resume failed: %s", e,
+                )
+                return ChatMessageResponse(
+                    type="error",
+                    content=f"恢复 **{target_input}** 失败: {e}",
+                    session_id=session_id,
+                    related_app=target_input,
                 )
 
-        # Fallback: direct call
-        # Try to actually resume the app
-        if self._lifecycle:
-            try:
-                instance = self._lifecycle.get_instance(target)
-                current_status = getattr(instance, 'status', 'unknown') if instance else 'unknown'
-                if current_status == 'running':
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"**{display_name}** 已经在运行中。",
-                        session_id=session_id,
-                        related_app=display_name,
-                    )
-                if current_status != 'paused':
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"**{display_name}** 当前处于{current_status}状态，请先暂停后再恢复。",
-                        session_id=session_id,
-                        related_app=display_name,
-                    )
-                self._lifecycle.resume(target, reason="user_command")
-            except Exception as exc:
-                pass  # Best-effort resume
-
         return ChatMessageResponse(
-            type="text",
-            content=f"▶️ **{display_name}** 已恢复运行。",
+            type="error",
+            content="系统未配置 MessageBus，无法通过 RPC 恢复 App。",
             session_id=session_id,
-            related_app=display_name,
-            actions=[
-                ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": display_name}, style="secondary"),
-                ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
-            ],
+            related_app=target_input,
         )
 
     async def _handle_query_app(
@@ -1910,10 +1787,23 @@ class LightBrainGateway:
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
-                    "AppRefinement RPC modify failed, falling back to direct: %s", e,
+                    "AppRefinement RPC modify failed: %s", e,
+                )
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"❌ 修改 **{display_name}** 时出错：{e}\n\n请重试或联系系统管理员。",
+                    session_id=session_id,
+                    related_app=display_name,
                 )
 
-        # Fallback: direct call
+        return ChatMessageResponse(
+            type="text",
+            content="⚠️ 系统未配置 MessageBus，无法通过 RPC 修改 App。",
+            session_id=session_id,
+            related_app=display_name,
+        )
+
+        # Unreachable legacy path kept below intentionally disabled
         try:
             from app.models.app_refinement import SuggestedSkillRefinementClosureRequest
 
@@ -2148,29 +2038,11 @@ class LightBrainGateway:
                 except Exception as e:
                     import logging
                     logging.getLogger(__name__).warning(
-                        "Lifecycle RPC delete failed, falling back to direct: %s", e,
+                        "Lifecycle RPC delete failed: %s", e,
                     )
-
-            # Fallback: direct call
-            if self._lifecycle:
-                try:
-                    self._lifecycle.stop(target, reason="user_command")
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"🗑️ **{display_name}** 已删除。",
-                        session_id=session_id,
-                        related_app=display_name,
-                        actions=[
-                            ActionSuggestion(
-                                id="list_apps", label="📱 查看 App", action_type="navigate",
-                                payload={"intent": "list_apps"}, style="primary",
-                            ),
-                        ],
-                    )
-                except Exception as exc:
                     return ChatMessageResponse(
                         type="error",
-                        content=f"删除 **{display_name}** 失败: {exc}",
+                        content=f"删除 **{display_name}** 失败: {e}",
                         session_id=session_id,
                     )
 
