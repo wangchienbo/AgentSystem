@@ -5,6 +5,7 @@ from app.models.registry import AppInstallResult
 from app.services.app_context_store import AppContextStore
 from app.services.app_data_store import AppDataStore
 from app.services.app_registry import AppRegistryService
+from app.services.config_center import ConfigCenterService
 from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.app_config_service import AppConfigService
@@ -35,6 +36,7 @@ class AppInstallerService:
         app_config_service: AppConfigService | None = None,
         app_profile_resolver: AppProfileResolverService | None = None,
         blueprint_validation: BlueprintValidationService | None = None,
+        config_center: ConfigCenterService | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -44,6 +46,7 @@ class AppInstallerService:
         self._app_config_service = app_config_service
         self._app_profile_resolver = app_profile_resolver
         self._blueprint_validation = blueprint_validation
+        self._config_center = config_center
 
     def install_app(self, blueprint_id: str, user_id: str, app_instance_id: str | None = None) -> AppInstallResult:
         blueprint = self._registry.get_blueprint(blueprint_id)
@@ -73,6 +76,11 @@ class AppInstallerService:
                 resolved_skills=resolved_skills,
                 runtime_profile=runtime_profile.model_dump() if runtime_profile is not None else {},
             )
+            # Phase II.1: Materialize per-app skill instance isolation snapshot
+            if self._config_center is not None:
+                instance.skill_instances = self._config_center.materialize_app_skill_instances(
+                    instance_id, resolved_skills,
+                )
             self._runtime_host.register_instance(instance)
             install_status = "installed"
 

@@ -173,6 +173,7 @@ class AppLifecycleService:
             instance.resolved_skills = snapshot.get("resolved_skills", instance.resolved_skills)
             instance.execution_mode = snapshot.get("execution_mode", instance.execution_mode)
             instance.data_namespace = snapshot.get("data_namespace", instance.data_namespace)
+            instance.skill_instances = snapshot.get("skill_instances", instance.skill_instances)
         previous_status = instance.status
         instance.status = "installed"
         self._events[app_instance_id].append(
@@ -209,6 +210,7 @@ class AppLifecycleService:
             "execution_mode": instance.execution_mode,
             "system_skills": list(instance.system_skills),
             "resolved_skills": list(instance.resolved_skills),
+            "skill_instances": dict(instance.skill_instances) if instance.skill_instances else {},
             "archived_at": datetime.now(UTC).isoformat(),
         }
 

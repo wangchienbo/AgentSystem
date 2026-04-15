@@ -3,6 +3,13 @@ model:
   wire_api: openai-responses
   base_url: https://crs.ruinique.com
   model: gpt-5.4
-  api_key: sk-b2cabe8ff710312635c6d1425cc3697a26bb9259c4985d97ee55900a830078fa
+  review_model: gpt-5.4
+  model_reasoning_effort: xhigh
+  disable_response_storage: true
+  network_access: enabled
+  windows_wsl_setup_acknowledged: true
+  model_context_window: 1000000
+  model_auto_compact_token_limit: 900000
+  api_key: sk-33561e75cf736622c2f15fbb4bbfb04616fd825a50e3ea29e9641f20c0a1620f
   api_key_env: OPENAI_API_KEY
   timeout_seconds: 30.0

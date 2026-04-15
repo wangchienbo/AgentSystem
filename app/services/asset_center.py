@@ -1,0 +1,294 @@
+"""Asset Center — manages static, installable asset definitions.
+
+An Asset is a versioned, installable definition (skill template, app blueprint).
+This is the DEVELOPMENT-TIME layer: definitions live in `source/`, are built,
+and then installed into the runtime layer.
+
+Key principle: modifying source/ does NOT affect running instances.
+Only `build + install` promotes changes to the running system.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import shutil
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+
+@dataclass
+class AssetDefinition:
+    """Static, versioned asset definition."""
+    asset_id: str
+    name: str
+    asset_type: str  # "skill" | "app" | "path"
+    version: str
+    source_path: str  # relative path in source/
+    description: str = ""
+    manifest: dict[str, Any] = field(default_factory=dict)
+    dependencies: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def compute_hash(self) -> str:
+        """Compute a deterministic hash of the asset definition."""
+        content = json.dumps({
+            "asset_id": self.asset_id,
+            "version": self.version,
+            "source_path": self.source_path,
+            "manifest": self.manifest,
+            "dependencies": sorted(self.dependencies),
+        }, sort_keys=True, ensure_ascii=False)
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
+
+
+@dataclass
+class AssetBuildRecord:
+    """Record of a successful asset build."""
+    asset_id: str
+    version: str
+    build_hash: str
+    build_time: str  # ISO timestamp
+    source_hash: str  # hash of source files at build time
+    status: str = "success"  # "success" | "failed"
+
+
+class AssetCenter:
+    """Manages the full lifecycle of static asset definitions.
+
+    Responsibilities:
+    - Discover assets in source/ directories
+    - Build assets (validate, package, compute hashes)
+    - Install assets to installed/ (runtime layer)
+    - Track build history and version lineage
+    - Support rollback to previous versions
+    """
+
+    def __init__(
+        self,
+        source_dir: str = "source",
+        installed_dir: str = "installed",
+        build_dir: str = "build",
+        data_dir: str = "data",
+    ) -> None:
+        self._source_dir = Path(source_dir)
+        self._installed_dir = Path(installed_dir)
+        self._build_dir = Path(build_dir)
+        self._data_dir = Path(data_dir)
+        self._registry: dict[str, AssetDefinition] = {}
+        self._build_history: dict[str, list[AssetBuildRecord]] = {}
+        self._load_registry()
+
+    # ---- Discovery ----
+
+    def discover(self) -> list[AssetDefinition]:
+        """Scan source/ directories and discover all asset definitions."""
+        assets = []
+        if not self._source_dir.exists():
+            return assets
+
+        for asset_dir in self._source_dir.iterdir():
+            if not asset_dir.is_dir():
+                continue
+            manifest_path = asset_dir / "manifest.json"
+            if not manifest_path.exists():
+                continue
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                asset = AssetDefinition(
+                    asset_id=manifest.get("asset_id", asset_dir.name),
+                    name=manifest.get("name", asset_dir.name),
+                    asset_type=manifest.get("asset_type", "skill"),
+                    version=manifest.get("version", "0.0.0"),
+                    source_path=str(asset_dir.relative_to(self._source_dir)),
+                    description=manifest.get("description", ""),
+                    manifest=manifest,
+                    dependencies=manifest.get("dependencies", []),
+                    tags=manifest.get("tags", []),
+                    metadata=manifest.get("metadata", {}),
+                )
+                assets.append(asset)
+                self._registry[asset.asset_id] = asset
+            except Exception:
+                continue
+
+        return assets
+
+    # ---- Build ----
+
+    def build(self, asset_id: str) -> AssetBuildRecord:
+        """Build an asset: validate and package it."""
+        asset = self._registry.get(asset_id)
+        if not asset:
+            raise ValueError(f"Asset not found: {asset_id}")
+
+        source_path = self._source_dir / asset.source_path
+        if not source_path.exists():
+            raise FileNotFoundError(f"Source path not found: {source_path}")
+
+        # Compute source hash
+        source_hash = self._compute_directory_hash(source_path)
+        build_hash = asset.compute_hash()
+
+        # Create build output
+        build_output_dir = self._build_dir / asset_id / build_hash
+        build_output_dir.mkdir(parents=True, exist_ok=True)
+        if source_path.is_dir():
+            for item in source_path.iterdir():
+                dest = build_output_dir / item.name
+                if item.is_dir():
+                    shutil.copytree(item, dest, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(item, dest)
+
+        record = AssetBuildRecord(
+            asset_id=asset_id,
+            version=asset.version,
+            build_hash=build_hash,
+            build_time=self._now_iso(),
+            source_hash=source_hash,
+        )
+        self._build_history.setdefault(asset_id, []).append(record)
+        self._save_build_history()
+        return record
+
+    # ---- Install ----
+
+    def install(self, asset_id: str, build_hash: str | None = None) -> str:
+        """Install a built asset to the runtime layer (installed/).
+
+        Returns the installed version string.
+        """
+        asset = self._registry.get(asset_id)
+        if not asset:
+            raise ValueError(f"Asset not found: {asset_id}")
+
+        # Find the build to install
+        history = self._build_history.get(asset_id, [])
+        if build_hash:
+            record = next((r for r in history if r.build_hash == build_hash), None)
+        else:
+            record = history[-1] if history else None
+
+        if not record:
+            raise ValueError(f"No build available for {asset_id}")
+
+        # Copy to installed/
+        installed_path = self._installed_dir / asset_id
+        if installed_path.exists():
+            shutil.rmtree(installed_path)
+        build_output = self._build_dir / asset_id / record.build_hash
+        shutil.copytree(build_output, installed_path)
+
+        # Write installed manifest
+        manifest = {**asset.manifest, "installed_version": asset.version, "build_hash": record.build_hash}
+        (installed_path / "installed.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        return asset.version
+
+    # ---- Rollback ----
+
+    def rollback(self, asset_id: str, target_version: str) -> str:
+        """Rollback an installed asset to a previous version."""
+        history = self._build_history.get(asset_id, [])
+        record = next((r for r in history if r.version == target_version), None)
+        if not record:
+            raise ValueError(f"No build found for {asset_id} version {target_version}")
+
+        return self.install(asset_id, record.build_hash)
+
+    # ---- Queries ----
+
+    def get_asset(self, asset_id: str) -> AssetDefinition | None:
+        return self._registry.get(asset_id)
+
+    def list_assets(self, asset_type: str | None = None) -> list[AssetDefinition]:
+        assets = list(self._registry.values())
+        if asset_type:
+            assets = [a for a in assets if a.asset_type == asset_type]
+        return assets
+
+    def get_build_history(self, asset_id: str) -> list[AssetBuildRecord]:
+        return self._build_history.get(asset_id, [])
+
+    def get_installed_version(self, asset_id: str) -> str | None:
+        installed_manifest = self._installed_dir / asset_id / "installed.json"
+        if installed_manifest.exists():
+            data = json.loads(installed_manifest.read_text(encoding="utf-8"))
+            return data.get("installed_version")
+        return None
+
+    # ---- Persistence ----
+
+    def _load_registry(self) -> None:
+        registry_path = self._data_dir / "asset_registry.json"
+        if registry_path.exists():
+            try:
+                data = json.loads(registry_path.read_text(encoding="utf-8"))
+                for aid, raw in data.get("assets", {}).items():
+                    self._registry[aid] = AssetDefinition(**raw)
+                for aid, records in data.get("build_history", {}).items():
+                    self._build_history[aid] = [
+                        AssetBuildRecord(**r) for r in records
+                    ]
+            except Exception:
+                pass
+
+    def _save_build_history(self) -> None:
+        self._save_registry()
+
+    def _save_registry(self) -> None:
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        data = {
+            "assets": {
+                aid: {
+                    "asset_id": a.asset_id,
+                    "name": a.name,
+                    "asset_type": a.asset_type,
+                    "version": a.version,
+                    "source_path": a.source_path,
+                    "description": a.description,
+                    "manifest": a.manifest,
+                    "dependencies": a.dependencies,
+                    "tags": a.tags,
+                    "metadata": a.metadata,
+                }
+                for aid, a in self._registry.items()
+            },
+            "build_history": {
+                aid: [
+                    {
+                        "asset_id": r.asset_id,
+                        "version": r.version,
+                        "build_hash": r.build_hash,
+                        "build_time": r.build_time,
+                        "source_hash": r.source_hash,
+                        "status": r.status,
+                    }
+                    for r in records
+                ]
+                for aid, records in self._build_history.items()
+            },
+        }
+        (self._data_dir / "asset_registry.json").write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    # ---- Helpers ----
+
+    @staticmethod
+    def _compute_directory_hash(directory: Path) -> str:
+        """Compute a hash of all files in a directory."""
+        hasher = hashlib.sha256()
+        for path in sorted(directory.rglob("*")):
+            if path.is_file():
+                hasher.update(path.read_bytes())
+        return hasher.hexdigest()[:16]
+
+    @staticmethod
+    def _now_iso() -> str:
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc).isoformat()

@@ -187,6 +187,35 @@ class ConfigCenterService:
             result[sid] = self.resolve_model_preference(app_id, sid)
         return result
 
+    # Phase II.1: Per-app skill instance isolation
+    def materialize_app_skill_instances(
+        self,
+        app_id: str,
+        skill_ids: list[str],
+    ) -> dict[str, dict[str, Any]]:
+        """Materialize per-app skill instance configs from template + binding resolution.
+
+        Returns {skill_id: {"model_preference": ..., "metadata": ..., "enabled": ...}}
+        Each app instance gets its own isolated snapshot so shared skill templates
+        don't leak runtime context, state, or per-app overrides between apps.
+        """
+        result = {}
+        for sid in skill_ids:
+            model_pref = self.resolve_model_preference(app_id, sid)
+            template_config = self.get_skill_config(sid)
+            binding = self.get_app_skill_binding(app_id, sid)
+            metadata: dict[str, Any] = {}
+            if template_config:
+                metadata.update(template_config.metadata)
+            if binding:
+                metadata.update(binding.metadata)
+            result[sid] = {
+                "model_preference": model_pref,
+                "metadata": metadata,
+                "enabled": binding.enabled if binding else True,
+            }
+        return result
+
     def apply_app_skill_bindings(
         self,
         app_id: str,

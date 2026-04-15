@@ -416,6 +416,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         app_config_service=app_config_service,
         app_profile_resolver=app_profile_resolver,
         blueprint_validation=blueprint_validation,
+        config_center=config_center,
     )
     app_catalog = AppCatalogService()
     skill_runtime = SkillRuntimeService(

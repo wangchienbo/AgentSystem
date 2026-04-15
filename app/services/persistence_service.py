@@ -222,6 +222,7 @@ class PersistenceService:
                 "system_skills": list(inst.system_skills),
                 "resolved_skills": list(inst.resolved_skills),
                 "runtime_profile": inst.runtime_profile.model_dump(mode="json") if hasattr(inst.runtime_profile, "model_dump") else {},
+                "skill_instances": dict(inst.skill_instances) if inst.skill_instances else {},
             })
         return items
 
@@ -382,6 +383,7 @@ class PersistenceService:
                     system_skills=data.get("system_skills", []),
                     resolved_skills=data.get("resolved_skills", []),
                     runtime_profile=runtime_profile,
+                    skill_instances=data.get("skill_instances", {}),
                 )
                 lifecycle.register_instance(instance)
                 count += 1

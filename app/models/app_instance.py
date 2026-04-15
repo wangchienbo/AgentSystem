@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -32,6 +32,9 @@ class AppInstance(BaseModel):
     system_skills: list[str] = Field(default_factory=list)
     resolved_skills: list[str] = Field(default_factory=list)
     runtime_profile: AppRuntimeProfile = Field(default_factory=AppRuntimeProfile)
+    # Phase II.1: Per-app skill instance isolation snapshot.
+    # Maps skill_id → resolved config (model_preference, metadata, enabled)
+    skill_instances: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     @property
     def release_version(self) -> str:
