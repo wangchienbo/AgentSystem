@@ -188,10 +188,6 @@ class MasterControl:
                 result = worker.execute(operation, target, params)
             elif hasattr(worker, operation) and callable(getattr(worker, operation)):
                 result = getattr(worker, operation)(target, params)
-            elif operation == "external_review_plan" and hasattr(worker, "review_plan") and callable(worker.review_plan):
-                result = worker.review_plan(target, params)
-            elif operation == "external_review_code" and hasattr(worker, "review_code") and callable(worker.review_code):
-                result = worker.review_code(target, params)
             else:
                 result = {"status": "error", "message": f"Worker 不支持 {operation}"}
 
@@ -231,10 +227,6 @@ class MasterControl:
         # System suggestions → suggestion_worker
         if operation in ("suggest", "suggest_revise", "suggest_approve"):
             return self._workers.get("suggestion")
-
-        # External review → external_review worker
-        if operation in ("external_review_plan", "external_review_code"):
-            return self._workers.get("external_review")
 
         # File/persistence → file_worker
         if operation in ("save_state", "load_state", "upgrade", "rollback"):
