@@ -1,7 +1,10 @@
 """Orchestrator that bridges the LLM-powered meta-app design layer with deterministic assembly/execution."""
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from app.models.app_blueprint import AppBlueprint
@@ -14,8 +17,10 @@ from app.models.skill_creation import (
     SkillCreationRequest,
     SkillSchemaDefinition,
 )
+from app.services.asset_center import AssetCenter
 from app.services.meta_app.bootstrap import MetaAppBootstrapService
 from app.services.skill_factory import SkillFactoryService, SkillFactoryError
+from app.services.system_catalog import CatalogEntry, SystemCatalog
 
 
 class MetaAppOrchestratorError(ValueError):
@@ -30,6 +35,9 @@ class AppCreationOrchestrationResult:
     blueprint: AppBlueprint | None = None
     created_skill_ids: list[str] = field(default_factory=list)
     installed_app: AppInstance | None = None
+    asset_id: str = ""
+    build_hash: str = ""
+    version: str = ""
     error: str = ""
 
 
@@ -40,8 +48,10 @@ class MetaAppCreationOrchestrator:
     1. Call meta_app_bootstrap (LLM) to design app control structure
     2. Create the suggested subordinate skills via skill_factory
     3. Build blueprint from the created skills
-    4. Create AppInstance and register with lifecycle + runtime_host
-    5. Register with app_registry
+    4. Write blueprint to source/ (for asset management)
+    5. Build + Install via AssetCenter (source/ → build/ → installed/)
+    6. Create AppInstance and register with lifecycle + runtime_host
+    7. Register with system_catalog
     """
 
     def __init__(
@@ -52,18 +62,24 @@ class MetaAppCreationOrchestrator:
         lifecycle: Any = None,
         runtime_host: Any = None,
         app_registry: Any = None,
+        asset_center: AssetCenter | None = None,
+        system_catalog: SystemCatalog | None = None,
+        source_dir: str = "source",
     ) -> None:
         self._meta_app = meta_app_bootstrap
         self._skill_factory = skill_factory
         self._lifecycle = lifecycle
         self._runtime_host = runtime_host
         self._app_registry = app_registry
+        self._asset_center = asset_center
+        self._system_catalog = system_catalog
+        self._source_dir = Path(source_dir)
 
     def create_app_through_meta_app(
         self,
         request: AppCreationFromMetaAppRequest,
     ) -> AppCreationOrchestrationResult:
-        """Full flow: LLM design → skill creation → blueprint assembly → install."""
+        """Full flow: LLM design → skill creation → blueprint assembly → source/ → build → install → register."""
 
         # Step 1: LLM design layer — produce app control plan
         meta_request = MetaAppSkillRequest(
@@ -83,9 +99,12 @@ class MetaAppCreationOrchestrator:
 
         # Step 3: Build blueprint from created skills
         blueprint: AppBlueprint | None = None
+        asset_id: str = ""
+        build_hash: str = ""
         try:
             if created_skill_ids:
                 blueprint_id = f"bp-{control_plan.app_slug}"
+                asset_id = f"app.{control_plan.app_slug}"
                 bp_request = AppFromSkillsRequest(
                     blueprint_id=blueprint_id,
                     name=request.app_name,
@@ -102,7 +121,26 @@ class MetaAppCreationOrchestrator:
                 error=f"Blueprint assembly failed: {exc}",
             )
 
-        # Step 4: Create AppInstance and register with lifecycle + runtime_host
+        # Step 4: Write blueprint to source/ (source path = asset management entry)
+        if blueprint and self._asset_center:
+            try:
+                self._write_to_source(blueprint, asset_id)
+            except Exception:
+                # Non-fatal: continue even if source write fails
+                pass
+
+        # Step 5: Build + Install via AssetCenter (if available)
+        if blueprint and self._asset_center:
+            try:
+                self._asset_center.discover()  # refresh registry
+                build_record = self._asset_center.build(asset_id)
+                build_hash = build_record.build_hash
+                self._asset_center.install(asset_id, build_hash=build_hash)
+            except Exception:
+                # Non-fatal: instance still created, but asset not packaged
+                pass
+
+        # Step 6: Create AppInstance and register with lifecycle + runtime_host
         installed_app: AppInstance | None = None
         if blueprint and self._lifecycle:
             try:
@@ -117,12 +155,9 @@ class MetaAppCreationOrchestrator:
                     system_skills=created_skill_ids,
                     resolved_skills=created_skill_ids,
                 )
-                # Register with lifecycle (sets status to installed)
                 self._lifecycle.register_instance(instance)
-                # Register with runtime_host (creates lease)
                 if self._runtime_host:
                     self._runtime_host.register_instance(instance)
-                # Register with app_registry
                 if self._app_registry:
                     self._app_registry.register_blueprint(blueprint, description=f"Auto-created: {request.app_name}")
                 installed_app = instance
@@ -132,8 +167,33 @@ class MetaAppCreationOrchestrator:
                     control_plan=control_plan,
                     blueprint=blueprint,
                     created_skill_ids=created_skill_ids,
+                    asset_id=asset_id,
+                    build_hash=build_hash,
+                    version=blueprint.version,
                     error=f"Instance registration failed: {exc}",
                 )
+
+        # Step 7: Register in system_catalog (if available)
+        if blueprint and self._system_catalog:
+            try:
+                entry = CatalogEntry(
+                    asset_id=asset_id,
+                    name=request.app_name,
+                    asset_type="app",
+                    version=blueprint.version,
+                    owner=request.user_id or "system",
+                    status="active",
+                    source_path=f"source/{asset_id}/",
+                    metadata={
+                        "blueprint_id": blueprint.id,
+                        "skill_ids": created_skill_ids,
+                        "app_slug": control_plan.app_slug,
+                        "build_hash": build_hash,
+                    },
+                )
+                self._system_catalog.register(entry)
+            except Exception:
+                pass  # Non-fatal
 
         return AppCreationOrchestrationResult(
             app_name=request.app_name,
@@ -141,6 +201,9 @@ class MetaAppCreationOrchestrator:
             blueprint=blueprint,
             created_skill_ids=created_skill_ids,
             installed_app=installed_app,
+            asset_id=asset_id,
+            build_hash=build_hash,
+            version=blueprint.version if blueprint else "",
         )
 
     def _create_subordinate_skills(
@@ -171,7 +234,6 @@ class MetaAppCreationOrchestrator:
             )
 
             # Write handler to disk
-            import os
             skills_dir = f"skills/generated/{skill_id}"
             os.makedirs(skills_dir, exist_ok=True)
             handler_path = f"{skills_dir}/handler.py"
@@ -197,6 +259,35 @@ class MetaAppCreationOrchestrator:
             created.append(skill_id)
 
         return created
+
+    def _write_to_source(self, blueprint: AppBlueprint, asset_id: str) -> None:
+        """Serialize blueprint to source/{asset_id}/ for asset management."""
+        source_path = self._source_dir / asset_id
+        source_path.mkdir(parents=True, exist_ok=True)
+
+        manifest = {
+            "asset_id": asset_id,
+            "asset_type": "app",
+            "name": blueprint.name,
+            "version": blueprint.version,
+            "source_path": str(source_path),
+            "description": blueprint.goal,
+            "dependencies": [],
+            "tags": ["generated-by-meta-app"],
+            "metadata": {
+                "blueprint_id": blueprint.id,
+                "app_shape": blueprint.app_shape,
+                "required_skills": blueprint.required_skills,
+                "required_modules": blueprint.required_modules,
+            },
+        }
+        (source_path / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        # Also write the full blueprint for fidelity during build
+        (source_path / "blueprint.json").write_text(
+            blueprint.model_dump_json(indent=2), encoding="utf-8"
+        )
 
     @staticmethod
     def _generate_skill_stub_code(

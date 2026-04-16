@@ -497,6 +497,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         lifecycle=lifecycle,
         runtime_host=runtime_host,
         app_registry=app_registry,
+        asset_center=asset_center,
+        system_catalog=system_catalog,
     )
 
     # Phase F.3: App Designer (Path B) — LLM-driven app creation with skill composition

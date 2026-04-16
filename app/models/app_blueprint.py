@@ -69,6 +69,7 @@ class AppBlueprint(BaseModel):
     name: str
     goal: str
     version: str = "0.1.0"
+    source_path: str | None = None  # 格式: "{asset_id}/"，由系统自动写入
     app_shape: AppShape = "generic"
     roles: list[Role] = Field(default_factory=list)
     tasks: list[Task] = Field(default_factory=list)
