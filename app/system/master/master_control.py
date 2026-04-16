@@ -137,7 +137,7 @@ class MasterControl:
             return "admin"
 
         # User can modify their own apps
-        if request.operation in ("create_app", "modify_app", "delete_app"):
+        if request.operation in ("create_app", "modify_app", "delete_app", "start_asset", "stop_asset"):
             return "user"
 
         # Default: user level is enough for read/query operations
@@ -205,7 +205,7 @@ class MasterControl:
         if operation in (
             "create_app", "start_app", "stop_app", "pause_app", "resume_app",
             "list_apps", "query_app", "modify_app", "delete_app",
-            "install_app", "uninstall_app",
+            "install_app", "uninstall_app", "start_asset", "stop_asset", "health_check_asset",
         ):
             return self._workers.get("app_management")
 

@@ -494,6 +494,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     # Phase N asset infrastructure must be initialized before MetaApp orchestrator wiring.
     from app.services.system_catalog import SystemCatalog, CatalogEntry
     from app.services.asset_center import AssetCenter
+    from app.services.runtime_center import RuntimeCenter
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     system_catalog = SystemCatalog()
     asset_center = AssetCenter(
@@ -502,6 +503,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         build_dir=os.path.join(_project_root, "build"),
         data_dir=os.path.join(_project_root, "data"),
     )
+    runtime_center = RuntimeCenter(data_file=os.path.join(_project_root, "data", "runtime_center.json"))
     asset_center.discover()
 
     meta_app_bootstrap = MetaAppBootstrapService(model_router=model_router)
@@ -631,6 +633,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         app_installer=app_installer,
         app_catalog=app_catalog,
         tool_registry=tool_registry,
+        runtime_center=runtime_center,
     )
     user_manager = UserManager(
         user_service=user_service,
@@ -675,6 +678,13 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             category="package_manager",
         ))
 
+    for name, description, params in [
+        ("start_asset", "启动一个已安装资产", [ToolParameter(name="asset_id", type="string", description="资产ID", required=True)]),
+        ("stop_asset", "停止一个运行中资产", [ToolParameter(name="asset_id", type="string", description="资产ID", required=True)]),
+        ("health_check_asset", "查询资产运行健康状态", [ToolParameter(name="asset_id", type="string", description="资产ID", required=True)]),
+    ]:
+        tool_registry.register(ToolDefinition(name=name, description=description, parameters=params, category="app_management"))
+
     # Asset self-registration hooks — injected into lifecycle
     def _on_asset_start(app_instance_id: str) -> None:
         """Register an asset when it starts running."""
@@ -690,6 +700,15 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 visibility="public" if instance.owner_user_id == "system" else "private",
             )
             system_catalog.register(entry)
+            if instance is not None:
+                runtime_center.register(
+                    asset_id=entry.asset_id,
+                    version=getattr(instance, "installed_version", "0.0.0") or "0.0.0",
+                    pid=0,
+                    endpoint="",
+                    owner=entry.owner_id,
+                    status="running",
+                )
             logger.info("Asset self-registered: %s", entry.asset_id)
         except Exception as e:
             logger.warning("Asset start hook failed for %s: %s", app_instance_id, e)
@@ -698,6 +717,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         """Unregister an asset when it stops."""
         try:
             system_catalog.unregister(f"app.{app_instance_id}")
+            runtime_center.unregister(f"app.{app_instance_id}")
             logger.info("Asset unregistered: app.%s", app_instance_id)
         except Exception as e:
             logger.warning("Asset stop hook failed for %s: %s", app_instance_id, e)

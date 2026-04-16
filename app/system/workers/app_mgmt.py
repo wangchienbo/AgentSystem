@@ -23,12 +23,14 @@ class AppManagementWorker:
         app_installer: Any = None,
         app_catalog: Any = None,
         tool_registry: Any = None,
+        runtime_center: Any = None,
     ) -> None:
         self._app_registry = app_registry
         self._lifecycle = lifecycle
         self._app_installer = app_installer
         self._app_catalog = app_catalog
         self._tool_registry = tool_registry
+        self._runtime_center = runtime_center
 
     def execute(self, operation: str, target: str, params: dict) -> dict:
         """Dispatch to the appropriate method."""
@@ -44,6 +46,9 @@ class AppManagementWorker:
             "delete_app": self._delete_app,
             "install_app": self._install_app,
             "uninstall_app": self._uninstall_app,
+            "start_asset": self._start_asset,
+            "stop_asset": self._stop_asset,
+            "health_check_asset": self._health_check_asset,
         }.get(operation)
 
         if handler is None:
@@ -69,7 +74,7 @@ class AppManagementWorker:
         if not self._lifecycle:
             return {"status": "error", "message": "Lifecycle 未加载"}
         try:
-            self._lifecycle.start_app(target)
+            self._lifecycle.transition(target, "start", reason=params.get("reason", "master_control.start_app"))
             return {"status": "success", "message": f"App {target} 已启动"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
@@ -78,10 +83,64 @@ class AppManagementWorker:
         if not self._lifecycle:
             return {"status": "error", "message": "Lifecycle 未加载"}
         try:
-            self._lifecycle.stop_app(target)
+            self._lifecycle.transition(target, "stop", reason=params.get("reason", "master_control.stop_app"))
             return {"status": "success", "message": f"App {target} 已停止"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+    def _start_asset(self, target: str, params: dict) -> dict:
+        result = self._start_app(target, params)
+        if result.get("status") != "success":
+            return result
+        if self._runtime_center:
+            try:
+                instance = self._lifecycle.get_instance(target)
+                entry = self._runtime_center.get(target)
+                if entry is None:
+                    entry = self._runtime_center.register(
+                        asset_id=target,
+                        version=getattr(instance, "installed_version", "0.0.0") or "0.0.0",
+                        pid=params.get("pid", 0),
+                        endpoint=params.get("endpoint", ""),
+                        owner=getattr(instance, "owner_user_id", "system"),
+                    )
+                result["data"] = {
+                    "asset_id": entry.asset_id,
+                    "status": entry.status,
+                    "pid": entry.pid,
+                    "endpoint": entry.endpoint,
+                    "version": entry.version,
+                }
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+        return result
+
+    def _stop_asset(self, target: str, params: dict) -> dict:
+        result = self._stop_app(target, params)
+        if result.get("status") != "success":
+            return result
+        if self._runtime_center:
+            self._runtime_center.mark_stopped(target)
+            self._runtime_center.unregister(target, pid=params.get("pid"))
+        return {"status": "success", "message": f"Asset {target} 已停止"}
+
+    def _health_check_asset(self, target: str, params: dict) -> dict:
+        if not self._runtime_center:
+            return {"status": "error", "message": "RuntimeCenter 未加载"}
+        entry = self._runtime_center.get(target)
+        if entry is None:
+            return {"status": "not_found", "message": f"未找到运行中的资产: {target}"}
+        return {
+            "status": "success",
+            "data": {
+                "asset_id": entry.asset_id,
+                "status": entry.status,
+                "pid": entry.pid,
+                "endpoint": entry.endpoint,
+                "version": entry.version,
+                "uptime": self._runtime_center.get_uptime(target),
+            },
+        }
 
     def _pause_app(self, target: str, params: dict) -> dict:
         if not self._lifecycle:

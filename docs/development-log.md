@@ -1,5 +1,47 @@
 # Development Log
 
+## 2026-04-17
+
+### Module: Phase N code decoupling compatibility recovery + RuntimeCenter foundation
+
+在完成 `app/services/` 物理解耦后，先恢复旧导入路径兼容层，避免全仓测试在一次重构中同时被 import 路径打断；随后补上 Phase N 运行资源中心的第一版实现，并把它接入主运行时与 App 管理链路，为后续 `start_asset / stop_asset / health_check_asset` 以及升级/卸载链路打基础。
+
+#### Implemented
+- 新增 `app/services/` 兼容导入层，承接旧的 `app.services.*` import 路径
+- 修复 `app/bootstrap/runtime.py` 中 `AssetCenter` / `SystemCatalog` 初始化顺序，避免 `MetaAppCreationOrchestrator` 注入前未绑定
+- 新增 `app/system/catalog/runtime_center.py`
+  - `register`
+  - `heartbeat`
+  - `unregister`
+  - `mark_crashed`
+  - `mark_stopped`
+  - `list_running`
+  - `list_all`
+  - `cleanup_expired`
+  - `get_uptime`
+- 将 `RuntimeCenter` 接入 `build_runtime()`
+- 在生命周期 asset hooks 中同步写入 / 清理 RuntimeCenter
+- 在 `AppManagementWorker` 中新增：
+  - `start_asset`
+  - `stop_asset`
+  - `health_check_asset`
+- 在 `MasterControl` 路由与权限解析中加入上述三个 operation
+- 在 ToolRegistry 注册运行时资产 Tool 元数据
+
+#### Validation
+- `python3 -m compileall app` 通过
+- 关键测试通过：
+  - `tests/test_runtime_center.py`
+  - `tests/test_asset_registry.py`
+  - `tests/test_asset_tools.py`
+  - `tests/unit/test_bootstrap_smoke.py`
+  - `tests/unit/test_runtime_asset_management_worker.py`
+- 当前验证结果：`28 passed`（前一轮）后继续扩展至包含运行时资产管理测试
+
+#### Notes
+- 这次没有回退物理解耦，而是通过兼容层保住老路径，后续可逐模块把内部 import 平滑迁到新结构
+- `RuntimeCenter` 当前是文件级运行态中心，后续继续补 endpoint 探活、真实子进程 pid 管理、以及 start/stop 的 subprocess 托管
+
 ## 2026-04-10
 
 ### Module: project control layer initialization for AgentSystem
