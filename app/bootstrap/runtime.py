@@ -490,6 +490,20 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         context_store=app_context_store,
         telemetry_service=telemetry_service,
     )
+
+    # Phase N asset infrastructure must be initialized before MetaApp orchestrator wiring.
+    from app.services.system_catalog import SystemCatalog, CatalogEntry
+    from app.services.asset_center import AssetCenter
+    _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    system_catalog = SystemCatalog()
+    asset_center = AssetCenter(
+        source_dir=os.path.join(_project_root, "source"),
+        installed_dir=os.path.join(_project_root, "installed"),
+        build_dir=os.path.join(_project_root, "build"),
+        data_dir=os.path.join(_project_root, "data"),
+    )
+    asset_center.discover()
+
     meta_app_bootstrap = MetaAppBootstrapService(model_router=model_router)
     meta_app_orchestrator = MetaAppCreationOrchestrator(
         meta_app_bootstrap=meta_app_bootstrap,
@@ -579,27 +593,14 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.light_brain_memory import LightBrainMemory
     from app.services.llm_responder import LLMResponder
     from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
-    from app.services.system_catalog import SystemCatalog, CatalogEntry
     from app.services.asset_tools import AssetToolExecutor, make_all_asset_tools
-    from app.services.asset_center import AssetCenter
     from app.services.package_manager import PackageManagerExecutor, make_all_package_tools
 
-    # Asset catalog — persistent registry with self-registration
-    system_catalog = SystemCatalog()
     logger.info("System catalog loaded: %d entries", system_catalog.count())
 
     # Asset tool executor — bridges LLM tool calls to registry
     asset_tool_executor = AssetToolExecutor(registry=system_catalog)
 
-    # Asset Center — Python-style package management (source/ installed/ separation)
-    _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    asset_center = AssetCenter(
-        source_dir=os.path.join(_project_root, "source"),
-        installed_dir=os.path.join(_project_root, "installed"),
-        build_dir=os.path.join(_project_root, "build"),
-        data_dir=os.path.join(_project_root, "data"),
-    )
-    asset_center.discover()
     package_manager_executor = PackageManagerExecutor(asset_center=asset_center)
     logger.info(
         "Asset Center initialized: %d assets in source/, %d installed",
