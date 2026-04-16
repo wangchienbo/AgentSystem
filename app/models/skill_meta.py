@@ -80,3 +80,16 @@ class SkillMeta:
             tags=data.get("tags", []),
             actions=data.get("actions", []),
         )
+
+
+# Backward-compat aliases (SkillMeta was renamed from SkillMetaInfo)
+SkillMetaInfo = SkillMeta
+
+
+@dataclass
+class ActionMeta:
+    """Metadata for a single action within a skill."""
+    name: str
+    description: str = ""
+    input_schema: dict[str, Any] = field(default_factory=dict)
+    output_schema: dict[str, Any] = field(default_factory=dict)

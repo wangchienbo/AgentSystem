@@ -1,353 +1,392 @@
-"""Master Control Plane — governance boundary for the AgentSystem.
+"""Master Control — 系统级唯一入口（Kernel Space）。
 
-This is the system's self-governance layer. It handles:
-1. Permission approval for high-risk operations
-2. Audit logging of all significant actions
-3. Context governance (session boundaries, memory lifecycle)
-4. Self-governance (system health, error recovery)
-5. Infrastructure management (gateway, model routing)
-6. High-risk operation control (user confirmation required)
+所有系统操作（App/Skill/Path/权限/建议）的统一执行入口。
+不直接与用户对话，通过交互层间接交互。
 
-Key principle: interaction layer doesn't absorb these responsibilities.
-Master control is a separate boundary — not a business layer, not a service layer.
+设计原则:
+- 权限检查集中: 所有操作必须经过 MasterControl.auth_check
+- 调用路由统一: 根据 tool category 路由到对应 Worker
+- 审计日志: 所有操作记录到审计日志
 """
+
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from pathlib import Path
-from typing import Any
+from datetime import datetime
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 
-# ============================================================
-# Audit Log
-# ============================================================
-
-class AuditLevel(str, Enum):
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
-    CRITICAL = "critical"
-
-
-class AuditCategory(str, Enum):
-    PERMISSION = "permission"
-    RESOURCE = "resource"
-    MODEL = "model"
-    ASSET = "asset"
-    SYSTEM = "system"
-    USER_ACTION = "user_action"
-    RISK_OPERATION = "risk_operation"
+@dataclass
+class AuditRecord:
+    """Single audit log entry."""
+    timestamp: str
+    user_id: str
+    operation: str
+    target: str
+    params: dict
+    result: str  # "granted" | "denied" | "executed" | "error"
+    message: str = ""
 
 
 @dataclass
-class AuditRecord:
-    """A single audit log entry."""
-    record_id: str
-    timestamp: str
-    category: AuditCategory
-    level: AuditLevel
-    actor: str  # "user.xxx", "system", "app.xxx"
-    action: str
+class AuthRequest:
+    """Permission authorization request."""
+    user_id: str
+    user_role: str  # user | admin | root | system
+    operation: str
     target: str
-    details: dict[str, Any] = field(default_factory=dict)
-    result: str = "pending"  # "pending" | "approved" | "denied" | "completed" | "failed"
-    reviewer: str = ""
+    params: dict = field(default_factory=dict)
 
 
-class AuditLogger:
-    """Persistent audit logger for governance tracking."""
-
-    def __init__(self, data_dir: str = "data") -> None:
-        self._data_dir = Path(data_dir)
-        self._data_dir.mkdir(parents=True, exist_ok=True)
-        self._records: list[AuditRecord] = []
-        self._counter = 0
-        self._load()
-
-    def log(
-        self,
-        category: AuditCategory,
-        level: AuditLevel,
-        actor: str,
-        action: str,
-        target: str,
-        details: dict[str, Any] | None = None,
-        result: str = "pending",
-        reviewer: str = "",
-    ) -> AuditRecord:
-        """Create an audit record."""
-        self._counter += 1
-        record = AuditRecord(
-            record_id=f"AUDIT-{self._counter:06d}",
-            timestamp=datetime.now(timezone.utc).isoformat(),
-            category=category,
-            level=level,
-            actor=actor,
-            action=action,
-            target=target,
-            details=details or {},
-            result=result,
-            reviewer=reviewer,
-        )
-        self._records.append(record)
-        self._save()
-        if level in (AuditLevel.ERROR, AuditLevel.CRITICAL):
-            logger.warning("Audit %s: %s → %s on %s", level.value, actor, action, target)
-        return record
-
-    def query(
-        self,
-        category: AuditCategory | None = None,
-        actor: str | None = None,
-        since: str | None = None,
-        limit: int = 50,
-    ) -> list[AuditRecord]:
-        """Query audit records with optional filters."""
-        records = self._records
-        if category:
-            records = [r for r in records if r.category == category]
-        if actor:
-            records = [r for r in records if r.actor == actor]
-        if since:
-            records = [r for r in records if r.timestamp >= since]
-        return records[-limit:]
-
-    def _load(self) -> None:
-        path = self._data_dir / "audit_log.json"
-        if path.exists():
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-                self._counter = data.get("counter", 0)
-                for raw in data.get("records", []):
-                    self._records.append(AuditRecord(**raw))
-            except Exception:
-                pass
-
-    def _save(self) -> None:
-        path = self._data_dir / "audit_log.json"
-        data = {
-            "counter": self._counter,
-            "records": [
-                {
-                    "record_id": r.record_id,
-                    "timestamp": r.timestamp,
-                    "category": r.category.value,
-                    "level": r.level.value,
-                    "actor": r.actor,
-                    "action": r.action,
-                    "target": r.target,
-                    "details": r.details,
-                    "result": r.result,
-                    "reviewer": r.reviewer,
-                }
-                for r in self._records[-1000:]  # keep last 1000
-            ],
-        }
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+@dataclass
+class AuthResponse:
+    """Permission authorization response."""
+    status: str  # granted | denied | pending
+    message: str = ""
+    required_role: str | None = None
+    impact: dict | None = None  # dry-run analysis
 
 
-# ============================================================
-# Risk Operation Governance
-# ============================================================
-
-RISK_OPERATIONS = {
-    "asset_delete": "Delete an installed asset",
-    "asset_rollback": "Rollback an asset to a previous version",
-    "resource_terminate": "Force-terminate a running resource",
-    "model_switch": "Switch the default model",
-    "system_restart": "Restart the system",
-    "permission_override": "Override a permission rule",
-    "config_modify": "Modify system-level configuration",
+ROLE_LEVEL: dict[str, int] = {
+    "user": 0,
+    "admin": 1,
+    "root": 2,
+    "system": 99,
 }
 
 
-class RiskGovernanceService:
-    """Manages high-risk operation approval workflow.
+class MasterControl:
+    """系统级主控（Kernel）。
 
-    Before executing a risky operation:
-    1. Log the intent as pending
-    2. Require user/system approval
-    3. Execute only after approval
-    4. Log the result
+    所有系统操作的唯一入口：
+    - 权限审批 (auth_check)
+    - 操作执行 (execute)
+    - 系统建议 (suggest)
+    - 状态查询 (query)
     """
 
-    def __init__(self, audit_logger: AuditLogger | None = None) -> None:
-        self._audit = audit_logger or AuditLogger()
-        self._pending_approvals: dict[str, AuditRecord] = {}
+    def __init__(self) -> None:
+        self._workers: dict[str, Any] = {}
+        self._audit_log: list[AuditRecord] = []
+        self._suggestions: dict[str, dict] = {}
+        self._tool_registry = None  # set via set_tool_registry
+        self._permission_service = None  # set via set_permission_service
 
-    def request_approval(
+    def set_tool_registry(self, registry) -> None:
+        self._tool_registry = registry
+
+    def set_permission_service(self, service) -> None:
+        self._permission_service = service
+
+    def register_worker(self, name: str, worker: Any) -> None:
+        """Register a subordinate worker (domain service)."""
+        self._workers[name] = worker
+
+    def get_worker(self, name: str) -> Any | None:
+        return self._workers.get(name)
+
+    # -- Permission Layer ---------------------------------------------------
+
+    def auth_check(self, request: AuthRequest) -> AuthResponse:
+        """Check if user has permission to perform the operation.
+
+        Rules:
+        1. user.role_level >= target.owner_role_level → granted
+        2. Otherwise → denied with required_role hint
+        """
+        user_level = ROLE_LEVEL.get(request.user_role, 0)
+
+        # Root/system can do anything
+        if user_level >= ROLE_LEVEL["root"]:
+            return AuthResponse(
+                status="granted",
+                message=f"用户 {request.user_id} ({request.user_role}) 权限通过",
+            )
+
+        # Check specific operation permissions
+        required_role = self._resolve_required_role(request)
+        required_level = ROLE_LEVEL.get(required_role, 0)
+
+        if user_level >= required_level:
+            return AuthResponse(
+                status="granted",
+                message=f"用户 {request.user_id} ({request.user_role}) 权限通过",
+            )
+
+        return AuthResponse(
+            status="denied",
+            message=f"权限不足: 需要 {required_role} 角色，当前为 {request.user_role}",
+            required_role=required_role,
+        )
+
+    def _resolve_required_role(self, request: AuthRequest) -> str:
+        """Resolve the minimum role required for an operation."""
+        # Permission operations need root
+        if request.operation in ("grant_admin", "grant_root", "revoke_role"):
+            return "root"
+
+        # System-level operations need admin
+        if request.operation in ("create_skill", "modify_skill", "delete_skill"):
+            return "admin"
+
+        # System suggestions need admin for approval
+        if request.operation in ("suggest_approve", "system_upgrade"):
+            return "admin"
+
+        # User can modify their own apps
+        if request.operation in ("create_app", "modify_app", "delete_app"):
+            return "user"
+
+        # Default: user level is enough for read/query operations
+        return "user"
+
+    # -- Execute Layer ------------------------------------------------------
+
+    async def execute(
         self,
         operation: str,
-        actor: str,
-        target: str,
-        reason: str = "",
-    ) -> AuditRecord | None:
-        """Request approval for a risky operation."""
-        if operation not in RISK_OPERATIONS:
-            logger.warning("Unknown risk operation: %s", operation)
-            return None
+        user_id: str,
+        user_role: str,
+        target: str = "",
+        params: dict | None = None,
+    ) -> dict:
+        """Unified execution entry point.
 
-        record = self._audit.log(
-            category=AuditCategory.RISK_OPERATION,
-            level=AuditLevel.WARNING,
-            actor=actor,
-            action=operation,
+        Flow:
+        1. Auth check
+        2. Dry-run analysis (for complex ops)
+        3. Route to appropriate worker
+        4. Record audit
+        5. Return result
+        """
+        params = params or {}
+
+        # 1. Auth check
+        auth = self.auth_check(AuthRequest(
+            user_id=user_id,
+            user_role=user_role,
+            operation=operation,
             target=target,
-            details={"reason": reason, "description": RISK_OPERATIONS[operation]},
-            result="pending",
-        )
-        self._pending_approvals[record.record_id] = record
-        return record
+            params=params,
+        ))
 
-    def approve(self, record_id: str, reviewer: str) -> AuditRecord | None:
-        """Approve a pending operation."""
-        record = self._pending_approvals.get(record_id)
-        if not record:
-            return None
-        record.result = "approved"
-        record.reviewer = reviewer
-        self._audit.log(
-            category=AuditCategory.PERMISSION,
-            level=AuditLevel.INFO,
-            actor=reviewer,
-            action="approve",
-            target=record_id,
-            result="completed",
-            reviewer=reviewer,
-        )
-        return record
+        if auth.status != "granted":
+            self._record_audit(user_id, operation, target, params, "denied", auth.message)
+            return {"status": "denied", "message": auth.message, "required_role": auth.required_role}
 
-    def deny(self, record_id: str, reviewer: str, reason: str = "") -> AuditRecord | None:
-        """Deny a pending operation."""
-        record = self._pending_approvals.get(record_id)
-        if not record:
-            return None
-        record.result = "denied"
-        record.reviewer = reviewer
-        record.details["deny_reason"] = reason
-        return record
+        # 2. Route to worker
+        worker = self._resolve_worker(operation)
+        if worker is None:
+            return {"status": "error", "message": f"未找到处理 {operation} 的 Worker"}
 
-    def get_pending(self) -> list[AuditRecord]:
-        """List all pending approvals."""
-        return list(self._pending_approvals.values())
+        # 3. Execute
+        try:
+            if hasattr(worker, "execute") and callable(worker.execute):
+                result = worker.execute(operation, target, params)
+            elif hasattr(worker, operation) and callable(getattr(worker, operation)):
+                result = getattr(worker, operation)(target, params)
+            else:
+                result = {"status": "error", "message": f"Worker 不支持 {operation}"}
 
-    def clear_resolved(self) -> None:
-        """Remove approved/denied records from pending queue."""
-        self._pending_approvals = {
-            rid: r for rid, r in self._pending_approvals.items()
-            if r.result == "pending"
+            self._record_audit(user_id, operation, target, params, "executed", str(result))
+            return result
+
+        except Exception as e:
+            logger.exception("MasterControl execute error: %s", operation)
+            self._record_audit(user_id, operation, target, params, "error", str(e))
+            return {"status": "error", "message": str(e)}
+
+    def _resolve_worker(self, operation: str) -> Any | None:
+        """Route operation to the appropriate worker."""
+        # App lifecycle/management → app_management_worker
+        if operation in (
+            "create_app", "start_app", "stop_app", "pause_app", "resume_app",
+            "list_apps", "query_app", "modify_app", "delete_app",
+            "install_app", "uninstall_app",
+        ):
+            return self._workers.get("app_management")
+
+        # User/permission → user_manager
+        if operation in (
+            "grant_admin", "grant_root", "revoke_role",
+            "show_permissions", "list_users", "show_self",
+        ):
+            return self._workers.get("user_manager")
+
+        # Skill management → skill_manager
+        if operation in ("create_skill", "modify_skill", "delete_skill", "list_skills"):
+            return self._workers.get("skill_manager")
+
+        # App refinement → refinement_worker
+        if operation in ("refine_app", "add_skill_to_app", "remove_skill_from_app"):
+            return self._workers.get("refinement")
+
+        # System suggestions → suggestion_worker
+        if operation in ("suggest", "suggest_revise", "suggest_approve"):
+            return self._workers.get("suggestion")
+
+        # File/persistence → file_worker
+        if operation in ("save_state", "load_state", "upgrade", "rollback"):
+            return self._workers.get("file_worker")
+
+        # Package management → package_manager (from asset_center)
+        if operation in (
+            "package_list_installed", "package_show", "package_build",
+            "package_install", "package_uninstall", "package_rollback", "package_search",
+        ):
+            return self._workers.get("package_manager")
+
+        return None
+
+    # -- Suggestion Layer ---------------------------------------------------
+
+    def suggest(self, user_id: str, category: str, problem: str, expectation: str = "") -> dict:
+        """Submit a system-level suggestion.
+
+        Returns feasibility analysis + modification plan.
+        """
+        suggestion_id = f"sgt_{int(datetime.now().timestamp())}"
+
+        # Analyze which module is affected
+        affected_module = self._analyze_suggestion(category)
+        if affected_module is None:
+            return {
+                "status": "error",
+                "message": f"无法识别建议类别: {category}",
+            }
+
+        # Generate a plan
+        plan = self._generate_plan(affected_module, problem, expectation)
+
+        self._suggestions[suggestion_id] = {
+            "user_id": user_id,
+            "category": category,
+            "problem": problem,
+            "expectation": expectation,
+            "affected_module": affected_module,
+            "plan": plan,
+            "status": "pending",
+            "created_at": datetime.now().isoformat(),
         }
 
+        return {
+            "status": "pending",
+            "suggestion_id": suggestion_id,
+            "affected_module": affected_module,
+            "plan": plan,
+            "required_role": "admin",
+        }
 
-# ============================================================
-# Master Control Service
-# ============================================================
+    def _analyze_suggestion(self, category: str) -> str | None:
+        """Map suggestion category to affected system module."""
+        mapping = {
+            "intent_understanding": "intent_analyzer",
+            "app_creation": "app_assembler",
+            "skill_management": "skill_manager",
+            "permission": "user_manager",
+            "system_upgrade": "file_worker",
+        }
+        return mapping.get(category)
 
-class MasterControlService:
-    """Top-level governance orchestrator.
+    def _generate_plan(self, module: str, problem: str, expectation: str) -> dict:
+        """Generate a modification plan for the affected module."""
+        return {
+            "module": module,
+            "problem": problem,
+            "expectation": expectation,
+            "suggested_actions": [
+                f"检查 {module} 的当前配置",
+                f"评估修改 {module} 的影响范围",
+            ],
+            "risk_level": "low",
+            "estimated_impact": "待评估",
+        }
 
-    Coordinates audit logging, risk governance, and system self-governance.
-    This is the system's control plane — not part of the interaction layer.
-    """
+    # -- Query Layer (read-only) --------------------------------------------
 
-    def __init__(
-        self,
-        data_dir: str = "data",
-        auto_audit: bool = True,
-    ) -> None:
-        self._audit = AuditLogger(data_dir=data_dir)
-        self._risk = RiskGovernanceService(audit_logger=self._audit)
-        self._auto_audit = auto_audit
+    def query(self, query_type: str, params: dict | None = None) -> dict:
+        """Read-only system state query."""
+        params = params or {}
 
-    @property
-    def audit(self) -> AuditLogger:
-        return self._audit
+        if query_type == "system_status":
+            return self._query_system_status()
+        elif query_type == "audit_log":
+            return self._query_audit_log(params)
+        elif query_type == "architecture":
+            return self._query_architecture()
+        elif query_type == "suggestions":
+            return self._query_suggestions(params)
+        else:
+            return {"status": "error", "message": f"未知查询类型: {query_type}"}
 
-    @property
-    def risk(self) -> RiskGovernanceService:
-        return self._risk
+    def _query_system_status(self) -> dict:
+        worker_count = len(self._workers)
+        audit_count = len(self._audit_log)
+        suggestion_count = len(self._suggestions)
+        return {
+            "status": "healthy",
+            "workers": worker_count,
+            "audit_entries": audit_count,
+            "pending_suggestions": suggestion_count,
+        }
 
-    # ---- System self-governance ----
+    def _query_audit_log(self, params: dict) -> dict:
+        limit = params.get("limit", 20)
+        records = self._audit_log[-limit:]
+        return {
+            "total": len(self._audit_log),
+            "records": [
+                {
+                    "timestamp": r.timestamp,
+                    "user_id": r.user_id,
+                    "operation": r.operation,
+                    "target": r.target,
+                    "result": r.result,
+                }
+                for r in records
+            ],
+        }
 
-    def record_system_event(
-        self,
-        event_type: str,
-        details: dict[str, Any],
-        level: AuditLevel = AuditLevel.INFO,
-    ) -> AuditRecord:
-        """Record a system-level event."""
-        return self._audit.log(
-            category=AuditCategory.SYSTEM,
-            level=level,
-            actor="system",
-            action=event_type,
-            target="system",
-            details=details,
-            result="completed",
-        )
+    def _query_architecture(self) -> dict:
+        return {
+            "workers": list(self._workers.keys()),
+            "suggestions": len(self._suggestions),
+            "audit_entries": len(self._audit_log),
+        }
 
-    def record_model_call(
-        self,
-        model: str,
-        prompt_length: int,
-        success: bool,
-        duration_ms: float = 0,
-        error: str = "",
-    ) -> AuditRecord:
-        """Record a model API call for monitoring."""
-        return self._audit.log(
-            category=AuditCategory.MODEL,
-            level=AuditLevel.INFO if success else AuditLevel.WARNING,
-            actor="system",
-            action="model_call",
-            target=model,
-            details={
-                "prompt_length": prompt_length,
-                "success": success,
-                "duration_ms": duration_ms,
-                "error": error,
+    def _query_suggestions(self, params: dict) -> dict:
+        suggestion_id = params.get("suggestion_id")
+        if suggestion_id:
+            suggestion = self._suggestions.get(suggestion_id)
+            if suggestion:
+                return {"status": "found", "suggestion": suggestion}
+            return {"status": "not_found"}
+        return {
+            "suggestions": {
+                sid: {"category": s["category"], "status": s["status"], "created_at": s["created_at"]}
+                for sid, s in self._suggestions.items()
             },
-            result="completed" if success else "failed",
-        )
+        }
 
-    def record_asset_operation(
-        self,
-        operation: str,
-        asset_id: str,
-        actor: str,
-        details: dict[str, Any] | None = None,
-    ) -> AuditRecord:
-        """Record an asset lifecycle operation."""
-        return self._audit.log(
-            category=AuditCategory.ASSET,
-            level=AuditLevel.INFO,
-            actor=actor,
-            action=operation,
-            target=asset_id,
-            details=details or {},
-            result="completed",
-        )
+    # -- Audit ---------------------------------------------------------------
 
-    def record_resource_operation(
-        self,
-        operation: str,
-        resource_id: str,
-        actor: str,
-        details: dict[str, Any] | None = None,
-    ) -> AuditRecord:
-        """Record a resource lifecycle operation."""
-        return self._audit.log(
-            category=AuditCategory.RESOURCE,
-            level=AuditLevel.INFO,
-            actor=actor,
-            action=operation,
-            target=resource_id,
-            details=details or {},
-            result="completed",
+    def _record_audit(
+        self, user_id: str, operation: str, target: str,
+        params: dict, result: str, message: str = "",
+    ) -> None:
+        record = AuditRecord(
+            timestamp=datetime.now().isoformat(),
+            user_id=user_id,
+            operation=operation,
+            target=target,
+            params=params,
+            result=result,
+            message=message,
         )
+        self._audit_log.append(record)
+        # Keep last 1000 entries
+        if len(self._audit_log) > 1000:
+            self._audit_log = self._audit_log[-1000:]

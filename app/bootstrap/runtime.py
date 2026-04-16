@@ -579,6 +579,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
     from app.services.system_catalog import SystemCatalog, CatalogEntry
     from app.services.asset_tools import AssetToolExecutor, make_all_asset_tools
+    from app.services.asset_center import AssetCenter
+    from app.services.package_manager import PackageManagerExecutor, make_all_package_tools
 
     # Asset catalog — persistent registry with self-registration
     system_catalog = SystemCatalog()
@@ -587,8 +589,70 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     # Asset tool executor — bridges LLM tool calls to registry
     asset_tool_executor = AssetToolExecutor(registry=system_catalog)
 
+    # Asset Center — Python-style package management (source/ installed/ separation)
+    _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    asset_center = AssetCenter(
+        source_dir=os.path.join(_project_root, "source"),
+        installed_dir=os.path.join(_project_root, "installed"),
+        build_dir=os.path.join(_project_root, "build"),
+        data_dir=os.path.join(_project_root, "data"),
+    )
+    asset_center.discover()
+    package_manager_executor = PackageManagerExecutor(asset_center=asset_center)
+    logger.info(
+        "Asset Center initialized: %d assets in source/, %d installed",
+        len(asset_center.list_assets()),
+        len(asset_center.list_installed()),
+    )
+
     # Tool registry
     tool_registry = ToolRegistry()
+
+    # -- Phase M: Master Control + subordinate Workers -----------------------
+    from app.services.master_control import MasterControl
+    from app.services.workers.app_management_worker import AppManagementWorker
+    from app.services.workers.user_manager import UserManager
+    from app.services.workers.skill_manager import SkillManager
+    from app.services.workers.refinement_worker import RefinementWorker
+    from app.services.workers.file_worker import FileWorker
+    from app.services.workers.suggestion_worker import SuggestionWorker
+
+    master_control = MasterControl()
+    master_control.set_tool_registry(tool_registry)
+    master_control.set_permission_service(permission_skill)
+
+    # Create subordinate workers
+    app_mgmt_worker = AppManagementWorker(
+        app_registry=app_registry,
+        lifecycle=lifecycle,
+        app_installer=app_installer,
+        app_catalog=app_catalog,
+        tool_registry=tool_registry,
+    )
+    user_manager = UserManager(
+        user_service=user_service,
+        permission_service=permission_skill,
+    )
+    skill_manager = SkillManager(
+        skill_registry=skill_factory,
+        skill_meta_service=g1g2_meta_service,
+    )
+    refinement_worker_m = RefinementWorker(
+        refinement_orchestrator=app_refinement_orchestrator,
+        app_registry=app_registry,
+    )
+    file_worker = FileWorker(persistence=persistence_service)
+    suggestion_worker_m = SuggestionWorker()
+
+    # Register workers into MasterControl
+    master_control.register_worker("app_management", app_mgmt_worker)
+    master_control.register_worker("user_manager", user_manager)
+    master_control.register_worker("skill_manager", skill_manager)
+    master_control.register_worker("refinement", refinement_worker_m)
+    master_control.register_worker("file_worker", file_worker)
+    master_control.register_worker("suggestion", suggestion_worker_m)
+    master_control.register_worker("package_manager", package_manager_executor)
+    logger.info("Phase M: MasterControl + %d subordinate Workers registered", 7)
 
     # Register asset tools into the tool registry
     for tool_def in make_all_asset_tools():
@@ -597,6 +661,15 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             description=tool_def.description,
             parameters=[ToolParameter(name=p.name, type=p.type, description=p.description, required=p.required) for p in tool_def.parameters],
             category="asset",
+        ))
+
+    # Register package management tools (source/ installed/ separation)
+    for tool_def in make_all_package_tools():
+        tool_registry.register(ToolDefinition(
+            name=tool_def.name,
+            description=tool_def.description,
+            parameters=[ToolParameter(name=p.name, type=p.type, description=p.description, required=p.required) for p in tool_def.parameters],
+            category="package_manager",
         ))
 
     # Asset self-registration hooks — injected into lifecycle
@@ -652,9 +725,11 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         app_refinement_orchestrator=app_refinement_orchestrator,
         system_catalog=system_catalog,
         asset_tool_executor=asset_tool_executor,
+        package_manager_executor=package_manager_executor,
         user_service=user_service,
         message_bus=g1g2_bus,  # Pass MessageBus for RPC-based service calls
         config_center=config_center,  # Pass ConfigCenter for default app-skill binding
+        master_control=master_control,  # Pass MasterControl for centralized execution
     )
 
     # -- Phase I: Register system services as MessageBus Workers ----------------

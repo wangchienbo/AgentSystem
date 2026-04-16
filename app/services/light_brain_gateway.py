@@ -63,11 +63,14 @@ class LightBrainGateway:
         # Asset registry & tool call chain
         system_catalog: Any = None,
         asset_tool_executor: Any = None,
+        package_manager_executor: Any = None,
         user_service: Any = None,
         # G.1/G.2: MessageBus for RPC
         message_bus: Any = None,
         # Phase I: Config Center for default app-skill binding
         config_center: Any = None,
+        # Phase M: Master Control for centralized execution
+        master_control: Any = None,
     ) -> None:
         self._memory = memory or LightBrainMemory()
         self._interpreter = interpreter or LightBrainInterpreter()
@@ -99,7 +102,9 @@ class LightBrainGateway:
         # Asset registry & tool call chain
         self._system_catalog = system_catalog
         self._asset_tool_executor = asset_tool_executor
+        self._package_manager_executor = package_manager_executor
         self._user_service = user_service
+        self._master_control = master_control
 
         # G.1/G.2: MessageBus for RPC-based service calls
         self._bus = message_bus  # MessageBus instance (set by runtime)
@@ -591,6 +596,16 @@ class LightBrainGateway:
             "list_users": self._handle_permission,
             "show_self": self._handle_permission,
             "query_asset_detail": self._handle_query_asset_detail,
+            # Package management tools (source/ installed/ separation)
+            "package_list_installed": self._handle_package_list_installed,
+            "package_show": self._handle_package_show,
+            "package_build": self._handle_package_build,
+            "package_install": self._handle_package_install,
+            "package_uninstall": self._handle_package_uninstall,
+            "package_rollback": self._handle_package_rollback,
+            "package_search": self._handle_package_search,
+            # Master Control — LLM decides when to call for system-level ops
+            "master_execute": self._handle_master_execute,
         }
 
         handler = self._handlers.get(command.intent)
@@ -2278,6 +2293,222 @@ class LightBrainGateway:
                 )
         
         return self._error_reply(session_id, "⚠️ 资产查询模块未加载。")
+
+    # ---- Package Management Handlers (source/ installed/ separation) ----
+
+    def _handle_package_list_installed(self, command, session_id, apps):
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+        result = self._package_manager_executor.execute("package_list_installed", command.parameters)
+        if result.success:
+            packages = result.data.get("packages", [])
+            if not packages:
+                return ChatMessageResponse(
+                    type="text",
+                    content="📦 当前没有已安装的包。\n\n可用 package_search 搜索可安装的包。",
+                    session_id=session_id,
+                    requires_input=False,
+                )
+            lines = ["📦 **已安装的包：**\n"]
+            for p in packages:
+                lines.append(f"- {p['asset_id']} ({p['asset_type']}) v{p['installed_version']}")
+                if p.get('description'):
+                    lines.append(f"  {p['description']}")
+            return ChatMessageResponse(
+                type="text",
+                content="\n".join(lines),
+                session_id=session_id,
+                requires_input=False,
+            )
+        return self._error_reply(session_id, f"❌ 查询失败: {result.error}")
+
+    def _handle_package_show(self, command, session_id, apps):
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+        result = self._package_manager_executor.execute("package_show", command.parameters)
+        if result.success:
+            d = result.data
+            lines = [f"📋 **{d.get('name', d['asset_id'])}**\n"]
+            lines.append(f"类型: {d.get('asset_type', 'unknown')}")
+            if d.get('source_version'):
+                lines.append(f"源码版本: {d['source_version']}")
+            if d.get('installed_version'):
+                lines.append(f"已安装版本: {d['installed_version']}")
+            if d.get('description'):
+                lines.append(f"描述: {d['description']}")
+            history = d.get('build_history', [])
+            if history:
+                lines.append(f"\n构建历史 ({len(history)} 次):")
+                for h in history:
+                    lines.append(f"  - v{h['version']} hash={h['build_hash'][:8]} ({h['build_time'][:16]})")
+            return ChatMessageResponse(
+                type="text",
+                content="\n".join(lines),
+                session_id=session_id,
+                requires_input=False,
+            )
+        return self._error_reply(session_id, f"❌ {result.error}")
+
+    def _handle_package_build(self, command, session_id, apps):
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+        result = self._package_manager_executor.execute("package_build", command.parameters)
+        if result.success:
+            d = result.data
+            return ChatMessageResponse(
+                type="text",
+                content=f"✅ 构建成功\n\n包: {d['asset_id']}\n版本: {d['version']}\nHash: {d['build_hash']}\n时间: {d['build_time']}",
+                session_id=session_id,
+                requires_input=False,
+            )
+        return self._error_reply(session_id, f"❌ 构建失败: {result.error}")
+
+    def _handle_package_install(self, command, session_id, apps):
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+        result = self._package_manager_executor.execute("package_install", command.parameters)
+        if result.success:
+            d = result.data
+            msg = f"✅ 安装成功\n\n包: {d['asset_id']}\n版本: {d['installed_version']}"
+            if d.get('build_hash'):
+                msg += f"\nHash: {d['build_hash']}"
+            return ChatMessageResponse(
+                type="text",
+                content=msg,
+                session_id=session_id,
+                requires_input=False,
+            )
+        return self._error_reply(session_id, f"❌ 安装失败: {result.error}")
+
+    def _handle_package_uninstall(self, command, session_id, apps):
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+        result = self._package_manager_executor.execute("package_uninstall", command.parameters)
+        if result.success:
+            return ChatMessageResponse(
+                type="text",
+                content=f"✅ 已卸载: {command.parameters.get('asset_id', 'unknown')}",
+                session_id=session_id,
+                requires_input=False,
+            )
+        return self._error_reply(session_id, f"❌ 卸载失败: {result.error}")
+
+    def _handle_package_rollback(self, command, session_id, apps):
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+        result = self._package_manager_executor.execute("package_rollback", command.parameters)
+        if result.success:
+            d = result.data
+            return ChatMessageResponse(
+                type="text",
+                content=f"✅ 回滚成功\n\n包: {d['asset_id']}\n回滚到: v{d['rolled_back_to']}",
+                session_id=session_id,
+                requires_input=False,
+            )
+        return self._error_reply(session_id, f"❌ 回滚失败: {result.error}")
+
+    def _handle_package_search(self, command, session_id, apps):
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+        result = self._package_manager_executor.execute("package_search", command.parameters)
+        if result.success:
+            packages = result.data.get("packages", [])
+            if not packages:
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"🔍 未找到与 '{command.parameters.get('query', '')}' 匹配的包。",
+                    session_id=session_id,
+                    requires_input=False,
+                )
+            lines = [f"🔍 搜索结果（{len(packages)} 个）:\n"]
+            for p in packages:
+                status = "✅ 已安装" if p.get("installed") else "❌ 未安装"
+                lines.append(f"- {p['asset_id']} ({p['asset_type']}) v{p['version']} [{status}]")
+                if p.get('description'):
+                    lines.append(f"  {p['description']}")
+            return ChatMessageResponse(
+                type="text",
+                content="\n".join(lines),
+                session_id=session_id,
+                requires_input=False,
+            )
+        return self._error_reply(session_id, f"❌ 搜索失败: {result.error}")
+
+    def _handle_master_execute(self, command, session_id, apps):
+        """Handle master_execute tool call — LLM chooses to invoke MasterControl.
+
+        Interaction layer is free; this is an optional tool LLM can select
+        for system-level operations (create/modify/delete apps, skills,
+        permissions, system suggestions, etc.).
+        """
+        if not self._master_control:
+            return self._error_reply(session_id, "⚠️ 主控模块未加载。")
+
+        operation = command.parameters.get("operation") or command.intent
+        user_id = command.user_id or "system"
+        target = command.parameters.get("target", "")
+
+        # Resolve user role from permission service
+        user_role = "user"  # default
+        if self._permission_skill and hasattr(self._permission_skill, "get_user_role"):
+            try:
+                user_role = self._permission_skill.get_user_role(user_id)
+            except Exception:
+                pass
+
+        params = {k: v for k, v in command.parameters.items() if k != "operation"}
+
+        import asyncio
+        result = self._master_control.execute(
+            operation=operation,
+            user_id=user_id,
+            user_role=user_role,
+            target=target,
+            params=params,
+        )
+
+        # If result is a coroutine (async worker), await it
+        if asyncio.iscoroutine(result):
+            try:
+                result = asyncio.get_event_loop().run_until_complete(result)
+            except RuntimeError:
+                # No event loop — treat as sync
+                pass
+
+        if isinstance(result, dict):
+            status = result.get("status", "unknown")
+            message = result.get("message", "")
+            data = result.get("data")
+
+            if status == "denied":
+                required = result.get("required_role", "")
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"❌ 权限不足: {message}" + (f"\n需要 {required} 角色。" if required else ""),
+                    session_id=session_id,
+                    requires_input=False,
+                )
+            elif status == "success":
+                content = f"✅ {message or '操作成功'}"
+                if data:
+                    content += f"\n\n{json.dumps(data, ensure_ascii=False, indent=2)}"
+                return ChatMessageResponse(
+                    type="text",
+                    content=content,
+                    session_id=session_id,
+                    requires_input=False,
+                )
+            elif status == "delegated":
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"ℹ️ {message}",
+                    session_id=session_id,
+                    requires_input=False,
+                )
+            else:
+                return self._error_reply(session_id, f"❌ {message or f'操作失败: {status}'}")
+
+        return self._error_reply(session_id, "⚠️ 主控返回了意外结果。")
 
     def _auto_save(self) -> None:
         """Auto-save state if persistence service is available."""

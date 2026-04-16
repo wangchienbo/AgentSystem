@@ -12,3 +12,4 @@ class SkillBlueprint(BaseModel):
     steps: list[str] = Field(default_factory=list)
     related_experience_ids: list[str] = Field(default_factory=list)
     safety_profile: dict = Field(default_factory=dict)
+    owner_role: str = Field(default="system")  # system | admin | user

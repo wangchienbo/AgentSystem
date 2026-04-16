@@ -221,6 +221,48 @@ class AssetCenter:
             return data.get("installed_version")
         return None
 
+    def list_installed(self, asset_type: str | None = None) -> list[dict[str, Any]]:
+        """List all installed assets in installed/ directory."""
+        if not self._installed_dir.exists():
+            return []
+
+        installed = []
+        for item in self._installed_dir.iterdir():
+            if not item.is_dir():
+                continue
+            manifest_path = item / "installed.json"
+            if not manifest_path.exists():
+                continue
+            try:
+                data = json.loads(manifest_path.read_text(encoding="utf-8"))
+                asset_type_val = data.get("asset_type", "skill")
+                if asset_type and asset_type_val != asset_type:
+                    continue
+                installed.append({
+                    "asset_id": data.get("asset_id", item.name),
+                    "name": data.get("name", item.name),
+                    "asset_type": asset_type_val,
+                    "installed_version": data.get("installed_version", "unknown"),
+                    "build_hash": data.get("build_hash", ""),
+                    "source_path": data.get("source_path", ""),
+                    "description": data.get("description", ""),
+                })
+            except Exception:
+                continue
+
+        return installed
+
+    def uninstall(self, asset_id: str) -> bool:
+        """Uninstall an asset from the runtime layer (installed/).
+
+        Note: This only removes the installed/ copy. source/ is untouched.
+        """
+        installed_path = self._installed_dir / asset_id
+        if not installed_path.exists():
+            raise FileNotFoundError(f"Asset not installed: {asset_id}")
+        shutil.rmtree(installed_path)
+        return True
+
     # ---- Persistence ----
 
     def _load_registry(self) -> None:

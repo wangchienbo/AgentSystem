@@ -29,6 +29,8 @@ class ToolDefinition:
     parameters: list[ToolParameter] = field(default_factory=list)
     category: str = "general"  # app_lifecycle, app_management, permission, system, skill
     priority: int = 0  # higher = more likely to be suggested by LLM
+    caller_ids: list[str] = field(default_factory=list)  # who can call this tool, empty = everyone
+    owner_role: str = "system"  # system | admin | user
 
 
 class ToolRegistry:
@@ -231,6 +233,24 @@ class ToolRegistry:
             priority=3,
         ))
 
+        # Master Control — optional tool for system-level operations
+        # LLM decides when to call this for operations beyond simple interaction
+        self.register(ToolDefinition(
+            name="master_execute",
+            description=(
+                "主控系统级操作入口。当需要执行系统级变更时使用："
+                "创建/修改/删除 App 或 Skill、权限管理、系统升级、提交系统建议等。"
+                "简单查询、格式化、闲聊不需要调用。"
+            ),
+            parameters=[
+                ToolParameter("operation", "string", "操作类型，如 create_app, modify_app, grant_admin, suggest 等", required=True),
+                ToolParameter("target", "string", "操作目标（App 名称、Skill ID 等）", required=False),
+                ToolParameter("params", "object", "操作参数，具体取决于 operation", required=False),
+            ],
+            category="system",
+            priority=9,  # high priority — LLM should see this first for system ops
+        ))
+
     # -- registration API ----------------------------------------------------
 
     def register(self, tool: ToolDefinition) -> None:
@@ -256,6 +276,41 @@ class ToolRegistry:
     def list_by_category(self, category: str) -> list[ToolDefinition]:
         """List tools in a specific category."""
         return [t for t in self._tools.values() if t.category == category]
+
+    # -- caller_ids permission filtering --------------------------------------
+
+    @staticmethod
+    def _match_caller(caller_id: str, allowed_callers: list[str]) -> bool:
+        """Check if a caller_id is allowed by the caller_ids list.
+
+        Supports wildcard patterns:
+          "app.*" matches any caller_id starting with "app."
+          "app.novel" matches exactly
+        """
+        if not allowed_callers:
+            return True  # empty caller_ids = everyone can call
+        for pattern in allowed_callers:
+            if pattern.endswith(".*"):
+                prefix = pattern[:-2]
+                if caller_id.startswith(prefix):
+                    return True
+            elif caller_id == pattern:
+                return True
+        return False
+
+    def get_tools_for_caller(self, caller_id: str) -> list[ToolDefinition]:
+        """Get only the tools that the given caller_id is allowed to call."""
+        return [
+            t for t in self._tools.values()
+            if self._match_caller(caller_id, t.caller_ids)
+        ]
+
+    def can_call(self, caller_id: str, tool_name: str) -> bool:
+        """Check if a caller_id is allowed to call a specific tool."""
+        tool = self._tools.get(tool_name)
+        if tool is None:
+            return False
+        return self._match_caller(caller_id, tool.caller_ids)
 
     # -- LLM prompt generation -----------------------------------------------
 
