@@ -57,8 +57,23 @@ class RuntimeCenter:
         endpoint: str,
         owner: str,
         status: str = "running",
+        caller_id: str | None = None,
     ) -> RuntimeEntry:
+        """Register an asset in the runtime registry.
+
+        N5-01: If caller_id is provided, enforce that a process can only
+        register/update its own asset_id. Cross-asset writes are rejected.
+        """
         now = self._now_iso()
+
+        # Permission check: caller can only write their own asset_id
+        if caller_id is not None:
+            existing = self._entries.get(asset_id)
+            if existing and existing.owner != caller_id and not caller_id.startswith("system."):
+                raise PermissionError(
+                    f"caller {caller_id} cannot register asset {asset_id} owned by {existing.owner}"
+                )
+
         entry = RuntimeEntry(
             asset_id=asset_id,
             version=version,
