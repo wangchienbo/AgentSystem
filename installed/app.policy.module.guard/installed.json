@@ -1,0 +1,20 @@
+{
+  "asset_id": "app.policy.module.guard",
+  "asset_type": "app",
+  "name": "Policy Module Guard App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.policy.module.guard",
+  "description": "enforce module declaration policy",
+  "metadata": {
+    "blueprint_id": "bp.policy.module.guard",
+    "app_shape": "generic",
+    "required_modules": [],
+    "required_skills": []
+  },
+  "installed_version": "0.1.0",
+  "build_hash": "791e9c42106c109c"
+}

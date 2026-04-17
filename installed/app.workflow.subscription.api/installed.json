@@ -1,0 +1,22 @@
+{
+  "asset_id": "app.workflow.subscription.api",
+  "asset_type": "app",
+  "name": "Workflow Subscription API App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.workflow.subscription.api",
+  "description": "run workflow from published event",
+  "metadata": {
+    "blueprint_id": "bp.workflow.subscription.api",
+    "app_shape": "generic",
+    "required_modules": [
+      "state.set"
+    ],
+    "required_skills": []
+  },
+  "installed_version": "0.1.0",
+  "build_hash": "4a155374b99721cf"
+}

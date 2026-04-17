@@ -1,0 +1,18 @@
+{
+  "asset_id": "app.workflow.api.stats",
+  "asset_type": "app",
+  "name": "Workflow API Stats App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.workflow.api.stats",
+  "description": "verify workflow stats api",
+  "metadata": {
+    "blueprint_id": "bp.workflow.api.stats",
+    "app_shape": "generic",
+    "required_modules": [],
+    "required_skills": []
+  }
+}

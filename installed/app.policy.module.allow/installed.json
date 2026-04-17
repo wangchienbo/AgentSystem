@@ -1,0 +1,22 @@
+{
+  "asset_id": "app.policy.module.allow",
+  "asset_type": "app",
+  "name": "Policy Module Allow App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.policy.module.allow",
+  "description": "allow declared module",
+  "metadata": {
+    "blueprint_id": "bp.policy.module.allow",
+    "app_shape": "generic",
+    "required_modules": [
+      "state.set"
+    ],
+    "required_skills": []
+  },
+  "installed_version": "0.1.0",
+  "build_hash": "585619cf91ba59cd"
+}

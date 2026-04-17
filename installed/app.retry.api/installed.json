@@ -1,0 +1,24 @@
+{
+  "asset_id": "app.retry.api",
+  "asset_type": "app",
+  "name": "Retry API App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [
+    "skill.echo"
+  ],
+  "source_path": "source/app.retry.api",
+  "description": "retry failed workflows",
+  "metadata": {
+    "blueprint_id": "bp.retry.api",
+    "app_shape": "generic",
+    "required_modules": [],
+    "required_skills": [
+      "skill.echo"
+    ]
+  },
+  "installed_version": "0.1.0",
+  "build_hash": "5a30cb62e562a640"
+}

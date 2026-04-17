@@ -1,0 +1,20 @@
+{
+  "asset_id": "app.workflow.failure.filters",
+  "asset_type": "app",
+  "name": "Workflow Failure Filters App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.workflow.failure.filters",
+  "description": "filter workflow failures",
+  "metadata": {
+    "blueprint_id": "bp.workflow.failure.filters",
+    "app_shape": "generic",
+    "required_modules": [
+      "state.set"
+    ],
+    "required_skills": []
+  }
+}

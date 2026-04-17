@@ -1,0 +1,20 @@
+{
+  "asset_id": "app.context.compaction.api",
+  "asset_type": "app",
+  "name": "Context Test App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.context.compaction.api",
+  "description": "exercise context compaction",
+  "metadata": {
+    "blueprint_id": "bp.context.compaction.api",
+    "app_shape": "generic",
+    "required_modules": [],
+    "required_skills": []
+  },
+  "installed_version": "0.1.0",
+  "build_hash": "c66d323b65c98548"
+}

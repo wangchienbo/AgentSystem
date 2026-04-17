@@ -609,6 +609,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.asset_tools import AssetToolExecutor, make_all_asset_tools
     from app.services.package_manager import PackageManagerExecutor, make_all_package_tools
 
+    # External model review (planned but not yet implemented)
+    external_model_review = ExternalModelReviewService(model_router=None)
+
     logger.info("System catalog loaded: %d entries", system_catalog.count())
 
     # Asset tool executor — bridges LLM tool calls to registry

@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shlex
 import signal
 import subprocess
 import threading
@@ -75,7 +76,7 @@ class AppProcessManager:
             if existing and existing.status == "running":
                 return existing
 
-        cmd = entry_point if isinstance(entry_point, list) else entry_point.split()
+        cmd = entry_point if isinstance(entry_point, list) else shlex.split(entry_point)
         full_env = {**os.environ}
         full_env["APP_INSTANCE_ID"] = app_instance_id
         full_env["APP_VERSION"] = version

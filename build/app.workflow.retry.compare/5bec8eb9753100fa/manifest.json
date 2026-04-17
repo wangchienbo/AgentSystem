@@ -1,0 +1,21 @@
+{
+  "asset_id": "app.workflow.retry.compare",
+  "asset_type": "app",
+  "name": "Workflow Retry Compare App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.workflow.retry.compare",
+  "description": "compare retry results",
+  "metadata": {
+    "blueprint_id": "bp.workflow.retry.compare",
+    "app_shape": "generic",
+    "required_modules": [
+      "state.set",
+      "state.get"
+    ],
+    "required_skills": []
+  }
+}

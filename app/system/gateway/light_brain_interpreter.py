@@ -83,10 +83,10 @@ class LightBrainInterpreter:
     # Combined patterns for backward compatibility
     INTENT_PATTERNS = EXACT_MATCH_PATTERNS + FUZZY_MATCH_PATTERNS
 
-    # Config: fuzzy regex matching (default False)
+    # Config: fuzzy regex matching (default True for backward compatibility)
+    # True: all patterns try regex first (no LLM needed for common intents)
     # False: only exact matches bypass LLM; everything else goes through LLM
-    # True: all patterns try regex first (current behavior)
-    fuzzy_regex_match: bool = False
+    fuzzy_regex_match: bool = True
 
     # Valid intent values the LLM may return
     VALID_INTENTS = {

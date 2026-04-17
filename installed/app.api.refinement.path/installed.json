@@ -1,0 +1,22 @@
+{
+  "asset_id": "app.api.refinement.path",
+  "asset_type": "app",
+  "name": "API Refinement Path App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.api.refinement.path",
+  "description": "exercise api refinement governance path",
+  "metadata": {
+    "blueprint_id": "bp.api.refinement.path",
+    "app_shape": "generic",
+    "required_modules": [
+      "state.get"
+    ],
+    "required_skills": []
+  },
+  "installed_version": "0.1.0",
+  "build_hash": "b4742ae55799f92b"
+}

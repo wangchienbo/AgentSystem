@@ -1,0 +1,20 @@
+{
+  "asset_id": "app.workflow.latest",
+  "asset_type": "app",
+  "name": "Workflow Latest App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.workflow.latest",
+  "description": "inspect latest workflow execution",
+  "metadata": {
+    "blueprint_id": "bp.workflow.latest",
+    "app_shape": "generic",
+    "required_modules": [
+      "state.set"
+    ],
+    "required_skills": []
+  }
+}

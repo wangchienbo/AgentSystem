@@ -1,0 +1,18 @@
+{
+  "asset_id": "app.workflow.diagnostics.filter",
+  "asset_type": "app",
+  "name": "Workflow Diagnostics Filter App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.workflow.diagnostics.filter",
+  "description": "filter diagnostics and summarize latest recovery",
+  "metadata": {
+    "blueprint_id": "bp.workflow.diagnostics.filter",
+    "app_shape": "generic",
+    "required_modules": [],
+    "required_skills": []
+  }
+}

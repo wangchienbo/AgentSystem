@@ -1,0 +1,87 @@
+{
+  "id": "bp.workflow.phase4.resume.api",
+  "name": "Workflow Phase4 Resume API App",
+  "goal": "resume interrupted workflows through api",
+  "version": "0.1.0",
+  "source_path": null,
+  "app_shape": "generic",
+  "roles": [
+    {
+      "id": "r1",
+      "name": "agent",
+      "type": "agent",
+      "responsibilities": [],
+      "permissions": [],
+      "visible_views": [],
+      "accessible_data": [],
+      "allowed_actions": []
+    }
+  ],
+  "tasks": [],
+  "workflows": [
+    {
+      "id": "wf.phase4.resume.api",
+      "name": "resume api",
+      "triggers": [
+        "manual"
+      ],
+      "steps": [
+        {
+          "id": "wait",
+          "kind": "module",
+          "ref": "workflow.wait_for_event",
+          "config": {
+            "event_name": "signal.go"
+          }
+        },
+        {
+          "id": "complete",
+          "kind": "module",
+          "ref": "workflow.complete",
+          "config": {
+            "result": {
+              "done": true
+            },
+            "when": {
+              "source": {
+                "$from_inputs": "event_received",
+                "default": false
+              },
+              "equals": true
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "views": [],
+  "required_modules": [
+    "workflow.wait_for_event",
+    "workflow.complete"
+  ],
+  "required_skills": [],
+  "storage_plan": {
+    "user_data": "user",
+    "app_data": "app",
+    "runtime_state": "runtime",
+    "system_metadata": "system"
+  },
+  "runtime_policy": {
+    "execution_mode": "service",
+    "activation": "on_demand",
+    "restart_policy": "on_failure",
+    "persistence_level": "full",
+    "idle_strategy": "keep_alive",
+    "max_restart_attempts": 3,
+    "allow_prompt_invoke": true,
+    "prompt_invoke_requires_ask_user": false
+  },
+  "runtime_profile": {
+    "runtime_intelligence_level": "L0_deterministic",
+    "runtime_network_requirement": "N0_none",
+    "offline_capable": true,
+    "direct_start_supported": true,
+    "invocation_posture": "automatic",
+    "runtime_skills": []
+  }
+}

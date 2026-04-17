@@ -1,0 +1,22 @@
+{
+  "asset_id": "app.workflow.api",
+  "asset_type": "app",
+  "name": "Workflow API App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.workflow.api",
+  "description": "run workflow via api",
+  "metadata": {
+    "blueprint_id": "bp.workflow.api",
+    "app_shape": "generic",
+    "required_modules": [
+      "state.set"
+    ],
+    "required_skills": []
+  },
+  "installed_version": "0.1.0",
+  "build_hash": "a13a4c060aa73f12"
+}

@@ -1,0 +1,22 @@
+{
+  "asset_id": "app.pipeline.executor",
+  "asset_type": "app",
+  "name": "Pipeline Executor",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.pipeline.executor",
+  "description": "一次性流水线执行 app",
+  "metadata": {
+    "blueprint_id": "bp.pipeline.executor",
+    "app_shape": "generic",
+    "required_modules": [
+      "state.set"
+    ],
+    "required_skills": []
+  },
+  "installed_version": "0.1.0",
+  "build_hash": "dafabb34e2059b58"
+}

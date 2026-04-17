@@ -1,0 +1,22 @@
+{
+  "asset_id": "app.workflow.health.unknown",
+  "asset_type": "app",
+  "name": "Workflow Unknown Health App",
+  "version": "0.1.0",
+  "entry": "blueprint.json",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/app.workflow.health.unknown",
+  "description": "report unknown workflow state when partial has no failed steps",
+  "metadata": {
+    "blueprint_id": "bp.workflow.health.unknown",
+    "app_shape": "generic",
+    "required_modules": [
+      "state.get"
+    ],
+    "required_skills": []
+  },
+  "installed_version": "0.1.0",
+  "build_hash": "89c7929f0b5e580d"
+}

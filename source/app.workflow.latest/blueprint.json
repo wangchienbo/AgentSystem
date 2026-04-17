@@ -1,0 +1,72 @@
+{
+  "id": "bp.workflow.latest",
+  "name": "Workflow Latest App",
+  "goal": "inspect latest workflow execution",
+  "version": "0.1.0",
+  "source_path": null,
+  "app_shape": "generic",
+  "roles": [
+    {
+      "id": "r1",
+      "name": "agent",
+      "type": "agent",
+      "responsibilities": [],
+      "permissions": [],
+      "visible_views": [],
+      "accessible_data": [],
+      "allowed_actions": []
+    }
+  ],
+  "tasks": [],
+  "workflows": [
+    {
+      "id": "wf.latest.exec",
+      "name": "latest exec",
+      "triggers": [
+        "manual"
+      ],
+      "steps": [
+        {
+          "id": "set.latest",
+          "kind": "module",
+          "ref": "state.set",
+          "config": {
+            "key": "latest",
+            "value": {
+              "$from_inputs": "payload"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "views": [],
+  "required_modules": [
+    "state.set"
+  ],
+  "required_skills": [],
+  "storage_plan": {
+    "user_data": "user",
+    "app_data": "app",
+    "runtime_state": "runtime",
+    "system_metadata": "system"
+  },
+  "runtime_policy": {
+    "execution_mode": "service",
+    "activation": "on_demand",
+    "restart_policy": "on_failure",
+    "persistence_level": "full",
+    "idle_strategy": "keep_alive",
+    "max_restart_attempts": 3,
+    "allow_prompt_invoke": true,
+    "prompt_invoke_requires_ask_user": false
+  },
+  "runtime_profile": {
+    "runtime_intelligence_level": "L0_deterministic",
+    "runtime_network_requirement": "N0_none",
+    "offline_capable": true,
+    "direct_start_supported": true,
+    "invocation_posture": "automatic",
+    "runtime_skills": []
+  }
+}
