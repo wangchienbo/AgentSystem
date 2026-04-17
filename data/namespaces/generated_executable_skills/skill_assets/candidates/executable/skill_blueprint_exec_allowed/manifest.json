@@ -29,5 +29,16 @@
     "allow_network": false,
     "allow_filesystem_write": true,
     "allow_shell": false
+  },
+  "asset_id": "skill.skill_blueprint_exec_allowed",
+  "asset_type": "skill",
+  "entry": "handler.py",
+  "owner": "system",
+  "owner_role": "system",
+  "dependencies": [],
+  "source_path": "source/skill_blueprint_exec_allowed",
+  "metadata": {
+    "skill_kind": "generated_executable",
+    "generated": true
   }
 }

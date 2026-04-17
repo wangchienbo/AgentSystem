@@ -962,6 +962,8 @@ class LightBrainGateway:
         app_type = command.parameters.get("app_type", "unknown")
         # Use extracted Chinese display name if available, otherwise fallback
         app_name = command.target_app or command.parameters.get("app_name_display") or f"{app_type}_app"
+        creative_types = {"novel", "diary", "blog", "music", "drawing"}
+        creative_mode = app_type in creative_types or any(keyword in app_name for keyword in ["小说", "创作", "写作", "博客", "日记", "绘图", "音乐"])
 
         schedule_info = ""
         if command.parameters.get("schedule_type"):
@@ -992,10 +994,15 @@ class LightBrainGateway:
                             "app_type": app_type,
                             "complexity": "moderate",
                             "user_id": user_id,
-                            "features": [],
-                            "constraints": [],
+                            "features": (["creative_mode", "task_list_execution", "design_review"] if creative_mode else []),
+                            "constraints": ([
+                                "创作模式默认启用 task-list-executor",
+                                "关键方案分叉调用 design-review-orchestrator",
+                                "新能力创建前先调用 skill-discovery-review",
+                                "保证稳定性优先，避免频繁切换实现路径",
+                            ] if creative_mode else []),
                         },
-                        config={"session_id": session_id},
+                        config={"session_id": session_id, "creative_mode": creative_mode},
                     ),
                     timeout=60,
                 )
@@ -1029,6 +1036,7 @@ class LightBrainGateway:
                                 f"名称: {app_name}\n"
                                 f"类型: {app_type}\n"
                                 f"ID: {app_id}\n"
+                                f"创作模式: {'已启用执行/评审/复用三件套' if creative_mode else '标准模式'}\n"
                                 f"{schedule_info}{threshold_info}",
                         session_id=session_id,
                         related_app=app_name,

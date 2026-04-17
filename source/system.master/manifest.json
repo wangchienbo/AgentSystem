@@ -1,0 +1,21 @@
+{
+  "asset_id": "system.master",
+  "asset_type": "system",
+  "name": "Master Control",
+  "version": "1.0.0",
+  "entry": "app/system/master/master_control.py",
+  "owner": "system",
+  "owner_role": "system",
+  "dependencies": [
+    "system.gateway"
+  ],
+  "source_path": "source/system.master",
+  "description": "系统主控进程",
+  "metadata": {
+    "interfaces": [
+      "master_execute"
+    ],
+    "service_discovery": true,
+    "runtime_mode": "service"
+  }
+}

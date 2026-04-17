@@ -7,6 +7,7 @@ from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.app_registry import AppRegistryService
+from app.services.asset_center import AssetCenter
 from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
@@ -80,6 +81,12 @@ def test_installer_creates_instance_with_runtime_policy(tmp_path: Path) -> None:
             )
         )
     resolver = AppProfileResolverService(skill_control=skill_control)
+    asset_center = AssetCenter(
+        source_dir=str(tmp_path / "source"),
+        installed_dir=str(tmp_path / "installed"),
+        build_dir=str(tmp_path / "build"),
+        data_dir=str(tmp_path / "asset-data"),
+    )
     installer = AppInstallerService(
         registry=registry,
         lifecycle=lifecycle,
@@ -87,6 +94,7 @@ def test_installer_creates_instance_with_runtime_policy(tmp_path: Path) -> None:
         data_store=data_store,
         app_config_service=app_config,
         app_profile_resolver=resolver,
+        asset_center=asset_center,
     )
     registry.register_blueprint(build_blueprint(execution_mode="pipeline"))
 
@@ -106,3 +114,9 @@ def test_installer_creates_instance_with_runtime_policy(tmp_path: Path) -> None:
     snapshot = app_config.get_snapshot(result.app_instance_id)
     assert snapshot.values["app"]["blueprint_id"] == "bp.test.registry"
     assert snapshot.values["runtime"]["runtime_profile"]["offline_capable"] is True
+
+    asset_id = "app.test.registry"
+    assert asset_center.get_asset(asset_id) is not None
+    assert asset_center.get_installed_version(asset_id) == "0.1.0"
+    assert (tmp_path / "source" / asset_id / "manifest.json").exists()
+    assert (tmp_path / "installed" / asset_id / "installed.json").exists()

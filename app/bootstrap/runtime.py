@@ -351,6 +351,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         lifecycle=lifecycle,
         log_service=upgrade_log_service,
         compare_service=blueprint_compare,
+        runtime_center=None,  # Will be set after Phase N initialization
+        asset_center=None,  # Will be set after Phase N initialization
     )
     rollback_service = RollbackService(
         upgrade_service=upgrade_service,
@@ -417,6 +419,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         app_profile_resolver=app_profile_resolver,
         blueprint_validation=blueprint_validation,
         config_center=config_center,
+        asset_center=None,  # Will be set after Phase N initialization
+        runtime_center=None,  # Will be set after Phase N initialization
     )
     app_catalog = AppCatalogService()
     skill_runtime = SkillRuntimeService(
@@ -506,6 +510,12 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     runtime_center = RuntimeCenter(data_file=os.path.join(_project_root, "data", "runtime_center.json"))
     asset_center.discover()
 
+    # Wire Phase N assets into services created earlier (couldn't reference these at creation time)
+    app_installer._asset_center = asset_center
+    app_installer._runtime_center = runtime_center
+    upgrade_service._runtime_center = runtime_center
+    upgrade_service._asset_center = asset_center
+
     meta_app_bootstrap = MetaAppBootstrapService(model_router=model_router)
     meta_app_orchestrator = MetaAppCreationOrchestrator(
         meta_app_bootstrap=meta_app_bootstrap,
@@ -594,6 +604,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.light_brain_interpreter import LightBrainInterpreter
     from app.services.light_brain_memory import LightBrainMemory
     from app.services.llm_responder import LLMResponder
+    from app.services.external_model_review import ExternalModelReviewService, ExternalModelReviewWorker
     from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
     from app.services.asset_tools import AssetToolExecutor, make_all_asset_tools
     from app.services.package_manager import PackageManagerExecutor, make_all_package_tools
@@ -604,6 +615,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     asset_tool_executor = AssetToolExecutor(registry=system_catalog)
 
     package_manager_executor = PackageManagerExecutor(asset_center=asset_center)
+    app_installer._asset_center = asset_center
     logger.info(
         "Asset Center initialized: %d assets in source/, %d installed",
         len(asset_center.list_assets()),
@@ -649,6 +661,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     )
     file_worker = FileWorker(persistence=persistence_service)
     suggestion_worker_m = SuggestionWorker()
+    external_review_worker = ExternalModelReviewWorker(external_model_review)
 
     # Register workers into MasterControl
     master_control.register_worker("app_management", app_mgmt_worker)
@@ -657,8 +670,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     master_control.register_worker("refinement", refinement_worker_m)
     master_control.register_worker("file_worker", file_worker)
     master_control.register_worker("suggestion", suggestion_worker_m)
+    master_control.register_worker("external_review", external_review_worker)
     master_control.register_worker("package_manager", package_manager_executor)
-    logger.info("Phase M: MasterControl + %d subordinate Workers registered", 7)
+    logger.info("Phase M: MasterControl + %d subordinate Workers registered", 8)
 
     # Register asset tools into the tool registry
     for tool_def in make_all_asset_tools():
@@ -677,6 +691,25 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             parameters=[ToolParameter(name=p.name, type=p.type, description=p.description, required=p.required) for p in tool_def.parameters],
             category="package_manager",
         ))
+
+    tool_registry.register(ToolDefinition(
+        name="external_review_plan",
+        description="调用受控外模型层进行方案评审",
+        parameters=[
+            ToolParameter(name="prompt", type="string", description="待评审方案", required=True),
+            ToolParameter(name="context", type="object", description="补充上下文", required=False),
+        ],
+        category="external_review",
+    ))
+    tool_registry.register(ToolDefinition(
+        name="external_review_code",
+        description="调用受控外模型层进行代码评审",
+        parameters=[
+            ToolParameter(name="prompt", type="string", description="待评审代码或变更说明", required=True),
+            ToolParameter(name="context", type="object", description="补充上下文", required=False),
+        ],
+        category="external_review",
+    ))
 
     for name, description, params in [
         ("start_asset", "启动一个已安装资产", [ToolParameter(name="asset_id", type="string", description="资产ID", required=True)]),
@@ -727,6 +760,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     light_brain_memory = LightBrainMemory()
     light_brain_interpreter = LightBrainInterpreter()
     llm_responder = LLMResponder(model_router=model_router)
+    external_model_review = ExternalModelReviewService(model_router=model_router)
     light_brain_gateway = LightBrainGateway(
         memory=light_brain_memory,
         interpreter=light_brain_interpreter,

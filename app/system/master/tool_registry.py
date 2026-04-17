@@ -63,6 +63,7 @@ class ToolRegistry:
             ],
             category="app_lifecycle",
             priority=10,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         self.register(ToolDefinition(
@@ -73,6 +74,7 @@ class ToolRegistry:
             ],
             category="app_lifecycle",
             priority=10,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         self.register(ToolDefinition(
@@ -83,6 +85,7 @@ class ToolRegistry:
             ],
             category="app_lifecycle",
             priority=8,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         self.register(ToolDefinition(
@@ -93,6 +96,7 @@ class ToolRegistry:
             ],
             category="app_lifecycle",
             priority=5,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         self.register(ToolDefinition(
@@ -103,6 +107,7 @@ class ToolRegistry:
             ],
             category="app_lifecycle",
             priority=5,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         # App Management
@@ -114,6 +119,7 @@ class ToolRegistry:
             ],
             category="app_management",
             priority=8,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         self.register(ToolDefinition(
@@ -124,6 +130,7 @@ class ToolRegistry:
             ],
             category="app_management",
             priority=7,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         self.register(ToolDefinition(
@@ -135,6 +142,7 @@ class ToolRegistry:
             ],
             category="app_management",
             priority=6,
+            caller_ids=["system.master", "system.gateway"],
         ))
 
         self.register(ToolDefinition(
@@ -145,6 +153,7 @@ class ToolRegistry:
             ],
             category="app_management",
             priority=3,
+            caller_ids=["system.master", "system.gateway"],
         ))
 
         # Interactive App
@@ -157,6 +166,7 @@ class ToolRegistry:
             ],
             category="app_management",
             priority=5,
+            caller_ids=["system.master", "system.gateway"],
         ))
 
         # Permission Management
@@ -168,6 +178,7 @@ class ToolRegistry:
             ],
             category="permission",
             priority=7,
+            caller_ids=["system.master"],
         ))
 
         self.register(ToolDefinition(
@@ -178,6 +189,7 @@ class ToolRegistry:
             ],
             category="permission",
             priority=5,
+            caller_ids=["system.master"],
         ))
 
         self.register(ToolDefinition(
@@ -188,6 +200,7 @@ class ToolRegistry:
             ],
             category="permission",
             priority=6,
+            caller_ids=["system.master"],
         ))
 
         self.register(ToolDefinition(
@@ -198,6 +211,7 @@ class ToolRegistry:
             ],
             category="permission",
             priority=8,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         self.register(ToolDefinition(
@@ -206,6 +220,7 @@ class ToolRegistry:
             parameters=[],
             category="permission",
             priority=6,
+            caller_ids=["system.master", "system.gateway"],
         ))
 
         # System
@@ -215,6 +230,7 @@ class ToolRegistry:
             parameters=[],
             category="system",
             priority=7,
+            caller_ids=["system.master", "system.gateway"],
         ))
 
         self.register(ToolDefinition(
@@ -223,6 +239,7 @@ class ToolRegistry:
             parameters=[],
             category="system",
             priority=5,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         self.register(ToolDefinition(
@@ -231,6 +248,7 @@ class ToolRegistry:
             parameters=[],
             category="system",
             priority=3,
+            caller_ids=["system.master", "system.gateway", "app.*"],
         ))
 
         # Master Control — optional tool for system-level operations
@@ -249,6 +267,7 @@ class ToolRegistry:
             ],
             category="system",
             priority=9,  # high priority — LLM should see this first for system ops
+            caller_ids=["system.master", "system.gateway"],
         ))
 
     # -- registration API ----------------------------------------------------

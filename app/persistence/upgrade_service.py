@@ -82,10 +82,14 @@ class UpgradeService:
         lifecycle: AppLifecycleService,
         log_service: UpgradeLogService,
         compare_service: BlueprintCompareService | None = None,
+        runtime_center: Any = None,
+        asset_center: Any = None,
     ) -> None:
         self._lifecycle = lifecycle
         self._log_service = log_service
         self._compare = compare_service or BlueprintCompareService()
+        self._runtime_center = runtime_center
+        self._asset_center = asset_center
         # Snapshots keyed by app_instance_id (only the latest kept per instance)
         self._snapshots: dict[str, UpgradeSnapshot] = {}
 
@@ -165,6 +169,7 @@ class UpgradeService:
                 )
 
         # ---- Capture snapshot ----
+        from_version = instance.installed_version
         snapshot = self._capture_snapshot(instance)
 
         # ---- Transition to upgrading ----
@@ -196,6 +201,9 @@ class UpgradeService:
             logger.error("Upgrade failed for %s, attempting rollback: %s", app_instance_id, e)
             self._restore_from_snapshot(snapshot)
             raise UpgradeError(f"Upgrade failed: {e}") from e
+
+        # ---- Sync RuntimeCenter ----
+        self._sync_runtime_upgrade(app_instance_id, from_version, new_blueprint.version)
 
         # ---- Record upgrade log ----
         log_event = UpgradeLogEvent(
@@ -288,3 +296,23 @@ class UpgradeService:
             return app_registry.get_blueprint(blueprint_id)
         except Exception:
             return None
+
+    def _sync_runtime_upgrade(self, app_instance_id: str, from_version: str, to_version: str) -> None:
+        """Sync upgrade to RuntimeCenter and AssetCenter."""
+        if self._runtime_center:
+            entry = self._runtime_center.get(app_instance_id)
+            if entry:
+                self._runtime_center.register(
+                    asset_id=entry.asset_id,
+                    version=to_version,
+                    pid=entry.pid,
+                    endpoint=entry.endpoint,
+                    owner=entry.owner,
+                )
+        if self._asset_center:
+            installed_version = self._asset_center.get_installed_version(app_instance_id)
+            if installed_version and installed_version != to_version:
+                try:
+                    self._asset_center.install(app_instance_id)
+                except Exception:
+                    pass  # Non-blocking: AssetCenter may not have this asset

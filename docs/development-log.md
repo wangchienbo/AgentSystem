@@ -2,6 +2,41 @@
 
 ## 2026-04-17
 
+### Module: Phase N.3 manifest hard-validation entry
+
+把 Phase N.3 的 manifest 规范从“文档 + 部分数据补齐”推进成 `AssetCenter.discover()` 的真实硬校验入口，避免缺字段或身份不一致的 source 资产被默认兜底吞过去，给后续 build/install 链路提供稳定静态真源前提。
+
+#### Implemented
+- 在 `app/system/catalog/asset_center.py` 中新增统一 manifest 必填字段集合
+- 为 `AssetCenter.discover()` 增加 manifest 强校验，拒绝以下异常资产进入 registry：
+  - 缺少必填字段
+  - `dependencies` 不是列表
+  - `metadata` 不是对象
+  - `asset_id` 与 source 目录名不一致
+  - `source_path` 不符合 `source/{asset_id}` 规范
+- 在 discover 阶段对非法 manifest 记录 warning 并跳过，而不是静默兜底为默认值
+- 修复 `app/app_installer.py` 中 app 资产 materialize 时写出的 `source_path`，使其与新规范一致
+- 修复 `app/orchestration/meta_app/orchestrator.py` 中 meta-app source materialization 的 manifest 格式，使其补齐 `entry/owner/owner_role` 并使用统一 `source_path`
+- 新增 `tests/unit/test_asset_center_manifest_validation.py`
+  - 校验缺少关键字段时会被 discover 跳过
+  - 校验资产身份不一致时会被 discover 跳过
+  - 校验合法 manifest 可正常发现并入 registry
+- 扩展 `tests/unit/test_registry_installer.py`
+  - 验证 `AppInstaller -> AssetCenter -> installed/` 正式安装链路已生效
+  - 验证安装后 source 与 installed 侧文件均已落盘
+- 新增 `tests/unit/test_meta_app_asset_manifest.py`
+  - 验证 meta-app 写入 `source/` 的 app manifest 满足统一资产规范
+
+#### Validation
+- `pytest -q tests/unit/test_meta_app_asset_manifest.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py`
+- 结果：`12 passed`
+
+#### Notes
+- 这一步先把 Phase N.3 的静态资产规范真正落到发现入口，并修复了两条 source materialization 路径与新规范的不一致问题
+- 当前仍需继续收口 generated skill manifest 与 source 资产目录之间的真实映射，以及 `AppInstaller -> AssetCenter` 的职责边界抽离
+
+## 2026-04-17
+
 ### Module: Phase N code decoupling compatibility recovery + RuntimeCenter foundation
 
 在完成 `app/services/` 物理解耦后，先恢复旧导入路径兼容层，避免全仓测试在一次重构中同时被 import 路径打断；随后补上 Phase N 运行资源中心的第一版实现，并把它接入主运行时与 App 管理链路，为后续 `start_asset / stop_asset / health_check_asset` 以及升级/卸载链路打基础。

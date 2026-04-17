@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from app.models.app_instance import AppInstance
 from app.models.registry import AppInstallResult
 from app.services.app_context_store import AppContextStore
@@ -11,6 +13,7 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.app_config_service import AppConfigService
 from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.blueprint_validation import BlueprintValidationError, BlueprintValidationService
+from app.services.asset_center import AssetCenter
 
 
 class AppInstallerError(ValueError):
@@ -37,6 +40,8 @@ class AppInstallerService:
         app_profile_resolver: AppProfileResolverService | None = None,
         blueprint_validation: BlueprintValidationService | None = None,
         config_center: ConfigCenterService | None = None,
+        asset_center: AssetCenter | None = None,
+        runtime_center: Any = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -47,6 +52,8 @@ class AppInstallerService:
         self._app_profile_resolver = app_profile_resolver
         self._blueprint_validation = blueprint_validation
         self._config_center = config_center
+        self._asset_center = asset_center
+        self._runtime_center = runtime_center
 
     def install_app(self, blueprint_id: str, user_id: str, app_instance_id: str | None = None) -> AppInstallResult:
         blueprint = self._registry.get_blueprint(blueprint_id)
@@ -55,6 +62,8 @@ class AppInstallerService:
                 self._blueprint_validation.require_valid(blueprint)
             except BlueprintValidationError as error:
                 raise AppInstallerError(str(error)) from error
+
+        installed_version = self._ensure_asset_installed(blueprint)
         instance_id = app_instance_id or f"{blueprint_id}:{user_id}"
 
         try:
@@ -68,7 +77,7 @@ class AppInstallerService:
                 blueprint_id=blueprint.id,
                 owner_user_id=user_id,
                 status="draft",
-                installed_version=self._registry.get_entry(blueprint.id).version,
+                installed_version=installed_version,
                 data_namespace=f"users/{user_id}/apps/{instance_id}",
                 execution_mode=blueprint.runtime_policy.execution_mode,
                 runtime_policy=blueprint.runtime_policy,
@@ -123,3 +132,104 @@ class AppInstallerService:
             app_shape=blueprint.app_shape,
             runtime_profile=instance.runtime_profile,
         )
+
+    def upgrade_app(self, app_instance_id: str, new_blueprint_id: str, user_id: str) -> dict:
+        """Upgrade an app instance through AssetCenter -> RuntimeCenter chain."""
+        try:
+            instance = self._lifecycle.get_instance(app_instance_id)
+            old_version = instance.installed_version
+        except Exception:
+            return {"status": "error", "message": f"App instance not found: {app_instance_id}"}
+
+        # Route through AssetCenter for the new blueprint
+        result = self.install_app(new_blueprint_id, user_id, app_instance_id)
+
+        # Sync RuntimeCenter version change
+        if self._asset_center and self._runtime_host:
+            runtime_center = getattr(self, '_runtime_center', None)
+            if runtime_center:
+                entry = runtime_center.get(app_instance_id)
+                if entry:
+                    runtime_center.register(
+                        asset_id=app_instance_id,
+                        version=result.release_version,
+                        pid=entry.pid,
+                        endpoint=entry.endpoint,
+                        owner=entry.owner,
+                    )
+
+        return {
+            "status": "success",
+            "app_instance_id": app_instance_id,
+            "from_version": old_version,
+            "to_version": result.release_version,
+        }
+
+    def uninstall_app_full(self, app_instance_id: str) -> dict:
+        """Full uninstall: AssetCenter + RuntimeCenter + lifecycle + registry."""
+        # 1. Stop runtime
+        if self._runtime_host:
+            try:
+                self._runtime_host.unregister_instance(app_instance_id)
+            except Exception:
+                pass
+
+        # 2. Uninstall from AssetCenter
+        if self._asset_center:
+            try:
+                self._asset_center.uninstall(app_instance_id)
+            except FileNotFoundError:
+                pass  # Already uninstalled or never installed via AssetCenter
+
+        # 3. Sync RuntimeCenter
+        runtime_center = getattr(self, '_runtime_center', None)
+        if runtime_center:
+            runtime_center.mark_stopped(app_instance_id)
+            runtime_center.unregister(app_instance_id)
+
+        # 4. Remove from lifecycle
+        try:
+            self._lifecycle.delete_app(app_instance_id)
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+        return {"status": "success", "app_instance_id": app_instance_id}
+
+    def _ensure_asset_installed(self, blueprint) -> str:
+        entry = self._registry.get_entry(blueprint.id)
+        release_version = entry.version
+        if self._asset_center is None:
+            return release_version
+
+        asset_id = f"app.{blueprint.id.replace('bp.', '').replace(':', '.')}"
+        source_dir = self._asset_center._source_dir / asset_id  # noqa: SLF001
+        source_dir.mkdir(parents=True, exist_ok=True)
+
+        manifest = {
+            "asset_id": asset_id,
+            "asset_type": "app",
+            "name": blueprint.name,
+            "version": blueprint.version,
+            "entry": "blueprint.json",
+            "owner": "system",
+            "owner_role": "admin",
+            "dependencies": list(blueprint.required_skills),
+            "source_path": f"source/{asset_id}",
+            "description": blueprint.goal,
+            "metadata": {
+                "blueprint_id": blueprint.id,
+                "app_shape": blueprint.app_shape,
+                "required_modules": list(blueprint.required_modules),
+                "required_skills": list(blueprint.required_skills),
+            },
+        }
+        (source_dir / "manifest.json").write_text(__import__("json").dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        (source_dir / "blueprint.json").write_text(blueprint.model_dump_json(indent=2), encoding="utf-8")
+
+        self._asset_center.discover()
+        try:
+            build_record = self._asset_center.build(asset_id)
+            release_version = self._asset_center.install(asset_id, build_hash=build_record.build_hash)
+        except Exception as exc:
+            raise AppInstallerError(f"AssetCenter install failed for {asset_id}: {exc}") from exc
+        return release_version

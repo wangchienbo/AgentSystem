@@ -214,4 +214,17 @@ class AppManagementWorker:
         return self._create_app(target, params)
 
     def _uninstall_app(self, target: str, params: dict) -> dict:
+        # 1. Stop in RuntimeCenter first
+        if self._runtime_center:
+            entry = self._runtime_center.get(target)
+            if entry:
+                self._runtime_center.mark_stopped(target)
+                self._runtime_center.unregister(target)
+        # 2. Uninstall from AssetCenter if available
+        try:
+            from app.api.main import asset_center
+            asset_center.uninstall(target)
+        except Exception:
+            pass  # Non-blocking: asset may not be in AssetCenter
+        # 3. Delete lifecycle and registry entries
         return self._delete_app(target, params)

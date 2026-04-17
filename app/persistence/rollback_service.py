@@ -145,6 +145,9 @@ class RollbackService:
                 error=str(e),
             )
 
+        # ---- Sync RuntimeCenter ----
+        self._sync_runtime_rollback(app_instance_id, to_version)
+
         # ---- Record rollback log ----
         log_event = UpgradeLogEvent(
             event_id=f"rollback:{app_instance_id}:{to_version}",
@@ -199,6 +202,20 @@ class RollbackService:
                 app_registry._blueprints[snapshot.blueprint_id] = bp
         except Exception as e:
             logger.warning("Failed to update registry blueprint during rollback: %s", e)
+
+    def _sync_runtime_rollback(self, app_instance_id: str, to_version: str) -> None:
+        """Sync rollback to RuntimeCenter."""
+        runtime_center = getattr(self._upgrade_service, '_runtime_center', None)
+        if runtime_center:
+            entry = runtime_center.get(app_instance_id)
+            if entry:
+                runtime_center.register(
+                    asset_id=entry.asset_id,
+                    version=to_version,
+                    pid=entry.pid,
+                    endpoint=entry.endpoint,
+                    owner=entry.owner,
+                )
 
     def get_rollback_history(self, app_instance_id: str) -> list[UpgradeLogEvent]:
         """Retrieve rollback log events for an app instance."""

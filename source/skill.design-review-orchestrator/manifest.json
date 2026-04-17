@@ -1,0 +1,19 @@
+{
+  "asset_id": "skill.design-review-orchestrator",
+  "asset_type": "skill",
+  "name": "Design Review Orchestrator",
+  "version": "0.1.0",
+  "entry": "SKILL.md",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [
+    "skill.skill-discovery-review"
+  ],
+  "source_path": "source/skill.design-review-orchestrator",
+  "description": "关键分叉点方案评审 skill",
+  "metadata": {
+    "skill_kind": "review",
+    "stable_for_creative_mode": true,
+    "workspace_skill_path": "/root/.openclaw/workspace/skills/design-review-orchestrator/SKILL.md"
+  }
+}

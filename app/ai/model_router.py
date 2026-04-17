@@ -44,6 +44,8 @@ DEFAULT_CALLER_ROUTES: dict[str, dict[str, str]] = {
     "self_refiner": {"default_model": "strong"},
     "skill_suggester": {"default_model": "balanced"},
     "llm_responder": {"default_model": "strong"},
+    "external_review": {"default_model": "balanced"},
+    "external_review_strong": {"default_model": "strong"},
 }
 
 # Default model pool (can be overridden by config.yaml)

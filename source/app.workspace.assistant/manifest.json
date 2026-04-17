@@ -1,0 +1,19 @@
+{
+  "asset_id": "app.workspace.assistant",
+  "asset_type": "app",
+  "name": "Workspace Assistant",
+  "version": "0.1.0",
+  "entry": "app/interactive_app.py",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [
+    "skill.skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user"
+  ],
+  "source_path": "source/app.workspace.assistant",
+  "description": "工作台助手应用资产",
+  "metadata": {
+    "blueprint_id": "bp.workspace.assistant",
+    "runtime_mode": "service",
+    "service_discovery": true
+  }
+}

@@ -29,5 +29,16 @@
     "allow_network": false,
     "allow_filesystem_write": true,
     "allow_shell": false
+  },
+  "asset_id": "skill.skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user",
+  "asset_type": "skill",
+  "entry": "handler.py",
+  "owner": "system",
+  "owner_role": "system",
+  "dependencies": [],
+  "source_path": "source/skill_suggested_practice_review_for_bp_workspace_assistant_app_refine_exec_user",
+  "metadata": {
+    "skill_kind": "generated_executable",
+    "generated": true
   }
 }

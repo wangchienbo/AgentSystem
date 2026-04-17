@@ -11,10 +11,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -65,6 +68,20 @@ class AssetCenter:
     - Support rollback to previous versions
     """
 
+    REQUIRED_MANIFEST_FIELDS = {
+        "asset_id",
+        "asset_type",
+        "name",
+        "version",
+        "entry",
+        "owner",
+        "owner_role",
+        "dependencies",
+        "source_path",
+        "description",
+        "metadata",
+    }
+
     def __init__(
         self,
         source_dir: str = "source",
@@ -96,21 +113,23 @@ class AssetCenter:
                 continue
             try:
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                self._validate_manifest(manifest=manifest, asset_dir=asset_dir)
                 asset = AssetDefinition(
-                    asset_id=manifest.get("asset_id", asset_dir.name),
-                    name=manifest.get("name", asset_dir.name),
-                    asset_type=manifest.get("asset_type", "skill"),
-                    version=manifest.get("version", "0.0.0"),
+                    asset_id=manifest["asset_id"],
+                    name=manifest["name"],
+                    asset_type=manifest["asset_type"],
+                    version=manifest["version"],
                     source_path=str(asset_dir.relative_to(self._source_dir)),
-                    description=manifest.get("description", ""),
+                    description=manifest["description"],
                     manifest=manifest,
-                    dependencies=manifest.get("dependencies", []),
+                    dependencies=manifest["dependencies"],
                     tags=manifest.get("tags", []),
-                    metadata=manifest.get("metadata", {}),
+                    metadata=manifest["metadata"],
                 )
                 assets.append(asset)
                 self._registry[asset.asset_id] = asset
-            except Exception:
+            except Exception as exc:
+                logger.warning("Skip invalid asset manifest %s: %s", manifest_path, exc)
                 continue
 
         return assets
@@ -320,6 +339,29 @@ class AssetCenter:
         )
 
     # ---- Helpers ----
+
+    @classmethod
+    def _validate_manifest(cls, manifest: dict[str, Any], asset_dir: Path) -> None:
+        missing = sorted(field for field in cls.REQUIRED_MANIFEST_FIELDS if field not in manifest)
+        if missing:
+            raise ValueError(f"missing required manifest fields: {', '.join(missing)}")
+
+        if not isinstance(manifest["dependencies"], list):
+            raise ValueError("dependencies must be a list")
+        if not isinstance(manifest["metadata"], dict):
+            raise ValueError("metadata must be an object")
+
+        expected_asset_id = asset_dir.name
+        if manifest["asset_id"] != expected_asset_id:
+            raise ValueError(
+                f"asset_id must match source directory name: expected {expected_asset_id}, got {manifest['asset_id']}"
+            )
+
+        expected_source_path = f"source/{asset_dir.name}"
+        if manifest["source_path"] != expected_source_path:
+            raise ValueError(
+                f"source_path must be {expected_source_path}, got {manifest['source_path']}"
+            )
 
     @staticmethod
     def _compute_directory_hash(directory: Path) -> str:
