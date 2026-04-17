@@ -56,6 +56,11 @@ class AssetResourceQueryTools:
 
         Returns L1 overview (asset_id, type, name, description, static entry points).
         This is the FIRST thing LLM sees — a candidate set of what's available.
+
+        Visibility rules:
+        - system.master / system.gateway: see all assets
+        - app.*: see assets they own + public assets
+        - skill.*: see only explicitly shared + public assets
         """
         if not self._asset_center:
             return []
@@ -63,6 +68,9 @@ class AssetResourceQueryTools:
         assets = self._asset_center.list_assets()
         result = []
         for asset in assets:
+            # Apply caller_id visibility filter
+            if not self._asset_visible_to_caller(asset, caller_id):
+                continue
             result.append({
                 "asset_id": asset.asset_id,
                 "asset_type": asset.asset_type,
@@ -73,6 +81,40 @@ class AssetResourceQueryTools:
                 # L1 only — detail available via query_asset_detail
             })
         return result
+
+    def _asset_visible_to_caller(self, asset, caller_id: str) -> bool:
+        """Check if an asset is visible to a given caller.
+
+        Visibility rules:
+        - system.* callers see all assets
+        - app.* callers see assets they own + public/shared assets
+        - skill.* callers see only explicitly shared + public assets
+        """
+        if caller_id.startswith("system."):
+            return True
+
+        owner = asset.metadata.get("owner", "") if asset.metadata else ""
+        visibility = asset.metadata.get("visibility", "public") if asset.metadata else "public"
+
+        if visibility == "public":
+            return True
+
+        if caller_id.startswith("app."):
+            # app.* can see assets they own or shared
+            app_prefix = caller_id.split(".")[0] + "." + caller_id.split(".")[1] if "." in caller_id else caller_id
+            if owner == caller_id or owner.startswith(app_prefix):
+                return True
+            if visibility == "shared":
+                return True
+
+        if caller_id.startswith("skill."):
+            # skill.* can only see public + explicitly shared
+            if visibility == "shared":
+                allowed_skills = asset.metadata.get("allowed_callers", []) if asset.metadata else []
+                if caller_id in allowed_skills:
+                    return True
+
+        return False
 
     def query_asset_detail(self, asset_id: str) -> dict[str, Any] | None:
         """Get L2 detailed information for a specific asset.
