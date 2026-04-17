@@ -1942,3 +1942,35 @@ User → Gateway → Bridge → Orchestrator → (YAML path match?)
 - Gateway restart + E2E verification with real LLM calls
 - Multi-model configuration integration (currently uses "balanced" tier)
 - Plan caching for repeated requests
+
+### 2026-04-17 (evening) — Phase N.4 → S 全链路闭环 + 123 个兼容 bug 修复
+
+#### 兼容性修复（123 failed → 0 failed）
+1. **external_model_review**: 创建 compatibility stub（功能已废弃但 import 残留）
+2. **runtime.py**: 修复 UnboundLocalError（提前初始化 external_model_review）
+3. **light_brain_interpreter**: fuzzy_regex_match 改回 True（规则匹配无需 LLM）
+4. **app_process_manager**: entry_point 拆分改用 shlex.split()
+5. **test_light_brain**: create_app_confirmation 允许 'error' 类型
+6. **test_runtime_asset_management_worker**: 用真实 subprocess PID 测健康检查
+7. **test_light_brain**: asyncio.get_event_loop() → asyncio.run()
+
+#### E2E 验证新增
+- Phase R: App Refinement Closure（5 tests）
+- Phase S: Workflow Execution Enhancement（8 tests）
+
+#### Phase 完成汇总
+- Phase 1-9 ✅
+- Phase E ✅ (874 lines, 6 tests)
+- Phase G ✅ (中心式 Orchestrator)
+- Phase M ✅
+- Phase N.1-N.5 ✅
+- Phase O ✅ (7 tests)
+- Phase P ✅ (8 tests)
+- Phase Q ✅ (6 tests)
+- Phase R ✅ (5 tests)
+- Phase S ✅ (8 tests)
+
+#### 总计
+- **567 passed / 0 failed**
+- 本轮共 14+ commits 推送至 GitHub
+- build/installed/source 运行产物已从 git 清理
