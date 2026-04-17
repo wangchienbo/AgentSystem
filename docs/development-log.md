@@ -51,7 +51,8 @@ Phase 6 定义的治理服务端到端串联验证。
 - Phase O ✅ (7 tests)
 - Phase P ✅ (8 tests)
 - Phase Q ✅ (6 tests)
-- Total tests: 431 passed / 123 failed (pre-existing)
+- Phase R ✅ (5 tests)
+- Total tests: 436 passed / 123 failed (pre-existing)
 
 ---
 
