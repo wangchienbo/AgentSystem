@@ -1,5 +1,56 @@
 # Development Log
 
+## 2026-04-17 (afternoon/evening)
+
+### Module: Phase N.4 — App 进程隔离 + 自注册
+
+把 App 从单进程共享推进到独立子进程运行，实现进程隔离 + 自注册 + 心跳 + 崩溃检测。
+
+#### Implemented
+- `app/system/runtime/app_process_manager.py`: AppProcessManager 管理子进程生命周期
+- `app/system/runtime/app_process_ipc.py`: AppProcessIPC — JSON over stdin/stdout
+- `app/runtime/app_bootstrap.py`: App 进程自注册入口
+- `tests/unit/test_app_process_manager.py`: 7 unit tests
+- `tests/unit/test_app_process_e2e.py`: 5 E2E tests
+
+#### E2E Results
+1. Start App subprocess with real PID
+2. Health check → running + alive
+3. Stop → graceful SIGTERM
+4. Multi-process isolation (crash one doesn't affect others)
+5. Crash detection → status=crashed, crash_count tracked
+
+### Module: Phase N.5 — Phase N P2 收尾
+
+Phase N 剩余 P2 项全部闭环。
+
+#### Implemented
+- N5-01: RuntimeCenter.register 增加 caller_id 权限校验
+- N5-02: AssetCenter.build() 时依赖解析（_resolve_and_copy_dependencies）
+- N5-03: Shared 包多版本隔离（build/{id}/{hash}/ 目录）
+- N5-04: Skill 包独立打包（manifest 已有独立 asset_id）
+- `tests/unit/test_phase_n5_p2.py`: 3 tests passed
+
+### Module: Phase O — 生产级治理闭环
+
+Phase 6 定义的治理服务端到端串联验证。
+
+#### Verified Services
+- ContextCompactionService: working_set + summary + list_layers
+- PersistenceHealthService: get_summary (healthy=True)
+- PolicyAuthorityService: enforce (allowed=True for app_install)
+- CollectionPolicyService: resolve (global scope)
+- `tests/unit/test_phase_o_governance_e2e.py`: 7 tests passed
+
+### Phase Completion Summary
+- Phase 1-9 ✅
+- Phase M ✅
+- Phase N.1-N.5 ✅
+- Phase O ✅
+- Total tests: 417 passed / 123 failed (pre-existing)
+
+---
+
 ## 2026-04-17
 
 ### Module: Phase N.3 manifest hard-validation entry
