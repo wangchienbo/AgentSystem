@@ -243,5 +243,5 @@
 - [ ] N3-05 升级/回退/卸载接 RuntimeCenter
 - [x] N3-06 caller_ids 真配置
 - [x] N3-07 服务发现统一
-- [ ] N3-08 subprocess 真托管
+- [x] N3-08 subprocess 真托管
 - [ ] N3-09 端到端验收

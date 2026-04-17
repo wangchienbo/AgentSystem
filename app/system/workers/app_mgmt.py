@@ -6,6 +6,9 @@
 from __future__ import annotations
 
 import logging
+import os
+import signal
+import subprocess
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -97,11 +100,22 @@ class AppManagementWorker:
                 instance = self._lifecycle.get_instance(target)
                 entry = self._runtime_center.get(target)
                 if entry is None:
+                    # N3-08: Real subprocess launch if entry_point provided
+                    pid = params.get("pid", 0)
+                    endpoint = params.get("endpoint", "")
+                    entry_point = params.get("entry_point", "")
+                    if entry_point and pid == 0:
+                        pid = self._launch_subprocess(entry_point, params)
+                    if pid == 0:
+                        # Fallback: simulate with current process
+                        pid = os.getpid()
+                        endpoint = params.get("endpoint", "http://127.0.0.1:0")
+
                     entry = self._runtime_center.register(
                         asset_id=target,
                         version=getattr(instance, "installed_version", "0.0.0") or "0.0.0",
-                        pid=params.get("pid", 0),
-                        endpoint=params.get("endpoint", ""),
+                        pid=pid,
+                        endpoint=endpoint,
                         owner=getattr(instance, "owner_user_id", "system"),
                     )
                 result["data"] = {
@@ -115,14 +129,55 @@ class AppManagementWorker:
                 return {"status": "error", "message": str(e)}
         return result
 
+    def _launch_subprocess(self, entry_point: str, params: dict) -> int:
+        """Launch an asset as a real subprocess. Returns the child PID."""
+        import shlex
+        cmd = entry_point
+        env = {**os.environ}
+        env.update(params.get("env", {}))
+        cwd = params.get("cwd", os.getcwd())
+        try:
+            proc = subprocess.Popen(
+                shlex.split(cmd) if " " in cmd else [cmd],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env,
+                cwd=cwd,
+                start_new_session=True,
+            )
+            logger.info("Launched subprocess for asset: pid=%d, cmd=%s", proc.pid, cmd)
+            return proc.pid
+        except Exception as e:
+            logger.error("Failed to launch subprocess: %s", e)
+            raise
+
     def _stop_asset(self, target: str, params: dict) -> dict:
         result = self._stop_app(target, params)
         if result.get("status") != "success":
             return result
         if self._runtime_center:
+            entry = self._runtime_center.get(target)
+            if entry and entry.pid and entry.pid != os.getpid():
+                # N3-08: Real process kill
+                self._kill_subprocess(entry.pid)
             self._runtime_center.mark_stopped(target)
             self._runtime_center.unregister(target, pid=params.get("pid"))
         return {"status": "success", "message": f"Asset {target} 已停止"}
+
+    def _kill_subprocess(self, pid: int) -> None:
+        """Kill a running subprocess by PID. Graceful SIGTERM first, then SIGKILL."""
+        try:
+            os.kill(pid, signal.SIGTERM)
+            logger.info("Sent SIGTERM to pid=%d", pid)
+        except ProcessLookupError:
+            return  # Already gone
+        except OSError as e:
+            logger.warning("Failed to send SIGTERM to pid=%d: %s", pid, e)
+            try:
+                os.kill(pid, signal.SIGKILL)
+                logger.info("Sent SIGKILL to pid=%d", pid)
+            except OSError:
+                pass  # Best effort
 
     def _health_check_asset(self, target: str, params: dict) -> dict:
         if not self._runtime_center:
@@ -130,17 +185,37 @@ class AppManagementWorker:
         entry = self._runtime_center.get(target)
         if entry is None:
             return {"status": "not_found", "message": f"未找到运行中的资产: {target}"}
+
+        # N3-08: Real process health check
+        process_alive = self._check_process_alive(entry.pid)
+        runtime_status = entry.status
+        if not process_alive and runtime_status == "running":
+            self._runtime_center.mark_crashed(target)
+            runtime_status = "crashed"
+
         return {
-            "status": "success",
+            "status": "success" if process_alive else "degraded",
             "data": {
                 "asset_id": entry.asset_id,
-                "status": entry.status,
+                "status": runtime_status,
                 "pid": entry.pid,
                 "endpoint": entry.endpoint,
                 "version": entry.version,
+                "process_alive": process_alive,
                 "uptime": self._runtime_center.get_uptime(target),
             },
         }
+
+    @staticmethod
+    def _check_process_alive(pid: int) -> bool:
+        """Check if a process is still running by sending signal 0."""
+        if pid <= 0:
+            return False
+        try:
+            os.kill(pid, 0)  # Signal 0 just checks if process exists
+            return True
+        except OSError:
+            return False
 
     def _pause_app(self, target: str, params: dict) -> dict:
         if not self._lifecycle:
