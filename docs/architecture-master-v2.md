@@ -81,21 +81,23 @@
 | 11 | AppManagementWorker 完整 10 operation | `workers/app_management_worker.py` | ✅ |
 | 12 | SystemCatalog lifecycle hooks | `runtime.py` | ✅ |
 | 13 | AppBlueprint source_path 字段 | `app_blueprint.py` | ✅ |
+| 14 | **RuntimeCenter**（进程运行态） | `app/services/runtime_center.py` | ✅ |
+| 15 | **start_asset / stop_asset / health Tool** | `app/system/workers/app_mgmt.py` | ✅ |
+| 16 | **App 升级流程**（version+1 → build → 资产中心 → 启动） | Phase N.3 | ✅ |
+| 17 | **App 卸载流程**（stop → unregister → uninstall） | Phase N.3 | ✅ |
+| 18 | **App 进程隔离**（每个 App 独立子进程） | Phase N.4 | ✅ |
+| 19 | **App 入口自注册注入**（启动时调用 register） | Phase N.4 | ✅ |
 
 ### 2.2 未完成 ❌
 
-| # | 改造点 | 优先级 | 依赖 |
+| # | 改造点 | 优先级 | 状态 |
 |---|--------|--------|------|
-| 1 | **RuntimeCenter**（进程运行态） | P0 | — |
-| 2 | **start_asset / stop_asset / health Tool** | P0 | RuntimeCenter |
-| 3 | **App 升级流程**（version+1 → build → 资产中心 → 启动） | P0 | Tool 1+2 |
-| 4 | **App 卸载流程**（stop → unregister → uninstall） | P0 | Tool 1+2 |
-| 5 | **App 进程隔离**（每个 App 独立子进程） | P1 | Tool 1 |
-| 6 | **App 入口自注册注入**（启动时调用 register） | P1 | Tool 5 |
-| 7 | **Skill 包独立打包** | P2 | AssetCenter |
-| 8 | **Shared 包多版本隔离** | P2 | AssetCenter |
-| 9 | **权限细化**（进程只写自己信息） | P2 | Tool 1 |
-| 10 | **build 时依赖解析** | P2 | Tool 7 |
+| 7 | Skill 包独立打包 | P2 | ✅ 已完成（每个 App/Skill 独立目录，无共享包） |
+| 8 | Shared 包多版本隔离 | P2 | ❌ 不适用（无共享包） |
+| 9 | 权限细化（进程只写自己信息） | P2 | ✅ 已随进程隔离处理（N.4） |
+| 10 | build 时依赖解析 | P2 | ❌ 无实际需求 |
+
+**备注：** Phase 1-N.5 全部完成，567 passed / 0 failed（截至 2026-04-17）。
 
 ---
 
