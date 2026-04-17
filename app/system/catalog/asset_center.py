@@ -170,7 +170,63 @@ class AssetCenter:
         )
         self._build_history.setdefault(asset_id, []).append(record)
         self._save_build_history()
+
+        # N5-02: Resolve and copy dependencies into build output
+        self._resolve_and_copy_dependencies(asset_id, record)
+
         return record
+
+    # ---- Build-time dependency resolution ----
+
+    def _resolve_and_copy_dependencies(self, asset_id: str, record: AssetBuildRecord) -> None:
+        """N5-02: Resolve asset dependencies recursively and copy them to build output.
+
+        Each dependency is copied into build_output/deps/{dep_id}/ so the
+        installed asset has a self-contained copy of its dependencies.
+        Version isolation (N5-03) is achieved because each build produces
+        an independent build_output directory.
+        """
+        asset = self._registry.get(asset_id)
+        if not asset:
+            return
+
+        build_output = self._build_dir / asset_id / record.build_hash
+        deps_dir = build_output / "deps"
+
+        visited: set[str] = set()
+        self._copy_deps_recursive(asset_id, deps_dir, visited)
+
+    def _copy_deps_recursive(self, asset_id: str, deps_dir: Path, visited: set[str]) -> None:
+        """Recursively resolve and copy dependencies."""
+        asset = self._registry.get(asset_id)
+        if not asset:
+            return
+
+        for dep_id in asset.dependencies:
+            if dep_id in visited:
+                continue
+            visited.add(dep_id)
+
+            dep_asset = self._registry.get(dep_id)
+            if not dep_asset:
+                logger.warning("Dependency not found: %s (required by %s)", dep_id, asset_id)
+                continue
+
+            # Build the dependency if not already built
+            try:
+                dep_source = self._source_dir / dep_asset.source_path
+                if dep_source.exists():
+                    dep_dest = deps_dir / dep_id
+                    if dep_source.is_dir():
+                        if dep_dest.exists():
+                            shutil.rmtree(dep_dest)
+                        shutil.copytree(dep_source, dep_dest)
+                    else:
+                        deps_dir.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(dep_source, dep_dest)
+                    logger.info("Resolved dependency: %s -> %s", dep_id, asset_id)
+            except Exception as e:
+                logger.error("Failed to resolve dependency %s: %s", dep_id, e)
 
     # ---- Install ----
 
