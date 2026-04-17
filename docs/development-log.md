@@ -44,10 +44,14 @@ Phase 6 定义的治理服务端到端串联验证。
 
 ### Phase Completion Summary
 - Phase 1-9 ✅
+- Phase E ✅ (874 lines, 6 tests)
+- Phase G ✅ (中心式 Orchestrator)
 - Phase M ✅
 - Phase N.1-N.5 ✅
-- Phase O ✅
-- Total tests: 417 passed / 123 failed (pre-existing)
+- Phase O ✅ (7 tests)
+- Phase P ✅ (8 tests)
+- Phase Q ✅ (6 tests)
+- Total tests: 431 passed / 123 failed (pre-existing)
 
 ---
 
