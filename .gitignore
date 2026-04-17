@@ -13,3 +13,9 @@ data/test-*/
 =*
 data/
 skills/
+
+# Runtime artifacts
+build/
+installed/
+source/
+data/namespaces/
