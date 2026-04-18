@@ -150,8 +150,9 @@ class LightBrainGateway:
             "pause_app": self._app_lifecycle_query_executor.handle_pause_app,
             "resume_app": self._app_lifecycle_query_executor.handle_resume_app,
             "query_app": self._app_lifecycle_query_executor.handle_query_app,
+            "list_apps": self._app_lifecycle_query_executor.handle_list_apps,
             "modify_app": self._app_create_modify_executor.handle_modify_app,
-            "delete_app": self._handle_delete_app,
+            "delete_app": self._app_lifecycle_query_executor.handle_delete_app,
         })
 
         # Phase F.4: Multi-turn state — track active skill per session
@@ -823,26 +824,7 @@ class LightBrainGateway:
 
         return "\n".join(caps)
 
-    async def _handle_list_apps(
-        self, command: InterpretedCommand, session_id: str, apps: list[dict],
-    ) -> ChatMessageResponse:
-        # Show apps owned by the user + system-wide apps (owner="system" or empty)
-        user_id = command.user_id or ""
-        user_apps = []
-        for app in apps:
-            owner = app.get("owner_user_id", "")
-            if owner == user_id or owner == "system" or not owner:
-                user_apps.append(app)
-        
-        # If user has no apps at all, show empty state
-        if not user_apps:
-            return self._app_presenter.build_empty_list_response(session_id=session_id)
-
-        return self._app_presenter.build_list_response(
-            session_id=session_id,
-            user_apps=user_apps,
-        )
-
+    
     async def _handle_query_status(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
@@ -940,177 +922,7 @@ class LightBrainGateway:
             ],
         )
 
-    async def _handle_create_app(
-        self, command: InterpretedCommand, session_id: str, apps: list[dict],
-    ) -> ChatMessageResponse:
-        return await self._execute_create_app(command, session_id, apps)
 
-    async def _execute_create_app(
-        self, command: InterpretedCommand, session_id: str, apps: list[dict],
-    ) -> ChatMessageResponse:
-        """Handle create_app intent — first asks for details, then creates."""
-        if command.requires_clarification:
-            return ChatMessageResponse(
-                type="text",
-                content=command.clarification_question or "你想创建什么样的 App？",
-                session_id=session_id,
-                actions=command.suggested_actions,
-                requires_input=True,
-            )
-
-        # We have enough info — create the app
-        app_type = command.parameters.get("app_type", "unknown")
-        # Use extracted Chinese display name if available, otherwise fallback
-        app_name = command.target_app or command.parameters.get("app_name_display") or f"{app_type}_app"
-        creative_types = {"novel", "diary", "blog", "music", "drawing"}
-        creative_mode = app_type in creative_types or any(keyword in app_name for keyword in ["小说", "创作", "写作", "博客", "日记", "绘图", "音乐"])
-
-        schedule_info = ""
-        if command.parameters.get("schedule_type"):
-            st = command.parameters["schedule_type"]
-            if st == "interval":
-                secs = command.parameters.get("schedule_interval", 0)
-                schedule_info = f"\n执行频率: 每 {secs} 秒"
-            elif st == "cron":
-                schedule_info = f"\n调度: {command.parameters.get('schedule_cron', 'N/A')}"
-
-        threshold_info = ""
-        if command.parameters.get("threshold"):
-            threshold_info = f"\n告警阈值: {command.parameters['threshold']}%"
-
-        app_command = self._app_command_service.from_interpreted_command(
-            command=command,
-            session_id=session_id,
-        )
-        if self._app_command_service.requires_confirmation(app_command):
-            return self._app_command_service.build_confirmation_response(
-                intent="create_app",
-                session_id=session_id,
-                related_app=app_name,
-                target_app=app_name,
-                parameters={
-                    **command.parameters,
-                    "app_type": app_type,
-                    "schedule_info": schedule_info,
-                    "threshold_info": threshold_info,
-                },
-                confirm_label="✅ 确认创建",
-                confirm_id="confirm_create",
-            )
-
-        # Try RPC first
-        if self._bus:
-            try:
-                from app.models.skill_runtime import SkillExecutionRequest
-                user_id = command.user_id or ""
-                features = ["creative_mode", "task_list_execution"] if creative_mode else []
-                constraints = [
-                    "持续推进，不停在阶段性汇报",
-                    "优先复用已有能力，必要时再生成新 skill",
-                    "保证稳定性优先，避免频繁切换实现路径",
-                ] if creative_mode else []
-                result = await self._bus.rpc(
-                    "system.meta_app",
-                    SkillExecutionRequest(
-                        skill_id="system.meta_app",
-                        action="create_app",
-                        inputs={
-                            "app_name": app_name,
-                            "app_goal": f"创建一个{app_type}类型的 App：{app_name}",
-                            "app_type": app_type,
-                            "complexity": "moderate",
-                            "user_id": user_id,
-                            "features": features,
-                            "constraints": constraints,
-                        },
-                        config={"session_id": session_id, "creative_mode": creative_mode},
-                    ),
-                    timeout=60,
-                )
-                if result and getattr(result, "status", None) == "completed":
-                    output = result.output
-                    app_id = output.get("app_id", app_name)
-                    new_skill_ids = output.get("created_skill_ids", [])
-
-                    if new_skill_ids:
-                        perm = self._check_app_modify_permission(user_id or "web-user", app_name)
-                        can_create_required_skills, policy_reason = self._app_command_service.can_create_required_skills(
-                            perm["can_create_skills"],
-                        )
-                        if not can_create_required_skills and policy_reason == "skill_creation_forbidden":
-                            return self._app_command_service.build_permission_denied_response(
-                                intent="create_app",
-                                session_id=session_id,
-                                related_app=app_name,
-                                detail=(
-                                    f"创建 **{app_name}** 需要以下新 skill：\n"
-                                    f"`{', '.join(new_skill_ids)}`\n\n"
-                                    f"**Skill 是系统共有资产**，只有 **管理员及以上** 用户才能创建。\n\n"
-                                    f"请联系管理员来帮你创建这些 skill，或者用已有 skill 重新组合一个 App。"
-                                ),
-                            )
-
-                    # -- Config Center: auto-bind app-skill defaults --
-                    if self._config_center and new_skill_ids:
-                        try:
-                            for sid in new_skill_ids:
-                                self._config_center.resolve_model_preference(app_id, sid)
-                        except Exception:
-                            pass
-
-                    # Persist state
-                    if self._persistence:
-                        try:
-                            self._persistence.save_state(
-                                lifecycle=self._lifecycle,
-                                runtime_host=self._runtime_host,
-                                registry=self._app_registry,
-                                catalog=self._catalog,
-                            )
-                        except Exception:
-                            pass
-                    return self._app_command_service.build_success_response(
-                        intent="create_app",
-                        session_id=session_id,
-                        related_app=app_name,
-                        response_type="card",
-                        content=f"✅ App 创建成功！\n\n"
-                                f"名称: {app_name}\n"
-                                f"类型: {app_type}\n"
-                                f"ID: {app_id}\n"
-                                f"创作模式: {'已启用持续执行模式' if creative_mode else '标准模式'}\n"
-                                f"{schedule_info}{threshold_info}",
-                        actions=[
-                            ActionSuggestion(
-                                id="start_app", label="▶️ 启动", action_type="execute",
-                                payload={"intent": "start_app", "target": app_name}, style="primary",
-                            ),
-                            ActionSuggestion(
-                                id="list_apps", label="📱 查看列表", action_type="navigate",
-                                payload={"intent": "list_apps"}, style="secondary",
-                            ),
-                        ],
-                    )
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(
-                    "MetaApp RPC create failed: %s", e,
-                )
-                return self._app_command_service.build_degraded_response(
-                    intent="create_app",
-                    session_id=session_id,
-                    related_app=app_name,
-                    reason="MessageBus RPC 调用失败",
-                    detail=f"错误信息：{e}\n请重试或联系系统管理员。",
-                )
-
-        return self._app_command_service.build_degraded_response(
-            intent="create_app",
-            session_id=session_id,
-            related_app=app_name,
-            reason="系统未配置 MessageBus",
-            detail="无法通过 RPC 创建 App。",
-        )
 
 
 
@@ -1286,89 +1098,7 @@ class LightBrainGateway:
             pass
         return "user"  # Default fallback
 
-    async def _handle_delete_app(
-        self, command: InterpretedCommand, session_id: str, apps: list[dict],
-    ) -> ChatMessageResponse:
-        if command.requires_clarification:
-            return ChatMessageResponse(
-                type="text",
-                content=command.clarification_question or "你想删除哪个 App？此操作不可恢复。",
-                session_id=session_id,
-                actions=command.suggested_actions,
-                requires_input=True,
-            )
-        target_input = command.target_app or "未知 App"
-        target = self._resolve_instance_id(target_input)
-        display_name = self._resolve_display_name(target, "")
-
-        # Check confirmation
-        params = command.parameters or {}
-        if params.get("confirmed"):
-            # Try RPC first
-            if self._bus:
-                try:
-                    from app.models.skill_runtime import SkillExecutionRequest
-                    result = await self._bus.rpc(
-                        "system.lifecycle",
-                        SkillExecutionRequest(
-                            skill_id="system.lifecycle",
-                            action="delete",
-                            inputs={"app_id": target, "reason": "user_command"},
-                            config={"session_id": session_id},
-                        ),
-                        timeout=10,
-                    )
-                    if result and getattr(result, "status", None) == "completed":
-                        # Also remove from registry
-                        if self._bus:
-                            try:
-                                await self._bus.rpc(
-                                    "system.app_registry",
-                                    SkillExecutionRequest(
-                                        skill_id="system.app_registry",
-                                        action="unregister",
-                                        inputs={"app_id": target},
-                                        config={},
-                                    ),
-                                    timeout=5,
-                                )
-                            except Exception:
-                                pass
-                        return ChatMessageResponse(
-                            type="text",
-                            content=f"🗑️ **{display_name}** 已删除。",
-                            session_id=session_id,
-                            related_app=display_name,
-                            actions=[
-                                ActionSuggestion(
-                                    id="list_apps", label="📱 查看 App", action_type="navigate",
-                                    payload={"intent": "list_apps"}, style="primary",
-                                ),
-                            ],
-                        )
-                except Exception as e:
-                    import logging
-                    logging.getLogger(__name__).warning(
-                        "Lifecycle RPC delete failed: %s", e,
-                    )
-                    return ChatMessageResponse(
-                        type="error",
-                        content=f"删除 **{display_name}** 失败: {e}",
-                        session_id=session_id,
-                    )
-
-        # Add confirm action that triggers actual deletion
-        return ChatMessageResponse(
-            type="confirm",
-            content=f"⚠️ 确定要删除 **{display_name}** 吗？此操作不可恢复！",
-            session_id=session_id,
-            related_app=display_name,
-            actions=[
-                ActionSuggestion(id="confirm_delete", label="🗑️ 确认删除", action_type="confirm", payload={"intent": "delete_app", "target": target, "confirmed": True}, style="danger"),
-                ActionSuggestion(id="cancel", label="❌ 取消", action_type="cancel", payload={"intent": "cancel"}, style="ghost"),
-            ],
-            requires_input=True,
-        )
+    
 
     async def _handle_modify_interactive_app(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],

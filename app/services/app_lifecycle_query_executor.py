@@ -381,3 +381,87 @@ class AppLifecycleQueryExecutor:
             session_id=session_id,
             user_apps=user_apps,
         )
+
+    async def handle_delete_app(self, command: InterpretedCommand, session_id: str, apps: list[dict]) -> ChatMessageResponse:
+        if command.requires_clarification:
+            return ChatMessageResponse(
+                type="text",
+                content=command.clarification_question or "你想删除哪个 App？此操作不可恢复。",
+                session_id=session_id,
+                actions=command.suggested_actions,
+                requires_input=True,
+            )
+        target_input = command.target_app or "未知 App"
+        target = self._resolve_instance_id(target_input)
+        display_name = self._resolve_display_name(target, "")
+        params = command.parameters or {}
+        if params.get("confirmed"):
+            if self._bus:
+                try:
+                    from app.models.skill_runtime import SkillExecutionRequest
+                    result = await self._bus.rpc(
+                        "system.lifecycle",
+                        SkillExecutionRequest(
+                            skill_id="system.lifecycle",
+                            action="delete",
+                            inputs={"app_id": target, "reason": "user_command"},
+                            config={"session_id": session_id},
+                        ),
+                        timeout=10,
+                    )
+                    if result and getattr(result, "status", None) == "completed":
+                        try:
+                            await self._bus.rpc(
+                                "system.app_registry",
+                                SkillExecutionRequest(
+                                    skill_id="system.app_registry",
+                                    action="unregister",
+                                    inputs={"app_id": target},
+                                    config={},
+                                ),
+                                timeout=5,
+                            )
+                        except Exception:
+                            pass
+                        return self._command_service.build_success_response(
+                            intent="delete_app",
+                            session_id=session_id,
+                            related_app=display_name,
+                            content=f"🗑️ **{display_name}** 已删除。",
+                            actions=[
+                                ActionSuggestion(
+                                    id="list_apps", label="📱 查看 App", action_type="navigate",
+                                    payload={"intent": "list_apps"}, style="primary",
+                                ),
+                            ],
+                        )
+                except Exception as e:
+                    return self._command_service.build_degraded_response(
+                        intent="delete_app",
+                        session_id=session_id,
+                        related_app=display_name,
+                        reason="MessageBus RPC 调用失败",
+                        detail=f"错误信息：{e}",
+                    )
+            return self._command_service.build_degraded_response(
+                intent="delete_app",
+                session_id=session_id,
+                related_app=display_name,
+                reason="系统未配置 MessageBus",
+                detail="无法通过 RPC 删除 App。",
+            )
+
+        return ChatMessageResponse(
+            type="confirm",
+            content=f"⚠️ 确定要删除 **{display_name}** 吗？此操作不可恢复！",
+            session_id=session_id,
+            related_app=display_name,
+            actions=self._command_service.build_confirmation_actions(
+                intent="delete_app",
+                target_app=target,
+                parameters={"target_app": target},
+                confirm_label="🗑️ 确认删除",
+                confirm_id="confirm_delete",
+            ),
+            requires_input=True,
+        )
