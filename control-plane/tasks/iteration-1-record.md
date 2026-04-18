@@ -105,6 +105,7 @@
 - [x] 已完成第十六个最小改造点：新增 `app/services/app_command_presenter.py`，把 confirmation / degraded / success / query detail / permission denied 等 presenter 相关能力从 `AppCommandService` 中迁出，`AppCommandService` 现在改为组合 `AppCommandPresenter`，开始形成更清晰的 service + presenter 边界。
 - [x] 已完成第十七个最小改造点：新增 `app/services/app_command_policy.py`，把 `requires_confirmation(...)` 规则从 `AppCommandService` 中迁到独立 policy 层，`AppCommandService` 开始组合 `AppCommandPolicy + AppCommandPresenter`，主控层内部边界继续清晰化。
 - [x] 已完成第十八个最小改造点：新增 `app/services/app_command_router.py`，把 app 域 intent → handler 的映射从 `light_brain_gateway.py` 混合 handler 表中抽出，`LightBrainGateway` 现在优先通过 `AppCommandRouter` 分发 create/start/stop/pause/resume/query/modify/delete 等 app intent，开始形成更明确的 app-domain router 边界。
-- [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_presenter.py app/services/app_command_policy.py app/services/app_command_router.py`
-- [ ] 下一步：继续把 app 域剩余分发和 contract 收口到 router / policy / presenter 体系，或开始抽更完整的 command application layer
+- [x] 已完成第十九个最小改造点：新增 `app/services/app_list_presenter.py`，把 `list_apps` 的空状态与列表响应构造从 `light_brain_gateway.py` 中迁出，app 列表展示也开始纳入 app-domain presenter 体系。
+- [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_presenter.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_list_presenter.py`
+- [ ] 下一步：继续把 `query_status` 的 app 状态卡片也迁入 app-domain presenter / router 体系，或开始把 app-domain presenter 再做统一整合
 

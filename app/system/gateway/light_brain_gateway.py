@@ -26,6 +26,7 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.services.app_command_service import AppCommandService
 from app.services.app_command_router import AppCommandRouter
+from app.services.app_list_presenter import AppListPresenter
 
 
 class LightBrainGatewayError(Exception):
@@ -114,6 +115,7 @@ class LightBrainGateway:
         # Phase I: Config Center for default app-skill binding
         self._config_center = config_center
         self._app_command_service = AppCommandService()
+        self._app_list_presenter = AppListPresenter()
         self._app_command_router = AppCommandRouter()
         self._app_command_router.register_many({
             "create_app": self._handle_create_app,
@@ -806,70 +808,11 @@ class LightBrainGateway:
         
         # If user has no apps at all, show empty state
         if not user_apps:
-            return ChatMessageResponse(
-                type="text",
-                content="你还没有任何 App。要我帮你创建一个吗？",
-                session_id=session_id,
-                actions=[
-                    ActionSuggestion(id="create_app", label="➕ 创建 App", action_type="navigate", payload={"intent": "create_app"}, style="primary"),
-                ],
-            )
+            return self._app_list_presenter.build_empty_response(session_id=session_id)
 
-        # Group by status
-        groups: dict[str, list[dict]] = {}
-        for app in user_apps:
-            status = app.get("status", "unknown")
-            groups.setdefault(status, []).append(app)
-
-        status_labels = {
-            "running": ("🟢", "运行中"),
-            "paused": ("🟡", "已暂停"),
-            "stopped": ("🔴", "已停止"),
-            "draft": ("⚪", "草稿"),
-            "installed": ("🔵", "已安装"),
-            "error": ("⛔", "故障"),
-        }
-
-        # Build inline items for each app
-        items: list[InlineItem] = []
-        for status_key in ["running", "paused", "installed", "stopped", "draft", "error"]:
-            for app in groups.get(status_key, []):
-                icon, label = status_labels.get(status_key, ("⚪", "未知"))
-                app_actions: list[ActionSuggestion] = []
-                if status_key == "running":
-                    app_actions = [
-                        ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": app.get("name")}, style="danger"),
-                        ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": app.get("name")}, style="secondary"),
-                    ]
-                elif status_key in ("stopped", "installed"):
-                    app_actions = [
-                        ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": app.get("name")}, style="primary"),
-                        ActionSuggestion(id="query", label="📋 详情", action_type="execute", payload={"intent": "query_app", "target": app.get("name")}, style="secondary"),
-                    ]
-                elif status_key == "paused":
-                    app_actions = [
-                        ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": app.get("name")}, style="primary"),
-                    ]
-
-                items.append(InlineItem(
-                    id=app.get("app_id", ""),
-                    title=app.get("name", ""),
-                    subtitle=app.get("description"),
-                    status=status_key,
-                    status_icon=icon,
-                    actions=app_actions,
-                ))
-
-        count_text = f"你目前有 {len(user_apps)} 个 App"
-        return ChatMessageResponse(
-            type="list",
-            content=count_text,
+        return self._app_list_presenter.build_list_response(
             session_id=session_id,
-            inline_items=items,
-            actions=[
-                ActionSuggestion(id="create_new", label="➕ 新建 App", action_type="navigate", payload={"intent": "create_app"}, style="primary"),
-                ActionSuggestion(id="help", label="❓ 帮助", action_type="navigate", payload={"intent": "query_help"}, style="secondary"),
-            ],
+            user_apps=user_apps,
         )
 
     async def _handle_query_status(
