@@ -1064,16 +1064,16 @@ class LightBrainGateway:
                     if new_skill_ids:
                         perm = self._check_app_modify_permission(user_id or "web-user", app_name)
                         if not perm["can_create_skills"]:
-                            return ChatMessageResponse(
-                                type="text",
-                                content=(
-                                    f"⚠️ 创建 **{app_name}** 需要以下新 skill：\n"
+                            return self._app_command_service.build_permission_denied_response(
+                                intent="create_app",
+                                session_id=session_id,
+                                related_app=app_name,
+                                detail=(
+                                    f"创建 **{app_name}** 需要以下新 skill：\n"
                                     f"`{', '.join(new_skill_ids)}`\n\n"
                                     f"**Skill 是系统共有资产**，只有 **管理员及以上** 用户才能创建。\n\n"
                                     f"请联系管理员来帮你创建这些 skill，或者用已有 skill 重新组合一个 App。"
                                 ),
-                                session_id=session_id,
-                                related_app=app_name,
                             )
 
                     # -- Config Center: auto-bind app-skill defaults --
@@ -1095,16 +1095,17 @@ class LightBrainGateway:
                             )
                         except Exception:
                             pass
-                    return ChatMessageResponse(
-                        type="card",
+                    return self._app_command_service.build_success_response(
+                        intent="create_app",
+                        session_id=session_id,
+                        related_app=app_name,
+                        response_type="card",
                         content=f"✅ App 创建成功！\n\n"
                                 f"名称: {app_name}\n"
                                 f"类型: {app_type}\n"
                                 f"ID: {app_id}\n"
                                 f"创作模式: {'已启用持续执行模式' if creative_mode else '标准模式'}\n"
                                 f"{schedule_info}{threshold_info}",
-                        session_id=session_id,
-                        related_app=app_name,
                         actions=[
                             ActionSuggestion(
                                 id="start_app", label="▶️ 启动", action_type="execute",
@@ -1577,11 +1578,11 @@ class LightBrainGateway:
         # -- Step 1: Permission check — can this user modify the app? --
         perm_result = self._check_app_modify_permission(user_id, target)
         if not perm_result["allowed"]:
-            return ChatMessageResponse(
-                type="text",
-                content=perm_result["message"],
+            return self._app_command_service.build_permission_denied_response(
+                intent="modify_app",
                 session_id=session_id,
                 related_app=display_name,
+                detail=perm_result["message"],
             )
         can_create_skills = perm_result["can_create_skills"]
 
@@ -1623,16 +1624,16 @@ class LightBrainGateway:
 
                     # Check permission for new skills
                     if needs_new_skills and not can_create_skills:
-                        return ChatMessageResponse(
-                            type="text",
-                            content=(
-                                f"⚠️ **{display_name}** 的修改需要以下新 skill：\n"
+                        return self._app_command_service.build_permission_denied_response(
+                            intent="modify_app",
+                            session_id=session_id,
+                            related_app=display_name,
+                            detail=(
+                                f"**{display_name}** 的修改需要以下新 skill：\n"
                                 f"`{', '.join(would_create)}`\n\n"
                                 f"**Skill 是系统共有资产**，只有 **管理员及以上** 用户才能创建。\n\n"
                                 f"请联系管理员来帮你创建这些 skill，或者使用已有 skill 重新组合一个 App。"
                             ),
-                            session_id=session_id,
-                            related_app=display_name,
                         )
 
                     # Execute real modification
@@ -1659,11 +1660,11 @@ class LightBrainGateway:
                         if reused:
                             summary_parts.append(f"♻️ 复用已有 skill：{', '.join(reused)}")
                         summary_parts.append(f"\n修改内容：{modification}")
-                        return ChatMessageResponse(
-                            type="text",
-                            content="\n".join(summary_parts),
+                        return self._app_command_service.build_success_response(
+                            intent="modify_app",
                             session_id=session_id,
                             related_app=display_name,
+                            content="\n".join(summary_parts),
                             actions=[
                                 ActionSuggestion(
                                     id="list_apps", label="📱 查看 App", action_type="navigate",

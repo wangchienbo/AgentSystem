@@ -190,6 +190,48 @@ class AppCommandService:
             requires_input=True,
         )
 
+    def build_permission_denied_response(
+        self,
+        *,
+        intent: str,
+        session_id: str,
+        related_app: str | None,
+        detail: str,
+    ):
+        from app.models.chat import ChatMessageResponse
+
+        operation_map = {
+            "create_app": "创建 App",
+            "modify_app": "修改 App",
+        }
+        operation = operation_map.get(intent, intent)
+        return ChatMessageResponse(
+            type="text",
+            content=f"⚠️ {operation} 权限不足。\n\n{detail}",
+            session_id=session_id,
+            related_app=related_app,
+        )
+
+    def build_success_response(
+        self,
+        *,
+        intent: str,
+        session_id: str,
+        related_app: str | None,
+        content: str,
+        actions: list[ActionSuggestion] | None = None,
+        response_type: str = "text",
+    ):
+        from app.models.chat import ChatMessageResponse
+
+        return ChatMessageResponse(
+            type=response_type,
+            content=content,
+            session_id=session_id,
+            related_app=related_app,
+            actions=actions or [],
+        )
+
     def build_degraded_response(
         self,
         *,
