@@ -799,15 +799,21 @@ class LightBrainGateway:
     def _enumerate_capabilities(self) -> str:
         """List what I can do based on registered command handlers."""
         caps = []
-        if "create_app" in self._handlers:
+        app_intents = set()
+        if self._app_application_service:
+            app_intents = self._app_command_router.intents()
+        handler_intents = set(self._handlers.keys()) if hasattr(self, "_handlers") else set()
+        supported = app_intents | handler_intents
+
+        if "create_app" in supported:
             caps.append("🔨 根据你的需求，创建并配置各种功能 App")
-        if "list_apps" in self._handlers:
+        if "list_apps" in supported:
             caps.append("📱 管理你所有的 App —— 查看、启动、停止、暂停、恢复、修改、删除")
-        if "query_status" in self._handlers:
+        if "query_status" in supported:
             caps.append("📊 汇报系统的整体运行状态")
-        if "query_help" in self._handlers:
+        if "query_help" in supported:
             caps.append("❓ 回答你关于我能力的问题")
-        if "query_app" in self._handlers:
+        if "query_app" in supported:
             caps.append("🔍 查询单个 App 的详细信息")
 
         if not caps:

@@ -120,6 +120,7 @@
 - [x] 已完成第三十一个最小改造点：gateway 中 action confirm 与 active skill follow-up 的 `create_app` / `modify_app` / `delete_app` 执行回流已改为统一委托 `AppApplicationService.handle(...)`，并移除 `_handlers` 中对 `list_apps` 的旧直连注册；app-domain confirm/follow-up 回流进一步统一。
 - [x] 已完成第三十二个最小改造点：active skill 多轮恢复中 `start_app` / `stop_app` / `pause_app` / `resume_app` / `delete_app` / `modify_app` / `query_app` / `list_apps` 已优先直达 `AppApplicationService.handle(...)`，gateway 的 app-domain 多轮恢复边界进一步收口。
 - [x] 已完成第三十三个最小改造点：action confirm 中 `start_app` / `stop_app` 也已改为通过 `normalize_confirmed_params + rebuild_interpreted_command + AppApplicationService.handle(...)` 回流，gateway 内对 app lifecycle confirm 的直连 runtime 分支继续收缩。
+- [x] 已完成第三十四个最小改造点：`_enumerate_capabilities()` 已不再仅依赖 gateway `_handlers`，而是联合 `AppCommandRouter.intents()` 与非 app-domain handler 集合计算能力列表，避免 app-domain ownership 迁出后帮助/能力描述失真。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_presenter.py app/services/app_application_service.py app/services/app_lifecycle_query_executor.py app/services/app_create_modify_executor.py`
-- [ ] 下一步：继续检查 `pause/resume/query` confirm/replay 及 session replay/action replay 恢复边界，准备进入后续恢复机制设计阶段
+- [ ] 下一步：进入 session replay / action replay 恢复机制的正式设计与边界治理
 
