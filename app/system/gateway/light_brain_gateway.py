@@ -1121,16 +1121,20 @@ class LightBrainGateway:
                 logging.getLogger(__name__).warning(
                     "MetaApp RPC create failed: %s", e,
                 )
-                return ChatMessageResponse(
-                    type="error",
-                    content=f"创建 App 失败: {e}",
+                return self._app_command_service.build_degraded_response(
+                    intent="create_app",
                     session_id=session_id,
+                    related_app=app_name,
+                    reason="MessageBus RPC 调用失败",
+                    detail=f"错误信息：{e}\n请重试或联系系统管理员。",
                 )
 
-        return ChatMessageResponse(
-            type="error",
-            content="系统未配置 MessageBus，无法通过 RPC 创建 App。",
+        return self._app_command_service.build_degraded_response(
+            intent="create_app",
             session_id=session_id,
+            related_app=app_name,
+            reason="系统未配置 MessageBus",
+            detail="无法通过 RPC 创建 App。",
         )
 
 
@@ -1582,11 +1586,12 @@ class LightBrainGateway:
         can_create_skills = perm_result["can_create_skills"]
 
         if not self._app_refinement_orchestrator:
-            return ChatMessageResponse(
-                type="text",
-                content=f"⚠️ App 修改功能尚未完全启用（refinement orchestrator 未注入）。\n\n你的需求已记录：**{display_name}** 需要 **{modification}**\n请在下次系统更新后重试。",
+            return self._app_command_service.build_degraded_response(
+                intent="modify_app",
                 session_id=session_id,
                 related_app=display_name,
+                reason="refinement orchestrator 未注入",
+                detail=f"你的需求已记录：**{display_name}** 需要 **{modification}**\n请在下次系统更新后重试。",
             )
 
         # Try RPC first
@@ -1671,18 +1676,20 @@ class LightBrainGateway:
                 logging.getLogger(__name__).warning(
                     "AppRefinement RPC modify failed: %s", e,
                 )
-                return ChatMessageResponse(
-                    type="text",
-                    content=f"❌ 修改 **{display_name}** 时出错：{e}\n\n请重试或联系系统管理员。",
+                return self._app_command_service.build_degraded_response(
+                    intent="modify_app",
                     session_id=session_id,
                     related_app=display_name,
+                    reason="MessageBus RPC 调用失败",
+                    detail=f"错误信息：{e}\n请重试或联系系统管理员。",
                 )
 
-        return ChatMessageResponse(
-            type="text",
-            content="⚠️ 系统未配置 MessageBus，无法通过 RPC 修改 App。",
+        return self._app_command_service.build_degraded_response(
+            intent="modify_app",
             session_id=session_id,
             related_app=display_name,
+            reason="系统未配置 MessageBus",
+            detail="无法通过 RPC 修改 App。",
         )
 
         # Unreachable legacy path kept below intentionally disabled

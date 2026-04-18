@@ -190,6 +190,32 @@ class AppCommandService:
             requires_input=True,
         )
 
+    def build_degraded_response(
+        self,
+        *,
+        intent: str,
+        session_id: str,
+        related_app: str | None,
+        reason: str,
+        detail: str | None = None,
+    ):
+        from app.models.chat import ChatMessageResponse
+
+        operation_map = {
+            "create_app": "创建 App",
+            "modify_app": "修改 App",
+        }
+        operation = operation_map.get(intent, intent)
+        content = f"⚠️ {operation} 当前无法完成，原因：{reason}。"
+        if detail:
+            content += f"\n\n{detail}"
+        return ChatMessageResponse(
+            type="text",
+            content=content,
+            session_id=session_id,
+            related_app=related_app,
+        )
+
     def make_result(
         self,
         *,
