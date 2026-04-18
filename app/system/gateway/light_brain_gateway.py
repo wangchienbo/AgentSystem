@@ -26,6 +26,7 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.services.app_command_service import AppCommandService
 from app.services.app_command_router import AppCommandRouter
+from app.services.app_command_recovery_service import AppCommandRecoveryService
 from app.services.app_application_service import AppApplicationService
 from app.services.app_create_modify_executor import AppCreateModifyExecutor
 from app.services.app_lifecycle_query_executor import AppLifecycleQueryExecutor
@@ -142,6 +143,7 @@ class LightBrainGateway:
             check_app_modify_permission=self._check_app_modify_permission,
         )
         self._app_command_router = AppCommandRouter()
+        self._app_command_recovery = AppCommandRecoveryService(self._app_command_service)
         self._app_application_service = AppApplicationService(self._app_command_router)
         self._app_application_service.register_handlers({
             "create_app": self._app_create_modify_executor.handle_create_app,
@@ -330,18 +332,15 @@ class LightBrainGateway:
         intent = params.get("intent", "")
 
         if intent == "create_app" and params.get("confirmed"):
-            normalized_params = self._app_command_service.normalize_confirmed_params(intent, params)
-            command = session.last_command
-            if not command:
-                command = self._app_command_service.rebuild_interpreted_command(
-                    intent="create_app",
-                    user_id=user_id,
-                    session_id=session_id,
-                    params=normalized_params,
-                )
+            recovery = self._app_command_recovery.recover_command(
+                intent="create_app",
+                user_id=user_id,
+                session_id=session_id,
+                action_params=params,
+                last_command=session.last_command,
+            )
+            command = recovery.command
             if command:
-                command.parameters = dict(command.parameters or {})
-                command.parameters.update(normalized_params.get("parameters", {}))
                 available_apps = await self._get_available_apps(user_id=command.user_id)
                 reply = await self._app_application_service.handle(command, session_id, available_apps)
                 reply.session_id = session_id
@@ -354,18 +353,15 @@ class LightBrainGateway:
             )
 
         if intent == "modify_app" and params.get("confirmed"):
-            normalized_params = self._app_command_service.normalize_confirmed_params(intent, params)
-            command = session.last_command
-            if not command:
-                command = self._app_command_service.rebuild_interpreted_command(
-                    intent="modify_app",
-                    user_id=user_id,
-                    session_id=session_id,
-                    params=normalized_params,
-                )
+            recovery = self._app_command_recovery.recover_command(
+                intent="modify_app",
+                user_id=user_id,
+                session_id=session_id,
+                action_params=params,
+                last_command=session.last_command,
+            )
+            command = recovery.command
             if command:
-                command.parameters = dict(command.parameters or {})
-                command.parameters.update(normalized_params.get("parameters", {}))
                 available_apps = await self._get_available_apps(user_id=command.user_id)
                 reply = await self._app_application_service.handle(command, session_id, available_apps)
                 reply.session_id = session_id
@@ -378,18 +374,15 @@ class LightBrainGateway:
             )
 
         if intent == "delete_app" and params.get("confirmed"):
-            normalized_params = self._app_command_service.normalize_confirmed_params(intent, params)
-            command = session.last_command
-            if not command:
-                command = self._app_command_service.rebuild_interpreted_command(
-                    intent="delete_app",
-                    user_id=user_id,
-                    session_id=session_id,
-                    params=normalized_params,
-                )
+            recovery = self._app_command_recovery.recover_command(
+                intent="delete_app",
+                user_id=user_id,
+                session_id=session_id,
+                action_params=params,
+                last_command=session.last_command,
+            )
+            command = recovery.command
             if command:
-                command.parameters = dict(command.parameters or {})
-                command.parameters.update(normalized_params.get("parameters", {}))
                 available_apps = await self._get_available_apps(user_id=command.user_id)
                 reply = await self._app_application_service.handle(command, session_id, available_apps)
                 reply.session_id = session_id
@@ -402,19 +395,15 @@ class LightBrainGateway:
             )
 
         if intent in {"start_app", "stop_app"} and params.get("confirmed"):
-            normalized_params = self._app_command_service.normalize_confirmed_params(intent, params)
-            command = session.last_command
-            if not command:
-                command = self._app_command_service.rebuild_interpreted_command(
-                    intent=intent,
-                    user_id=user_id,
-                    session_id=session_id,
-                    params=normalized_params,
-                )
+            recovery = self._app_command_recovery.recover_command(
+                intent=intent,
+                user_id=user_id,
+                session_id=session_id,
+                action_params=params,
+                last_command=session.last_command,
+            )
+            command = recovery.command
             if command:
-                command.parameters = dict(command.parameters or {})
-                command.parameters.update(normalized_params.get("parameters", {}))
-                command.target_app = command.target_app or params.get("target", "")
                 available_apps = await self._get_available_apps(user_id=command.user_id)
                 reply = await self._app_application_service.handle(command, session_id, available_apps)
                 if reply is not None:
