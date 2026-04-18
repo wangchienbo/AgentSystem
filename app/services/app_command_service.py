@@ -221,6 +221,25 @@ class AppCommandService:
             requires_input=True,
         )
 
+    def build_query_detail_response(
+        self,
+        *,
+        session_id: str,
+        related_app: str,
+        title: str,
+        detail: str,
+        actions: list[ActionSuggestion] | None = None,
+    ):
+        from app.models.chat import ChatMessageResponse
+
+        return ChatMessageResponse(
+            type="card",
+            content=f"{title}\n\n{detail}",
+            session_id=session_id,
+            related_app=related_app,
+            actions=actions or [],
+        )
+
     def build_permission_denied_response(
         self,
         *,

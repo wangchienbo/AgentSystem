@@ -1169,35 +1169,46 @@ class LightBrainGateway:
                 )
                 if result and getattr(result, "status", None) == "completed":
                     display_name = self._resolve_display_name(target, "")
-                    return ChatMessageResponse(
-                        type="card",
-                        content=f"✅ **{display_name}** 已启动。",
+                    return self._app_command_service.build_success_response(
+                        intent="start_app",
                         session_id=session_id,
                         related_app=display_name,
+                        response_type="card",
+                        content=f"✅ **{display_name}** 已启动。",
                         actions=[
-                            ActionSuggestion(label="查看状态", text=f"看看 {display_name} 的状态"),
-                            ActionSuggestion(label="暂停", text=f"暂停 {display_name}"),
-                            ActionSuggestion(label="停止", text=f"停止 {display_name}"),
+                            ActionSuggestion(
+                                id="query_status", label="查看状态", action_type="execute",
+                                payload={"intent": "query_app", "target": display_name}, style="secondary",
+                            ),
+                            ActionSuggestion(
+                                id="pause", label="⏸ 暂停", action_type="execute",
+                                payload={"intent": "pause_app", "target": display_name}, style="secondary",
+                            ),
+                            ActionSuggestion(
+                                id="stop", label="⏹ 停止", action_type="execute",
+                                payload={"intent": "stop_app", "target": display_name}, style="danger",
+                            ),
                         ],
-                        requires_input=False,
                     )
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
                     "Lifecycle RPC start failed: %s", e,
                 )
-                return ChatMessageResponse(
-                    type="error",
-                    content=f"启动 **{target_input}** 失败: {e}",
+                return self._app_command_service.build_degraded_response(
+                    intent="start_app",
                     session_id=session_id,
                     related_app=target_input,
+                    reason="MessageBus RPC 调用失败",
+                    detail=f"错误信息：{e}",
                 )
 
-        return ChatMessageResponse(
-            type="error",
-            content="系统未配置 MessageBus，无法通过 RPC 启动 App。",
+        return self._app_command_service.build_degraded_response(
+            intent="start_app",
             session_id=session_id,
             related_app=target_input,
+            reason="系统未配置 MessageBus",
+            detail="无法通过 RPC 启动 App。",
         )
 
     async def _handle_stop_app(
@@ -1231,11 +1242,12 @@ class LightBrainGateway:
                 )
                 if result and getattr(result, "status", None) == "completed":
                     display_name = self._resolve_display_name(target, "")
-                    return ChatMessageResponse(
-                        type="card",
-                        content=f"⏹ **{display_name}** 已停止。",
+                    return self._app_command_service.build_success_response(
+                        intent="stop_app",
                         session_id=session_id,
                         related_app=display_name,
+                        response_type="card",
+                        content=f"⏹ **{display_name}** 已停止。",
                         actions=[
                             ActionSuggestion(
                                 id="start", label="▶️ 启动", action_type="execute",
@@ -1248,18 +1260,20 @@ class LightBrainGateway:
                 logging.getLogger(__name__).warning(
                     "Lifecycle RPC stop failed: %s", e,
                 )
-                return ChatMessageResponse(
-                    type="error",
-                    content=f"停止 **{target_input}** 失败: {e}",
+                return self._app_command_service.build_degraded_response(
+                    intent="stop_app",
                     session_id=session_id,
                     related_app=target_input,
+                    reason="MessageBus RPC 调用失败",
+                    detail=f"错误信息：{e}",
                 )
 
-        return ChatMessageResponse(
-            type="error",
-            content="系统未配置 MessageBus，无法通过 RPC 停止 App。",
+        return self._app_command_service.build_degraded_response(
+            intent="stop_app",
             session_id=session_id,
             related_app=target_input,
+            reason="系统未配置 MessageBus",
+            detail="无法通过 RPC 停止 App。",
         )
 
     async def _handle_pause_app(
@@ -1484,11 +1498,11 @@ class LightBrainGateway:
                             except Exception:
                                 pass
                         detail = f"ID: {target}\n状态: {status}{runtime_status}"
-                        return ChatMessageResponse(
-                            type="card",
-                            content=f"📋 {display_name}\n\n{detail}",
+                        return self._app_command_service.build_query_detail_response(
                             session_id=session_id,
                             related_app=display_name,
+                            title=f"📋 {display_name}",
+                            detail=detail,
                             actions=[
                                 ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
                                 ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
@@ -1500,11 +1514,12 @@ class LightBrainGateway:
                     "AppRegistry RPC query_app failed: %s", e,
                 )
 
-        return ChatMessageResponse(
-            type="text",
-            content=f"查询 **{display_name}** 详情失败，请稍后重试。",
+        return self._app_command_service.build_degraded_response(
+            intent="query_app",
             session_id=session_id,
             related_app=display_name,
+            reason="查询详情失败",
+            detail="请稍后重试。",
         )
 
     async def _handle_modify_app(
