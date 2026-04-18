@@ -1514,32 +1514,16 @@ class LightBrainGateway:
             ),
             session_id=session_id,
             related_app=display_name,
-            actions=[
-                ActionSuggestion(
-                    id="confirm_modify",
-                    label="✅ 确认修改",
-                    action_type="confirm",
-                    payload={
-                        "intent": "modify_app",
-                        "target_app": target,
-                        "parameters": {
-                            "target_app": target,
-                            "modification": modification,
-                            "confirmed": True,
-                        },
-                        "modification": modification,
-                        "confirmed": True,
-                    },
-                    style="primary",
-                ),
-                ActionSuggestion(
-                    id="cancel",
-                    label="❌ 取消",
-                    action_type="cancel",
-                    payload={"intent": "cancel"},
-                    style="ghost",
-                ),
-            ],
+            actions=self._app_command_service.build_confirmation_actions(
+                intent="modify_app",
+                target_app=target,
+                parameters={
+                    "target_app": target,
+                    "modification": modification,
+                },
+                confirm_label="✅ 确认修改",
+                confirm_id="confirm_modify",
+            ),
             requires_input=True,
         )
 

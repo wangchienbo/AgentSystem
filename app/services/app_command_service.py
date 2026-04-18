@@ -4,6 +4,7 @@ from typing import Any
 
 from app.models.app_command import AppCommand, AppCommandResult
 from app.models.chat import InterpretedCommand
+from app.models.chat import ActionSuggestion
 
 
 class AppCommandService:
@@ -102,6 +103,46 @@ class AppCommandService:
             requires_clarification=False,
             user_id=app_command.user_id,
         )
+
+    def build_confirmation_actions(
+        self,
+        *,
+        intent: str,
+        target_app: str,
+        parameters: dict[str, Any] | None = None,
+        confirm_label: str,
+        cancel_label: str = "❌ 取消",
+        confirm_id: str | None = None,
+    ) -> list[ActionSuggestion]:
+        normalized = self.normalize_confirmed_params(intent, {
+            "intent": intent,
+            "target_app": target_app,
+            "parameters": parameters or {},
+            **(parameters or {}),
+            "confirmed": True,
+        })
+        return [
+            ActionSuggestion(
+                id=confirm_id or f"confirm_{intent}",
+                label=confirm_label,
+                action_type="confirm",
+                payload={
+                    "intent": intent,
+                    "target_app": normalized.get("target_app", target_app),
+                    "parameters": normalized.get("parameters", {}),
+                    "confirmed": True,
+                    **({"modification": normalized.get("modification")} if normalized.get("modification") else {}),
+                },
+                style="primary",
+            ),
+            ActionSuggestion(
+                id="cancel",
+                label=cancel_label,
+                action_type="cancel",
+                payload={"intent": "cancel"},
+                style="ghost",
+            ),
+        ]
 
     def make_result(
         self,
