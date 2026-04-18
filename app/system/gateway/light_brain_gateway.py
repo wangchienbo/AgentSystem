@@ -27,6 +27,7 @@ from app.services.tool_registry import ToolRegistry
 from app.services.app_command_service import AppCommandService
 from app.services.app_command_router import AppCommandRouter
 from app.services.app_application_service import AppApplicationService
+from app.services.app_lifecycle_query_executor import AppLifecycleQueryExecutor
 from app.services.app_presenter import AppPresenter
 
 
@@ -117,12 +118,19 @@ class LightBrainGateway:
         self._config_center = config_center
         self._app_command_service = AppCommandService()
         self._app_presenter = AppPresenter()
+        self._app_lifecycle_query_executor = AppLifecycleQueryExecutor(
+            command_service=self._app_command_service,
+            presenter=self._app_presenter,
+            bus=self._bus,
+            resolve_instance_id=self._resolve_instance_id,
+            resolve_display_name=self._resolve_display_name,
+        )
         self._app_command_router = AppCommandRouter()
         self._app_application_service = AppApplicationService(self._app_command_router)
         self._app_application_service.register_handlers({
             "create_app": self._handle_create_app,
-            "start_app": self._handle_start_app,
-            "stop_app": self._handle_stop_app,
+            "start_app": self._app_lifecycle_query_executor.handle_start_app,
+            "stop_app": self._app_lifecycle_query_executor.handle_stop_app,
             "pause_app": self._handle_pause_app,
             "resume_app": self._handle_resume_app,
             "query_app": self._handle_query_app,
