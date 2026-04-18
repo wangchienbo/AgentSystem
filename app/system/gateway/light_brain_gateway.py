@@ -131,9 +131,9 @@ class LightBrainGateway:
             "create_app": self._handle_create_app,
             "start_app": self._app_lifecycle_query_executor.handle_start_app,
             "stop_app": self._app_lifecycle_query_executor.handle_stop_app,
-            "pause_app": self._handle_pause_app,
-            "resume_app": self._handle_resume_app,
-            "query_app": self._handle_query_app,
+            "pause_app": self._app_lifecycle_query_executor.handle_pause_app,
+            "resume_app": self._app_lifecycle_query_executor.handle_resume_app,
+            "query_app": self._app_lifecycle_query_executor.handle_query_app,
             "modify_app": self._handle_modify_app,
             "delete_app": self._handle_delete_app,
         })

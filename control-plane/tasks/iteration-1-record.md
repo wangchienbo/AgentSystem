@@ -113,6 +113,7 @@
 - [x] 已完成第二十四个最小改造点：`AppCommandRouter` 已新增 `handles(...)`，`LightBrainGateway::_execute_command()` 现在显式先判断某个 intent 是否属于 app-domain 再分发给 app router，app-domain 入口边界开始从“查 handler 命中”提升为更明确的 router ownership 判定。
 - [x] 已完成第二十五个最小改造点：新增 `app/services/app_application_service.py`，并让 `LightBrainGateway` 把 create/start/stop/pause/resume/query/modify/delete 等 app-domain intent 统一交给 `AppApplicationService` 入口处理；app-domain 已从“router + components”阶段切入真正的 application layer 接管阶段。
 - [x] 已完成第二十六个最小改造点：新增 `app/services/app_lifecycle_query_executor.py`，并先把 `start_app` / `stop_app` 的真实执行逻辑从 gateway 迁到 executor；`AppApplicationService` 现已开始注册 executor 而不是纯 gateway handler，执行接管正式开始。
+- [x] 已完成第二十七个最小改造点：`pause_app` / `resume_app` / `query_app` / `list_apps` 已迁入 `AppLifecycleQueryExecutor`，lifecycle/query 这一组主执行链已大部分从 gateway 切出；`AppApplicationService` 现在对这批 intent 注册 executor 而非 gateway handler，执行接管继续扩大。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_presenter.py app/services/app_application_service.py app/services/app_lifecycle_query_executor.py`
-- [ ] 下一步：继续把 `pause_app` / `resume_app` / `query_app` / `list_apps` 迁到 executor，随后再切 create/modify 执行链
+- [ ] 下一步：继续把 `create_app` / `modify_app` 迁入 executor，开始切第三刀重头戏
 
