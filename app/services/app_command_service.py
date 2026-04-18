@@ -60,6 +60,9 @@ class AppCommandService:
     def can_resume_from_status(self, current_status: str) -> tuple[bool, str | None]:
         return self._policy.can_resume_from_status(current_status)
 
+    def can_create_required_skills(self, can_create_skills: bool) -> tuple[bool, str | None]:
+        return self._policy.can_create_required_skills(can_create_skills)
+
     def normalize_confirmed_params(self, intent: str, params: dict[str, Any]) -> dict[str, Any]:
         normalized = dict(params or {})
         parameters = dict(normalized.get("parameters") or {})

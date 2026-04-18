@@ -1006,7 +1006,10 @@ class LightBrainGateway:
 
                     if new_skill_ids:
                         perm = self._check_app_modify_permission(user_id or "web-user", app_name)
-                        if not perm["can_create_skills"]:
+                        can_create_required_skills, policy_reason = self._app_command_service.can_create_required_skills(
+                            perm["can_create_skills"],
+                        )
+                        if not can_create_required_skills and policy_reason == "skill_creation_forbidden":
                             return self._app_command_service.build_permission_denied_response(
                                 intent="create_app",
                                 session_id=session_id,
@@ -1588,7 +1591,10 @@ class LightBrainGateway:
                     needs_new_skills = len(would_create) > 0
 
                     # Check permission for new skills
-                    if needs_new_skills and not can_create_skills:
+                    can_create_required_skills, policy_reason = self._app_command_service.can_create_required_skills(
+                        can_create_skills,
+                    )
+                    if needs_new_skills and not can_create_required_skills and policy_reason == "skill_creation_forbidden":
                         return self._app_command_service.build_permission_denied_response(
                             intent="modify_app",
                             session_id=session_id,

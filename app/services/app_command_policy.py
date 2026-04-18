@@ -23,3 +23,8 @@ class AppCommandPolicy:
         if current_status != "paused":
             return False, "invalid_resume_state"
         return True, None
+
+    def can_create_required_skills(self, can_create_skills: bool) -> tuple[bool, str | None]:
+        if not can_create_skills:
+            return False, "skill_creation_forbidden"
+        return True, None
