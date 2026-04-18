@@ -24,6 +24,7 @@ from app.models.chat import (
 from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryError
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
+from app.services.app_command_service import AppCommandService
 
 
 class LightBrainGatewayError(Exception):
@@ -111,6 +112,7 @@ class LightBrainGateway:
 
         # Phase I: Config Center for default app-skill binding
         self._config_center = config_center
+        self._app_command_service = AppCommandService()
 
         # Phase F.4: Multi-turn state — track active skill per session
         self._active_skills: dict[str, dict[str, Any]] = {}
@@ -287,14 +289,24 @@ class LightBrainGateway:
         intent = params.get("intent", "")
 
         if intent == "create_app" and params.get("confirmed"):
-            # Rebuild command from action_params if last_command is lost (e.g., page refresh)
             command = session.last_command
-            if not command and params.get("app_name"):
+            if not command and params.get("target_app"):
+                create_params = params.get("parameters", {})
+                app_command = self._app_command_service.build_command(
+                    name="create_app",
+                    user_id=user_id,
+                    session_id=session_id,
+                    target_app=params["target_app"],
+                    parameters=create_params,
+                    confirmed=True,
+                    source="action",
+                )
                 command = InterpretedCommand(
-                    intent="create_app",
-                    target_app=params["app_name"],
-                    parameters=params.get("parameters", {"app_type": params.get("app_type", "unknown")}),
+                    intent=app_command.name,
+                    target_app=app_command.target_app,
+                    parameters=app_command.parameters,
                     requires_clarification=False,
+                    user_id=app_command.user_id,
                 )
             if command:
                 available_apps = await self._get_available_apps(user_id=command.user_id)
@@ -305,6 +317,47 @@ class LightBrainGateway:
             return ChatMessageResponse(
                 type="error",
                 content="没有找到待确认的创建命令。请重新发送创建请求。",
+                session_id=session_id,
+            )
+
+        if intent == "modify_app" and params.get("confirmed"):
+            command = session.last_command
+            if not command and params.get("target_app"):
+                app_command = self._app_command_service.build_command(
+                    name="modify_app",
+                    user_id=user_id,
+                    session_id=session_id,
+                    target_app=params.get("target_app", ""),
+                    parameters=params.get("parameters", {
+                        "target_app": params.get("target_app", ""),
+                        "modification": params.get("modification", "未指定"),
+                        "confirmed": True,
+                    }),
+                    confirmed=True,
+                    source="action",
+                )
+                command = InterpretedCommand(
+                    intent=app_command.name,
+                    target_app=app_command.target_app,
+                    parameters=app_command.parameters,
+                    requires_clarification=False,
+                    user_id=app_command.user_id,
+                )
+            if command:
+                command.parameters = dict(command.parameters or {})
+                command.parameters.update({
+                    "target_app": params.get("target_app", command.target_app),
+                    "modification": params.get("modification", command.parameters.get("modification", "未指定") if command.parameters else "未指定"),
+                    "confirmed": True,
+                })
+                available_apps = await self._get_available_apps(user_id=command.user_id)
+                reply = await self._execute_modify_app(command, session_id, available_apps)
+                reply.session_id = session_id
+                self._memory.record_reply(session_id, reply)
+                return reply
+            return ChatMessageResponse(
+                type="error",
+                content="没有找到待确认的修改命令。请重新发送修改请求。",
                 session_id=session_id,
             )
 
@@ -983,6 +1036,12 @@ class LightBrainGateway:
             try:
                 from app.models.skill_runtime import SkillExecutionRequest
                 user_id = command.user_id or ""
+                features = ["creative_mode", "task_list_execution"] if creative_mode else []
+                constraints = [
+                    "持续推进，不停在阶段性汇报",
+                    "优先复用已有能力，必要时再生成新 skill",
+                    "保证稳定性优先，避免频繁切换实现路径",
+                ] if creative_mode else []
                 result = await self._bus.rpc(
                     "system.meta_app",
                     SkillExecutionRequest(
@@ -994,13 +1053,8 @@ class LightBrainGateway:
                             "app_type": app_type,
                             "complexity": "moderate",
                             "user_id": user_id,
-                            "features": (["creative_mode", "task_list_execution", "design_review"] if creative_mode else []),
-                            "constraints": ([
-                                "创作模式默认启用 task-list-executor",
-                                "关键方案分叉调用 design-review-orchestrator",
-                                "新能力创建前先调用 skill-discovery-review",
-                                "保证稳定性优先，避免频繁切换实现路径",
-                            ] if creative_mode else []),
+                            "features": features,
+                            "constraints": constraints,
                         },
                         config={"session_id": session_id, "creative_mode": creative_mode},
                     ),
@@ -1011,11 +1065,26 @@ class LightBrainGateway:
                     app_id = output.get("app_id", app_name)
                     new_skill_ids = output.get("created_skill_ids", [])
 
+                    if new_skill_ids:
+                        perm = self._check_app_modify_permission(user_id or "web-user", app_name)
+                        if not perm["can_create_skills"]:
+                            return ChatMessageResponse(
+                                type="text",
+                                content=(
+                                    f"⚠️ 创建 **{app_name}** 需要以下新 skill：\n"
+                                    f"`{', '.join(new_skill_ids)}`\n\n"
+                                    f"**Skill 是系统共有资产**，只有 **管理员及以上** 用户才能创建。\n\n"
+                                    f"请联系管理员来帮你创建这些 skill，或者用已有 skill 重新组合一个 App。"
+                                ),
+                                session_id=session_id,
+                                related_app=app_name,
+                            )
+
                     # -- Config Center: auto-bind app-skill defaults --
                     if self._config_center and new_skill_ids:
                         try:
                             for sid in new_skill_ids:
-                                resolved = self._config_center.resolve_model_preference(app_id, sid)
+                                self._config_center.resolve_model_preference(app_id, sid)
                         except Exception:
                             pass
 
@@ -1036,7 +1105,7 @@ class LightBrainGateway:
                                 f"名称: {app_name}\n"
                                 f"类型: {app_type}\n"
                                 f"ID: {app_id}\n"
-                                f"创作模式: {'已启用执行/评审/复用三件套' if creative_mode else '标准模式'}\n"
+                                f"创作模式: {'已启用持续执行模式' if creative_mode else '标准模式'}\n"
                                 f"{schedule_info}{threshold_info}",
                         session_id=session_id,
                         related_app=app_name,
@@ -1068,135 +1137,6 @@ class LightBrainGateway:
             session_id=session_id,
         )
 
-        # Unreachable legacy path kept below intentionally disabled
-        if False and self._meta_app_orchestrator:
-            try:
-                from app.models.app_meta_app import AppCreationFromMetaAppRequest
-                user_id = command.user_id or ""
-                request = AppCreationFromMetaAppRequest(
-                    app_name=app_name,
-                    goal=f"创建一个{app_type}类型的 App：{app_name}",
-                    app_kind="service",
-                    complexity="moderate",
-                    scope={"app_type": app_type},
-                    context=f"用户请求创建一个{app_type}应用",
-                    user_id=user_id,
-                )
-                result = self._meta_app_orchestrator.create_app_through_meta_app(request)
-                # Handle both dict and object results
-                if hasattr(result, 'error') and result.error:
-                    return ChatMessageResponse(
-                        type="error",
-                        content=f"创建 App 失败: {result.error}",
-                        session_id=session_id,
-                    )
-
-                # -- Permission check: regular user creating app with new skills --
-                user_id = command.user_id or "web-user"
-                new_skill_ids = getattr(result, 'created_skill_ids', []) or []
-                if new_skill_ids:
-                    perm = self._check_app_modify_permission(user_id, app_name)
-                    if not perm["can_create_skills"]:
-                        return ChatMessageResponse(
-                            type="text",
-                            content=(
-                                f"⚠️ 创建 **{app_name}** 需要以下新 skill：\n"
-                                f"`{', '.join(new_skill_ids)}`\n\n"
-                                f"**Skill 是系统共有资产**，只有 **管理员及以上** 用户才能创建。\n\n"
-                                f"请联系管理员来帮你创建这些 skill，或者用已有 skill 重新组合一个 App。"
-                            ),
-                            session_id=session_id,
-                            related_app=app_name,
-                        )
-                app_id = ""
-                if result.installed_app:
-                    app_id = result.installed_app.id
-                elif hasattr(result, 'control_plan') and result.control_plan:
-                    app_id = result.control_plan.app_slug
-                if not app_id:
-                    app_id = app_name
-
-                # -- Config Center: auto-bind app-skill defaults from config center --
-                if self._config_center and new_skill_ids:
-                    try:
-                        for sid in new_skill_ids:
-                            # Resolve default model_preference from config center
-                            resolved = self._config_center.resolve_model_preference(app_id, sid)
-                            if resolved and resolved != "strong":  # only log if not default
-                                import logging
-                                logging.getLogger(__name__).debug(
-                                    "Auto-bind config for app=%s skill=%s -> %s", app_id, sid, resolved,
-                                )
-                    except Exception:
-                        pass  # Best-effort config binding
-
-                # Persist state so the app survives server restarts
-                if self._persistence:
-                    try:
-                        self._persistence.save_state(
-                            lifecycle=self._lifecycle,
-                            runtime_host=self._runtime_host,
-                            registry=self._app_registry,
-                            catalog=self._catalog,
-                        )
-                    except Exception:
-                        pass  # Best-effort persistence
-                return ChatMessageResponse(
-                    type="card",
-                    content=f"✅ App 创建成功！\n\n"
-                            f"名称: {app_name}\n"
-                            f"类型: {app_type}\n"
-                            f"ID: {app_id}\n"
-                            f"{schedule_info}{threshold_info}",
-                    session_id=session_id,
-                    related_app=app_name,
-                    actions=[
-                        ActionSuggestion(
-                            id="start_app", label="▶️ 启动", action_type="execute",
-                            payload={"intent": "start_app", "target": app_name}, style="primary",
-                        ),
-                        ActionSuggestion(
-                            id="list_apps", label="📱 查看列表", action_type="navigate",
-                            payload={"intent": "list_apps"}, style="secondary",
-                        ),
-                    ],
-                )
-            except Exception as exc:
-                return ChatMessageResponse(
-                    type="error",
-                    content=f"创建 App 失败: {exc}",
-                    session_id=session_id,
-                )
-
-        # Fallback: confirmation card when orchestrator unavailable
-        return ChatMessageResponse(
-            type="confirm",
-            content=f"📋 App 创建概要\n\n"
-                    f"名称: {app_name}\n"
-                    f"类型: {app_type}\n"
-                    f"{schedule_info}"
-                    f"{threshold_info}\n\n"
-                    f"确认创建吗？",
-            session_id=session_id,
-            related_app=app_name,
-            actions=[
-                ActionSuggestion(
-                    id="confirm_create", label="✅ 确认创建", action_type="confirm",
-                    payload={"intent": "create_app", "confirmed": True, "app_name": app_name, "app_type": app_type,
-                             "parameters": command.parameters},
-                    style="primary",
-                ),
-                ActionSuggestion(
-                    id="modify", label="✏️ 修改配置", action_type="modify",
-                    payload={"intent": "modify_before_create"}, style="secondary",
-                ),
-                ActionSuggestion(
-                    id="cancel", label="❌ 取消", action_type="cancel",
-                    payload={"intent": "cancel"}, style="ghost",
-                ),
-            ],
-            requires_input=True,
-        )
 
     async def _handle_start_app(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
@@ -1607,6 +1547,11 @@ class LightBrainGateway:
                     payload={
                         "intent": "modify_app",
                         "target_app": target,
+                        "parameters": {
+                            "target_app": target,
+                            "modification": modification,
+                            "confirmed": True,
+                        },
                         "modification": modification,
                         "confirmed": True,
                     },

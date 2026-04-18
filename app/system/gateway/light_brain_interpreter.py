@@ -393,7 +393,12 @@ class LightBrainInterpreter:
             actions = [
                 ActionSuggestion(
                     id="confirm_create", label="✅ 确认创建", action_type="confirm",
-                    payload={"intent": "create_app", "confirmed": True}, style="primary",
+                    payload={
+                        "intent": "create_app",
+                        "target_app": target_app,
+                        "parameters": {"app_type": intent.replace("_app", "") if intent else "unknown"},
+                        "confirmed": True,
+                    }, style="primary",
                 ),
                 ActionSuggestion(
                     id="modify_config", label="✏️ 修改配置", action_type="modify",

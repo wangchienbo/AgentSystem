@@ -53,14 +53,23 @@ class SystemMetaAppWorker(SkillWorker):
         try:
             from app.models.app_meta_app import AppCreationFromMetaAppRequest
 
+            app_name = inputs.get("app_name", "")
+            app_goal = inputs.get("app_goal", "")
+            app_type = inputs.get("app_type", "")
+            complexity = inputs.get("complexity", "moderate")
+            user_id = inputs.get("user_id", "system")
+            features = inputs.get("features", [])
+            constraints = inputs.get("constraints", [])
+
             request = AppCreationFromMetaAppRequest(
-                app_name=inputs.get("app_name", ""),
-                app_goal=inputs.get("app_goal", ""),
-                app_type=inputs.get("app_type", ""),
-                complexity=inputs.get("complexity", "moderate"),
-                user_id=inputs.get("user_id", "system"),
-                features=inputs.get("features", []),
-                constraints=inputs.get("constraints", []),
+                app_name=app_name,
+                goal=app_goal or f"创建一个{app_type}类型的 App：{app_name}",
+                app_kind="service",
+                complexity=complexity,
+                user_id=user_id,
+                scope={"app_type": app_type, "features": features, "constraints": constraints},
+                context=inputs.get("context", ""),
+                workflow_inputs=inputs.get("workflow_inputs", {}),
             )
 
             result = self._orchestrator.create_app_through_meta_app(request)
