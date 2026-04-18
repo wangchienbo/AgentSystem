@@ -1006,6 +1006,23 @@ class LightBrainGateway:
         if command.parameters.get("threshold"):
             threshold_info = f"\n告警阈值: {command.parameters['threshold']}%"
 
+        if not command.parameters.get("confirmed"):
+            return self._app_command_service.build_confirmation_response(
+                intent="create_app",
+                session_id=session_id,
+                related_app=app_name,
+                content=(
+                    f"将创建新的 App：**{app_name}**\n\n"
+                    f"类型: {app_type}"
+                    f"{schedule_info}{threshold_info}\n\n"
+                    f"确认后系统会通过统一主链路创建 App，必要时生成或复用相关 skill。"
+                ),
+                target_app=app_name,
+                parameters={**command.parameters, "app_type": app_type},
+                confirm_label="✅ 确认创建",
+                confirm_id="confirm_create",
+            )
+
         # Try RPC first
         if self._bus:
             try:

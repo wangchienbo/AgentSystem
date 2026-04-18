@@ -144,6 +144,35 @@ class AppCommandService:
             ),
         ]
 
+    def build_confirmation_response(
+        self,
+        *,
+        intent: str,
+        session_id: str,
+        related_app: str,
+        content: str,
+        target_app: str,
+        parameters: dict[str, Any] | None = None,
+        confirm_label: str,
+        confirm_id: str | None = None,
+    ):
+        from app.models.chat import ChatMessageResponse
+
+        return ChatMessageResponse(
+            type="confirm",
+            content=content,
+            session_id=session_id,
+            related_app=related_app,
+            actions=self.build_confirmation_actions(
+                intent=intent,
+                target_app=target_app,
+                parameters=parameters,
+                confirm_label=confirm_label,
+                confirm_id=confirm_id,
+            ),
+            requires_input=True,
+        )
+
     def make_result(
         self,
         *,
