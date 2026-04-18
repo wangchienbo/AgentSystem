@@ -401,41 +401,31 @@ class LightBrainGateway:
                 session_id=session_id,
             )
 
-        if intent == "start_app" and params.get("confirmed"):
-            target_input = params.get("target", "")
-            target = self._resolve_instance_id(target_input)
-            display_name = self._resolve_display_name(target, "")
-            if self._runtime_host:
-                try:
-                    self._runtime_host.start(target, reason="user_command")
-                    reply = ChatMessageResponse(
-                        type="card",
-                        content=f"✅ **{display_name}** 已启动。",
-                        session_id=session_id,
-                        related_app=display_name,
-                    )
+        if intent in {"start_app", "stop_app"} and params.get("confirmed"):
+            normalized_params = self._app_command_service.normalize_confirmed_params(intent, params)
+            command = session.last_command
+            if not command:
+                command = self._app_command_service.rebuild_interpreted_command(
+                    intent=intent,
+                    user_id=user_id,
+                    session_id=session_id,
+                    params=normalized_params,
+                )
+            if command:
+                command.parameters = dict(command.parameters or {})
+                command.parameters.update(normalized_params.get("parameters", {}))
+                command.target_app = command.target_app or params.get("target", "")
+                available_apps = await self._get_available_apps(user_id=command.user_id)
+                reply = await self._app_application_service.handle(command, session_id, available_apps)
+                if reply is not None:
+                    reply.session_id = session_id
                     self._memory.record_reply(session_id, reply)
                     return reply
-                except Exception as exc:
-                    return self._error_reply(session_id, f"启动失败: {exc}")
-
-        if intent == "stop_app" and params.get("confirmed"):
-            target_input = params.get("target", "")
-            target = self._resolve_instance_id(target_input)
-            display_name = self._resolve_display_name(target, "")
-            if self._runtime_host:
-                try:
-                    self._runtime_host.stop(target, reason="user_command")
-                    reply = ChatMessageResponse(
-                        type="card",
-                        content=f"⏹ **{display_name}** 已停止。",
-                        session_id=session_id,
-                        related_app=display_name,
-                    )
-                    self._memory.record_reply(session_id, reply)
-                    return reply
-                except Exception as exc:
-                    return self._error_reply(session_id, f"停止失败: {exc}")
+            return ChatMessageResponse(
+                type="error",
+                content="没有找到待确认的操作命令。请重新发送请求。",
+                session_id=session_id,
+            )
 
         if intent == "cancel":
             reply = ChatMessageResponse(
