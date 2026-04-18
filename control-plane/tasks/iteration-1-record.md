@@ -115,6 +115,7 @@
 - [x] 已完成第二十六个最小改造点：新增 `app/services/app_lifecycle_query_executor.py`，并先把 `start_app` / `stop_app` 的真实执行逻辑从 gateway 迁到 executor；`AppApplicationService` 现已开始注册 executor 而不是纯 gateway handler，执行接管正式开始。
 - [x] 已完成第二十七个最小改造点：`pause_app` / `resume_app` / `query_app` / `list_apps` 已迁入 `AppLifecycleQueryExecutor`，lifecycle/query 这一组主执行链已大部分从 gateway 切出；`AppApplicationService` 现在对这批 intent 注册 executor 而非 gateway handler，执行接管继续扩大。
 - [x] 已完成第二十八个最小改造点：新增 `app/services/app_create_modify_executor.py`，并把 `create_app` / `modify_app` 的确认与主执行链迁入 executor；`AppApplicationService` 已开始对 create/modify 注册 executor，第三刀重头戏已正式切入。
+- [x] 已完成第二十九个最小改造点：已从 `app/system/gateway/light_brain_gateway.py` 删除 `_handle_start_app` / `_handle_stop_app` / `_handle_pause_app` / `_handle_resume_app` / `_handle_query_app` / `_handle_modify_app` / `_execute_modify_app` 等已被 executor 接管的残留厚 handler；gateway 中 app-domain 历史双份执行逻辑已明显收缩。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_presenter.py app/services/app_application_service.py app/services/app_lifecycle_query_executor.py app/services/app_create_modify_executor.py`
-- [ ] 下一步：继续清掉 gateway 中残留的 app-domain 厚 handler/不可达 legacy 分支，并视情况把 delete/list ownership 一并收口
+- [ ] 下一步：继续清理 create_app legacy 残留、收口 delete/list ownership，并进一步减少 gateway 直接构造 app-domain response
 
