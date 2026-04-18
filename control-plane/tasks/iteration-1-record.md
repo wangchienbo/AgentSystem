@@ -111,6 +111,7 @@
 - [x] 已完成第二十二个最小改造点：`AppCommandPolicy` 已新增 `can_pause_from_status(...)` 与 `can_resume_from_status(...)`，pause/resume 的状态规则开始从 gateway 条件判断迁到 policy 层，app-domain 的状态语义继续从 gateway 向 policy/application layer 收口。
 - [x] 已完成第二十三个最小改造点：`AppCommandPolicy` 已新增 `can_create_required_skills(...)`，create_app / modify_app 对“是否允许创建新 skill”的规则判断开始从 gateway 直接字段判断迁到 policy 层，权限语义继续从 gateway 向 policy 收口。
 - [x] 已完成第二十四个最小改造点：`AppCommandRouter` 已新增 `handles(...)`，`LightBrainGateway::_execute_command()` 现在显式先判断某个 intent 是否属于 app-domain 再分发给 app router，app-domain 入口边界开始从“查 handler 命中”提升为更明确的 router ownership 判定。
-- [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_presenter.py`
-- [ ] 下一步：继续让 router 承担更多 app application layer 入口职责，或把更多 app-domain 规则从 gateway 迁到 policy
+- [x] 已完成第二十五个最小改造点：新增 `app/services/app_application_service.py`，并让 `LightBrainGateway` 把 create/start/stop/pause/resume/query/modify/delete 等 app-domain intent 统一交给 `AppApplicationService` 入口处理；app-domain 已从“router + components”阶段切入真正的 application layer 接管阶段。
+- [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_presenter.py app/services/app_application_service.py`
+- [ ] 下一步：继续把 app-domain 具体 handler 主逻辑批量迁入 `AppApplicationService` 或其下级 executor，真正削薄 gateway 中的 `_handle_*` / `_execute_*`
 

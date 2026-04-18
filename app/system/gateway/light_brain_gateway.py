@@ -26,6 +26,7 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.services.app_command_service import AppCommandService
 from app.services.app_command_router import AppCommandRouter
+from app.services.app_application_service import AppApplicationService
 from app.services.app_presenter import AppPresenter
 
 
@@ -117,7 +118,8 @@ class LightBrainGateway:
         self._app_command_service = AppCommandService()
         self._app_presenter = AppPresenter()
         self._app_command_router = AppCommandRouter()
-        self._app_command_router.register_many({
+        self._app_application_service = AppApplicationService(self._app_command_router)
+        self._app_application_service.register_handlers({
             "create_app": self._handle_create_app,
             "start_app": self._handle_start_app,
             "stop_app": self._handle_stop_app,
@@ -615,11 +617,11 @@ class LightBrainGateway:
                 )
             # bridge_result was None → fall through to legacy
 
-        app_handler = None
-        if self._app_command_router.handles(command.intent):
-            app_handler = self._app_command_router.resolve(command.intent)
-        if app_handler:
-            return await app_handler(command, session_id, available_apps)
+        app_result = None
+        if self._app_application_service.owns(command.intent):
+            app_result = await self._app_application_service.handle(command, session_id, available_apps)
+        if app_result is not None:
+            return app_result
 
         self._handlers = {
             "greet": self._handle_greet,
