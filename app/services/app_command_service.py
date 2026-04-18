@@ -5,12 +5,12 @@ from typing import Any
 from app.models.app_command import AppCommand, AppCommandResult
 from app.models.chat import InterpretedCommand
 from app.services.app_command_policy import AppCommandPolicy
-from app.services.app_command_presenter import AppCommandPresenter
+from app.services.app_presenter import AppPresenter
 
 
 class AppCommandService:
-    def __init__(self, presenter: AppCommandPresenter | None = None, policy: AppCommandPolicy | None = None) -> None:
-        self._presenter = presenter or AppCommandPresenter()
+    def __init__(self, presenter: AppPresenter | None = None, policy: AppCommandPolicy | None = None) -> None:
+        self._presenter = presenter or AppPresenter()
         self._policy = policy or AppCommandPolicy()
 
     def build_command(

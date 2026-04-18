@@ -26,7 +26,7 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.services.app_command_service import AppCommandService
 from app.services.app_command_router import AppCommandRouter
-from app.services.app_list_presenter import AppListPresenter
+from app.services.app_presenter import AppPresenter
 
 
 class LightBrainGatewayError(Exception):
@@ -115,7 +115,7 @@ class LightBrainGateway:
         # Phase I: Config Center for default app-skill binding
         self._config_center = config_center
         self._app_command_service = AppCommandService()
-        self._app_list_presenter = AppListPresenter()
+        self._app_presenter = AppPresenter()
         self._app_command_router = AppCommandRouter()
         self._app_command_router.register_many({
             "create_app": self._handle_create_app,
@@ -808,9 +808,9 @@ class LightBrainGateway:
         
         # If user has no apps at all, show empty state
         if not user_apps:
-            return self._app_list_presenter.build_empty_response(session_id=session_id)
+            return self._app_presenter.build_empty_list_response(session_id=session_id)
 
-        return self._app_list_presenter.build_list_response(
+        return self._app_presenter.build_list_response(
             session_id=session_id,
             user_apps=user_apps,
         )
@@ -859,7 +859,7 @@ class LightBrainGateway:
                                 actions = [
                                     ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
                                 ]
-                            return self._app_list_presenter.build_status_card_response(
+                            return self._app_presenter.build_status_card_response(
                                 session_id=session_id,
                                 related_app=display_name,
                                 icon=icon,
@@ -883,7 +883,7 @@ class LightBrainGateway:
         # No target — show system-wide status
         running = len([a for a in apps if a.get("status") == "running"])
         total = len(apps)
-        return self._app_list_presenter.build_system_status_response(
+        return self._app_presenter.build_system_status_response(
             session_id=session_id,
             total=total,
             running=running,
