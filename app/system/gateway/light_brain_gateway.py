@@ -501,12 +501,23 @@ class LightBrainGateway:
             return reply
 
         elif skill_id in ("start_app", "stop_app", "pause_app", "resume_app", "delete_app", "modify_app", "query_app", "list_apps"):
-            command = InterpretedCommand(
+            recovery = self._app_command_recovery.recover_command(
                 intent=skill_id,
-                target_app="" if skill_id == "list_apps" else user_message.strip(),
-                parameters={"from_active_skill": True},
-                requires_clarification=False,
+                user_id="",
+                session_id=session_id,
+                action_params={
+                    "intent": skill_id,
+                    "target_app": "" if skill_id == "list_apps" else user_message.strip(),
+                    "target": "" if skill_id == "list_apps" else user_message.strip(),
+                    "parameters": {"from_active_skill": True},
+                },
+                last_command=None,
+                force_confirmed=False,
             )
+            command = recovery.command
+            if command is None:
+                self._clear_active_skill(session_id)
+                return self._error_reply(session_id, "恢复多轮 App 操作失败，请重新发送请求。")
             available_apps = await self._get_available_apps(user_id=command.user_id)
             reply = await self._app_application_service.handle(command, session_id, available_apps)
             if reply is None:
