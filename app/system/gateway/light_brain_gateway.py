@@ -25,6 +25,7 @@ from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryEr
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.services.app_command_service import AppCommandService
+from app.services.app_command_router import AppCommandRouter
 
 
 class LightBrainGatewayError(Exception):
@@ -113,6 +114,17 @@ class LightBrainGateway:
         # Phase I: Config Center for default app-skill binding
         self._config_center = config_center
         self._app_command_service = AppCommandService()
+        self._app_command_router = AppCommandRouter()
+        self._app_command_router.register_many({
+            "create_app": self._handle_create_app,
+            "start_app": self._handle_start_app,
+            "stop_app": self._handle_stop_app,
+            "pause_app": self._handle_pause_app,
+            "resume_app": self._handle_resume_app,
+            "query_app": self._handle_query_app,
+            "modify_app": self._handle_modify_app,
+            "delete_app": self._handle_delete_app,
+        })
 
         # Phase F.4: Multi-turn state — track active skill per session
         self._active_skills: dict[str, dict[str, Any]] = {}
@@ -601,20 +613,15 @@ class LightBrainGateway:
                 )
             # bridge_result was None → fall through to legacy
 
-        # ── Legacy handler chain (backward compatible) ────────────────
+        app_handler = self._app_command_router.resolve(command.intent)
+        if app_handler:
+            return await app_handler(command, session_id, available_apps)
+
         self._handlers = {
             "greet": self._handle_greet,
             "list_apps": self._handle_list_apps,
             "query_status": self._handle_query_status,
             "query_help": self._handle_query_help,
-            "create_app": self._handle_create_app,
-            "start_app": self._handle_start_app,
-            "stop_app": self._handle_stop_app,
-            "pause_app": self._handle_pause_app,
-            "resume_app": self._handle_resume_app,
-            "query_app": self._handle_query_app,
-            "modify_app": self._handle_modify_app,
-            "delete_app": self._handle_delete_app,
             "modify_interactive_app": self._handle_modify_interactive_app,
             "self_modify": self._handle_modify_interactive_app,
             "grant_admin": self._handle_permission,
