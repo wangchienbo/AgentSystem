@@ -331,70 +331,7 @@ class LightBrainGateway:
         params = action_params or {}
         intent = params.get("intent", "")
 
-        if intent == "create_app" and params.get("confirmed"):
-            recovery = self._app_command_recovery.recover_command(
-                intent="create_app",
-                user_id=user_id,
-                session_id=session_id,
-                action_params=params,
-                last_command=session.last_command,
-            )
-            command = recovery.command
-            if command:
-                available_apps = await self._get_available_apps(user_id=command.user_id)
-                reply = await self._app_application_service.handle(command, session_id, available_apps)
-                reply.session_id = session_id
-                self._memory.record_reply(session_id, reply)
-                return reply
-            return ChatMessageResponse(
-                type="error",
-                content="没有找到待确认的创建命令。请重新发送创建请求。",
-                session_id=session_id,
-            )
-
-        if intent == "modify_app" and params.get("confirmed"):
-            recovery = self._app_command_recovery.recover_command(
-                intent="modify_app",
-                user_id=user_id,
-                session_id=session_id,
-                action_params=params,
-                last_command=session.last_command,
-            )
-            command = recovery.command
-            if command:
-                available_apps = await self._get_available_apps(user_id=command.user_id)
-                reply = await self._app_application_service.handle(command, session_id, available_apps)
-                reply.session_id = session_id
-                self._memory.record_reply(session_id, reply)
-                return reply
-            return ChatMessageResponse(
-                type="error",
-                content="没有找到待确认的修改命令。请重新发送修改请求。",
-                session_id=session_id,
-            )
-
-        if intent == "delete_app" and params.get("confirmed"):
-            recovery = self._app_command_recovery.recover_command(
-                intent="delete_app",
-                user_id=user_id,
-                session_id=session_id,
-                action_params=params,
-                last_command=session.last_command,
-            )
-            command = recovery.command
-            if command:
-                available_apps = await self._get_available_apps(user_id=command.user_id)
-                reply = await self._app_application_service.handle(command, session_id, available_apps)
-                reply.session_id = session_id
-                self._memory.record_reply(session_id, reply)
-                return reply
-            return ChatMessageResponse(
-                type="error",
-                content="没有找到待确认的删除命令。请重新发送删除请求。",
-                session_id=session_id,
-            )
-
-        if intent in {"start_app", "stop_app"} and params.get("confirmed"):
+        if intent in {"create_app", "modify_app", "delete_app", "start_app", "stop_app", "pause_app", "resume_app", "query_app"} and params.get("confirmed"):
             recovery = self._app_command_recovery.recover_command(
                 intent=intent,
                 user_id=user_id,
@@ -410,9 +347,19 @@ class LightBrainGateway:
                     reply.session_id = session_id
                     self._memory.record_reply(session_id, reply)
                     return reply
+            error_messages = {
+                "create_app": "没有找到待确认的创建命令。请重新发送创建请求。",
+                "modify_app": "没有找到待确认的修改命令。请重新发送修改请求。",
+                "delete_app": "没有找到待确认的删除命令。请重新发送删除请求。",
+                "start_app": "没有找到待确认的启动命令。请重新发送请求。",
+                "stop_app": "没有找到待确认的停止命令。请重新发送请求。",
+                "pause_app": "没有找到待确认的暂停命令。请重新发送请求。",
+                "resume_app": "没有找到待确认的恢复命令。请重新发送请求。",
+                "query_app": "没有找到待确认的查询命令。请重新发送请求。",
+            }
             return ChatMessageResponse(
                 type="error",
-                content="没有找到待确认的操作命令。请重新发送请求。",
+                content=error_messages.get(intent, "没有找到待确认的操作命令。请重新发送请求。"),
                 session_id=session_id,
             )
 

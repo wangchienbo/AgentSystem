@@ -25,6 +25,7 @@ class AppCommandRecoveryService:
         session_id: str,
         action_params: dict[str, Any] | None,
         last_command: InterpretedCommand | None,
+        force_confirmed: bool = True,
     ) -> AppCommandRecoveryResult:
         normalized = self._command_service.normalize_confirmed_params(intent, action_params or {})
         command = last_command
@@ -34,6 +35,15 @@ class AppCommandRecoveryService:
                 user_id=user_id,
                 session_id=session_id,
                 params=normalized,
+            )
+        if not command:
+            target_app = normalized.get("target_app") or normalized.get("target")
+            command = InterpretedCommand(
+                intent=intent,
+                target_app=target_app,
+                parameters=dict(normalized.get("parameters") or {}),
+                requires_clarification=False,
+                user_id=user_id,
             )
         if not command:
             return AppCommandRecoveryResult(command=None, normalized_params=normalized)
@@ -49,7 +59,7 @@ class AppCommandRecoveryService:
         if recovered_target:
             command.target_app = recovered_target
 
-        if normalized.get("confirmed") is not None:
+        if force_confirmed and normalized.get("confirmed") is not None:
             command.parameters["confirmed"] = normalized.get("confirmed")
 
         return AppCommandRecoveryResult(command=command, normalized_params=normalized)

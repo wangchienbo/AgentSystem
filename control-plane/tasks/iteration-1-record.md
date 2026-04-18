@@ -122,6 +122,7 @@
 - [x] 已完成第三十三个最小改造点：action confirm 中 `start_app` / `stop_app` 也已改为通过 `normalize_confirmed_params + rebuild_interpreted_command + AppApplicationService.handle(...)` 回流，gateway 内对 app lifecycle confirm 的直连 runtime 分支继续收缩。
 - [x] 已完成第三十四个最小改造点：`_enumerate_capabilities()` 已不再仅依赖 gateway `_handlers`，而是联合 `AppCommandRouter.intents()` 与非 app-domain handler 集合计算能力列表，避免 app-domain ownership 迁出后帮助/能力描述失真。
 - [x] 已完成第三十五个最小改造点：新增 `app/services/app_command_recovery_service.py`，并把 `create_app` / `modify_app` / `delete_app` / `start_app` / `stop_app` 的 confirm/recovery 重建统一收口到 `AppCommandRecoveryService.recover_command(...)`；gateway 中 app-domain confirm 恢复逻辑不再散落重复拼装。
+- [x] 已完成第三十六个最小改造点：`pause_app` / `resume_app` / `query_app` 已纳入统一 confirm/recovery 回流入口；gateway 的 app-domain confirm 分发已收敛为单一 `intent -> recovery -> AppApplicationService.handle(...)` 路径，并支持 `last_command` 缺失时的最小 command 重建。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_presenter.py app/services/app_application_service.py app/services/app_lifecycle_query_executor.py app/services/app_create_modify_executor.py app/services/app_command_recovery_service.py`
-- [ ] 下一步：继续把 `pause_app` / `resume_app` / `query_app` 及更完整 action replay/session replay 统一接入 recovery service，进入正式恢复机制阶段
+- [ ] 下一步：继续把 active skill / session replay / action replay 的恢复入口进一步统一到 recovery service，减少 gateway 直接恢复细节
 
