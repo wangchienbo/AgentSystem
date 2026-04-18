@@ -54,6 +54,12 @@ class AppCommandService:
     def requires_confirmation(self, command: AppCommand) -> bool:
         return self._policy.requires_confirmation(command)
 
+    def can_pause_from_status(self, current_status: str) -> tuple[bool, str | None]:
+        return self._policy.can_pause_from_status(current_status)
+
+    def can_resume_from_status(self, current_status: str) -> tuple[bool, str | None]:
+        return self._policy.can_resume_from_status(current_status)
+
     def normalize_confirmed_params(self, intent: str, params: dict[str, Any]) -> dict[str, Any]:
         normalized = dict(params or {})
         parameters = dict(normalized.get("parameters") or {})

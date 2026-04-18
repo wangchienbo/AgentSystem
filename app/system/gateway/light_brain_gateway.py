@@ -1252,7 +1252,8 @@ class LightBrainGateway:
                 )
                 if status_result and getattr(status_result, "status", None) == "completed":
                     current_status = status_result.output.get("status", "unknown")
-                    if current_status == "paused":
+                    can_pause, pause_reason = self._app_command_service.can_pause_from_status(current_status)
+                    if not can_pause and pause_reason == "already_paused":
                         return self._app_command_service.build_success_response(
                             intent="pause_app",
                             session_id=session_id,
@@ -1334,14 +1335,15 @@ class LightBrainGateway:
                 )
                 if status_result and getattr(status_result, "status", None) == "completed":
                     current_status = status_result.output.get("status", "unknown")
-                    if current_status == "running":
+                    can_resume, resume_reason = self._app_command_service.can_resume_from_status(current_status)
+                    if not can_resume and resume_reason == "already_running":
                         return self._app_command_service.build_success_response(
                             intent="resume_app",
                             session_id=session_id,
                             related_app=display_name,
                             content=f"**{display_name}** 已经在运行中。",
                         )
-                    if current_status != "paused":
+                    if not can_resume and resume_reason == "invalid_resume_state":
                         return self._app_command_service.build_degraded_response(
                             intent="resume_app",
                             session_id=session_id,

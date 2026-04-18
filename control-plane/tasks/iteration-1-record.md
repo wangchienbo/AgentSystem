@@ -108,6 +108,7 @@
 - [x] 已完成第十九个最小改造点：新增 `app/services/app_list_presenter.py`，把 `list_apps` 的空状态与列表响应构造从 `light_brain_gateway.py` 中迁出，app 列表展示也开始纳入 app-domain presenter 体系。
 - [x] 已完成第二十个最小改造点：`query_status` 中的 app 状态卡片、系统总览卡片与状态查询失败降级，已开始分别复用 `AppListPresenter` 与 `AppCommandService` 的统一 presenter / degraded response 能力，app-domain 展示层收口继续推进。
 - [x] 已完成第二十一个最小改造点：新增 `app/services/app_presenter.py`，并删除 `app/services/app_command_presenter.py` 与 `app/services/app_list_presenter.py`，将 command/list/status 的展示能力统一合并到单一 `AppPresenter` 中；`AppCommandService` 与 `LightBrainGateway` 已切换为复用统一 presenter，app-domain 展示层开始真正收口。
+- [x] 已完成第二十二个最小改造点：`AppCommandPolicy` 已新增 `can_pause_from_status(...)` 与 `can_resume_from_status(...)`，pause/resume 的状态规则开始从 gateway 条件判断迁到 policy 层，app-domain 的状态语义继续从 gateway 向 policy/application layer 收口。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_presenter.py`
-- [ ] 下一步：继续把 app-domain 的更多状态/权限/路由规则往 policy/router/application layer 收，减少 gateway 作为总控的剩余职责
+- [ ] 下一步：继续把更多 app-domain 状态/权限规则迁到 policy，或开始让 router 承担更多 app application layer 分发职责
 
