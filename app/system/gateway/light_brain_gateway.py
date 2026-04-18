@@ -615,7 +615,9 @@ class LightBrainGateway:
                 )
             # bridge_result was None → fall through to legacy
 
-        app_handler = self._app_command_router.resolve(command.intent)
+        app_handler = None
+        if self._app_command_router.handles(command.intent):
+            app_handler = self._app_command_router.resolve(command.intent)
         if app_handler:
             return await app_handler(command, session_id, available_apps)
 

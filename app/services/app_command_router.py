@@ -24,3 +24,6 @@ class AppCommandRouter:
 
     def intents(self) -> set[str]:
         return set(self._handlers.keys())
+
+    def handles(self, intent: str) -> bool:
+        return intent in self._handlers

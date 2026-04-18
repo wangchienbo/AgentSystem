@@ -110,6 +110,7 @@
 - [x] 已完成第二十一个最小改造点：新增 `app/services/app_presenter.py`，并删除 `app/services/app_command_presenter.py` 与 `app/services/app_list_presenter.py`，将 command/list/status 的展示能力统一合并到单一 `AppPresenter` 中；`AppCommandService` 与 `LightBrainGateway` 已切换为复用统一 presenter，app-domain 展示层开始真正收口。
 - [x] 已完成第二十二个最小改造点：`AppCommandPolicy` 已新增 `can_pause_from_status(...)` 与 `can_resume_from_status(...)`，pause/resume 的状态规则开始从 gateway 条件判断迁到 policy 层，app-domain 的状态语义继续从 gateway 向 policy/application layer 收口。
 - [x] 已完成第二十三个最小改造点：`AppCommandPolicy` 已新增 `can_create_required_skills(...)`，create_app / modify_app 对“是否允许创建新 skill”的规则判断开始从 gateway 直接字段判断迁到 policy 层，权限语义继续从 gateway 向 policy 收口。
+- [x] 已完成第二十四个最小改造点：`AppCommandRouter` 已新增 `handles(...)`，`LightBrainGateway::_execute_command()` 现在显式先判断某个 intent 是否属于 app-domain 再分发给 app router，app-domain 入口边界开始从“查 handler 命中”提升为更明确的 router ownership 判定。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_presenter.py`
-- [ ] 下一步：继续把更多 app-domain 权限/状态规则迁到 policy，或让 router 开始承载更明确的 app application layer 入口
+- [ ] 下一步：继续让 router 承担更多 app application layer 入口职责，或把更多 app-domain 规则从 gateway 迁到 policy
 
