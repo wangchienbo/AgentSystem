@@ -343,7 +343,7 @@ class LightBrainGateway:
                 command.parameters = dict(command.parameters or {})
                 command.parameters.update(normalized_params.get("parameters", {}))
                 available_apps = await self._get_available_apps(user_id=command.user_id)
-                reply = await self._execute_create_app(command, session_id, available_apps)
+                reply = await self._app_application_service.handle(command, session_id, available_apps)
                 reply.session_id = session_id
                 self._memory.record_reply(session_id, reply)
                 return reply
@@ -367,7 +367,7 @@ class LightBrainGateway:
                 command.parameters = dict(command.parameters or {})
                 command.parameters.update(normalized_params.get("parameters", {}))
                 available_apps = await self._get_available_apps(user_id=command.user_id)
-                reply = await self._execute_modify_app(command, session_id, available_apps)
+                reply = await self._app_application_service.handle(command, session_id, available_apps)
                 reply.session_id = session_id
                 self._memory.record_reply(session_id, reply)
                 return reply
@@ -378,27 +378,28 @@ class LightBrainGateway:
             )
 
         if intent == "delete_app" and params.get("confirmed"):
-            target_input = params.get("target", session.last_command.target_app if session.last_command else "未知")
-            target = self._resolve_instance_id(target_input)
-            display_name = self._resolve_display_name(target, "")
-            try:
-                if self._lifecycle:
-                    self._lifecycle.get_instance(target)  # Check exists
-                    # Would need a proper delete/unregister method
-                if self._runtime_host:
-                    try:
-                        self._runtime_host.stop(target, reason="deleted_by_user")
-                    except Exception:
-                        pass
-                reply = ChatMessageResponse(
-                    type="card",
-                    content=f"🗑️ **{display_name}** 已删除。",
+            normalized_params = self._app_command_service.normalize_confirmed_params(intent, params)
+            command = session.last_command
+            if not command:
+                command = self._app_command_service.rebuild_interpreted_command(
+                    intent="delete_app",
+                    user_id=user_id,
                     session_id=session_id,
+                    params=normalized_params,
                 )
+            if command:
+                command.parameters = dict(command.parameters or {})
+                command.parameters.update(normalized_params.get("parameters", {}))
+                available_apps = await self._get_available_apps(user_id=command.user_id)
+                reply = await self._app_application_service.handle(command, session_id, available_apps)
+                reply.session_id = session_id
                 self._memory.record_reply(session_id, reply)
                 return reply
-            except Exception as exc:
-                return self._error_reply(session_id, f"删除 **{display_name}** 失败: {exc}")
+            return ChatMessageResponse(
+                type="error",
+                content="没有找到待确认的删除命令。请重新发送删除请求。",
+                session_id=session_id,
+            )
 
         if intent == "start_app" and params.get("confirmed"):
             target_input = params.get("target", "")
@@ -565,7 +566,7 @@ class LightBrainGateway:
                 requires_clarification=False,
             )
             available_apps = await self._get_available_apps(user_id=command.user_id)
-            reply = await self._execute_create_app(command, session_id, available_apps)
+            reply = await self._app_application_service.handle(command, session_id, available_apps)
             # If this reply still requires input, keep the active state
             if reply.requires_input:
                 self._set_active_skill(session_id, "create_app", state)
@@ -650,7 +651,6 @@ class LightBrainGateway:
 
         self._handlers = {
             "greet": self._handle_greet,
-            "list_apps": self._handle_list_apps,
             "query_status": self._handle_query_status,
             "query_help": self._handle_query_help,
             "modify_interactive_app": self._handle_modify_interactive_app,

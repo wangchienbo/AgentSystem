@@ -117,6 +117,7 @@
 - [x] 已完成第二十八个最小改造点：新增 `app/services/app_create_modify_executor.py`，并把 `create_app` / `modify_app` 的确认与主执行链迁入 executor；`AppApplicationService` 已开始对 create/modify 注册 executor，第三刀重头戏已正式切入。
 - [x] 已完成第二十九个最小改造点：已从 `app/system/gateway/light_brain_gateway.py` 删除 `_handle_start_app` / `_handle_stop_app` / `_handle_pause_app` / `_handle_resume_app` / `_handle_query_app` / `_handle_modify_app` / `_execute_modify_app` 等已被 executor 接管的残留厚 handler；gateway 中 app-domain 历史双份执行逻辑已明显收缩。
 - [x] 已完成第三十个最小改造点：已继续从 `app/system/gateway/light_brain_gateway.py` 删除 `_handle_create_app` / `_execute_create_app` / `_handle_delete_app` / `_handle_list_apps`，并把 `list_apps` / `delete_app` 正式注册进 `AppApplicationService`，app-domain 主入口与 ownership 收口进一步完成。
+- [x] 已完成第三十一个最小改造点：gateway 中 action confirm 与 active skill follow-up 的 `create_app` / `modify_app` / `delete_app` 执行回流已改为统一委托 `AppApplicationService.handle(...)`，并移除 `_handlers` 中对 `list_apps` 的旧直连注册；app-domain confirm/follow-up 回流进一步统一。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_policy.py app/services/app_command_router.py app/services/app_presenter.py app/services/app_application_service.py app/services/app_lifecycle_query_executor.py app/services/app_create_modify_executor.py`
-- [ ] 下一步：继续检查 gateway 中 app-domain 直接 response 构造剩余点，视情况做最后一轮统一清理
+- [ ] 下一步：继续检查其它非 app-domain 混合路径与多轮状态恢复边界，准备本轮 app-domain 重构阶段收束
 
