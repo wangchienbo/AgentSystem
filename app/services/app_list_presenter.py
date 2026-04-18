@@ -4,6 +4,33 @@ from app.models.chat import ActionSuggestion, ChatMessageResponse, InlineItem
 
 
 class AppListPresenter:
+    def build_status_card_response(
+        self,
+        *,
+        session_id: str,
+        related_app: str,
+        icon: str,
+        label: str,
+        actions: list[ActionSuggestion] | None = None,
+    ) -> ChatMessageResponse:
+        return ChatMessageResponse(
+            type="card",
+            content=f"{icon} **{related_app}**\n\n状态: {label}",
+            session_id=session_id,
+            related_app=related_app,
+            actions=actions or [],
+        )
+
+    def build_system_status_response(self, *, session_id: str, total: int, running: int) -> ChatMessageResponse:
+        return ChatMessageResponse(
+            type="card",
+            content=f"📊 系统状态\n\nApp 总数: {total}\n运行中: {running}\n已停止: {total - running}\n系统运行正常 ✅",
+            session_id=session_id,
+            actions=[
+                ActionSuggestion(id="list_apps", label="📱 查看 App 列表", action_type="navigate", payload={"intent": "list_apps"}, style="primary"),
+            ],
+        )
+
     def build_empty_response(self, *, session_id: str) -> ChatMessageResponse:
         return ChatMessageResponse(
             type="text",

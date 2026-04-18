@@ -859,11 +859,11 @@ class LightBrainGateway:
                                 actions = [
                                     ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
                                 ]
-                            return ChatMessageResponse(
-                                type="card",
-                                content=f"{icon} **{display_name}**\n\n状态: {label}",
+                            return self._app_list_presenter.build_status_card_response(
                                 session_id=session_id,
                                 related_app=display_name,
+                                icon=icon,
+                                label=label,
                                 actions=actions,
                             )
                 except Exception as e:
@@ -872,27 +872,21 @@ class LightBrainGateway:
                         "AppRegistry RPC query failed: %s", e,
                     )
 
-            return ChatMessageResponse(
-                type="text",
-                content=f"查询 **{display_name}** 状态失败，请稍后重试。",
+            return self._app_command_service.build_degraded_response(
+                intent="query_status",
                 session_id=session_id,
                 related_app=display_name,
+                reason="查询状态失败",
+                detail="请稍后重试。",
             )
 
         # No target — show system-wide status
         running = len([a for a in apps if a.get("status") == "running"])
         total = len(apps)
-        return ChatMessageResponse(
-            type="card",
-            content=f"📊 系统状态\n\n"
-                    f"App 总数: {total}\n"
-                    f"运行中: {running}\n"
-                    f"已停止: {total - running}\n"
-                    f"系统运行正常 ✅",
+        return self._app_list_presenter.build_system_status_response(
             session_id=session_id,
-            actions=[
-                ActionSuggestion(id="list_apps", label="📱 查看 App 列表", action_type="navigate", payload={"intent": "list_apps"}, style="primary"),
-            ],
+            total=total,
+            running=running,
         )
 
     async def _handle_query_help(
