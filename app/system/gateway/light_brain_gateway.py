@@ -501,15 +501,15 @@ class LightBrainGateway:
             return reply
 
         elif skill_id in ("start_app", "stop_app", "pause_app", "resume_app", "delete_app", "modify_app", "query_app", "list_apps"):
-            recovery = self._app_command_recovery.recover_command(
+            recovery = self._app_command_recovery.recover_from_source(
                 intent=skill_id,
                 user_id="",
                 session_id=session_id,
-                action_params={
-                    "intent": skill_id,
+                source="active_skill",
+                payload={
                     "target_app": "" if skill_id == "list_apps" else user_message.strip(),
                     "target": "" if skill_id == "list_apps" else user_message.strip(),
-                    "parameters": {"from_active_skill": True},
+                    "parameters": {"from_active_skill": True, **(state.get("parameters") or {})},
                 },
                 last_command=None,
                 force_confirmed=False,

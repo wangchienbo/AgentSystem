@@ -28,6 +28,50 @@ class AppCommandRecoveryService:
         force_confirmed: bool = True,
     ) -> AppCommandRecoveryResult:
         normalized = self._command_service.normalize_confirmed_params(intent, action_params or {})
+        command = self._recover_from_normalized(
+            intent=intent,
+            user_id=user_id,
+            session_id=session_id,
+            normalized=normalized,
+            last_command=last_command,
+            force_confirmed=force_confirmed,
+        )
+        return AppCommandRecoveryResult(command=command, normalized_params=normalized)
+
+    def recover_from_source(
+        self,
+        *,
+        intent: str,
+        user_id: str,
+        session_id: str,
+        source: str,
+        payload: dict[str, Any] | None,
+        last_command: InterpretedCommand | None,
+        force_confirmed: bool,
+    ) -> AppCommandRecoveryResult:
+        normalized = dict(payload or {})
+        normalized.setdefault("intent", intent)
+        normalized.setdefault("recovery_source", source)
+        command = self._recover_from_normalized(
+            intent=intent,
+            user_id=user_id,
+            session_id=session_id,
+            normalized=normalized,
+            last_command=last_command,
+            force_confirmed=force_confirmed,
+        )
+        return AppCommandRecoveryResult(command=command, normalized_params=normalized)
+
+    def _recover_from_normalized(
+        self,
+        *,
+        intent: str,
+        user_id: str,
+        session_id: str,
+        normalized: dict[str, Any],
+        last_command: InterpretedCommand | None,
+        force_confirmed: bool,
+    ) -> InterpretedCommand | None:
         command = last_command
         if not command:
             command = self._command_service.rebuild_interpreted_command(
@@ -46,7 +90,7 @@ class AppCommandRecoveryService:
                 user_id=user_id,
             )
         if not command:
-            return AppCommandRecoveryResult(command=None, normalized_params=normalized)
+            return None
 
         command.parameters = dict(command.parameters or {})
         command.parameters.update(normalized.get("parameters", {}))
@@ -62,4 +106,4 @@ class AppCommandRecoveryService:
         if force_confirmed and normalized.get("confirmed") is not None:
             command.parameters["confirmed"] = normalized.get("confirmed")
 
-        return AppCommandRecoveryResult(command=command, normalized_params=normalized)
+        return command
