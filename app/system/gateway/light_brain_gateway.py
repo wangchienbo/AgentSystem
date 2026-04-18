@@ -1309,11 +1309,11 @@ class LightBrainGateway:
                 if status_result and getattr(status_result, "status", None) == "completed":
                     current_status = status_result.output.get("status", "unknown")
                     if current_status == "paused":
-                        return ChatMessageResponse(
-                            type="text",
-                            content=f"**{display_name}** 已经处于暂停状态。",
+                        return self._app_command_service.build_success_response(
+                            intent="pause_app",
                             session_id=session_id,
                             related_app=display_name,
+                            content=f"**{display_name}** 已经处于暂停状态。",
                         )
                 # Pause
                 result = await self._bus.rpc(
@@ -1327,11 +1327,11 @@ class LightBrainGateway:
                     timeout=10,
                 )
                 if result and getattr(result, "status", None) == "completed":
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"⏸ **{display_name}** 已暂停。",
+                    return self._app_command_service.build_success_response(
+                        intent="pause_app",
                         session_id=session_id,
                         related_app=display_name,
+                        content=f"⏸ **{display_name}** 已暂停。",
                         actions=[
                             ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
                             ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="secondary"),
@@ -1342,18 +1342,20 @@ class LightBrainGateway:
                 logging.getLogger(__name__).warning(
                     "Lifecycle RPC pause failed: %s", e,
                 )
-                return ChatMessageResponse(
-                    type="error",
-                    content=f"暂停 **{target_input}** 失败: {e}",
+                return self._app_command_service.build_degraded_response(
+                    intent="pause_app",
                     session_id=session_id,
                     related_app=target_input,
+                    reason="MessageBus RPC 调用失败",
+                    detail=f"错误信息：{e}",
                 )
 
-        return ChatMessageResponse(
-            type="error",
-            content="系统未配置 MessageBus，无法通过 RPC 暂停 App。",
+        return self._app_command_service.build_degraded_response(
+            intent="pause_app",
             session_id=session_id,
             related_app=target_input,
+            reason="系统未配置 MessageBus",
+            detail="无法通过 RPC 暂停 App。",
         )
 
     async def _handle_resume_app(
@@ -1389,18 +1391,19 @@ class LightBrainGateway:
                 if status_result and getattr(status_result, "status", None) == "completed":
                     current_status = status_result.output.get("status", "unknown")
                     if current_status == "running":
-                        return ChatMessageResponse(
-                            type="text",
-                            content=f"**{display_name}** 已经在运行中。",
+                        return self._app_command_service.build_success_response(
+                            intent="resume_app",
                             session_id=session_id,
                             related_app=display_name,
+                            content=f"**{display_name}** 已经在运行中。",
                         )
                     if current_status != "paused":
-                        return ChatMessageResponse(
-                            type="text",
-                            content=f"**{display_name}** 当前处于{current_status}状态，请先暂停后再恢复。",
+                        return self._app_command_service.build_degraded_response(
+                            intent="resume_app",
                             session_id=session_id,
                             related_app=display_name,
+                            reason=f"当前状态为 {current_status}",
+                            detail=f"**{display_name}** 当前处于 {current_status} 状态，请先暂停后再恢复。",
                         )
                 # Resume
                 result = await self._bus.rpc(
@@ -1414,11 +1417,11 @@ class LightBrainGateway:
                     timeout=10,
                 )
                 if result and getattr(result, "status", None) == "completed":
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"▶️ **{display_name}** 已恢复运行。",
+                    return self._app_command_service.build_success_response(
+                        intent="resume_app",
                         session_id=session_id,
                         related_app=display_name,
+                        content=f"▶️ **{display_name}** 已恢复运行。",
                         actions=[
                             ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": display_name}, style="secondary"),
                             ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
@@ -1429,18 +1432,20 @@ class LightBrainGateway:
                 logging.getLogger(__name__).warning(
                     "Lifecycle RPC resume failed: %s", e,
                 )
-                return ChatMessageResponse(
-                    type="error",
-                    content=f"恢复 **{target_input}** 失败: {e}",
+                return self._app_command_service.build_degraded_response(
+                    intent="resume_app",
                     session_id=session_id,
                     related_app=target_input,
+                    reason="MessageBus RPC 调用失败",
+                    detail=f"错误信息：{e}",
                 )
 
-        return ChatMessageResponse(
-            type="error",
-            content="系统未配置 MessageBus，无法通过 RPC 恢复 App。",
+        return self._app_command_service.build_degraded_response(
+            intent="resume_app",
             session_id=session_id,
             related_app=target_input,
+            reason="系统未配置 MessageBus",
+            detail="无法通过 RPC 恢复 App。",
         )
 
     async def _handle_query_app(

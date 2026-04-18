@@ -101,6 +101,7 @@
 - [x] 已完成第十二个最小改造点：`app/services/app_command_service.py` 已新增 `build_permission_denied_response(...)` 与 `build_success_response(...)`，create_app / modify_app 的权限失败与成功响应开始复用统一构造，进一步收敛主链路语义。
 - [x] 已完成第十三个最小改造点：`app/services/app_command_service.py` 已新增 `build_confirmation_content(...)`，create_app / modify_app 的确认文案开始经由统一 presenter 风格接口生成，gateway 中的确认文案内联逻辑继续减少。
 - [x] 已完成第十四个最小改造点：`app/services/app_command_service.py` 已新增 `build_query_detail_response(...)`，`start_app` / `stop_app` / `query_app` 开始复用统一 success / degraded / detail response 构造，lifecycle/query 的 response contract 开始收口。
+- [x] 已完成第十五个最小改造点：`pause_app` / `resume_app` 的已暂停、已运行、状态不匹配、成功执行、RPC 失败、MessageBus 缺失等响应已开始复用 `AppCommandService` 的统一 success / degraded response 构造，lifecycle 主链路进一步收口。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py`
-- [ ] 下一步：继续把 pause/resume/query_app 的剩余分支也收口，或正式把 presenter 从 AppCommandService 中独立出去
+- [ ] 下一步：正式把 presenter 从 `AppCommandService` 拆成独立类，或继续统一 list/query/lifecycle 更深层 contract
 
