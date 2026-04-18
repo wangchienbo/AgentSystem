@@ -574,16 +574,17 @@ class LightBrainGateway:
                 self._clear_active_skill(session_id)
             return reply
 
-        elif skill_id in ("start_app", "stop_app", "pause_app", "resume_app", "delete_app", "modify_app", "query_app"):
-            # User clarified which app to act on
+        elif skill_id in ("start_app", "stop_app", "pause_app", "resume_app", "delete_app", "modify_app", "query_app", "list_apps"):
             command = InterpretedCommand(
                 intent=skill_id,
-                target_app=user_message.strip(),
+                target_app="" if skill_id == "list_apps" else user_message.strip(),
                 parameters={"from_active_skill": True},
                 requires_clarification=False,
             )
             available_apps = await self._get_available_apps(user_id=command.user_id)
-            reply = await self._execute_command(command, session_id, available_apps)
+            reply = await self._app_application_service.handle(command, session_id, available_apps)
+            if reply is None:
+                reply = await self._execute_command(command, session_id, available_apps)
             if reply.requires_input:
                 self._set_active_skill(session_id, skill_id, state)
             else:
