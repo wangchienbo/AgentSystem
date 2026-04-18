@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.models.app_command import AppCommand, AppCommandResult
+from app.models.chat import InterpretedCommand
 
 
 class AppCommandService:
@@ -39,6 +40,68 @@ class AppCommandService:
         if command.name in {"create_app", "modify_app", "delete_app"} and not command.confirmed:
             return True
         return False
+
+    def normalize_confirmed_params(self, intent: str, params: dict[str, Any]) -> dict[str, Any]:
+        normalized = dict(params or {})
+        parameters = dict(normalized.get("parameters") or {})
+
+        if intent == "create_app":
+            target_app = normalized.get("target_app") or normalized.get("app_name") or ""
+            parameters = parameters or {"app_type": normalized.get("app_type", "unknown")}
+            normalized.update({
+                "target_app": target_app,
+                "parameters": parameters,
+                "confirmed": True,
+            })
+            return normalized
+
+        if intent == "modify_app":
+            target_app = normalized.get("target_app") or parameters.get("target_app") or ""
+            modification = normalized.get("modification") or parameters.get("modification") or "未指定"
+            parameters.update({
+                "target_app": target_app,
+                "modification": modification,
+                "confirmed": True,
+            })
+            normalized.update({
+                "target_app": target_app,
+                "modification": modification,
+                "parameters": parameters,
+                "confirmed": True,
+            })
+            return normalized
+
+        return normalized
+
+    def rebuild_interpreted_command(
+        self,
+        *,
+        intent: str,
+        user_id: str,
+        session_id: str,
+        params: dict[str, Any],
+    ) -> InterpretedCommand | None:
+        normalized = self.normalize_confirmed_params(intent, params)
+        target_app = normalized.get("target_app")
+        if not target_app:
+            return None
+
+        app_command = self.build_command(
+            name=intent,
+            user_id=user_id,
+            session_id=session_id,
+            target_app=target_app,
+            parameters=normalized.get("parameters", {}),
+            confirmed=bool(normalized.get("confirmed")),
+            source="action",
+        )
+        return InterpretedCommand(
+            intent=app_command.name,
+            target_app=app_command.target_app,
+            parameters=app_command.parameters,
+            requires_clarification=False,
+            user_id=app_command.user_id,
+        )
 
     def make_result(
         self,

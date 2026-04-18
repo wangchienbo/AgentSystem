@@ -289,26 +289,18 @@ class LightBrainGateway:
         intent = params.get("intent", "")
 
         if intent == "create_app" and params.get("confirmed"):
+            normalized_params = self._app_command_service.normalize_confirmed_params(intent, params)
             command = session.last_command
-            if not command and params.get("target_app"):
-                create_params = params.get("parameters", {})
-                app_command = self._app_command_service.build_command(
-                    name="create_app",
+            if not command:
+                command = self._app_command_service.rebuild_interpreted_command(
+                    intent="create_app",
                     user_id=user_id,
                     session_id=session_id,
-                    target_app=params["target_app"],
-                    parameters=create_params,
-                    confirmed=True,
-                    source="action",
-                )
-                command = InterpretedCommand(
-                    intent=app_command.name,
-                    target_app=app_command.target_app,
-                    parameters=app_command.parameters,
-                    requires_clarification=False,
-                    user_id=app_command.user_id,
+                    params=normalized_params,
                 )
             if command:
+                command.parameters = dict(command.parameters or {})
+                command.parameters.update(normalized_params.get("parameters", {}))
                 available_apps = await self._get_available_apps(user_id=command.user_id)
                 reply = await self._execute_create_app(command, session_id, available_apps)
                 reply.session_id = session_id
@@ -321,35 +313,18 @@ class LightBrainGateway:
             )
 
         if intent == "modify_app" and params.get("confirmed"):
+            normalized_params = self._app_command_service.normalize_confirmed_params(intent, params)
             command = session.last_command
-            if not command and params.get("target_app"):
-                app_command = self._app_command_service.build_command(
-                    name="modify_app",
+            if not command:
+                command = self._app_command_service.rebuild_interpreted_command(
+                    intent="modify_app",
                     user_id=user_id,
                     session_id=session_id,
-                    target_app=params.get("target_app", ""),
-                    parameters=params.get("parameters", {
-                        "target_app": params.get("target_app", ""),
-                        "modification": params.get("modification", "未指定"),
-                        "confirmed": True,
-                    }),
-                    confirmed=True,
-                    source="action",
-                )
-                command = InterpretedCommand(
-                    intent=app_command.name,
-                    target_app=app_command.target_app,
-                    parameters=app_command.parameters,
-                    requires_clarification=False,
-                    user_id=app_command.user_id,
+                    params=normalized_params,
                 )
             if command:
                 command.parameters = dict(command.parameters or {})
-                command.parameters.update({
-                    "target_app": params.get("target_app", command.target_app),
-                    "modification": params.get("modification", command.parameters.get("modification", "未指定") if command.parameters else "未指定"),
-                    "confirmed": True,
-                })
+                command.parameters.update(normalized_params.get("parameters", {}))
                 available_apps = await self._get_available_apps(user_id=command.user_id)
                 reply = await self._execute_modify_app(command, session_id, available_apps)
                 reply.session_id = session_id

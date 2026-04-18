@@ -93,6 +93,7 @@
 - [x] 已完成第四个最小改造点：补 `app/system/gateway/light_brain_interpreter.py` 中 create_app 的确认按钮 payload 生成点，使 create_app 也开始走统一 `target_app + parameters + confirmed` 协议。
 - [x] 已完成第五个最小改造点：新增 `app/models/app_command.py` 与 `app/services/app_command_service.py`，开始建立统一 AppCommand / AppCommandResult / AppCommandService 雏形，给 gateway 和后续 command layer 收敛提供明确接缝。
 - [x] 已完成第六个最小改造点：`app/system/gateway/light_brain_gateway.py::execute_action()` 中 create_app / modify_app 的 confirmed rebuild 已开始接入 `AppCommandService.build_command(...)`，command layer 从定义层进入真实入口层。
+- [x] 已完成第七个最小改造点：`app/services/app_command_service.py` 已新增 `normalize_confirmed_params(...)` 与 `rebuild_interpreted_command(...)`，`light_brain_gateway.py::execute_action()` 现在复用 command layer 做 confirmed payload 标准化与命令重建，进一步减少 gateway 内联协议细节。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py`
-- [ ] 下一步：继续把“是否需要确认 / 如何标准化 confirmed command”从 gateway 条件分支抽到 `AppCommandService`，减少 gateway 内联协议细节
+- [ ] 下一步：继续把“是否需要确认”的判断和 create/modify 的确认卡片生成也逐步迁向 `AppCommandService` 或对应 command presenter，继续给 gateway 减负
 
