@@ -161,13 +161,40 @@ class AppCommandService:
             ),
         ]
 
+    def build_confirmation_content(
+        self,
+        *,
+        intent: str,
+        related_app: str,
+        parameters: dict[str, Any] | None = None,
+    ) -> str:
+        params = parameters or {}
+        if intent == "create_app":
+            app_type = params.get("app_type", "unknown")
+            schedule_info = params.get("schedule_info", "")
+            threshold_info = params.get("threshold_info", "")
+            return (
+                f"将创建新的 App：**{related_app}**\n\n"
+                f"类型: {app_type}"
+                f"{schedule_info}{threshold_info}\n\n"
+                f"确认后系统会通过统一主链路创建 App，必要时生成或复用相关 skill。"
+            )
+        if intent == "modify_app":
+            modification = params.get("modification", "未指定")
+            return (
+                f"将 **{related_app}** 修改为：{modification}\n\n"
+                f"确认后系统会分析需求，使用已有 skill 或生成新 skill 来完成修改。\n\n"
+                f"⚠️ 注意：如果修改需要生成新 skill，仅管理员及以上用户可执行。"
+            )
+        return f"确认执行 {intent}: {related_app}"
+
     def build_confirmation_response(
         self,
         *,
         intent: str,
         session_id: str,
         related_app: str,
-        content: str,
+        content: str | None = None,
         target_app: str,
         parameters: dict[str, Any] | None = None,
         confirm_label: str,
@@ -177,7 +204,11 @@ class AppCommandService:
 
         return ChatMessageResponse(
             type="confirm",
-            content=content,
+            content=content or self.build_confirmation_content(
+                intent=intent,
+                related_app=related_app,
+                parameters=parameters,
+            ),
             session_id=session_id,
             related_app=related_app,
             actions=self.build_confirmation_actions(

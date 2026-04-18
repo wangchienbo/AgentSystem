@@ -1015,14 +1015,13 @@ class LightBrainGateway:
                 intent="create_app",
                 session_id=session_id,
                 related_app=app_name,
-                content=(
-                    f"将创建新的 App：**{app_name}**\n\n"
-                    f"类型: {app_type}"
-                    f"{schedule_info}{threshold_info}\n\n"
-                    f"确认后系统会通过统一主链路创建 App，必要时生成或复用相关 skill。"
-                ),
                 target_app=app_name,
-                parameters={**command.parameters, "app_type": app_type},
+                parameters={
+                    **command.parameters,
+                    "app_type": app_type,
+                    "schedule_info": schedule_info,
+                    "threshold_info": threshold_info,
+                },
                 confirm_label="✅ 确认创建",
                 confirm_id="confirm_create",
             )
@@ -1537,11 +1536,6 @@ class LightBrainGateway:
         modification = params.get("modification", "未指定")
         return ChatMessageResponse(
             type="confirm",
-            content=(
-                f"将 **{display_name}** 修改为：{modification}\n\n"
-                f"确认后系统会分析需求，使用已有 skill 或生成新 skill 来完成修改。\n\n"
-                f"⚠️ 注意：如果修改需要生成新 skill，仅管理员及以上用户可执行。"
-            ),
             session_id=session_id,
             related_app=display_name,
             actions=self._app_command_service.build_confirmation_actions(
@@ -1553,6 +1547,11 @@ class LightBrainGateway:
                 },
                 confirm_label="✅ 确认修改",
                 confirm_id="confirm_modify",
+            ),
+            content=self._app_command_service.build_confirmation_content(
+                intent="modify_app",
+                related_app=display_name,
+                parameters={"modification": modification},
             ),
             requires_input=True,
         )
