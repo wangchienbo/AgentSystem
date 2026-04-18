@@ -4,12 +4,14 @@ from typing import Any
 
 from app.models.app_command import AppCommand, AppCommandResult
 from app.models.chat import InterpretedCommand
+from app.services.app_command_policy import AppCommandPolicy
 from app.services.app_command_presenter import AppCommandPresenter
 
 
 class AppCommandService:
-    def __init__(self, presenter: AppCommandPresenter | None = None) -> None:
+    def __init__(self, presenter: AppCommandPresenter | None = None, policy: AppCommandPolicy | None = None) -> None:
         self._presenter = presenter or AppCommandPresenter()
+        self._policy = policy or AppCommandPolicy()
 
     def build_command(
         self,
@@ -50,9 +52,7 @@ class AppCommandService:
         )
 
     def requires_confirmation(self, command: AppCommand) -> bool:
-        if command.name in {"create_app", "modify_app", "delete_app"} and not command.confirmed:
-            return True
-        return False
+        return self._policy.requires_confirmation(command)
 
     def normalize_confirmed_params(self, intent: str, params: dict[str, Any]) -> dict[str, Any]:
         normalized = dict(params or {})
