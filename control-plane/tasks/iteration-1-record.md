@@ -102,6 +102,7 @@
 - [x] 已完成第十三个最小改造点：`app/services/app_command_service.py` 已新增 `build_confirmation_content(...)`，create_app / modify_app 的确认文案开始经由统一 presenter 风格接口生成，gateway 中的确认文案内联逻辑继续减少。
 - [x] 已完成第十四个最小改造点：`app/services/app_command_service.py` 已新增 `build_query_detail_response(...)`，`start_app` / `stop_app` / `query_app` 开始复用统一 success / degraded / detail response 构造，lifecycle/query 的 response contract 开始收口。
 - [x] 已完成第十五个最小改造点：`pause_app` / `resume_app` 的已暂停、已运行、状态不匹配、成功执行、RPC 失败、MessageBus 缺失等响应已开始复用 `AppCommandService` 的统一 success / degraded response 构造，lifecycle 主链路进一步收口。
-- [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py`
-- [ ] 下一步：正式把 presenter 从 `AppCommandService` 拆成独立类，或继续统一 list/query/lifecycle 更深层 contract
+- [x] 已完成第十六个最小改造点：新增 `app/services/app_command_presenter.py`，把 confirmation / degraded / success / query detail / permission denied 等 presenter 相关能力从 `AppCommandService` 中迁出，`AppCommandService` 现在改为组合 `AppCommandPresenter`，开始形成更清晰的 service + presenter 边界。
+- [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py app/services/app_command_presenter.py`
+- [ ] 下一步：继续把 list/query/lifecycle 更深层 contract 往 command layer 收，或开始抽 `AppCommandPolicy` / `AppCommandRouter`
 

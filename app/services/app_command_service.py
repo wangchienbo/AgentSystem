@@ -4,17 +4,12 @@ from typing import Any
 
 from app.models.app_command import AppCommand, AppCommandResult
 from app.models.chat import InterpretedCommand
-from app.models.chat import ActionSuggestion
+from app.services.app_command_presenter import AppCommandPresenter
 
 
 class AppCommandService:
-    """Application-layer facade for unified app command execution.
-
-    Phase 1 scope:
-    - normalize create_app / modify_app command shape
-    - provide one explicit seam between gateway and deeper execution layers
-    - allow gradual migration without forcing full behavior rewrite in one step
-    """
+    def __init__(self, presenter: AppCommandPresenter | None = None) -> None:
+        self._presenter = presenter or AppCommandPresenter()
 
     def build_command(
         self,
@@ -130,7 +125,7 @@ class AppCommandService:
         confirm_label: str,
         cancel_label: str = "❌ 取消",
         confirm_id: str | None = None,
-    ) -> list[ActionSuggestion]:
+    ) -> list[Any]:
         normalized = self.normalize_confirmed_params(intent, {
             "intent": intent,
             "target_app": target_app,
@@ -138,28 +133,14 @@ class AppCommandService:
             **(parameters or {}),
             "confirmed": True,
         })
-        return [
-            ActionSuggestion(
-                id=confirm_id or f"confirm_{intent}",
-                label=confirm_label,
-                action_type="confirm",
-                payload={
-                    "intent": intent,
-                    "target_app": normalized.get("target_app", target_app),
-                    "parameters": normalized.get("parameters", {}),
-                    "confirmed": True,
-                    **({"modification": normalized.get("modification")} if normalized.get("modification") else {}),
-                },
-                style="primary",
-            ),
-            ActionSuggestion(
-                id="cancel",
-                label=cancel_label,
-                action_type="cancel",
-                payload={"intent": "cancel"},
-                style="ghost",
-            ),
-        ]
+        return self._presenter.build_confirmation_actions(
+            intent=intent,
+            target_app=target_app,
+            normalized_payload=normalized,
+            confirm_label=confirm_label,
+            cancel_label=cancel_label,
+            confirm_id=confirm_id,
+        )
 
     def build_confirmation_content(
         self,
@@ -168,25 +149,11 @@ class AppCommandService:
         related_app: str,
         parameters: dict[str, Any] | None = None,
     ) -> str:
-        params = parameters or {}
-        if intent == "create_app":
-            app_type = params.get("app_type", "unknown")
-            schedule_info = params.get("schedule_info", "")
-            threshold_info = params.get("threshold_info", "")
-            return (
-                f"将创建新的 App：**{related_app}**\n\n"
-                f"类型: {app_type}"
-                f"{schedule_info}{threshold_info}\n\n"
-                f"确认后系统会通过统一主链路创建 App，必要时生成或复用相关 skill。"
-            )
-        if intent == "modify_app":
-            modification = params.get("modification", "未指定")
-            return (
-                f"将 **{related_app}** 修改为：{modification}\n\n"
-                f"确认后系统会分析需求，使用已有 skill 或生成新 skill 来完成修改。\n\n"
-                f"⚠️ 注意：如果修改需要生成新 skill，仅管理员及以上用户可执行。"
-            )
-        return f"确认执行 {intent}: {related_app}"
+        return self._presenter.build_confirmation_content(
+            intent=intent,
+            related_app=related_app,
+            parameters=parameters,
+        )
 
     def build_confirmation_response(
         self,
@@ -200,25 +167,22 @@ class AppCommandService:
         confirm_label: str,
         confirm_id: str | None = None,
     ):
-        from app.models.chat import ChatMessageResponse
-
-        return ChatMessageResponse(
-            type="confirm",
-            content=content or self.build_confirmation_content(
-                intent=intent,
-                related_app=related_app,
-                parameters=parameters,
-            ),
+        normalized = self.normalize_confirmed_params(intent, {
+            "intent": intent,
+            "target_app": target_app,
+            "parameters": parameters or {},
+            **(parameters or {}),
+            "confirmed": True,
+        })
+        return self._presenter.build_confirmation_response(
+            intent=intent,
             session_id=session_id,
             related_app=related_app,
-            actions=self.build_confirmation_actions(
-                intent=intent,
-                target_app=target_app,
-                parameters=parameters,
-                confirm_label=confirm_label,
-                confirm_id=confirm_id,
-            ),
-            requires_input=True,
+            target_app=target_app,
+            normalized_payload=normalized,
+            confirm_label=confirm_label,
+            confirm_id=confirm_id,
+            content=content,
         )
 
     def build_query_detail_response(
@@ -228,16 +192,14 @@ class AppCommandService:
         related_app: str,
         title: str,
         detail: str,
-        actions: list[ActionSuggestion] | None = None,
+        actions: list[Any] | None = None,
     ):
-        from app.models.chat import ChatMessageResponse
-
-        return ChatMessageResponse(
-            type="card",
-            content=f"{title}\n\n{detail}",
+        return self._presenter.build_query_detail_response(
             session_id=session_id,
             related_app=related_app,
-            actions=actions or [],
+            title=title,
+            detail=detail,
+            actions=actions,
         )
 
     def build_permission_denied_response(
@@ -248,18 +210,11 @@ class AppCommandService:
         related_app: str | None,
         detail: str,
     ):
-        from app.models.chat import ChatMessageResponse
-
-        operation_map = {
-            "create_app": "创建 App",
-            "modify_app": "修改 App",
-        }
-        operation = operation_map.get(intent, intent)
-        return ChatMessageResponse(
-            type="text",
-            content=f"⚠️ {operation} 权限不足。\n\n{detail}",
+        return self._presenter.build_permission_denied_response(
+            intent=intent,
             session_id=session_id,
             related_app=related_app,
+            detail=detail,
         )
 
     def build_success_response(
@@ -269,17 +224,15 @@ class AppCommandService:
         session_id: str,
         related_app: str | None,
         content: str,
-        actions: list[ActionSuggestion] | None = None,
+        actions: list[Any] | None = None,
         response_type: str = "text",
     ):
-        from app.models.chat import ChatMessageResponse
-
-        return ChatMessageResponse(
-            type=response_type,
-            content=content,
+        return self._presenter.build_success_response(
             session_id=session_id,
             related_app=related_app,
-            actions=actions or [],
+            content=content,
+            actions=actions,
+            response_type=response_type,
         )
 
     def build_degraded_response(
@@ -291,21 +244,12 @@ class AppCommandService:
         reason: str,
         detail: str | None = None,
     ):
-        from app.models.chat import ChatMessageResponse
-
-        operation_map = {
-            "create_app": "创建 App",
-            "modify_app": "修改 App",
-        }
-        operation = operation_map.get(intent, intent)
-        content = f"⚠️ {operation} 当前无法完成，原因：{reason}。"
-        if detail:
-            content += f"\n\n{detail}"
-        return ChatMessageResponse(
-            type="text",
-            content=content,
+        return self._presenter.build_degraded_response(
+            intent=intent,
             session_id=session_id,
             related_app=related_app,
+            reason=reason,
+            detail=detail,
         )
 
     def make_result(
