@@ -27,6 +27,7 @@ from app.services.tool_registry import ToolRegistry
 from app.services.app_command_service import AppCommandService
 from app.services.app_command_router import AppCommandRouter
 from app.services.app_application_service import AppApplicationService
+from app.services.app_create_modify_executor import AppCreateModifyExecutor
 from app.services.app_lifecycle_query_executor import AppLifecycleQueryExecutor
 from app.services.app_presenter import AppPresenter
 
@@ -125,16 +126,31 @@ class LightBrainGateway:
             resolve_instance_id=self._resolve_instance_id,
             resolve_display_name=self._resolve_display_name,
         )
+        self._app_create_modify_executor = AppCreateModifyExecutor(
+            command_service=self._app_command_service,
+            presenter=self._app_presenter,
+            bus=self._bus,
+            config_center=self._config_center,
+            persistence=self._persistence,
+            lifecycle=self._lifecycle,
+            runtime_host=self._runtime_host,
+            app_registry=self._app_registry,
+            catalog=self._catalog,
+            app_refinement_orchestrator=self._app_refinement_orchestrator,
+            resolve_instance_id=self._resolve_instance_id,
+            resolve_display_name=self._resolve_display_name,
+            check_app_modify_permission=self._check_app_modify_permission,
+        )
         self._app_command_router = AppCommandRouter()
         self._app_application_service = AppApplicationService(self._app_command_router)
         self._app_application_service.register_handlers({
-            "create_app": self._handle_create_app,
+            "create_app": self._app_create_modify_executor.handle_create_app,
             "start_app": self._app_lifecycle_query_executor.handle_start_app,
             "stop_app": self._app_lifecycle_query_executor.handle_stop_app,
             "pause_app": self._app_lifecycle_query_executor.handle_pause_app,
             "resume_app": self._app_lifecycle_query_executor.handle_resume_app,
             "query_app": self._app_lifecycle_query_executor.handle_query_app,
-            "modify_app": self._handle_modify_app,
+            "modify_app": self._app_create_modify_executor.handle_modify_app,
             "delete_app": self._handle_delete_app,
         })
 
