@@ -96,6 +96,7 @@
 - [x] 已完成第七个最小改造点：`app/services/app_command_service.py` 已新增 `normalize_confirmed_params(...)` 与 `rebuild_interpreted_command(...)`，`light_brain_gateway.py::execute_action()` 现在复用 command layer 做 confirmed payload 标准化与命令重建，进一步减少 gateway 内联协议细节。
 - [x] 已完成第八个最小改造点：`app/services/app_command_service.py` 已新增 `build_confirmation_actions(...)`，`_handle_modify_app()` 的确认按钮生成开始迁出 gateway，向 command presenter / policy 边界继续收敛。
 - [x] 已完成第九个最小改造点：`app/services/app_command_service.py` 已新增 `build_confirmation_response(...)`，`_execute_create_app()` 现在在未确认时走统一的 create_app 确认响应生成，create/modify 两条主链路都开始复用 command layer 的确认表现层能力。
+- [x] 已完成第十个最小改造点：`app/services/app_command_service.py` 已新增 `from_interpreted_command(...)`，`_execute_create_app()` 与 `_handle_modify_app()` 现在开始复用 `requires_confirmation(...)` 做确认判定，requires_confirmation 判断从 gateway 的零散字段判断开始收口到 command layer。
 - [x] 已完成最小验证：`python3 -m py_compile app/system/workers/system_meta_app_worker.py app/system/gateway/light_brain_gateway.py app/system/gateway/light_brain_interpreter.py app/models/app_command.py app/services/app_command_service.py`
-- [ ] 下一步：继续把 requires_confirmation 判断从 gateway/interpreter 的零散位置收口到 command layer 入口，再视情况决定是否抽独立 presenter/policy 类
+- [ ] 下一步：继续看是否把 create/modify 的确认文案和 presenter 也独立出去，或直接推进降级语义统一
 

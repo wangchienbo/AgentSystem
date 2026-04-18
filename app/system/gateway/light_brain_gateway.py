@@ -1006,7 +1006,11 @@ class LightBrainGateway:
         if command.parameters.get("threshold"):
             threshold_info = f"\n告警阈值: {command.parameters['threshold']}%"
 
-        if not command.parameters.get("confirmed"):
+        app_command = self._app_command_service.from_interpreted_command(
+            command=command,
+            session_id=session_id,
+        )
+        if self._app_command_service.requires_confirmation(app_command):
             return self._app_command_service.build_confirmation_response(
                 intent="create_app",
                 session_id=session_id,
@@ -1514,7 +1518,11 @@ class LightBrainGateway:
 
         # Phase 2: user confirmed the modification (via action button with confirmed=True)
         params = command.parameters or {}
-        if params.get("confirmed"):
+        app_command = self._app_command_service.from_interpreted_command(
+            command=command,
+            session_id=session_id,
+        )
+        if not self._app_command_service.requires_confirmation(app_command):
             return await self._execute_modify_app(command, session_id, apps)
 
         # Phase 1b: show confirmation dialog with proper action buttons

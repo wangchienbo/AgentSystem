@@ -37,6 +37,23 @@ class AppCommandService:
             source=source,
         )
 
+    def from_interpreted_command(
+        self,
+        *,
+        command: InterpretedCommand,
+        session_id: str,
+        source: str = "chat",
+    ) -> AppCommand:
+        return self.build_command(
+            name=command.intent,
+            user_id=command.user_id or "",
+            session_id=session_id,
+            target_app=command.target_app,
+            parameters=dict(command.parameters or {}),
+            confirmed=bool((command.parameters or {}).get("confirmed")),
+            source=source,
+        )
+
     def requires_confirmation(self, command: AppCommand) -> bool:
         if command.name in {"create_app", "modify_app", "delete_app"} and not command.confirmed:
             return True
