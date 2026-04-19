@@ -586,7 +586,7 @@ class LightBrainGateway:
         if app_result is not None:
             return app_result
 
-        self._handlers = {
+        local_handlers = {
             "greet": self._handle_greet,
             "query_status": self._handle_query_status,
             "query_help": self._handle_query_help,
@@ -611,7 +611,7 @@ class LightBrainGateway:
             "master_execute": self._handle_master_execute,
         }
 
-        handler = self._handlers.get(command.intent)
+        handler = local_handlers.get(command.intent)
         if handler:
             return await handler(command, session_id, available_apps)
 
