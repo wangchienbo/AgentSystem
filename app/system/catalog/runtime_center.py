@@ -165,6 +165,24 @@ class RuntimeCenter:
                 self._save()
         return expired
 
+
+    def build_prompt(self, caller_id: str) -> str:
+        """Build a concise runtime summary for prompt injection."""
+        entries = self.list_all()
+        if caller_id != "system":
+            entries = [
+                entry for entry in entries
+                if entry.owner == caller_id or entry.owner == caller_id.removeprefix("user.") or entry.owner == "system"
+            ]
+        if not entries:
+            return "当前没有运行中的实例。"
+        lines = []
+        for entry in entries:
+            lines.append(
+                f"- {entry.asset_id}: status={entry.status}, owner={entry.owner}, endpoint={entry.endpoint or '-'}, pid={entry.pid}"
+            )
+        return "\n".join(lines)
+
     def get_uptime(self, asset_id: str) -> str | None:
         with self._lock:
             entry = self._entries.get(asset_id)

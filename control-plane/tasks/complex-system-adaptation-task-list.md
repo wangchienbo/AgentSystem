@@ -283,3 +283,24 @@
 - [ ] 真实验证结果
 - [ ] 新增遗留问题
 - [ ] 下一轮入口
+
+
+### 两层注册模型映射（新增）
+
+#### 安装时静态注册
+- 当前已有：`AppInstallerService.install_app()` 通过 `_ensure_asset_installed()` 把 blueprint 写入 `source/{asset_id}/manifest.json` 与 `blueprint.json`，并经过 `AssetCenter build/install`
+- 当前已有：`MetaAppCreationOrchestrator` 在创建成功后向 `SystemCatalog` 注册 `CatalogEntry`
+- 当前问题：静态注册分散在 `AppInstallerService._ensure_asset_installed()`、`MetaAppCreationOrchestrator`、`runtime.py` 的 asset hook 周边，没有统一“静态资产注册完成”契约
+- 收敛目标：安装完成后统一产出 `static asset registered` 结果，包含 blueprint、catalog entry、required skills、owner、visibility、path metadata
+
+#### 启动时运行资源注册
+- 当前已有：`runtime.py` 通过 `lifecycle.set_asset_hooks(on_asset_start/on_asset_stop)`，在启动时向 `SystemCatalog` 写 running entry，并向 `RuntimeCenter` 注册运行态信息
+- 当前已有：`AppRuntimeHostService.register_instance()` / `AppLifecycleService.register_instance()` 维护实例态
+- 当前问题：运行态注册目前混合写入 `SystemCatalog` 与 `RuntimeCenter`，静态/动态边界不够清楚，且 runtime hook 与 installer/orchestrator 的注册动作存在重叠
+- 收敛目标：启动只负责 `RuntimeCenter` + lifecycle/runtime instance registration；`SystemCatalog` 回到静态能力目录，不再承载 running 语义
+
+#### 主控联调口径
+- 主控先查静态资产目录判断“系统里有什么 App / capability”
+- 再查运行资源中心判断“现在是否在运行、在哪运行、能否调用”
+- 最后通过统一 action/path contract 调度，不再把 gateway handler 兼容链当成主联调路径
+- 失配点补充：`LightBrainInterpreter` 当前给 LLM 的 asset context 仍只来自 `SystemCatalog`，因此它拿到的是“已安装/可见资产”，不是“当前运行态”；后续 `query_app` / lifecycle 类主控决策需要补 runtime context 注入

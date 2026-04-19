@@ -13,6 +13,8 @@
 - 收窄 `light_brain_gateway` / `light_brain_interpreter` / `api.main` 中的历史兼容措辞，统一改为临时降级或当前运行语义，减少“旧架构仍被正式支持”的信号
 - 实际收缩 gateway 本地旧链入口：将 `greet` / `list_apps` / `query_status` / `query_help` 从 `_BRIDGE_SKIP_INTENTS` 移除，优先走 orchestrator path，不再默认直跳本地 handler
 - 继续把 `query_app` 从 `_BRIDGE_SKIP_INTENTS` 移除，使查询类 App 详情请求也优先进入 orchestrator path
+- 清空 `LightBrainGateway._BRIDGE_SKIP_INTENTS`，让 `start_app` / `stop_app` / `pause_app` / `resume_app` 也优先走 orchestrator bridge，不再保留默认本地直跳入口
+- 去掉 `runtime.py` 对 `register_gateway_handlers()` 的调用，并删除 `GatewayOrchestratorBridge.register_gateway_handlers()` 兼容包装方法，停止把 `LightBrainGateway` 内部 handlers 注入 MessageBus worker 集合
 - 明确保留并继续验证主路径相关测试：
   - `tests/test_dynamic_path_composer.py`
   - `tests/unit/test_golden_path_integration.py`
@@ -2066,3 +2068,39 @@ User → Gateway → Bridge → Orchestrator → (YAML path match?)
 #### 已做的主路径推进
 - 基础查询类意图 `greet` / `list_apps` / `query_status` / `query_help` / `query_app` 已改为优先走 orchestrator path
 - `LightBrainGateway` 的持久化旧 handler registry 已移除，只保留执行期局部本地分发
+
+- 继续去除次级桥接兼容壳：删掉 `gateway_integration.py` 中未再使用的 worker 包装辅助方法，并把 gateway 内的回退注释统一收敛为 degraded local handling 语义
+
+
+### Module: Two-layer registration model mapping
+
+把“App 如何和主控联调”按静态资产 / 运行资源两层重新映射到现有代码。
+
+#### 现状映射
+- 安装阶段静态注册：`AppInstallerService._ensure_asset_installed()` 负责把 blueprint 写入 `AssetCenter` 源目录并 build/install
+- 创建阶段静态目录补录：`MetaAppCreationOrchestrator` 会向 `SystemCatalog` 注册 `CatalogEntry`
+- 启动阶段运行注册：`runtime.py` 中 `lifecycle.set_asset_hooks(on_asset_start/on_asset_stop)` 在 App 启停时写 `SystemCatalog` + `RuntimeCenter`
+- 运行实例态：`AppRuntimeHostService.register_instance()` / `AppLifecycleService.register_instance()` 维护实例注册
+
+#### 当前判断
+- 安装时静态注册、启动时运行注册这个方向是对的
+- 但当前实现把 `SystemCatalog` 同时当静态目录和运行态目录在用，职责混了
+- 下一阶段应把 `SystemCatalog` 收回静态资产目录，把 running / pid / endpoint / heartbeat 彻底收进 `RuntimeCenter`
+
+- 按“两层注册模型”下刀：`runtime.py` 的 lifecycle asset hooks 不再向 `SystemCatalog` 写 running entry，只保留 `RuntimeCenter` 的运行态注册/注销，使静态目录与运行资源中心开始分层
+
+- 继续把 `SystemCatalog` 从“运行中资产目录”语义拉回“静态资产目录”：默认 `status` 改为 `active`，文档注释和字段语义改为静态元数据，不再把 `running/stopped/paused` 当成 catalog 主状态
+
+- 补记当前失配：`LightBrainInterpreter` 给 LLM 的 asset context 仍只读 `SystemCatalog`，因此能看到的是静态已安装资产，不是运行中实例；后续需要把 `RuntimeCenter` 视角补进 `query_app` / lifecycle 决策链
+
+- `AppLifecycleQueryExecutor.handle_query_app()` 已改为双视角查询：先看 `system.app_registry` 的静态存在性，再看 `system.lifecycle.get_instance` 的运行态，从返回结构上明确区分“已安装”和“正在运行”
+
+- `start_app` / `stop_app` / `pause_app` / `resume_app` 已补静态存在性前置判断：生命周期动作先确认 App 已安装/已注册，再决定是否继续查运行态或发 lifecycle RPC，避免把“未安装”和“未运行”混成一类失败
+
+- 在 `AppLifecycleQueryExecutor` 中引入统一的 `AppOperationResolution` 解析结果，开始把静态存在性、静态状态、运行态存在性、运行态状态收口为同一份前置判断数据，避免 `query_app` / lifecycle handlers 各自散落拼接
+
+- 继续把双视角往解释层抬：`LightBrainInterpreter` 已支持注入 runtime context provider，当前会把 `RuntimeCenter` 的运行中实例摘要与 `SystemCatalog` 的静态资产摘要一起传给 LLM intent parsing，减少把“已安装”误判成“正在运行”的风险
+
+- 继续扫尾统一：`handle_query_app()` 已完全切到 `AppOperationResolution` 路径，不再单独重复拼 `system.app_registry + system.lifecycle` 查询，query/lifecycle 开始共用同一份前置解析结果
+
+- `LightBrainGateway._handle_query_status()` 也已切到双视角 resolution：状态卡片不再只看 `system.app_registry`，而是按静态状态 + 运行状态合并得出展示结果与可执行动作，进一步扫掉 gateway 层对旧单视角状态的依赖

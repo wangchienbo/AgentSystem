@@ -173,11 +173,20 @@ class LightBrainInterpreter:
         self._tool_registry = tool_registry
 
     def set_system_catalog(self, system_catalog: Any) -> None:
-        """Set the system catalog for asset-aware LLM parsing.
+        """Set the static system catalog for asset-aware LLM parsing.
         
-        The catalog provides get_visible_assets(caller_id) and build_llm_prompt(caller_id).
+        The catalog provides installed-asset visibility and prompt context.
+        Runtime liveness is intentionally tracked elsewhere.
         """
         self._system_catalog = system_catalog
+
+    def set_runtime_context_provider(self, provider: Any) -> None:
+        """Set an optional runtime context provider for LLM parsing.
+
+        The provider should expose either `build_prompt(caller_id)` or be callable
+        with `caller_id` and return a concise runtime summary string.
+        """
+        self._runtime_context_provider = provider
 
     @classmethod
     def clear_llm_cache(cls) -> None:
@@ -513,10 +522,22 @@ class LightBrainInterpreter:
 
         # Phase E.3: Tool-aware LLM parsing with asset catalog
         if hasattr(self, '_system_catalog') and self._system_catalog is not None:
-            # Build asset overview prompt for LLM
+            # Build static asset overview prompt for LLM
             caller_id = f"user.{user_id}" if user_id != "system" else "system"
             asset_prompt = self._system_catalog.build_llm_prompt(caller_id)
-            
+            runtime_prompt = ""
+            provider = getattr(self, '_runtime_context_provider', None)
+            if provider is not None:
+                try:
+                    if hasattr(provider, 'build_prompt'):
+                        runtime_prompt = provider.build_prompt(caller_id)
+                    elif callable(provider):
+                        runtime_prompt = provider(caller_id)
+                except Exception:
+                    runtime_prompt = ""
+            if runtime_prompt:
+                asset_prompt = f"{asset_prompt}\n\n## 运行中实例概览\n{runtime_prompt}"
+
             # Use tool-aware parsing with asset context
             if hasattr(self._llm_responder, 'parse_intent_with_tools'):
                 if hasattr(self, '_tool_registry') and self._tool_registry is not None:

@@ -1,10 +1,22 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from app.models.chat import ActionSuggestion, ChatMessageResponse, InterpretedCommand
 from app.services.app_command_service import AppCommandService
 from app.services.app_presenter import AppPresenter
+
+
+@dataclass
+class AppOperationResolution:
+    target: str
+    display_name: str
+    static_found: bool
+    static_status: str
+    runtime_found: bool
+    runtime_status: str
+
 
 
 class AppLifecycleQueryExecutor:
@@ -23,6 +35,96 @@ class AppLifecycleQueryExecutor:
         self._resolve_instance_id = resolve_instance_id
         self._resolve_display_name = resolve_display_name
 
+    async def _collect_app_runtime_view(self, target: str) -> dict[str, Any]:
+        runtime_view: dict[str, Any] = {"found": False, "status": "unknown"}
+        if not self._bus:
+            return runtime_view
+        try:
+            from app.models.skill_runtime import SkillExecutionRequest
+            lc_result = await self._bus.rpc(
+                "system.lifecycle",
+                SkillExecutionRequest(
+                    skill_id="system.lifecycle",
+                    action="get_instance",
+                    inputs={"app_id": target},
+                    config={},
+                ),
+                timeout=5,
+            )
+            if lc_result and getattr(lc_result, "status", None) == "completed":
+                lc_output = lc_result.output or {}
+                runtime_view["found"] = bool(lc_output.get("found"))
+                runtime_view["status"] = lc_output.get("status", "unknown")
+                runtime_view["instance"] = lc_output
+        except Exception:
+            return runtime_view
+        return runtime_view
+
+    async def _collect_app_static_view(self, target: str) -> dict[str, Any]:
+        static_view: dict[str, Any] = {"found": False, "status": "unknown"}
+        if not self._bus:
+            return static_view
+        try:
+            from app.models.skill_runtime import SkillExecutionRequest
+            result = await self._bus.rpc(
+                "system.app_registry",
+                SkillExecutionRequest(
+                    skill_id="system.app_registry",
+                    action="get",
+                    inputs={"app_id": target},
+                    config={},
+                ),
+                timeout=5,
+            )
+            if result and getattr(result, "status", None) == "completed":
+                output = result.output or {}
+                static_view["found"] = bool(output.get("found"))
+                static_view["status"] = output.get("status", "unknown")
+                static_view["entry"] = output
+        except Exception:
+            return static_view
+        return static_view
+
+    async def _collect_app_views(self, target: str) -> tuple[dict[str, Any], dict[str, Any]]:
+        static_view = await self._collect_app_static_view(target)
+        runtime_view = await self._collect_app_runtime_view(target)
+        return static_view, runtime_view
+
+    async def _resolve_app_operation(self, target: str, display_name: str) -> AppOperationResolution:
+        static_view, runtime_view = await self._collect_app_views(target)
+        return AppOperationResolution(
+            target=target,
+            display_name=display_name,
+            static_found=bool(static_view.get("found")),
+            static_status=static_view.get("status", "unknown"),
+            runtime_found=bool(runtime_view.get("found")),
+            runtime_status=runtime_view.get("status", "not_running") if runtime_view.get("found") else "not_running",
+        )
+
+
+    async def _ensure_static_presence(
+        self,
+        *,
+        target: str,
+        session_id: str,
+        display_name: str,
+        intent: str,
+    ) -> ChatMessageResponse | None:
+        resolution = await self._resolve_app_operation(target, display_name)
+        if resolution.static_found:
+            return None
+        return self._command_service.build_degraded_response(
+            intent=intent,
+            session_id=session_id,
+            related_app=display_name,
+            reason="静态资产不存在",
+            detail=f"**{display_name}** 尚未安装或未注册，无法执行该操作。",
+        )
+
+    async def _get_runtime_status(self, target: str) -> str:
+        resolution = await self._resolve_app_operation(target, target)
+        return resolution.runtime_status
+
     async def handle_start_app(self, command: InterpretedCommand, session_id: str, apps: list[dict]) -> ChatMessageResponse:
         if command.requires_clarification:
             return ChatMessageResponse(
@@ -36,9 +138,35 @@ class AppLifecycleQueryExecutor:
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
 
+        precheck = await self._ensure_static_presence(
+            target=target,
+            session_id=session_id,
+            display_name=target_input,
+            intent="start_app",
+        )
+        if precheck is not None:
+            return precheck
+
+        precheck = await self._ensure_static_presence(
+            target=target,
+            session_id=session_id,
+            display_name=target_input,
+            intent="stop_app",
+        )
+        if precheck is not None:
+            return precheck
+
         if self._bus:
             try:
                 from app.models.skill_runtime import SkillExecutionRequest
+                runtime_status = await self._get_runtime_status(target)
+                if runtime_status == "not_running":
+                    return self._command_service.build_success_response(
+                        intent="stop_app",
+                        session_id=session_id,
+                        related_app=target_input,
+                        content=f"**{target_input}** 当前未运行。",
+                    )
                 result = await self._bus.rpc(
                     "system.lifecycle",
                     SkillExecutionRequest(
@@ -152,6 +280,15 @@ class AppLifecycleQueryExecutor:
         target = self._resolve_instance_id(target_input)
         display_name = self._resolve_display_name(target, "")
 
+        precheck = await self._ensure_static_presence(
+            target=target,
+            session_id=session_id,
+            display_name=target_input,
+            intent="pause_app",
+        )
+        if precheck is not None:
+            return precheck
+
         if self._bus:
             try:
                 from app.models.skill_runtime import SkillExecutionRequest
@@ -225,6 +362,15 @@ class AppLifecycleQueryExecutor:
         target_input = command.target_app or "未知 App"
         target = self._resolve_instance_id(target_input)
         display_name = self._resolve_display_name(target, "")
+
+        precheck = await self._ensure_static_presence(
+            target=target,
+            session_id=session_id,
+            display_name=target_input,
+            intent="resume_app",
+        )
+        if precheck is not None:
+            return precheck
 
         if self._bus:
             try:
@@ -311,50 +457,23 @@ class AppLifecycleQueryExecutor:
 
         if self._bus:
             try:
-                from app.models.skill_runtime import SkillExecutionRequest
-                result = await self._bus.rpc(
-                    "system.app_registry",
-                    SkillExecutionRequest(
-                        skill_id="system.app_registry",
-                        action="get",
-                        inputs={"app_id": target},
-                        config={},
-                    ),
-                    timeout=5,
-                )
-                if result and getattr(result, "status", None) == "completed":
-                    output = result.output
-                    if output.get("found"):
-                        status = output.get("status", "unknown")
-                        runtime_status = ""
-                        try:
-                            lc_result = await self._bus.rpc(
-                                "system.lifecycle",
-                                SkillExecutionRequest(
-                                    skill_id="system.lifecycle",
-                                    action="get_instance",
-                                    inputs={"app_id": target},
-                                    config={},
-                                ),
-                                timeout=5,
-                            )
-                            if lc_result and getattr(lc_result, "status", None) == "completed":
-                                lc_output = lc_result.output
-                                if lc_output.get("found"):
-                                    runtime_status = f"\n运行状态: {lc_output.get('status', 'unknown')}"
-                        except Exception:
-                            pass
-                        detail = f"ID: {target}\n状态: {status}{runtime_status}"
-                        return self._command_service.build_query_detail_response(
-                            session_id=session_id,
-                            related_app=display_name,
-                            title=f"📋 {display_name}",
-                            detail=detail,
-                            actions=[
-                                ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
-                                ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
-                            ],
-                        )
+                resolution = await self._resolve_app_operation(target, display_name)
+                if resolution.static_found or resolution.runtime_found:
+                    detail = (
+                        f"ID: {target}\n"
+                        f"静态状态: {resolution.static_status}\n"
+                        f"运行状态: {resolution.runtime_status}"
+                    )
+                    return self._command_service.build_query_detail_response(
+                        session_id=session_id,
+                        related_app=display_name,
+                        title=f"📋 {display_name}",
+                        detail=detail,
+                        actions=[
+                            ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
+                            ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
+                        ],
+                    )
             except Exception:
                 pass
 

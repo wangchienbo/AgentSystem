@@ -1,6 +1,6 @@
 """System Catalog — persistent registry of all assets (Apps, Skills, Paths).
 
-Every asset self-registers when it starts up. The catalog is persisted to disk
+Persistent registry of installed/static assets. The catalog is persisted to disk
 so it survives restarts.
 
 Storage:
@@ -33,7 +33,7 @@ class CatalogEntry:
         owner_id: str,
         name: str,
         description: str,
-        status: str = "running",
+        status: str = "active",
         visibility: str = "public",
         interfaces: dict[str, Any] | None = None,
         required_role_level: int = 0,
@@ -44,7 +44,7 @@ class CatalogEntry:
         self.owner_id = owner_id       # "system", "user.{id}", "app.{id}"
         self.name = name
         self.description = description
-        self.status = status            # "running", "stopped", "paused"
+        self.status = status            # "active", "deprecated", "disabled"
         self.visibility = visibility    # "public", "private", "shared"
         self.interfaces = interfaces or {}  # {fn_key: {description, input_schema, output_schema}}
         self.required_role_level = required_role_level
@@ -92,7 +92,7 @@ class CatalogEntry:
             owner_id=data["owner_id"],
             name=data["name"],
             description=data.get("description", ""),
-            status=data.get("status", "running"),
+            status=data.get("status", "active"),
             visibility=data.get("visibility", "public"),
             interfaces=data.get("interfaces"),
             required_role_level=data.get("required_role_level", 0),
@@ -101,10 +101,10 @@ class CatalogEntry:
 
 
 class SystemCatalog:
-    """Persistent system catalog with self-registration.
+    """Persistent static catalog for installed assets.
 
-    All assets register themselves. System-level and user-level assets are
-    stored separately but queried through a unified interface.
+    System-level and user-level assets are stored together here as durable
+    metadata, not as runtime heartbeat state.
     """
 
     def __init__(self, data_dir: str | None = None) -> None:

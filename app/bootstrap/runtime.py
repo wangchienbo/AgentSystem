@@ -723,38 +723,29 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
 
     # Asset self-registration hooks — injected into lifecycle
     def _on_asset_start(app_instance_id: str) -> None:
-        """Register an asset when it starts running."""
+        """Register runtime-only state when an asset starts running."""
         try:
             instance = lifecycle.get_instance(app_instance_id)
-            entry = CatalogEntry(
-                asset_id=f"app.{instance.id}",
-                asset_type="app",
-                owner_id=f"user.{instance.owner_user_id}" if instance.owner_user_id != "system" else "system",
-                name=instance.id,
-                description=f"App instance: {instance.id}",
-                status="running",
-                visibility="public" if instance.owner_user_id == "system" else "private",
-            )
-            system_catalog.register(entry)
+            asset_id = f"app.{instance.id}"
+            owner_id = f"user.{instance.owner_user_id}" if instance.owner_user_id != "system" else "system"
             if instance is not None:
                 runtime_center.register(
-                    asset_id=entry.asset_id,
+                    asset_id=asset_id,
                     version=getattr(instance, "installed_version", "0.0.0") or "0.0.0",
                     pid=0,
                     endpoint="",
-                    owner=entry.owner_id,
+                    owner=owner_id,
                     status="running",
                 )
-            logger.info("Asset self-registered: %s", entry.asset_id)
+            logger.info("Runtime self-registered: %s", asset_id)
         except Exception as e:
             logger.warning("Asset start hook failed for %s: %s", app_instance_id, e)
 
     def _on_asset_stop(app_instance_id: str) -> None:
-        """Unregister an asset when it stops."""
+        """Unregister runtime-only state when an asset stops."""
         try:
-            system_catalog.unregister(f"app.{app_instance_id}")
             runtime_center.unregister(f"app.{app_instance_id}")
-            logger.info("Asset unregistered: app.%s", app_instance_id)
+            logger.info("Runtime unregistered: app.%s", app_instance_id)
         except Exception as e:
             logger.warning("Asset stop hook failed for %s: %s", app_instance_id, e)
 
@@ -818,13 +809,15 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     light_brain_interpreter.set_tool_registry(tool_registry)
     light_brain_interpreter.set_llm_responder(llm_responder)
     if system_catalog is not None:
-        light_brain_interpreter._system_catalog = system_catalog
+        light_brain_interpreter.set_system_catalog(system_catalog)
+    if runtime_center is not None:
+        light_brain_interpreter.set_runtime_context_provider(runtime_center)
     # Wire LLM to workflow after gateway is created
     interactive_app_workflow._llm = llm_responder
 
-    # -- G.1/G.2: Register Gateway handlers as Workers on the MessageBus -------
-    # Wrap Gateway async handlers and register them as Bus Workers so the
-    # Orchestrator can route to them through the new chain.
+    # -- G.1/G.2: Register skill metadata for orchestrator-facing intents -------
+    # Runtime no longer wraps LightBrainGateway handlers into MessageBus workers.
+    # The gateway remains a caller; skill execution lives in dedicated workers / services.
     g1g2_system_skill_meta: dict[str, Any] = {
         "greet": {"name": "greet", "description": "打招呼/问候"},
         "list_apps": {"name": "list_apps", "description": "查看 App 列表"},
@@ -845,17 +838,12 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         "list_users": {"name": "list_users", "description": "列出用户"},
         "show_self": {"name": "show_self", "description": "查看自身信息"},
     }
-    registered_count = g1g2_bridge.register_gateway_handlers(
-        gateway=light_brain_gateway,
-    )
-    # Also register meta entries for skills that may not have a direct handler
     g1g2_bridge.register_system_skills(
-        handlers={},
         meta_entries=g1g2_system_skill_meta,
     )
     logger.info(
-        "G.1/G.2: %d gateway handlers registered as Workers, %d meta skills registered",
-        registered_count, len(g1g2_system_skill_meta),
+        "G.1/G.2: metadata registered for %d orchestrator-facing intents",
+        len(g1g2_system_skill_meta),
     )
 
     # -- Auth & Session & Pipeline services -------------------------------------

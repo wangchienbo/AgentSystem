@@ -578,7 +578,7 @@ class LightBrainGateway:
                 logging.getLogger(__name__).warning(
                     "Bridge execution failed: %s", e,
                 )
-            # bridge_result was None → temporary local handling path
+            # bridge_result was None → degraded local handling path
 
         app_result = None
         if self._app_application_service.owns(command.intent):
@@ -776,53 +776,42 @@ class LightBrainGateway:
             target = self._resolve_instance_id(command.target_app)
             display_name = self._resolve_display_name(target, command.target_app)
 
-            # Try RPC first
             if self._bus:
                 try:
-                    from app.models.skill_runtime import SkillExecutionRequest
-                    result = await self._bus.rpc(
-                        "system.app_registry",
-                        SkillExecutionRequest(
-                            skill_id="system.app_registry",
-                            action="get",
-                            inputs={"app_id": target},
-                            config={},
-                        ),
-                        timeout=5,
-                    )
-                    if result and getattr(result, "status", None) == "completed":
-                        output = result.output
-                        if output.get("found") and output.get("status"):
-                            status = output["status"]
-                            status_icons = {"running": "🟢", "paused": "🟡", "stopped": "🔴", "installed": "🔵", "error": "⛔"}
-                            icon = status_icons.get(status, "⚪")
-                            status_labels = {"running": "运行中", "paused": "已暂停", "stopped": "已停止", "installed": "已安装", "error": "故障"}
-                            label = status_labels.get(status, status)
-                            actions = []
-                            if status == "running":
-                                actions = [
-                                    ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
-                                    ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": display_name}, style="secondary"),
-                                ]
-                            elif status in ("stopped", "installed"):
-                                actions = [
-                                    ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
-                                ]
-                            elif status == "paused":
-                                actions = [
-                                    ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
-                                ]
-                            return self._app_presenter.build_status_card_response(
-                                session_id=session_id,
-                                related_app=display_name,
-                                icon=icon,
-                                label=label,
-                                actions=actions,
-                            )
+                    resolution = await self._app_lifecycle_query_executor._resolve_app_operation(target, display_name)
+                    if resolution.static_found or resolution.runtime_found:
+                        runtime_status = resolution.runtime_status
+                        static_status = resolution.static_status
+                        effective_status = runtime_status if runtime_status != "not_running" else static_status
+                        status_icons = {"running": "🟢", "paused": "🟡", "stopped": "🔴", "installed": "🔵", "active": "🔵", "error": "⛔", "not_running": "⚪"}
+                        icon = status_icons.get(effective_status, "⚪")
+                        status_labels = {"running": "运行中", "paused": "已暂停", "stopped": "已停止", "installed": "已安装", "active": "已安装", "error": "故障", "not_running": "未运行"}
+                        label = status_labels.get(effective_status, effective_status)
+                        actions = []
+                        if runtime_status == "running":
+                            actions = [
+                                ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
+                                ActionSuggestion(id="pause", label="⏸ 暂停", action_type="execute", payload={"intent": "pause_app", "target": display_name}, style="secondary"),
+                            ]
+                        elif runtime_status in ("stopped", "not_running") or static_status in ("active", "installed"):
+                            actions = [
+                                ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
+                            ]
+                        elif runtime_status == "paused":
+                            actions = [
+                                ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
+                            ]
+                        return self._app_presenter.build_status_card_response(
+                            session_id=session_id,
+                            related_app=display_name,
+                            icon=icon,
+                            label=label,
+                            actions=actions,
+                        )
                 except Exception as e:
                     import logging
                     logging.getLogger(__name__).warning(
-                        "AppRegistry RPC query failed: %s", e,
+                        "App status resolution failed: %s", e,
                     )
 
             return self._app_command_service.build_degraded_response(
