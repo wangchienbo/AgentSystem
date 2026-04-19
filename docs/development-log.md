@@ -2127,3 +2127,5 @@ User → Gateway → Bridge → Orchestrator → (YAML path match?)
 - 把 `/apps/refine-from-suggested-skills` 也并回 `app_refinement_orchestrator.refine_closure(...)` 主路径，不再单独走 `build_app_from_suggested_skills(...) + register_blueprint(...)` 的旁路；refine API 与 closure API 开始共享同一套 blueprint 注册与闭环逻辑
 
 - 收窄 `LightBrainGateway._execute_command()` 的 bridge 入口，只让 `create_app/start_app/stop_app/pause_app/resume_app/query_app/list_apps/delete_app/modify_app` 这组 App 主路径意图先走 orchestrator bridge，避免 greet/query_help/permission/package 等本地意图再无意义探测 bridge 后回落
+
+- 修掉 `AppLifecycleQueryExecutor.handle_start_app(...)` 里残留的错位逻辑：此前在 start 路径里重复调用 `_ensure_static_presence(..., intent="stop_app")`，并把 `runtime_status == "not_running"` 错判成 stop 场景返回；现已改为 start 语义，运行中时直接返回“已在运行”，否则才发起 `system.lifecycle.start`

@@ -147,25 +147,16 @@ class AppLifecycleQueryExecutor:
         if precheck is not None:
             return precheck
 
-        precheck = await self._ensure_static_presence(
-            target=target,
-            session_id=session_id,
-            display_name=target_input,
-            intent="stop_app",
-        )
-        if precheck is not None:
-            return precheck
-
         if self._bus:
             try:
                 from app.models.skill_runtime import SkillExecutionRequest
                 runtime_status = await self._get_runtime_status(target)
-                if runtime_status == "not_running":
+                if runtime_status != "not_running":
                     return self._command_service.build_success_response(
-                        intent="stop_app",
+                        intent="start_app",
                         session_id=session_id,
                         related_app=target_input,
-                        content=f"**{target_input}** 当前未运行。",
+                        content=f"**{target_input}** 当前已在运行。",
                     )
                 result = await self._bus.rpc(
                     "system.lifecycle",

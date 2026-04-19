@@ -320,3 +320,5 @@
 - 已完成：`/apps/refine-from-suggested-skills` 已改为复用 `refine_closure(...)` 主路径，refine API 与 closure API 不再分叉维护 blueprint 注册逻辑
 
 - 已完成：收窄 gateway bridge 入口到 App 主路径意图，桥接层的 `None` 语义不再覆盖无关本地意图，减少假性降级探测
+
+- 已完成：修复 `handle_start_app(...)` 中遗留的 start/stop 语义串线，避免启动路径误走 stop 文案与错位前置判断
