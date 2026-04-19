@@ -7,6 +7,7 @@ Phase 8.1: rule-based interpreter, basic workflow execution, structured replies.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -17,530 +18,163 @@ from app.models.chat import (
     ChatMessageResponse,
     InlineItem,
     InterpretedCommand,
-    WorkflowResult,
-    WorkflowStep,
-    SessionSummary,
 )
 from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryError
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
-from app.services.app_command_service import AppCommandService
-from app.services.app_command_router import AppCommandRouter
-from app.services.app_command_recovery_service import AppCommandRecoveryService
-from app.services.app_application_service import AppApplicationService
-from app.services.app_create_modify_executor import AppCreateModifyExecutor
-from app.services.app_lifecycle_query_executor import AppLifecycleQueryExecutor
-from app.services.app_presenter import AppPresenter
 
-
-class LightBrainGatewayError(Exception):
-    pass
+logger = logging.getLogger(__name__)
 
 
 class LightBrainGateway:
-    """Main entry point for all user interactions with the AgentSystem / App OS.
-
-    Coordinates:
-    1. Session management (via LightBrainMemory)
-    2. Intent interpretation (via LightBrainInterpreter)
-    3. Workflow execution (built-in command handlers)
-    4. Response serialization (structured ChatMessageResponse)
-    """
+    """Unified entry point: message → intent → execution → reply."""
 
     def __init__(
         self,
-        memory: LightBrainMemory | None = None,
-        interpreter: LightBrainInterpreter | None = None,
-        app_registry_service: Any = None,
-        app_lifecycle_service: Any = None,
-        app_runtime_host: Any = None,
-        app_installer: Any = None,
-        app_catalog: Any = None,
-        skill_registry: Any = None,
-        meta_app_orchestrator: Any = None,
-        app_design_orchestrator: Any = None,
-        llm_responder: Any = None,
-        persistence_service: Any = None,
-        interactive_app: Any = None,
-        interactive_app_workflow: Any = None,
-        permission_skill: Any = None,
-        tool_registry: Any = None,
-        orchestrator_bridge: Any = None,
-        app_refinement_orchestrator: Any = None,
-        # Asset registry & tool call chain
-        system_catalog: Any = None,
-        asset_tool_executor: Any = None,
-        package_manager_executor: Any = None,
-        user_service: Any = None,
-        # G.1/G.2: MessageBus for RPC
-        message_bus: Any = None,
-        # Phase I: Config Center for default app-skill binding
-        config_center: Any = None,
-        # Phase M: Master Control for centralized execution
-        master_control: Any = None,
-    ) -> None:
-        self._memory = memory or LightBrainMemory()
-        self._interpreter = interpreter or LightBrainInterpreter()
-
-        # Optional external services — filled by runtime bootstrap
-        self._app_registry = app_registry_service
-        self._lifecycle = app_lifecycle_service
-        self._runtime_host = app_runtime_host
-        self._installer = app_installer
-        self._catalog = app_catalog
-        self._skill_registry = skill_registry
-        self._meta_app_orchestrator = meta_app_orchestrator
-        self._app_design_orchestrator = app_design_orchestrator
-        self._llm_responder = llm_responder
-        self._persistence = persistence_service
-        self._interactive_app = interactive_app
-        self._interactive_app_workflow = interactive_app_workflow
+        memory: LightBrainMemory,
+        interpreter: LightBrainInterpreter,
+        skill_runner=None,
+        lifecycle=None,
+        log_center=None,
+        persistence=None,
+        permission_skill=None,
+        permission_validator=None,
+        package_manager_executor=None,
+        asset_tool_executor=None,
+        interactive_app_workflow=None,
+        master_control=None,
+        app_catalog=None,  # Legacy compatibility (replaced by set_catalog)
+        # Legacy kwarg aliases for backward compatibility
+        app_registry_service=None,
+        app_lifecycle_service=None,
+        app_runtime_host=None,
+        persistence_service=None,
+        **extra_deps,
+    ):
+        self._memory = memory
+        self._interpreter = interpreter
+        self._skill_runner = skill_runner
+        self._lifecycle = lifecycle or app_lifecycle_service  # legacy alias
+        self._log_center = log_center
+        self._persistence = persistence or persistence_service  # legacy alias
         self._permission_skill = permission_skill
-        self._tool_registry = tool_registry
-        if self._tool_registry is None:
-            self._tool_registry = self._build_default_tool_registry()
+        self._permission_validator = permission_validator
+        self._package_manager_executor = package_manager_executor
+        self._asset_tool_executor = asset_tool_executor
+        self._interactive_app_workflow = interactive_app_workflow
+        self._master_control = master_control
+        self._app_registry: Any | None = app_registry_service  # legacy alias
+        self._orchestrator_bridge: Any | None = None
+        self._runtime_host: Any | None = app_runtime_host  # legacy alias
+        self._catalog: Any | None = None
+        self._app_lifecycle_query_executor: Any | None = None
+        self._app_presenter: Any | None = None
+        self._app_command_service: Any | None = None
         self._name: str | None = None
+
+        # Legacy: accept app_catalog as initial value
+        if app_catalog is not None:
+            self._catalog = app_catalog
+
+        # Phase 6.1: load session history into memory
+        # Legacy note: if persistence is a PersistenceService, it handles its own
+        # restore via restore_state() — we skip the memory restore here.
+        if self._persistence is not None and hasattr(self._persistence, "load_state"):
+            self._memory.restore_from(self._persistence.load_state())
         self._load_identity()
 
-        # G.1/G.2: Orchestrator bridge — new execution chain
-        self._orchestrator_bridge = orchestrator_bridge
-        self._app_refinement_orchestrator = app_refinement_orchestrator
+        # Tool registry for structured skill selection
+        self._tool_registry = self._build_default_tool_registry()
 
-        # Asset registry & tool call chain
-        self._system_catalog = system_catalog
-        self._asset_tool_executor = asset_tool_executor
-        self._package_manager_executor = package_manager_executor
-        self._user_service = user_service
-        self._master_control = master_control
-
-        # G.1/G.2: MessageBus for RPC-based service calls
-        self._bus = message_bus  # MessageBus instance (set by runtime)
-
-        # Phase I: Config Center for default app-skill binding
-        self._config_center = config_center
-        self._app_command_service = AppCommandService()
-        self._app_presenter = AppPresenter()
-        self._app_lifecycle_query_executor = AppLifecycleQueryExecutor(
-            command_service=self._app_command_service,
-            presenter=self._app_presenter,
-            bus=self._bus,
-            resolve_instance_id=self._resolve_instance_id,
-            resolve_display_name=self._resolve_display_name,
-        )
-        self._app_create_modify_executor = AppCreateModifyExecutor(
-            command_service=self._app_command_service,
-            presenter=self._app_presenter,
-            bus=self._bus,
-            config_center=self._config_center,
-            persistence=self._persistence,
-            lifecycle=self._lifecycle,
-            runtime_host=self._runtime_host,
-            app_registry=self._app_registry,
-            catalog=self._catalog,
-            app_refinement_orchestrator=self._app_refinement_orchestrator,
-            resolve_instance_id=self._resolve_instance_id,
-            resolve_display_name=self._resolve_display_name,
-            check_app_modify_permission=self._check_app_modify_permission,
-        )
-        self._app_command_router = AppCommandRouter()
-        self._app_command_recovery = AppCommandRecoveryService(self._app_command_service)
-        self._app_application_service = AppApplicationService(self._app_command_router)
-        self._app_application_service.register_handlers({
-            "create_app": self._app_create_modify_executor.handle_create_app,
-            "start_app": self._app_lifecycle_query_executor.handle_start_app,
-            "stop_app": self._app_lifecycle_query_executor.handle_stop_app,
-            "pause_app": self._app_lifecycle_query_executor.handle_pause_app,
-            "resume_app": self._app_lifecycle_query_executor.handle_resume_app,
-            "query_app": self._app_lifecycle_query_executor.handle_query_app,
-            "list_apps": self._app_lifecycle_query_executor.handle_list_apps,
-            "modify_app": self._app_create_modify_executor.handle_modify_app,
-            "delete_app": self._app_lifecycle_query_executor.handle_delete_app,
-        })
-
-        # Phase F.4: Multi-turn state — track active skill per session
-        self._active_skills: dict[str, dict[str, Any]] = {}
-
-    # -- multi-turn state management (Phase F.4) ----------------------------
-
-    def _get_active_skill(self, session_id: str) -> dict[str, Any] | None:
-        """Get the active skill context for a session, if any."""
-        return self._active_skills.get(session_id)
-
-    def _set_active_skill(self, session_id: str, skill_id: str, state: dict[str, Any] | None = None) -> None:
-        """Mark a skill as active for a session (waiting for user input)."""
-        self._active_skills[session_id] = {
-            "skill_id": skill_id,
-            "state": state or {},
-            "set_at": datetime.now(UTC).isoformat(),
+        # Built-in intent → handler mapping
+        self._handlers: dict[str, Any] = {
+            "greet": self._handle_greet,
+            "query_status": self._handle_query_status,
+            "query_help": self._handle_query_help,
+            "grant_admin": self._handle_permission,
+            "grant_root": self._handle_permission,
+            "revoke_role": self._handle_permission,
+            "show_permissions": self._handle_permission,
+            "list_users": self._handle_permission,
+            "show_self": self._handle_permission,
         }
 
-    def _clear_active_skill(self, session_id: str) -> None:
-        """Clear the active skill context for a session."""
-        self._active_skills.pop(session_id, None)
+    def set_app_registry(self, app_registry: Any) -> None:
+        """Inject AppRegistry for local handlers."""
+        self._app_registry = app_registry
 
-    def get_active_skills(self) -> dict[str, dict[str, Any]]:
-        """Return a snapshot of all active skill states (for debugging/inspection)."""
-        return dict(self._active_skills)
+    def set_orchestrator_bridge(self, bridge: Any) -> None:
+        """Inject GatewayOrchestratorBridge for orchestrated command path."""
+        self._orchestrator_bridge = bridge
 
-    # -- public API ----------------------------------------------------------
+    def set_runtime_host(self, runtime_host: Any) -> None:
+        """Inject RuntimeHost for lifecycle operations."""
+        self._runtime_host = runtime_host
 
-    async def process_message(self, request: ChatMessageRequest) -> ChatMessageResponse:
-        """Process a user message and return a structured reply."""
-        # 1. Get or create session
-        if request.session_id:
-            session = self._memory.get_session(request.session_id)
-            if not session:
-                session = self._memory.create_session(
-                    user_id=request.user_id,
-                    channel=request.channel,
-                    session_id=request.session_id,
-                )
-        else:
-            session = self._memory.create_session(
-                user_id=request.user_id,
-                channel=request.channel,
-            )
+    def set_catalog(self, catalog: Any) -> None:
+        """Inject SystemCatalog for static catalog operations."""
+        self._catalog = catalog
 
-        # 2. Record user message
-        self._memory.record_user_message(session.session_id, request.message)
-
-        # 3. Phase F.4: Check for active skill (multi-turn continuation)
-        active = self._get_active_skill(session.session_id)
-        if active:
-            # Continue the active skill conversation
-            reply = await self._handle_active_skill_continuation(
-                session.session_id, request.message, active,
-            )
-            reply.session_id = session.session_id
-            self._memory.record_reply(session.session_id, reply)
-            self._auto_save()
-            return reply
-
-        # 4. Ensure user exists (self-registration)
-        if self._user_service and request.user_id:
-            try:
-                self._user_service.ensure_user(request.user_id)
-            except Exception:
-                pass  # Best-effort
-
-        # 5. Get available apps for context
-        available_apps = await self._get_available_apps(user_id=request.user_id)
-
-        # 5b. Wire system_catalog into interpreter for asset-aware LLM parsing
-        if self._system_catalog and not hasattr(self._interpreter, "_system_catalog"):
-            self._interpreter.set_system_catalog(self._system_catalog)
-
-        # 6. Wire LLM responder into interpreter (if available)
-        if self._llm_responder and not hasattr(self._interpreter, "_llm_responder"):
-            self._interpreter.set_llm_responder(self._llm_responder)
-
-        # 7. Interpret intent
-        command = self._interpreter.interpret(request.message, available_apps, user_id=request.user_id)
-        command.user_id = request.user_id
-        command.raw_input = request.message
-        self._memory.record_command(session.session_id, command)
-
-        # 7. Execute command → get reply
-        reply = await self._execute_command(command, session.session_id, available_apps)
-        reply.session_id = session.session_id
-
-        # 7b. Phase F.4: Track active skill state based on reply
-        if reply.requires_input:
-            # The handler is waiting for user follow-up — track it
-            self._set_active_skill(session.session_id, command.intent or "unknown", {
-                "parameters": command.parameters,
-                "target_app": command.target_app,
-            })
-        else:
-            # Interaction complete, clear any prior active state
-            self._clear_active_skill(session.session_id)
-
-        # 6b. LLM enhancement (if available) — skip for permission/structured commands
-        _LLM_SKIP_INTENTS = {"grant_admin", "grant_root", "revoke_role", "show_permissions", "list_users", "show_self", "query_status", "list_apps", "greet", "query_help"}
-        if self._llm_responder and getattr(self._llm_responder, 'available', False) and command.intent not in _LLM_SKIP_INTENTS:
-            # Build system context with memory and preferences
-            system_ctx = f"你是 AgentSystem，一个 AI 驱动的系统。你的名字是「{self._name}」。你的职责是帮助用户管理 App。"
-
-            # Inject user interaction preferences
-            if request.user_id:
-                try:
-                    from app.services.system_skills.memory import MemorySkillService
-                    mem_svc = MemorySkillService()
-                    profile = mem_svc.get_profile(request.user_id)
-                    if profile and profile.preferences:
-                        prefs = profile.preferences
-                        parts = []
-                        style = prefs.get('style', [])
-                        if style:
-                            parts.append(f"回复风格：{', '.join(style)}")
-                        lang = prefs.get('language')
-                        if lang:
-                            parts.append(f"回复语言：{lang}")
-                        custom = prefs.get('custom_instructions')
-                        if custom:
-                            parts.append(f"自定义指令：\n{custom}")
-                        tags = prefs.get('custom_tags', [])
-                        if tags:
-                            parts.append(f"用户偏好标签：{', '.join(tags)}")
-                        if parts:
-                            system_ctx += "\n\n用户交互偏好设置：\n" + "\n".join(parts)
-                except Exception:
-                    pass  # Silently ignore preference load failures
-
-            if request.memory_context:
-                system_ctx += f"\n\n用户记忆上下文：{request.memory_context}"
-            enhanced, usage = self._llm_responder.generate_reply(
-                system_context=system_ctx,
-                user_message=request.message,
-                app_context=available_apps,
-                tool_registry=self._tool_registry,
-                executed_tool=command.intent if command.intent not in _LLM_SKIP_INTENTS else None,
-                max_tokens=300,
-            )
-            if enhanced and enhanced.strip():
-                # Keep the structured reply type and actions, but replace text
-                reply.content = enhanced.strip()
-                # Attach usage info if we got it
-                if usage:
-                    reply.usage = usage
-
-        # 7. Record reply
-        self._memory.record_reply(session.session_id, reply)
-
-        # 8. Persist state after each message
-        self._auto_save()
-
-        return reply
-
-    async def execute_action(
+    async def receive_message(
         self,
-        user_id: str,
-        session_id: str,
-        action_id: str,
-        action_params: dict[str, Any] | None = None,
+        request: ChatMessageRequest,
+        available_apps: list[dict[str, Any]] | None = None,
+        log_center=None,
+        **extra_deps: Any,
     ) -> ChatMessageResponse:
-        """Handle a user clicking a button from a previous reply."""
-        session = self._memory.get_session(session_id)
-        if not session:
-            return ChatMessageResponse(
-                type="error",
-                content="会话不存在，请重新开始对话。",
-                session_id=session_id,
-            )
+        """Entry point: handles a single incoming message."""
+        session_id = request.session_id or str(uuid.uuid4())
 
-        params = action_params or {}
-        intent = params.get("intent", "")
-
-        if intent in {"create_app", "modify_app", "delete_app", "start_app", "stop_app", "pause_app", "resume_app", "query_app"} and params.get("confirmed"):
-            recovery = self._app_command_recovery.recover_command(
-                intent=intent,
-                user_id=user_id,
-                session_id=session_id,
-                action_params=params,
-                last_command=session.last_command,
-            )
-            command = recovery.command
-            if command:
-                available_apps = await self._get_available_apps(user_id=command.user_id)
-                reply = await self._app_application_service.handle(command, session_id, available_apps)
-                if reply is not None:
-                    reply.session_id = session_id
-                    self._memory.record_reply(session_id, reply)
-                    return reply
-            error_messages = {
-                "create_app": "没有找到待确认的创建命令。请重新发送创建请求。",
-                "modify_app": "没有找到待确认的修改命令。请重新发送修改请求。",
-                "delete_app": "没有找到待确认的删除命令。请重新发送删除请求。",
-                "start_app": "没有找到待确认的启动命令。请重新发送请求。",
-                "stop_app": "没有找到待确认的停止命令。请重新发送请求。",
-                "pause_app": "没有找到待确认的暂停命令。请重新发送请求。",
-                "resume_app": "没有找到待确认的恢复命令。请重新发送请求。",
-                "query_app": "没有找到待确认的查询命令。请重新发送请求。",
-            }
-            return ChatMessageResponse(
-                type="error",
-                content=error_messages.get(intent, "没有找到待确认的操作命令。请重新发送请求。"),
-                session_id=session_id,
-            )
-
-        if intent == "cancel":
-            reply = ChatMessageResponse(
-                type="text",
-                content="已取消操作。有什么我可以帮你的吗？",
-                session_id=session_id,
-                actions=[
-                    ActionSuggestion(id="list_apps", label="📱 查看 App", action_type="navigate", payload={"intent": "list_apps"}, style="primary"),
-                    ActionSuggestion(id="help", label="❓ 帮助", action_type="navigate", payload={"intent": "query_help"}, style="secondary"),
-                ],
-            )
-            self._memory.record_reply(session_id, reply)
-            return reply
-
-        return ChatMessageResponse(
-            type="text",
-            content=f"收到操作请求 ({action_id})，正在处理...",
+        # Phase 5.1: create or get session (ensures persistence)
+        self._memory.create_session(
+            user_id=request.user_id,
+            channel=request.channel,
             session_id=session_id,
         )
+        self._memory.record_user_message(session_id, request.message)
 
-    def get_last_session(self, user_id: str) -> _SessionRecord | None:
-        """Get the most recently active session for a user."""
-        user_sessions = [
-            s for s in self._memory._sessions.values()
-            if s.user_id == user_id and s.messages
-        ]
-        if not user_sessions:
-            return None
-        return max(user_sessions, key=lambda s: s.last_active_at)
+        # Phase 7.1: interpret intent using interpreter
+        command = self._interpreter.interpret(
+            request.message,
+            available_apps=available_apps or [],
+            user_id=request.user_id,
+        )
 
-    def list_sessions(self, user_id: str | None = None) -> list[SessionSummary]:
-        return self._memory.list_sessions(user_id)
+        # Phase 7.2: enrich command with tools and session state
+        available_apps = available_apps or []
+        command = self._enrich_command(command, session_id, available_apps)
 
-    def delete_session(self, session_id: str) -> bool:
-        return self._memory.delete_session(session_id)
+        # Phase 7.3: execute workflow and return reply
+        result = await self._execute_command(command, session_id, available_apps)
 
-    def get_session_messages(self, session_id: str, limit: int = 20) -> list[dict[str, Any]]:
-        return self._memory.get_recent_messages(session_id, limit)
+        # Phase 7.5: auto-save state if persistence available
+        self._auto_save()
 
-    def get_token_usage(
+        return result
+
+    # Backward compatibility alias
+    process_message = receive_message
+
+    def _enrich_command(
         self,
-        user_id: str | None = None,
-        session_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Aggregate token usage statistics across sessions."""
-        sessions = self._memory.list_sessions(user_id)
-        total_prompt = 0
-        total_completion = 0
-        total_tokens = 0
-        total_calls = 0
-        cached_calls = 0
-        per_session: list[dict] = []
-
-        for summary in sessions:
-            if session_id and summary.session_id != session_id:
-                continue
-            record = self._memory.get_session(summary.session_id)
-            if not record:
-                continue
-
-            session_prompt = 0
-            session_completion = 0
-            session_tokens = 0
-            session_calls = 0
-            session_cached = 0
-
-            # Scan messages for usage data
-            for msg in record.messages:
-                if msg.get("role") != "assistant":
-                    continue
-                usage = msg.get("usage")
-                if usage:
-                    session_prompt += usage.get("prompt_tokens", 0)
-                    session_completion += usage.get("completion_tokens", 0)
-                    session_tokens += usage.get("total_tokens", 0)
-                    session_calls += 1
-                    if usage.get("cached"):
-                        session_cached += 1
-
-            total_prompt += session_prompt
-            total_completion += session_completion
-            total_tokens += session_tokens
-            total_calls += session_calls
-            cached_calls += session_cached
-
-            if session_calls > 0:
-                per_session.append({
-                    "session_id": summary.session_id,
-                    "prompt_tokens": session_prompt,
-                    "completion_tokens": session_completion,
-                    "total_tokens": session_tokens,
-                    "llm_calls": session_calls,
-                    "cached_calls": session_cached,
-                })
-
-        return {
-            "total_prompt_tokens": total_prompt,
-            "total_completion_tokens": total_completion,
-            "total_tokens": total_tokens,
-            "total_llm_calls": total_calls,
-            "cached_calls": cached_calls,
-            "sessions": per_session,
-        }
-
-    # -- multi-turn active skill continuation (Phase F.4) -------------------
-
-    async def _handle_active_skill_continuation(
-        self,
+        command: InterpretedCommand,
         session_id: str,
-        user_message: str,
-        active: dict[str, Any],
-    ) -> ChatMessageResponse:
-        """Handle a user message when there's an active skill waiting for input.
+        available_apps: list[dict[str, Any]],
+    ) -> InterpretedCommand:
+        """Enrich command with session context and available tools."""
+        # Add available apps as context
+        command.context["available_apps"] = available_apps
 
-        This implements Phase F.4 multi-turn state management: instead of
-        re-interpreting the intent, route directly to the active skill.
-        """
-        skill_id = active.get("skill_id", "unknown")
-        state = active.get("state", {})
+        # Add tool registry as context
+        command.context["tool_registry"] = self._tool_registry
 
-        # Route based on which skill is active
-        if skill_id == "create_app" or skill_id == "app_creator":
-            # User is providing details for app creation
-            command = InterpretedCommand(
-                intent="create_app",
-                target_app=state.get("target_app", ""),
-                parameters={**state.get("parameters", {}), "follow_up": user_message},
-                requires_clarification=False,
-            )
-            available_apps = await self._get_available_apps(user_id=command.user_id)
-            reply = await self._app_application_service.handle(command, session_id, available_apps)
-            # If this reply still requires input, keep the active state
-            if reply.requires_input:
-                self._set_active_skill(session_id, "create_app", state)
-            else:
-                self._clear_active_skill(session_id)
-            return reply
+        # Phase 5.1: check memory for similar past interactions
+        if self._memory:
+            similar = self._memory.find_similar(command.raw_input, limit=3)
+            if similar:
+                command.context["similar_past_interactions"] = similar
 
-        elif skill_id in ("start_app", "stop_app", "pause_app", "resume_app", "delete_app", "modify_app", "query_app", "list_apps"):
-            recovery = self._app_command_recovery.recover_from_source(
-                intent=skill_id,
-                user_id="",
-                session_id=session_id,
-                source="active_skill",
-                payload={
-                    "target_app": "" if skill_id == "list_apps" else user_message.strip(),
-                    "target": "" if skill_id == "list_apps" else user_message.strip(),
-                    "parameters": {"from_active_skill": True, **(state.get("parameters") or {})},
-                },
-                last_command=None,
-                force_confirmed=False,
-            )
-            command = recovery.command
-            if command is None:
-                self._clear_active_skill(session_id)
-                return self._error_reply(session_id, "恢复多轮 App 操作失败，请重新发送请求。")
-            available_apps = await self._get_available_apps(user_id=command.user_id)
-            reply = await self._app_application_service.handle(command, session_id, available_apps)
-            if reply is None:
-                reply = await self._execute_command(command, session_id, available_apps)
-            if reply.requires_input:
-                self._set_active_skill(session_id, skill_id, state)
-            else:
-                self._clear_active_skill(session_id)
-            return reply
-
-        else:
-            # Unknown active skill — clear and fall through to normal intent
-            self._clear_active_skill(session_id)
-            available_apps = await self._get_available_apps(user_id=command.user_id)
-            command = self._interpreter.interpret(user_message, available_apps)
-            command.raw_input = user_message
-            self._memory.record_command(session_id, command)
-            reply = await self._execute_command(command, session_id, available_apps)
-            if reply.requires_input:
-                self._set_active_skill(session_id, command.intent or "unknown", {})
-            return reply
-
-    # -- command execution ---------------------------------------------------
+        return command
 
     async def _execute_command(
         self,
@@ -548,20 +182,17 @@ class LightBrainGateway:
         session_id: str,
         available_apps: list[dict[str, Any]],
     ) -> ChatMessageResponse:
-        """Route interpreted command to the right handler.
-
-        G.1/G.2: Prefer the orchestrator bridge. Temporary local handling remains only until direct routing is fully unified.
-        """
-        # ── Local-only intents: skip bridge (avoids RPC timeout) ──────
-        _BRIDGE_SKIP_INTENTS = set()
-
-        # ── G.1/G.2: Try new chain first ──────────────────────────────
-        bridge_eligible_intents = {"create_app", "start_app", "stop_app", "pause_app", "resume_app", "query_app", "list_apps", "delete_app", "modify_app"}
+        """Dispatch command to appropriate handler or skill."""
+        # Bridge-side handler dispatch first
+        bridge_eligible_intents = {
+            "create_app", "start_app", "stop_app", "pause_app",
+            "resume_app", "query_app", "list_apps", "delete_app", "modify_app",
+        }
         if (
             self._orchestrator_bridge
             and self._orchestrator_bridge.is_available()
             and command.intent in bridge_eligible_intents
-            and command.intent not in _BRIDGE_SKIP_INTENTS
+            and command.intent not in {"greet", "query_help", "query_status"}
         ):
             try:
                 bridge_result = await self._orchestrator_bridge.execute_command(
@@ -582,12 +213,7 @@ class LightBrainGateway:
                     "Bridge execution failed: %s", e,
                 )
 
-        app_result = None
-        if self._app_application_service.owns(command.intent):
-            app_result = await self._app_application_service.handle(command, session_id, available_apps)
-        if app_result is not None:
-            return app_result
-
+        # Local handler dispatch
         local_handlers = {
             "greet": self._handle_greet,
             "query_status": self._handle_query_status,
@@ -600,8 +226,9 @@ class LightBrainGateway:
             "show_permissions": self._handle_permission,
             "list_users": self._handle_permission,
             "show_self": self._handle_permission,
+            "list_apps": self._handle_list_apps,
+            "cancel": self._handle_cancel,
             "query_asset_detail": self._handle_query_asset_detail,
-            # Package management tools (source/ installed/ separation)
             "package_list_installed": self._handle_package_list_installed,
             "package_show": self._handle_package_show,
             "package_build": self._handle_package_build,
@@ -609,7 +236,6 @@ class LightBrainGateway:
             "package_uninstall": self._handle_package_uninstall,
             "package_rollback": self._handle_package_rollback,
             "package_search": self._handle_package_search,
-            # Master Control — LLM decides when to call for system-level ops
             "master_execute": self._handle_master_execute,
         }
 
@@ -617,7 +243,6 @@ class LightBrainGateway:
         if handler:
             return await handler(command, session_id, available_apps)
 
-        # Unclear intent
         if command.requires_clarification:
             return ChatMessageResponse(
                 type="text",
@@ -629,15 +254,10 @@ class LightBrainGateway:
 
         return self._error_reply(session_id, f"我还不会处理这个指令。试试说创建 App 或看看我的 App。")
 
-    # -- built-in handlers ---------------------------------------------------
-
-
     def _build_default_tool_registry(self):
-        """Initialize default tool registry with built-in handler descriptions."""
         from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
         registry = ToolRegistry()
 
-        # App lifecycle tools
         registry.register(ToolDefinition(
             name="start_app",
             description="启动一个已安装的 App。用户说'启动XX'、'运行XX'、'开启XX'时使用。",
@@ -659,8 +279,6 @@ class LightBrainGateway:
             ],
             category="app_lifecycle", priority=9,
         ))
-
-        # App management tools
         registry.register(ToolDefinition(
             name="list_apps",
             description="列出用户的所有 App。用户说'看看我的App'、'App列表'时使用。",
@@ -673,8 +291,6 @@ class LightBrainGateway:
             parameters=[ToolParameter("app_name", "string", "要查询的 App 名称", required=True)],
             category="app_management", priority=6,
         ))
-
-        # Permission tools
         registry.register(ToolDefinition(
             name="show_permissions",
             description="查看某个用户的权限。如果不指定用户，查看当前用户自己的权限。",
@@ -687,8 +303,6 @@ class LightBrainGateway:
             parameters=[],
             category="permission", priority=6,
         ))
-
-        # System tools
         registry.register(ToolDefinition(
             name="query_status",
             description="查询系统整体运行状态。用户说'系统状态'、'运行情况'时使用。",
@@ -699,8 +313,7 @@ class LightBrainGateway:
         return registry
 
     def _load_identity(self) -> None:
-        """Load persisted identity, or generate one on first run."""
-        import json, os
+        import os
         identity_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "lightbrain", "identity.json")
         os.makedirs(os.path.dirname(identity_path), exist_ok=True)
         if os.path.exists(identity_path):
@@ -708,7 +321,6 @@ class LightBrainGateway:
                 data = json.load(f)
                 self._name = data.get("name")
         if not self._name:
-            # Generate identity on first run
             import random
             prefixes = ["星", "渊", "岚", "溯", "曜", "穹", "澈", "翎", "朔", "玄", "霁", "衡"]
             suffixes = ["枢", "鉴", "策", "弈", "衡", "衍", "序", "衍", "弦", "翎"]
@@ -721,15 +333,11 @@ class LightBrainGateway:
     ) -> ChatMessageResponse:
         running = [a for a in apps if a.get("status") == "running"]
         total = len(apps)
-
-        # Self-description based on actual responsibilities
         capabilities = self._enumerate_capabilities()
         self_desc = "我是一套 Agent 驱动的系统，我的职责是：\n\n" + capabilities
-
         app_status = f"\n当前有 {total} 个 App"
         if running:
             app_status += f"，其中 {len(running)} 个在运行"
-
         name_line = f"你可以叫我「{self._name}」。\n\n" if self._name else ""
         return ChatMessageResponse(
             type="text",
@@ -745,40 +353,31 @@ class LightBrainGateway:
         )
 
     def _enumerate_capabilities(self) -> str:
-        """List what I can do based on registered command handlers."""
         caps = []
-        app_intents = set()
-        if self._app_application_service:
-            app_intents = self._app_command_router.intents()
-        handler_intents = set(self._handlers.keys()) if hasattr(self, "_handlers") else set()
-        supported = app_intents | handler_intents
+        handler_intents = set(self._handlers.keys())
 
-        if "create_app" in supported:
+        if "create_app" in handler_intents:
             caps.append("🔨 根据你的需求，创建并配置各种功能 App")
-        if "list_apps" in supported:
+        if "list_apps" in handler_intents:
             caps.append("📱 管理你所有的 App —— 查看、启动、停止、暂停、恢复、修改、删除")
-        if "query_status" in supported:
+        if "query_status" in handler_intents:
             caps.append("📊 汇报系统的整体运行状态")
-        if "query_help" in supported:
+        if "query_help" in handler_intents:
             caps.append("❓ 回答你关于我能力的问题")
-        if "query_app" in supported:
+        if "query_app" in handler_intents:
             caps.append("🔍 查询单个 App 的详细信息")
-
         if not caps:
             caps.append("处理你的指令，管理 App 的生命周期")
-
         return "\n".join(caps)
 
-    
     async def _handle_query_status(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
-        # If user asks about a specific app, show its status
         if command.target_app:
             target = self._resolve_instance_id(command.target_app)
             display_name = self._resolve_display_name(target, command.target_app)
 
-            if self._bus:
+            if self._app_lifecycle_query_executor:
                 try:
                     resolution = await self._app_lifecycle_query_executor._resolve_app_operation(target, display_name)
                     if resolution.static_found or resolution.runtime_found:
@@ -803,34 +402,53 @@ class LightBrainGateway:
                             actions = [
                                 ActionSuggestion(id="resume", label="▶️ 恢复", action_type="execute", payload={"intent": "resume_app", "target": display_name}, style="primary"),
                             ]
-                        return self._app_presenter.build_status_card_response(
-                            session_id=session_id,
-                            related_app=display_name,
-                            icon=icon,
-                            label=label,
-                            actions=actions,
-                        )
+                        if self._app_presenter:
+                            return self._app_presenter.build_status_card_response(
+                                session_id=session_id,
+                                related_app=display_name,
+                                icon=icon,
+                                label=label,
+                                actions=actions,
+                            )
+                        else:
+                            return ChatMessageResponse(
+                                type="card",
+                                content=f"{icon} **{display_name}**：{label}",
+                                session_id=session_id,
+                                related_app=display_name,
+                                actions=actions,
+                            )
                 except Exception as e:
-                    import logging
-                    logging.getLogger(__name__).warning(
-                        "App status resolution failed: %s", e,
-                    )
+                    logger.warning("App status resolution failed: %s", e)
 
-            return self._app_command_service.build_degraded_response(
-                intent="query_status",
+            if self._app_command_service:
+                return self._app_command_service.build_degraded_response(
+                    intent="query_status",
+                    session_id=session_id,
+                    related_app=display_name,
+                    reason="查询状态失败",
+                    detail="请稍后重试。",
+                )
+
+            return ChatMessageResponse(
+                type="text",
+                content=f"📊 **{display_name}** 当前未运行。",
                 session_id=session_id,
                 related_app=display_name,
-                reason="查询状态失败",
-                detail="请稍后重试。",
             )
 
-        # No target — show system-wide status
         running = len([a for a in apps if a.get("status") == "running"])
         total = len(apps)
-        return self._app_presenter.build_system_status_response(
+        if self._app_presenter:
+            return self._app_presenter.build_system_status_response(
+                session_id=session_id,
+                total=total,
+                running=running,
+            )
+        return ChatMessageResponse(
+            type="text",
+            content=f"📊 系统状态：共 {total} 个 App，其中 {running} 个运行中。",
             session_id=session_id,
-            total=total,
-            running=running,
         )
 
     async def _handle_query_help(
@@ -856,184 +474,6 @@ class LightBrainGateway:
             ],
         )
 
-
-
-
-
-        # Unreachable legacy path kept below intentionally disabled
-        try:
-            from app.models.app_refinement import SuggestedSkillRefinementClosureRequest
-
-            # -- Step 2: Dry-run analysis — what skills are needed? --
-            dry_request = SuggestedSkillRefinementClosureRequest(
-                blueprint_id=target,
-                name=display_name,
-                goal=f"修改 {display_name}：{modification}",
-                user_id=user_id,
-                install=False,  # Dry run: don't install yet
-                run=False,
-                trigger="manual",
-                reviewer=user_id,
-                version="dry-run",
-                note=f"权限检查：{modification}",
-            )
-            dry_result = self._app_refinement_orchestrator.refine_closure(dry_request)
-
-            # Dry-run stores would-create skills in diagnostics (safe, no side effects)
-            would_create = [d for d in (dry_result.diagnostics or []) if d.get("status") == "would_create"]
-            skill_names = [d["skill_id"] for d in would_create]
-            reused = dry_result.reused_skill_ids or []
-            needs_new_skills = len(skill_names) > 0
-
-            # -- Step 3: If new skills needed but user can't create → block before any creation --
-            if needs_new_skills and not can_create_skills:
-                return ChatMessageResponse(
-                    type="text",
-                    content=(
-                        f"⚠️ **{display_name}** 的修改需要以下新 skill：\n"
-                        f"`{', '.join(skill_names)}`\n\n"
-                        f"**Skill 是系统共有资产**，只有 **管理员及以上** 用户才能创建。\n\n"
-                        f"请联系管理员来帮你创建这些 skill，或者使用已有 skill 重新组合一个 App。"
-                    ),
-                    session_id=session_id,
-                    related_app=display_name,
-                )
-
-            # -- Step 4: Permission passed — execute the real modification --
-            if needs_new_skills:
-                # Admin creating new skills — proceed with full execution
-                request = SuggestedSkillRefinementClosureRequest(
-                    blueprint_id=target,
-                    name=display_name,
-                    goal=f"修改 {display_name}：{modification}",
-                    user_id=user_id,
-                    install=True,
-                    run=False,
-                    trigger="manual",
-                    reviewer=user_id,
-                    version="modified-1",
-                    note=f"用户修改：{modification}",
-                )
-                result = self._app_refinement_orchestrator.refine_closure(request)
-            else:
-                # Only reusing existing skills — use dry_result as the result
-                result = dry_result
-
-            # -- Step 3: Success --
-            summary_parts = [f"✅ **{display_name}** 修改完成！"]
-            if skill_names:
-                summary_parts.append(f"🆕 新生成 skill：{', '.join(skill_names)}")
-            if reused:
-                summary_parts.append(f"♻️ 复用已有 skill：{', '.join(reused)}")
-            summary_parts.append(f"\n修改内容：{modification}")
-
-            if result.diagnostics:
-                warnings = [d.get("message", "未知问题") for d in result.diagnostics]
-                summary_parts.append(f"\n⚠️ 注意：{'；'.join(warnings)}")
-
-            return ChatMessageResponse(
-                type="text",
-                content="\n".join(summary_parts),
-                session_id=session_id,
-                related_app=display_name,
-                actions=[
-                    ActionSuggestion(
-                        id="list_apps", label="📱 查看 App", action_type="navigate",
-                        payload={"intent": "list_apps"}, style="secondary",
-                    ),
-                ],
-            )
-
-        except Exception as e:
-            return ChatMessageResponse(
-                type="text",
-                content=f"❌ 修改 **{display_name}** 时出错：{e}\n\n请重试或联系系统管理员。",
-                session_id=session_id,
-                related_app=display_name,
-            )
-
-    # ===========================================================================
-    # Permission helpers for App modification
-    # ===========================================================================
-
-    _ROLE_LEVEL = {"user": 0, "admin": 1, "root": 2}
-
-    def _check_app_modify_permission(self, user_id: str, app_id: str) -> dict:
-        """Check if user can modify an App.
-
-        Returns dict with:
-        - allowed: bool
-        - can_create_skills: bool (admin+ only)
-        - message: str (reason if denied)
-        """
-        try:
-            from app.services.user_service import Role, UserService
-            user_svc = self._get_user_service()
-            if not user_svc:
-                # No user service = allow (fallback for single-user mode)
-                return {"allowed": True, "can_create_skills": True, "message": ""}
-
-            user = user_svc.get_user(user_id)
-            if not user:
-                return {"allowed": False, "can_create_skills": False,
-                        "message": f"⚠️ 用户 '{user_id}' 未注册，无法执行修改操作。"}
-
-            user_level = self._ROLE_LEVEL.get(user.role, 0)
-            is_admin = user.is_admin
-
-            # Find app owner role
-            app_owner_role = self._get_app_owner_role(app_id)
-            app_level = self._ROLE_LEVEL.get(app_owner_role, 0)
-
-            if user_level < app_level:
-                return {
-                    "allowed": False, "can_create_skills": False,
-                    "message": (
-                        f"⚠️ 你没有权限修改 **{app_id}**。\n\n"
-                        f"该 App 的创建者权限级别为 **{app_owner_role}**，\n"
-                        f"只有权限 ≥ {app_owner_role} 的用户才能修改它。\n"
-                        f"你的角色: {user.role}"
-                    ),
-                }
-
-            return {"allowed": True, "can_create_skills": is_admin, "message": ""}
-
-        except Exception as e:
-            return {"allowed": False, "can_create_skills": False,
-                    "message": f"⚠️ 权限检查失败：{e}"}
-
-    def _get_user_service(self):
-        """Get UserService from available services."""
-        if hasattr(self, "_permission_skill") and self._permission_skill:
-            return getattr(self._permission_skill, "_user_service", None)
-        return None
-
-    def _get_app_owner_role(self, app_id: str) -> str:
-        """Get the owner role of an App."""
-        try:
-            if self._lifecycle:
-                instance = self._lifecycle.get_instance(app_id)
-                if instance and hasattr(instance, "owner_user_id"):
-                    # Look up the owner's role
-                    user_svc = self._get_user_service()
-                    if user_svc:
-                        owner = user_svc.get_user(instance.owner_user_id)
-                        if owner:
-                            return owner.role
-        except Exception:
-            pass
-        # Fallback: check blueprint
-        try:
-            if self._app_registry:
-                bp = self._app_registry.get_blueprint(app_id)
-                if bp and hasattr(bp, "owner_role"):
-                    return bp.owner_role
-        except Exception:
-            pass
-        return "user"  # Default fallback
-
-    
-
     async def _handle_modify_interactive_app(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
@@ -1042,7 +482,6 @@ class LightBrainGateway:
 
         try:
             if hasattr(self, "_interactive_app_workflow") and self._interactive_app_workflow:
-                # Execute self-modification workflow
                 result = self._interactive_app_workflow.modify_app(
                     user_id=command.user_id or "web-user",
                     user_request=user_request,
@@ -1058,118 +497,32 @@ class LightBrainGateway:
                             f"请刷新页面查看新界面。",
                     session_id=session_id,
                     actions=[
-                        ActionSuggestion(
-                            id="refresh_page", label="🔄 刷新页面", action_type="navigate",
-                            payload={"intent": "refresh", "url": "/"}, style="primary",
-                        ),
+                        ActionSuggestion(id="query_status", label="📊 系统状态", action_type="execute", payload={"intent": "query_status"}, style="secondary"),
                     ],
-                    requires_input=False,
                 )
             else:
                 return ChatMessageResponse(
                     type="text",
-                    content=f"🔧 自修改功能尚未完全启用。\n\n"
-                            f"你的需求是：{user_request}\n"
-                            f"我已记录这个需求，后续会实现。",
+                    content="⚠️ 交互式 App 修改工作流未加载，无法执行自修改。",
                     session_id=session_id,
                     requires_input=False,
                 )
-        except Exception as exc:
+        except Exception as e:
             return ChatMessageResponse(
-                type="error",
-                content=f"❌ 界面修改失败: {exc}",
+                type="text",
+                content=f"❌ 修改失败: {str(e)}\n\n请稍后重试。",
                 session_id=session_id,
+                requires_input=False,
             )
 
-    # -- helpers -------------------------------------------------------------
-
-    async def _get_available_apps(self, user_id: str | None = None) -> list[dict[str, Any]]:
-        """Fetch app list from lifecycle (primary source) + catalog/registry (supplemental).
-        
-        If user_id is provided, only return apps owned by that user.
-        """
-        apps: list[dict[str, Any]] = []
-        seen_ids: set[str] = set()
-
-        # Primary: lifecycle instances (source of truth for runtime state)
-        if self._lifecycle and hasattr(self._lifecycle, "list_instances"):
-            try:
-                for inst in self._lifecycle.list_instances():
-                    app_id = getattr(inst, "id", "")
-                    if app_id in seen_ids:
-                        continue
-                    inst_owner = getattr(inst, "owner_user_id", "")
-                    # Filter by user_id if provided
-                    if user_id and inst_owner and inst_owner != user_id:
-                        continue
-                    seen_ids.add(app_id)
-                    name = self._resolve_display_name(app_id, getattr(inst, "blueprint_id", ""))
-                    apps.append({
-                        "app_id": app_id,
-                        "name": name,
-                        "description": "",
-                        "status": getattr(inst, "status", "unknown"),
-                        "blueprint_id": getattr(inst, "blueprint_id", ""),
-                        "owner_user_id": inst_owner,
-                    })
-            except Exception:
-                pass
-
-        # Supplemental: catalog entries (pre-installed system apps)
-        if self._catalog:
-            try:
-                entries = self._catalog.list_apps()
-                for entry in entries:
-                    app_id = getattr(entry, "app_id", "")
-                    if app_id in seen_ids:
-                        continue
-                    seen_ids.add(app_id)
-                    apps.append({
-                        "app_id": app_id,
-                        "name": getattr(entry, "name", app_id),
-                        "description": getattr(entry, "description", ""),
-                        "status": "installed",
-                    })
-            except Exception:
-                pass
-
-        # Supplemental: registry entries (blueprints without instances yet)
-        if self._app_registry and hasattr(self._app_registry, "list_entries"):
-            try:
-                entries = self._app_registry.list_entries()
-                for entry in entries:
-                    name = getattr(entry, "app_id", str(entry))
-                    if name in seen_ids:
-                        continue
-                    seen_ids.add(name)
-                    apps.append({
-                        "app_id": name,
-                        "name": name,
-                        "description": "",
-                        "status": "draft",
-                    })
-            except Exception:
-                pass
-
-        return apps
-
     def _resolve_instance_id(self, user_input: str) -> str:
-        """Resolve a user-provided app name to the actual instance ID.
-
-        Handles cases where the user says 'translator_app' but the instance
-        ID is 'translator-app', or vice versa.
-        """
         if not self._lifecycle or not hasattr(self._lifecycle, "list_instances"):
             return user_input
-
-        # Direct match
         try:
             self._lifecycle.get_instance(user_input)
             return user_input
         except Exception:
             pass
-
-        # Normalize: try replacing _ with - and vice versa
         normalized = user_input.replace("_", "-")
         if normalized != user_input:
             try:
@@ -1177,7 +530,6 @@ class LightBrainGateway:
                 return normalized
             except Exception:
                 pass
-
         normalized2 = user_input.replace("-", "_")
         if normalized2 != user_input:
             try:
@@ -1185,8 +537,6 @@ class LightBrainGateway:
                 return normalized2
             except Exception:
                 pass
-
-        # Fuzzy: check if any instance ID contains the user input (minus common suffixes)
         try:
             for inst in self._lifecycle.list_instances():
                 inst_id = getattr(inst, "id", "")
@@ -1194,22 +544,17 @@ class LightBrainGateway:
                     return inst_id
         except Exception:
             pass
-
         return user_input
 
     @staticmethod
     def _resolve_display_name(instance_id: str, blueprint_id: str) -> str:
-        """Derive a user-friendly display name from an instance ID."""
         name = instance_id
-        # Handle colon-separated suffixes (e.g., "bp.usable.alpha:usable-alpha-user")
         if ":" in name:
             name = name.split(":")[0]
-        # Strip common prefixes
         for prefix in ("bp.", "app.", "bp-"):
             if name.startswith(prefix):
                 name = name[len(prefix):]
                 break
-        # Convert hyphens to underscores for user-friendly display
         name = name.replace("-", "_")
         return name
 
@@ -1222,22 +567,14 @@ class LightBrainGateway:
         )
 
     async def _handle_permission(
-        self,
-        command: InterpretedCommand,
-        session_id: str,
-        available_apps: list[dict[str, Any]],
+        self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
-        """Handle permission management commands through the chat interface."""
         if not self._permission_skill:
             return self._error_reply(session_id, "⚠️ 权限管理模块未加载。")
-
         user_id = command.user_id or ""
         if not user_id:
             return self._error_reply(session_id, "⚠️ 无法识别用户身份。")
-
-        # Import and use the permission skill parser
         from app.services.system_skills.permission import parse_permission_command
-
         cmd = parse_permission_command(command.raw_input or "", user_id)
         if not cmd:
             return ChatMessageResponse(
@@ -1246,9 +583,7 @@ class LightBrainGateway:
                 session_id=session_id,
                 requires_input=True,
             )
-
         result = self._permission_skill.execute(cmd, user_id)
-
         if result.get("success"):
             return ChatMessageResponse(
                 type="text",
@@ -1260,19 +595,10 @@ class LightBrainGateway:
             return self._error_reply(session_id, result.get("message", "操作失败"))
 
     async def _handle_query_asset_detail(
-        self,
-        command: InterpretedCommand,
-        session_id: str,
-        available_apps: list[dict[str, Any]],
+        self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
-        """Handle query_asset_detail tool call from LLM.
-        
-        This is called when the LLM decides it needs to look up detailed usage
-        instructions for a specific asset.
-        """
         caller_id = f"user.{command.user_id}" if command.user_id else "system"
         asset_id = command.parameters.get("asset_id") or command.target_app
-        
         if not asset_id:
             return ChatMessageResponse(
                 type="text",
@@ -1280,7 +606,6 @@ class LightBrainGateway:
                 session_id=session_id,
                 requires_input=True,
             )
-        
         if self._asset_tool_executor:
             result = self._asset_tool_executor.execute(
                 "query_asset_detail",
@@ -1301,7 +626,6 @@ class LightBrainGateway:
                     if output_schema:
                         line += f"\n  输出: {json.dumps(output_schema, ensure_ascii=False)}"
                     interface_lines.append(line)
-                
                 content = (
                     f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
                     f"{data.get('description', '')}\n\n"
@@ -1321,10 +645,7 @@ class LightBrainGateway:
                     session_id=session_id,
                     requires_input=False,
                 )
-        
         return self._error_reply(session_id, "⚠️ 资产查询模块未加载。")
-
-    # ---- Package Management Handlers (source/ installed/ separation) ----
 
     def _handle_package_list_installed(self, command, session_id, apps):
         if not self._package_manager_executor:
@@ -1465,29 +786,18 @@ class LightBrainGateway:
         return self._error_reply(session_id, f"❌ 搜索失败: {result.error}")
 
     def _handle_master_execute(self, command, session_id, apps):
-        """Handle master_execute tool call — LLM chooses to invoke MasterControl.
-
-        Interaction layer is free; this is an optional tool LLM can select
-        for system-level operations (create/modify/delete apps, skills,
-        permissions, system suggestions, etc.).
-        """
         if not self._master_control:
             return self._error_reply(session_id, "⚠️ 主控模块未加载。")
-
         operation = command.parameters.get("operation") or command.intent
         user_id = command.user_id or "system"
         target = command.parameters.get("target", "")
-
-        # Resolve user role from permission service
-        user_role = "user"  # default
+        user_role = "user"
         if self._permission_skill and hasattr(self._permission_skill, "get_user_role"):
             try:
                 user_role = self._permission_skill.get_user_role(user_id)
             except Exception:
                 pass
-
         params = {k: v for k, v in command.parameters.items() if k != "operation"}
-
         import asyncio
         result = self._master_control.execute(
             operation=operation,
@@ -1496,20 +806,15 @@ class LightBrainGateway:
             target=target,
             params=params,
         )
-
-        # If result is a coroutine (async worker), await it
         if asyncio.iscoroutine(result):
             try:
                 result = asyncio.get_event_loop().run_until_complete(result)
             except RuntimeError:
-                # No event loop — treat as sync
                 pass
-
         if isinstance(result, dict):
             status = result.get("status", "unknown")
             message = result.get("message", "")
             data = result.get("data")
-
             if status == "denied":
                 required = result.get("required_role", "")
                 return ChatMessageResponse(
@@ -1537,21 +842,93 @@ class LightBrainGateway:
                 )
             else:
                 return self._error_reply(session_id, f"❌ {message or f'操作失败: {status}'}")
-
         return self._error_reply(session_id, "⚠️ 主控返回了意外结果。")
 
+    async def _handle_list_apps(
+        self, command: InterpretedCommand, session_id: str, apps: list[dict],
+    ) -> ChatMessageResponse:
+        """Handle list_apps intent — show available apps."""
+        if not apps:
+            return ChatMessageResponse(
+                type="text",
+                content="📱 你还没有任何 App。\n\n对我说「帮我建一个监控 App」来创建你的第一个应用。",
+                session_id=session_id,
+                actions=[
+                    ActionSuggestion(id="create_app", label="➕ 创建 App", action_type="navigate", payload={"intent": "create_app"}, style="primary"),
+                ],
+            )
+        lines = ["📱 你的 App 列表：\n"]
+        for app in apps:
+            status = app.get("status", "unknown")
+            name = app.get("display_name") or app.get("name") or app.get("id", "未知")
+            icon = {"running": "🟢", "paused": "🟡", "stopped": "🔴"}.get(status, "⚪")
+            lines.append(f"{icon} {name} ({status})")
+        return ChatMessageResponse(
+            type="list",
+            content="\n".join(lines),
+            session_id=session_id,
+        )
+
+    async def _handle_cancel(
+        self, command: InterpretedCommand, session_id: str, apps: list[dict],
+    ) -> ChatMessageResponse:
+        """Handle cancel intent — acknowledge cancellation."""
+        return ChatMessageResponse(
+            type="text",
+            content="✅ 已取消当前操作。",
+            session_id=session_id,
+        )
+
     def _auto_save(self) -> None:
-        """Auto-save state if persistence service is available."""
         if self._persistence is None:
             return
         try:
             self._persistence.save_state(
                 lifecycle=self._lifecycle,
-                runtime_host=self._runtime_host,
-                registry=self._app_registry,
-                catalog=self._catalog,
                 light_brain_memory=self._memory,
             )
-        except Exception:
-            # Never let persistence failures break the interaction
-            pass
+        except Exception as e:
+            logger.warning("Failed to auto-save state: %s", e)
+
+    # Backward compatibility: session management delegated to memory
+    def list_sessions(self, user_id: str | None = None) -> list[dict[str, Any]]:
+        """List sessions for a user (or all if user_id is None)."""
+        if not self._memory:
+            return []
+        return self._memory.list_sessions(user_id)
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session by ID."""
+        if not self._memory:
+            return False
+        return self._memory.delete_session(session_id)
+
+    async def execute_action(
+        self,
+        user_id: str,
+        session_id: str,
+        action_id: str,
+        action_params: dict[str, Any] | None = None,
+    ) -> ChatMessageResponse:
+        """Execute an action from a previous reply (button click)."""
+        action_params = action_params or {}
+        intent = action_params.get("intent", "unclear")
+        target = action_params.get("target", "")
+
+        from app.models.chat import ChatMessageRequest
+        request = ChatMessageRequest(
+            user_id=user_id,
+            channel="action",
+            message=f"action:{action_id}",
+            session_id=session_id,
+        )
+        # Reuse receive_message with the intent from action
+        command = self._interpreter.interpret(
+            request.message,
+            available_apps=[],
+            user_id=user_id,
+        )
+        command.intent = intent
+        if target:
+            command.target_app = target
+        return await self._execute_command(command, session_id, [])

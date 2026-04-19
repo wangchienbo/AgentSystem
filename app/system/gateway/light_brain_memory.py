@@ -102,41 +102,40 @@ class _SessionRecord:
         return record
 
     def needs_compaction(self) -> bool:
-        return len(self.messages) >= self.compact_threshold
+        return len(self.messages) > self.compact_threshold
 
     def compact(self) -> None:
-        """Keep the first 5 and last 20 messages, insert a compaction marker."""
-        if len(self.messages) <= self.compact_threshold:
-            return
-        first = self.messages[:5]
-        last = self.messages[-20:]
-        self.messages = first + [{
-            "role": "system",
-            "content": f"[Earlier {len(self.messages) - 25} messages compacted]",
-            "timestamp": datetime.now(UTC).isoformat(),
-        }] + last
+        """Simple compaction: drop oldest messages beyond threshold."""
+        if len(self.messages) > self.compact_threshold:
+            self.messages = self.messages[-self.compact_threshold:]
 
 
 # ---------------------------------------------------------------------------
-# LightBrain Memory service
+# Errors
 # ---------------------------------------------------------------------------
 
 class LightBrainMemoryError(Exception):
-    pass
+    """Error raised by LightBrainMemory operations."""
 
+
+# ---------------------------------------------------------------------------
+# LightBrainMemory service
+# ---------------------------------------------------------------------------
 
 class LightBrainMemory:
-    """Persistent session and state manager for the LightBrain.
+    """In-memory session store with optional disk persistence.
 
-    All session data is written to disk immediately so that a system
-    restart does not lose conversation context.
+    Phase 5.1: session lifecycle management + persistence layer.
     """
 
-    def __init__(self, data_dir: str | None = None) -> None:
-        base = data_dir or os.environ.get("AGENTSYSTEM_DATA_DIR", "data")
-        self._sessions_dir = Path(base) / "lightbrain" / "sessions"
-        self._sessions_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, data_dir: str | Path | None = None) -> None:
         self._sessions: dict[str, _SessionRecord] = {}
+        self._data_dir = Path(data_dir) if data_dir else Path.home() / ".lightbrain" / "sessions"
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        self._sessions_dir = self._data_dir / "sessions"
+        self._sessions_dir.mkdir(parents=True, exist_ok=True)
+        self._identity_path = self._data_dir / "identity.json"
+        self._identity: dict[str, Any] = {}
         self._load_existing_sessions()
 
     # -- session lifecycle --------------------------------------------------
@@ -220,24 +219,55 @@ class LightBrainMemory:
                 for msg in record.messages:
                     all_msgs.append((msg.get("timestamp", ""), msg))
         all_msgs.sort(key=lambda x: x[0], reverse=True)
-        return [msg for _, msg in all_msgs[:limit]]
+        return [m for _, m in all_msgs[:limit]]
 
-    def summarize_recent_activity(self, user_id: str, max_msgs: int = 20) -> str:
-        """Generate a text summary of user's recent conversation activity."""
-        msgs = self.get_user_recent_messages(user_id, limit=max_msgs)
-        if not msgs:
-            return ""
-        # Reverse to chronological order
-        msgs = list(reversed(msgs))
-        user_turns = [m for m in msgs if m.get("role") == "user"]
-        assistant_turns = [m for m in msgs if m.get("role") == "assistant"]
-        parts = [f"最近对话 {len(msgs)} 条（用户{len(user_turns)}条，助手{len(assistant_turns)}条）"]
-        # Summarize user's key topics (last 10 user messages)
-        for m in user_turns[-10:]:
-            content = m.get("content", "")[:100]
-            if content:
-                parts.append(f"  用户：{content}")
-        return "\n".join(parts)
+    def find_similar(self, raw_input: str | None, limit: int = 3) -> list[dict[str, Any]]:
+        """Find similar past interactions (placeholder for Phase 5.1)."""
+        # Phase 5.1: currently no-op, returns empty list
+        # Future: semantic similarity search over message history
+        return []
+
+    # -- identity -----------------------------------------------------------
+
+    def save_identity(self, identity: dict[str, Any]) -> None:
+        """Save gateway identity metadata."""
+        self._identity = identity
+        try:
+            self._identity_path.write_text(json.dumps(identity, indent=2, ensure_ascii=False))
+        except OSError as e:
+            raise LightBrainMemoryError(f"Failed to persist identity: {e}")
+
+    def load_identity(self) -> dict[str, Any] | None:
+        """Load gateway identity metadata."""
+        if self._identity:
+            return self._identity
+        if self._identity_path.exists():
+            try:
+                self._identity = json.loads(self._identity_path.read_text())
+                return self._identity
+            except Exception:
+                return None
+        return None
+
+    def export_state(self) -> dict[str, Any]:
+        """Export full memory state for snapshot persistence."""
+        return {
+            "sessions": {sid: s.to_dict() for sid, s in self._sessions.items()},
+            "identity": self._identity,
+            "exported_at": datetime.now(UTC).isoformat(),
+        }
+
+    def restore_from(self, snapshot: dict[str, Any] | None) -> None:
+        """Restore memory state from a snapshot."""
+        if not snapshot:
+            return
+        sessions = snapshot.get("sessions", {})
+        for sid, data in sessions.items():
+            try:
+                self._sessions[sid] = _SessionRecord.from_dict(data)
+            except Exception:
+                continue
+        self._identity = snapshot.get("identity", {})
 
     # -- persistence --------------------------------------------------------
 

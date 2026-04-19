@@ -113,6 +113,7 @@ class InterpretedCommand(BaseModel):
     raw_interpretation: str = Field(default="", description="LLM/rule reasoning trace for debugging")
     user_id: str | None = Field(default=None, description="User who issued this command")
     raw_input: str | None = Field(default=None, description="Original user message")
+    context: dict[str, Any] = Field(default_factory=dict, description="Runtime context for enrichment")
 
 
 # ---------------------------------------------------------------------------
