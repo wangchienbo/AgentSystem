@@ -7,6 +7,7 @@ Provides:
 """
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -74,8 +75,39 @@ def make_solidify_workflow_tool() -> AssetToolDefinition:
     )
 
 
+def make_list_assets_tool() -> AssetToolDefinition:
+    return AssetToolDefinition(
+        name="list_assets",
+        description="列出当前可发现的运行态资产摘要。",
+        parameters=[ToolParam("filter", "string", "可选过滤词", required=False)],
+    )
+
+
+def make_query_asset_info_tool() -> AssetToolDefinition:
+    return AssetToolDefinition(
+        name="query_asset_info",
+        description="查询某个运行态资产的正式描述信息。",
+        parameters=[ToolParam("asset_id", "string", "运行态资产ID", required=True)],
+    )
+
+
+def make_call_asset_method_tool() -> AssetToolDefinition:
+    return AssetToolDefinition(
+        name="call_asset_method",
+        description="通过运行态资产安全映射入口调用某个资产方法。",
+        parameters=[
+            ToolParam("asset_id", "string", "运行态资产ID", required=True),
+            ToolParam("method", "string", "能力方法名", required=True),
+            ToolParam("params", "object", "调用参数", required=False),
+        ],
+    )
+
+
 def make_all_asset_tools() -> list[AssetToolDefinition]:
     return [
+        make_list_assets_tool(),
+        make_query_asset_info_tool(),
+        make_call_asset_method_tool(),
         make_query_asset_detail_tool(),
     ]
 
@@ -109,6 +141,12 @@ class AssetToolExecutor:
 
     def execute(self, tool_name: str, arguments: dict[str, Any], caller_name: str) -> ToolResult:
         try:
+            if tool_name == "list_assets":
+                return self._list_assets(arguments, caller_name)
+            if tool_name == "query_asset_info":
+                return self._query_asset_info(arguments, caller_name)
+            if tool_name == "call_asset_method":
+                return self._call_asset_method(arguments, caller_name)
             if tool_name == "query_asset_detail":
                 return self._query_asset_detail(arguments, caller_name)
             if tool_name == "execute_path_by_key":
@@ -119,6 +157,41 @@ class AssetToolExecutor:
         except Exception as e:
             logger.exception("Asset tool execution failed: %s", tool_name)
             return ToolResult(success=False, error=str(e))
+
+    def _list_assets(self, args: dict, caller_name: str) -> ToolResult:
+        if not hasattr(self._registry, "list_assets"):
+            return ToolResult(success=False, error="Runtime asset listing is not available")
+        filter_text = str(args.get("filter", "") or "").lower()
+        items = []
+        for asset in self._registry.list_assets():
+            payload = asset.model_dump(mode="json") if hasattr(asset, "model_dump") else asset
+            if filter_text and filter_text not in json.dumps(payload, ensure_ascii=False).lower():
+                continue
+            items.append(payload)
+        return ToolResult(success=True, data=items)
+
+    def _query_asset_info(self, args: dict, caller_name: str) -> ToolResult:
+        asset_id = args.get("asset_id")
+        if not asset_id:
+            return ToolResult(success=False, error="asset_id is required")
+        if not hasattr(self._registry, "query_asset_info"):
+            return ToolResult(success=False, error="Runtime asset query is not available")
+        result = self._registry.query_asset_info(asset_id)
+        if result is None:
+            return ToolResult(success=False, error=f"Asset {asset_id} not found")
+        return ToolResult(success=True, data=result)
+
+    def _call_asset_method(self, args: dict, caller_name: str) -> ToolResult:
+        asset_id = args.get("asset_id")
+        method = args.get("method")
+        params = args.get("params") or {}
+        if not asset_id or not method:
+            return ToolResult(success=False, error="asset_id and method are required")
+        if not hasattr(self._registry, "call_asset_method"):
+            return ToolResult(success=False, error="Runtime asset call is not available")
+        result = self._registry.call_asset_method(asset_id=asset_id, method=method, params=params)
+        ok = bool(result.get("ok")) if isinstance(result, dict) else False
+        return ToolResult(success=ok, data=result if ok else None, error="" if ok else str(result.get("error", "asset method call failed")))
 
     def _query_asset_detail(self, args: dict, caller_name: str) -> ToolResult:
         asset_id = args.get("asset_id")

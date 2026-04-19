@@ -499,6 +499,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.system_catalog import SystemCatalog, CatalogEntry
     from app.services.asset_center import AssetCenter
     from app.services.runtime_center import RuntimeCenter
+    from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     system_catalog = SystemCatalog()
     asset_center = AssetCenter(
@@ -509,6 +510,48 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     )
     runtime_center = RuntimeCenter(data_file=os.path.join(_project_root, "data", "runtime_center.json"))
     asset_center.discover()
+
+    def _register_core_runtime_assets() -> None:
+        core_assets = [
+            ("asset:master_control:v1", "master_control", "Central execution and worker governance", master_control, [
+                AssetCapability(name="dispatch worker action", description="Dispatch a worker action through master control", method="dispatch", side_effect_level="admin", permission_hint="admin"),
+            ]),
+            ("asset:config_center:v1", "config_center", "Bootstrap configuration source", config_center, [
+                AssetCapability(name="get config", description="Read config center values", method="get_config", side_effect_level="read"),
+            ]),
+            ("asset:runtime_center:v1", "runtime_center", "Runtime source of truth for live assets", runtime_center, [
+                AssetCapability(name="list assets", description="List runtime assets", method="list_assets", side_effect_level="read"),
+                AssetCapability(name="query asset info", description="Query one runtime asset", method="query_asset_info", side_effect_level="read"),
+                AssetCapability(name="call asset method", description="Call a runtime asset capability through mapped entry", method="call_asset_method", side_effect_level="write", permission_hint="admin"),
+            ]),
+            ("asset:model_router:v1", "model_router", "Model routing and selection", model_router, [
+                AssetCapability(name="resolve model", description="Resolve effective model for a caller", method="resolve_model", side_effect_level="read"),
+            ]),
+            ("asset:tool_calling_engine:v1", "tool_calling_engine", "LLM tool execution layer", tool_calling_engine, [
+                AssetCapability(name="run tool call", description="Run a structured tool call turn", method="run_tool_call", side_effect_level="write"),
+            ]),
+        ]
+        for asset_id, name, description, service, capabilities in core_assets:
+            runtime_center.register_asset(
+                AssetDescriptor(
+                    asset_id=asset_id,
+                    asset_type=AssetType.SERVICE,
+                    asset_kind=AssetKind.CORE_RUNTIME,
+                    version="1.0.0",
+                    owner_type="system",
+                    owner_id="system",
+                    source_of_truth="runtime",
+                    status=AssetState.ACTIVE,
+                    capabilities=capabilities,
+                    invoke_contract={"kind": "service", "service_name": name},
+                    health_contract={"heartbeat": False},
+                    name=name,
+                    description=description,
+                    tags=["phase-h", "core-runtime"],
+                    metadata={"python_type": type(service).__name__},
+                )
+            )
+
 
     # Wire Phase N assets into services created earlier (couldn't reference these at creation time)
     app_installer._asset_center = asset_center
@@ -755,6 +798,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     light_brain_interpreter = LightBrainInterpreter()
     llm_responder = LLMResponder(model_router=model_router)
     external_model_review = ExternalModelReviewService(model_router=model_router)
+    # Register core runtime assets after core services exist
+    _register_core_runtime_assets()
+
     light_brain_gateway = LightBrainGateway(
         memory=light_brain_memory,
         interpreter=light_brain_interpreter,
