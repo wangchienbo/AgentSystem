@@ -16,6 +16,7 @@ from typing import Any
 from app.services.asset_center import AssetCenter
 from app.services.resource_center import ResourceCenter
 from app.services.asset_registry import AssetRegistry
+from app.services.runtime_center import RuntimeCenter
 
 
 class AssetResourceQueryTools:
@@ -30,20 +31,24 @@ class AssetResourceQueryTools:
         asset_center: AssetCenter | None = None,
         asset_registry: AssetRegistry | None = None,
         resource_center: ResourceCenter | None = None,
+        runtime_center: RuntimeCenter | None = None,
     ) -> None:
         self._asset_center = asset_center
         self._asset_registry = asset_registry
         self._resource_center = resource_center
+        self._runtime_center = runtime_center
 
     def set_dependencies(
         self,
         asset_center: AssetCenter,
         asset_registry: AssetRegistry,
         resource_center: ResourceCenter,
+        runtime_center: RuntimeCenter | None = None,
     ) -> None:
         self._asset_center = asset_center
         self._asset_registry = asset_registry
         self._resource_center = resource_center
+        self._runtime_center = runtime_center
 
     # ---- Layer 1: Asset Queries ----
 
@@ -117,11 +122,12 @@ class AssetResourceQueryTools:
         return False
 
     def query_asset_detail(self, asset_id: str) -> dict[str, Any] | None:
-        """Get L2 detailed information for a specific asset.
+        """Get L2 detailed information for a specific asset."""
+        if self._runtime_center is not None:
+            runtime_detail = self._runtime_center.query_asset_info(asset_id)
+            if runtime_detail is not None:
+                return runtime_detail
 
-        Returns full manifest, input/output schema, dependencies, call instructions.
-        LLM calls this AFTER identifying a candidate asset from query_visible_assets.
-        """
         if not self._asset_center:
             return None
 

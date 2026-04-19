@@ -2,52 +2,32 @@ from __future__ import annotations
 
 import json
 import threading
-from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
-
-@dataclass
-class RuntimeEntry:
-    asset_id: str
-    version: str
-    pid: int
-    endpoint: str
-    owner: str
-    status: str = "running"
-    started_at: str = ""
-    last_heartbeat: str = ""
-
-    def to_dict(self) -> dict[str, object]:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, object]) -> "RuntimeEntry":
-        return cls(
-            asset_id=str(data.get("asset_id", "")),
-            version=str(data.get("version", "0.0.0")),
-            pid=int(data.get("pid", 0) or 0),
-            endpoint=str(data.get("endpoint", "")),
-            owner=str(data.get("owner", "system")),
-            status=str(data.get("status", "unknown")),
-            started_at=str(data.get("started_at", "")),
-            last_heartbeat=str(data.get("last_heartbeat", "")),
-        )
+from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType, is_valid_asset_state_transition
 
 
 class RuntimeCenter:
-    """Dynamic runtime registry for running assets.
-
-    Stores runtime-only process state in `data/runtime_center.json`.
-    This is intentionally separate from AssetCenter, which manages static
-    source/build/install lifecycle.
-    """
+    """Runtime source of truth for live assets under the Phase H contract."""
 
     def __init__(self, data_file: str = "data/runtime_center.json") -> None:
         self._data_file = Path(data_file)
         self._lock = threading.RLock()
-        self._entries: dict[str, RuntimeEntry] = {}
+        self._entries: dict[str, AssetDescriptor] = {}
         self._load()
+
+    def register_asset(self, descriptor: AssetDescriptor) -> AssetDescriptor:
+        now = self._now_iso()
+        if not descriptor.created_at:
+            descriptor.created_at = now
+        descriptor.updated_at = now
+        if descriptor.status == AssetState.DECLARED:
+            descriptor.status = AssetState.STARTING if descriptor.source_of_truth == "runtime" else AssetState.DECLARED
+        self._entries[descriptor.asset_id] = descriptor
+        self._save()
+        return descriptor
 
     def register(
         self,
@@ -58,146 +38,132 @@ class RuntimeCenter:
         owner: str,
         status: str = "running",
         caller_id: str | None = None,
-    ) -> RuntimeEntry:
-        """Register an asset in the runtime registry.
-
-        N5-01: If caller_id is provided, enforce that a process can only
-        register/update its own asset_id. Cross-asset writes are rejected.
-        """
-        now = self._now_iso()
-
-        # Permission check: caller can only write their own asset_id
-        if caller_id is not None:
-            existing = self._entries.get(asset_id)
-            if existing and existing.owner != caller_id and not caller_id.startswith("system."):
-                raise PermissionError(
-                    f"caller {caller_id} cannot register asset {asset_id} owned by {existing.owner}"
-                )
-
-        entry = RuntimeEntry(
+    ) -> AssetDescriptor:
+        existing = self._entries.get(asset_id)
+        if caller_id is not None and existing and existing.owner_id != caller_id and not caller_id.startswith("system"):
+            raise PermissionError(f"caller {caller_id} cannot register asset {asset_id} owned by {existing.owner_id}")
+        mapped_status = AssetState.ACTIVE if status == "running" else AssetState(status) if status in AssetState._value2member_map_ else AssetState.UNKNOWN
+        metadata = {
+            "pid": pid,
+            "endpoint": endpoint,
+            "legacy_runtime_status": status,
+        }
+        descriptor = AssetDescriptor(
             asset_id=asset_id,
+            asset_type=AssetType.APP if asset_id.startswith("app.") else AssetType.SYSTEM,
+            asset_kind=AssetKind.CORE_RUNTIME if owner == "system" else AssetKind.MATERIALIZED,
             version=version,
-            pid=pid,
-            endpoint=endpoint,
-            owner=owner,
-            status=status,
-            started_at=now,
-            last_heartbeat=now,
+            owner_type="system" if owner == "system" else "user",
+            owner_id=owner,
+            source_of_truth="runtime",
+            status=mapped_status,
+            capabilities=[],
+            invoke_contract={"type": "runtime_entry"},
+            health_contract={"heartbeat": True},
+            name=asset_id,
+            description="runtime registered asset",
+            metadata=metadata,
         )
-        with self._lock:
-            self._entries[asset_id] = entry
-            self._save()
-        return entry
+        return self.register_asset(descriptor)
 
     def heartbeat(self, asset_id: str, pid: int | None = None) -> bool:
         with self._lock:
             entry = self._entries.get(asset_id)
             if not entry:
                 return False
-            if pid is not None and entry.pid != pid:
+            existing_pid = entry.metadata.get("pid")
+            if pid is not None and existing_pid not in (None, pid):
                 return False
-            entry.last_heartbeat = self._now_iso()
-            if entry.status != "stopped":
-                entry.status = "running"
+            entry.updated_at = self._now_iso()
+            entry.metadata["last_heartbeat"] = entry.updated_at
+            if entry.status not in {AssetState.STOPPED, AssetState.REMOVED}:
+                entry.status = AssetState.ACTIVE
             self._save()
             return True
+
+    def update_status(self, asset_id: str, to_state: AssetState) -> bool:
+        with self._lock:
+            entry = self._entries.get(asset_id)
+            if not entry:
+                return False
+            if entry.status != to_state and not is_valid_asset_state_transition(entry.status, to_state):
+                return False
+            entry.status = to_state
+            entry.updated_at = self._now_iso()
+            self._save()
+            return True
+
+    def mark_crashed(self, asset_id: str) -> bool:
+        return self.update_status(asset_id, AssetState.CRASHED)
+
+    def mark_stopped(self, asset_id: str) -> bool:
+        return self.update_status(asset_id, AssetState.STOPPED)
 
     def unregister(self, asset_id: str, pid: int | None = None) -> bool:
         with self._lock:
             entry = self._entries.get(asset_id)
             if not entry:
                 return False
-            if pid is not None and entry.pid != pid:
+            existing_pid = entry.metadata.get("pid")
+            if pid is not None and existing_pid not in (None, pid):
                 return False
-            del self._entries[asset_id]
+            entry.status = AssetState.REMOVED
+            entry.updated_at = self._now_iso()
             self._save()
             return True
 
-    def mark_crashed(self, asset_id: str) -> bool:
+    def get(self, asset_id: str) -> AssetDescriptor | None:
         with self._lock:
             entry = self._entries.get(asset_id)
-            if not entry:
-                return False
-            entry.status = "crashed"
-            self._save()
-            return True
+            return AssetDescriptor.model_validate(entry.model_dump()) if entry else None
 
-    def mark_stopped(self, asset_id: str) -> bool:
+    def list_assets(self, asset_type: AssetType | None = None, status: AssetState | None = None) -> list[AssetDescriptor]:
         with self._lock:
-            entry = self._entries.get(asset_id)
-            if not entry:
-                return False
-            entry.status = "stopped"
-            self._save()
-            return True
+            values = list(self._entries.values())
+            if asset_type is not None:
+                values = [v for v in values if v.asset_type == asset_type]
+            if status is not None:
+                values = [v for v in values if v.status == status]
+            return [AssetDescriptor.model_validate(v.model_dump()) for v in values]
 
-    def get(self, asset_id: str) -> RuntimeEntry | None:
-        with self._lock:
-            entry = self._entries.get(asset_id)
-            if not entry:
-                return None
-            return RuntimeEntry.from_dict(entry.to_dict())
+    def list_running(self) -> list[AssetDescriptor]:
+        return self.list_assets(status=AssetState.ACTIVE)
 
-    def list_running(self) -> list[RuntimeEntry]:
-        with self._lock:
-            return [
-                RuntimeEntry.from_dict(entry.to_dict())
-                for entry in self._entries.values()
-                if entry.status == "running"
-            ]
+    def list_all(self) -> list[AssetDescriptor]:
+        return self.list_assets()
 
-    def list_all(self) -> list[RuntimeEntry]:
-        with self._lock:
-            return [RuntimeEntry.from_dict(entry.to_dict()) for entry in self._entries.values()]
+    def query_asset_info(self, asset_id: str) -> dict[str, Any] | None:
+        asset = self.get(asset_id)
+        if asset is None:
+            return None
+        return asset.model_dump(mode="json")
 
-    def cleanup_expired(self, timeout_seconds: int = 90) -> list[str]:
-        now = datetime.now(timezone.utc)
-        expired: list[str] = []
-        with self._lock:
-            for asset_id, entry in self._entries.items():
-                if not entry.last_heartbeat:
-                    continue
-                last = self._parse_iso(entry.last_heartbeat)
-                if now - last > timedelta(seconds=timeout_seconds):
-                    entry.status = "crashed"
-                    expired.append(asset_id)
-            if expired:
-                self._save()
-        return expired
-
+    def call_asset_method(self, asset_id: str, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        asset = self.get(asset_id)
+        if asset is None:
+            return {"ok": False, "error": f"asset {asset_id} not found"}
+        allowed = {cap.method: cap for cap in asset.capabilities}
+        if method not in allowed:
+            return {"ok": False, "error": f"method {method} not exposed by {asset_id}"}
+        return {
+            "ok": True,
+            "asset_id": asset_id,
+            "method": method,
+            "params": params or {},
+            "state_change": None,
+            "audit_ref": None,
+            "note": "Phase H minimal contract only, execution mapping not wired yet",
+        }
 
     def build_prompt(self, caller_id: str) -> str:
-        """Build a concise runtime summary for prompt injection."""
         entries = self.list_all()
         if caller_id != "system":
-            entries = [
-                entry for entry in entries
-                if entry.owner == caller_id or entry.owner == caller_id.removeprefix("user.") or entry.owner == "system"
-            ]
+            entries = [e for e in entries if e.owner_id in {caller_id, caller_id.removeprefix("user."), "system"}]
         if not entries:
             return "当前没有运行中的实例。"
-        lines = []
-        for entry in entries:
-            lines.append(
-                f"- {entry.asset_id}: status={entry.status}, owner={entry.owner}, endpoint={entry.endpoint or '-'}, pid={entry.pid}"
-            )
-        return "\n".join(lines)
-
-    def get_uptime(self, asset_id: str) -> str | None:
-        with self._lock:
-            entry = self._entries.get(asset_id)
-            if not entry or not entry.started_at:
-                return None
-            started = self._parse_iso(entry.started_at)
-            delta = datetime.now(timezone.utc) - started
-            seconds = int(delta.total_seconds())
-            if seconds < 60:
-                return f"{seconds}s"
-            if seconds < 3600:
-                return f"{seconds // 60}m"
-            if seconds < 86400:
-                return f"{seconds // 3600}h"
-            return f"{seconds // 86400}d"
+        return "\n".join(
+            f"- {e.asset_id}: status={e.status.value}, owner={e.owner_id}, type={e.asset_type.value}" for e in entries
+        )
 
     def _load(self) -> None:
         if not self._data_file.exists():
@@ -210,20 +176,15 @@ class RuntimeCenter:
         if not isinstance(entries, dict):
             return
         self._entries = {
-            asset_id: RuntimeEntry.from_dict(entry)
+            asset_id: AssetDescriptor.model_validate(entry)
             for asset_id, entry in entries.items()
             if isinstance(entry, dict)
         }
 
     def _save(self) -> None:
         self._data_file.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "entries": {asset_id: entry.to_dict() for asset_id, entry in self._entries.items()},
-        }
+        payload = {"entries": {asset_id: entry.model_dump(mode="json") for asset_id, entry in self._entries.items()}}
         self._data_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def _now_iso(self) -> str:
         return datetime.now(timezone.utc).isoformat()
-
-    def _parse_iso(self, value: str) -> datetime:
-        return datetime.fromisoformat(value)
