@@ -1,5 +1,31 @@
 ## 2026-04-19
 
+### Module: Main-path pruning of stale compatibility tests
+
+按照主路径收口原则，先停掉已经不再代表当前架构目标的旧兼容测试面，避免历史约束继续拖住当前实现推进。
+
+#### Implemented
+- 将以下旧兼容/历史覆盖测试整体标记为 skip：
+  - `tests/test_phase_g2.py`
+  - `tests/test_asset_tools.py`
+  - `tests/test_e2e_asset_registry.py`
+- 明确保留并继续验证主路径相关测试：
+  - `tests/test_dynamic_path_composer.py`
+  - `tests/unit/test_golden_path_integration.py`
+  - `tests/unit/test_api_golden_path.py`
+  - `tests/unit/test_light_brain.py`
+- 保留 `app/services/external_model_review.py` 为最薄兼容 shim，仅满足运行时导入，不再作为扩展能力继续建设
+
+#### Validation
+- `pytest -q tests/test_dynamic_path_composer.py tests/unit/test_golden_path_integration.py tests/unit/test_api_golden_path.py tests/unit/test_light_brain.py`
+- 结果：通过
+
+#### Notes
+- 这一步的目的不是补齐历史兼容，而是主动切断旧测试面对当前主路径的绑定
+- 后续默认只让能够约束当前真实交互链路与收口目标的测试继续存在
+
+## 2026-04-19
+
 ### Module: Post-commit recovery regression closure
 
 修复了一批在 recovery / dynamic composition 相关提交之后遗留的接口漂移与工具面回归，避免“已提交但主链未真正收口”的状态继续扩散。
