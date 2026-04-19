@@ -2104,3 +2104,26 @@ User → Gateway → Bridge → Orchestrator → (YAML path match?)
 - 继续扫尾统一：`handle_query_app()` 已完全切到 `AppOperationResolution` 路径，不再单独重复拼 `system.app_registry + system.lifecycle` 查询，query/lifecycle 开始共用同一份前置解析结果
 
 - `LightBrainGateway._handle_query_status()` 也已切到双视角 resolution：状态卡片不再只看 `system.app_registry`，而是按静态状态 + 运行状态合并得出展示结果与可执行动作，进一步扫掉 gateway 层对旧单视角状态的依赖
+
+
+### Iteration 1 follow-up: static registration ownership mapping
+
+盘清 create/install 链上的静态注册职责分布：
+
+- `AppRegistryService.register_blueprint(...)` 持有 blueprint / release 事实，是主控侧的 blueprint 注册中心
+- `AppInstallerService._ensure_asset_installed(...)` 持有 AssetCenter source/build/install 落盘职责，负责把 blueprint 物化成可安装静态资产
+- `MetaAppCreationOrchestrator.create_app_through_meta_app(...)` 当前同时做 blueprint 注册、实例注册、`SystemCatalog` 注册，职责偏重
+
+当前判断：
+- `AppRegistryService` 应继续承担 blueprint / release registry 的唯一事实源
+- `AppInstallerService` 应继续承担静态资产物化安装职责
+- `SystemCatalog.register(...)` 应作为“主控可发现静态目录”的唯一落点，但更适合由 installer 统一触发，而不是由 meta-app creation 链单独补录
+- 下一刀应把 `SystemCatalog` 静态注册收进 installer 主路径，削弱 `MetaAppCreationOrchestrator` 里单独补 catalog 的分叉职责
+
+- 把 `SystemCatalog` 静态注册收进 installer 主路径：`AppInstallerService.install_app()` 现在在静态资产物化后统一补 `SystemCatalog.register(...)`；`MetaAppCreationOrchestrator` 不再单独补 catalog，create/meta-app creation 开始收回 blueprint 产出 + installer 调用的职责边界
+
+- 清掉 create/refine 路径上的重复 blueprint 注册与错型 refinement RPC 请求：`/apps/from-meta-app` 不再重复 `app_registry.register_blueprint(...)`，`system.app_refinement` worker 改为直接构造 `SuggestedSkillRefinementClosureRequest` 并对齐 `refine_closure(...)` 返回结构，减少 modify_app 主路径上的降级/空转风险
+
+- 把 `/apps/refine-from-suggested-skills` 也并回 `app_refinement_orchestrator.refine_closure(...)` 主路径，不再单独走 `build_app_from_suggested_skills(...) + register_blueprint(...)` 的旁路；refine API 与 closure API 开始共享同一套 blueprint 注册与闭环逻辑
+
+- 收窄 `LightBrainGateway._execute_command()` 的 bridge 入口，只让 `create_app/start_app/stop_app/pause_app/resume_app/query_app/list_apps/delete_app/modify_app` 这组 App 主路径意图先走 orchestrator bridge，避免 greet/query_help/permission/package 等本地意图再无意义探测 bridge 后回落

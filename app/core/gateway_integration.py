@@ -31,7 +31,7 @@ class GatewayIntegration:
     Responsibilities:
     1. Create RequestContext for each user request
     2. Route commands through the AppOrchestrator
-    3. Keep temporary degraded behavior only where runtime bootstrap still depends on it
+    3. Keep degraded returns only for app-command intents that still need local fallback during migration
     4. Provide skill discovery metadata for the Gateway
     """
 
@@ -83,7 +83,7 @@ class GatewayIntegration:
         """Execute a command through the new AppOrchestrator.
 
         Returns the same format the Gateway expects.
-        Returns None only as a temporary degraded mode while the old path is still being removed.
+        Returns None only when an app-command bridge handoff must fall back to the local gateway path.
         """
         if not self._orchestrator:
             logger.debug("No orchestrator — skipping")
@@ -208,28 +208,6 @@ class GatewayIntegration:
         if not self._orchestrator:
             return None
         return self._orchestrator.get_app_binding(app_instance_id)
-
-    # -- System skill registration helper -------------------------------------
-
-    def register_system_skills_as_workers(
-        self,
-        skill_runtime_handlers: dict[str, Any],
-    ) -> None:
-        """Register existing system skill handlers as Workers on the MessageBus.
-
-        This bridges the old handler-based system to the new Worker model.
-        Each handler gets wrapped in a SimpleWorker that delegates to it.
-        """
-        if not self._worker_manager:
-            logger.debug("No worker manager — skipping system skill registration")
-            return
-
-        for skill_id, handler in skill_runtime_handlers.items():
-            self._worker_manager.register_handler_as_worker(
-                skill_id=skill_id,
-                handler=handler,
-            )
-            logger.info("Registered system skill as Worker: %s", skill_id)
 
     # -- Logging --------------------------------------------------------------
 

@@ -569,10 +569,16 @@ def create_install_and_run_app_from_skills(request: AppFromSkillsInstallRunReque
 @app.post("/apps/refine-from-suggested-skills")
 def refine_app_from_suggested_skills(request: SuggestedSkillRefinementRequest) -> dict:
     try:
-        result = app_refinement.build_app_from_suggested_skills(request)
-        app_registry.register_blueprint(result.blueprint)
+        result = app_refinement_orchestrator.refine_closure(
+            SuggestedSkillRefinementClosureRequest(
+                **request.model_dump(mode="python"),
+                install=False,
+                run=False,
+                dry_run=False,
+            )
+        )
         return result.model_dump(mode="json")
-    except (AppRefinementError, AppRegistryError, SkillDiagnosticError, SkillFactoryError, ValueError) as error:
+    except (AppRefinementError, AppRefinementOrchestratorError, AppRegistryError, SkillDiagnosticError, SkillFactoryError, ValueError) as error:
         raise map_domain_error(error) from error
 
 
@@ -596,7 +602,6 @@ def create_app_through_meta_app(request: AppCreationFromMetaAppRequest, http_req
         }
         if result.blueprint is not None:
             payload["blueprint"] = result.blueprint.model_dump(mode="json")
-            app_registry.register_blueprint(result.blueprint)
         if result.error:
             payload["error"] = result.error
         if request.auto_install and result.blueprint is not None and not result.error:

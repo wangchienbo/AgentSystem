@@ -556,9 +556,13 @@ class LightBrainGateway:
         _BRIDGE_SKIP_INTENTS = set()
 
         # ── G.1/G.2: Try new chain first ──────────────────────────────
-        if (self._orchestrator_bridge
-                and self._orchestrator_bridge.is_available()
-                and command.intent not in _BRIDGE_SKIP_INTENTS):
+        bridge_eligible_intents = {"create_app", "start_app", "stop_app", "pause_app", "resume_app", "query_app", "list_apps", "delete_app", "modify_app"}
+        if (
+            self._orchestrator_bridge
+            and self._orchestrator_bridge.is_available()
+            and command.intent in bridge_eligible_intents
+            and command.intent not in _BRIDGE_SKIP_INTENTS
+        ):
             try:
                 bridge_result = await self._orchestrator_bridge.execute_command(
                     user_id=command.user_id or "",
@@ -567,7 +571,6 @@ class LightBrainGateway:
                     session_id=session_id,
                 )
                 if bridge_result is not None:
-                    # Bridge handled it — convert to ChatMessageResponse
                     return ChatMessageResponse(
                         type=bridge_result.get("type", "text"),
                         content=bridge_result.get("content", ""),
@@ -578,7 +581,6 @@ class LightBrainGateway:
                 logging.getLogger(__name__).warning(
                     "Bridge execution failed: %s", e,
                 )
-            # bridge_result was None → degraded local handling path
 
         app_result = None
         if self._app_application_service.owns(command.intent):

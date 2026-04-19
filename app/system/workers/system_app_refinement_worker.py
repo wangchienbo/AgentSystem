@@ -11,6 +11,7 @@ from typing import Any
 from app.core.message_bus import MessageBus
 from app.core.skill_worker import SkillWorker
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
+from app.models.app_refinement import SuggestedSkillRefinementClosureRequest
 
 logger = logging.getLogger(__name__)
 
@@ -53,24 +54,26 @@ class SystemAppRefinementWorker(SkillWorker):
             return self._error("AppRefinement service not available")
 
         try:
-            from app.models.app_refinement import AppRefinementRequest
-
-            request = AppRefinementRequest(
-                app_id=inputs.get("app_id", ""),
-                description=inputs.get("description", ""),
-                new_features=inputs.get("new_features", []),
+            request = SuggestedSkillRefinementClosureRequest(
+                blueprint_id=inputs.get("app_id", ""),
+                name=inputs.get("name") or inputs.get("app_id", "refined-app"),
+                goal=inputs.get("description", "refine app"),
+                skill_ids=inputs.get("skill_ids", []),
                 user_id=inputs.get("user_id", "system"),
                 dry_run=True,
+                install=False,
+                run=False,
             )
 
             result = self._refinement.refine_closure(request)
 
             output = {
-                "app_id": result.app_id if hasattr(result, 'app_id') else inputs.get("app_id"),
+                "blueprint_id": None if result.blueprint is None else result.blueprint.id,
                 "dry_run": True,
-                "created_skills": result.created_skill_ids if hasattr(result, 'created_skill_ids') else [],
-                "modified_skills": result.modified_skill_ids if hasattr(result, 'modified_skill_ids') else [],
+                "created_skills": [item.get("skill_id") if isinstance(item, dict) else getattr(item, "skill_id", None) for item in result.diagnostics],
+                "modified_skills": list(result.reused_skill_ids),
             }
+            output["created_skills"] = [item for item in output["created_skills"] if item]
             return self._success(output)
         except Exception as e:
             return self._error(f"Dry run failed: {str(e)}")
@@ -80,23 +83,33 @@ class SystemAppRefinementWorker(SkillWorker):
             return self._error("AppRefinement service not available")
 
         try:
-            from app.models.app_refinement import AppRefinementRequest
-
-            request = AppRefinementRequest(
-                app_id=inputs.get("app_id", ""),
-                description=inputs.get("description", ""),
-                new_features=inputs.get("new_features", []),
+            request = SuggestedSkillRefinementClosureRequest(
+                blueprint_id=inputs.get("app_id", ""),
+                name=inputs.get("name") or inputs.get("app_id", "refined-app"),
+                goal=inputs.get("description", "refine app"),
+                skill_ids=inputs.get("skill_ids", []),
                 user_id=inputs.get("user_id", "system"),
                 dry_run=False,
+                install=bool(inputs.get("install", False)),
+                run=bool(inputs.get("run", False)),
+                workflow_inputs=inputs.get("workflow_inputs", {}),
+                trigger=inputs.get("trigger", "manual"),
+                reviewer=inputs.get("reviewer", ""),
+                version=inputs.get("version", "candidate-1"),
+                note=inputs.get("note", "phase5 refined candidate"),
             )
 
             result = self._refinement.refine_closure(request)
 
             output = {
-                "app_id": result.app_id if hasattr(result, 'app_id') else inputs.get("app_id"),
+                "blueprint_id": None if result.blueprint is None else result.blueprint.id,
                 "dry_run": False,
-                "created_skills": result.created_skill_ids if hasattr(result, 'created_skill_ids') else [],
-                "modified_skills": result.modified_skill_ids if hasattr(result, 'modified_skill_ids') else [],
+                "created_skills": [item.skill_id for item in result.created_skills],
+                "modified_skills": list(result.reused_skill_ids),
+                "release_entry": result.release_entry,
+                "install_result": result.install_result,
+                "execution_result": result.execution_result,
+                "diagnostics": result.diagnostics,
             }
             return self._success(output)
         except Exception as e:

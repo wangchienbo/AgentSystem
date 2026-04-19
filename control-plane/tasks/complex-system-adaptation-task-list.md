@@ -304,3 +304,19 @@
 - 再查运行资源中心判断“现在是否在运行、在哪运行、能否调用”
 - 最后通过统一 action/path contract 调度，不再把 gateway handler 兼容链当成主联调路径
 - 失配点补充：`LightBrainInterpreter` 当前给 LLM 的 asset context 仍只来自 `SystemCatalog`，因此它拿到的是“已安装/可见资产”，不是“当前运行态”；后续 `query_app` / lifecycle 类主控决策需要补 runtime context 注入
+
+
+#### create/install 静态注册职责映射（新增）
+- `AppRegistryService.register_blueprint(...)`：记录 blueprint / release 事实，属于主控 registry
+- `AppInstallerService._ensure_asset_installed(...)`：把 blueprint 物化为 AssetCenter 静态资产（source/build/install）
+- `SystemCatalog.register(...)`：应作为主控可发现静态目录的唯一落点
+- 当前失配：`MetaAppCreationOrchestrator` 仍直接补 `SystemCatalog.register(entry)`，使静态注册在 installer 主路径之外存在分叉
+- 下一步：把 `SystemCatalog` 静态注册收进 installer 主路径，create_app / meta-app creation 只负责 blueprint 产出与 installer 调用，不再单独补 catalog
+
+- 已完成：`SystemCatalog` 静态注册已收进 `AppInstallerService.install_app()` 主路径，`MetaAppCreationOrchestrator` 不再单独补 catalog，create/install 静态注册开始收成 installer 唯一路径
+
+- 已完成：清掉 create/refine 路径上的一处重复 blueprint 注册，并把 `system.app_refinement` worker 对齐到 `SuggestedSkillRefinementClosureRequest` / `refine_closure(...)` 合同，缩小 modify_app 主路径的错型请求分叉
+
+- 已完成：`/apps/refine-from-suggested-skills` 已改为复用 `refine_closure(...)` 主路径，refine API 与 closure API 不再分叉维护 blueprint 注册逻辑
+
+- 已完成：收窄 gateway bridge 入口到 App 主路径意图，桥接层的 `None` 语义不再覆盖无关本地意图，减少假性降级探测

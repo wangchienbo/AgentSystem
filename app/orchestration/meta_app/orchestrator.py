@@ -173,28 +173,6 @@ class MetaAppCreationOrchestrator:
                     error=f"Instance registration failed: {exc}",
                 )
 
-        # Step 7: Register in system_catalog (if available)
-        if blueprint and self._system_catalog:
-            try:
-                entry = CatalogEntry(
-                    asset_id=asset_id,
-                    name=request.app_name,
-                    asset_type="app",
-                    version=blueprint.version,
-                    owner=request.user_id or "system",
-                    status="active",
-                    source_path=f"source/{asset_id}/",
-                    metadata={
-                        "blueprint_id": blueprint.id,
-                        "skill_ids": created_skill_ids,
-                        "app_slug": control_plan.app_slug,
-                        "build_hash": build_hash,
-                    },
-                )
-                self._system_catalog.register(entry)
-            except Exception:
-                pass  # Non-fatal
-
         return AppCreationOrchestrationResult(
             app_name=request.app_name,
             control_plan=control_plan,

@@ -14,6 +14,7 @@ from app.services.app_config_service import AppConfigService
 from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.blueprint_validation import BlueprintValidationError, BlueprintValidationService
 from app.services.asset_center import AssetCenter
+from app.services.system_catalog import CatalogEntry, SystemCatalog
 
 
 class AppInstallerError(ValueError):
@@ -42,6 +43,7 @@ class AppInstallerService:
         config_center: ConfigCenterService | None = None,
         asset_center: AssetCenter | None = None,
         runtime_center: Any = None,
+        system_catalog: SystemCatalog | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -54,6 +56,7 @@ class AppInstallerService:
         self._config_center = config_center
         self._asset_center = asset_center
         self._runtime_center = runtime_center
+        self._system_catalog = system_catalog
 
     def install_app(self, blueprint_id: str, user_id: str, app_instance_id: str | None = None) -> AppInstallResult:
         blueprint = self._registry.get_blueprint(blueprint_id)
@@ -64,6 +67,7 @@ class AppInstallerService:
                 raise AppInstallerError(str(error)) from error
 
         installed_version = self._ensure_asset_installed(blueprint)
+        self._register_static_catalog_entry(blueprint, user_id, installed_version)
         instance_id = app_instance_id or f"{blueprint_id}:{user_id}"
 
         try:
@@ -132,6 +136,30 @@ class AppInstallerService:
             app_shape=blueprint.app_shape,
             runtime_profile=instance.runtime_profile,
         )
+
+
+    def _register_static_catalog_entry(self, blueprint, user_id: str, release_version: str) -> None:
+        if self._system_catalog is None:
+            return
+        asset_id = f"app.{blueprint.id.replace('bp.', '').replace(':', '.')}"
+        owner_id = f"user.{user_id}" if user_id != "system" else "system"
+        entry = CatalogEntry(
+            asset_id=asset_id,
+            asset_type="app",
+            owner_id=owner_id,
+            name=blueprint.name,
+            description=blueprint.goal,
+            status="active",
+            visibility="public" if user_id == "system" else "private",
+            metadata={
+                "blueprint_id": blueprint.id,
+                "app_shape": blueprint.app_shape,
+                "required_modules": list(blueprint.required_modules),
+                "required_skills": list(blueprint.required_skills),
+                "release_version": release_version,
+            },
+        )
+        self._system_catalog.register(entry)
 
     def upgrade_app(self, app_instance_id: str, new_blueprint_id: str, user_id: str) -> dict:
         """Upgrade an app instance through AssetCenter -> RuntimeCenter chain."""

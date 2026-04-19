@@ -6,22 +6,19 @@ G.1/G.2 module chain: AppOrchestrator → MessageBus → Skill Workers → LogCe
 This is the bridge that makes the full execution chain work:
   User → Gateway → Bridge → Orchestrator → Bus → Workers → LogCenter
 
-Main bridge for the orchestrated path. Temporary degraded returns remain only until the legacy gateway path is deleted.
+Main bridge for the orchestrated path. Bridge-first for app commands, with None reserved for local gateway fallback during migration.
 """
 from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable
+from typing import Any
 
 from app.core.message_bus import MessageBus
-from app.core.simple_worker import SimpleWorker
-from app.core.skill_worker import SkillWorker
 from app.core.worker_manager import WorkerManager
 from app.models.app_binding import AppInstanceBinding
 from app.models.log_center import LogCollectionConfig, LogLevel
 from app.models.request_context import RequestContext
-from app.models.skill_meta import SkillMetaInfo
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.services.app_orchestrator import AppOrchestrator
 from app.services.dynamic_path_composer import DynamicPathComposer
@@ -31,9 +28,6 @@ from app.services.skill_meta_service import SkillMetaService
 
 logger = logging.getLogger(__name__)
 
-# Type alias for existing gateway handlers
-GatewayHandler = Callable[..., Any]
-
 
 class GatewayOrchestratorBridge:
     """Bridge between LightBrainGateway and the new AppOrchestrator.
@@ -41,9 +35,8 @@ class GatewayOrchestratorBridge:
     Responsibilities:
     1. Inject RequestContext into every call chain
     2. Route through AppOrchestrator → MessageBus → Workers
-    3. Register transitional gateway handlers as SimpleWorkers on the Bus
-    4. Log all executions to LogCenter
-    5. Keep degraded None returns only while old gateway code still exists
+    3. Log all executions to LogCenter
+    4. Use None only to signal fallback back into the local gateway app-command path
     """
 
     def __init__(
@@ -119,7 +112,7 @@ class GatewayOrchestratorBridge:
         """Execute a command through the new chain.
 
         Returns a dict result on success.
-        Returns None only as a temporary degraded signal while old gateway routing still exists.
+        Returns None only when the app-command bridge should fall back to the local gateway path.
         """
         if not self._bus:
             return None  # New chain not available
@@ -233,137 +226,22 @@ class GatewayOrchestratorBridge:
 
     def register_system_skills(
         self,
-        handlers: dict[str, GatewayHandler],
         meta_entries: dict[str, Any] | None = None,
     ) -> None:
-        """Register existing system skill handlers as SimpleWorkers on the Bus.
-
-        Bridges transitional `handler(request) -> dict` handlers into the Worker model until the old gateway path is fully removed.
-        """
-        if not self._worker_manager or not self._bus:
-            logger.debug("No worker_manager/bus — skipping registration")
+        """Register skill metadata for orchestrator-facing intents."""
+        if not self._meta_service or not meta_entries:
             return
 
-        for skill_id, handler in handlers.items():
-            meta = None
-            if meta_entries and skill_id in meta_entries:
-                entry = meta_entries[skill_id]
-                meta = SkillMetaInfo(
-                    skill_id=skill_id,
-                    name=entry.get("name", skill_id),
-                    description=entry.get("description", ""),
-                    input_schema=entry.get("input_schema"),
-                    output_schema=entry.get("output_schema"),
-                )
-
-            worker = SimpleWorker(
-                skill_id=skill_id,
-                handler=handler,
-                meta=meta,
-            )
-            self._worker_manager.register_and_start(worker)
-            logger.info("Registered system skill as Worker: %s", skill_id)
-
-            if self._meta_service and meta:
-                self._meta_service.register(meta)
-
-    # -- Register Gateway handlers as Workers -----------------------------------
-
-    def register_gateway_handlers(
-        self,
-        gateway: Any,
-        handler_names: list[str] | None = None,
-    ) -> int:
-        """Wrap Gateway's internal handlers and register them as Bus Workers.
-
-        Each handler has signature: async def _handle_xxx(command, session_id, apps)
-        We wrap it into an async dict -> dict callable compatible with SimpleWorker.
-        """
-        if not self._worker_manager or not self._bus:
-            logger.debug("No worker_manager/bus — skipping gateway handler registration")
-            return 0
-
-        # Default handler set if none specified
-        if handler_names is None:
-            handler_names = [
-                "greet", "list_apps", "query_status", "query_help",
-                "create_app", "start_app", "stop_app",
-                "pause_app", "resume_app", "query_app",
-                "modify_app", "delete_app",
-                "grant_admin", "grant_root", "revoke_role",
-                "show_permissions", "list_users", "show_self",
-            ]
-
-        # Map intent to actual handler method name
-        intent_map = {
-            "greet": "_handle_greet",
-            "list_apps": "_handle_list_apps",
-            "query_status": "_handle_query_status",
-            "query_help": "_handle_query_help",
-            "create_app": "_handle_create_app",
-            "start_app": "_handle_start_app",
-            "stop_app": "_handle_stop_app",
-            "pause_app": "_handle_pause_app",
-            "resume_app": "_handle_resume_app",
-            "query_app": "_handle_query_app",
-            "modify_app": "_handle_modify_app",
-            "delete_app": "_handle_delete_app",
-            "grant_admin": "_handle_permission",
-            "grant_root": "_handle_permission",
-            "revoke_role": "_handle_permission",
-            "show_permissions": "_handle_permission",
-            "list_users": "_handle_permission",
-            "show_self": "_handle_permission",
-        }
-
-        count = 0
-        for intent in handler_names:
-            method_name = intent_map.get(intent, f"_handle_{intent}")
-            handler = getattr(gateway, method_name, None)
-            if handler is None:
-                logger.warning("Gateway handler not found for intent: %s (method: %s)", intent, method_name)
-                continue
-
-            # Create async wrapper using closure (captures handler + intent by value)
-            def _make_wrapper(h, intent_name):
-                async def wrapped(request: dict) -> dict:
-                    from app.models.chat import InterpretedCommand
-                    cmd = InterpretedCommand(
-                        intent=intent_name,
-                        raw_input=request.get("text", ""),
-                        params=request.get("params", {}),
-                        user_id=request.get("user_id", ""),
-                    )
-                    session_id = request.get("session_id", "default")
-                    available_apps = request.get("available_apps", [])
-                    result = await h(cmd, session_id, available_apps)
-                    if hasattr(result, "model_dump"):
-                        return result.model_dump(mode="json")
-                    if isinstance(result, dict):
-                        return result
-                    return {"type": "text", "content": str(result)}
-                return wrapped
-
-            wrapped = _make_wrapper(handler, intent)
-
+        for skill_id, entry in meta_entries.items():
+            from app.models.skill_meta import SkillMetaInfo
             meta = SkillMetaInfo(
-                skill_id=intent,
-                name=intent,
-                description=f"Gateway handler: {intent}",
+                skill_id=skill_id,
+                name=entry.get("name", skill_id),
+                description=entry.get("description", ""),
+                input_schema=entry.get("input_schema"),
+                output_schema=entry.get("output_schema"),
             )
-            worker = SimpleWorker(
-                skill_id=intent,
-                handler=wrapped,
-                meta=meta,
-            )
-            # Use sync register during bootstrap (message loop will start when event loop runs)
-            self._worker_manager.register(worker)
-            if self._meta_service:
-                self._meta_service.register(meta)
-            count += 1
-            logger.info("Registered gateway handler as Worker: %s", intent)
-
-        return count
+            self._meta_service.register(meta)
 
     # -- App binding management -----------------------------------------------
 
