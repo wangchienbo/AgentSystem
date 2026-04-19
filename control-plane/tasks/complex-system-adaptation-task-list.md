@@ -154,6 +154,58 @@
 
 ---
 
+## Phase H，资产化运行态正式设计与执行
+- [ ] 阅读并遵循正式设计文档：`docs/phase-h-execution-design.md`
+- [ ] 以三层结构推进：顶层目标层 / 技术实现层 / 运行验证层
+- [ ] 固化系统边界：ConfigCenter / RuntimeCenter / LightBrainGateway / ToolCallingEngine
+- [ ] 固化主链路：`HTTP/UI -> Login/Auth -> LightBrainGateway -> ToolCallingEngine / Orchestrator -> RuntimeCenter -> Asset`
+- [ ] 先落最小公共资产契约，再推进注册、发现、生命周期、治理
+
+### Phase H.0，正式骨架
+- [ ] 定义 `AssetDescriptor`
+- [ ] 定义 `AssetCapability`
+- [ ] 定义 `AssetState`
+- [ ] 定义资产分类模型（fixed/core_runtime/materialized/session）
+- [ ] 定义生命周期状态机（declared -> installing -> starting -> active -> degraded -> stopped -> removed）
+
+### Phase H.1，核心服务先资产化
+- [ ] 注册 `master_control`
+- [ ] 注册 `config_center`
+- [ ] 注册 `runtime_center`
+- [ ] 注册 `model_router`
+- [ ] 注册 `tool_calling_engine`
+- [ ] 注册 `light_brain_gateway`
+
+### Phase H.2，发现工具落地
+- [ ] 实现 `list_assets`
+- [ ] 实现 `query_asset_info`
+- [ ] 实现 `call_asset_method`
+- [ ] 增加安全映射层，避免任意方法直调
+
+### Phase H.3，运行态闭环
+- [ ] App 链路：create/install/materialize/register/start/heartbeat/discoverable
+- [ ] Skill 链路：install/validate/register/materialize/register asset/expose capabilities
+- [ ] Session 链路：login/create session/register/attach memory/close or expire
+
+### Phase H.4，真实链路验证
+- [ ] 新建 `docs/e2e-test-results.md`
+- [ ] 固定验证记录模板
+- [ ] 验证 A1：我有哪些资产 / 你现在能操作什么
+- [ ] 验证 B1：帮我创建一个简单 App
+- [ ] 验证 D1：启动我的监控应用
+
+### Phase H.5，治理挂接
+- [ ] 接入 MasterControl 权限检查
+- [ ] 接入审计日志
+- [ ] 接入成本与配额控制
+- [ ] 接入降级策略
+
+### Phase H 不可并行项
+- [ ] 资产元数据定义 与 资产发现 tool 实现不可并行
+- [ ] 核心资产注册 与 App/Skill 安装链路不可并行
+- [ ] 治理权限接入 与 运行态资产契约定义不可并行
+- [ ] 允许并行：H2.1 资产元数据定义 与 H4.3 验证记录模板
+
 ## Phase 0，建立当前真实验证基线
 - [ ] 从 `docs/e2e-user-test-scripts.md` 中筛出当前最小闭环场景集（6-10 条）
 - [ ] 从 `docs/e2e-test-requirements.md` 中为这些场景补齐系统验收点与失败定义
