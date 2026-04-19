@@ -553,7 +553,7 @@ class LightBrainGateway:
         G.1/G.2: Prefer the orchestrator bridge. Temporary local handling remains only until direct routing is fully unified.
         """
         # ── Local-only intents: skip bridge (avoids RPC timeout) ──────
-        _BRIDGE_SKIP_INTENTS = {"start_app", "stop_app", "pause_app", "resume_app", "query_app"}
+        _BRIDGE_SKIP_INTENTS = {"start_app", "stop_app", "pause_app", "resume_app"}
 
         # ── G.1/G.2: Try new chain first ──────────────────────────────
         if (self._orchestrator_bridge

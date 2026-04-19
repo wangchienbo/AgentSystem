@@ -11,6 +11,7 @@
   - `tests/test_e2e_asset_registry.py`
 - 收窄桥接层叙述与语义，明确 `gateway_integration` / `gateway_orchestrator_bridge` 当前只保留临时降级语义，不再把 legacy fallback 当正式架构目标表述
 - 收窄 `light_brain_gateway` / `light_brain_interpreter` / `api.main` 中的历史兼容措辞，统一改为临时降级或当前运行语义，减少“旧架构仍被正式支持”的信号
+- 实际收缩 gateway 本地旧链入口：将 `greet` / `list_apps` / `query_status` / `query_help` 从 `_BRIDGE_SKIP_INTENTS` 移除，优先走 orchestrator path，不再默认直跳本地 handler
 - 明确保留并继续验证主路径相关测试：
   - `tests/test_dynamic_path_composer.py`
   - `tests/unit/test_golden_path_integration.py`
