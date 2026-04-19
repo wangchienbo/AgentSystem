@@ -9,6 +9,41 @@
 
 ## 1. 设计约束
 
+### 1.0 总体控制原则
+Phase H 必须固定在三个层次上推进，不能再按模块自然生长：
+
+#### A. 顶层目标层
+文件：`control-plane/tasks/complex-system-adaptation-task-list.md`
+
+职责：
+- 定义什么叫“比较好用”
+- 定义每轮真实场景
+- 定义失配分类
+- 决定本轮验证哪条主链路
+
+#### B. 技术实现层
+文件：`tasklist_phase_h.md`
+
+职责：
+- 只承接当前阶段为支撑主链路必须落地的技术任务
+- 不能脱离顶层场景长出一套平行 roadmap
+- 每个技术任务都必须能回答“它支撑哪个真实场景”
+
+#### C. 运行验证层
+文件：`docs/e2e-test-results.md`
+
+职责：
+- 记录真实链路验证
+- 记录失配点
+- 记录修复结果
+- 记录是否进入下一轮
+
+约束：
+- 三层不能混
+- 顶层目标层不承接具体实现细节
+- 技术实现层不脱离顶层目标自行扩张
+- 运行验证层不替代设计，也不替代实现
+
 ### 1.1 北极星
 Phase H 的目标不是做一个抽象的“资产系统”，而是让 AgentSystem 具备下面这条真实可验证主链路：
 
@@ -85,19 +120,76 @@ Phase H 只解决“运行态资产化”的核心问题：
 - 固定配置负责“第一次知道它存在”
 - 运行态资产中心负责“现在它是否可用、具备什么能力、如何操作它”
 
-### 2.5 RuntimeCenter 的职责边界
+### 2.5 ConfigCenter 的边界
+定位：固定配置入口，不是运行态真相源。
+
+只负责：
+- 系统第一次知道配置从哪来
+- 默认模型、默认路由、默认资产入口
+- 固定资产或静态配置的声明
+
+不负责：
+- 运行中有哪些资产活着
+- 某个 App 当前状态
+- 某个 Skill 当前是否已安装
+- 某个用户当前会话是否存在
+
+结论：
+- ConfigCenter 是 bootstrap source，不是 runtime source of truth
+
+### 2.6 RuntimeCenter 的职责边界
+定位：运行态资产中心，是运行态发现的真相源。
+
 RuntimeCenter 在 Phase H 中应承担：
 - 资产注册
 - 资产注销
 - 资产状态查询
+- 资产心跳
 - 资产能力查询
 - 资产基础调用分发入口
 
 RuntimeCenter 不应在这一阶段承担：
+- 固定配置规则
 - 复杂权限决策本体
 - 业务语义解释
 - LLM prompt 编排
 - 跨领域流程编排总控
+
+结论：
+- 所有“现在系统里有什么、能不能调用、状态是什么”都应该从 RuntimeCenter 看
+
+### 2.7 LightBrainGateway 的边界
+定位：唯一用户交互入口。
+
+负责：
+- 接收用户消息
+- 绑定用户身份与 session
+- 组织 LLM、Tool Call、资产调用
+- 返回解释性回复
+
+不负责：
+- 自己保存完整运行态真相
+- 自己维护资产目录
+- 绕过 RuntimeCenter 直接硬编码调用所有服务
+
+结论：
+- 用户只跟 Gateway 交互，Gateway 再去发现和调用资产
+
+### 2.8 ToolCallingEngine 的边界
+定位：LLM 的动作执行层，不是资产目录本身。
+
+负责：
+- 暴露 tool schema 给 LLM
+- 执行被选中的 tool
+- 把 tool 结果回流给 LLM
+
+不负责：
+- 自己持有资产清单
+- 自己决定系统里有哪些资产
+- 绕开 RuntimeCenter 直接拼凑资产信息
+
+结论：
+- ToolCallingEngine 看见资产，必须通过 RuntimeCenter 或其暴露的 Asset tools
 
 ---
 
@@ -112,9 +204,14 @@ RuntimeCenter 不应在这一阶段承担：
 - `asset_id`
 - `asset_type`
 - `version`
-- `owner`
+- `owner_type`
+- `owner_id`
 - `source_of_truth`
 - `is_static`
+- `status`
+- `capabilities`
+- `invoke_contract`
+- `health_contract`
 - `created_at`
 - `updated_at`
 - `tags`
@@ -144,14 +241,17 @@ RuntimeCenter 不应在这一阶段承担：
 ### 3.3 AssetState
 用于描述资产当前处于什么状态。
 
-建议最小状态集：
-- `initializing`
+建议最小演进状态集：
+- `declared`
+- `installing`
+- `starting`
 - `active`
 - `degraded`
 - `stopped`
-- `crashed`
+- `removed`
 
-可选扩展：
+可选异常扩展：
+- `crashed`
 - `paused`
 - `unknown`
 
@@ -160,29 +260,72 @@ RuntimeCenter 不应在这一阶段承担：
 - 状态必须支持 lifecycle 管理与验证记录
 - 后续权限与降级逻辑必须能直接依赖该状态枚举
 
-### 3.4 生命周期状态机
+### 3.4 资产分类模型
+至少分四类：
+- `fixed_asset`，固定资产，例如 `config_center`
+- `core_runtime_asset`，核心运行资产，例如 `master_control`
+- `materialized_asset`，安装或生成后进入运行态的 App/Skill
+- `session_asset`，用户会话资产
+
+约束：
+- 不能把固定配置资产和运行时实例资产混为一类
+- 不能让 session 语义提前污染核心资产契约
+
+### 3.5 生命周期状态机
 最小状态迁移建议：
-- `initializing -> active`
-- `initializing -> crashed`
+- `declared -> installing`
+- `installing -> starting`
+- `starting -> active`
+- `starting -> crashed`
 - `active -> degraded`
 - `active -> stopped`
 - `active -> crashed`
 - `degraded -> active`
 - `degraded -> stopped`
-- `degraded -> crashed`
-- `stopped -> initializing`
+- `stopped -> starting`
+- `stopped -> removed`
 
 约束：
-- 不允许跳过 `initializing` 直接从 `stopped -> active`
-- 恢复动作必须明确体现为重新进入初始化或恢复链路
+- 不允许跳过安装/启动阶段直接进入 active
+- 已启动但 RuntimeCenter 不知道，视为链路不完整
 - `crashed` 不等于 `stopped`，它代表异常终止
+- ConfigCenter 有配置但运行态没起来，不构成可发现资产
 
 ---
 
 ## 4. 状态机与执行流
 
+### 4.0 交互主链路总约束
+用户只在交互层交互，因此主链路必须是：
+
+`HTTP/UI -> Login/Auth -> LightBrainGateway -> ToolCallingEngine / Orchestrator -> RuntimeCenter -> Asset`
+
+不能出现：
+- 用户直接打 RuntimeCenter
+- 用户直接打 ConfigCenter
+- 前端绕过 Gateway 直调资产
+
+固定配置只负责第一次找到入口，因此 ConfigCenter 只能回答：
+- 默认模型是什么
+- 固定入口是什么
+- 初始静态声明是什么
+
+不能回答：
+- 这个 App 现在在不在
+- 这个 Skill 是否已 materialize
+- 这个 session 当前是否有效
+
+LLM 必须先发现资产，再调用资产，因此 Tool Call 层必须拆成两步：
+1. `list_assets` / `query_asset_info`
+2. `call_asset_method`
+
+不能让 LLM 在不知道资产能力边界的情况下直接盲调动作。
+
 ### 4.1 资产注册主流
-`系统/应用启动 -> 生成 AssetDescriptor -> 附带 capabilities -> 写入 RuntimeCenter -> 进入 initializing -> 成功后 active`
+`create/install -> start/materialize -> register -> heartbeat -> discoverable`
+
+对系统核心服务则是：
+`系统启动 -> 生成 AssetDescriptor -> 附带 capabilities -> 写入 RuntimeCenter -> 进入 starting -> 成功后 active`
 
 ### 4.2 资产发现主流
 `交互层/Tool/LLM 请求 -> RuntimeCenter 查询资产列表/详情 -> 返回 descriptor + state + capabilities`
