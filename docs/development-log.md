@@ -9,6 +9,7 @@
   - `tests/test_phase_g2.py`
   - `tests/test_asset_tools.py`
   - `tests/test_e2e_asset_registry.py`
+- 收窄桥接层叙述与语义，明确 `gateway_integration` / `gateway_orchestrator_bridge` 当前只保留临时降级语义，不再把 legacy fallback 当正式架构目标表述
 - 明确保留并继续验证主路径相关测试：
   - `tests/test_dynamic_path_composer.py`
   - `tests/unit/test_golden_path_integration.py`

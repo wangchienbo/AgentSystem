@@ -80,10 +80,10 @@ class LightBrainInterpreter:
         ("show_self", re.compile(r"(my|what\s*are\s*my)\s*(permission|role|level)"), "Show own permissions (EN)"),
     ]
 
-    # Combined patterns for backward compatibility
+    # Combined pattern view used by current interpreter flow
     INTENT_PATTERNS = EXACT_MATCH_PATTERNS + FUZZY_MATCH_PATTERNS
 
-    # Config: fuzzy regex matching (default True for backward compatibility)
+    # Config: fuzzy regex matching (default True in the current runtime)
     # True: all patterns try regex first (no LLM needed for common intents)
     # False: only exact matches bypass LLM; everything else goes through LLM
     fuzzy_regex_match: bool = True
@@ -285,7 +285,7 @@ class LightBrainInterpreter:
         return "unclear", 0.1, "no fuzzy match"
 
     def _match_intent(self, message: str) -> tuple[str, float, str]:
-        """Return (intent, confidence, matched_pattern_desc). Legacy method."""
+        """Return (intent, confidence, matched_pattern_desc)."""
         for intent, pattern, desc in self.INTENT_PATTERNS:
             if pattern.search(message):
                 return intent, 0.85, desc

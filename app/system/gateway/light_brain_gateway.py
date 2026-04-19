@@ -550,8 +550,7 @@ class LightBrainGateway:
     ) -> ChatMessageResponse:
         """Route interpreted command to the right handler.
 
-        G.1/G.2: Try the new orchestrator bridge first; if it returns
-        a result use it, otherwise fall back to the legacy handler chain.
+        G.1/G.2: Prefer the orchestrator bridge. Temporary local handling remains only until direct routing is fully unified.
         """
         # ── Local-only intents: skip bridge (avoids RPC timeout) ──────
         _BRIDGE_SKIP_INTENTS = {"query_status", "list_apps", "greet", "query_help", "start_app", "stop_app", "pause_app", "resume_app", "query_app"}
@@ -577,9 +576,9 @@ class LightBrainGateway:
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
-                    "Bridge execution failed, falling back to legacy: %s", e,
+                    "Bridge execution failed: %s", e,
                 )
-            # bridge_result was None → fall through to legacy
+            # bridge_result was None → temporary local handling path
 
         app_result = None
         if self._app_application_service.owns(command.intent):

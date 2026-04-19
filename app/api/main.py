@@ -2406,7 +2406,7 @@ def list_users(status: str | None = None) -> dict:
 def init_admin(req: RegisterRequest) -> dict:
     """Initialize first root user (only if no root/admin exists)."""
     try:
-        # Try root first, fallback to admin for backward compatibility
+        # Temporary bootstrap downgrade: try root first, then admin only if root creation is unavailable
         try:
             user = user_service.create_root(req.user_id, req.password, req.display_name)
         except UserServiceError:
