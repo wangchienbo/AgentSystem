@@ -232,22 +232,41 @@ class DynamicPathComposer:
             raise DynamicPathComposerError("ModelRouter not available")
 
         client = self._router.get_client("dynamic_path_composer", "balanced")
-        # OpenAIResponsesClient.chat is sync, wrap in executor
-        import asyncio
-        loop = asyncio.get_event_loop()
-        text, _ = await loop.run_in_executor(
-            None,
-            lambda: client.chat(
-                messages=[
-                    {"role": "system", "content": "You are a skill chain planner. Always respond with valid JSON only."},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=2048,
-                temperature=0.3,
-                stream=False,
-            ),
-        )
-        return text
+
+        respond = getattr(client, "respond", None)
+        if callable(respond):
+            result = respond(prompt=prompt)
+            import inspect
+
+            if inspect.isawaitable(result):
+                result = await result
+            if isinstance(result, tuple):
+                return str(result[0])
+            return str(result)
+
+        chat = getattr(client, "chat", None)
+        if callable(chat):
+            # OpenAIResponsesClient.chat is sync, wrap in executor
+            import asyncio
+
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: chat(
+                    messages=[
+                        {"role": "system", "content": "You are a skill chain planner. Always respond with valid JSON only."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    max_tokens=2048,
+                    temperature=0.3,
+                    stream=False,
+                ),
+            )
+            if isinstance(response, tuple):
+                return str(response[0])
+            return str(response)
+
+        raise DynamicPathComposerError("ModelRouter client has neither respond() nor chat()")
 
     def _parse_plan_response(self, text: str) -> DynamicPathPlan | None:
         """Extract and parse JSON plan from LLM response."""

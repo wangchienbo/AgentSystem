@@ -1,4 +1,31 @@
-# Development Log
+## 2026-04-19
+
+### Module: Post-commit recovery regression closure
+
+修复了一批在 recovery / dynamic composition 相关提交之后遗留的接口漂移与工具面回归，避免“已提交但主链未真正收口”的状态继续扩散。
+
+#### Implemented
+- 修复 `app/models/skill_meta.py`
+  - 补回 `ActionMeta.timeout_default`
+  - 让 `SkillMeta/SkillMetaInfo` 恢复支持 `actions`、`dependencies`、`offline_capable`、`source`、时间戳等字段
+  - 增加 `from_dict()` 兼容解析与 `compatible_with()` 基础兼容性判断
+- 修复 `app/orchestration/dynamic_path/dynamic_path_composer.py`
+  - `ModelRouter` 客户端同时兼容 `respond()` 与 `chat()` 两种调用协议
+  - 兼容同步/异步返回以及 tuple/string 返回形式，恢复动态链路规划测试可用性
+- 修复 `app/system/catalog/asset_tools.py`
+  - 为 `AssetToolExecutor` 补齐 `execute_path_by_key` 与 `solidify_workflow`
+  - 增加对应参数校验、可见性/权限校验、router 异常传播、workflow 固化后的 app function 注册
+  - 保持 `make_all_asset_tools()` 的旧兼容行为，仅继续暴露 `query_asset_detail`，避免扩面破坏旧调用方
+- 调整资产概览 prompt 文案，恢复测试约定中的“你可用的资产”表述
+
+#### Validation
+- `pytest -q tests/test_asset_tools.py tests/test_e2e_asset_registry.py tests/test_dynamic_path_composer.py tests/test_phase_g2.py`
+- `pytest -q`
+- 结果：`728 passed`
+
+#### Notes
+- 这次修复的核心不是新增功能，而是把上一轮 commit 之后没有继续完成的回归收口补齐
+- 主要问题来自接口漂移：`SkillMeta` 数据结构、dynamic composer 的模型客户端协议、以及 asset tool executor 的能力面没有同步收口
 
 ## 2026-04-17 (afternoon/evening)
 

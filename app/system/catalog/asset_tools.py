@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.models.asset import Asset
+from app.models.asset import Asset, AssetFunction
 from app.services.asset_registry import AssetRegistry
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,28 @@ def make_query_asset_detail_tool() -> AssetToolDefinition:
     )
 
 
+def make_execute_path_by_key_tool() -> AssetToolDefinition:
+    return AssetToolDefinition(
+        name="execute_path_by_key",
+        description="在指定 app 上执行某个 path/function。",
+        parameters=[
+            ToolParam("app_id", "string", "目标 app 的 asset_id，例如 app.novel", required=True),
+            ToolParam("path_key", "string", "要执行的 path/function key，例如 write_chapter", required=True),
+            ToolParam("inputs", "object", "执行该 path 的输入参数", required=False),
+        ],
+    )
 
+
+def make_solidify_workflow_tool() -> AssetToolDefinition:
+    return AssetToolDefinition(
+        name="solidify_workflow",
+        description="把一组 skill step 固化成 app 上可复用的 workflow/path。",
+        parameters=[
+            ToolParam("app_id", "string", "目标 app 的 asset_id，例如 app.novel", required=True),
+            ToolParam("path_key", "string", "要新增的 workflow/path key，例如 auto_write", required=True),
+            ToolParam("steps", "array", "workflow steps，元素包含 skill_id 和 action", required=True),
+        ],
+    )
 
 
 def make_all_asset_tools() -> list[AssetToolDefinition]:
@@ -89,8 +110,11 @@ class AssetToolExecutor:
         try:
             if tool_name == "query_asset_detail":
                 return self._query_asset_detail(arguments, caller_name)
-            else:
-                return ToolResult(success=False, error=f"Unknown asset tool: {tool_name}")
+            if tool_name == "execute_path_by_key":
+                return self._execute_path_by_key(arguments, caller_name)
+            if tool_name == "solidify_workflow":
+                return self._solidify_workflow(arguments, caller_name)
+            return ToolResult(success=False, error=f"Unknown asset tool: {tool_name}")
         except Exception as e:
             logger.exception("Asset tool execution failed: %s", tool_name)
             return ToolResult(success=False, error=str(e))
@@ -128,6 +152,58 @@ class AssetToolExecutor:
             "metadata": getattr(asset, 'metadata', {}),
         })
 
+    def _execute_path_by_key(self, args: dict, caller_name: str) -> ToolResult:
+        app_id = args.get("app_id")
+        path_key = args.get("path_key")
+        inputs = args.get("inputs") or {}
+
+        if not app_id:
+            return ToolResult(success=False, error="app_id is required")
+        if not path_key:
+            return ToolResult(success=False, error="path_key is required")
+        if not callable(self._orchestrator_router):
+            return ToolResult(success=False, error="orchestrator router is not configured")
+
+        asset = self._registry.get_asset_detail(app_id, caller_name)
+        if asset is None:
+            return ToolResult(success=False, error=f"App {app_id} not found or not visible to {caller_name}")
+
+        try:
+            result = self._orchestrator_router(app_id, path_key, inputs)
+        except Exception as exc:
+            return ToolResult(success=False, error=str(exc))
+
+        return ToolResult(success=True, data=result)
+
+    def _solidify_workflow(self, args: dict, caller_name: str) -> ToolResult:
+        app_id = args.get("app_id")
+        path_key = args.get("path_key")
+        steps = args.get("steps") or []
+
+        if not app_id:
+            return ToolResult(success=False, error="app_id is required")
+        if not path_key:
+            return ToolResult(success=False, error="path_key is required")
+        if not steps:
+            return ToolResult(success=False, error="steps must not be empty")
+
+        app_asset = self._registry.get_asset_detail(app_id, caller_name)
+        if app_asset is None:
+            return ToolResult(success=False, error=f"App {app_id} not found or not visible to {caller_name}")
+        if getattr(app_asset, "asset_type", None).value != "app":
+            return ToolResult(success=False, error=f"Asset {app_id} is not an app")
+
+        existing = {f.key for f in getattr(app_asset, "functions", [])}
+        if path_key not in existing:
+            app_asset.add_function(AssetFunction(key=path_key, name=path_key, description="solidified workflow"))
+            self._registry.register(app_asset)
+
+        return ToolResult(success=True, data={
+            "app_id": app_id,
+            "path_key": path_key,
+            "steps": steps,
+            "solidified": True,
+        })
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +220,7 @@ def assemble_asset_overview_prompt(registry: Any, caller_name: str) -> str:
         return "当前没有可用的资产。"
 
     lines = [
-        "## 可用资产概览",
+        "## 你可用的资产",
         "",
         "以下是你可以调用的资产列表。每个资产包含：",
         "- asset_id: 资产唯一标识",
