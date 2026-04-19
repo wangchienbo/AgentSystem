@@ -3,9 +3,7 @@
 This is the bridge layer that wires together:
 - Gateway → AppOrchestrator → MessageBus → Skill Workers → LogCenter
 
-The integration preserves backward compatibility: if the orchestrator
-is unavailable or a skill isn't registered as a Worker, it falls back
-to the existing handler chain.
+Primary gateway-to-orchestrator bridge. Legacy fallback behavior remains only until the direct orchestrator path is fully removed upstream.
 """
 from __future__ import annotations
 
@@ -33,7 +31,7 @@ class GatewayIntegration:
     Responsibilities:
     1. Create RequestContext for each user request
     2. Route commands through the AppOrchestrator
-    3. Fall back to existing handlers if orchestrator unavailable
+    3. Keep temporary degraded behavior only where runtime bootstrap still depends on it
     4. Provide skill discovery metadata for the Gateway
     """
 
@@ -85,7 +83,7 @@ class GatewayIntegration:
         """Execute a command through the new AppOrchestrator.
 
         Returns the same format the Gateway expects.
-        Falls back to None if orchestrator is unavailable.
+        Returns None only as a temporary degraded mode while the old path is still being removed.
         """
         if not self._orchestrator:
             logger.debug("No orchestrator — skipping")
@@ -121,7 +119,7 @@ class GatewayIntegration:
             }
 
         except Exception as e:
-            logger.warning("Orchestrator execution failed, falling back: %s", e)
+            logger.warning("Orchestrator execution failed: %s", e)
             self._log_execution(
                 trace_id=ctx.trace_id,
                 app_instance_id=app_instance_id,

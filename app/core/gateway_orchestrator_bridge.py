@@ -6,8 +6,7 @@ G.1/G.2 module chain: AppOrchestrator → MessageBus → Skill Workers → LogCe
 This is the bridge that makes the full execution chain work:
   User → Gateway → Bridge → Orchestrator → Bus → Workers → LogCenter
 
-Preserves backward compatibility: if the new chain is unavailable,
-falls back to the existing hardcoded handler dict in the Gateway.
+Main bridge for the orchestrated path. Temporary degraded returns remain only until the legacy gateway path is deleted.
 """
 from __future__ import annotations
 
@@ -42,9 +41,9 @@ class GatewayOrchestratorBridge:
     Responsibilities:
     1. Inject RequestContext into every call chain
     2. Route through AppOrchestrator → MessageBus → Workers
-    3. Register legacy handlers as SimpleWorkers on the Bus
+    3. Register transitional gateway handlers as SimpleWorkers on the Bus
     4. Log all executions to LogCenter
-    5. Fall back to old chain when new chain is unavailable
+    5. Keep degraded None returns only while old gateway code still exists
     """
 
     def __init__(
@@ -119,8 +118,8 @@ class GatewayOrchestratorBridge:
     ) -> dict[str, Any] | None:
         """Execute a command through the new chain.
 
-        Returns a dict result on success, or None to signal the caller
-        should fall back to the legacy handler chain.
+        Returns a dict result on success.
+        Returns None only as a temporary degraded signal while old gateway routing still exists.
         """
         if not self._bus:
             return None  # New chain not available
@@ -155,9 +154,9 @@ class GatewayOrchestratorBridge:
 
             # Convert to gateway-compatible response
             if result and result.status == "failed":
-                # Orchestrator could not handle this request — signal fallback
+                # Temporary degraded signal while old gateway routing still exists
                 logger.debug(
-                    "Orchestrator returned failed status: %s, falling back",
+                    "Orchestrator returned failed status: %s",
                     result.error or result.output,
                 )
                 return None
@@ -176,7 +175,7 @@ class GatewayOrchestratorBridge:
 
         except Exception as e:
             elapsed_ms = (time.monotonic() - start_ms) * 1000
-            logger.warning("Orchestrator failed (falling back): %s", e)
+            logger.warning("Orchestrator failed: %s", e)
             self._log(
                 ctx.trace_id, "orchestrator", app_instance_id, user_id,
                 "ERROR", str(e), duration_ms=elapsed_ms,
@@ -239,9 +238,7 @@ class GatewayOrchestratorBridge:
     ) -> None:
         """Register existing system skill handlers as SimpleWorkers on the Bus.
 
-        Bridges the old `handler(request) -> dict` model to the new
-        async Worker model so existing skills run on the MessageBus
-        without any code changes.
+        Bridges transitional `handler(request) -> dict` handlers into the Worker model until the old gateway path is fully removed.
         """
         if not self._worker_manager or not self._bus:
             logger.debug("No worker_manager/bus — skipping registration")
