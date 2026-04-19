@@ -12,6 +12,7 @@
 - 收窄桥接层叙述与语义，明确 `gateway_integration` / `gateway_orchestrator_bridge` 当前只保留临时降级语义，不再把 legacy fallback 当正式架构目标表述
 - 收窄 `light_brain_gateway` / `light_brain_interpreter` / `api.main` 中的历史兼容措辞，统一改为临时降级或当前运行语义，减少“旧架构仍被正式支持”的信号
 - 实际收缩 gateway 本地旧链入口：将 `greet` / `list_apps` / `query_status` / `query_help` 从 `_BRIDGE_SKIP_INTENTS` 移除，优先走 orchestrator path，不再默认直跳本地 handler
+- 继续把 `query_app` 从 `_BRIDGE_SKIP_INTENTS` 移除，使查询类 App 详情请求也优先进入 orchestrator path
 - 明确保留并继续验证主路径相关测试：
   - `tests/test_dynamic_path_composer.py`
   - `tests/unit/test_golden_path_integration.py`
@@ -2030,3 +2031,38 @@ User → Gateway → Bridge → Orchestrator → (YAML path match?)
 - **567 passed / 0 failed**
 - 本轮共 14+ commits 推送至 GitHub
 - build/installed/source 运行产物已从 git 清理
+
+
+### Module: Iteration 1 baseline and mismatch mapping
+
+按 `control-plane/tasks/complex-system-adaptation-task-list.md` 正式进入 Iteration 1，先把主路径场景、控制流和失配点写实，不再只靠零散兼容清理推进。
+
+#### Iteration 1 baseline
+- 选定最小闭环场景集：`create_app`、`list_apps`、`query_app`、`start_app`、`stop_app`、`modify_app`、多轮 `create_app`、创建后重启再查看、普通用户/admin 权限差异
+- 对应基线文档：
+  - `docs/e2e-user-test-scripts.md`
+  - `docs/e2e-test-requirements.md`
+  - `docs/system-relationship-map.md`
+  - `PROJECT_CONTROL.md`
+  - `control-plane/project-map.yaml`
+
+#### 主控制流映射 v1
+- 交互入口：`app/api/main.py` -> `LightBrainGateway.process_message()`
+- 意图识别：`app/system/gateway/light_brain_interpreter.py`
+- 统一执行入口：`LightBrainGateway._execute_command()`
+- create/modify 主处理：`app/services/app_create_modify_executor.py`
+- lifecycle/query 主处理：`AppLifecycleQueryExecutor`（由 `LightBrainGateway` 注入）
+- 新链执行：`GatewayOrchestratorBridge -> AppOrchestrator -> MessageBus`
+- 多轮状态：`LightBrainGateway._active_skills` + `AppCommandRecoveryService`
+- 重启恢复：`persistence_service.restore_state(...)` in `app/bootstrap/runtime.py`
+
+#### 当前失配清单 v1
+- 控制流失配：`LightBrainGateway._execute_command()` 仍同时维护 orchestrator bridge、`AppApplicationService` 和本地 handler 分发三套入口
+- 模块边界失配：`create_app` / `modify_app` 已进入 executor 服务，但 lifecycle/query 仍保留 gateway 侧本地兜底逻辑
+- 状态模型失配：多轮状态仍主要驻留于 `LightBrainGateway._active_skills` 内存对象，恢复与统一状态模型尚未收口
+- 降级失配：bridge 失败仍回落本地 handler，属于旧链残留，不是统一降级协议
+- 可观测性失配：虽然已有 `LogCenter` / bridge trace，但用户主链失败点仍分散在 gateway、本地 executor、bus RPC 三层
+
+#### 已做的主路径推进
+- 基础查询类意图 `greet` / `list_apps` / `query_status` / `query_help` / `query_app` 已改为优先走 orchestrator path
+- `LightBrainGateway` 的持久化旧 handler registry 已移除，只保留执行期局部本地分发
