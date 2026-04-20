@@ -11,7 +11,7 @@ import json
 import re
 from typing import Any
 
-from app.services.tool_registry import ToolRegistry
+from app.services.tool_registry import ToolRegistry, ToolDefinition
 
 from app.models.chat import ActionSuggestion, InterpretedCommand
 
@@ -291,10 +291,56 @@ class LightBrainInterpreter:
 
     def _match_fuzzy_intent(self, message: str) -> tuple[str, float, str]:
         """Return (intent, confidence, matched_pattern_desc) for FUZZY matches."""
+        tool_match = self._match_tool_aware_intent(message)
+        if tool_match is not None:
+            return tool_match
         for intent, pattern, desc in self.FUZZY_MATCH_PATTERNS:
             if pattern.search(message):
                 return intent, 0.75, desc
         return "unclear", 0.1, "no fuzzy match"
+
+    def _match_tool_aware_intent(self, message: str) -> tuple[str, float, str] | None:
+        registry = getattr(self, "_tool_registry", None)
+        if registry is None:
+            return None
+        lowered = message.lower()
+        asset_tools = {
+            tool.name: tool
+            for tool in registry.list_all()
+            if getattr(tool, "category", "") == "asset"
+        }
+        if not asset_tools:
+            return None
+
+        if self._looks_like_asset_info_request(lowered) and "query_asset_info" in asset_tools:
+            return "query_asset_info", 0.84, "tool-aware asset info"
+        if self._looks_like_asset_list_request(lowered) and "list_assets" in asset_tools:
+            return "list_assets", 0.88, "tool-aware asset discovery"
+        if self._looks_like_asset_call_request(lowered) and "call_asset_method" in asset_tools:
+            return "call_asset_method", 0.82, "tool-aware asset call"
+        if self._looks_like_asset_detail_request(lowered) and "query_asset_detail" in asset_tools:
+            return "query_asset_detail", 0.8, "tool-aware asset detail"
+        return None
+
+    def _looks_like_asset_list_request(self, lowered: str) -> bool:
+        return any(k in lowered for k in ["资产", "服务", "能力", "runtime", "运行态"]) and any(
+            k in lowered for k in ["有哪些", "有什么", "列出", "看看", "查看"]
+        )
+
+    def _looks_like_asset_info_request(self, lowered: str) -> bool:
+        return any(k in lowered for k in ["资产", "服务"]) and any(
+            k in lowered for k in ["详情", "信息", "能力", "配置", "契约"]
+        )
+
+    def _looks_like_asset_call_request(self, lowered: str) -> bool:
+        return any(k in lowered for k in ["调用", "执行", "运行"]) and any(
+            k in lowered for k in ["资产", "服务", "方法", "能力"]
+        )
+
+    def _looks_like_asset_detail_request(self, lowered: str) -> bool:
+        return any(k in lowered for k in ["资产", "服务"]) and any(
+            k in lowered for k in ["使用说明", "怎么用", "详细", "契约"]
+        )
 
     def _match_intent(self, message: str) -> tuple[str, float, str]:
         """Return (intent, confidence, matched_pattern_desc)."""
@@ -383,12 +429,18 @@ class LightBrainInterpreter:
             if threshold_match:
                 params["threshold"] = int(threshold_match.group(1))
 
-        elif intent == "modify_app":
-            # Extract what to modify
-            if "改成" in message or "改为" in message or "调整为" in message:
-                modify_match = re.search(r"(改成|改为|调整为|设置成)(.+)", message)
-                if modify_match:
-                    params["modification"] = modify_match.group(2).strip()
+        elif intent == "call_asset_method":
+            method_match = re.search(r"(?:方法|能力)\s*([a-zA-Z_][a-zA-Z0-9_]*)", message)
+            asset_match = re.search(r"asset[:：][^\s，,。]+", message, re.IGNORECASE)
+            if method_match:
+                params["method"] = method_match.group(1)
+            if asset_match:
+                params["asset_id"] = asset_match.group(0).replace("：", ":")
+
+        elif intent in ("query_asset_info", "query_asset_detail"):
+            asset_match = re.search(r"asset[:：][^\s，,。]+", message, re.IGNORECASE)
+            if asset_match:
+                params["asset_id"] = asset_match.group(0).replace("：", ":")
 
         return params
 
@@ -476,6 +528,12 @@ class LightBrainInterpreter:
 
         if intent in ("start_app", "stop_app", "pause_app", "resume_app", "delete_app", "modify_app") and not target_app:
             return True, "你想操作哪个 App？请告诉我 App 的名称。"
+
+        if intent in ("query_asset_info", "query_asset_detail") and not parameters.get("asset_id"):
+            return True, "你想查看哪个运行态资产？请给我 asset_id，例如 asset:runtime_center:v1。"
+
+        if intent == "call_asset_method" and (not parameters.get("asset_id") or not parameters.get("method")):
+            return True, "你想调用哪个资产的哪个方法？请给我 asset_id 和 method，例如 asset:model_router:v1 的 resolve_model。"
 
         return False, None
 
