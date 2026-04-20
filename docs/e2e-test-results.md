@@ -26,6 +26,8 @@
   - Gateway 已挂接运行态资产工具处理器
   - AssetToolExecutor 已从 system catalog 切换为 RuntimeCenter
   - `call_asset_method` 已可真实映射到 `model_router.resolve_model / config_center.get_config / gateway.list_assets`
+  - `light_brain_gateway` 已在 bootstrap 主链中完成正式运行态注册
+  - 补充了 3 个 focused tests，并通过 `3 passed`
   - 兼容加载旧 runtime data，旧 `running` 状态与缺失字段可转为新契约
 - 失配分类:
   - 部分旧资产查询仍保留 static catalog 回退语义
@@ -38,7 +40,8 @@
 - 当前结论:
   - H2.2/H2.3 已从设计态进入可调用骨架态，并完成首批真实方法映射
   - 运行态资产发现, 查询, 调用三段链路已打通
+  - gateway 资产注册已进入 bootstrap 正式主链，并有 focused test 锁定
 - 遗留问题:
   - `call_asset_method` 仍只覆盖首批核心服务映射，尚未扩展到更广 worker/app 面
   - runtime asset intent 的解释策略仍较粗，需要后续做更稳的 tool-aware 解析
-  - 还缺少正式测试文件覆盖本轮 Phase H 新链路
+  - 还需要继续补更完整的 runtime asset / gateway / interpreter 测试面

@@ -862,35 +862,6 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         master_control=master_control,  # Pass MasterControl for centralized execution
     )
 
-    # -- Phase I: Register system services as MessageBus Workers ----------------
-    from app.services.system_lifecycle_worker import SystemLifecycleWorker
-    from app.services.system_app_registry_worker import SystemAppRegistryWorker
-    from app.services.system_meta_app_worker import SystemMetaAppWorker
-    from app.services.system_app_refinement_worker import SystemAppRefinementWorker
-    from app.services.system_config_center_worker import SystemConfigCenterWorker
-
-    lifecycle_worker = SystemLifecycleWorker(g1g2_bus, lifecycle)
-    app_registry_worker = SystemAppRegistryWorker(g1g2_bus, app_registry)
-    meta_app_worker = SystemMetaAppWorker(g1g2_bus, meta_app_orchestrator)
-    refinement_worker = SystemAppRefinementWorker(g1g2_bus, app_refinement_orchestrator)
-    config_center_worker = SystemConfigCenterWorker(g1g2_bus, config_center)
-
-    # Register workers on MessageBus
-    import asyncio
-    g1g2_bus.register_worker("system.lifecycle", asyncio.Queue())
-    g1g2_bus.register_worker("system.app_registry", asyncio.Queue())
-    g1g2_bus.register_worker("system.meta_app", asyncio.Queue())
-    g1g2_bus.register_worker("system.app_refinement", asyncio.Queue())
-    g1g2_bus.register_worker("system.config_center", asyncio.Queue())
-    logger.info("Phase I: 5 system service Workers registered on MessageBus")
-
-    # Wire tool registry and system catalog into interpreter for tool-aware LLM parsing
-    light_brain_interpreter.set_tool_registry(tool_registry)
-    light_brain_interpreter.set_llm_responder(llm_responder)
-    if system_catalog is not None:
-        light_brain_interpreter.set_system_catalog(system_catalog)
-    if runtime_center is not None:
-        light_brain_interpreter.set_runtime_context_provider(runtime_center)
     runtime_center.register_asset(
         AssetDescriptor(
             asset_id="asset:light_brain_gateway:v1",
@@ -920,6 +891,36 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             "call_asset_method": lambda asset_id, method, params=None: asset_tool_executor.execute("call_asset_method", {"asset_id": asset_id, "method": method, "params": params or {}}, "system").data,
         },
     )
+
+    # -- Phase I: Register system services as MessageBus Workers ----------------
+    from app.services.system_lifecycle_worker import SystemLifecycleWorker
+    from app.services.system_app_registry_worker import SystemAppRegistryWorker
+    from app.services.system_meta_app_worker import SystemMetaAppWorker
+    from app.services.system_app_refinement_worker import SystemAppRefinementWorker
+    from app.services.system_config_center_worker import SystemConfigCenterWorker
+
+    lifecycle_worker = SystemLifecycleWorker(g1g2_bus, lifecycle)
+    app_registry_worker = SystemAppRegistryWorker(g1g2_bus, app_registry)
+    meta_app_worker = SystemMetaAppWorker(g1g2_bus, meta_app_orchestrator)
+    refinement_worker = SystemAppRefinementWorker(g1g2_bus, app_refinement_orchestrator)
+    config_center_worker = SystemConfigCenterWorker(g1g2_bus, config_center)
+
+    # Register workers on MessageBus
+    import asyncio
+    g1g2_bus.register_worker("system.lifecycle", asyncio.Queue())
+    g1g2_bus.register_worker("system.app_registry", asyncio.Queue())
+    g1g2_bus.register_worker("system.meta_app", asyncio.Queue())
+    g1g2_bus.register_worker("system.app_refinement", asyncio.Queue())
+    g1g2_bus.register_worker("system.config_center", asyncio.Queue())
+    logger.info("Phase I: 5 system service Workers registered on MessageBus")
+
+    # Wire tool registry and system catalog into interpreter for tool-aware LLM parsing
+    light_brain_interpreter.set_tool_registry(tool_registry)
+    light_brain_interpreter.set_llm_responder(llm_responder)
+    if system_catalog is not None:
+        light_brain_interpreter.set_system_catalog(system_catalog)
+    if runtime_center is not None:
+        light_brain_interpreter.set_runtime_context_provider(runtime_center)
     # Wire LLM to workflow after gateway is created
     interactive_app_workflow._llm = llm_responder
 
