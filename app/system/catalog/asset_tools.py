@@ -41,12 +41,9 @@ class AssetToolDefinition:
 def make_query_asset_detail_tool() -> AssetToolDefinition:
     return AssetToolDefinition(
         name="query_asset_detail",
-        description="查询某个资产的详细使用说明。\n"
-                    "用法：当你在资产概览列表中看到一个感兴趣的资产，但不知道具体怎么使用时调用此工具。\n"
-                    "返回内容：资产名称、描述、所有可用接口（function）的名称、说明、输入参数格式、输出格式、注意事项。\n"
-                    "示例：query_asset_detail(asset_id='app.novel') → 返回小说 App 的 write_chapter 和 create_character 接口的完整使用说明",
+        description="查询某个资产的详细使用说明或运行态正式描述。优先返回运行态契约详情，静态资产作为兼容回退。",
         parameters=[
-            ToolParam("asset_id", "string", "资产ID，例如 app.novel、skill.generic_writer、path.create_app", required=True),
+            ToolParam("asset_id", "string", "资产ID，例如 asset:runtime_center:v1、app.novel、skill.generic_writer", required=True),
         ],
     )
 
@@ -197,6 +194,11 @@ class AssetToolExecutor:
         asset_id = args.get("asset_id")
         if not asset_id:
             return ToolResult(success=False, error="asset_id is required")
+
+        if hasattr(self._registry, "query_asset_info"):
+            runtime_detail = self._registry.query_asset_info(asset_id)
+            if runtime_detail is not None:
+                return ToolResult(success=True, data=runtime_detail)
 
         asset = self._registry.get_asset_detail(asset_id, caller_name)
         if asset is None:

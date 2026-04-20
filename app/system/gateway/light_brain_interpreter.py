@@ -77,7 +77,9 @@ class LightBrainInterpreter:
         ("list_users", re.compile(r"(列出|查看|显示|查询)\s*(所有|全部)?\s*(用户|成员|账号)"), "List users"),
         ("list_users", re.compile(r"(list|show|get)\s*(all\s*)?(user|member)"), "List users (EN)"),
         ("show_self", re.compile(r"(我[^的]*什么|我的|查看我的)\s*(权限|角色|级别|身份)"), "Show own permissions"),
-        ("show_self", re.compile(r"(my|what\s*are\s*my)\s*(permission|role|level)"), "Show own permissions (EN)"),
+        ("list_assets", re.compile(r"(有哪些|有什么|列出|看看).*(资产|服务|能力|runtime|运行态)", re.IGNORECASE), "List runtime assets"),
+        ("query_asset_info", re.compile(r"(查看|查询|看看).*(资产|服务).*(详情|信息|能力)", re.IGNORECASE), "Query runtime asset info"),
+        ("call_asset_method", re.compile(r"(调用|执行|运行).*(资产|服务).*(方法|能力)", re.IGNORECASE), "Call runtime asset method"),
     ]
 
     # Combined pattern view used by current interpreter flow
@@ -95,6 +97,7 @@ class LightBrainInterpreter:
         "query_status", "query_help", "unclear",
         "modify_interactive_app", "self_modify", "query_user", "register_user",
         "grant_admin", "grant_root", "revoke_role", "show_permissions", "list_users", "show_self",
+        "list_assets", "query_asset_info", "call_asset_method", "query_asset_detail",
     }
 
     # LLM intent parsing result cache: key -> InterpretedCommand

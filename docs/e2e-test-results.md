@@ -25,17 +25,20 @@
   - 已注册 `master_control / config_center / runtime_center / model_router / tool_calling_engine / light_brain_gateway`
   - Gateway 已挂接运行态资产工具处理器
   - AssetToolExecutor 已从 system catalog 切换为 RuntimeCenter
+  - `call_asset_method` 已可真实映射到 `model_router.resolve_model / config_center.get_config / gateway.list_assets`
+  - 兼容加载旧 runtime data，旧 `running` 状态与缺失字段可转为新契约
 - 失配分类:
-  - 接口契约失配，部分旧资产查询仍保留 system catalog 语义
-  - 控制流失配，`call_asset_method` 目前仍是最小安全壳，未完成真实映射
+  - 部分旧资产查询仍保留 static catalog 回退语义
+  - interpreter 对 runtime asset intent 仍是基础 regex 级别
 - 修复动作:
   - 增加正式 runtime asset tools
   - 在 Gateway 默认工具表中暴露 runtime asset intents
-  - 建立 Phase H 验证记录文档
+  - RuntimeCenter 增加 method mapping 与 legacy runtime entry 迁移加载
+  - 统一 `query_asset_detail` 优先走 runtime contract
 - 当前结论:
-  - H2.2/H2.3 已从设计态进入可调用骨架态
-  - 还需要真实方法映射与更完整的 interpreter/gateway 验证
+  - H2.2/H2.3 已从设计态进入可调用骨架态，并完成首批真实方法映射
+  - 运行态资产发现, 查询, 调用三段链路已打通
 - 遗留问题:
-  - `call_asset_method` 真实映射层未完成
-  - 旧 `query_asset_detail` 与新 `query_asset_info` 语义仍有并存
-  - 还缺少实际运行验证与测试覆盖
+  - `call_asset_method` 仍只覆盖首批核心服务映射，尚未扩展到更广 worker/app 面
+  - runtime asset intent 的解释策略仍较粗，需要后续做更稳的 tool-aware 解析
+  - 还缺少正式测试文件覆盖本轮 Phase H 新链路

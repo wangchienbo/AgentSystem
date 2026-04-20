@@ -530,12 +530,38 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             ("asset:tool_calling_engine:v1", "tool_calling_engine", "LLM tool execution layer", tool_calling_engine, [
                 AssetCapability(name="run tool call", description="Run a structured tool call turn", method="run_tool_call", side_effect_level="write"),
             ]),
-            ("asset:light_brain_gateway:v1", "light_brain_gateway", "Unified user interaction gateway", light_brain_gateway, [
-                AssetCapability(name="list assets", description="List runtime assets through gateway", method="list_assets", side_effect_level="read"),
-                AssetCapability(name="query asset info", description="Query runtime asset info through gateway", method="query_asset_info", side_effect_level="read"),
-                AssetCapability(name="call asset method", description="Invoke runtime asset method through gateway", method="call_asset_method", side_effect_level="write"),
-            ]),
-        ]
+                    ]
+        method_map_by_name = {
+            "master_control": {
+                "dispatch": lambda operation="query_status", target="", params=None, user_id="system", user_role="system": master_control.execute(operation=operation, user_id=user_id, user_role=user_role, target=target, params=params or {}),
+            },
+            "config_center": {
+                "get_config": lambda skill_id=None, app_id=None: {
+                    "skill_config": (lambda cfg: cfg.__dict__ if cfg is not None else None)(config_center.get_skill_config(skill_id) if skill_id else None),
+                    "app_bindings": [b.__dict__ for b in config_center.get_app_bindings(app_id)] if app_id else [],
+                },
+            },
+            "runtime_center": {
+                "list_assets": lambda filter_text=None: [a.model_dump(mode="json") for a in runtime_center.list_assets() if not filter_text or filter_text.lower() in json.dumps(a.model_dump(mode="json"), ensure_ascii=False).lower()],
+                "query_asset_info": lambda asset_id: runtime_center.query_asset_info(asset_id),
+                "call_asset_method": lambda asset_id, method, params=None: runtime_center.call_asset_method(asset_id=asset_id, method=method, params=params or {}),
+            },
+            "model_router": {
+                "resolve_model": lambda caller="system", complexity="moderate": model_router.resolve(caller, complexity).__dict__,
+            },
+            "tool_calling_engine": {
+                "run_tool_call": lambda **kwargs: {
+                    "accepted": True,
+                    "note": "Tool call execution mapping placeholder, requires full request payload",
+                    "received": kwargs,
+                },
+            },
+            "light_brain_gateway": {
+                "list_assets": lambda filter="": asset_tool_executor.execute("list_assets", {"filter": filter}, "system").data,
+                "query_asset_info": lambda asset_id: asset_tool_executor.execute("query_asset_info", {"asset_id": asset_id}, "system").data,
+                "call_asset_method": lambda asset_id, method, params=None: asset_tool_executor.execute("call_asset_method", {"asset_id": asset_id, "method": method, "params": params or {}}, "system").data,
+            },
+        }
         for asset_id, name, description, service, capabilities in core_assets:
             runtime_center.register_asset(
                 AssetDescriptor(
@@ -554,7 +580,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                     description=description,
                     tags=["phase-h", "core-runtime"],
                     metadata={"python_type": type(service).__name__},
-                )
+                ),
+                service_ref=service,
+                method_mappings=method_map_by_name.get(name, {}),
             )
 
 
@@ -863,6 +891,35 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         light_brain_interpreter.set_system_catalog(system_catalog)
     if runtime_center is not None:
         light_brain_interpreter.set_runtime_context_provider(runtime_center)
+    runtime_center.register_asset(
+        AssetDescriptor(
+            asset_id="asset:light_brain_gateway:v1",
+            asset_type=AssetType.SERVICE,
+            asset_kind=AssetKind.CORE_RUNTIME,
+            version="1.0.0",
+            owner_type="system",
+            owner_id="system",
+            source_of_truth="runtime",
+            status=AssetState.ACTIVE,
+            capabilities=[
+                AssetCapability(name="list assets", description="List runtime assets through gateway", method="list_assets", side_effect_level="read"),
+                AssetCapability(name="query asset info", description="Query runtime asset info through gateway", method="query_asset_info", side_effect_level="read"),
+                AssetCapability(name="call asset method", description="Invoke runtime asset method through gateway", method="call_asset_method", side_effect_level="write"),
+            ],
+            invoke_contract={"kind": "service", "service_name": "light_brain_gateway"},
+            health_contract={"heartbeat": False},
+            name="light_brain_gateway",
+            description="Unified user interaction gateway",
+            tags=["phase-h", "core-runtime"],
+            metadata={"python_type": type(light_brain_gateway).__name__},
+        ),
+        service_ref=light_brain_gateway,
+        method_mappings={
+            "list_assets": lambda filter="": asset_tool_executor.execute("list_assets", {"filter": filter}, "system").data,
+            "query_asset_info": lambda asset_id: asset_tool_executor.execute("query_asset_info", {"asset_id": asset_id}, "system").data,
+            "call_asset_method": lambda asset_id, method, params=None: asset_tool_executor.execute("call_asset_method", {"asset_id": asset_id, "method": method, "params": params or {}}, "system").data,
+        },
+    )
     # Wire LLM to workflow after gateway is created
     interactive_app_workflow._llm = llm_responder
 

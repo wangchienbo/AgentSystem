@@ -4,7 +4,7 @@ import json
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType, is_valid_asset_state_transition
 
@@ -16,9 +16,11 @@ class RuntimeCenter:
         self._data_file = Path(data_file)
         self._lock = threading.RLock()
         self._entries: dict[str, AssetDescriptor] = {}
+        self._service_refs: dict[str, Any] = {}
+        self._method_mappings: dict[tuple[str, str], Callable[..., Any]] = {}
         self._load()
 
-    def register_asset(self, descriptor: AssetDescriptor) -> AssetDescriptor:
+    def register_asset(self, descriptor: AssetDescriptor, service_ref: Any | None = None, method_mappings: dict[str, Callable[..., Any]] | None = None) -> AssetDescriptor:
         now = self._now_iso()
         if not descriptor.created_at:
             descriptor.created_at = now
@@ -26,6 +28,11 @@ class RuntimeCenter:
         if descriptor.status == AssetState.DECLARED:
             descriptor.status = AssetState.STARTING if descriptor.source_of_truth == "runtime" else AssetState.DECLARED
         self._entries[descriptor.asset_id] = descriptor
+        if service_ref is not None:
+            self._service_refs[descriptor.asset_id] = service_ref
+        if method_mappings:
+            for method_name, handler in method_mappings.items():
+                self._method_mappings[(descriptor.asset_id, method_name)] = handler
         self._save()
         return descriptor
 
@@ -145,15 +152,39 @@ class RuntimeCenter:
         allowed = {cap.method: cap for cap in asset.capabilities}
         if method not in allowed:
             return {"ok": False, "error": f"method {method} not exposed by {asset_id}"}
-        return {
-            "ok": True,
-            "asset_id": asset_id,
-            "method": method,
-            "params": params or {},
-            "state_change": None,
-            "audit_ref": None,
-            "note": "Phase H minimal contract only, execution mapping not wired yet",
-        }
+        handler = self._method_mappings.get((asset_id, method))
+        if handler is None:
+            return {
+                "ok": False,
+                "error": f"method mapping for {asset_id}.{method} is not wired yet",
+            }
+        try:
+            result = handler(**(params or {})) if isinstance(params, dict) else handler(params)
+            return {
+                "ok": True,
+                "asset_id": asset_id,
+                "method": method,
+                "params": params or {},
+                "result": result,
+                "state_change": None,
+                "audit_ref": None,
+            }
+        except TypeError:
+            try:
+                result = handler(params or {})
+                return {
+                    "ok": True,
+                    "asset_id": asset_id,
+                    "method": method,
+                    "params": params or {},
+                    "result": result,
+                    "state_change": None,
+                    "audit_ref": None,
+                }
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
 
     def build_prompt(self, caller_id: str) -> str:
         entries = self.list_all()
@@ -175,11 +206,48 @@ class RuntimeCenter:
         entries = data.get("entries", {}) if isinstance(data, dict) else {}
         if not isinstance(entries, dict):
             return
-        self._entries = {
-            asset_id: AssetDescriptor.model_validate(entry)
-            for asset_id, entry in entries.items()
-            if isinstance(entry, dict)
-        }
+        loaded: dict[str, AssetDescriptor] = {}
+        for asset_id, entry in entries.items():
+            if not isinstance(entry, dict):
+                continue
+            try:
+                loaded[asset_id] = AssetDescriptor.model_validate(entry)
+            except Exception:
+                legacy_type = entry.get("asset_type")
+                if legacy_type is None:
+                    legacy_type = AssetType.APP if "app" in asset_id else AssetType.SERVICE
+                legacy_status = str(entry.get("status") or "unknown")
+                status_map = {
+                    "running": AssetState.ACTIVE,
+                    "created": AssetState.DECLARED,
+                    "installed": AssetState.DECLARED,
+                    "starting": AssetState.STARTING,
+                    "stopped": AssetState.STOPPED,
+                    "paused": AssetState.PAUSED,
+                    "crashed": AssetState.CRASHED,
+                    "degraded": AssetState.DEGRADED,
+                    "unknown": AssetState.UNKNOWN,
+                }
+                loaded[asset_id] = AssetDescriptor(
+                    asset_id=asset_id,
+                    asset_type=legacy_type,
+                    asset_kind=AssetKind.MATERIALIZED,
+                    version=str(entry.get("version") or "1.0.0"),
+                    owner_type=str(entry.get("owner_type") or "system"),
+                    owner_id=str(entry.get("owner") or entry.get("owner_id") or "system"),
+                    source_of_truth="runtime",
+                    status=status_map.get(legacy_status, AssetState.UNKNOWN),
+                    capabilities=[],
+                    invoke_contract=entry.get("invoke_contract") or {},
+                    health_contract=entry.get("health_contract") or {},
+                    name=str(entry.get("name") or asset_id),
+                    description=str(entry.get("description") or "legacy runtime entry"),
+                    metadata={"legacy_entry": True, **(entry.get("metadata") or {})},
+                    tags=list(entry.get("tags") or ["legacy-runtime"]),
+                    created_at=str(entry.get("created_at") or entry.get("started_at") or self._now_iso()),
+                    updated_at=str(entry.get("updated_at") or entry.get("last_heartbeat") or self._now_iso()),
+                )
+        self._entries = loaded
 
     def _save(self) -> None:
         self._data_file.parent.mkdir(parents=True, exist_ok=True)
