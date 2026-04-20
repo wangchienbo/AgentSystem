@@ -533,6 +533,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             ("asset:app_management_worker:v1", "app_management_worker", "App lifecycle and runtime worker", app_mgmt_worker, [
                 AssetCapability(name="list apps", description="List registered apps", method="list_apps", side_effect_level="read"),
                 AssetCapability(name="query app", description="Query one app record", method="query_app", side_effect_level="read"),
+                AssetCapability(name="start app", description="Start an app instance", method="start_app", side_effect_level="write"),
+                AssetCapability(name="stop app", description="Stop an app instance", method="stop_app", side_effect_level="write"),
+                AssetCapability(name="delete app", description="Delete an app instance", method="delete_app", side_effect_level="write"),
+                AssetCapability(name="uninstall app", description="Uninstall an app instance", method="uninstall_app", side_effect_level="write"),
             ]),
             ("asset:user_manager:v1", "user_manager", "User and permission worker", user_manager, [
                 AssetCapability(name="list users", description="List known users", method="list_users", side_effect_level="read"),
@@ -544,6 +548,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             ("asset:package_manager:v1", "package_manager", "Package and asset installation manager", package_manager_executor, [
                 AssetCapability(name="list installed packages", description="List installed runtime packages", method="package_list_installed", side_effect_level="read"),
                 AssetCapability(name="search packages", description="Search source packages", method="package_search", side_effect_level="read"),
+                AssetCapability(name="build package", description="Build a source package", method="package_build", side_effect_level="write"),
+                AssetCapability(name="install package", description="Install a built package", method="package_install", side_effect_level="write"),
+                AssetCapability(name="uninstall package", description="Uninstall an installed package", method="package_uninstall", side_effect_level="write"),
+                AssetCapability(name="rollback package", description="Rollback a package to a target version", method="package_rollback", side_effect_level="write"),
             ]),
         ]
         method_map_by_name = {
@@ -574,6 +582,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             "app_management_worker": {
                 "list_apps": lambda status="all": app_mgmt_worker.execute("list_apps", "", {"status": status}),
                 "query_app": lambda app_name: app_mgmt_worker.execute("query_app", app_name, {}),
+                "start_app": lambda app_name: app_mgmt_worker.execute("start_app", app_name, {}),
+                "stop_app": lambda app_name: app_mgmt_worker.execute("stop_app", app_name, {}),
+                "delete_app": lambda app_name: app_mgmt_worker.execute("delete_app", app_name, {}),
+                "uninstall_app": lambda app_name: app_mgmt_worker.execute("uninstall_app", app_name, {}),
             },
             "user_manager": {
                 "list_users": lambda: user_manager.execute("list_users", "", {}),
@@ -585,6 +597,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             "package_manager": {
                 "package_list_installed": lambda asset_type=None: package_manager_executor.execute("package_list_installed", {"asset_type": asset_type}).data,
                 "package_search": lambda query: package_manager_executor.execute("package_search", {"query": query}).data,
+                "package_build": lambda asset_id: package_manager_executor.execute("package_build", {"asset_id": asset_id}).data,
+                "package_install": lambda asset_id, build_hash=None: package_manager_executor.execute("package_install", {"asset_id": asset_id, "build_hash": build_hash}).data,
+                "package_uninstall": lambda asset_id: package_manager_executor.execute("package_uninstall", {"asset_id": asset_id}).data,
+                "package_rollback": lambda asset_id, target_version: package_manager_executor.execute("package_rollback", {"asset_id": asset_id, "target_version": target_version}).data,
             },
             "light_brain_gateway": {
                 "list_assets": lambda filter="": asset_tool_executor.execute("list_assets", {"filter": filter}, "system").data,
