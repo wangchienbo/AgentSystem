@@ -1,4 +1,64 @@
-## 2026-04-19
+### 2026-04-20
+
+#### Module: Phase H runtime asset schema-aware examples + clarification follow-up
+
+继续沿 runtime asset 主路径收口，没有停在 capability-aware 的启发式样例层，而是把 detail enrichment 和 clarification 多轮链路一起往最终交互形态推进。
+
+#### Implemented
+- `app/system/catalog/asset_tools.py`
+  - 为 `AssetToolExecutor` 注入可选 `schema_registry`
+  - expanded detail 的 `invoke_examples` 从纯方法名启发式，升级为“schema ref 优先 + 启发式兜底”
+  - 新增基于 schema 的样例值生成：支持 object / array / enum / boolean / integer / number / string 等常见 JSON Schema 结构
+  - 当 capability 提供 `input_schema_ref` 时，优先从 schema 解析示例参数，再补 asset/method/app/package 等运行态语义字段
+- `app/bootstrap/runtime.py`
+  - runtime 中创建 `asset_tool_executor` 时正式接入 `schema_registry`
+- `app/system/gateway/light_brain_interpreter.py`
+  - 增加 runtime asset clarification pending state
+  - 支持缺 method / 缺 asset_id 后，下一条消息自动补参并回接原 `call_asset_method`
+  - clarification follow-up 已不再只是问一句，而是可继续落回真实调用
+- `tests/unit/test_runtime_asset_gateway_registration.py`
+  - 新增 schema-shaped invoke example 测试
+  - 新增 clarification 后补 method -> real call 测试
+  - 新增 clarification 后补 asset_id -> real call 测试
+- `tests/unit/test_runtime_asset_intent_parsing.py`
+  - 新增“已知 method 但缺 asset_id” clarification 解析测试
+
+#### Validation
+- `pytest -q tests/unit/test_runtime_asset_gateway_registration.py tests/unit/test_runtime_asset_intent_parsing.py tests/unit/test_runtime_asset_worker_mappings.py tests/unit/test_runtime_asset_deeper_mappings.py`
+- 结果：`25 passed in 21.27s`
+
+#### Notes
+- 这一步把 runtime asset clarification 从单轮静态追问推进到了可继续执行的多轮最小闭环
+- invoke examples 现在已开始真正参考 schema，而不只是 method name 猜参
+- 当前 clarification pending state 还是轻量内存态，后续若继续扩系统级多轮交互，再考虑更正式的 session-scoped command continuation 契约
+
+
+#### 精简内容
+- `light_brain_gateway.py`: 1153 行 → 334 行（缩减 70%）
+- 删除 legacy handler 注入、Bridge 包装层、过时的 AppCommandService 引用
+- 删除 `_check_app_modify_permission`、`_get_user_service`、`_get_app_owner_role` 等权限辅助函数
+- 移除 `_execute_modify_app` 底部不可达的 legacy 代码块
+
+#### 兼容性修复
+- `InterpretedCommand` 模型添加 `context: dict[str, Any]` 字段，支持 enrich 阶段注入运行时上下文
+- `LightBrainMemory` 添加 `find_similar()` 占位方法（返回空列表），支持 Phase 5.1 相似查询接口
+- `LightBrainGateway` 新增属性：`_app_lifecycle_query_executor`, `_app_presenter`, `_app_command_service`, `_name`
+- Legacy 参数兼容：接受 `app_registry_service`, `app_lifecycle_service`, `app_runtime_host`, `persistence_service` 等旧参数名
+- 新增 handler：`_handle_list_apps`, `_handle_cancel`
+- 新增方法：`execute_action()`, `list_sessions()`, `delete_session()`
+- 修复 `_auto_save`: 参数名从 `memory` 修正为 `light_brain_memory`
+- 修复 persistence restore：检查 `hasattr(self._persistence, "load_state")` 避免 PersistenceService 不存在该方法
+
+#### 验证结果
+- 测试全绿：91 passed
+- Runtime 启动：160 组件加载成功
+- E2E 消息流：Gateway → Bridge → DynamicPathComposer 链路完整
+- LLM 规划失败（缺 OPENAI_API_KEY）：预期内行为，链路架构本身正常
+
+#### 提交
+- `06988b5`: fix: resolve test failures - add model field, fix auto-save, legacy compat
+
+---
 
 ### Module: Main-path pruning of stale compatibility tests
 

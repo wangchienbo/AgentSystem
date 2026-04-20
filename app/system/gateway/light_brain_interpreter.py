@@ -17,6 +17,9 @@ from app.models.chat import ActionSuggestion, InterpretedCommand
 
 
 class LightBrainInterpreter:
+    def __init__(self) -> None:
+        self._pending_runtime_asset_clarifications: dict[str, dict[str, Any]] = {}
+
     """Rule-based interpreter that maps user messages to structured commands.
 
     Phase 8.3: optionally falls back to LLM parsing when rule-based confidence
@@ -221,7 +224,7 @@ class LightBrainInterpreter:
             parameters = self._extract_parameters(stripped, intent)
             suggested_actions = self._build_actions(intent, target_app, available_apps)
             requires_clarification, clarification_question = self._needs_clarification(
-                intent, target_app, parameters
+                intent, target_app, parameters, session_key=user_id
             )
             return InterpretedCommand(
                 intent=intent,
@@ -244,7 +247,7 @@ class LightBrainInterpreter:
                 parameters = self._extract_parameters(stripped, intent)
                 suggested_actions = self._build_actions(intent, target_app, available_apps)
                 requires_clarification, clarification_question = self._needs_clarification(
-                    intent, target_app, parameters
+                    intent, target_app, parameters, session_key=user_id
                 )
                 return InterpretedCommand(
                     intent=intent,
@@ -391,6 +394,9 @@ class LightBrainInterpreter:
     def _extract_parameters(self, message: str, intent: str) -> dict[str, Any]:
         """Extract structured parameters from the message."""
         params: dict[str, Any] = {}
+        runtime_context = self._consume_runtime_clarification(message)
+        if runtime_context:
+            return runtime_context
 
         if intent == "create_app":
             # Look for common app types
@@ -521,6 +527,7 @@ class LightBrainInterpreter:
         intent: str,
         target_app: str | None,
         parameters: dict[str, Any],
+        session_key: str = "default",
     ) -> tuple[bool, str | None]:
         """Determine if we need to ask the user for clarification."""
         if intent == "unclear":
@@ -537,13 +544,39 @@ class LightBrainInterpreter:
 
         if intent == "call_asset_method":
             if not parameters.get("asset_id") and not parameters.get("method"):
+                self._pending_runtime_asset_clarifications.pop(session_key, None)
                 return True, "你想调用哪个资产的哪个方法？请给我 asset_id 和 method，例如 asset:model_router:v1 的 resolve_model。"
             if parameters.get("asset_id") and not parameters.get("method"):
+                self._pending_runtime_asset_clarifications[session_key] = {
+                    "intent": intent,
+                    "parameters": {"asset_id": parameters.get("asset_id")},
+                }
                 return True, "我知道你要调用哪个资产了，但还缺方法名。请告诉我要调用的 method。"
             if parameters.get("method") and not parameters.get("asset_id"):
+                self._pending_runtime_asset_clarifications[session_key] = {
+                    "intent": intent,
+                    "parameters": {"method": parameters.get("method")},
+                }
                 return True, "我知道你要调用哪个方法了，但还缺 asset_id。请告诉我要调用哪个资产。"
+            self._pending_runtime_asset_clarifications.pop(session_key, None)
 
         return False, None
+
+    def _consume_runtime_clarification(self, message: str) -> dict[str, Any] | None:
+        pending = self._pending_runtime_asset_clarifications.get("default")
+        if not pending:
+            return None
+        merged = dict(pending.get("parameters", {}))
+        asset_match = re.search(r"asset[:：][^\s，,。]+", message, re.IGNORECASE)
+        method_match = re.search(r"([a-zA-Z_][a-zA-Z0-9_]*)", message)
+        if not merged.get("asset_id") and asset_match:
+            merged["asset_id"] = asset_match.group(0).replace("：", ":")
+        if not merged.get("method") and method_match:
+            merged["method"] = method_match.group(1)
+        if merged.get("asset_id") and merged.get("method"):
+            self._pending_runtime_asset_clarifications.pop("default", None)
+            return merged
+        return None
 
     # -- LLM fallback --------------------------------------------------------
 

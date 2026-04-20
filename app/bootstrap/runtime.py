@@ -737,7 +737,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     logger.info("System catalog loaded: %d entries", system_catalog.count())
 
     # Asset tool executor — bridges LLM tool calls to runtime asset registry
-    asset_tool_executor = AssetToolExecutor(registry=runtime_center)
+    asset_tool_executor = AssetToolExecutor(registry=runtime_center, schema_registry=schema_registry)
 
     package_manager_executor = PackageManagerExecutor(asset_center=asset_center)
     app_installer._asset_center = asset_center

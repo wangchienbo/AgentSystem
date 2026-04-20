@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from app.bootstrap.runtime import build_runtime
 from app.models.chat import ChatMessageRequest
 
@@ -118,6 +120,28 @@ def test_runtime_asset_detail_contains_useful_enrichment() -> None:
     assert first_example["arguments"]["params"]
 
 
+def test_runtime_asset_detail_examples_use_schema_shaped_params() -> None:
+    services = build_runtime()
+    asset_tool_executor = services["asset_tool_executor"]
+
+    detail_result = asset_tool_executor.execute(
+        "query_asset_detail",
+        {"asset_id": "asset:model_router:v1"},
+        "system",
+    )
+
+    assert detail_result.success is True
+    examples = detail_result.data["invoke_examples"]
+    resolve_example = next(
+        example for example in examples
+        if example["arguments"]["method"] == "resolve_model"
+    )
+    params = resolve_example["arguments"]["params"]
+    assert isinstance(params, dict)
+    assert params.get("caller")
+    assert params.get("complexity")
+
+
 def test_runtime_asset_gateway_to_runtime_call_flow() -> None:
     services = build_runtime()
     response = _run_gateway_message(
@@ -128,6 +152,48 @@ def test_runtime_asset_gateway_to_runtime_call_flow() -> None:
 
     assert response.type == "text"
     assert "asset:runtime_center:v1" in response.content
+
+
+def test_runtime_asset_gateway_followup_after_method_clarification() -> None:
+    services = build_runtime()
+    first_response = _run_gateway_message(
+        services,
+        "调用资产 asset:runtime_center:v1 的方法",
+        "runtime-asset-followup",
+    )
+    second_response = _run_gateway_message(
+        services,
+        "list_assets",
+        "runtime-asset-followup",
+    )
+
+    assert first_response.requires_input is True
+    assert "method" in first_response.content.lower() or "方法" in first_response.content
+    assert second_response.requires_input is False
+    assert second_response.type == "text"
+    assert re.search(r'"method"\s*:\s*"list_assets"', second_response.content)
+    assert "asset:runtime_center:v1" in second_response.content
+
+
+def test_runtime_asset_gateway_followup_after_asset_clarification() -> None:
+    services = build_runtime()
+    first_response = _run_gateway_message(
+        services,
+        "调用资产的方法 resolve_model",
+        "runtime-asset-followup-asset",
+    )
+    second_response = _run_gateway_message(
+        services,
+        "asset:model_router:v1",
+        "runtime-asset-followup-asset",
+    )
+
+    assert first_response.requires_input is True
+    assert "asset_id" in first_response.content.lower() or "资产" in first_response.content
+    assert second_response.requires_input is False
+    assert second_response.type == "text"
+    assert re.search(r'"method"\s*:\s*"resolve_model"', second_response.content)
+    assert "asset:model_router:v1" in second_response.content
 
 
 def test_runtime_asset_gateway_detail_flow() -> None:

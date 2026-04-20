@@ -7,6 +7,7 @@ Provides:
 """
 from __future__ import annotations
 
+import copy
 import json
 import logging
 from dataclasses import dataclass, field
@@ -126,15 +127,17 @@ class AssetToolExecutor:
     Bridges the LLM tool-call response to actual registry / orchestrator calls.
     """
 
-    def __init__(self, registry: AssetRegistry, orchestrator_router: Any = None):
+    def __init__(self, registry: AssetRegistry, orchestrator_router: Any = None, schema_registry: Any | None = None):
         """
         Args:
             registry: AssetRegistry instance
             orchestrator_router: callable(asset_id, path_key, inputs) -> result
                 Routes execute_path_by_key to the correct App orchestrator.
+            schema_registry: optional schema registry used to derive richer sample params
         """
         self._registry = registry
         self._orchestrator_router = orchestrator_router
+        self._schema_registry = schema_registry
 
     def execute(self, tool_name: str, arguments: dict[str, Any], caller_name: str) -> ToolResult:
         try:
@@ -223,36 +226,100 @@ class AssetToolExecutor:
                     cap.get("method"): cap.get("description", "")
                     for cap in capabilities if cap.get("method")
                 }
+                def _sample_value_from_schema(schema: dict[str, Any], prop_name: str | None = None) -> Any:
+                    if not isinstance(schema, dict):
+                        return "value"
+                    if "enum" in schema and isinstance(schema["enum"], list) and schema["enum"]:
+                        return copy.deepcopy(schema["enum"][0])
+                    schema_type = schema.get("type")
+                    if isinstance(schema_type, list):
+                        schema_type = next((item for item in schema_type if item != "null"), schema_type[0] if schema_type else None)
+                    if schema_type == "object":
+                        props = schema.get("properties", {}) if isinstance(schema.get("properties"), dict) else {}
+                        required = schema.get("required", []) if isinstance(schema.get("required"), list) else []
+                        keys = list(dict.fromkeys([*required, *props.keys()]))[:3]
+                        return {
+                            key: _sample_value_from_schema(props.get(key, {}), key)
+                            for key in keys
+                        }
+                    if schema_type == "array":
+                        item_schema = schema.get("items", {}) if isinstance(schema.get("items"), dict) else {}
+                        return [_sample_value_from_schema(item_schema, prop_name)]
+                    if schema_type == "boolean":
+                        return True
+                    if schema_type == "integer":
+                        return 1
+                    if schema_type == "number":
+                        return 1.0
+                    if schema_type == "null":
+                        return None
+                    if prop_name:
+                        lowered_name = prop_name.lower()
+                        if lowered_name.endswith("id") or lowered_name == "asset_id":
+                            return asset_id
+                        if "name" in lowered_name:
+                            return "workspace_assistant"
+                        if "method" in lowered_name:
+                            return capability_methods[0] if capability_methods else "list_assets"
+                        if "version" in lowered_name:
+                            return "1.0.0"
+                        if "user" in lowered_name or "owner" in lowered_name or "caller" in lowered_name:
+                            return "system"
+                        if "filter" in lowered_name:
+                            return "runtime"
+                        if "prompt" in lowered_name:
+                            return "hello runtime"
+                        if "modification" in lowered_name:
+                            return "add runtime asset summary panel"
+                    return "string" if schema_type == "string" else "value"
+
+                def _sample_from_schema_ref(schema_ref: str | None) -> dict[str, Any]:
+                    if not schema_ref or self._schema_registry is None:
+                        return {}
+                    try:
+                        schema = self._schema_registry.resolve(schema_ref)
+                    except Exception:
+                        return {}
+                    if not isinstance(schema, dict) or schema.get("type") != "object":
+                        return {}
+                    properties = schema.get("properties", {}) if isinstance(schema.get("properties"), dict) else {}
+                    required = schema.get("required", []) if isinstance(schema.get("required"), list) else []
+                    keys = list(dict.fromkeys([*required, *properties.keys()]))[:4]
+                    return {
+                        key: _sample_value_from_schema(properties.get(key, {}), key)
+                        for key in keys
+                    }
+
                 def _example_params(method_name: str, hint: dict[str, Any]) -> dict[str, Any]:
-                    sample_params: dict[str, Any] = {}
+                    sample_params: dict[str, Any] = _sample_from_schema_ref(hint.get("input_schema_ref"))
                     lowered = method_name.lower()
                     if "asset" in lowered:
-                        sample_params["asset_id"] = asset_id
+                        sample_params.setdefault("asset_id", asset_id)
                     if lowered.startswith("query_") or lowered.startswith("get_"):
                         if "filter" in lowered:
-                            sample_params["filter"] = "runtime"
+                            sample_params.setdefault("filter", "runtime")
                     if "list_assets" == method_name:
-                        sample_params["filter_text"] = "runtime"
+                        sample_params.setdefault("filter_text", "runtime")
                     elif method_name == "query_asset_info":
-                        sample_params["asset_id"] = asset_id
+                        sample_params.setdefault("asset_id", asset_id)
                     elif method_name == "call_asset_method":
-                        sample_params["asset_id"] = asset_id
-                        sample_params["method"] = capability_methods[0] if capability_methods else "list_assets"
-                        sample_params["params"] = {}
+                        sample_params.setdefault("asset_id", asset_id)
+                        sample_params.setdefault("method", capability_methods[0] if capability_methods else "list_assets")
+                        sample_params.setdefault("params", {})
                     elif method_name.startswith("resolve_"):
-                        sample_params["caller"] = "skill:test_skill"
-                        sample_params["complexity"] = "moderate"
+                        sample_params.setdefault("caller", "skill:test_skill")
+                        sample_params.setdefault("complexity", "moderate")
                     elif method_name.startswith("package_"):
-                        sample_params["asset_id"] = "app.workspace.assistant"
+                        sample_params.setdefault("asset_id", "app.workspace.assistant")
                         if method_name == "package_rollback":
-                            sample_params["target_version"] = "1.0.0"
+                            sample_params.setdefault("target_version", "1.0.0")
                     elif method_name.endswith("_app") or method_name in {"start_app", "stop_app", "delete_app", "uninstall_app", "query_app"}:
-                        sample_params["app_name"] = "workspace_assistant"
+                        sample_params.setdefault("app_name", "workspace_assistant")
                     elif method_name == "show_permissions":
-                        sample_params["target_user"] = "system"
+                        sample_params.setdefault("target_user", "system")
                     elif method_name == "refine_app":
-                        sample_params["app_name"] = "workspace_assistant"
-                        sample_params["modification"] = "add runtime asset summary panel"
+                        sample_params.setdefault("app_name", "workspace_assistant")
+                        sample_params.setdefault("modification", "add runtime asset summary panel")
                     if not sample_params and hint.get("input_schema_ref"):
                         sample_params["input_schema_ref"] = hint["input_schema_ref"]
                     return sample_params
