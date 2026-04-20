@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 class LightBrainGateway:
     """Unified entry point: message → intent → execution → reply."""
 
+    RUNTIME_ASSET_TOOL_INTENTS = {"list_assets", "query_asset_info", "call_asset_method", "query_asset_detail"}
+
     def __init__(
         self,
         memory: LightBrainMemory,
@@ -97,6 +99,10 @@ class LightBrainGateway:
             "show_permissions": self._handle_permission,
             "list_users": self._handle_permission,
             "show_self": self._handle_permission,
+            "list_assets": self._handle_runtime_asset_tool,
+            "query_asset_info": self._handle_runtime_asset_tool,
+            "call_asset_method": self._handle_runtime_asset_tool,
+            "query_asset_detail": self._handle_query_asset_detail,
         }
 
     def set_app_registry(self, app_registry: Any) -> None:
@@ -218,6 +224,16 @@ class LightBrainGateway:
             "greet": self._handle_greet,
             "query_status": self._handle_query_status,
             "query_help": self._handle_query_help,
+            "grant_admin": self._handle_permission,
+            "grant_root": self._handle_permission,
+            "revoke_role": self._handle_permission,
+            "show_permissions": self._handle_permission,
+            "list_users": self._handle_permission,
+            "show_self": self._handle_permission,
+            "list_assets": self._handle_runtime_asset_tool,
+            "query_asset_info": self._handle_runtime_asset_tool,
+            "call_asset_method": self._handle_runtime_asset_tool,
+            "query_asset_detail": self._handle_query_asset_detail,
             "modify_interactive_app": self._handle_modify_interactive_app,
             "self_modify": self._handle_modify_interactive_app,
             "grant_admin": self._handle_permission,
@@ -257,6 +273,35 @@ class LightBrainGateway:
     def _build_default_tool_registry(self):
         from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
         registry = ToolRegistry()
+
+        registry.register(ToolDefinition(
+            name="list_assets",
+            description="列出当前运行态可发现资产。用户说‘现在有什么资产’、‘你能操作什么’时使用。",
+            parameters=[ToolParameter("filter", "string", "可选过滤词", required=False)],
+            category="asset", priority=9,
+        ))
+        registry.register(ToolDefinition(
+            name="query_asset_info",
+            description="查询某个运行态资产的详细描述、状态和能力。",
+            parameters=[ToolParameter("asset_id", "string", "资产ID", required=True)],
+            category="asset", priority=9,
+        ))
+        registry.register(ToolDefinition(
+            name="call_asset_method",
+            description="通过安全映射入口调用某个运行态资产方法。",
+            parameters=[
+                ToolParameter("asset_id", "string", "资产ID", required=True),
+                ToolParameter("method", "string", "方法名", required=True),
+                ToolParameter("params", "object", "调用参数", required=False),
+            ],
+            category="asset", priority=8,
+        ))
+        registry.register(ToolDefinition(
+            name="query_asset_detail",
+            description="查询资产详细使用说明或详细契约。",
+            parameters=[ToolParameter("asset_id", "string", "资产ID", required=True)],
+            category="asset", priority=7,
+        ))
 
         registry.register(ToolDefinition(
             name="start_app",
@@ -593,6 +638,25 @@ class LightBrainGateway:
             )
         else:
             return self._error_reply(session_id, result.get("message", "操作失败"))
+
+    async def _handle_runtime_asset_tool(
+        self, command: InterpretedCommand, session_id: str, apps: list[dict],
+    ) -> ChatMessageResponse:
+        if not self._asset_tool_executor:
+            return self._error_reply(session_id, "⚠️ 运行态资产工具模块未加载。")
+        caller_id = f"user.{command.user_id}" if command.user_id else "system"
+        payload = dict(command.parameters or {})
+        if command.intent in {"query_asset_info", "query_asset_detail"} and not payload.get("asset_id") and command.target_app:
+            payload["asset_id"] = command.target_app
+        result = self._asset_tool_executor.execute(command.intent, payload, caller_id)
+        if not result.success:
+            return self._error_reply(session_id, f"❌ {result.error}")
+        return ChatMessageResponse(
+            type="text",
+            content=json.dumps(result.data, ensure_ascii=False, indent=2),
+            session_id=session_id,
+            requires_input=False,
+        )
 
     async def _handle_query_asset_detail(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],

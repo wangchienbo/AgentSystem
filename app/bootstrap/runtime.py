@@ -530,6 +530,11 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             ("asset:tool_calling_engine:v1", "tool_calling_engine", "LLM tool execution layer", tool_calling_engine, [
                 AssetCapability(name="run tool call", description="Run a structured tool call turn", method="run_tool_call", side_effect_level="write"),
             ]),
+            ("asset:light_brain_gateway:v1", "light_brain_gateway", "Unified user interaction gateway", light_brain_gateway, [
+                AssetCapability(name="list assets", description="List runtime assets through gateway", method="list_assets", side_effect_level="read"),
+                AssetCapability(name="query asset info", description="Query runtime asset info through gateway", method="query_asset_info", side_effect_level="read"),
+                AssetCapability(name="call asset method", description="Invoke runtime asset method through gateway", method="call_asset_method", side_effect_level="write"),
+            ]),
         ]
         for asset_id, name, description, service, capabilities in core_assets:
             runtime_center.register_asset(
@@ -657,8 +662,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
 
     logger.info("System catalog loaded: %d entries", system_catalog.count())
 
-    # Asset tool executor — bridges LLM tool calls to registry
-    asset_tool_executor = AssetToolExecutor(registry=system_catalog)
+    # Asset tool executor — bridges LLM tool calls to runtime asset registry
+    asset_tool_executor = AssetToolExecutor(registry=runtime_center)
 
     package_manager_executor = PackageManagerExecutor(asset_center=asset_center)
     app_installer._asset_center = asset_center
