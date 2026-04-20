@@ -176,7 +176,9 @@ class AssetToolExecutor:
         result = self._registry.query_asset_info(asset_id)
         if result is None:
             return ToolResult(success=False, error=f"Asset {asset_id} not found")
-        return ToolResult(success=True, data=result)
+        descriptor = dict(result)
+        descriptor.setdefault("detail_level", "descriptor")
+        return ToolResult(success=True, data=descriptor)
 
     def _call_asset_method(self, args: dict, caller_name: str) -> ToolResult:
         asset_id = args.get("asset_id")
@@ -198,7 +200,12 @@ class AssetToolExecutor:
         if hasattr(self._registry, "query_asset_info"):
             runtime_detail = self._registry.query_asset_info(asset_id)
             if runtime_detail is not None:
-                return ToolResult(success=True, data=runtime_detail)
+                enriched = dict(runtime_detail)
+                enriched["detail_level"] = "expanded"
+                enriched.setdefault("usage_notes", [])
+                enriched.setdefault("capability_methods", [cap.get("method") for cap in enriched.get("capabilities", []) if isinstance(cap, dict)])
+                enriched.setdefault("invoke_examples", [])
+                return ToolResult(success=True, data=enriched)
 
         asset = self._registry.get_asset_detail(asset_id, caller_name)
         if asset is None:
