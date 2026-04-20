@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.bootstrap.runtime import build_runtime
+from app.models.chat import ChatMessageRequest
 
 
 def test_bootstrap_runtime_registers_light_brain_gateway_asset() -> None:
@@ -28,6 +29,7 @@ def test_bootstrap_runtime_gateway_asset_method_mapping_works() -> None:
 
     assert result["ok"] is True
     assert result["asset_id"] == "asset:light_brain_gateway:v1"
+    assert result["error"] is None
     assert isinstance(result["result"], list)
     asset_ids = {item["asset_id"] for item in result["result"]}
     assert "asset:light_brain_gateway:v1" in asset_ids
@@ -45,6 +47,7 @@ def test_bootstrap_runtime_core_method_mappings_work() -> None:
     )
     assert router_result["ok"] is True
     assert router_result["result"]["model_name"]
+    assert router_result["error_type"] is None
 
     config_result = runtime_center.call_asset_method(
         "asset:config_center:v1",
@@ -53,3 +56,24 @@ def test_bootstrap_runtime_core_method_mappings_work() -> None:
     )
     assert config_result["ok"] is True
     assert "skill_config" in config_result["result"]
+    assert config_result["error"] is None
+
+
+def test_runtime_asset_gateway_to_runtime_call_flow() -> None:
+    services = build_runtime()
+    gateway = services["light_brain_gateway"]
+
+    response = gateway.process_message(
+        ChatMessageRequest(
+            user_id="system",
+            channel="test",
+            message="调用资产 asset:runtime_center:v1 的方法 list_assets",
+            session_id="runtime-asset-e2e",
+        )
+    )
+    if hasattr(response, "__await__"):
+        import asyncio
+        response = asyncio.run(response)
+
+    assert response.type == "text"
+    assert "asset:runtime_center:v1" in response.content

@@ -188,7 +188,7 @@ class AssetToolExecutor:
             return ToolResult(success=False, error="Runtime asset call is not available")
         result = self._registry.call_asset_method(asset_id=asset_id, method=method, params=params)
         ok = bool(result.get("ok")) if isinstance(result, dict) else False
-        return ToolResult(success=ok, data=result if ok else None, error="" if ok else str(result.get("error", "asset method call failed")))
+        return ToolResult(success=ok, data=result, error="" if ok else str(result.get("error", "asset method call failed")))
 
     def _query_asset_detail(self, args: dict, caller_name: str) -> ToolResult:
         asset_id = args.get("asset_id")

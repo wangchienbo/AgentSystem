@@ -148,43 +148,79 @@ class RuntimeCenter:
     def call_asset_method(self, asset_id: str, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         asset = self.get(asset_id)
         if asset is None:
-            return {"ok": False, "error": f"asset {asset_id} not found"}
+            return self._call_error(asset_id, method, params, f"asset {asset_id} not found", error_type="asset_not_found")
         allowed = {cap.method: cap for cap in asset.capabilities}
         if method not in allowed:
-            return {"ok": False, "error": f"method {method} not exposed by {asset_id}"}
+            return self._call_error(asset_id, method, params, f"method {method} not exposed by {asset_id}", error_type="method_not_exposed")
         handler = self._method_mappings.get((asset_id, method))
         if handler is None:
-            return {
-                "ok": False,
-                "error": f"method mapping for {asset_id}.{method} is not wired yet",
-            }
+            return self._call_error(
+                asset_id,
+                method,
+                params,
+                f"method mapping for {asset_id}.{method} is not wired yet",
+                error_type="method_not_wired",
+            )
         try:
             result = handler(**(params or {})) if isinstance(params, dict) else handler(params)
-            return {
-                "ok": True,
-                "asset_id": asset_id,
-                "method": method,
-                "params": params or {},
-                "result": result,
-                "state_change": None,
-                "audit_ref": None,
-            }
         except TypeError:
             try:
                 result = handler(params or {})
-                return {
-                    "ok": True,
-                    "asset_id": asset_id,
-                    "method": method,
-                    "params": params or {},
-                    "result": result,
-                    "state_change": None,
-                    "audit_ref": None,
-                }
             except Exception as exc:
-                return {"ok": False, "error": str(exc)}
+                return self._call_error(asset_id, method, params, str(exc), error_type=type(exc).__name__)
         except Exception as exc:
-            return {"ok": False, "error": str(exc)}
+            return self._call_error(asset_id, method, params, str(exc), error_type=type(exc).__name__)
+        return self._normalize_call_result(asset_id, method, params or {}, result)
+
+    def _normalize_call_result(self, asset_id: str, method: str, params: dict[str, Any], result: Any) -> dict[str, Any]:
+        base = {
+            "asset_id": asset_id,
+            "method": method,
+            "params": params,
+            "state_change": None,
+            "audit_ref": None,
+            "error": None,
+            "error_type": None,
+        }
+        if isinstance(result, dict) and "success" in result and "data" in result:
+            success = bool(result.get("success"))
+            return {
+                **base,
+                "ok": success,
+                "result": result.get("data"),
+                "error": result.get("error") or (None if success else "asset method call failed"),
+                "error_type": None if success else "tool_result_error",
+                "raw_result": result,
+            }
+        if isinstance(result, dict) and result.get("status") == "error":
+            return {
+                **base,
+                "ok": False,
+                "result": None,
+                "error": str(result.get("message") or "asset method call failed"),
+                "error_type": "handler_error",
+                "raw_result": result,
+            }
+        return {
+            **base,
+            "ok": True,
+            "result": result,
+            "raw_result": result,
+        }
+
+    def _call_error(self, asset_id: str, method: str, params: dict[str, Any] | None, error: str, error_type: str) -> dict[str, Any]:
+        return {
+            "ok": False,
+            "asset_id": asset_id,
+            "method": method,
+            "params": params or {},
+            "result": None,
+            "state_change": None,
+            "audit_ref": None,
+            "error": error,
+            "error_type": error_type,
+            "raw_result": None,
+        }
 
     def build_prompt(self, caller_id: str) -> str:
         entries = self.list_all()
