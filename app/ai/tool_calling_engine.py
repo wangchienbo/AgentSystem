@@ -98,6 +98,7 @@ class ToolCallingEngine:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         model_override: str | None = None,
+        asset_id: str | None = None,  # Caller asset context for model routing
     ) -> ToolCallingResult:
         """Execute multi-turn tool calling.
 
@@ -110,12 +111,19 @@ class ToolCallingEngine:
             temperature: LLM temperature
             max_tokens: Max tokens per turn
             model_override: Override model (bypasses router)
+            asset_id: Caller asset ID for asset-level model configuration
 
         Returns:
             ToolCallingResult with final text and call records
         """
-        caller = f"skill:{skill_id}" if not model_override else "override"
+        # Build caller identifier with asset context if available
+        if asset_id:
+            caller = f"asset:{asset_id}:skill:{skill_id}"
+        else:
+            caller = f"skill:{skill_id}"
+        
         if model_override:
+            caller = "override"
             client = self._get_client_by_name(model_override)
         else:
             client = self._router.get_client(caller)
@@ -217,8 +225,11 @@ class ToolCallingEngine:
             model=model_name,
             api_key_env="OPENAI_API_KEY",
         )
-        import os
-        api_key = os.getenv("OPENAI_API_KEY")
+        # Prioritize config file API key over environment variable
+        api_key = getattr(self._router, '_fallback_api_key', None)
         if not api_key:
-            raise ToolCallingEngineError("Missing OPENAI_API_KEY")
+            import os
+            api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ToolCallingEngineError("Missing API key in config or environment")
         return OpenAIResponsesClient(config=config, api_key=api_key)

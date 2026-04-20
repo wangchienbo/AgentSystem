@@ -141,9 +141,10 @@ class LightBrainGateway:
 
         # Phase 7.1: interpret intent using interpreter
         command = self._interpreter.interpret(
-            request.message,
-            available_apps=available_apps or [],
+            message=request.message,
             user_id=request.user_id,
+            session_id=session_id,
+            available_apps=available_apps or [],
         )
 
         # Phase 7.2: enrich command with tools and session state

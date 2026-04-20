@@ -70,7 +70,12 @@ class OpenAIResponsesClient:
     ) -> tuple[str, dict]:
         """Send a chat completion request and return the assistant's text response."""
         model_name = model or self._config.model
-        url = self._config.base_url.rstrip("/") + "/v1/chat/completions"
+        # Handle base_url that may or may not end with /v1
+        base = self._config.base_url.rstrip("/")
+        if base.endswith("/v1"):
+            url = base + "/chat/completions"
+        else:
+            url = base + "/v1/chat/completions"
         payload: dict = {
             "model": model_name,
             "messages": messages,
@@ -132,7 +137,12 @@ class OpenAIResponsesClient:
         Returns (response_dict, usage_info).
         """
         model_name = model or self._config.model
-        url = self._config.base_url.rstrip("/") + "/v1/chat/completions"
+        # Handle base_url that may or may not end with /v1
+        base = self._config.base_url.rstrip("/")
+        if base.endswith("/v1"):
+            url = base + "/chat/completions"
+        else:
+            url = base + "/v1/chat/completions"
         payload: dict = {
             "model": model_name,
             "messages": messages,

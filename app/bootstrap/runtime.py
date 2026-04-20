@@ -82,6 +82,9 @@ from app.services.user_service import UserService
 from app.services.auth_service import AuthService
 from app.services.session_router import SessionRouter
 from app.services.pipeline_service import PipelineService
+from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
+from app.services.hot_tool_manager import HotToolManager
+from app.tools.openclaw_tools import OPENCLAW_TOOL_HANDLERS
 
 # ── G.1/G.2: MessageBus, Workers, LogCenter, SkillMeta, PathStore ─────
 from app.core.message_bus import MessageBus
@@ -880,9 +883,36 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     # Register core runtime assets after core services exist
     _register_core_runtime_assets()
 
+    # Initialize HotToolManager and register OpenClaw core tools
+    hot_tool_manager = HotToolManager()
+    for tool_name, handler in OPENCLAW_TOOL_HANDLERS.items():
+        tool_calling_engine.register_tool(tool_name, handler)
+    
+    # Register asset capabilities for discovery
+    for asset in runtime_center.list_assets():
+        capabilities = [
+            {"method": cap.name, "description": cap.description or cap.name}
+            for cap in asset.capabilities
+        ]
+        if capabilities:
+            hot_tool_manager.warm_from_static_asset(
+                asset_id=asset.asset_id,
+                capabilities=capabilities,
+            )
+
+    # Initialize ToolCallingInterpreter with hot tool support + asset visibility
+    tool_calling_interpreter = ToolCallingInterpreter(
+        tool_registry=tool_registry,
+        tool_calling_engine=tool_calling_engine,
+        memory=light_brain_memory,
+        continuation_service=None,
+        hot_tool_manager=hot_tool_manager,
+        runtime_center=runtime_center,  # For asset visibility in prompt
+    )
+
     light_brain_gateway = LightBrainGateway(
         memory=light_brain_memory,
-        interpreter=light_brain_interpreter,
+        interpreter=tool_calling_interpreter,  # Phase E.2: unified tool-aware interpreter
         app_catalog=app_catalog,
         app_registry_service=app_registry,
         app_lifecycle_service=lifecycle,

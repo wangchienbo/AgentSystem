@@ -1,0 +1,19 @@
+{
+  "app.cb.api.001": [],
+  "bp.usable.alpha:usable-alpha-user": [],
+  "bp.external.model.probe:external-model-user": [],
+  "bp.generated.install.run:generated-user": [],
+  "bp.generated.multi.step:multi-step-user": [],
+  "bp.generated.transform.default:transform-user": [],
+  "bp.generated.auto.apply:auto-user": [],
+  "bp.text.slugify.app:slug-user": [],
+  "unknown-app": [],
+  "monitor-app": [],
+  "小说": [],
+  "监控": [],
+  "小说创作": [],
+  "小说创作-app（含：按题材+大纲生成章节、人物档案设计与管理、章节列表与修改、文本导出）-app": [],
+  "none-app": [],
+  "监控-app-app": [],
+  "私人日记-app（支持写日记、按日期浏览、关键词搜索、仅限本人使用的权限控制）-app": []
+}

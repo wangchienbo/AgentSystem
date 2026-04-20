@@ -427,9 +427,8 @@ class LightBrainInterpreter:
     def _extract_parameters(self, message: str, intent: str, session_key: str = "default") -> dict[str, Any]:
         """Extract structured parameters from the message."""
         params: dict[str, Any] = {}
-        runtime_context = self._consume_runtime_clarification(message, session_key=session_key)
-        if runtime_context:
-            return runtime_context
+        # Pending runtime clarification is now consumed in _finalize_command (Step 1)
+        # Do NOT consume here - let _finalize_command handle it
 
         if intent == "create_app":
             # Look for common app types
@@ -591,11 +590,18 @@ class LightBrainInterpreter:
                     "parameters": {"method": parameters.get("method")},
                 }
                 return True, "我知道你要调用哪个方法了，但还缺 asset_id。请告诉我要调用哪个资产。"
+            # Both present - clear pending and allow execution
             self._pending_runtime_asset_clarifications.pop(session_key, None)
 
         return False, None
 
-    def _consume_runtime_clarification(self, message: str, session_key: str = "default") -> dict[str, Any] | None:
+    def _consume_runtime_clarification(self, message: str, session_key: str = "default", peek_only: bool = True) -> dict[str, Any] | None:
+        """Consume or peek pending runtime clarification state.
+        
+        Args:
+            peek_only: If True, just read and merge without clearing pending state.
+                      If False, clear pending state after successful consumption.
+        """
         pending = self._pending_runtime_asset_clarifications.get(session_key)
         if not pending:
             return None
@@ -607,7 +613,8 @@ class LightBrainInterpreter:
         if not merged.get("method") and method_match:
             merged["method"] = method_match.group(1)
         if merged.get("asset_id") and merged.get("method"):
-            self._pending_runtime_asset_clarifications.pop(session_key, None)
+            if not peek_only:
+                self._pending_runtime_asset_clarifications.pop(session_key, None)
             return merged
         return None
 
@@ -631,14 +638,37 @@ class LightBrainInterpreter:
         target_app = command.target_app or self._extract_app_name(message, available_apps)
         parameters = dict(command.parameters or {})
         lowered = message.lower()
+        # Step 1: consume pending clarification and merge params (clear on complete consumption)
+        consumed = self._consume_runtime_clarification(message, session_key=user_id, peek_only=False)
+        if consumed:
+            for key, value in consumed.items():
+                if parameters.get(key) in (None, "", False):
+                    parameters[key] = value
+        # Step 2: runtime asset call intent override takes precedence
         if self._looks_like_asset_call_request(lowered):
             command.intent = "call_asset_method"
+        # Step 3: re-extract params (needed for the fresh intent after override)
         extracted = self._extract_parameters(message, command.intent, session_key=user_id)
         for key, value in extracted.items():
             if parameters.get(key) in (None, "", False):
                 parameters[key] = value
+        # Step 4: re-check pending (peek again, still don't clear)
+        consumed2 = self._consume_runtime_clarification(message, session_key=user_id, peek_only=True)
+        if consumed2:
+            for key, value in consumed2.items():
+                if parameters.get(key) in (None, "", False):
+                    parameters[key] = value
+        # Step 5: fix unclear → call_asset_method when runtime asset call signals present
+        # OR when we have consumed pending clarification that gives us complete params
         intent = command.intent
-        if intent == "unclear" and (parameters.get("asset_id") or parameters.get("method")) and self._looks_like_asset_call_request(message.lower()):
+        has_complete_asset_call_params = parameters.get("asset_id") and parameters.get("method")
+        looks_like_asset_call = self._looks_like_asset_call_request(lowered)
+        if intent == "unclear" and has_complete_asset_call_params:
+            intent = "call_asset_method"
+        elif intent == "unclear" and (parameters.get("asset_id") or parameters.get("method")) and looks_like_asset_call:
+            intent = "call_asset_method"
+        elif looks_like_asset_call and intent not in ("call_asset_method", "query_asset_info", "query_asset_detail"):
+            # Override other intents to call_asset_method if message clearly indicates asset call
             intent = "call_asset_method"
         requires_clarification, clarification_question = self._needs_clarification(
             intent, target_app, parameters, session_key=user_id

@@ -1,0 +1,10 @@
+{
+  "global:skill_assets": {
+    "namespace_id": "global:skill_assets",
+    "app_instance_id": null,
+    "namespace_type": "skill_assets",
+    "owner_user_id": null,
+    "path": "tmp/appdata_phase_h_check/global/skill_assets",
+    "created_at": "2026-04-20T01:22:02.054965Z"
+  }
+}

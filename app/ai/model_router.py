@@ -101,6 +101,7 @@ class ModelRouter:
         self._model_pool: dict[str, dict[str, Any]] = dict(DEFAULT_MODEL_POOL)
         self._caller_routes: dict[str, dict[str, str]] = dict(DEFAULT_CALLER_ROUTES)
         self._default_model: str = "strong"
+        self._fallback_api_key: str | None = None  # From config file model.api_key
         self._load_config()
 
     def _load_config(self) -> None:
@@ -112,6 +113,11 @@ class ModelRouter:
             raw = yaml.safe_load(self._config_path.read_text(encoding="utf-8")) or {}
         except Exception:
             return
+
+        # Load fallback API key from model.api_key (top-level config)
+        model_section = raw.get("model")
+        if isinstance(model_section, dict):
+            self._fallback_api_key = model_section.get("api_key")
 
         # Load model pool
         models_section = raw.get("models")
@@ -138,7 +144,6 @@ class ModelRouter:
                 self._caller_routes.update(callers)
 
         # Load default model
-        model_section = raw.get("model")
         if isinstance(model_section, dict):
             default = model_section.get("default")
             if default:
@@ -154,21 +159,32 @@ class ModelRouter:
         4. Caller-type routing table
         5. Global default
         """
+        # Parse caller format: "asset:{asset_id}:skill:{skill_id}" or "skill:{skill_id}" or "app:{app_id}"
+        asset_id = None
+        app_id = None
+        skill_id = None
+
+        if caller.startswith("asset:"):
+            # Format: asset:{asset_id}:skill:{skill_id} or asset:{asset_id}:app:{app_id}
+            parts = caller.split(":")
+            if len(parts) >= 4:
+                asset_id = parts[1]
+                if parts[2] == "skill" and len(parts) >= 4:
+                    skill_id = parts[3]
+                elif parts[2] == "app" and len(parts) >= 4:
+                    app_id = parts[3]
+        elif ":app:" in caller:
+            # Legacy format: skill:{skill_id}:app:{app_id}
+            parts = caller.split(":")
+            skill_id = parts[1] if len(parts) > 1 else None
+            app_id = parts[3] if len(parts) > 3 else None
+        elif caller.startswith("skill:"):
+            skill_id = caller.split(":", 1)[1]
+        elif caller.startswith("app:"):
+            app_id = caller.split(":", 1)[1]
+
         # 0. ConfigCenter: app-skill binding + skill template defaults
         if self._config_center:
-            app_id = None
-            skill_id = None
-
-            # Format: "skill:<skill_id>:app:<app_id>" (skill instance with app context)
-            if ":app:" in caller:
-                parts = caller.split(":")
-                skill_id = parts[1]
-                app_id = parts[3] if len(parts) > 3 else None
-            elif caller.startswith("skill:"):
-                skill_id = caller.split(":", 1)[1]
-            elif caller.startswith("app:"):
-                app_id = caller
-
             resolved = self._config_center.resolve_model_preference(app_id, skill_id)
             if resolved:
                 return self._resolve_by_preference(resolved, source=f"config_center:{caller}")
@@ -237,11 +253,15 @@ class ModelRouter:
         )
 
     def _resolve_api_key(self, route: ModelRoute) -> str:
-        """Resolve API key from environment."""
+        """Resolve API key from environment or config file."""
+        # Priority 1: environment variable
         api_key = os.getenv(route.api_key_env)
-        if not api_key:
-            raise ModelRouterError(f"Missing API key in env var: {route.api_key_env}")
-        return api_key
+        if api_key:
+            return api_key
+        # Priority 2: config file fallback (model.api_key)
+        if self._fallback_api_key:
+            return self._fallback_api_key
+        raise ModelRouterError(f"Missing API key in env var: {route.api_key_env}")
 
     def _make_model_config(self, route: ModelRoute) -> Any:
         """Create a ModelConfig-compatible object from route."""

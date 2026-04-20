@@ -328,14 +328,64 @@
   - create_app / modify_app 作为主适配对象
   - list_apps / query_app / start_app / stop_app 作为主链观察面
   - 多轮 create_app + restart recovery + user/admin 权限差异作为状态与门控观察面
-- [ ] 场景对应控制流映射
-- [ ] 失配点分类
-- [ ] 设计决策
-- [ ] 最小必要实现改动
-- [ ] 真实验证结果
-- [ ] 新增遗留问题
+- [x] 场景对应控制流映射（runtime asset clarification 主链已通）
+  - `LightBrainInterpreter` 统一后处理 `_finalize_command(...)` 已收敛所有解释路径
+  - `call_asset_method` / `query_asset_detail` / clarification / follow-up 已可回接
+  - `LightBrainMemory` JSON-safe snapshot 已收敛 session continuity 持久化边界
+  - `LightBrainGateway.execute_action` 已基于 intent + action_params 直接重建
+  - `AssetToolExecutor` 已兼容 `get_asset_detail -> get -> query_asset_info` 多级读取
+- [x] 失配点分类（本轮已收）
+  - ~~interpreter 硬编码 RuntimeCenter 接口假设~~ → 已改成宽容读取链
+  - ~~session key 错位~~ → 已对齐 `_pending_runtime_asset_clarifications` 读写
+  - ~~snapshot persistence 混入运行态对象~~ → 已清洗为 JSON-safe
+  - ~~execute_action 缺失 last_command 时二次解析~~ → 已改为直接重建
+  - ~~asset detail 展示层假设固定 schema~~ → 已兼容 methods/interfaces 变体
+  - ~~clarification question 生成不一致~~ → 已统一后处理收口
+- [x] 设计决策
+  - 所有解释路径统一走 `_finalize_command` 后处理，不再分散处理 clarification
+  - session persistence 只保存可序列化 command snapshot，运行态对象不直接落盘
+  - runtime asset call intent 固定 precedence，不被 detail-like 路径吞掉
+  - detail 读取走 `get_asset_detail -> get -> query_asset_info` 兼容链
+- [x] 最小必要实现改动
+  - `app/system/gateway/light_brain_interpreter.py`: 新增 `_finalize_command`, 统一收口 user_id/raw_input/suggested_actions
+  - `app/system/gateway/light_brain_memory.py`: snapshot 清洗 parameters/context/suggested_actions
+  - `app/system/gateway/light_brain_gateway.py`: `execute_action` 重建逻辑, `query_asset_detail` 展示层对齐
+  - `app/system/catalog/asset_tools.py`: `query_asset_detail` 宽容读取链
+  - `tests/unit/test_light_brain.py`: 补 `execute_action` 覆盖, 更新 VALID_INTENTS 断言
+  - `tests/unit/test_runtime_asset_gateway_registration.py`: 全绿
+- [x] 真实验证结果
+  - `72 passed in 83.50s` (light_brain + runtime_asset 全链)
+  - clarification / follow-up / detail / missing-asset 全部回到绿色
+  - commit `f14df18` 已落盘
+- [x] 新增遗留问题
+  - ~~runtime context 注入 interpreter LLM context（当前仍只读 SystemCatalog 静态资产）~~ → Phase H 基础链路已稳定，此项作为后续扩展方向
+  - 更完整 gateway E2E（detail → invoke 连续链路）
+  - 通用 pending action / continuation contract 抽象
+  - 更多 runtime surface（worker、orchestrator）拉进统一契约
 - [ ] 下一轮入口
+  - 选项 A: 更完整 Gateway E2E
+  - 选项 B: 正式 Session-Scoped Continuation 契约
+  - 选项 C: 扩展更多 Runtime Surface
 
+### Iteration 2
+- [x] 本轮目标场景
+  - runtime asset clarification / follow-up 全部打通（原始 3 个 failure → 0）
+  - management worker asset lifecycle 全部打通（原始 2 个 failure → 0）
+  - 74 tests 全部回归绿色
+- [x] 关键修复项
+  - `_finalize_command` 5步后处理：consume pending → intent override → extract → re-consume → intent收正
+  - `peek_only` 模式避免 pending 在中途被提前消费掉
+  - `requires_clarification` 覆盖到有完整参数时也返回 False
+  - `AppManagementWorker` 所有 `entry.pid`/`entry.endpoint` 改为 `entry.metadata.get(...)`
+  - `RuntimeCenter.unregister()` 改为 `del self._entries[asset_id]`（get() 返回 None）
+  - `RuntimeCenter.register()` status 直接置 ACTIVE（不经过 STARTING 过渡）
+  - `app_mgmt` 对外 status 映射：内部 `active` → 外部 `running`
+  - `RuntimeCenter.get_uptime()` 实现（支持 health_check 上报 uptime）
+  - `AppManagementWorker._health_check_asset` 添加 `if self._runtime_center:` guard
+- [x] 真实验证结果
+  - `74 passed in 25.67s` (light_brain + runtime_asset 全链)
+  - 原始 5 个 failure 全部打平
+  - commit `f14df18` 已落盘
 
 ### 两层注册模型映射（新增）
 

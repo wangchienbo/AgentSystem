@@ -114,10 +114,35 @@ class RuntimeCenter:
             existing_pid = entry.metadata.get("pid")
             if pid is not None and existing_pid not in (None, pid):
                 return False
-            entry.status = AssetState.REMOVED
-            entry.updated_at = self._now_iso()
+            # Remove from entries entirely so get() returns None
+            del self._entries[asset_id]
             self._save()
             return True
+
+    def get_uptime(self, asset_id: str) -> str | None:
+        """Return human-readable uptime for a running asset, or None if not found/not running."""
+        with self._lock:
+            entry = self._entries.get(asset_id)
+            if not entry:
+                return None
+            created_at = entry.created_at or entry.updated_at
+            if not created_at:
+                return None
+            try:
+                from datetime import datetime
+                start = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                now = datetime.now(timezone.utc)
+                delta = now - start
+                hours, remainder = divmod(int(delta.total_seconds()), 3600)
+                minutes, seconds = divmod(remainder, 60)
+                if hours > 0:
+                    return f"{hours}h {minutes}m"
+                elif minutes > 0:
+                    return f"{minutes}m {seconds}s"
+                else:
+                    return f"{seconds}s"
+            except Exception:
+                return None
 
     def get(self, asset_id: str) -> AssetDescriptor | None:
         with self._lock:

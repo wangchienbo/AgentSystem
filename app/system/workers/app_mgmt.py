@@ -118,13 +118,18 @@ class AppManagementWorker:
                         endpoint=endpoint,
                         owner=getattr(instance, "owner_user_id", "system"),
                     )
-                result["data"] = {
-                    "asset_id": entry.asset_id,
-                    "status": entry.status,
-                    "pid": entry.pid,
-                    "endpoint": entry.endpoint,
-                    "version": entry.version,
-                }
+                    status_val = entry.status
+                    if hasattr(status_val, 'value'):
+                        status_val = status_val.value
+                    # Map internal AssetState to external contract (running vs active)
+                    status_str = "running" if status_val == "active" else status_val
+                    result["data"] = {
+                        "asset_id": entry.asset_id,
+                        "status": status_str,
+                        "pid": entry.metadata.get("pid", pid),
+                        "endpoint": entry.metadata.get("endpoint", endpoint),
+                        "version": entry.version,
+                    }
             except Exception as e:
                 return {"status": "error", "message": str(e)}
         return result
@@ -157,9 +162,10 @@ class AppManagementWorker:
             return result
         if self._runtime_center:
             entry = self._runtime_center.get(target)
-            if entry and entry.pid and entry.pid != os.getpid():
+            entry_pid = entry.metadata.get("pid") if entry else None
+            if entry_pid and entry_pid != os.getpid():
                 # N3-08: Real process kill
-                self._kill_subprocess(entry.pid)
+                self._kill_subprocess(entry_pid)
             self._runtime_center.mark_stopped(target)
             self._runtime_center.unregister(target, pid=params.get("pid"))
         return {"status": "success", "message": f"Asset {target} 已停止"}
@@ -187,10 +193,12 @@ class AppManagementWorker:
             return {"status": "not_found", "message": f"未找到运行中的资产: {target}"}
 
         # N3-08: Real process health check
-        process_alive = self._check_process_alive(entry.pid)
-        runtime_status = entry.status
+        entry_pid = entry.metadata.get("pid") if entry else None
+        process_alive = self._check_process_alive(entry_pid) if entry_pid else False
+        runtime_status = entry.status if entry else None
         if not process_alive and runtime_status == "running":
-            self._runtime_center.mark_crashed(target)
+            if self._runtime_center:
+                self._runtime_center.mark_crashed(target)
             runtime_status = "crashed"
 
         return {
@@ -198,11 +206,11 @@ class AppManagementWorker:
             "data": {
                 "asset_id": entry.asset_id,
                 "status": runtime_status,
-                "pid": entry.pid,
-                "endpoint": entry.endpoint,
-                "version": entry.version,
+                "pid": entry_pid,
+                "endpoint": entry.metadata.get("endpoint") if entry else None,
+                "version": entry.version if entry else None,
                 "process_alive": process_alive,
-                "uptime": self._runtime_center.get_uptime(target),
+                "uptime": self._runtime_center.get_uptime(target) if self._runtime_center else None,
             },
         }
 

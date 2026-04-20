@@ -1,0 +1,689 @@
+{
+  "app.cb.api.001": {
+    "id": "app.cb.api.001",
+    "blueprint_id": "bp.cb.api.001",
+    "owner_user_id": "user.cb.api",
+    "status": "failed",
+    "installed_version": "0.1.0",
+    "data_namespace": "tenant/cb-api/app.cb.api.001",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [],
+    "resolved_skills": [],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  },
+  "bp.usable.alpha:usable-alpha-user": {
+    "id": "bp.usable.alpha:usable-alpha-user",
+    "blueprint_id": "bp.usable.alpha",
+    "owner_user_id": "usable-alpha-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/usable-alpha-user/apps/bp.usable.alpha:usable-alpha-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit"
+    ],
+    "resolved_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": [
+        "system.app_config",
+        "system.context",
+        "system.state",
+        "system.audit"
+      ]
+    },
+    "skill_instances": {}
+  },
+  "bp.external.model.probe:external-model-user": {
+    "id": "bp.external.model.probe:external-model-user",
+    "blueprint_id": "bp.external.model.probe",
+    "owner_user_id": "external-model-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/external-model-user/apps/bp.external.model.probe:external-model-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit"
+    ],
+    "resolved_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit",
+      "model.responses.probe"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L1_assisted",
+      "runtime_network_requirement": "N2_required",
+      "offline_capable": false,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": [
+        "system.app_config",
+        "system.context",
+        "system.state",
+        "system.audit",
+        "model.responses.probe"
+      ]
+    },
+    "skill_instances": {}
+  },
+  "bp.generated.install.run:generated-user": {
+    "id": "bp.generated.install.run:generated-user",
+    "blueprint_id": "bp.generated.install.run",
+    "owner_user_id": "generated-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/generated-user/apps/bp.generated.install.run:generated-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit"
+    ],
+    "resolved_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit",
+      "skill.script.install.run"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": [
+        "system.app_config",
+        "system.context",
+        "system.state",
+        "system.audit",
+        "skill.script.install.run"
+      ]
+    },
+    "skill_instances": {}
+  },
+  "bp.generated.multi.step:multi-step-user": {
+    "id": "bp.generated.multi.step:multi-step-user",
+    "blueprint_id": "bp.generated.multi.step",
+    "owner_user_id": "multi-step-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/multi-step-user/apps/bp.generated.multi.step:multi-step-user",
+    "execution_mode": "pipeline",
+    "runtime_policy": {
+      "execution_mode": "pipeline",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit"
+    ],
+    "resolved_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit",
+      "skill.text.slugify.chain",
+      "skill.object.normalize_keys.chain"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": [
+        "system.app_config",
+        "system.context",
+        "system.state",
+        "system.audit",
+        "skill.text.slugify.chain",
+        "skill.object.normalize_keys.chain"
+      ]
+    },
+    "skill_instances": {}
+  },
+  "bp.generated.transform.default:transform-user": {
+    "id": "bp.generated.transform.default:transform-user",
+    "blueprint_id": "bp.generated.transform.default",
+    "owner_user_id": "transform-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/transform-user/apps/bp.generated.transform.default:transform-user",
+    "execution_mode": "pipeline",
+    "runtime_policy": {
+      "execution_mode": "pipeline",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit"
+    ],
+    "resolved_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit",
+      "skill.text.slugify.transform",
+      "skill.object.normalize_keys.transform"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": [
+        "system.app_config",
+        "system.context",
+        "system.state",
+        "system.audit",
+        "skill.text.slugify.transform",
+        "skill.object.normalize_keys.transform"
+      ]
+    },
+    "skill_instances": {}
+  },
+  "bp.generated.auto.apply:auto-user": {
+    "id": "bp.generated.auto.apply:auto-user",
+    "blueprint_id": "bp.generated.auto.apply",
+    "owner_user_id": "auto-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/auto-user/apps/bp.generated.auto.apply:auto-user",
+    "execution_mode": "pipeline",
+    "runtime_policy": {
+      "execution_mode": "pipeline",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "full",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit"
+    ],
+    "resolved_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit",
+      "skill.producer.auto",
+      "skill.consumer.auto"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": [
+        "system.app_config",
+        "system.context",
+        "system.state",
+        "system.audit",
+        "skill.producer.auto",
+        "skill.consumer.auto"
+      ]
+    },
+    "skill_instances": {}
+  },
+  "bp.text.slugify.app:slug-user": {
+    "id": "bp.text.slugify.app:slug-user",
+    "blueprint_id": "bp.text.slugify.app",
+    "owner_user_id": "slug-user",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "users/slug-user/apps/bp.text.slugify.app:slug-user",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "keep_alive",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit"
+    ],
+    "resolved_skills": [
+      "system.app_config",
+      "system.context",
+      "system.state",
+      "system.audit",
+      "skill.text.slugify"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": [
+        "system.app_config",
+        "system.context",
+        "system.state",
+        "system.audit",
+        "skill.text.slugify"
+      ]
+    },
+    "skill_instances": {}
+  },
+  "unknown-app": {
+    "id": "unknown-app",
+    "blueprint_id": "bp-unknown-app",
+    "owner_user_id": "system",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "app_unknown-app",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "unknown-app-domain-models",
+      "unknown-app-services"
+    ],
+    "resolved_skills": [
+      "unknown-app-domain-models",
+      "unknown-app-services"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  },
+  "monitor-app": {
+    "id": "monitor-app",
+    "blueprint_id": "bp-monitor-app",
+    "owner_user_id": "system",
+    "status": "running",
+    "installed_version": "0.1.0",
+    "data_namespace": "app_monitor-app",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "monitor-app-domain-models",
+      "monitor-app-services"
+    ],
+    "resolved_skills": [
+      "monitor-app-domain-models",
+      "monitor-app-services"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  },
+  "小说": {
+    "id": "小说",
+    "blueprint_id": "bp-小说",
+    "owner_user_id": "admin",
+    "status": "stopped",
+    "installed_version": "0.1.0",
+    "data_namespace": "app_小说",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "小说-domain-models",
+      "小说-services"
+    ],
+    "resolved_skills": [
+      "小说-domain-models",
+      "小说-services"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  },
+  "监控": {
+    "id": "监控",
+    "blueprint_id": "bp-监控",
+    "owner_user_id": "admin",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "app_监控",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "监控-domain-models",
+      "监控-services"
+    ],
+    "resolved_skills": [
+      "监控-domain-models",
+      "监控-services"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  },
+  "小说创作": {
+    "id": "小说创作",
+    "blueprint_id": "bp-小说创作",
+    "owner_user_id": "alice",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "app_小说创作",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "小说创作-domain-models",
+      "小说创作-services"
+    ],
+    "resolved_skills": [
+      "小说创作-domain-models",
+      "小说创作-services"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  },
+  "小说创作-app（含：按题材+大纲生成章节、人物档案设计与管理、章节列表与修改、文本导出）-app": {
+    "id": "小说创作-app（含：按题材+大纲生成章节、人物档案设计与管理、章节列表与修改、文本导出）-app",
+    "blueprint_id": "bp-小说创作-app（含：按题材+大纲生成章节、人物档案设计与管理、章节列表与修改、文本导出）-app",
+    "owner_user_id": "alice",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "app_小说创作-app（含：按题材+大纲生成章节、人物档案设计与管理、章节列表与修改、文本导出）-app",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "小说创作-app（含：按题材+大纲生成章节、人物档案设计与管理、章节列表与修改、文本导出）-app-domain-models",
+      "小说创作-app（含：按题材+大纲生成章节、人物档案设计与管理、章节列表与修改、文本导出）-app-services"
+    ],
+    "resolved_skills": [
+      "小说创作-app（含：按题材+大纲生成章节、人物档案设计与管理、章节列表与修改、文本导出）-app-domain-models",
+      "小说创作-app（含：按题材+大纲生成章节、人物档案设计与管理、章节列表与修改、文本导出）-app-services"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  },
+  "none-app": {
+    "id": "none-app",
+    "blueprint_id": "bp-none-app",
+    "owner_user_id": "system",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "app_none-app",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "none-app-domain-models",
+      "none-app-services"
+    ],
+    "resolved_skills": [
+      "none-app-domain-models",
+      "none-app-services"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  },
+  "监控-app-app": {
+    "id": "监控-app-app",
+    "blueprint_id": "bp-监控-app-app",
+    "owner_user_id": "alice",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "app_监控-app-app",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "监控-app-app-domain-models",
+      "监控-app-app-services"
+    ],
+    "resolved_skills": [
+      "监控-app-app-domain-models",
+      "监控-app-app-services"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  },
+  "私人日记-app（支持写日记、按日期浏览、关键词搜索、仅限本人使用的权限控制）-app": {
+    "id": "私人日记-app（支持写日记、按日期浏览、关键词搜索、仅限本人使用的权限控制）-app",
+    "blueprint_id": "bp-私人日记-app（支持写日记、按日期浏览、关键词搜索、仅限本人使用的权限控制）-app",
+    "owner_user_id": "alice",
+    "status": "installed",
+    "installed_version": "0.1.0",
+    "data_namespace": "app_私人日记-app（支持写日记、按日期浏览、关键词搜索、仅限本人使用的权限控制）-app",
+    "execution_mode": "service",
+    "runtime_policy": {
+      "execution_mode": "service",
+      "activation": "on_demand",
+      "restart_policy": "on_failure",
+      "persistence_level": "standard",
+      "idle_strategy": "suspend",
+      "max_restart_attempts": 3,
+      "allow_prompt_invoke": true,
+      "prompt_invoke_requires_ask_user": false
+    },
+    "system_skills": [
+      "私人日记-app（支持写日记、按日期浏览、关键词搜索、仅限本人使用的权限控制）-app-domain-models",
+      "私人日记-app（支持写日记、按日期浏览、关键词搜索、仅限本人使用的权限控制）-app-services"
+    ],
+    "resolved_skills": [
+      "私人日记-app（支持写日记、按日期浏览、关键词搜索、仅限本人使用的权限控制）-app-domain-models",
+      "私人日记-app（支持写日记、按日期浏览、关键词搜索、仅限本人使用的权限控制）-app-services"
+    ],
+    "runtime_profile": {
+      "runtime_intelligence_level": "L0_deterministic",
+      "runtime_network_requirement": "N0_none",
+      "offline_capable": true,
+      "direct_start_supported": true,
+      "invocation_posture": "automatic",
+      "runtime_skills": []
+    },
+    "skill_instances": {}
+  }
+}
