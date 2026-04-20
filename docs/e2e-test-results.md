@@ -32,8 +32,9 @@
   - `call_asset_method` 已扩展覆盖 worker 与 package/refinement 面的 `list_apps / query_app / start_app / stop_app / delete_app / uninstall_app / list_users / show_permissions / refine_app / package_list_installed / package_search / package_build / package_install / package_uninstall / package_rollback`
   - runtime asset call 返回契约已统一收敛到 `ok / result / error / error_type / state_change / audit_ref / raw_result`
   - `query_asset_info` 与 `query_asset_detail` 已开始收敛出 descriptor vs expanded detail 的语义边界 (`detail_level`)
-  - 已补 gateway/interpreter/runtime-asset failure-path focused tests，覆盖 missing asset / missing method
-  - 补充了 17 个 focused tests，并通过 `17 passed`
+  - expanded detail 已补 `capability_methods / parameter_hints / capability_notes / usage_notes / invoke_examples`
+  - 已补 gateway/interpreter/runtime-asset focused E2E，覆盖 success path / failure path / detail path / missing-method path
+  - 补充了 20 个 focused tests，并通过 `20 passed`
   - 兼容加载旧 runtime data，旧 `running` 状态与缺失字段可转为新契约
 - 失配分类:
   - 部分旧资产查询仍保留 static catalog 回退语义
@@ -51,7 +52,8 @@
   - runtime-facing worker, lifecycle write path, package/refinement 层已进入资产映射覆盖面，调用面显著扩展
   - runtime asset call 的返回契约已开始统一，整链联动测试已覆盖到 gateway -> interpreter -> runtime asset call，并补到了关键 failure path
   - `query_asset_info` / `query_asset_detail` 已开始摆脱双轨混用，转向 descriptor vs expanded detail 分层
+  - expanded detail 已从空壳说明走向可实际消费的调用提示层
 - 遗留问题:
-  - `query_asset_detail` 目前虽已区分 expanded detail，但 enrichment 仍偏轻量，后续还可以补 invoke examples / argument hints / capability-specific notes
-  - 当前整链联动测试仍属于 focused slice，不是完整运行窗口下的系统级 E2E
+  - 当前 expanded detail 已有基础 enrichment，但 invoke examples 仍是通用模板，还没按 capability 参数结构生成更具体样例
+  - 当前 focused E2E 已明显扩开，但仍不等于完整系统运行窗口下的端到端验证
   - 后续还可以把更多 worker / orchestration surface 纳入统一 runtime asset method contract

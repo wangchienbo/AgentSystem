@@ -201,10 +201,39 @@ class AssetToolExecutor:
             runtime_detail = self._registry.query_asset_info(asset_id)
             if runtime_detail is not None:
                 enriched = dict(runtime_detail)
+                capabilities = [cap for cap in enriched.get("capabilities", []) if isinstance(cap, dict)]
+                capability_methods = [cap.get("method") for cap in capabilities if cap.get("method")]
                 enriched["detail_level"] = "expanded"
-                enriched.setdefault("usage_notes", [])
-                enriched.setdefault("capability_methods", [cap.get("method") for cap in enriched.get("capabilities", []) if isinstance(cap, dict)])
-                enriched.setdefault("invoke_examples", [])
+                enriched["capability_methods"] = capability_methods
+                enriched["parameter_hints"] = {
+                    cap.get("method"): {
+                        "input_schema_ref": cap.get("input_schema_ref"),
+                        "output_schema_ref": cap.get("output_schema_ref"),
+                        "side_effect_level": cap.get("side_effect_level"),
+                        "requires_runtime_alive": cap.get("requires_runtime_alive"),
+                        "permission_hint": cap.get("permission_hint"),
+                    }
+                    for cap in capabilities if cap.get("method")
+                }
+                enriched["usage_notes"] = [
+                    f"method={cap.get('method')} side_effect={cap.get('side_effect_level', 'read')} runtime_alive={cap.get('requires_runtime_alive', True)}"
+                    for cap in capabilities if cap.get("method")
+                ]
+                enriched["capability_notes"] = {
+                    cap.get("method"): cap.get("description", "")
+                    for cap in capabilities if cap.get("method")
+                }
+                enriched["invoke_examples"] = [
+                    {
+                        "tool": "call_asset_method",
+                        "arguments": {
+                            "asset_id": asset_id,
+                            "method": method,
+                            "params": {},
+                        },
+                    }
+                    for method in capability_methods[:5]
+                ]
                 return ToolResult(success=True, data=enriched)
 
         asset = self._registry.get_asset_detail(asset_id, caller_name)

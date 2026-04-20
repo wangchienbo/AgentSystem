@@ -95,6 +95,26 @@ def test_runtime_asset_info_and_detail_have_distinct_levels() -> None:
     assert info_result.data["detail_level"] == "descriptor"
     assert detail_result.data["detail_level"] == "expanded"
     assert "capability_methods" in detail_result.data
+    assert "parameter_hints" in detail_result.data
+    assert "invoke_examples" in detail_result.data
+
+
+def test_runtime_asset_detail_contains_useful_enrichment() -> None:
+    services = build_runtime()
+    asset_tool_executor = services["asset_tool_executor"]
+
+    detail_result = asset_tool_executor.execute(
+        "query_asset_detail",
+        {"asset_id": "asset:runtime_center:v1"},
+        "system",
+    )
+
+    assert detail_result.success is True
+    assert detail_result.data["invoke_examples"]
+    first_example = detail_result.data["invoke_examples"][0]
+    assert first_example["tool"] == "call_asset_method"
+    assert first_example["arguments"]["asset_id"] == "asset:runtime_center:v1"
+    assert "list_assets" in detail_result.data["capability_methods"]
 
 
 def test_runtime_asset_gateway_to_runtime_call_flow() -> None:
@@ -107,6 +127,30 @@ def test_runtime_asset_gateway_to_runtime_call_flow() -> None:
 
     assert response.type == "text"
     assert "asset:runtime_center:v1" in response.content
+
+
+def test_runtime_asset_gateway_detail_flow() -> None:
+    services = build_runtime()
+    response = _run_gateway_message(
+        services,
+        "查看资产 asset:runtime_center:v1 的详情",
+        "runtime-asset-detail-e2e",
+    )
+
+    assert response.type == "text"
+    assert "asset:runtime_center:v1" in response.content
+
+
+def test_runtime_asset_gateway_clarification_flow_for_missing_method_name() -> None:
+    services = build_runtime()
+    response = _run_gateway_message(
+        services,
+        "调用资产 asset:runtime_center:v1 的方法",
+        "runtime-asset-clarify-method",
+    )
+
+    assert response.type in {"text", "error"}
+    assert "method" in response.content.lower() or "方法" in response.content
 
 
 def test_runtime_asset_gateway_failure_flow_for_missing_asset() -> None:
