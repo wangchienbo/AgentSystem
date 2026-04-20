@@ -538,6 +538,13 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 AssetCapability(name="list users", description="List known users", method="list_users", side_effect_level="read"),
                 AssetCapability(name="show permissions", description="Show user permissions", method="show_permissions", side_effect_level="read"),
             ]),
+            ("asset:refinement_worker:v1", "refinement_worker", "App refinement worker", refinement_worker_m, [
+                AssetCapability(name="refine app", description="Refine an app with a modification request", method="refine_app", side_effect_level="write"),
+            ]),
+            ("asset:package_manager:v1", "package_manager", "Package and asset installation manager", package_manager_executor, [
+                AssetCapability(name="list installed packages", description="List installed runtime packages", method="package_list_installed", side_effect_level="read"),
+                AssetCapability(name="search packages", description="Search source packages", method="package_search", side_effect_level="read"),
+            ]),
         ]
         method_map_by_name = {
             "master_control": {
@@ -571,6 +578,13 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             "user_manager": {
                 "list_users": lambda: user_manager.execute("list_users", "", {}),
                 "show_permissions": lambda target_user="": user_manager.execute("show_permissions", target_user, {"target_user": target_user}),
+            },
+            "refinement_worker": {
+                "refine_app": lambda app_name, modification: refinement_worker_m.execute("refine_app", app_name, {"modification": modification}),
+            },
+            "package_manager": {
+                "package_list_installed": lambda asset_type=None: package_manager_executor.execute("package_list_installed", {"asset_type": asset_type}).data,
+                "package_search": lambda query: package_manager_executor.execute("package_search", {"query": query}).data,
             },
             "light_brain_gateway": {
                 "list_assets": lambda filter="": asset_tool_executor.execute("list_assets", {"filter": filter}, "system").data,
