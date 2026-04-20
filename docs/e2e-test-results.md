@@ -28,7 +28,9 @@
   - `call_asset_method` 已可真实映射到 `model_router.resolve_model / config_center.get_config / gateway.list_assets`
   - `light_brain_gateway` 已在 bootstrap 主链中完成正式运行态注册
   - runtime asset intent 已从粗 regex 升级为基于 tool registry 的轻量 tool-aware 解析
-  - 补充了 7 个 focused tests，并通过 `7 passed`
+  - runtime worker 资产已扩展注册到 `app_management_worker / user_manager`
+  - `call_asset_method` 已扩展覆盖 worker 面的 `list_apps / query_app / list_users / show_permissions`
+  - 补充了 9 个 focused tests，并通过 `9 passed`
   - 兼容加载旧 runtime data，旧 `running` 状态与缺失字段可转为新契约
 - 失配分类:
   - 部分旧资产查询仍保留 static catalog 回退语义
@@ -43,7 +45,8 @@
   - 运行态资产发现, 查询, 调用三段链路已打通
   - gateway 资产注册已进入 bootstrap 正式主链，并有 focused test 锁定
   - interpreter 对 runtime asset intent 已不再只靠硬编码 regex，开始受 tool registry 驱动
+  - runtime-facing worker 层已进入资产映射覆盖面，调用面开始扩展
 - 遗留问题:
-  - `call_asset_method` 仍只覆盖首批核心服务映射，尚未扩展到更广 worker/app 面
+  - `call_asset_method` 仍未覆盖更深层 worker/app 执行动作，例如 start/stop/refinement/package 路径
   - 目前的 tool-aware 解析仍是轻量启发式，还没进入统一 LLM/tool planner 主路径
   - 还需要继续补更完整的 gateway/interpreter/runtime asset 联动测试面

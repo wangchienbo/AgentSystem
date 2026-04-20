@@ -530,7 +530,15 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             ("asset:tool_calling_engine:v1", "tool_calling_engine", "LLM tool execution layer", tool_calling_engine, [
                 AssetCapability(name="run tool call", description="Run a structured tool call turn", method="run_tool_call", side_effect_level="write"),
             ]),
-                    ]
+            ("asset:app_management_worker:v1", "app_management_worker", "App lifecycle and runtime worker", app_mgmt_worker, [
+                AssetCapability(name="list apps", description="List registered apps", method="list_apps", side_effect_level="read"),
+                AssetCapability(name="query app", description="Query one app record", method="query_app", side_effect_level="read"),
+            ]),
+            ("asset:user_manager:v1", "user_manager", "User and permission worker", user_manager, [
+                AssetCapability(name="list users", description="List known users", method="list_users", side_effect_level="read"),
+                AssetCapability(name="show permissions", description="Show user permissions", method="show_permissions", side_effect_level="read"),
+            ]),
+        ]
         method_map_by_name = {
             "master_control": {
                 "dispatch": lambda operation="query_status", target="", params=None, user_id="system", user_role="system": master_control.execute(operation=operation, user_id=user_id, user_role=user_role, target=target, params=params or {}),
@@ -555,6 +563,14 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                     "note": "Tool call execution mapping placeholder, requires full request payload",
                     "received": kwargs,
                 },
+            },
+            "app_management_worker": {
+                "list_apps": lambda status="all": app_mgmt_worker.execute("list_apps", "", {"status": status}),
+                "query_app": lambda app_name: app_mgmt_worker.execute("query_app", app_name, {}),
+            },
+            "user_manager": {
+                "list_users": lambda: user_manager.execute("list_users", "", {}),
+                "show_permissions": lambda target_user="": user_manager.execute("show_permissions", target_user, {"target_user": target_user}),
             },
             "light_brain_gateway": {
                 "list_assets": lambda filter="": asset_tool_executor.execute("list_assets", {"filter": filter}, "system").data,
