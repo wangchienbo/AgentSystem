@@ -32,9 +32,10 @@
   - `call_asset_method` 已扩展覆盖 worker 与 package/refinement 面的 `list_apps / query_app / start_app / stop_app / delete_app / uninstall_app / list_users / show_permissions / refine_app / package_list_installed / package_search / package_build / package_install / package_uninstall / package_rollback`
   - runtime asset call 返回契约已统一收敛到 `ok / result / error / error_type / state_change / audit_ref / raw_result`
   - `query_asset_info` 与 `query_asset_detail` 已开始收敛出 descriptor vs expanded detail 的语义边界 (`detail_level`)
-  - expanded detail 已补 `capability_methods / parameter_hints / capability_notes / usage_notes / invoke_examples`
-  - 已补 gateway/interpreter/runtime-asset focused E2E，覆盖 success path / failure path / detail path / missing-method path
-  - 补充了 20 个 focused tests，并通过 `20 passed`
+  - expanded detail 已补 `capability_methods / parameter_hints / capability_notes / usage_notes / invoke_examples`，且 invoke examples 已开始 capability-aware
+  - incomplete runtime asset method intent 已收敛为 clarification，而不是直接掉入错误 handler
+  - 已补 gateway/interpreter/runtime-asset focused E2E，覆盖 success path / failure path / detail path / clarification path / missing-method path
+  - 补充了 21 个 focused tests，并通过 `21 passed`
   - 兼容加载旧 runtime data，旧 `running` 状态与缺失字段可转为新契约
 - 失配分类:
   - 部分旧资产查询仍保留 static catalog 回退语义
@@ -53,7 +54,8 @@
   - runtime asset call 的返回契约已开始统一，整链联动测试已覆盖到 gateway -> interpreter -> runtime asset call，并补到了关键 failure path
   - `query_asset_info` / `query_asset_detail` 已开始摆脱双轨混用，转向 descriptor vs expanded detail 分层
   - expanded detail 已从空壳说明走向可实际消费的调用提示层
+  - incomplete runtime asset call 已开始从硬错误改为 clarification，交互边界更接近最终形态
 - 遗留问题:
-  - 当前 expanded detail 已有基础 enrichment，但 invoke examples 仍是通用模板，还没按 capability 参数结构生成更具体样例
+  - 当前 invoke examples 已开始 capability-aware，但仍主要依赖方法名启发式，后续可继续接 schema 级样例生成
   - 当前 focused E2E 已明显扩开，但仍不等于完整系统运行窗口下的端到端验证
   - 后续还可以把更多 worker / orchestration surface 纳入统一 runtime asset method contract

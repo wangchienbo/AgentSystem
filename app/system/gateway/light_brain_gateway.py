@@ -220,6 +220,15 @@ class LightBrainGateway:
                 )
 
         # Local handler dispatch
+        if command.requires_clarification:
+            return ChatMessageResponse(
+                type="text",
+                content=command.clarification_question or "我没理解你的意思，换个说法试试？",
+                session_id=session_id,
+                actions=command.suggested_actions,
+                requires_input=True,
+            )
+
         local_handlers = {
             "greet": self._handle_greet,
             "query_status": self._handle_query_status,
@@ -258,15 +267,6 @@ class LightBrainGateway:
         handler = local_handlers.get(command.intent)
         if handler:
             return await handler(command, session_id, available_apps)
-
-        if command.requires_clarification:
-            return ChatMessageResponse(
-                type="text",
-                content=command.clarification_question or "我没理解你的意思，换个说法试试？",
-                session_id=session_id,
-                actions=command.suggested_actions,
-                requires_input=True,
-            )
 
         return self._error_reply(session_id, f"我还不会处理这个指令。试试说创建 App 或看看我的 App。")
 

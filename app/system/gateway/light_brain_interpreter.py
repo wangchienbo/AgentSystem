@@ -432,8 +432,11 @@ class LightBrainInterpreter:
         elif intent == "call_asset_method":
             method_match = re.search(r"(?:方法|能力)\s*([a-zA-Z_][a-zA-Z0-9_]*)", message)
             asset_match = re.search(r"asset[:：][^\s，,。]+", message, re.IGNORECASE)
+            trailing_method_phrase = re.search(r"(?:方法|能力)\s*$", message)
             if method_match:
                 params["method"] = method_match.group(1)
+            elif trailing_method_phrase:
+                params["missing_method_name"] = True
             if asset_match:
                 params["asset_id"] = asset_match.group(0).replace("：", ":")
 
@@ -532,8 +535,13 @@ class LightBrainInterpreter:
         if intent in ("query_asset_info", "query_asset_detail") and not parameters.get("asset_id"):
             return True, "你想查看哪个运行态资产？请给我 asset_id，例如 asset:runtime_center:v1。"
 
-        if intent == "call_asset_method" and (not parameters.get("asset_id") or not parameters.get("method")):
-            return True, "你想调用哪个资产的哪个方法？请给我 asset_id 和 method，例如 asset:model_router:v1 的 resolve_model。"
+        if intent == "call_asset_method":
+            if not parameters.get("asset_id") and not parameters.get("method"):
+                return True, "你想调用哪个资产的哪个方法？请给我 asset_id 和 method，例如 asset:model_router:v1 的 resolve_model。"
+            if parameters.get("asset_id") and not parameters.get("method"):
+                return True, "我知道你要调用哪个资产了，但还缺方法名。请告诉我要调用的 method。"
+            if parameters.get("method") and not parameters.get("asset_id"):
+                return True, "我知道你要调用哪个方法了，但还缺 asset_id。请告诉我要调用哪个资产。"
 
         return False, None
 

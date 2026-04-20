@@ -115,6 +115,7 @@ def test_runtime_asset_detail_contains_useful_enrichment() -> None:
     assert first_example["tool"] == "call_asset_method"
     assert first_example["arguments"]["asset_id"] == "asset:runtime_center:v1"
     assert "list_assets" in detail_result.data["capability_methods"]
+    assert first_example["arguments"]["params"]
 
 
 def test_runtime_asset_gateway_to_runtime_call_flow() -> None:
@@ -149,7 +150,7 @@ def test_runtime_asset_gateway_clarification_flow_for_missing_method_name() -> N
         "runtime-asset-clarify-method",
     )
 
-    assert response.type in {"text", "error"}
+    assert response.requires_input is True
     assert "method" in response.content.lower() or "方法" in response.content
 
 

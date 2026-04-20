@@ -60,3 +60,10 @@ class TestRuntimeAssetIntentParsing:
         cmd = self.interpreter.interpret("调用资产方法")
         assert cmd.intent == "call_asset_method"
         assert cmd.requires_clarification
+
+    def test_tool_aware_call_asset_method_needs_method_name_when_asset_known(self):
+        cmd = self.interpreter.interpret("调用资产 asset:runtime_center:v1 的方法")
+        assert cmd.intent == "call_asset_method"
+        assert cmd.parameters.get("asset_id") == "asset:runtime_center:v1"
+        assert cmd.requires_clarification
+        assert "method" in (cmd.clarification_question or "").lower() or "方法" in (cmd.clarification_question or "")

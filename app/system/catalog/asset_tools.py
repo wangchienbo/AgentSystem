@@ -223,13 +223,47 @@ class AssetToolExecutor:
                     cap.get("method"): cap.get("description", "")
                     for cap in capabilities if cap.get("method")
                 }
+                def _example_params(method_name: str, hint: dict[str, Any]) -> dict[str, Any]:
+                    sample_params: dict[str, Any] = {}
+                    lowered = method_name.lower()
+                    if "asset" in lowered:
+                        sample_params["asset_id"] = asset_id
+                    if lowered.startswith("query_") or lowered.startswith("get_"):
+                        if "filter" in lowered:
+                            sample_params["filter"] = "runtime"
+                    if "list_assets" == method_name:
+                        sample_params["filter_text"] = "runtime"
+                    elif method_name == "query_asset_info":
+                        sample_params["asset_id"] = asset_id
+                    elif method_name == "call_asset_method":
+                        sample_params["asset_id"] = asset_id
+                        sample_params["method"] = capability_methods[0] if capability_methods else "list_assets"
+                        sample_params["params"] = {}
+                    elif method_name.startswith("resolve_"):
+                        sample_params["caller"] = "skill:test_skill"
+                        sample_params["complexity"] = "moderate"
+                    elif method_name.startswith("package_"):
+                        sample_params["asset_id"] = "app.workspace.assistant"
+                        if method_name == "package_rollback":
+                            sample_params["target_version"] = "1.0.0"
+                    elif method_name.endswith("_app") or method_name in {"start_app", "stop_app", "delete_app", "uninstall_app", "query_app"}:
+                        sample_params["app_name"] = "workspace_assistant"
+                    elif method_name == "show_permissions":
+                        sample_params["target_user"] = "system"
+                    elif method_name == "refine_app":
+                        sample_params["app_name"] = "workspace_assistant"
+                        sample_params["modification"] = "add runtime asset summary panel"
+                    if not sample_params and hint.get("input_schema_ref"):
+                        sample_params["input_schema_ref"] = hint["input_schema_ref"]
+                    return sample_params
+
                 enriched["invoke_examples"] = [
                     {
                         "tool": "call_asset_method",
                         "arguments": {
                             "asset_id": asset_id,
                             "method": method,
-                            "params": {},
+                            "params": _example_params(method, enriched["parameter_hints"].get(method, {})),
                         },
                     }
                     for method in capability_methods[:5]
