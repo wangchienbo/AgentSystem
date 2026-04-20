@@ -83,6 +83,8 @@ class LightBrainInterpreter:
         ("list_assets", re.compile(r"(有哪些|有什么|列出|看看).*(资产|服务|能力|runtime|运行态)", re.IGNORECASE), "List runtime assets"),
         ("query_asset_info", re.compile(r"(查看|查询|看看).*(资产|服务).*(详情|信息|能力)", re.IGNORECASE), "Query runtime asset info"),
         ("call_asset_method", re.compile(r"(调用|执行|运行).*(资产|服务).*(方法|能力)", re.IGNORECASE), "Call runtime asset method"),
+        ("call_asset_method", re.compile(r"调用\s*资产[^\n]*方法\s*$", re.IGNORECASE), "Call runtime asset method missing method name"),
+        ("call_asset_method", re.compile(r"调用\s*资产[^\n]*的方法\s*[a-zA-Z_][a-zA-Z0-9_]*", re.IGNORECASE), "Call runtime asset method missing asset id or partial call"),
     ]
 
     # Combined pattern view used by current interpreter flow
@@ -221,20 +223,31 @@ class LightBrainInterpreter:
         # If exact match found, return immediately (bypass LLM)
         if intent != "unclear":
             target_app = self._extract_app_name(stripped, available_apps)
-            parameters = self._extract_parameters(stripped, intent)
+            parameters = self._extract_parameters(stripped, intent, session_key=user_id)
+            if intent == "modify_app" and not parameters.get("modification"):
+                mod_match = re.search(r"把.+?(?:改成|改为|调整为)(.+)$", stripped)
+                if mod_match:
+                    parameters["modification"] = mod_match.group(1).strip()
             suggested_actions = self._build_actions(intent, target_app, available_apps)
             requires_clarification, clarification_question = self._needs_clarification(
                 intent, target_app, parameters, session_key=user_id
             )
-            return InterpretedCommand(
-                intent=intent,
-                confidence=confidence,
-                target_app=target_app,
-                parameters=parameters,
-                requires_clarification=requires_clarification,
-                clarification_question=clarification_question,
-                suggested_actions=suggested_actions,
-                raw_interpretation=f"exact-match: matched '{matched_text}' target='{target_app}'",
+            return self._finalize_command(
+                InterpretedCommand(
+                    intent=intent,
+                    confidence=confidence,
+                    target_app=target_app,
+                    parameters=parameters,
+                    requires_clarification=requires_clarification,
+                    clarification_question=clarification_question,
+                    suggested_actions=suggested_actions,
+                    raw_interpretation=f"exact-match: matched '{matched_text}' target='{target_app}'",
+                    user_id=user_id,
+                    raw_input=stripped,
+                ),
+                available_apps,
+                user_id,
+                stripped,
             )
 
         # 2. FUZZY match check (controlled by fuzzy_regex_match config)
@@ -244,20 +257,31 @@ class LightBrainInterpreter:
             if intent != "unclear" and confidence >= 0.5:
                 # Fuzzy match succeeded with decent confidence
                 target_app = self._extract_app_name(stripped, available_apps)
-                parameters = self._extract_parameters(stripped, intent)
+                parameters = self._extract_parameters(stripped, intent, session_key=user_id)
+            if intent == "modify_app" and not parameters.get("modification"):
+                mod_match = re.search(r"把.+?(?:改成|改为|调整为)(.+)$", stripped)
+                if mod_match:
+                    parameters["modification"] = mod_match.group(1).strip()
                 suggested_actions = self._build_actions(intent, target_app, available_apps)
                 requires_clarification, clarification_question = self._needs_clarification(
                     intent, target_app, parameters, session_key=user_id
                 )
-                return InterpretedCommand(
-                    intent=intent,
-                    confidence=confidence,
-                    target_app=target_app,
-                    parameters=parameters,
-                    requires_clarification=requires_clarification,
-                    clarification_question=clarification_question,
-                    suggested_actions=suggested_actions,
-                    raw_interpretation=f"fuzzy-match: matched '{matched_text}' target='{target_app}'",
+                return self._finalize_command(
+                    InterpretedCommand(
+                        intent=intent,
+                        confidence=confidence,
+                        target_app=target_app,
+                        parameters=parameters,
+                        requires_clarification=requires_clarification,
+                        clarification_question=clarification_question,
+                        suggested_actions=suggested_actions,
+                        raw_interpretation=f"fuzzy-match: matched '{matched_text}' target='{target_app}'",
+                        user_id=user_id,
+                        raw_input=stripped,
+                    ),
+                    available_apps,
+                    user_id,
+                    stripped,
                 )
 
         # 3. LLM fallback (default path when fuzzy_regex_match=False)
@@ -268,21 +292,28 @@ class LightBrainInterpreter:
 
         # 4. Standard rule-based path (fallback if LLM unavailable)
         target_app = self._extract_app_name(stripped, available_apps)
-        parameters = self._extract_parameters(stripped, intent)
+        parameters = self._extract_parameters(stripped, intent, session_key=user_id)
         suggested_actions = self._build_actions(intent, target_app, available_apps)
         requires_clarification, clarification_question = self._needs_clarification(
             intent, target_app, parameters
         )
 
-        return InterpretedCommand(
-            intent=intent,
-            confidence=confidence,
-            target_app=target_app,
-            parameters=parameters,
-            requires_clarification=requires_clarification,
-            clarification_question=clarification_question,
-            suggested_actions=suggested_actions,
-            raw_interpretation=f"rule-based: matched '{matched_text}' target='{target_app}'",
+        return self._finalize_command(
+            InterpretedCommand(
+                intent=intent,
+                confidence=confidence,
+                target_app=target_app,
+                parameters=parameters,
+                requires_clarification=requires_clarification,
+                clarification_question=clarification_question,
+                suggested_actions=suggested_actions,
+                raw_interpretation=f"rule-based: matched '{matched_text}' target='{target_app}'",
+                user_id=user_id,
+                raw_input=stripped,
+            ),
+            available_apps,
+            user_id,
+            stripped,
         )
 
     def _match_exact_intent(self, message: str) -> tuple[str, float, str]:
@@ -336,8 +367,10 @@ class LightBrainInterpreter:
         )
 
     def _looks_like_asset_call_request(self, lowered: str) -> bool:
-        return any(k in lowered for k in ["调用", "执行", "运行"]) and any(
-            k in lowered for k in ["资产", "服务", "方法", "能力"]
+        return (
+            any(k in lowered for k in ["调用", "执行", "运行"])
+            and any(k in lowered for k in ["资产", "服务"])
+            and any(k in lowered for k in ["方法", "能力"])
         )
 
     def _looks_like_asset_detail_request(self, lowered: str) -> bool:
@@ -391,10 +424,10 @@ class LightBrainInterpreter:
 
         return None
 
-    def _extract_parameters(self, message: str, intent: str) -> dict[str, Any]:
+    def _extract_parameters(self, message: str, intent: str, session_key: str = "default") -> dict[str, Any]:
         """Extract structured parameters from the message."""
         params: dict[str, Any] = {}
-        runtime_context = self._consume_runtime_clarification(message)
+        runtime_context = self._consume_runtime_clarification(message, session_key=session_key)
         if runtime_context:
             return runtime_context
 
@@ -562,8 +595,8 @@ class LightBrainInterpreter:
 
         return False, None
 
-    def _consume_runtime_clarification(self, message: str) -> dict[str, Any] | None:
-        pending = self._pending_runtime_asset_clarifications.get("default")
+    def _consume_runtime_clarification(self, message: str, session_key: str = "default") -> dict[str, Any] | None:
+        pending = self._pending_runtime_asset_clarifications.get(session_key)
         if not pending:
             return None
         merged = dict(pending.get("parameters", {}))
@@ -574,7 +607,7 @@ class LightBrainInterpreter:
         if not merged.get("method") and method_match:
             merged["method"] = method_match.group(1)
         if merged.get("asset_id") and merged.get("method"):
-            self._pending_runtime_asset_clarifications.pop("default", None)
+            self._pending_runtime_asset_clarifications.pop(session_key, None)
             return merged
         return None
 
@@ -587,6 +620,38 @@ class LightBrainInterpreter:
             app_names = ",".join(sorted(a.get("name", "") for a in available_apps))
             h += ":" + hashlib.md5(app_names.encode("utf-8")).hexdigest()[:8]
         return h
+
+    def _finalize_command(
+        self,
+        command: InterpretedCommand,
+        available_apps: list[dict[str, Any]] | None,
+        user_id: str,
+        message: str,
+    ) -> InterpretedCommand:
+        target_app = command.target_app or self._extract_app_name(message, available_apps)
+        parameters = dict(command.parameters or {})
+        lowered = message.lower()
+        if self._looks_like_asset_call_request(lowered):
+            command.intent = "call_asset_method"
+        extracted = self._extract_parameters(message, command.intent, session_key=user_id)
+        for key, value in extracted.items():
+            if parameters.get(key) in (None, "", False):
+                parameters[key] = value
+        intent = command.intent
+        if intent == "unclear" and (parameters.get("asset_id") or parameters.get("method")) and self._looks_like_asset_call_request(message.lower()):
+            intent = "call_asset_method"
+        requires_clarification, clarification_question = self._needs_clarification(
+            intent, target_app, parameters, session_key=user_id
+        )
+        command.intent = intent
+        command.target_app = target_app
+        command.parameters = parameters
+        command.requires_clarification = requires_clarification
+        command.clarification_question = clarification_question
+        command.suggested_actions = self._build_actions(intent, target_app, available_apps)
+        command.user_id = user_id
+        command.raw_input = message
+        return command
 
     def _try_llm_fallback(
         self,
@@ -692,15 +757,20 @@ class LightBrainInterpreter:
         # Build suggested actions from the LLM-derived intent
         suggested_actions = self._build_actions(intent, target_app, available_apps)
 
-        return InterpretedCommand(
-            intent=intent,
-            confidence=confidence,
-            target_app=target_app,
-            parameters=parameters,
-            requires_clarification=requires_clarification,
-            clarification_question=clarification_question,
-            suggested_actions=suggested_actions,
-            raw_interpretation=f"llm: parsed intent='{intent}' confidence={confidence:.2f}",
+        return self._finalize_command(
+            InterpretedCommand(
+                intent=intent,
+                confidence=confidence,
+                target_app=target_app,
+                parameters=parameters,
+                requires_clarification=requires_clarification,
+                clarification_question=clarification_question,
+                suggested_actions=suggested_actions,
+                raw_interpretation=f"llm: parsed intent='{intent}' confidence={confidence:.2f}",
+            ),
+            available_apps,
+            user_id,
+            message,
         ), usage
 
     # -- private helpers -----------------------------------------------------

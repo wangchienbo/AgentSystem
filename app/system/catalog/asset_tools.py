@@ -337,7 +337,13 @@ class AssetToolExecutor:
                 ]
                 return ToolResult(success=True, data=enriched)
 
-        asset = self._registry.get_asset_detail(asset_id, caller_name)
+        asset = None
+        if hasattr(self._registry, "get_asset_detail"):
+            asset = self._registry.get_asset_detail(asset_id, caller_name)
+        elif hasattr(self._registry, "get"):
+            asset = self._registry.get(asset_id)
+        elif hasattr(self._registry, "query_asset_info"):
+            asset = self._registry.query_asset_info(asset_id)
         if asset is None:
             return ToolResult(success=False, error=f"Asset {asset_id} not found or not visible to {caller_name}")
 
@@ -380,7 +386,13 @@ class AssetToolExecutor:
         if not callable(self._orchestrator_router):
             return ToolResult(success=False, error="orchestrator router is not configured")
 
-        asset = self._registry.get_asset_detail(app_id, caller_name)
+        asset = None
+        if hasattr(self._registry, "get_asset_detail"):
+            asset = self._registry.get_asset_detail(app_id, caller_name)
+        elif hasattr(self._registry, "get"):
+            asset = self._registry.get(app_id)
+        elif hasattr(self._registry, "query_asset_info"):
+            asset = self._registry.query_asset_info(app_id)
         if asset is None:
             return ToolResult(success=False, error=f"App {app_id} not found or not visible to {caller_name}")
 
@@ -403,7 +415,13 @@ class AssetToolExecutor:
         if not steps:
             return ToolResult(success=False, error="steps must not be empty")
 
-        app_asset = self._registry.get_asset_detail(app_id, caller_name)
+        app_asset = None
+        if hasattr(self._registry, "get_asset_detail"):
+            app_asset = self._registry.get_asset_detail(app_id, caller_name)
+        elif hasattr(self._registry, "get"):
+            app_asset = self._registry.get(app_id)
+        elif hasattr(self._registry, "query_asset_info"):
+            app_asset = self._registry.query_asset_info(app_id)
         if app_asset is None:
             return ToolResult(success=False, error=f"App {app_id} not found or not visible to {caller_name}")
         if getattr(app_asset, "asset_type", None).value != "app":

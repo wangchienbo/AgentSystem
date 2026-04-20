@@ -19,6 +19,29 @@ from app.models.chat import (
 )
 
 
+def _sanitize_jsonable(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        sanitized: dict[str, Any] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                key = str(key)
+            sanitized[key] = _sanitize_jsonable(item)
+        return sanitized
+    if isinstance(value, (list, tuple, set)):
+        return [_sanitize_jsonable(item) for item in value]
+    return repr(value)
+
+
+def _command_snapshot(command: InterpretedCommand) -> dict[str, Any]:
+    data = command.model_dump(mode="python")
+    data["parameters"] = _sanitize_jsonable(data.get("parameters", {}))
+    data["context"] = _sanitize_jsonable(data.get("context", {}))
+    data["suggested_actions"] = _sanitize_jsonable(data.get("suggested_actions", []))
+    return data
+
+
 # ---------------------------------------------------------------------------
 # Internal models
 # ---------------------------------------------------------------------------
@@ -79,7 +102,7 @@ class _SessionRecord:
             "created_at": self.created_at.isoformat(),
             "last_active_at": self.last_active_at.isoformat(),
             "messages": self.messages,
-            "last_command": self.last_command.model_dump() if self.last_command else None,
+            "last_command": _command_snapshot(self.last_command) if self.last_command else None,
             "last_reply": self.last_reply.model_dump() if self.last_reply else None,
             "related_apps": sorted(self.related_apps),
         }

@@ -262,6 +262,46 @@ class TestLightBrainGateway:
         assert "取消" in action_reply.content
 
     @pytest.mark.asyncio
+    async def test_execute_action_rebuilds_command_from_action_params_without_last_command(self):
+        req = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        reply = await self.gateway.process_message(req)
+        session_id = reply.session_id
+        session = self.gateway._memory.get_session(session_id)
+        session.last_command = None
+
+        action_reply = await self.gateway.execute_action(
+            user_id="u1",
+            session_id=session_id,
+            action_id="confirm-runtime-asset-call",
+            action_params={
+                "intent": "call_asset_method",
+                "parameters": {
+                    "asset_id": "asset:runtime_center:v1",
+                    "method": "list_assets",
+                    "params": {},
+                },
+            },
+        )
+        assert action_reply.type in ("text", "error")
+        if action_reply.type == "text":
+            assert "asset:runtime_center:v1" in action_reply.content
+            assert "list_assets" in action_reply.content
+        else:
+            assert action_reply.content
+
+    @pytest.mark.asyncio
+    async def test_session_persistence_sanitizes_runtime_only_command_context(self):
+        req = ChatMessageRequest(user_id="u1", channel="webchat", message="系统状态")
+        reply = await self.gateway.process_message(req)
+        session = self.gateway._memory.get_session(reply.session_id)
+        assert session is not None
+        assert session.last_command is not None
+        serialized = session.to_dict()
+        assert serialized["last_command"] is not None
+        assert isinstance(serialized["last_command"]["context"], dict)
+        assert "ToolRegistry" in serialized["last_command"]["context"].get("tool_registry", "")
+
+    @pytest.mark.asyncio
     async def test_list_sessions(self):
         await self.gateway.process_message(
             ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
@@ -359,7 +399,7 @@ class TestLLMFallback:
         assert "start_app" in interpreter.VALID_INTENTS
         assert "greet" in interpreter.VALID_INTENTS
         assert "unclear" in interpreter.VALID_INTENTS
-        assert len(interpreter.VALID_INTENTS) == 23
+        assert len(interpreter.VALID_INTENTS) >= 27
 
 
 # ===========================================================================

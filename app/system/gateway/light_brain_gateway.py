@@ -149,9 +149,11 @@ class LightBrainGateway:
         # Phase 7.2: enrich command with tools and session state
         available_apps = available_apps or []
         command = self._enrich_command(command, session_id, available_apps)
+        self._memory.record_command(session_id, command)
 
         # Phase 7.3: execute workflow and return reply
         result = await self._execute_command(command, session_id, available_apps)
+        self._memory.record_reply(session_id, result)
 
         # Phase 7.5: auto-save state if persistence available
         self._auto_save()
@@ -678,24 +680,39 @@ class LightBrainGateway:
             )
             if result.success:
                 data = result.data
-                interfaces = data.get("interfaces", {})
+                interfaces = data.get("interfaces") or data.get("methods") or {}
+                if isinstance(interfaces, list):
+                    normalized_interfaces = {}
+                    for item in interfaces:
+                        if isinstance(item, dict):
+                            key = item.get("name") or item.get("method") or "unknown"
+                            normalized_interfaces[key] = item
+                    interfaces = normalized_interfaces
                 interface_lines = []
                 for key, info in interfaces.items():
+                    info = info or {}
                     desc = info.get("description", "")
-                    input_schema = info.get("input_schema", {})
-                    output_schema = info.get("output_schema", {})
-                    line = f"\n**{key}** - {desc}"
+                    input_schema = info.get("input_schema") or info.get("input") or {}
+                    output_schema = info.get("output_schema") or info.get("output") or {}
+                    line = f"\n**{key}** - {desc}" if desc else f"\n**{key}**"
                     if input_schema:
                         line += f"\n  输入: {json.dumps(input_schema, ensure_ascii=False)}"
                     if output_schema:
                         line += f"\n  输出: {json.dumps(output_schema, ensure_ascii=False)}"
                     interface_lines.append(line)
-                content = (
-                    f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
-                    f"{data.get('description', '')}\n\n"
-                    f"**可用接口：**"
-                    + "\n".join(interface_lines) if interface_lines else "\n无可用接口"
-                )
+                if interface_lines:
+                    content = (
+                        f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
+                        f"资产ID: {data.get('asset_id', asset_id)}\n"
+                        f"{data.get('description', '')}\n\n"
+                        f"**可用接口：**{''.join(interface_lines)}"
+                    )
+                else:
+                    content = (
+                        f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
+                        f"资产ID: {data.get('asset_id', asset_id)}\n"
+                        f"{data.get('description', '')}\n\n无可用接口"
+                    )
                 return ChatMessageResponse(
                     type="text",
                     content=content,
@@ -705,7 +722,7 @@ class LightBrainGateway:
             else:
                 return ChatMessageResponse(
                     type="text",
-                    content=f"❌ 找不到资产「{asset_id}」或你没有权限查看。",
+                    content=f"❌ 未找到资产「{asset_id}」或你没有权限查看。",
                     session_id=session_id,
                     requires_input=False,
                 )
@@ -979,20 +996,19 @@ class LightBrainGateway:
         intent = action_params.get("intent", "unclear")
         target = action_params.get("target", "")
 
-        from app.models.chat import ChatMessageRequest
-        request = ChatMessageRequest(
+        from app.models.chat import InterpretedCommand
+
+        command = InterpretedCommand(
+            intent=intent,
+            confidence=1.0 if intent != "unclear" else 0.0,
+            target_app=(action_params.get("target_app") or target or None),
+            parameters=dict(action_params.get("parameters") or {}),
             user_id=user_id,
-            channel="action",
-            message=f"action:{action_id}",
-            session_id=session_id,
+            raw_input=f"action:{action_id}",
         )
-        # Reuse receive_message with the intent from action
-        command = self._interpreter.interpret(
-            request.message,
-            available_apps=[],
-            user_id=user_id,
-        )
-        command.intent = intent
-        if target:
-            command.target_app = target
-        return await self._execute_command(command, session_id, [])
+        command = self._enrich_command(command, session_id, [])
+        self._memory.record_command(session_id, command)
+        result = await self._execute_command(command, session_id, [])
+        self._memory.record_reply(session_id, result)
+        self._auto_save()
+        return result

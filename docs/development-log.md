@@ -1,6 +1,46 @@
 ### 2026-04-20
 
-#### Module: Phase H runtime asset schema-aware examples + clarification follow-up
+#### Module: Phase H runtime asset clarification contract + session-safe command snapshots
+
+继续沿 task list 的主路径收口，把此前集中暴露出来的多轮状态 / clarification / detail contract 失配压成统一契约，而不是继续在外围堆测试壳。
+
+- `app/system/gateway/light_brain_memory.py`
+  - 为 `last_command` 持久化引入 JSON-safe snapshot 清洗
+  - 对 `parameters` / `context` / `suggested_actions` 做可序列化处理，避免运行态对象（如 `ToolRegistry`）直接污染 session persistence
+  - 明确 session memory 只保存可持久化 command state，不再假设 enriched runtime context 可以原样落盘
+- `app/system/gateway/light_brain_gateway.py`
+  - `receive_message()` 重新稳定记录 `record_command()` / `record_reply()`，补齐主消息链 session continuity 数据面
+  - `execute_action()` 改为基于 `intent + action_params` 直接构造 `InterpretedCommand`，不再依赖自然语言二次解析
+  - `query_asset_detail` 展示层对齐当前 executor 返回结构，detail 内容统一带 `asset_id`，并把 missing-asset 文案收敛到“未找到资产”口径
+- `app/system/gateway/light_brain_interpreter.py`
+  - 引入统一后处理 `_finalize_command(...)`，把 exact/fuzzy/LLM 三条解释路径拉回同一套 clarification contract
+  - 统一补 `user_id` / `raw_input` / `suggested_actions`
+  - 在后处理里合并抽取参数，必要时把 runtime asset incomplete call 从 `unclear` 收正成 `call_asset_method`
+  - 对“调用资产 ... 的方法”这类 utterance 固定 `call_asset_method` precedence，避免被 detail-like 路径吞掉
+  - clarification pending state 的读取开始按 session key 对齐，而不是写 user_id 读 default
+  - `modify_app` 文本型 modification 补提取，修复老 interpreter 契约回归
+- `app/system/catalog/asset_tools.py`
+  - `query_asset_detail` 不再硬编码依赖 `get_asset_detail()`
+  - 对 runtime registry/detail source 兼容 `get_asset_detail -> get -> query_asset_info` 读取顺序，拆掉 RuntimeCenter wiring 的第一层硬失配
+- `tests/unit/test_light_brain.py`
+  - 补 `execute_action` 在缺失 `last_command` 时基于 `action_params` 重建 command 的覆盖
+  - 补 session persistence 对 runtime-only command context 的 snapshot 行为覆盖
+  - 将 VALID_INTENTS 断言从旧的固定计数更新为兼容 runtime asset intents 扩展后的基线
+- `tests/unit/test_runtime_asset_gateway_registration.py`
+  - runtime asset clarification / follow-up / detail / missing-asset 场景全部回到绿色
+
+测试：
+- `pytest -q tests/unit/test_runtime_asset_gateway_registration.py::test_runtime_asset_gateway_clarification_flow_for_missing_method_name tests/unit/test_runtime_asset_gateway_registration.py::test_runtime_asset_gateway_followup_after_method_clarification tests/unit/test_runtime_asset_gateway_registration.py::test_runtime_asset_gateway_followup_after_asset_clarification tests/unit/test_runtime_asset_intent_parsing.py`
+  - `9 passed in 30.53s`
+- `pytest -q tests/unit/test_light_brain.py tests/unit/test_runtime_asset_gateway_registration.py tests/unit/test_runtime_asset_intent_parsing.py tests/unit/test_runtime_asset_worker_mappings.py tests/unit/test_runtime_asset_deeper_mappings.py`
+  - `72 passed in 83.50s`
+
+结论：
+- 这一步把 runtime asset clarification 从“部分追问、部分掉 unclear”收成了完整可回接的多轮最小闭环
+- 同时把 session continuity 的持久化边界从混入运行态对象，收成了可恢复的 command snapshot contract
+- Phase H 当前 focused gateway/runtime asset 主链已重新稳定，后续可继续往更完整 gateway E2E 与 session-scoped continuation 正式契约推进
+
+### Module: Phase H runtime asset schema-aware examples + clarification follow-up
 
 继续沿 runtime asset 主路径收口，没有停在 capability-aware 的启发式样例层，而是把 detail enrichment 和 clarification 多轮链路一起往最终交互形态推进。
 
