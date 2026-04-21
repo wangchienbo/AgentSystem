@@ -66,10 +66,16 @@ class AppCommandService:
     def normalize_confirmed_params(self, intent: str, params: dict[str, Any]) -> dict[str, Any]:
         normalized = dict(params or {})
         parameters = dict(normalized.get("parameters") or {})
+        context_hints = list(normalized.get("context_hints") or parameters.get("context_hints") or [])
+        related_session_ids = list(normalized.get("related_session_ids") or parameters.get("related_session_ids") or [])
 
         if intent == "create_app":
             target_app = normalized.get("target_app") or normalized.get("app_name") or ""
             parameters = parameters or {"app_type": normalized.get("app_type", "unknown")}
+            if context_hints:
+                parameters["context_hints"] = context_hints
+            if related_session_ids:
+                parameters["related_session_ids"] = related_session_ids
             normalized.update({
                 "target_app": target_app,
                 "parameters": parameters,
@@ -85,11 +91,17 @@ class AppCommandService:
                 "modification": modification,
                 "confirmed": True,
             })
+            if context_hints:
+                parameters["context_hints"] = context_hints
+            if related_session_ids:
+                parameters["related_session_ids"] = related_session_ids
             normalized.update({
                 "target_app": target_app,
                 "modification": modification,
                 "parameters": parameters,
                 "confirmed": True,
+                "context_hints": context_hints,
+                "related_session_ids": related_session_ids,
             })
             return normalized
 
@@ -260,6 +272,24 @@ class AppCommandService:
             reason=reason,
             detail=detail,
         )
+
+    @staticmethod
+    def summarize_phase_h_context(parameters: dict[str, Any] | None = None) -> str | None:
+        params = dict(parameters or {})
+        target_app = params.get("target_app") or ""
+        context_hints = list(params.get("context_hints") or [])
+        related_session_ids = list(params.get("related_session_ids") or [])
+
+        parts: list[str] = []
+        if target_app:
+            parts.append(f"target_app={target_app}")
+        if context_hints:
+            parts.append("context_hints=" + " | ".join(context_hints[:2]))
+        if related_session_ids:
+            parts.append("related_session_ids=" + ",".join(related_session_ids[:3]))
+        if not parts:
+            return None
+        return "; ".join(parts)
 
     def make_result(
         self,
