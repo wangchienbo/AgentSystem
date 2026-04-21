@@ -954,6 +954,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         app_registry_service=app_registry,
         app_lifecycle_service=lifecycle,
         app_runtime_host=runtime_host,
+        runtime_center=runtime_center,
         app_installer=app_installer,
         skill_registry=skill_factory,
         meta_app_orchestrator=meta_app_orchestrator,

@@ -23,6 +23,7 @@ from app.services.context_center import ContextCenter
 from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryError
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
+from app.system.catalog.runtime_center import RuntimeCenter
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ class LightBrainGateway:
         app_runtime_host=None,
         persistence_service=None,
         context_center: ContextCenter | None = None,
+        runtime_center: RuntimeCenter | None = None,
         **extra_deps,
     ):
         self._memory = memory
@@ -62,6 +64,7 @@ class LightBrainGateway:
         self._log_center = log_center
         self._persistence = persistence or persistence_service  # legacy alias
         self._context_center = context_center
+        self._runtime_center = runtime_center
         self._permission_skill = permission_skill
         self._permission_validator = permission_validator
         self._package_manager_executor = package_manager_executor
@@ -143,6 +146,7 @@ class LightBrainGateway:
             session_id=request.session_id,
         )
         session_id = session.session_id
+        self._register_runtime_session(session_id=session_id, user_id=request.user_id, channel=request.channel)
         self._memory.record_user_message(session_id, request.message)
         self._mirror_session_node(session_id=session_id, user_id=request.user_id, channel=request.channel)
         self._append_context_record(session_id=session_id, role="user", content=request.message, kind="message")
@@ -205,6 +209,11 @@ class LightBrainGateway:
         self._context_center.register_session_node(
             SessionNode(session_id=session_id, user_id=user_id, channel=channel, kind="root")
         )
+
+    def _register_runtime_session(self, session_id: str, user_id: str, channel: str) -> None:
+        if self._runtime_center is None:
+            return
+        self._runtime_center.register_session(session_id=session_id, user_id=user_id, channel=channel, kind="root")
 
     def _append_context_record(self, session_id: str, role: str, content: str, kind: str = "message") -> None:
         if self._context_center is None:
@@ -1017,9 +1026,12 @@ class LightBrainGateway:
         except Exception as e:
             logger.warning("Failed to auto-save state: %s", e)
 
-    # Backward compatibility: session management delegated to memory
+    # Transitional Phase H path: prefer RuntimeCenter for session entity truth,
+    # fall back to LightBrainMemory while active-path migration is incomplete.
     def list_sessions(self, user_id: str | None = None) -> list[dict[str, Any]]:
         """List sessions for a user (or all if user_id is None)."""
+        if self._runtime_center is not None:
+            return [node.model_dump(mode="json") for node in self._runtime_center.list_sessions(user_id)]
         if not self._memory:
             return []
         return self._memory.list_sessions(user_id)

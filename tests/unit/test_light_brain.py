@@ -13,6 +13,7 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.light_brain_memory import LightBrainMemory
 from app.services.context_center import ContextCenter
 from app.services.light_brain_gateway import LightBrainGateway
+from app.system.catalog.runtime_center import RuntimeCenter
 
 
 # ===========================================================================
@@ -200,7 +201,13 @@ class TestLightBrainGateway:
         memory = LightBrainMemory(data_dir=self.tmpdir)
         interpreter = LightBrainInterpreter()
         self.context_center = ContextCenter()
-        self.gateway = LightBrainGateway(memory=memory, interpreter=interpreter, context_center=self.context_center)
+        self.runtime_center = RuntimeCenter(data_file=f"{self.tmpdir}/runtime_center.json")
+        self.gateway = LightBrainGateway(
+            memory=memory,
+            interpreter=interpreter,
+            context_center=self.context_center,
+            runtime_center=self.runtime_center,
+        )
 
     @pytest.mark.asyncio
     async def test_greet_reply(self):
@@ -254,6 +261,14 @@ class TestLightBrainGateway:
         assert len(window.records) >= 2
         assert window.records[0].role == "user"
         assert window.records[-1].role == "assistant"
+
+    @pytest.mark.asyncio
+    async def test_gateway_registers_runtime_session_entity(self):
+        request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        reply = await self.gateway.process_message(request)
+        session_node = self.runtime_center.get_session(reply.session_id)
+        assert session_node is not None
+        assert session_node.user_id == "u1"
 
     @pytest.mark.asyncio
     async def test_session_persistence(self):

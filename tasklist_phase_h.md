@@ -966,6 +966,7 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `RuntimeCenter` 已新增 session entity 注册 / 查询 / 持久化骨架
 - `ContextCenter` 已支持 context append / read / linked context 查询
 - `SessionLink / SessionNode / SessionContextRecord` 已有正式模型落点
+- `LightBrainGateway` 创建/续约 session 时已同步注册 `RuntimeCenter` session entity
 
 目标：
 - 明确 session 实体与上下文正文分层
@@ -979,6 +980,7 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `LightBrainGateway` 已支持可选 `ContextCenter` 注入
 - 当前 active path 已镜像写入 user / assistant 最近窗口到 `ContextCenter`
 - `command.context` 已可携带最近 session context 窗口，后续继续替换旧读取路径
+- `list_sessions` 已优先切到 `RuntimeCenter` session entity 主路径
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口
