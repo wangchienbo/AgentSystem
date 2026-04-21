@@ -33,6 +33,14 @@ class AppRefinementOrchestratorService:
         self._policy_authority = policy_authority
 
     def refine_closure(self, request: SuggestedSkillRefinementClosureRequest) -> SuggestedSkillRefinementClosureResult:
+        runtime_inputs = dict(request.workflow_inputs)
+        if request.context_hints and "context_hints" not in runtime_inputs:
+            runtime_inputs["context_hints"] = list(request.context_hints)
+        if request.related_session_ids and "related_session_ids" not in runtime_inputs:
+            runtime_inputs["related_session_ids"] = list(request.related_session_ids)
+        if request.target_app and "target_app" not in runtime_inputs:
+            runtime_inputs["target_app"] = request.target_app
+
         if self._policy_authority is not None:
             try:
                 self._policy_authority.enforce(
@@ -45,7 +53,12 @@ class AppRefinementOrchestratorService:
                 return SuggestedSkillRefinementClosureResult(
                     blueprint=None,
                     app_result=None,
-                    compare_summary={"blueprint_id": request.blueprint_id},
+                    compare_summary={
+                        "blueprint_id": request.blueprint_id,
+                        "target_app": request.target_app,
+                        "context_hints": list(request.context_hints),
+                        "related_session_ids": list(request.related_session_ids),
+                    },
                     diagnostics=[
                         SkillDiagnostic(
                             stage="assemble",
@@ -57,11 +70,15 @@ class AppRefinementOrchestratorService:
                                 "scope": "generated_app_assembly",
                                 "reviewer": request.reviewer,
                                 "reason": request.note,
+                                "target_app": request.target_app,
+                                "context_hints": list(request.context_hints),
+                                "related_session_ids": list(request.related_session_ids),
                             },
                             suggested_retry_request={
                                 "blueprint_id": request.blueprint_id,
                                 "reviewer": request.reviewer or "<reviewer>",
                                 "note": request.note or "<reason>",
+                                "target_app": request.target_app or "<target-app>",
                             },
                         ).model_dump(mode="json")
                     ],
@@ -73,6 +90,9 @@ class AppRefinementOrchestratorService:
         refinement = self._app_refinement.build_app_from_suggested_skills(request)
         entry = self._app_registry.register_blueprint(refinement.blueprint)
         compare_summary = self._build_compare_summary(refinement.blueprint)
+        compare_summary["target_app"] = request.target_app
+        compare_summary["context_hints"] = list(request.context_hints)
+        compare_summary["related_session_ids"] = list(request.related_session_ids)
 
         release = self._app_registry.add_release(
             refinement.blueprint.id,
@@ -131,7 +151,7 @@ class AppRefinementOrchestratorService:
                         app_instance_id=install.app_instance_id,
                         workflow_id=refinement.app_result.workflow_id,
                         trigger=request.trigger,
-                        inputs=request.workflow_inputs,
+                        inputs=runtime_inputs,
                     )
                     execution_result = execution.model_dump(mode="json")
                     if execution.status != "completed":
