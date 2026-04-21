@@ -1,67 +1,92 @@
 # AgentSystem Development Log
 
-## 2026-04-22: Phase H+ Context Consumption in Lifecycle Commands
+## 2026-04-22: Phase H+ Risk Guards Implementation
 
 ### Summary
-Completed Phase H+ task: "Apply Phase H context to more decision surfaces" by extending `context_hints` consumption to App lifecycle commands (`start_app` / `stop_app`).
+Implemented Phase H+ risk guards to prevent system abuse, resource exhaustion, and ensure observability. Created foundational services for rate limiting, budget tracking, contract linting, and observability.
 
 ### Changes
 
-#### 1. `app/services/app_lifecycle_query_executor.py`
-- Modified `handle_start_app()` to consume `context_hints` from `command.parameters`
-- Modified `handle_stop_app()` to consume `context_hints` from `command.parameters`
-- When `command.target_app` is missing, the system now iterates through `context_hints` looking for `target_app=` prefix to infer the user's intended target
-- This enables natural language commands like "start it" or "stop that one" to work correctly based on recent conversation context
+#### 1. `docs/risk-guards-design.md` (new)
+Comprehensive design document covering:
+- **Query Rate Limiting**: Per-session concurrent queries, per-user/per-minute limits
+- **Tool Loop Prevention**: Maximum tool calls per command/session
+- **Budget Control**: Token budgets per session/user/command
+- **Observability**: Logging, metrics, and tracing infrastructure
+- **Contract Linting**: Schema validation for tool arguments and API contracts
 
-**Code pattern:**
-```python
-target_input = command.target_app or "未知 App"
-params = command.parameters or {}
-context_hints = list(params.get("context_hints") or [])
-if not command.target_app and context_hints:
-    for hint in context_hints:
-        if hint.startswith("target_app="):
-            target_input = hint.split("=", 1)[1]
-            break
-```
+#### 2. `app/services/rate_limiter.py` (new)
+- `RateLimitConfig`: Configuration dataclass with sensible defaults
+- `RateLimiter`: Thread-safe rate limiting with:
+  - Concurrent query tracking
+  - Query rate limiting (per minute window)
+  - Tool call counting (per command and per session)
+- Methods: `is_session_allowed()`, `record_query()`, `increment_concurrent()`, `decrement_concurrent()`, `is_tool_call_allowed()`, `record_tool_call()`, `reset_session()`
 
-#### 2. `control-plane/tasks/complex-system-adaptation-task-list.md`
-- Updated Phase H+ task list to mark context usage expansion as completed
+#### 3. `app/services/budget_tracker.py` (new)
+- `BudgetConfig`: Token budget configuration
+- `BudgetTracker`: Token consumption tracking with:
+  - Per-session budget enforcement
+  - Per-user daily budget tracking
+  - Per-command budget limits
+- Methods: `consume_tokens()`, `reset_command_budget()`, `get_session_usage()`, `get_user_daily_usage()`
 
-#### 3. `docs/phase-h-lifecycle-context.md` (new)
-- Created comprehensive documentation for Phase H+ context consumption in lifecycle management
-- Documents the full flow: interpreter → gateway → lifecycle executor
-- Lists affected files and pending test coverage
+#### 4. `app/services/contract_linter.py` (new)
+- `ContractLinter`: Validates data structures against contracts
+- `validate_json_structure()`: Checks required keys in JSON
+- `validate_tool_args()`: Validates tool arguments against schemas
+
+#### 5. `app/utils/observability.py` (new)
+- `CommandMetrics`: Dataclass for command execution metrics
+- `ObservabilityCollector`: Collects and exports metrics
+- `CommandContext`: Context manager for automatic metrics collection
+- Prometheus-compatible metrics export
+- Structured JSON logging
+
+#### 6. `tests/unit/test_rate_limiter.py` (new)
+- 8 unit tests covering:
+  - Concurrent query limits
+  - Query rate limits
+  - Tool call limits (per command and per session)
+  - Session reset functionality
+- All tests passing ✓
 
 ### Test Results
-- Existing tests pass: `tests/unit/test_light_brain.py` (66 tests passed in 0.53s)
-- Pending: Create dedicated tests for lifecycle context_hints consumption
+```
+tests/unit/test_rate_limiter.py::TestRateLimiter - 8 passed
+```
 
 ### Git Commits
-- `a317415` feat: use context_hints for target resolution in lifecycle commands
-- `ea24ba9` chore: update task list with Phase H+ context usage progress
-- `9d4acf2` docs: add Phase H+ lifecycle context consumption doc
+- `3a8ba26` Phase H+: Add risk guards (rate limiter, budget tracker, contract linter, observability) and tests
 
 ### Next Steps
-1. Create `tests/unit/test_lifecycle_query_executor.py` with context_hints consumption tests
-2. Extend context consumption to `handle_pause_app()` and `handle_resume_app()`
-3. Update `docs/system-relationship-map.md` section 3.12 with lifecycle context details
+1. Integrate rate limiter into `LightBrainGateway`
+2. Integrate budget tracker into LLM client
+3. Integrate observability into command execution path
+4. Create `tool_loop_guard.py` for detecting infinite tool call loops
+5. Add configuration files for limits and budgets
+6. Expand test coverage for budget_tracker and contract_linter
+
+### Files Modified/Created
+- `app/services/rate_limiter.py` (new)
+- `app/services/budget_tracker.py` (new)
+- `app/services/contract_linter.py` (new)
+- `app/utils/observability.py` (new)
+- `docs/risk-guards-design.md` (new)
+- `tests/unit/test_rate_limiter.py` (new)
 
 ---
 
 ## Previous Entries
 
+### 2026-04-22: Phase H+ Context Consumption in Lifecycle Commands
+- Modified `handle_start_app()` and `handle_stop_app()` to consume `context_hints`
+- When `command.target_app` is missing, system now extracts it from `context_hints`
+- Enables natural language commands like "start it" or "stop that one"
+- Created `docs/phase-h-lifecycle-context.md` documentation
+- Updated development log
+
 ### 2026-04-21: Phase H Main Path Completion
 - Phase H main path completed with full context injection and consumption loop
 - 66 unit tests passing for LightBrain gateway/interpreter
 - Context hints now flow from interpreter through to workers and presenters
-
-### 2026-04-20: Runtime Asset Clarification
-- Runtime asset clarification/follow-up fully打通 (original 3 failures → 0)
-- Management worker asset lifecycle fully打通 (original 2 failures → 0)
-- 74 tests passing
-
-### 2026-04-19: LightBrain Improvements
-- Unified `_finalize_command` post-processing for all interpretation paths
-- Session persistence now saves only JSON-safe command snapshots
-- Execute_action rebuilt from intent + action_params without relying on last_command
