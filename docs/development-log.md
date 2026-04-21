@@ -1,5 +1,34 @@
 ### 2026-04-22
 
+#### Module: Phase H interpreter decision-boundary cleanup (single pattern source)
+
+继续收“交互层一次决策”的解释器边界。这一步发现 `LightBrainInterpreter` 顶部同时存在两套 `INTENT_PATTERNS` 定义，后者覆盖前者，导致 exact/fuzzy/combined 三层视图在类常量层面已经自相矛盾。
+
+#### Implemented
+- `app/system/gateway/light_brain_interpreter.py`
+  - 删除后半段重复的 `INTENT_PATTERNS` 定义
+  - 保留前半段：
+    - `EXACT_MATCH_PATTERNS`
+    - `FUZZY_MATCH_PATTERNS`
+    - `INTENT_PATTERNS = EXACT_MATCH_PATTERNS + FUZZY_MATCH_PATTERNS`
+  - 恢复解释器 pattern 视图的单一真相源
+- `tests/unit/test_light_brain.py`
+  - 新增 `test_intent_pattern_view_matches_exact_plus_fuzzy_sources`
+  - 锁定 combined pattern 计数必须等于 exact + fuzzy
+
+#### Validation
+- `pytest -q tests/unit/test_light_brain.py`
+- 结果：`66 passed`
+
+#### Notes
+- 这一步的价值不是“代码更整洁”，而是让解释器的三段决策边界至少先建立在同一套 pattern 真相之上
+- 后续如果继续收单次 LLM 决策主路径，可以在这个基础上更明确地审视：
+  - exact intent 哪些必须永远本地直判
+  - fuzzy intent 哪些应该继续 regex 兜底
+  - 哪些应该优先下放给 LLM tool-aware 解释
+
+### 2026-04-22
+
 #### Module: Phase H single-decision entry tightening (tool registry sync)
 
 继续向“交互层一次 LLM 决策主路径”收口。这一步先不大改解释器策略，而是先消掉一个很实际的入口漂移点：`LightBrainInterpreter` 是否拿到与 gateway 当前回合一致的 tool registry，此前仍依赖外部 bootstrap 注入顺序。

@@ -25,7 +25,12 @@ class TestLightBrainInterpreter:
     def setup_method(self):
         self.interpreter = LightBrainInterpreter()
 
-    def test_greet(self):
+    def test_intent_pattern_view_matches_exact_plus_fuzzy_sources(self):
+        assert len(LightBrainInterpreter.INTENT_PATTERNS) == (
+            len(LightBrainInterpreter.EXACT_MATCH_PATTERNS)
+            + len(LightBrainInterpreter.FUZZY_MATCH_PATTERNS)
+        )
+
         cmd = self.interpreter.interpret("你好")
         assert cmd.intent == "greet"
         assert cmd.confidence >= 0.8
