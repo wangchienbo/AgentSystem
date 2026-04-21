@@ -993,6 +993,7 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - gateway 已将 `context_hints` / `related_session_ids` / `target_app` 归一化回填到 command parameters
 - `AppManagementWorker.query_app/modify_app` 已开始消费这些归一化字段
 - `master_execute` 对 delegated 结果已显示 data，便于观察 refinement/query 链透传的上下文
+- `RefinementWorker.refine_app` 已开始消费 `target_app/context_hints/related_session_ids`
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口

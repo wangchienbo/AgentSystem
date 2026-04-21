@@ -36,14 +36,29 @@ class RefinementWorker:
     def _refine_app(self, target: str, params: dict) -> dict:
         if not self._refinement_orchestrator:
             return {"status": "error", "message": "RefinementOrchestrator 未加载"}
+        app_target = target or params.get("target_app") or params.get("app_id") or ""
+        context_hints = params.get("context_hints", [])
+        related_session_ids = params.get("related_session_ids", [])
         try:
             result = self._refinement_orchestrator.refine(
-                app_instance_id=target,
+                app_instance_id=app_target,
                 modification=params.get("modification", ""),
             )
-            return {"status": "success", "data": result}
+            payload = result if isinstance(result, dict) else {"result": result}
+            payload.setdefault("target_app", app_target)
+            payload.setdefault("context_hints", context_hints)
+            payload.setdefault("related_session_ids", related_session_ids)
+            return {"status": "success", "data": payload}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            return {
+                "status": "error",
+                "message": str(e),
+                "data": {
+                    "target_app": app_target,
+                    "context_hints": context_hints,
+                    "related_session_ids": related_session_ids,
+                },
+            }
 
     def _add_skill_to_app(self, target: str, params: dict) -> dict:
         skill_id = params.get("skill_id")
