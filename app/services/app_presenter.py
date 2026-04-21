@@ -6,6 +6,24 @@ from app.models.chat import ActionSuggestion, ChatMessageResponse, InlineItem
 
 
 class AppPresenter:
+    @staticmethod
+    def _append_context_summary(content: str, parameters: dict[str, Any] | None = None) -> str:
+        params = dict(parameters or {})
+        target_app = params.get("target_app") or ""
+        context_hints = list(params.get("context_hints") or [])
+        related_session_ids = list(params.get("related_session_ids") or [])
+
+        parts: list[str] = []
+        if target_app:
+            parts.append(f"target_app={target_app}")
+        if context_hints:
+            parts.append("context_hints=" + " | ".join(context_hints[:2]))
+        if related_session_ids:
+            parts.append("related_session_ids=" + ",".join(related_session_ids[:3]))
+        if not parts:
+            return content
+        return f"{content}\n\n上下文摘要: {'; '.join(parts)}"
+
     def build_confirmation_actions(
         self,
         *,
@@ -51,20 +69,26 @@ class AppPresenter:
             app_type = params.get("app_type", "unknown")
             schedule_info = params.get("schedule_info", "")
             threshold_info = params.get("threshold_info", "")
-            return (
-                f"将创建新的 App：**{related_app}**\n\n"
-                f"类型: {app_type}"
-                f"{schedule_info}{threshold_info}\n\n"
-                f"确认后系统会通过统一主链路创建 App，必要时生成或复用相关 skill。"
+            return self._append_context_summary(
+                (
+                    f"将创建新的 App：**{related_app}**\n\n"
+                    f"类型: {app_type}"
+                    f"{schedule_info}{threshold_info}\n\n"
+                    f"确认后系统会通过统一主链路创建 App，必要时生成或复用相关 skill。"
+                ),
+                params,
             )
         if intent == "modify_app":
             modification = params.get("modification", "未指定")
-            return (
-                f"将 **{related_app}** 修改为：{modification}\n\n"
-                f"确认后系统会分析需求，使用已有 skill 或生成新 skill 来完成修改。\n\n"
-                f"⚠️ 注意：如果修改需要生成新 skill，仅管理员及以上用户可执行。"
+            return self._append_context_summary(
+                (
+                    f"将 **{related_app}** 修改为：{modification}\n\n"
+                    f"确认后系统会分析需求，使用已有 skill 或生成新 skill 来完成修改。\n\n"
+                    f"⚠️ 注意：如果修改需要生成新 skill，仅管理员及以上用户可执行。"
+                ),
+                params,
             )
-        return f"确认执行 {intent}: {related_app}"
+        return self._append_context_summary(f"确认执行 {intent}: {related_app}", params)
 
     def build_confirmation_response(
         self,
@@ -105,10 +129,11 @@ class AppPresenter:
         title: str,
         detail: str,
         actions: list[ActionSuggestion] | None = None,
+        parameters: dict[str, Any] | None = None,
     ) -> ChatMessageResponse:
         return ChatMessageResponse(
             type="card",
-            content=f"{title}\n\n{detail}",
+            content=self._append_context_summary(f"{title}\n\n{detail}", parameters),
             session_id=session_id,
             related_app=related_app,
             actions=actions or [],
@@ -142,10 +167,11 @@ class AppPresenter:
         content: str,
         actions: list[ActionSuggestion] | None = None,
         response_type: str = "text",
+        parameters: dict[str, Any] | None = None,
     ) -> ChatMessageResponse:
         return ChatMessageResponse(
             type=response_type,
-            content=content,
+            content=self._append_context_summary(content, parameters),
             session_id=session_id,
             related_app=related_app,
             actions=actions or [],
@@ -159,6 +185,7 @@ class AppPresenter:
         related_app: str | None,
         reason: str,
         detail: str | None = None,
+        parameters: dict[str, Any] | None = None,
     ) -> ChatMessageResponse:
         operation_map = {
             "create_app": "创建 App",
@@ -170,7 +197,7 @@ class AppPresenter:
             content += f"\n\n{detail}"
         return ChatMessageResponse(
             type="text",
-            content=content,
+            content=self._append_context_summary(content, parameters),
             session_id=session_id,
             related_app=related_app,
         )

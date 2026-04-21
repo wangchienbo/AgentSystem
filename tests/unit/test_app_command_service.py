@@ -29,3 +29,21 @@ def test_app_command_service_summarize_phase_h_context() -> None:
     assert "target_app=novel" in summary
     assert "context_hints=recent:App: novel | modify theme" in summary
     assert "related_session_ids=sess-1,sess-2,sess-3" in summary
+
+
+def test_app_command_service_build_degraded_response_passes_phase_h_context_to_presenter() -> None:
+    service = AppCommandService()
+
+    response = service.build_degraded_response(
+        intent="modify_app",
+        session_id="sess-1",
+        related_app="novel",
+        reason="install failed",
+        parameters={
+            "target_app": "novel",
+            "context_hints": ["recent:App: novel"],
+        },
+    )
+
+    assert "上下文摘要:" in response.content
+    assert "target_app=novel" in response.content

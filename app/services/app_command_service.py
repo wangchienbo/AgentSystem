@@ -214,6 +214,7 @@ class AppCommandService:
         title: str,
         detail: str,
         actions: list[Any] | None = None,
+        parameters: dict[str, Any] | None = None,
     ):
         return self._presenter.build_query_detail_response(
             session_id=session_id,
@@ -221,6 +222,7 @@ class AppCommandService:
             title=title,
             detail=detail,
             actions=actions,
+            parameters=parameters,
         )
 
     def build_permission_denied_response(
@@ -247,6 +249,7 @@ class AppCommandService:
         content: str,
         actions: list[Any] | None = None,
         response_type: str = "text",
+        parameters: dict[str, Any] | None = None,
     ):
         return self._presenter.build_success_response(
             session_id=session_id,
@@ -254,6 +257,7 @@ class AppCommandService:
             content=content,
             actions=actions,
             response_type=response_type,
+            parameters=parameters,
         )
 
     def build_degraded_response(
@@ -264,6 +268,7 @@ class AppCommandService:
         related_app: str | None,
         reason: str,
         detail: str | None = None,
+        parameters: dict[str, Any] | None = None,
     ):
         return self._presenter.build_degraded_response(
             intent=intent,
@@ -271,6 +276,7 @@ class AppCommandService:
             related_app=related_app,
             reason=reason,
             detail=detail,
+            parameters=parameters,
         )
 
     @staticmethod
