@@ -355,18 +355,42 @@ class LightBrainGateway:
             and command.intent in bridge_eligible_intents
             and command.intent not in {"greet", "query_help", "query_status"}
         ):
+            bridge_session_id = session_id
+            if command.intent in {"create_app", "modify_app", "delete_app", "start_app", "stop_app", "pause_app", "resume_app", "query_app"}:
+                bridge_session_id = f"{session_id}.orch.{command.intent}"
+                self._create_child_session(
+                    parent_session_id=session_id,
+                    child_session_id=bridge_session_id,
+                    user_id=command.user_id or "system",
+                    channel="orchestration",
+                    actor="orchestration",
+                    topic_key=command.intent,
+                )
+                self._append_context_record(
+                    session_id=bridge_session_id,
+                    role="system",
+                    content=f"bridge_dispatch:{command.intent}",
+                    kind="system_note",
+                )
             try:
                 bridge_result = await self._orchestrator_bridge.execute_command(
                     user_id=command.user_id or "",
                     app_instance_id="default",
                     text=command.raw_input or "",
-                    session_id=session_id,
+                    session_id=bridge_session_id,
                 )
                 if bridge_result is not None:
+                    if bridge_session_id != session_id:
+                        self._append_context_record(
+                            session_id=bridge_session_id,
+                            role="assistant",
+                            content=bridge_result.get("content", ""),
+                            kind="message",
+                        )
                     return ChatMessageResponse(
                         type=bridge_result.get("type", "text"),
                         content=bridge_result.get("content", ""),
-                        session_id=session_id,
+                        session_id=bridge_session_id,
                     )
             except Exception as e:
                 import logging

@@ -194,6 +194,25 @@ class TestLightBrainMemory:
 # Gateway integration tests
 # ===========================================================================
 
+class MockOrchestratorBridge:
+    def __init__(self, available=True, result=None):
+        self._available = available
+        self._result = result or {"type": "text", "content": "bridge ok"}
+        self.calls = []
+
+    def is_available(self):
+        return self._available
+
+    async def execute_command(self, user_id: str, app_instance_id: str, text: str, *, session_id: str | None = None):
+        self.calls.append({
+            "user_id": user_id,
+            "app_instance_id": app_instance_id,
+            "text": text,
+            "session_id": session_id,
+        })
+        return dict(self._result)
+
+
 class TestLightBrainGateway:
     def setup_method(self):
         import tempfile
@@ -354,6 +373,23 @@ class TestLightBrainGateway:
         assert runtime_node.kind == "continuation_child"
         assert context_node is not None
         assert context_node.kind == "continuation_child"
+
+    @pytest.mark.asyncio
+    async def test_bridge_eligible_command_creates_orchestration_child_session(self):
+        bridge = MockOrchestratorBridge()
+        self.gateway.set_orchestrator_bridge(bridge)
+
+        reply = await self.gateway.process_message(
+            ChatMessageRequest(user_id="u1", channel="webchat", message="帮我建一个监控 App")
+        )
+        assert reply.session_id.endswith(".orch.create_app")
+        runtime_node = self.runtime_center.get_session(reply.session_id)
+        context_node = self.context_center.get_session_node(reply.session_id)
+        assert runtime_node is not None
+        assert runtime_node.actor == "orchestration"
+        assert runtime_node.kind == "child"
+        assert context_node is not None
+        assert bridge.calls[-1]["session_id"] == reply.session_id
 
     @pytest.mark.asyncio
     async def test_execute_action_rebuilds_command_from_action_params_without_last_command(self):
