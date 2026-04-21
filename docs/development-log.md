@@ -1,5 +1,33 @@
 ### 2026-04-22
 
+#### Module: Phase H direct-reply path validation
+
+补上了 H4 里此前还空着的一块, 不再只验证“查上下文再答复”与“调主控创建 child session”，而是把交互层 builtin intent 的直接答复路径也正式锁进验证记录。
+
+#### Implemented
+- `tests/unit/test_light_brain.py`
+  - 新增 `test_direct_reply_path_bypasses_bridge_for_builtin_intents`
+  - 覆盖 `greet / query_help / query_status`
+  - 在 bridge 可用时验证这些 builtin intent 仍走本地 handler，不调用 orchestrator bridge
+- `docs/e2e-test-results.md`
+  - 新增 `H4-00 交互层直接答复路径` 验证记录
+- `control-plane/tasks/complex-system-adaptation-task-list.md`
+  - 将 H4 的“验证交互层直接答复路径”标记为已完成
+
+#### Validation
+- `pytest -q tests/unit/test_light_brain.py`
+- 结果：`66 passed`
+
+#### Notes
+- 到这里，H4 四类核心验证面已经都具备明确记录：
+  - 直接答复
+  - 查上下文再答复
+  - 调主控自动创建 child session
+  - 主控 -> app -> skill 统一 session 契约
+- 下一步更值得做的是继续收单次 LLM 决策主路径，而不是再补 H4 文档空位
+
+### 2026-04-22
+
 #### Module: Phase H unified reply after-hook for context upload
 
 继续沿 Phase H.3 收口，没有再让 reply 回写分散在 `receive_message`、`execute_action`、child session 包装等多个出口各自处理，而是先把当前 active path 的 reply upload 行为收成统一 after-hook。

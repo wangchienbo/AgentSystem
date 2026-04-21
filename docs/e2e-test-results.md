@@ -15,6 +15,36 @@
 
 ## H4 Validation Checkpoint (2026-04-22)
 
+### H4-00 交互层直接答复路径
+- 场景:
+  - 用户触发内建直答类 intent 时，交互层直接本地回复，不进入 orchestrator / bridge child session 路径
+- 输入:
+  - `你好`
+  - `帮助`
+  - `系统状态`
+- 主链路:
+  - `LightBrainGateway.process_message()`
+  - `LightBrainInterpreter.interpret()`
+  - builtin intent 命中本地 handler
+  - `_handle_greet / _handle_query_help / _handle_query_status`
+  - `_after_reply(...)` 执行 reply 回写
+- 预期:
+  - 这类内建直答请求直接走本地 handler
+  - 不调用 bridge/orchestrator
+  - 最终仍完成统一 reply 回写
+- 实际结果:
+  - `greet / query_help / query_status` 在 bridge 可用时仍保持本地直答
+  - `MockOrchestratorBridge.calls == []`
+  - reply 正常返回，且仍进入统一 reply after-hook
+- 失配分类:
+  - 控制流失配
+- 修复动作:
+  - 用 gateway integration test 明确锁定 builtin direct-reply path 的旁路行为
+- 当前结论:
+  - H4 中“交互层直接答复路径”已有明确验证记录，不再空缺
+- 遗留问题:
+  - 后续若继续固化“单次 LLM 决策主路径”，仍需再检查 builtin intent 与模型路由边界是否需要进一步统一表述
+
 ### H4-01 交互层查上下文再答复路径
 - 场景:
   - 交互层在已有 linked / child session context 的情况下解释用户消息，并把上下文沉淀为可消费的 command context

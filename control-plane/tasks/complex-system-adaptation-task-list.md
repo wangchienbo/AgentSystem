@@ -188,7 +188,7 @@
 - [ ] 增加 query 上限 / tool loop 上限 / budget / observability / contract lint
 
 ### Phase H.4，真实链路验证
-- [ ] 验证交互层直接答复路径
+- [x] 验证交互层直接答复路径
 - [x] 验证交互层查上下文再答复路径
 - [x] 验证交互层调主控并自动创建 child session 路径
 - [x] 验证主控 -> app -> skill 统一 session 契约路径

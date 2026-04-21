@@ -347,7 +347,25 @@ class TestLightBrainGateway:
         assert reply.session_id
 
     @pytest.mark.asyncio
-    async def test_gateway_mirrors_recent_context_into_context_center(self):
+    async def test_direct_reply_path_bypasses_bridge_for_builtin_intents(self):
+        bridge = MockOrchestratorBridge()
+        self.gateway.set_orchestrator_bridge(bridge)
+
+        greet = await self.gateway.process_message(
+            ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        )
+        help_reply = await self.gateway.process_message(
+            ChatMessageRequest(user_id="u1", channel="webchat", message="帮助")
+        )
+        status_reply = await self.gateway.process_message(
+            ChatMessageRequest(user_id="u1", channel="webchat", message="系统状态")
+        )
+
+        assert bridge.calls == []
+        assert greet.session_id
+        assert help_reply.type == "text"
+        assert status_reply.type in ("card", "text")
+
         request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
         reply = await self.gateway.process_message(request)
         window = self.context_center.read_context(reply.session_id, limit=10)
