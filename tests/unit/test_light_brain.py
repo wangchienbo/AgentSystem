@@ -608,7 +608,27 @@ class TestLightBrainGateway:
         assert "界面已更新" in reply.content
 
     @pytest.mark.asyncio
-    async def test_execute_action_rebuilds_command_from_action_params_without_last_command(self):
+    async def test_receive_message_records_reply_into_context_center_via_after_hook(self):
+        reply = await self.gateway.process_message(
+            ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        )
+        records = self.context_center.get_recent_context(reply.session_id, limit=10).records
+        assert any(r.role == "assistant" and reply.content in r.content for r in records)
+
+    @pytest.mark.asyncio
+    async def test_execute_action_records_reply_into_context_center_via_after_hook(self):
+        base = await self.gateway.process_message(
+            ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        )
+        action_reply = await self.gateway.execute_action(
+            user_id="u1",
+            session_id=base.session_id,
+            action_id="help",
+            action_params={"intent": "query_help"},
+        )
+        records = self.context_center.get_recent_context(action_reply.session_id, limit=20).records
+        assert any(r.role == "assistant" and action_reply.content in r.content for r in records)
+
         req = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
         reply = await self.gateway.process_message(req)
         session_id = reply.session_id

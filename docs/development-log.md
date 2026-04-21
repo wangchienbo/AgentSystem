@@ -1,5 +1,32 @@
 ### 2026-04-22
 
+#### Module: Phase H unified reply after-hook for context upload
+
+继续沿 Phase H.3 收口，没有再让 reply 回写分散在 `receive_message`、`execute_action`、child session 包装等多个出口各自处理，而是先把当前 active path 的 reply upload 行为收成统一 after-hook。
+
+#### Implemented
+- `app/system/gateway/light_brain_gateway.py`
+  - 新增 `_after_reply(session_id, reply)`
+  - 统一执行：
+    - `LightBrainMemory.record_reply(...)`
+    - `ContextCenter.append_context(...)`（assistant message）
+  - `receive_message()` 改为通过 `_after_reply(...)` 完成 reply 回写
+  - `execute_action()` 改为通过 `_after_reply(...)` 完成 reply 回写
+  - child session response 包装路径也改为通过 `_after_reply(...)` 完成 assistant reply upload
+- `tests/unit/test_light_brain.py`
+  - 新增 `receive_message` 路径通过 after-hook 写入 `ContextCenter` 的覆盖
+  - 新增 `execute_action` 路径通过 after-hook 写入 `ContextCenter` 的覆盖
+
+#### Validation
+- `pytest -q tests/unit/test_light_brain.py tests/unit/services/test_context_center.py tests/test_runtime_center.py`
+- 结果：`72 passed`
+
+#### Notes
+- 这一步还不是完整的“统一 context upload after-hook 终态”，因为当前 upload 白名单 / system note 模板 / 更多系统结果类型仍未全部收敛
+- 但 active path 上最核心的 assistant reply 回写已经不再散落在多个出口，后续继续扩 after-hook 时有了统一落点
+
+### 2026-04-22
+
 #### Module: Phase H linked/child context consumption closure
 
 这一轮没有再停在“把上下文字段挂进 command.context 备用”，而是沿 Phase H task list 把 linked/child session context 逐层推进成可消费、可见、可测的主路径闭环。

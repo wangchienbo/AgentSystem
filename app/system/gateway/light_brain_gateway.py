@@ -165,8 +165,7 @@ class LightBrainGateway:
 
         # Phase 7.3: execute workflow and return reply
         result = await self._execute_command(command, session_id, available_apps)
-        self._memory.record_reply(session_id, result)
-        self._append_context_record(session_id=session_id, role="assistant", content=result.content, kind="message")
+        self._after_reply(session_id=session_id, reply=result)
 
         # Phase 7.5: auto-save state if persistence available
         self._auto_save()
@@ -370,14 +369,18 @@ class LightBrainGateway:
             kind="system_note",
         )
         response = build_response(child_session_id)
-        if isinstance(response, ChatMessageResponse) and response.content:
+        self._after_reply(session_id=child_session_id, reply=response)
+        return response
+
+    def _after_reply(self, session_id: str, reply: ChatMessageResponse) -> None:
+        self._memory.record_reply(session_id, reply)
+        if reply.content:
             self._append_context_record(
-                session_id=child_session_id,
+                session_id=session_id,
                 role="assistant",
-                content=response.content,
+                content=reply.content,
                 kind="message",
             )
-        return response
 
     def _append_context_record(self, session_id: str, role: str, content: str, kind: str = "message") -> None:
         if self._context_center is None:
@@ -1428,7 +1431,6 @@ class LightBrainGateway:
         command = self._enrich_command(command, action_session_id, [])
         self._memory.record_command(action_session_id, command)
         result = await self._execute_command(command, action_session_id, [])
-        self._memory.record_reply(action_session_id, result)
-        self._append_context_record(session_id=action_session_id, role="assistant", content=result.content, kind="message")
+        self._after_reply(session_id=action_session_id, reply=result)
         self._auto_save()
         return result

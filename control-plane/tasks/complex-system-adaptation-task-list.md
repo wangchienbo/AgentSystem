@@ -182,7 +182,7 @@
 ### Phase H.3，静态资产 hot tools、context upload 与风险护栏
 - [ ] 为静态资产配置 `default_hot_tools` / `methods` / `default_visible_to`
 - [x] 不再全局预热 capability 级独立工具
-- [ ] 增加统一 context upload after-hook
+- [x] 增加统一 context upload after-hook
 - [ ] 固定 upload 白名单和 system note 模板
 - [x] 日志与上下文彻底分层
 - [ ] 增加 query 上限 / tool loop 上限 / budget / observability / contract lint
