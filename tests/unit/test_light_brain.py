@@ -9,6 +9,7 @@ from app.models.chat import (
     ChatActionRequest,
     InterpretedCommand,
 )
+from app.models.context import SessionContextRecord
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.light_brain_memory import LightBrainMemory
 from app.services.context_center import ContextCenter
@@ -213,6 +214,22 @@ class MockOrchestratorBridge:
         return dict(self._result)
 
 
+class MockMasterControl:
+    def __init__(self, result=None):
+        self.result = result or {"status": "success", "message": "master ok", "data": {"done": True}}
+        self.calls = []
+
+    async def execute(self, operation: str, user_id: str, user_role: str, target: str = "", params: dict | None = None):
+        self.calls.append({
+            "operation": operation,
+            "user_id": user_id,
+            "user_role": user_role,
+            "target": target,
+            "params": params or {},
+        })
+        return dict(self.result)
+
+
 class TestLightBrainGateway:
     def setup_method(self):
         import tempfile
@@ -374,6 +391,28 @@ class TestLightBrainGateway:
         assert context_node is not None
         assert context_node.kind == "continuation_child"
 
+    def test_context_center_chapter5_query_apis(self):
+        self.gateway._create_child_session(
+            parent_session_id="sess-root",
+            child_session_id="sess-child-q",
+            user_id="u1",
+            channel="webchat",
+            actor="skill",
+            topic_key="topic-q",
+        )
+        self.context_center.append_context_record(
+            "sess-child-q",
+            SessionContextRecord(session_id="sess-child-q", role="user", content="hello", kind="message"),
+        )
+        recent = self.context_center.get_recent_context("sess-child-q", limit=10)
+        ranged = self.context_center.get_context_range("sess-child-q", 0, 1)
+        children = self.context_center.get_child_sessions("sess-root")
+        links = self.context_center.get_linked_sessions("sess-root")
+        assert recent.records
+        assert len(ranged.records) == 1
+        assert any(node.session_id == "sess-child-q" for node in children)
+        assert any(link.child_session_id == "sess-child-q" for link in links)
+
     @pytest.mark.asyncio
     async def test_bridge_eligible_command_creates_orchestration_child_session(self):
         bridge = MockOrchestratorBridge()
@@ -390,6 +429,24 @@ class TestLightBrainGateway:
         assert runtime_node.kind == "child"
         assert context_node is not None
         assert bridge.calls[-1]["session_id"] == reply.session_id
+
+    @pytest.mark.asyncio
+    async def test_master_execute_creates_orchestration_child_session(self):
+        self.gateway._master_control = MockMasterControl()
+        command = InterpretedCommand(
+            intent="master_execute",
+            confidence=1.0,
+            parameters={"operation": "list_apps"},
+            user_id="u1",
+            raw_input="master:list_apps",
+        )
+        reply = self.gateway._handle_master_execute(command, "sess-root", [])
+        assert reply.session_id == "sess-root.master.list_apps"
+        runtime_node = self.runtime_center.get_session(reply.session_id)
+        context_node = self.context_center.get_session_node(reply.session_id)
+        assert runtime_node is not None
+        assert runtime_node.actor == "orchestration"
+        assert context_node is not None
 
     @pytest.mark.asyncio
     async def test_execute_action_rebuilds_command_from_action_params_without_last_command(self):

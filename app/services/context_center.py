@@ -19,6 +19,34 @@ class ContextCenter:
         self._records: dict[str, list[SessionContextRecord]] = {}
         self._links: list[SessionLink] = []
 
+    # Chapter 5 target-shaped APIs -------------------------------------------------
+
+    def get_recent_context(self, session_id: str, limit: int = 100) -> SessionContextWindow:
+        return self.read_context(session_id, limit=limit)
+
+    def get_context_range(self, session_id: str, start: int = 0, end: int | None = None) -> SessionContextWindow:
+        records = self._records.get(session_id, [])
+        sliced = records[start:end]
+        return SessionContextWindow(session_id=session_id, records=sliced)
+
+    def get_child_sessions(self, parent_session_id: str) -> list[SessionNode]:
+        child_ids = [link.child_session_id for link in self._links if link.parent_session_id == parent_session_id]
+        return [self._nodes[sid] for sid in child_ids if sid in self._nodes]
+
+    def get_linked_sessions(self, session_id: str) -> list[SessionLink]:
+        return self.list_links_for_session(session_id)
+
+    def append_context_record(self, session_id: str, record: SessionContextRecord) -> SessionContextRecord:
+        if record.session_id != session_id:
+            record = SessionContextRecord(
+                session_id=session_id,
+                kind=record.kind,
+                role=record.role,
+                content=record.content,
+                metadata=record.metadata,
+            )
+        return self.append_context(record)
+
     def register_session_node(self, node: SessionNode) -> SessionNode:
         now = datetime.now(UTC)
         existing = self._nodes.get(node.session_id)

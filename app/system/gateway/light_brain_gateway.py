@@ -1073,6 +1073,21 @@ class LightBrainGateway:
             except Exception:
                 pass
         params = {k: v for k, v in command.parameters.items() if k != "operation"}
+        master_session_id = f"{session_id}.master.{operation}"
+        self._create_child_session(
+            parent_session_id=session_id,
+            child_session_id=master_session_id,
+            user_id=user_id,
+            channel="master_control",
+            actor="orchestration",
+            topic_key=operation,
+        )
+        self._append_context_record(
+            session_id=master_session_id,
+            role="system",
+            content=f"master_execute:{operation}",
+            kind="system_note",
+        )
         import asyncio
         result = self._master_control.execute(
             operation=operation,
@@ -1091,33 +1106,34 @@ class LightBrainGateway:
             message = result.get("message", "")
             data = result.get("data")
             if status == "denied":
-                required = result.get("required_role", "")
                 return ChatMessageResponse(
                     type="text",
-                    content=f"❌ 权限不足: {message}" + (f"\n需要 {required} 角色。" if required else ""),
-                    session_id=session_id,
+                    content=f"❌ 权限不足: {message}" + (f"\n需要 {result.get('required_role', '')} 角色。" if result.get("required_role") else ""),
+                    session_id=master_session_id,
                     requires_input=False,
                 )
             elif status == "success":
                 content = f"✅ {message or '操作成功'}"
                 if data:
                     content += f"\n\n{json.dumps(data, ensure_ascii=False, indent=2)}"
+                self._append_context_record(session_id=master_session_id, role="assistant", content=content, kind="message")
                 return ChatMessageResponse(
                     type="text",
                     content=content,
-                    session_id=session_id,
+                    session_id=master_session_id,
                     requires_input=False,
                 )
             elif status == "delegated":
+                self._append_context_record(session_id=master_session_id, role="assistant", content=f"ℹ️ {message}", kind="message")
                 return ChatMessageResponse(
                     type="text",
                     content=f"ℹ️ {message}",
-                    session_id=session_id,
+                    session_id=master_session_id,
                     requires_input=False,
                 )
             else:
-                return self._error_reply(session_id, f"❌ {message or f'操作失败: {status}'}")
-        return self._error_reply(session_id, "⚠️ 主控返回了意外结果。")
+                return self._error_reply(master_session_id, f"❌ {message or f'操作失败: {status}'}")
+        return self._error_reply(master_session_id, "⚠️ 主控返回了意外结果。")
 
     async def _handle_list_apps(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
