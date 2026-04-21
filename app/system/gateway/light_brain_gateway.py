@@ -18,7 +18,7 @@ from app.models.chat import (
     InlineItem,
     InterpretedCommand,
 )
-from app.models.context import SessionContextRecord, SessionNode
+from app.models.context import SessionContextRecord, SessionLink, SessionNode
 from app.services.context_center import ContextCenter
 from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryError
 from app.services.light_brain_interpreter import LightBrainInterpreter
@@ -220,6 +220,18 @@ class LightBrainGateway:
             return
         self._context_center.append_context(
             SessionContextRecord(session_id=session_id, role=role, content=content, kind=kind)
+        )
+
+    def _link_related_sessions(self, parent_session_id: str, child_session_id: str, created_by: str = "system") -> None:
+        if self._context_center is None or parent_session_id == child_session_id:
+            return
+        self._context_center.link_sessions(
+            SessionLink(
+                parent_session_id=parent_session_id,
+                child_session_id=child_session_id,
+                link_type="related",
+                created_by=created_by,
+            )
         )
 
     async def _execute_command(
@@ -1053,6 +1065,20 @@ class LightBrainGateway:
         action_params = action_params or {}
         intent = action_params.get("intent", "unclear")
         target = action_params.get("target", "")
+        action_session_id = action_params.get("session_id") or session_id
+
+        if action_session_id != session_id:
+            self._memory.create_session(user_id=user_id, channel="action", session_id=action_session_id)
+            self._register_runtime_session(session_id=action_session_id, user_id=user_id, channel="action")
+            self._mirror_session_node(session_id=action_session_id, user_id=user_id, channel="action")
+            self._link_related_sessions(parent_session_id=session_id, child_session_id=action_session_id, created_by="action")
+
+        self._append_context_record(
+            session_id=action_session_id,
+            role="user",
+            content=f"action:{action_id}",
+            kind="system_note",
+        )
 
         from app.models.chat import InterpretedCommand
 
@@ -1064,9 +1090,10 @@ class LightBrainGateway:
             user_id=user_id,
             raw_input=f"action:{action_id}",
         )
-        command = self._enrich_command(command, session_id, [])
-        self._memory.record_command(session_id, command)
-        result = await self._execute_command(command, session_id, [])
-        self._memory.record_reply(session_id, result)
+        command = self._enrich_command(command, action_session_id, [])
+        self._memory.record_command(action_session_id, command)
+        result = await self._execute_command(command, action_session_id, [])
+        self._memory.record_reply(action_session_id, result)
+        self._append_context_record(session_id=action_session_id, role="assistant", content=result.content, kind="message")
         self._auto_save()
         return result

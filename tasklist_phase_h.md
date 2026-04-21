@@ -981,6 +981,7 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - 当前 active path 已镜像写入 user / assistant 最近窗口到 `ContextCenter`
 - `command.context` 已可携带最近 session context 窗口，后续继续替换旧读取路径
 - `list_sessions` 已优先切到 `RuntimeCenter` session entity 主路径
+- `execute_action` 已可把 action session 回流到 RuntimeCenter / ContextCenter，并建立 related link
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口

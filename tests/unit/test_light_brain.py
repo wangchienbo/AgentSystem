@@ -304,6 +304,23 @@ class TestLightBrainGateway:
         assert "取消" in action_reply.content
 
     @pytest.mark.asyncio
+    async def test_execute_action_can_link_related_action_session(self):
+        req = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        reply = await self.gateway.process_message(req)
+        root_session_id = reply.session_id
+
+        action_reply = await self.gateway.execute_action(
+            user_id="u1",
+            session_id=root_session_id,
+            action_id="cancel",
+            action_params={"intent": "cancel", "session_id": "sess-action-1"},
+        )
+        assert action_reply.session_id == "sess-action-1"
+        linked = self.context_center.read_linked_context(root_session_id)
+        assert "sess-action-1" in linked
+        assert self.runtime_center.get_session("sess-action-1") is not None
+
+    @pytest.mark.asyncio
     async def test_execute_action_rebuilds_command_from_action_params_without_last_command(self):
         req = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
         reply = await self.gateway.process_message(req)
