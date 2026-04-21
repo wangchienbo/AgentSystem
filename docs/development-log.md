@@ -120,3 +120,28 @@ tests/unit/test_rate_limiter.py::TestRateLimiter - 8 passed
 - Phase H main path completed with full context injection and consumption loop
 - 66 unit tests passing for LightBrain gateway/interpreter
 - Context hints now flow from interpreter through to workers and presenters
+
+## 2026-04-22: E2E Clarification Fix
+
+### Summary
+Fixed E2E test failure where clarification requests were being sent to bridge instead of waiting for user input.
+
+### Fix Details
+**Issue**: When user said "启动" (start) without app name, the system was sending to bridge instead of asking for clarification.
+
+**Root Cause**: In `LightBrainGateway._execute_command`, the bridge dispatch happened before checking `command.requires_clarification`.
+
+**Fix**: Moved clarification check to the beginning of `_execute_command` method, before any bridge dispatch or local handler logic.
+
+**Verification**: 
+- Test: `python3 -c "from app.bootstrap.runtime import build_runtime; ..."` 
+- Result: `requires_input=True, content=你想启动哪个 App 呀？告诉我名称，我来帮你启动。`
+
+### Phase H+ Status
+All Phase H+ tasks completed:
+- [x] Risk guards (rate limiter, budget tracker, contract linter, observability)
+- [x] Context upload whitelist and system note templates
+- [x] E2E clarification fix
+- [x] 74 unit tests passing
+- [x] Git commits recorded
+
