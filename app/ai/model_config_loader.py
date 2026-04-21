@@ -38,7 +38,7 @@ class ModelConfigLoader:
             return ModelConfig(**payload)
 
         base_url = os.getenv("OPENAI_BASE_URL") or os.getenv("MODEL_BASE_URL")
-        model = os.getenv("OPENAI_MODEL") or os.getenv("MODEL_NAME") or "gpt-5.4"
+        model = os.getenv("OPENAI_MODEL") or os.getenv("MODEL_NAME") or "gpt-4.1"
         if not base_url:
             raise ModelConfigError(
                 f"Model base URL not configured. Provide {self._local_config_path} or OPENAI_BASE_URL."

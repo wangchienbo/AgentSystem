@@ -750,3 +750,53 @@ graph TD
 ```
 
 > Growth note: the intended long-term path is that governed core skills produce and supervise ordinary-skill growth, while direct platform-core changes remain relatively rare and high-governance.
+
+### 3.11 Phase H: LightBrain Gateway & Interpreter (资产化运行态与上下文主路径)
+
+> **Phase H 完成时间**: 2026-04-22  
+> **核心目标**: 收敛交互层一次 LLM 决策主路径，固化上下文注入与消费闭环
+
+**Phase H 主路径流程**：
+
+1. **用户消息进入** → `LightBrainGateway.process_message()`
+2. **意图解释** → `LightBrainInterpreter.interpret()`
+   - Exact match（greet/help/status）→ 本地直判，0 LLM 调用
+   - Fuzzy match → regex 兜底
+   - 其余 → LLM tool-aware 解释
+3. **上下文注入** → interpreter 消费 `recent_session_context` / `linked_session_context` / `child_session_contexts`
+4. **生成 context hints** → 回填到 `command.parameters`
+5. **Gateway 归一化** → `target_app` / `context_hints` / `related_session_ids`
+6. **Command Service 统一收口** → `AppCommandService.execute()`
+7. **Worker 执行** → `AppManagementWorker` / `RefinementWorker` 消费 Phase H 字段
+8. **Refinement 内部消费** → candidate blueprint 排序 / build goal enrich / release note / diagnostics
+9. **Presenter 展示** → `AppPresenter` 生成结构化 Markdown 上下文摘要
+
+**关键文件**：
+
+- `app/system/gateway/light_brain_gateway.py`
+- `app/system/gateway/light_brain_interpreter.py`
+- `app/services/app_command_service.py`
+- `app/services/app_presenter.py`
+- `app/system/workers/app_mgmt.py`
+- `app/system/workers/refinement.py`
+- `app/orchestration/app_refinement.py`
+- `app/orchestration/app_refinement_orchestrator.py`
+- `app/services/runtime_center.py`
+- `app/services/context_center.py`
+
+**对应测试**：
+
+- `tests/unit/test_light_brain.py`（66 tests passed）
+  - `test_exact_intent_always_bypasses_llm`
+  - `test_direct_reply_path_bypasses_bridge_for_builtin_intents`
+  - `test_gateway_syncs_tool_registry_into_interpreter_before_interpret`
+  - `test_intent_pattern_view_matches_exact_plus_fuzzy_sources`
+
+**改这里通常会影响**：
+
+- `app/system/gateway/*` - 交互层主路径
+- `app/services/app_command_service.py` - 命令收口
+- `app/services/app_presenter.py` - 响应展示
+- `app/system/workers/*` - 执行器
+- `tests/unit/test_light_brain.py` - 主路径测试
+

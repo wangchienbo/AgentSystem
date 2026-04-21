@@ -188,12 +188,37 @@
 - [ ] 增加 query 上限 / tool loop 上限 / budget / observability / contract lint
 
 ### Phase H.4，真实链路验证
+
 - [x] 验证交互层直接答复路径
 - [x] 验证交互层查上下文再答复路径
 - [x] 验证交互层调主控并自动创建 child session 路径
 - [x] 验证主控 -> app -> skill 统一 session 契约路径
 - [x] 验证 context upload 回写正确性
 - [x] 将验证结果写入 `docs/e2e-test-results.md`
+
+### Phase H 完成状态（2026-04-22）
+
+**Phase H 主路径已完成闭环**，关键成果：
+
+- [x] linked/child context 注入主路径（`recent_session_context` / `linked_session_context` / `child_session_contexts`）
+- [x] interpreter 消费并生成 `context_hints`，可从上下文补 `target_app`
+- [x] gateway 归一化回填到 command parameters（`target_app` / `context_hints` / `related_session_ids`）
+- [x] worker/rpc/runtime asset mapping 透传（`AppManagementWorker` / `RefinementWorker` / `SystemAppRefinementWorker`）
+- [x] refinement 内部真实消费（candidate blueprint 排序、build goal enrich、release note、diagnostics）
+- [x] 最终响应展示（`AppCommandService` 统一收口，`AppPresenter` 展示上下文摘要）
+- [x] modify_app / query_app 高层路径已覆盖 confirm / degraded / success 语义
+- [x] 单次 LLM 决策主路径收口（exact match 不走 LLM，tool registry 统一注入）
+- [x] pattern 真相源统一（移除重复定义，exact/fuzzy/combined 视图一致）
+- [x] 测试验证：exact intent 不走 LLM（66 tests passed）
+- [x] 测试验证：gateway 在 interpret 前同步 tool registry
+
+**Phase H+ 待办事项**（已移至 `tasklist_phase_h.md` 0.4 节）：
+
+- [x] 把"上下文摘要"展示格式进一步产品化（`AppPresenter._append_context_summary` 已改为结构化 Markdown 展示）
+- [ ] 继续把 Phase H context 用于更多决策面
+- [ ] 补文档映射（system relationship map / testing docs）
+- [ ] Context upload 白名单和 system note 模板固化
+- [ ] 风险护栏（query 上限 / tool loop 上限 / budget / observability / contract lint）
 
 ### Phase H.5，治理挂接（后置）
 - [ ] 在稳定主路径上接入权限检查

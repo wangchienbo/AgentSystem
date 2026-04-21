@@ -16,16 +16,16 @@ from typing import Any
 # ============================================================
 
 DEFAULT_TYPE_MODEL_MAP: dict[str, str] = {
-    # Domain models / data analysis → cheap (gpt-4o-mini)
+    # Domain models / data analysis → cheap (gpt-5.4)
     "domain-models": "cheap",
     "data": "cheap",
     "analytics": "cheap",
     "summarizer": "cheap",
-    # Services / business logic → balanced (gpt-4.1)
-    "services": "balanced",
-    "workflow": "balanced",
-    "notification": "balanced",
-    "translator": "balanced",
+    # Services / business logic → strong (gpt-5.4)
+    "services": "strong",
+    "workflow": "strong",
+    "notification": "strong",
+    "translator": "strong",
     # Control / architecture → strong (gpt-5.4)
     "control": "strong",
     "architect": "strong",

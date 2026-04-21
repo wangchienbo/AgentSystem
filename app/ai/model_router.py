@@ -9,6 +9,9 @@ Usage:
     router = ModelRouter()
     client = router.get_client("skill:maoxuan")          # uses skill's model_preference
     client = router.get_client("architect", "complex")   # uses caller routing
+
+Configuration REQUIRED: /root/.config/agentsystem/config.yaml must exist
+with model pool and routing definitions.
 """
 from __future__ import annotations
 
@@ -37,43 +40,6 @@ class ModelRoute:
     source: str = ""  # "skill", "caller", "default"
 
 
-# Default caller routing table (can be overridden by config.yaml)
-DEFAULT_CALLER_ROUTES: dict[str, dict[str, str]] = {
-    "intent_analyzer": {"default_model": "cheap"},
-    "architect": {"default_model": "strong"},
-    "self_refiner": {"default_model": "strong"},
-    "skill_suggester": {"default_model": "balanced"},
-    "llm_responder": {"default_model": "strong"},
-    "external_review": {"default_model": "balanced"},
-    "external_review_strong": {"default_model": "strong"},
-}
-
-# Default model pool (can be overridden by config.yaml)
-DEFAULT_MODEL_POOL: dict[str, dict[str, Any]] = {
-    "cheap": {
-        "model": "gpt-4o-mini",
-        "base_url": "https://crs.ruinique.com/v1",
-        "api_key_env": "OPENAI_API_KEY",
-        "temperature": 0.3,
-        "max_tokens": 2048,
-    },
-    "balanced": {
-        "model": "gpt-4.1",
-        "base_url": "https://crs.ruinique.com/v1",
-        "api_key_env": "OPENAI_API_KEY",
-        "temperature": 0.5,
-        "max_tokens": 4096,
-    },
-    "strong": {
-        "model": "gpt-5.4",
-        "base_url": "https://crs.ruinique.com/v1",
-        "api_key_env": "OPENAI_API_KEY",
-        "temperature": 0.7,
-        "max_tokens": 8192,
-    },
-}
-
-
 class ModelRouterError(ValueError):
     pass
 
@@ -87,6 +53,8 @@ class ModelRouter:
     3. Skill-declared model_preference (from SkillRegistryEntry)
     4. Caller-type routing table
     5. Global default
+
+    NOTE: No hardcoded defaults. Config MUST be loaded from config.yaml.
     """
 
     def __init__(
@@ -98,56 +66,66 @@ class ModelRouter:
         self._config_path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
         self._skill_control = skill_control
         self._config_center = config_center  # ConfigCenterService
-        self._model_pool: dict[str, dict[str, Any]] = dict(DEFAULT_MODEL_POOL)
-        self._caller_routes: dict[str, dict[str, str]] = dict(DEFAULT_CALLER_ROUTES)
-        self._default_model: str = "strong"
+        self._model_pool: dict[str, dict[str, Any]] = {}  # NO defaults - must load from config
+        self._caller_routes: dict[str, dict[str, str]] = {}  # NO defaults - must load from config
+        self._default_model: str | None = None  # NO default - must load from config
         self._fallback_api_key: str | None = None  # From config file model.api_key
         self._load_config()
 
     def _load_config(self) -> None:
-        """Load model pool and routing from config.yaml."""
+        """Load model pool and routing from config.yaml.
+        
+        Raises ModelRouterError if config is missing or invalid.
+        """
         if not self._config_path.exists():
-            return
+            raise ModelRouterError(
+                f"Configuration file not found: {self._config_path}\n"
+                f"Please create config.yaml with models and routing definitions."
+            )
 
         try:
             raw = yaml.safe_load(self._config_path.read_text(encoding="utf-8")) or {}
-        except Exception:
-            return
+        except Exception as e:
+            raise ModelRouterError(f"Failed to load config.yaml: {e}")
 
         # Load fallback API key from model.api_key (top-level config)
         model_section = raw.get("model")
         if isinstance(model_section, dict):
             self._fallback_api_key = model_section.get("api_key")
+            default = model_section.get("default")
+            if default:
+                self._default_model = default
 
-        # Load model pool
+        # Load model pool (REQUIRED)
         models_section = raw.get("models")
-        if isinstance(models_section, dict):
-            for alias, cfg in models_section.items():
-                if not isinstance(cfg, dict):
-                    continue
-                model_name = cfg.get("model", alias)
-                self._model_pool[alias] = {
-                    "model": model_name,
-                    "base_url": cfg.get("base_url", "https://crs.ruinique.com/v1"),
-                    "api_key_env": cfg.get("api_key_env", "OPENAI_API_KEY"),
-                    "temperature": float(cfg.get("temperature", 0.7)),
-                    "max_tokens": int(cfg.get("max_tokens", 4096)),
-                    "timeout_seconds": float(cfg.get("timeout_seconds", 30.0)),
-                }
+        if not isinstance(models_section, dict) or not models_section:
+            raise ModelRouterError(
+                f"Config missing required 'models' section with model definitions."
+            )
+        
+        for alias, cfg in models_section.items():
+            if not isinstance(cfg, dict):
+                continue
+            model_name = cfg.get("model", alias)
+            self._model_pool[alias] = {
+                "model": model_name,
+                "base_url": cfg.get("base_url", "https://crs.ruinique.com/v1"),
+                "api_key_env": cfg.get("api_key_env", "OPENAI_API_KEY"),
+                "temperature": float(cfg.get("temperature", 0.7)),
+                "max_tokens": int(cfg.get("max_tokens", 4096)),
+                "timeout_seconds": float(cfg.get("timeout_seconds", 30.0)),
+            }
 
-        # Load caller routes
+        # Load caller routes (REQUIRED)
         routing_section = raw.get("routing")
         if isinstance(routing_section, dict):
             callers = routing_section.get("callers")
             if isinstance(callers, dict):
-                self._caller_routes.clear()
                 self._caller_routes.update(callers)
 
-        # Load default model
-        if isinstance(model_section, dict):
-            default = model_section.get("default")
-            if default:
-                self._default_model = default
+        # Validate that we have at least some models
+        if not self._model_pool:
+            raise ModelRouterError("No valid model definitions found in config.yaml")
 
     def resolve(self, caller: str, complexity: str = "moderate") -> ModelRoute:
         """Resolve which model to use for a given caller.
@@ -204,7 +182,15 @@ class ModelRouter:
                 return self._resolve_by_preference(model_key, source=f"caller:{caller}")
 
         # 3. Global default
-        return self._resolve_by_preference(self._default_model, source="default")
+        if self._default_model:
+            return self._resolve_by_preference(self._default_model, source="default")
+        
+        # 4. Fallback: use any available model
+        if self._model_pool:
+            first = next(iter(self._model_pool.keys()))
+            return self._resolve_by_preference(first, source="fallback")
+        
+        raise ModelRouterError("No model available and no default configured")
 
     def get_client(self, caller: str, complexity: str = "moderate") -> OpenAIResponsesClient:
         """Resolve model and create a client in one step."""
@@ -229,7 +215,7 @@ class ModelRouter:
 
     def _resolve_by_preference(self, preference: str, source: str = "") -> ModelRoute:
         """Resolve a preference string (model name or cost tier alias) to a ModelRoute."""
-        # Direct model name match
+        # Direct model name match in pool
         if preference in self._model_pool:
             cfg = self._model_pool[preference]
             return ModelRoute(
@@ -242,15 +228,20 @@ class ModelRouter:
                 source=source,
             )
 
-        # Check if it's a direct model name not in pool (use defaults)
-        return ModelRoute(
-            model_name=preference,
-            base_url="https://crs.ruinique.com/v1",
-            api_key_env="OPENAI_API_KEY",
-            temperature=0.7,
-            max_tokens=4096,
-            source=source,
-        )
+        # Check if preference is a direct model name not in pool
+        # (use first available base_url as fallback)
+        if self._model_pool:
+            first = next(iter(self._model_pool.values()))
+            return ModelRoute(
+                model_name=preference,
+                base_url=first.get("base_url", "https://crs.ruinique.com/v1"),
+                api_key_env=first.get("api_key_env", "OPENAI_API_KEY"),
+                temperature=0.7,
+                max_tokens=4096,
+                source=source,
+            )
+        
+        raise ModelRouterError(f"No model configuration available to resolve preference: {preference}")
 
     def _resolve_api_key(self, route: ModelRoute) -> str:
         """Resolve API key from environment or config file."""

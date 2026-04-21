@@ -42,6 +42,7 @@ class LightBrainInterpreter:
     ]
 
     # ---- FUZZY MATCH PATTERNS (routed through LLM when fuzzy_regex_match=False) ----
+    # All other intents are fuzzy-matched via regex; LLM fallback is available when confidence is low.
     FUZZY_MATCH_PATTERNS: list[tuple[str, re.Pattern, str]] = [
         # (intent_name, compiled_regex, description)
         ("create_app", re.compile(r"(创建|新建|建|建立|生成|做一个|搞一个).*(app|应用|程序|模块)", re.IGNORECASE), "Create a new app"),
