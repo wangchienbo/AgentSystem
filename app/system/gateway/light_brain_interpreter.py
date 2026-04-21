@@ -375,7 +375,7 @@ class LightBrainInterpreter:
 
     def _looks_like_asset_detail_request(self, lowered: str) -> bool:
         return any(k in lowered for k in ["资产", "服务"]) and any(
-            k in lowered for k in ["使用说明", "怎么用", "详细", "契约"]
+            k in lowered for k in ["使用说明", "怎么用", "详细", "契约", "查看", "详情"]
         )
 
     def _match_intent(self, message: str) -> tuple[str, float, str]:
@@ -628,6 +628,53 @@ class LightBrainInterpreter:
             h += ":" + hashlib.md5(app_names.encode("utf-8")).hexdigest()[:8]
         return h
 
+    def _apply_context_hints(self, command: InterpretedCommand) -> None:
+        context = command.context or {}
+        hints: list[str] = []
+
+        recent = context.get("recent_session_context") or []
+        if recent:
+            recent_texts = [str(item.get("content", "")) for item in recent[-3:] if isinstance(item, dict)]
+            if recent_texts:
+                hints.append("recent:" + " | ".join(t for t in recent_texts if t))
+
+        linked = context.get("linked_session_context") or {}
+        linked_summaries = []
+        for sid, payload in list(linked.items())[:3]:
+            if not isinstance(payload, dict):
+                continue
+            records = payload.get("records") or []
+            if records:
+                last = records[-1]
+                linked_summaries.append(f"{sid}:{last.get('content', '')}")
+        if linked_summaries:
+            hints.append("linked:" + " | ".join(linked_summaries))
+
+        child_contexts = context.get("child_session_contexts") or {}
+        child_summaries = []
+        for sid, records in list(child_contexts.items())[:3]:
+            if records:
+                child_summaries.append(f"{sid}:{records[-1].get('content', '')}")
+        if child_summaries:
+            hints.append("children:" + " | ".join(child_summaries))
+
+        if hints:
+            command.context["context_hints"] = hints
+
+    def _infer_target_app_from_context(self, context: dict[str, Any]) -> str | None:
+        for bucket in (
+            context.get("recent_session_context") or [],
+            *[(v or []) for v in (context.get("child_session_contexts") or {}).values()],
+        ):
+            for item in reversed(bucket):
+                if not isinstance(item, dict):
+                    continue
+                content = str(item.get("content", ""))
+                match = re.search(r"(?:App|应用)\s*[:：]?\s*([\u4e00-\u9fa5a-zA-Z0-9_\-]{2,30})", content, re.IGNORECASE)
+                if match:
+                    return match.group(1)
+        return None
+
     def _finalize_command(
         self,
         command: InterpretedCommand,
@@ -635,7 +682,10 @@ class LightBrainInterpreter:
         user_id: str,
         message: str,
     ) -> InterpretedCommand:
+        self._apply_context_hints(command)
         target_app = command.target_app or self._extract_app_name(message, available_apps)
+        if not target_app:
+            target_app = self._infer_target_app_from_context(command.context)
         parameters = dict(command.parameters or {})
         lowered = message.lower()
         # Step 1: consume pending clarification and merge params (clear on complete consumption)

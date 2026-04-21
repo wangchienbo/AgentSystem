@@ -115,6 +115,35 @@ class TestLightBrainInterpreter:
         cmd = self.interpreter.interpret("启动服务器监控", available_apps=apps)
         assert cmd.target_app == "服务器监控"
 
+    def test_finalize_command_adds_context_hints(self):
+        cmd = InterpretedCommand(
+            intent="query_status",
+            confidence=1.0,
+            context={
+                "recent_session_context": [{"content": "最近在看 App: 日报系统"}],
+                "linked_session_context": {"sess-1": {"records": [{"content": "linked note"}]}},
+                "child_session_contexts": {"sess-child": [{"content": "child note"}]},
+            },
+        )
+        finalized = self.interpreter._finalize_command(cmd, [], "u1", "状态")
+        assert "context_hints" in finalized.context
+        assert any("recent:" in hint for hint in finalized.context["context_hints"])
+        assert any("linked:" in hint for hint in finalized.context["context_hints"])
+        assert any("children:" in hint for hint in finalized.context["context_hints"])
+
+    def test_finalize_command_can_infer_target_app_from_child_context(self):
+        cmd = InterpretedCommand(
+            intent="start_app",
+            confidence=1.0,
+            context={
+                "child_session_contexts": {
+                    "sess-child": [{"content": "App: 日报助手"}],
+                },
+            },
+        )
+        finalized = self.interpreter._finalize_command(cmd, [], "u1", "启动")
+        assert finalized.target_app == "日报助手"
+
 
 # ===========================================================================
 # Memory tests

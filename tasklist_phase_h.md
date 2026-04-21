@@ -989,6 +989,7 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - package 本地执行路径已切到统一 local child session 包装
 - `modify_interactive_app` / `self_modify` 已切到 local child session
 - `command.context` 已开始注入 linked session / child session context
+- interpreter finalize 已开始消费 linked / child context，生成 `context_hints` 并可从上下文补 target app
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口
