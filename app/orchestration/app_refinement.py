@@ -53,8 +53,9 @@ class AppRefinementService:
             created_skills.append(self._skill_factory.create_skill(creation_request))
             reusable_skill_ids.append(blueprint.skill_id)
 
+        enriched_goal = self._build_contextual_goal(request)
         blueprint, app_result = self._skill_factory.build_blueprint_from_skills(
-            request.model_copy(update={"skill_ids": reusable_skill_ids})
+            request.model_copy(update={"skill_ids": reusable_skill_ids, "goal": enriched_goal})
         )
         return SuggestedSkillRefinementResult(
             blueprint=blueprint,
@@ -121,3 +122,17 @@ class AppRefinementService:
             return (-score, blueprint.skill_id)
 
         return sorted(blueprints, key=_score)
+
+    def _build_contextual_goal(self, request: SuggestedSkillRefinementRequest) -> str:
+        goal = (request.goal or "refine app from suggested skills").strip()
+        target_app = str(getattr(request, "target_app", "") or "").strip()
+        context_hints = [str(item).strip() for item in list(getattr(request, "context_hints", []) or []) if str(item).strip()]
+
+        extra_parts: list[str] = []
+        if target_app:
+            extra_parts.append(f"target_app={target_app}")
+        if context_hints:
+            extra_parts.append("context_hints=" + " | ".join(context_hints[:3]))
+        if not extra_parts:
+            return goal
+        return f"{goal} [{'; '.join(extra_parts)}]"
