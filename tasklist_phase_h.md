@@ -71,12 +71,20 @@
 
 以下更适合作为下一轮，而不是继续堆在当前 Phase H 收口中：
 
-- [ ] 把"上下文摘要"展示格式进一步产品化，而不只是调试型字符串
-- [ ] 继续把 Phase H context 用于更多决策面（如更细粒度 action recommendation）
-- [ ] 补文档映射，如 system relationship map / testing docs 中的主路径说明
-- [ ] 检查是否还存在旧链路未透出 `parameters` 给 presenter/executor 的零散遗漏点
+- [x] 把"上下文摘要"展示格式进一步产品化（`AppPresenter._append_context_summary` 已输出结构化 Markdown）
+- [x] 继续把 Phase H context 用于更多决策面（`AppLifecycleQueryExecutor.handle_start_app/stop_app` 可从 `context_hints` 推断 `target_app`）
+- [x] 补文档映射（system relationship map / testing docs 中的主路径说明）
+- [x] 风险护栏（query 上限 / tool loop 上限 / budget / observability / contract lint）
+  - 已创建设计文档 `docs/risk-guards-design.md`
+  - 已实现 `app/services/rate_limiter.py`（速率限制）
+  - 已实现 `app/services/budget_tracker.py`（预算追踪）
+  - 已实现 `app/services/contract_linter.py`（契约校验）
+  - 已实现 `app/services/tool_loop_guard.py`（工具循环检测）
+  - 已实现 `app/utils/observability.py`（可观测性）
+  - 已创建 `tests/unit/test_rate_limiter.py`（8 个测试通过）
+  - 已创建 `tests/unit/test_tool_loop_guard.py`（8 个测试通过）
+  - 已集成到 `LightBrainGateway` 主路径（commit `5d2c938`）
 - [ ] Context upload 白名单和 system note 模板固化
-- [ ] 风险护栏（query 上限 / tool loop 上限 / budget / observability / contract lint）
 
 ---
 
