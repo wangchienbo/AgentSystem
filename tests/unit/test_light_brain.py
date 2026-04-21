@@ -177,6 +177,16 @@ class TestLightBrainMemory:
         # After compaction: 5 first + 1 marker + 20 last = 26
         assert len(messages) <= 26
 
+    def test_create_session_blank_id_creates_new_session(self):
+        session = self.memory.create_session(user_id="u1", channel="webchat", session_id=None)
+        assert session.session_id.startswith("sess-")
+
+    def test_create_session_reuses_existing_non_empty_id(self):
+        first = self.memory.create_session(user_id="u1", channel="webchat", session_id="sess-fixed")
+        second = self.memory.create_session(user_id="u1", channel="webchat", session_id="sess-fixed")
+        assert first is second
+        assert second.session_id == "sess-fixed"
+
 
 # ===========================================================================
 # Gateway integration tests

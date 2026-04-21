@@ -1,7 +1,16 @@
-"""LightBrain Memory — persistent session and state management.
+"""LightBrain Memory — persistent session and context storage.
 
-Handles conversation session lifecycle, message history storage,
-and system state persistence across restarts.
+Current role in the system:
+- owns persisted LightBrain session entities
+- stores session-scoped interaction context body used by LightBrain
+- acts as the temporary ContextCenter-aligned adapter during Phase H migration
+
+Target Phase H split:
+- RuntimeCenter owns session entity / lifecycle truth
+- ContextCenter owns session context body / query truth
+
+Until ContextCenter is introduced formally, this module keeps the persisted
+interaction context body but should not grow new runtime-truth responsibilities.
 """
 
 from __future__ import annotations
@@ -148,7 +157,11 @@ class LightBrainMemoryError(Exception):
 class LightBrainMemory:
     """In-memory session store with optional disk persistence.
 
-    Phase 5.1: session lifecycle management + persistence layer.
+    Transitional Phase H adapter:
+    - session persistence exists here today for compatibility
+    - context body read/write exists here today for compatibility
+    - do not treat this module as long-term runtime truth expansion
+    - future split: RuntimeCenter(session entity) + ContextCenter(context body)
     """
 
     def __init__(self, data_dir: str | Path | None = None) -> None:
@@ -164,7 +177,12 @@ class LightBrainMemory:
     # -- session lifecycle --------------------------------------------------
 
     def create_session(self, user_id: str, channel: str, session_id: str | None = None) -> _SessionRecord:
-        """Create a new conversation session."""
+        """Create or reuse a session entity.
+
+        Unified Phase H contract:
+        - empty / None session_id => create a new session
+        - non-empty session_id => reuse that session when present, otherwise create it
+        """
         import uuid
         sid = session_id or f"sess-{uuid.uuid4().hex[:12]}"
         if sid in self._sessions:

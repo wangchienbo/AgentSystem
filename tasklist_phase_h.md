@@ -151,6 +151,10 @@
 ### 2.4 ContextCenter
 定位：上下文正文与上下文查询真相源。
 
+状态：当前仓库尚未正式落地独立 `ContextCenter` 类型。现阶段由 `LightBrainMemory`
+作为过渡性适配体承接 session 上下文正文的持久化与读取。后续迁移时，必须把
+session 实体真相与 context 正文真相拆回 `RuntimeCenter` / `ContextCenter`。
+
 负责：
 - session 对应的上下文记录
 - 最近窗口读取
@@ -942,6 +946,11 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `app/bootstrap/runtime.py`
 - `app/services/hot_tool_manager.py`
 - `app/ai/tool_calling_engine.py`
+
+状态：已部分完成。
+- `app/services/hot_tool_manager.py` 已收口为工具名集合管理器
+- 统一资产工具注册已固定到 `list_assets / query_asset_info / query_asset_detail / call_asset_method`
+- `session_id` 空值=新建、非空=续约 已落到交互入口与请求模型
 
 目标：
 - 收掉旧 capability -> tool name 逻辑
