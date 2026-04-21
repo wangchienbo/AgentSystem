@@ -84,7 +84,12 @@
   - 已创建 `tests/unit/test_rate_limiter.py`（8 个测试通过）
   - 已创建 `tests/unit/test_tool_loop_guard.py`（8 个测试通过）
   - 已集成到 `LightBrainGateway` 主路径（commit `5d2c938`）
-- [ ] Context upload 白名单和 system note 模板固化
+- [x] Context upload 白名单和 system note 模板固化
+  - 已创建 `app/config/context_upload.py`（白名单配置和校验逻辑）
+  - 已创建 `app/utils/context_upload.py`（工具函数和 helper 类）
+  - 已集成到 `LightBrainGateway._append_context_record` 方法
+  - 支持 5 种 system note 模板（dispatch_decision, tool_execution, session_lifecycle, error_boundary, context_upload）
+  - 禁止上传包含 scratchpad、chain-of-thought 等模式的内容
 
 ---
 

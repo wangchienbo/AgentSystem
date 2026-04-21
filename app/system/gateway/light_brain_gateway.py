@@ -24,9 +24,17 @@ from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryEr
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.system.catalog.runtime_center import RuntimeCenter
+from app.config.context_upload import (
+    ContextUploadConfig,
+    is_content_allowed_for_upload,
+    format_system_note,
+)
+from app.utils.context_upload_helper import ContextUploadHelper
 from app.services.rate_limiter import RateLimiter, RateLimitConfig
 from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
 from app.utils.observability import ObservabilityCollector
+from app.utils.context_upload import ContextUploadHelper
+from app.config.context_upload import ContextUploadConfig
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +95,7 @@ class LightBrainGateway:
         self._rate_limiter = RateLimiter(RateLimitConfig())
         self._tool_loop_guard = ToolLoopGuard(ToolLoopConfig())
         self._observability = ObservabilityCollector()
+        self._context_upload_helper = ContextUploadHelper(ContextUploadConfig())
 
         # Legacy: accept app_catalog as initial value
         if app_catalog is not None:
@@ -393,8 +402,22 @@ class LightBrainGateway:
             )
 
     def _append_context_record(self, session_id: str, role: str, content: str, kind: str = "message") -> None:
+        """Append context record with whitelist validation (Phase H+ risk guard)."""
         if self._context_center is None:
             return
+        
+        # Validate content against whitelist (Phase H+ risk guard)
+        try:
+            from app.utils.context_upload import is_content_allowed_for_upload
+            allowed, reason = is_content_allowed_for_upload(content, kind, role)
+            if not allowed:
+                logger.warning(f"Context upload blocked by whitelist: kind={kind}, role={role}, reason={reason}")
+                # Still allow system notes for critical logging, but truncate if needed
+                if kind != "system_note":
+                    return
+        except Exception as e:
+            logger.error(f"Context upload validation error: {e}")
+        
         self._context_center.append_context(
             SessionContextRecord(session_id=session_id, role=role, content=content, kind=kind)
         )
