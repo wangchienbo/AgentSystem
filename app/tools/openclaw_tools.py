@@ -75,7 +75,7 @@ def write_file(path: str, content: str) -> dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def edit_file(path: str, oldText: str, newText: str) -> dict[str, Any]:
+def edit_file(path: str, old_text: str, new_text: str) -> dict[str, Any]:
     """Edit file with exact search-replace."""
     try:
         file_path = Path(path).expanduser()
@@ -84,15 +84,15 @@ def edit_file(path: str, oldText: str, newText: str) -> dict[str, Any]:
         
         content = file_path.read_text(encoding="utf-8", errors="replace")
         
-        if oldText not in content:
+        if old_text not in content:
             # Try to find partial match for better error message
             return {
                 "success": False,
-                "error": f"Old text not found in file. Expected:\n{oldText[:100]}...",
+                "error": f"Old text not found in file. Expected:\n{old_text[:100]}...",
             }
         
         # Replace only first occurrence (like edit tool)
-        new_content = content.replace(oldText, newText, 1)
+        new_content = content.replace(old_text, new_text, 1)
         
         if new_content == content:
             return {"success": False, "error": "Replacement had no effect"}
@@ -102,8 +102,8 @@ def edit_file(path: str, oldText: str, newText: str) -> dict[str, Any]:
         return {
             "success": True,
             "path": str(file_path),
-            "replaced_bytes": len(oldText),
-            "new_bytes": len(newText),
+            "replaced_bytes": len(old_text),
+            "new_bytes": len(new_text),
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
