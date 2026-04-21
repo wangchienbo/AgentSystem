@@ -1,3 +1,70 @@
+### 2026-04-22
+
+#### Module: Phase H linked/child context consumption closure
+
+这一轮没有再停在“把上下文字段挂进 command.context 备用”，而是沿 Phase H task list 把 linked/child session context 逐层推进成可消费、可见、可测的主路径闭环。
+
+#### Implemented
+- `app/system/gateway/light_brain_interpreter.py`
+  - `linked_session_context` / `child_session_contexts` 已开始真实参与 `_finalize_command(...)`
+  - 生成 `context_hints`
+  - 当消息未明确点名 app 时，可从 child context 补 `target_app`
+- `app/system/gateway/light_brain_gateway.py`
+  - 将 `target_app` / `context_hints` / `related_session_ids` 归一化回填进 command parameters
+- `app/system/workers/app_mgmt.py`
+  - `query_app/modify_app` 开始消费这些归一化字段
+- `app/system/workers/refinement.py`
+  - `refine_app` 开始消费 `target_app/context_hints/related_session_ids`
+  - 同时兼容下游 `refine(...)` 与 `refine_closure(...)`
+- `app/system/workers/system_app_refinement_worker.py`
+  - 将 Phase H context 透入 closure request 与 RPC output
+- `app/bootstrap/runtime.py`
+  - runtime asset `refine_app` 方法映射支持透传这批字段
+- `app/orchestration/app_refinement_orchestrator.py`
+  - `refine_closure()` 真实消费 Phase H context
+  - 写入 compare summary
+  - 回填到 workflow execution inputs
+  - 继续写入 release note 与 install/execute diagnostics
+- `app/orchestration/app_refinement.py`
+  - `target_app/context_hints` 用于 candidate blueprint 相关性排序
+  - `build_blueprint_from_skills(...)` 前 enrich goal，把上下文压入 blueprint build 输入
+- `app/services/app_command_service.py`
+  - 统一保留 / 汇总 `target_app/context_hints/related_session_ids`
+- `app/services/app_presenter.py`
+  - 最终响应文案增加“上下文摘要”展示
+- `app/services/app_create_modify_executor.py`
+  - `modify_app` confirm / degraded / success 高层路径带出 Phase H context summary
+- `app/services/app_lifecycle_query_executor.py`
+  - `query_app` detail / degraded 高层路径带出 Phase H context summary
+
+#### Validation
+新增或扩展覆盖：
+- `tests/unit/test_app_refinement_worker.py`
+- `tests/unit/test_system_app_refinement_worker.py`
+- `tests/unit/test_runtime_asset_deeper_mappings.py`
+- `tests/unit/test_app_refinement_orchestrator.py`
+- `tests/unit/test_app_refinement_service.py`
+- `tests/unit/test_app_command_service.py`
+- `tests/unit/test_app_presenter.py`
+- `tests/unit/test_app_create_modify_executor.py`
+- `tests/unit/test_app_lifecycle_query_executor.py`
+- 以及 `tests/unit/test_light_brain.py` / `tests/unit/test_runtime_asset_management_worker.py` 相关覆盖补强
+
+最终验证：
+- `pytest -q ...`
+- 结果：`96 passed`
+
+#### Notes
+这一步的结果是，Phase H 上下文已经形成从注入到用户可见响应的完整闭环：
+- 可注入
+- 可透传
+- 可影响 refinement 决策
+- 可影响 workflow 输入
+- 可体现在 release note / diagnostics
+- 可稳定出现在 modify/query 两条高频用户路径的最终响应中
+
+这意味着 linked/child context 已不再只是“备用附加信息”，而是当前主路径中的真实输入与真实输出的一部分。
+
 ### 2026-04-20
 
 #### Module: Phase H runtime asset clarification contract + session-safe command snapshots

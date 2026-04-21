@@ -7,6 +7,69 @@
 
 ---
 
+## 0. 当前阶段收口摘要（2026-04-22）
+
+### 0.1 已完成的主路径闭环
+本轮 Phase H 已经把 linked/child session context 从“注入能力”推进为“真实消费闭环”，当前已完成：
+
+- 上下文注入
+  - `recent_session_context`
+  - `linked_session_context`
+  - `child_session_contexts`
+- interpreter 消费
+  - 生成 `context_hints`
+  - 从 child context 补 `target_app`
+- gateway 归一化
+  - `target_app`
+  - `context_hints`
+  - `related_session_ids`
+  回填到 command parameters
+- worker / rpc / runtime asset mapping 透传
+  - `AppManagementWorker`
+  - `RefinementWorker`
+  - `SystemAppRefinementWorker`
+  - runtime asset `refine_app`
+- refinement 内部真实消费
+  - orchestrator compare summary
+  - workflow execution inputs
+  - blueprint ranking
+  - blueprint build goal enrich
+  - release note / diagnostics
+- 最终响应展示
+  - `AppCommandService` 统一收口
+  - `AppPresenter` 展示“上下文摘要”
+  - `modify_app` 高层路径已覆盖 confirm / degraded / success 语义
+  - `query_app` 高层路径已覆盖 detail / degraded 语义
+
+### 0.2 当前已验证状态
+- 高层响应已经可以稳定展示：
+  - `target_app`
+  - `context_hints`
+  - `related_session_ids`
+- refinement 相关链路已经不再只是“透传备用字段”，而是开始真实影响：
+  - candidate blueprint 排序
+  - blueprint build 输入
+  - release note
+  - diagnostics
+  - workflow execution inputs
+- 相关单测已覆盖 interpreter / gateway / worker / rpc / runtime mapping / orchestrator / service / presenter / executor 主链
+
+### 0.3 建议视为本轮已完成的事项
+如果按“主路径是否闭环”作为判断标准，则以下目标可视为本轮已完成：
+- linked/child context 注入主路径
+- linked/child context 在 refinement 主链的真实消费
+- linked/child context 在最终用户响应中的可见化
+- modify/query 两条高频用户路径的高层测试闭环
+
+### 0.4 剩余更像下一阶段的事项
+以下更适合作为下一轮，而不是继续堆在当前 Phase H 收口中：
+- 把“上下文摘要”展示格式进一步产品化，而不只是调试型字符串
+- 继续把 Phase H context 用于更多决策面（如更细粒度 action recommendation）
+- 补文档映射，如 system relationship map / testing docs 中的主路径说明
+- 检查是否还存在旧链路未透出 `parameters` 给 presenter/executor 的零散遗漏点
+
+---
+
 ## 1. 目标与总原则（Chapter 1）
 
 > 本章只回答三个问题：
