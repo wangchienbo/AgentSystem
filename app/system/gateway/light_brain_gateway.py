@@ -1139,11 +1139,28 @@ class LightBrainGateway:
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
         """Handle list_apps intent — show available apps."""
+        list_session_id = f"{session_id}.local.list_apps"
+        self._create_child_session(
+            parent_session_id=session_id,
+            child_session_id=list_session_id,
+            user_id=command.user_id or "system",
+            channel="local_gateway",
+            actor="interaction",
+            topic_key="list_apps",
+        )
+        self._append_context_record(
+            session_id=list_session_id,
+            role="system",
+            content="local_handler:list_apps",
+            kind="system_note",
+        )
         if not apps:
+            content = "📱 你还没有任何 App。\n\n对我说「帮我建一个监控 App」来创建你的第一个应用。"
+            self._append_context_record(session_id=list_session_id, role="assistant", content=content, kind="message")
             return ChatMessageResponse(
                 type="text",
-                content="📱 你还没有任何 App。\n\n对我说「帮我建一个监控 App」来创建你的第一个应用。",
-                session_id=session_id,
+                content=content,
+                session_id=list_session_id,
                 actions=[
                     ActionSuggestion(id="create_app", label="➕ 创建 App", action_type="navigate", payload={"intent": "create_app"}, style="primary"),
                 ],
@@ -1154,10 +1171,12 @@ class LightBrainGateway:
             name = app.get("display_name") or app.get("name") or app.get("id", "未知")
             icon = {"running": "🟢", "paused": "🟡", "stopped": "🔴"}.get(status, "⚪")
             lines.append(f"{icon} {name} ({status})")
+        content = "\n".join(lines)
+        self._append_context_record(session_id=list_session_id, role="assistant", content=content, kind="message")
         return ChatMessageResponse(
             type="list",
-            content="\n".join(lines),
-            session_id=session_id,
+            content=content,
+            session_id=list_session_id,
         )
 
     async def _handle_cancel(

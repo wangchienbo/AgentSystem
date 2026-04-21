@@ -219,7 +219,7 @@ class MockMasterControl:
         self.result = result or {"status": "success", "message": "master ok", "data": {"done": True}}
         self.calls = []
 
-    async def execute(self, operation: str, user_id: str, user_role: str, target: str = "", params: dict | None = None):
+    def execute(self, operation: str, user_id: str, user_role: str, target: str = "", params: dict | None = None):
         self.calls.append({
             "operation": operation,
             "user_id": user_id,
@@ -318,7 +318,7 @@ class TestLightBrainGateway:
             session_id=session_id,
         )
         reply2 = await self.gateway.process_message(req2)
-        assert reply2.session_id == session_id
+        assert reply2.session_id == f"{session_id}.local.list_apps"
 
     @pytest.mark.asyncio
     async def test_unclear_message_ask_clarification(self):
@@ -446,6 +446,27 @@ class TestLightBrainGateway:
         context_node = self.context_center.get_session_node(reply.session_id)
         assert runtime_node is not None
         assert runtime_node.actor == "orchestration"
+        assert context_node is not None
+
+    @pytest.mark.asyncio
+    async def test_local_list_apps_creates_gateway_child_session(self):
+        command = InterpretedCommand(
+            intent="list_apps",
+            confidence=1.0,
+            parameters={},
+            user_id="u1",
+            raw_input="看看我的 App",
+        )
+        reply = await self.gateway._handle_list_apps(
+            command,
+            "sess-root",
+            [{"id": "app-1", "name": "监控", "status": "running"}],
+        )
+        assert reply.session_id == "sess-root.local.list_apps"
+        runtime_node = self.runtime_center.get_session(reply.session_id)
+        context_node = self.context_center.get_session_node(reply.session_id)
+        assert runtime_node is not None
+        assert runtime_node.actor == "interaction"
         assert context_node is not None
 
     @pytest.mark.asyncio
