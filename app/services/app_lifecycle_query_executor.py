@@ -134,8 +134,14 @@ class AppLifecycleQueryExecutor:
                 actions=command.suggested_actions,
                 requires_input=True,
             )
-
         target_input = command.target_app or "未知 App"
+        params = command.parameters or {}
+        context_hints = list(params.get("context_hints") or [])
+        if not command.target_app and context_hints:
+            for hint in context_hints:
+                if hint.startswith("target_app="):
+                    target_input = hint.split("=", 1)[1]
+                    break
         target = self._resolve_instance_id(target_input)
 
         precheck = await self._ensure_static_presence(
@@ -217,8 +223,14 @@ class AppLifecycleQueryExecutor:
                 actions=command.suggested_actions,
                 requires_input=True,
             )
-
         target_input = command.target_app or "未知 App"
+        params = command.parameters or {}
+        context_hints = list(params.get("context_hints") or [])
+        if not command.target_app and context_hints:
+            for hint in context_hints:
+                if hint.startswith("target_app="):
+                    target_input = hint.split("=", 1)[1]
+                    break
         target = self._resolve_instance_id(target_input)
 
         if self._bus:
