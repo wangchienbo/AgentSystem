@@ -13,6 +13,146 @@
 
 ---
 
+## H4 Validation Checkpoint (2026-04-22)
+
+### H4-01 交互层查上下文再答复路径
+- 场景:
+  - 交互层在已有 linked / child session context 的情况下解释用户消息，并把上下文沉淀为可消费的 command context
+- 输入:
+  - 用户在已有 app / refinement / child session 相关上下文后继续发起 `modify_app` / `query_app` 一类请求
+- 主链路:
+  - `LightBrainGateway.process_message()`
+  - `LightBrainInterpreter._finalize_command(...)`
+  - 从 `recent_session_context / linked_session_context / child_session_contexts` 生成 `context_hints`
+  - 必要时从 child context 补 `target_app`
+  - gateway 归一化回填 `target_app / context_hints / related_session_ids`
+- 预期:
+  - command 不只是保留原始意图，还能稳定携带与当前 App / 子会话相关的上下文线索
+- 实际结果:
+  - interpreter 已开始真实消费 linked / child context，而非只做被动透传
+  - `context_hints` 已可稳定生成
+  - `target_app` 已可从 child context 补全
+  - gateway 已统一把这些字段回填到 command parameters
+- 失配分类:
+  - 状态模型失配
+  - 接口契约失配
+- 修复动作:
+  - 在 interpreter finalize 阶段统一汇总 linked / child context
+  - 在 gateway 层统一归一化回填 parameters
+- 当前结论:
+  - “查上下文再答复”已经从设计意图进入真实可消费主路径
+- 遗留问题:
+  - 仍需继续朝“当前消息 + 当前 session + 最近 100 条”的单次 LLM 决策模型进一步收口
+
+### H4-02 交互层调主控并自动创建 child session 路径
+- 场景:
+  - 交互层收到 app 相关复杂请求后，自动 fork orchestration child session，并把 child session 纳入后续上下文链路
+- 输入:
+  - `create_app` / `modify_app` / `master_execute` / `list_apps` 等会进入 orchestration path 的请求
+- 主链路:
+  - `LightBrainGateway` / bridge / local child session wrapper
+  - `RuntimeCenter` 建立 child session entity
+  - `ContextCenter` 建立 child session context link
+  - related session id 回流父链路
+- 预期:
+  - child session 创建、关联、回流行为一致，且后续交互能继续利用这些 child session context
+- 实际结果:
+  - bridge 侧 app 指令已可自动 fork orchestration child session
+  - `master_execute` / `list_apps` / package / `modify_interactive_app` / `self_modify` 本地路径已切到统一 local child session 包装
+  - `SessionLink` / child session 状态机已开始被真实主链消费
+- 失配分类:
+  - 控制流失配
+  - 状态模型失配
+- 修复动作:
+  - 建立统一 child session 包装与 related link 回流
+  - 在 command context 中补入 linked / child session context
+- 当前结论:
+  - “交互层调主控并自动创建 child session”主路径已基本成形，并已成为 Phase H context 的真实来源之一
+- 遗留问题:
+  - 仍需继续压缩旧 bridge / 本地兼容路径的残留分叉
+
+### H4-03 主控 -> app -> skill 统一 session 契约路径
+- 场景:
+  - 主控、app、skill 在继续执行时统一遵循 `session_id` 非空续约、空值新建的规则，并能透传 related session context
+- 输入:
+  - app management / refinement / runtime asset method mapping / orchestrator closure 等调用链
+- 主链路:
+  - `Gateway -> AppManagementWorker / RefinementWorker / SystemAppRefinementWorker -> runtime asset refine_app -> AppRefinementOrchestratorService / AppRefinementService`
+- 预期:
+  - session 续约 / 新建规则一致，且跨 worker / orchestrator / runtime mapping 的上下文透传保持统一
+- 实际结果:
+  - `AppManagementWorker.query_app/modify_app` 已开始消费 `target_app/context_hints/related_session_ids`
+  - `RefinementWorker.refine_app` 已兼容 `refine` / `refine_closure`
+  - `SystemAppRefinementWorker` 与 runtime asset `refine_app` 已把这些字段透进 closure request 与 output
+  - orchestrator / service 已把这些字段写入 compare summary、workflow inputs、release note、diagnostics
+- 失配分类:
+  - 模块边界失配
+  - 接口契约失配
+- 修复动作:
+  - 统一 worker / runtime mapping / orchestrator 的字段透传契约
+  - 让 refinement 内部开始真实消费这些字段，而非只做 passthrough
+- 当前结论:
+  - 主控 -> app -> skill 的 session/context 契约已经跨主要执行面连通
+- 遗留问题:
+  - 后续仍可继续清理未完全切走的旧执行分支，进一步固化单一主路径
+
+### H4-04 context upload 回写正确性
+- 场景:
+  - 最终用户可见响应能够体现已注入并被消费的 Phase H context，而不是只在内部链路透传
+- 输入:
+  - `modify_app` 与 `query_app` 两条高频用户路径
+- 主链路:
+  - `AppCommandService.summarize_phase_h_context()`
+  - `AppPresenter._append_context_summary()`
+  - `AppCreateModifyExecutor`
+  - `AppLifecycleQueryExecutor`
+- 预期:
+  - 最终 confirmation / success / degraded / detail 响应可带出 `target_app/context_hints/related_session_ids` 摘要
+- 实际结果:
+  - `AppCommandService` 已统一保留并汇总这批字段
+  - `AppPresenter` 已在 confirmation / success / degraded / query detail 响应中追加“上下文摘要”
+  - `modify_app` 高层路径已覆盖 confirm / degraded / success
+  - `query_app` 高层路径已覆盖 detail / degraded
+- 失配分类:
+  - 接口契约失配
+  - 可观测性失配
+- 修复动作:
+  - 建立统一 summary helper
+  - 将 summary 真正接入最终 presenter 文案层
+  - 增加 executor 级高层测试锁定最终响应
+- 当前结论:
+  - 当前 Phase H context 已经从“内部透传字段”变成“最终响应可见信息”，具备主链路可解释性
+- 遗留问题:
+  - 目前是调试型摘要展示，后续可继续产品化为更自然的最终交互文案
+
+### H4 验证覆盖与结论
+- 相关验证覆盖:
+  - `tests/unit/test_light_brain.py`
+  - `tests/unit/services/test_context_center.py`
+  - `tests/test_runtime_center.py`
+  - `tests/unit/test_runtime_asset_management_worker.py`
+  - `tests/unit/test_runtime_asset_deeper_mappings.py`
+  - `tests/unit/test_refinement_worker.py`
+  - `tests/unit/test_system_app_refinement_worker.py`
+  - `tests/unit/test_app_refinement_orchestrator.py`
+  - `tests/unit/test_app_refinement_service.py`
+  - `tests/unit/test_app_command_service.py`
+  - `tests/unit/test_app_presenter.py`
+  - `tests/unit/test_app_create_modify_executor.py`
+  - `tests/unit/test_app_lifecycle_query_executor.py`
+- 最终验证命令:
+  - `pytest -q tests/unit/test_app_lifecycle_query_executor.py tests/unit/test_app_create_modify_executor.py tests/unit/test_app_presenter.py tests/unit/test_app_command_service.py tests/unit/test_app_refinement_orchestrator.py tests/unit/test_app_refinement_service.py tests/unit/test_runtime_asset_deeper_mappings.py tests/unit/test_refinement_worker.py tests/unit/test_system_app_refinement_worker.py tests/unit/test_runtime_asset_management_worker.py tests/unit/test_light_brain.py tests/unit/services/test_context_center.py tests/test_runtime_center.py`
+- 结果:
+  - `96 passed`
+- 当前结论:
+  - H4 中“查上下文再答复”“调主控自动创建 child session”“主控 -> app -> skill 统一 session 契约”“context 回写可解释”这几条主验证面已具备可复验记录
+- 遗留问题:
+  - 尚未形成真实外部用户脚本驱动的 full E2E 运行窗口验证
+  - 交互层“直接答复路径”仍需补更明确的验证记录
+  - 统一 context upload after-hook 仍待进一步固化
+
+---
+
 ## H2 Discovery Slice Checkpoint
 - 场景: 运行态核心资产注册与发现工具接线
 - 输入: Runtime bootstrap loads core services, Gateway exposes runtime asset tools

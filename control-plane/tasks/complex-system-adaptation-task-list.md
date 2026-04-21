@@ -193,7 +193,7 @@
 - [x] 验证交互层调主控并自动创建 child session 路径
 - [x] 验证主控 -> app -> skill 统一 session 契约路径
 - [x] 验证 context upload 回写正确性
-- [ ] 将验证结果写入 `docs/e2e-test-results.md`
+- [x] 将验证结果写入 `docs/e2e-test-results.md`
 
 ### Phase H.5，治理挂接（后置）
 - [ ] 在稳定主路径上接入权限检查
