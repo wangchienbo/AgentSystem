@@ -217,7 +217,7 @@
 - [x] 把"上下文摘要"展示格式进一步产品化（`AppPresenter._append_context_summary` 已改为结构化 Markdown 展示）
 - [ ] 继续把 Phase H context 用于更多决策面
 - [ ] 补文档映射（system relationship map / testing docs）
-- [ ] Context upload 白名单和 system note 模板固化
+- [ ] [x] Context upload 白名单和 system note 模板固化（已创建 docs/context-upload-policy.md）
 - [ ] 风险护栏（query 上限 / tool loop 上限 / budget / observability / contract lint）
 
 ### Phase H.5，治理挂接（后置）
