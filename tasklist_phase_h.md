@@ -967,6 +967,7 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `ContextCenter` 已支持 context append / read / linked context 查询
 - `SessionLink / SessionNode / SessionContextRecord` 已有正式模型落点
 - `LightBrainGateway` 创建/续约 session 时已同步注册 `RuntimeCenter` session entity
+- 已补 child session / continuation child session 显式创建辅助骨架
 
 目标：
 - 明确 session 实体与上下文正文分层

@@ -9,13 +9,20 @@ from pydantic import BaseModel, Field
 SessionKind = Literal["root", "child", "continuation_child"]
 SessionLinkType = Literal["child", "continuation", "related"]
 ContextRecordKind = Literal["message", "summary", "system_note", "tool_result"]
+SessionStatus = Literal["active", "idle", "resolved", "archived"]
+ActorKind = Literal["interaction", "orchestration", "app", "skill", "system"]
 
 
 class SessionLink(BaseModel):
     parent_session_id: str = Field(..., min_length=1)
     child_session_id: str = Field(..., min_length=1)
     link_type: SessionLinkType = Field(default="child")
+    parent_actor: ActorKind = Field(default="system")
+    child_actor: ActorKind = Field(default="system")
+    topic_key: str = Field(default="")
+    status: SessionStatus = Field(default="active")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     created_by: str = Field(default="system", min_length=1)
 
 
@@ -39,8 +46,10 @@ class SessionNode(BaseModel):
     user_id: str = Field(..., min_length=1)
     channel: str = Field(..., min_length=1)
     kind: SessionKind = Field(default="root")
+    actor: ActorKind = Field(default="interaction")
+    topic_key: str = Field(default="")
     root_session_id: str | None = None
     parent_session_id: str | None = None
-    status: str = Field(default="active")
+    status: SessionStatus = Field(default="active")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

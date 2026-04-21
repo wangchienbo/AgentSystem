@@ -210,10 +210,113 @@ class LightBrainGateway:
             SessionNode(session_id=session_id, user_id=user_id, channel=channel, kind="root")
         )
 
-    def _register_runtime_session(self, session_id: str, user_id: str, channel: str) -> None:
+    def _register_runtime_session(
+        self,
+        session_id: str,
+        user_id: str,
+        channel: str,
+        kind: str = "root",
+        parent_session_id: str | None = None,
+        actor: str = "interaction",
+        topic_key: str = "",
+    ) -> None:
         if self._runtime_center is None:
             return
-        self._runtime_center.register_session(session_id=session_id, user_id=user_id, channel=channel, kind="root")
+        self._runtime_center.register_session(
+            session_id=session_id,
+            user_id=user_id,
+            channel=channel,
+            kind=kind,
+            parent_session_id=parent_session_id,
+            actor=actor,
+            topic_key=topic_key,
+        )
+
+    def _create_child_session(
+        self,
+        parent_session_id: str,
+        child_session_id: str,
+        user_id: str,
+        channel: str,
+        actor: str,
+        topic_key: str = "",
+    ) -> None:
+        self._memory.create_session(user_id=user_id, channel=channel, session_id=child_session_id)
+        self._register_runtime_session(
+            session_id=child_session_id,
+            user_id=user_id,
+            channel=channel,
+            kind="child",
+            parent_session_id=parent_session_id,
+            actor=actor,
+            topic_key=topic_key,
+        )
+        if self._context_center is not None:
+            self._context_center.register_session_node(
+                SessionNode(
+                    session_id=child_session_id,
+                    user_id=user_id,
+                    channel=channel,
+                    kind="child",
+                    actor=actor,
+                    topic_key=topic_key,
+                    parent_session_id=parent_session_id,
+                )
+            )
+            self._context_center.link_sessions(
+                SessionLink(
+                    parent_session_id=parent_session_id,
+                    child_session_id=child_session_id,
+                    link_type="child",
+                    parent_actor="interaction",
+                    child_actor=actor,
+                    topic_key=topic_key,
+                    created_by="gateway",
+                )
+            )
+
+    def _create_continuation_child_session(
+        self,
+        parent_session_id: str,
+        continuation_session_id: str,
+        user_id: str,
+        channel: str,
+        actor: str,
+        topic_key: str = "",
+    ) -> None:
+        self._memory.create_session(user_id=user_id, channel=channel, session_id=continuation_session_id)
+        self._register_runtime_session(
+            session_id=continuation_session_id,
+            user_id=user_id,
+            channel=channel,
+            kind="continuation_child",
+            parent_session_id=parent_session_id,
+            actor=actor,
+            topic_key=topic_key,
+        )
+        if self._context_center is not None:
+            self._context_center.register_session_node(
+                SessionNode(
+                    session_id=continuation_session_id,
+                    user_id=user_id,
+                    channel=channel,
+                    kind="continuation_child",
+                    actor=actor,
+                    topic_key=topic_key,
+                    parent_session_id=parent_session_id,
+                )
+            )
+            self._context_center.link_sessions(
+                SessionLink(
+                    parent_session_id=parent_session_id,
+                    child_session_id=continuation_session_id,
+                    link_type="continuation",
+                    parent_actor=actor,
+                    child_actor=actor,
+                    topic_key=topic_key,
+                    created_by="gateway",
+                )
+            )
 
     def _append_context_record(self, session_id: str, role: str, content: str, kind: str = "message") -> None:
         if self._context_center is None:

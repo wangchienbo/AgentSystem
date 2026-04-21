@@ -85,6 +85,8 @@ class RuntimeCenter:
         parent_session_id: str | None = None,
         root_session_id: str | None = None,
         status: str = "active",
+        actor: str = "interaction",
+        topic_key: str = "",
     ) -> SessionNode:
         with self._lock:
             existing = self._sessions.get(session_id)
@@ -97,6 +99,8 @@ class RuntimeCenter:
                 user_id=user_id,
                 channel=channel,
                 kind=kind,
+                actor=actor,
+                topic_key=topic_key,
                 parent_session_id=parent_session_id,
                 root_session_id=root_session_id or (session_id if kind == "root" else parent_session_id),
                 status=status,

@@ -320,6 +320,41 @@ class TestLightBrainGateway:
         assert "sess-action-1" in linked
         assert self.runtime_center.get_session("sess-action-1") is not None
 
+    def test_create_child_session_helper_registers_runtime_and_context(self):
+        self.gateway._create_child_session(
+            parent_session_id="sess-root",
+            child_session_id="sess-child-1",
+            user_id="u1",
+            channel="webchat",
+            actor="skill",
+            topic_key="topic-a",
+        )
+        runtime_node = self.runtime_center.get_session("sess-child-1")
+        context_node = self.context_center.get_session_node("sess-child-1")
+        assert runtime_node is not None
+        assert runtime_node.kind == "child"
+        assert runtime_node.actor == "skill"
+        assert context_node is not None
+        assert context_node.topic_key == "topic-a"
+        linked = self.context_center.read_linked_context("sess-root")
+        assert "sess-child-1" in linked
+
+    def test_create_continuation_child_session_helper_registers_runtime_and_context(self):
+        self.gateway._create_continuation_child_session(
+            parent_session_id="sess-child-1",
+            continuation_session_id="sess-child-2",
+            user_id="u1",
+            channel="webchat",
+            actor="skill",
+            topic_key="topic-a",
+        )
+        runtime_node = self.runtime_center.get_session("sess-child-2")
+        context_node = self.context_center.get_session_node("sess-child-2")
+        assert runtime_node is not None
+        assert runtime_node.kind == "continuation_child"
+        assert context_node is not None
+        assert context_node.kind == "continuation_child"
+
     @pytest.mark.asyncio
     async def test_execute_action_rebuilds_command_from_action_params_without_last_command(self):
         req = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")

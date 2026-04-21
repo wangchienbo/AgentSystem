@@ -30,6 +30,8 @@ class TestContextCenter:
                 user_id="u1",
                 channel="webchat",
                 kind="child",
+                actor="skill",
+                topic_key="topic-a",
                 parent_session_id="sess-root",
             )
         )
@@ -40,7 +42,14 @@ class TestContextCenter:
             SessionContextRecord(session_id="sess-child", kind="message", role="assistant", content="child-msg")
         )
         center.link_sessions(
-            SessionLink(parent_session_id="sess-root", child_session_id="sess-child", link_type="child")
+            SessionLink(
+                parent_session_id="sess-root",
+                child_session_id="sess-child",
+                link_type="child",
+                parent_actor="interaction",
+                child_actor="skill",
+                topic_key="topic-a",
+            )
         )
 
         linked = center.read_linked_context("sess-root")
