@@ -277,6 +277,8 @@ class AppManagementWorker:
                         "instance_id": iid,
                         "status": getattr(entry, "status", "unknown"),
                         "owner": getattr(entry, "owner_user_id", "system"),
+                        "context_hints": params.get("context_hints", []),
+                        "related_session_ids": params.get("related_session_ids", []),
                     },
                 }
         return {"status": "not_found", "message": f"未找到 App: {lookup_target or target}"}

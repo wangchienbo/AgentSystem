@@ -77,9 +77,15 @@ def test_app_management_worker_query_app_uses_target_app_param() -> None:
     })()])
     worker = AppManagementWorker(app_registry=registry)
 
-    result = worker.execute("query_app", "", {"target_app": "novel"})
+    result = worker.execute("query_app", "", {
+        "target_app": "novel",
+        "context_hints": ["recent:App: novel"],
+        "related_session_ids": ["sess-1"],
+    })
     assert result["status"] == "success"
     assert result["data"]["instance_id"] == "novel"
+    assert result["data"]["context_hints"] == ["recent:App: novel"]
+    assert result["data"]["related_session_ids"] == ["sess-1"]
 
 
 def test_app_management_worker_modify_app_carries_context_hints() -> None:

@@ -532,6 +532,25 @@ class TestLightBrainGateway:
         assert context_node is not None
 
     @pytest.mark.asyncio
+    async def test_master_execute_surfaces_delegated_data(self):
+        self.gateway._master_control = MockMasterControl({
+            "status": "delegated",
+            "message": "修改 App 应通过 refinement_worker 执行",
+            "data": {"target_app": "novel", "context_hints": ["recent:App: novel"]},
+        })
+        command = InterpretedCommand(
+            intent="master_execute",
+            confidence=1.0,
+            parameters={"operation": "modify_app", "target_app": "novel"},
+            user_id="u1",
+            raw_input="master:modify_app",
+        )
+        reply = self.gateway._handle_master_execute(command, "sess-root", [])
+        assert reply.session_id == "sess-root.master.modify_app"
+        assert "target_app" in reply.content
+        assert "context_hints" in reply.content
+
+    @pytest.mark.asyncio
     async def test_local_list_apps_creates_gateway_child_session(self):
         command = InterpretedCommand(
             intent="list_apps",

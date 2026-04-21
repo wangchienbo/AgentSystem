@@ -1294,10 +1294,13 @@ class LightBrainGateway:
                     requires_input=False,
                 )
             elif status == "delegated":
-                self._append_context_record(session_id=master_session_id, role="assistant", content=f"ℹ️ {message}", kind="message")
+                content = f"ℹ️ {message}"
+                if data:
+                    content += f"\n\n{json.dumps(data, ensure_ascii=False, indent=2)}"
+                self._append_context_record(session_id=master_session_id, role="assistant", content=content, kind="message")
                 return ChatMessageResponse(
                     type="text",
-                    content=f"ℹ️ {message}",
+                    content=content,
                     session_id=master_session_id,
                     requires_input=False,
                 )
