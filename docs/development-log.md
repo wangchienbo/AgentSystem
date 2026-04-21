@@ -1,5 +1,35 @@
 # AgentSystem Development Log
 
+## 2026-04-22: Iteration 2 Complete & E2E Validation
+
+### Summary
+- **Iteration 2**: 74 unit tests passing (light_brain + runtime_asset full chain)
+- **E2E Test**: 4/5 tests passing
+- **Remaining Issue**: `test_continuous_conversation_flow` fails due to worker output format mismatch
+
+### E2E Failure Analysis
+| Test | Status | Issue | Classification |
+|------|--------|-------|----------------|
+| `test_continuous_conversation_flow` | ❌ | `list_apps` returns internal worker format `{"status": "success", "data": {...}}` instead of user-visible response | Interface contract mismatch (接口契约失配) |
+
+**Root Cause**: `AppManagementWorker._list_apps()` returns internal format, but E2E expects gateway to format it for user display. The bridge execution path is not yet fully integrated.
+
+**Resolution Options**:
+1. Integrate worker output formatting into bridge execution path (requires `AppCommandService` or `AppPresenter` integration)
+2. Mark E2E test as "skip until bridge integration complete"
+3. Add fallback formatting in `LightBrainGateway._handle_list_apps`
+
+**Decision**: This is expected behavior for Phase H. The worker returns internal format, and the bridge/gateway should format it. This will be addressed in Phase H.5 (治理挂接) when integrating bridge execution path fully.
+
+### Phase H+ Completion Status
+- [x] Risk guards implemented (rate limiter, tool loop guard, budget tracker, contract linter, observability)
+- [x] Context upload whitelist and system note templates
+- [x] 74 unit tests passing
+- [x] Git commits: `6a3e608`, `c03e02f`, `5d2c938`, `bb73d81`, `0a2ae94`
+- [ ] E2E full pass (4/5 - pending bridge integration)
+
+---
+
 ## 2026-04-22: Phase H+ Risk Guards Implementation
 
 ### Summary
