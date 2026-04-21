@@ -175,6 +175,7 @@ class LightBrainGateway:
             message=request.message,
             available_apps=available_apps or [],
             user_id=request.user_id or "system",
+            session_id=session_id,
         )
 
         # Phase 7.2: enrich command with tools and session state
