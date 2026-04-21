@@ -6,11 +6,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType, is_valid_asset_state_transition
+from app.models.asset_contract import AssetDescriptor, AssetKind, AssetState, AssetType, is_valid_asset_state_transition
+from app.models.context import SessionNode
 
 
 class RuntimeCenter:
-    """Runtime source of truth for live assets under the Phase H contract."""
+    """Runtime source of truth for live assets and session entities under Phase H."""
 
     def __init__(self, data_file: str = "data/runtime_center.json") -> None:
         self._data_file = Path(data_file)
@@ -18,9 +19,15 @@ class RuntimeCenter:
         self._entries: dict[str, AssetDescriptor] = {}
         self._service_refs: dict[str, Any] = {}
         self._method_mappings: dict[tuple[str, str], Callable[..., Any]] = {}
+        self._sessions: dict[str, SessionNode] = {}
         self._load()
 
-    def register_asset(self, descriptor: AssetDescriptor, service_ref: Any | None = None, method_mappings: dict[str, Callable[..., Any]] | None = None) -> AssetDescriptor:
+    def register_asset(
+        self,
+        descriptor: AssetDescriptor,
+        service_ref: Any | None = None,
+        method_mappings: dict[str, Callable[..., Any]] | None = None,
+    ) -> AssetDescriptor:
         now = self._now_iso()
         if not descriptor.created_at:
             descriptor.created_at = now
@@ -50,11 +57,7 @@ class RuntimeCenter:
         if caller_id is not None and existing and existing.owner_id != caller_id and not caller_id.startswith("system"):
             raise PermissionError(f"caller {caller_id} cannot register asset {asset_id} owned by {existing.owner_id}")
         mapped_status = AssetState.ACTIVE if status == "running" else AssetState(status) if status in AssetState._value2member_map_ else AssetState.UNKNOWN
-        metadata = {
-            "pid": pid,
-            "endpoint": endpoint,
-            "legacy_runtime_status": status,
-        }
+        metadata = {"pid": pid, "endpoint": endpoint, "legacy_runtime_status": status}
         descriptor = AssetDescriptor(
             asset_id=asset_id,
             asset_type=AssetType.APP if asset_id.startswith("app.") else AssetType.SYSTEM,
@@ -72,6 +75,58 @@ class RuntimeCenter:
             metadata=metadata,
         )
         return self.register_asset(descriptor)
+
+    def register_session(
+        self,
+        session_id: str,
+        user_id: str,
+        channel: str,
+        kind: str = "root",
+        parent_session_id: str | None = None,
+        root_session_id: str | None = None,
+        status: str = "active",
+    ) -> SessionNode:
+        with self._lock:
+            existing = self._sessions.get(session_id)
+            now = datetime.now(timezone.utc)
+            if existing is not None:
+                existing.updated_at = now
+                return existing
+            node = SessionNode(
+                session_id=session_id,
+                user_id=user_id,
+                channel=channel,
+                kind=kind,
+                parent_session_id=parent_session_id,
+                root_session_id=root_session_id or (session_id if kind == "root" else parent_session_id),
+                status=status,
+                created_at=now,
+                updated_at=now,
+            )
+            self._sessions[session_id] = node
+            self._save()
+            return node
+
+    def get_session(self, session_id: str) -> SessionNode | None:
+        with self._lock:
+            node = self._sessions.get(session_id)
+            return SessionNode.model_validate(node.model_dump()) if node else None
+
+    def list_sessions(self, user_id: str | None = None) -> list[SessionNode]:
+        with self._lock:
+            values = list(self._sessions.values())
+            if user_id is not None:
+                values = [v for v in values if v.user_id == user_id]
+            return [SessionNode.model_validate(v.model_dump()) for v in values]
+
+    def touch_session(self, session_id: str) -> bool:
+        with self._lock:
+            node = self._sessions.get(session_id)
+            if node is None:
+                return False
+            node.updated_at = datetime.now(timezone.utc)
+            self._save()
+            return True
 
     def heartbeat(self, asset_id: str, pid: int | None = None) -> bool:
         with self._lock:
@@ -114,13 +169,11 @@ class RuntimeCenter:
             existing_pid = entry.metadata.get("pid")
             if pid is not None and existing_pid not in (None, pid):
                 return False
-            # Remove from entries entirely so get() returns None
             del self._entries[asset_id]
             self._save()
             return True
 
     def get_uptime(self, asset_id: str) -> str | None:
-        """Return human-readable uptime for a running asset, or None if not found/not running."""
         with self._lock:
             entry = self._entries.get(asset_id)
             if not entry:
@@ -129,18 +182,16 @@ class RuntimeCenter:
             if not created_at:
                 return None
             try:
-                from datetime import datetime
-                start = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                start = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)
                 delta = now - start
                 hours, remainder = divmod(int(delta.total_seconds()), 3600)
                 minutes, seconds = divmod(remainder, 60)
                 if hours > 0:
                     return f"{hours}h {minutes}m"
-                elif minutes > 0:
+                if minutes > 0:
                     return f"{minutes}m {seconds}s"
-                else:
-                    return f"{seconds}s"
+                return f"{seconds}s"
             except Exception:
                 return None
 
@@ -179,13 +230,7 @@ class RuntimeCenter:
             return self._call_error(asset_id, method, params, f"method {method} not exposed by {asset_id}", error_type="method_not_exposed")
         handler = self._method_mappings.get((asset_id, method))
         if handler is None:
-            return self._call_error(
-                asset_id,
-                method,
-                params,
-                f"method mapping for {asset_id}.{method} is not wired yet",
-                error_type="method_not_wired",
-            )
+            return self._call_error(asset_id, method, params, f"method mapping for {asset_id}.{method} is not wired yet", error_type="method_not_wired")
         try:
             result = handler(**(params or {})) if isinstance(params, dict) else handler(params)
         except TypeError:
@@ -226,12 +271,7 @@ class RuntimeCenter:
                 "error_type": "handler_error",
                 "raw_result": result,
             }
-        return {
-            **base,
-            "ok": True,
-            "result": result,
-            "raw_result": result,
-        }
+        return {**base, "ok": True, "result": result, "raw_result": result}
 
     def _call_error(self, asset_id: str, method: str, params: dict[str, Any] | None, error: str, error_type: str) -> dict[str, Any]:
         return {
@@ -257,6 +297,26 @@ class RuntimeCenter:
             f"- {e.asset_id}: status={e.status.value}, owner={e.owner_id}, type={e.asset_type.value}" for e in entries
         )
 
+    def cleanup_expired(self, timeout_seconds: int = 300) -> list[str]:
+        expired: list[str] = []
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            for asset_id, entry in self._entries.items():
+                hb = entry.metadata.get("last_heartbeat") or entry.updated_at
+                if not hb:
+                    continue
+                try:
+                    seen = datetime.fromisoformat(str(hb).replace("Z", "+00:00"))
+                except Exception:
+                    continue
+                if (now - seen).total_seconds() > timeout_seconds and entry.status == AssetState.ACTIVE:
+                    entry.status = AssetState.CRASHED
+                    entry.updated_at = self._now_iso()
+                    expired.append(asset_id)
+            if expired:
+                self._save()
+        return expired
+
     def _load(self) -> None:
         if not self._data_file.exists():
             return
@@ -265,54 +325,66 @@ class RuntimeCenter:
         except Exception:
             return
         entries = data.get("entries", {}) if isinstance(data, dict) else {}
-        if not isinstance(entries, dict):
-            return
         loaded: dict[str, AssetDescriptor] = {}
-        for asset_id, entry in entries.items():
-            if not isinstance(entry, dict):
-                continue
-            try:
-                loaded[asset_id] = AssetDescriptor.model_validate(entry)
-            except Exception:
-                legacy_type = entry.get("asset_type")
-                if legacy_type is None:
-                    legacy_type = AssetType.APP if "app" in asset_id else AssetType.SERVICE
-                legacy_status = str(entry.get("status") or "unknown")
-                status_map = {
-                    "running": AssetState.ACTIVE,
-                    "created": AssetState.DECLARED,
-                    "installed": AssetState.DECLARED,
-                    "starting": AssetState.STARTING,
-                    "stopped": AssetState.STOPPED,
-                    "paused": AssetState.PAUSED,
-                    "crashed": AssetState.CRASHED,
-                    "degraded": AssetState.DEGRADED,
-                    "unknown": AssetState.UNKNOWN,
-                }
-                loaded[asset_id] = AssetDescriptor(
-                    asset_id=asset_id,
-                    asset_type=legacy_type,
-                    asset_kind=AssetKind.MATERIALIZED,
-                    version=str(entry.get("version") or "1.0.0"),
-                    owner_type=str(entry.get("owner_type") or "system"),
-                    owner_id=str(entry.get("owner") or entry.get("owner_id") or "system"),
-                    source_of_truth="runtime",
-                    status=status_map.get(legacy_status, AssetState.UNKNOWN),
-                    capabilities=[],
-                    invoke_contract=entry.get("invoke_contract") or {},
-                    health_contract=entry.get("health_contract") or {},
-                    name=str(entry.get("name") or asset_id),
-                    description=str(entry.get("description") or "legacy runtime entry"),
-                    metadata={"legacy_entry": True, **(entry.get("metadata") or {})},
-                    tags=list(entry.get("tags") or ["legacy-runtime"]),
-                    created_at=str(entry.get("created_at") or entry.get("started_at") or self._now_iso()),
-                    updated_at=str(entry.get("updated_at") or entry.get("last_heartbeat") or self._now_iso()),
-                )
+        if isinstance(entries, dict):
+            for asset_id, entry in entries.items():
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    loaded[asset_id] = AssetDescriptor.model_validate(entry)
+                except Exception:
+                    legacy_type = entry.get("asset_type") or (AssetType.APP if "app" in asset_id else AssetType.SERVICE)
+                    legacy_status = str(entry.get("status") or "unknown")
+                    status_map = {
+                        "running": AssetState.ACTIVE,
+                        "created": AssetState.DECLARED,
+                        "installed": AssetState.DECLARED,
+                        "starting": AssetState.STARTING,
+                        "stopped": AssetState.STOPPED,
+                        "paused": AssetState.PAUSED,
+                        "crashed": AssetState.CRASHED,
+                        "degraded": AssetState.DEGRADED,
+                        "unknown": AssetState.UNKNOWN,
+                    }
+                    loaded[asset_id] = AssetDescriptor(
+                        asset_id=asset_id,
+                        asset_type=legacy_type,
+                        asset_kind=AssetKind.MATERIALIZED,
+                        version=str(entry.get("version") or "1.0.0"),
+                        owner_type=str(entry.get("owner_type") or "system"),
+                        owner_id=str(entry.get("owner") or entry.get("owner_id") or "system"),
+                        source_of_truth="runtime",
+                        status=status_map.get(legacy_status, AssetState.UNKNOWN),
+                        capabilities=[],
+                        invoke_contract=entry.get("invoke_contract") or {},
+                        health_contract=entry.get("health_contract") or {},
+                        name=str(entry.get("name") or asset_id),
+                        description=str(entry.get("description") or "legacy runtime entry"),
+                        metadata={"legacy_entry": True, **(entry.get("metadata") or {})},
+                        tags=list(entry.get("tags") or ["legacy-runtime"]),
+                        created_at=str(entry.get("created_at") or entry.get("started_at") or self._now_iso()),
+                        updated_at=str(entry.get("updated_at") or entry.get("last_heartbeat") or self._now_iso()),
+                    )
         self._entries = loaded
+
+        sessions = data.get("sessions", {}) if isinstance(data, dict) else {}
+        loaded_sessions: dict[str, SessionNode] = {}
+        if isinstance(sessions, dict):
+            for session_id, node in sessions.items():
+                if not isinstance(node, dict):
+                    continue
+                try:
+                    loaded_sessions[session_id] = SessionNode.model_validate(node)
+                except Exception:
+                    continue
+        self._sessions = loaded_sessions
 
     def _save(self) -> None:
         self._data_file.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"entries": {asset_id: entry.model_dump(mode="json") for asset_id, entry in self._entries.items()}}
+        payload = {
+            "entries": {asset_id: entry.model_dump(mode="json") for asset_id, entry in self._entries.items()},
+            "sessions": {session_id: node.model_dump(mode="json") for session_id, node in self._sessions.items()},
+        }
         self._data_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def _now_iso(self) -> str:
