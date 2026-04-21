@@ -959,8 +959,8 @@ system note 只能作为结构化附加索引，不替代原始消息。
 
 #### 第二批，再改会话与上下文骨架
 - `runtime_center.py`（或实际 RuntimeCenter 落点）
-- `app/services/context_center.py`（新增）
-- `app/models/context.py`（新增）
+- `app/services/context_center.py`（新增，最小骨架已落地）
+- `app/models/context.py`（新增，最小骨架已落地）
 
 目标：
 - 明确 session 实体与上下文正文分层
