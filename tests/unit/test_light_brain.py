@@ -250,6 +250,14 @@ class MockPackageManagerExecutor:
         return MockExecutorResult(success=True, data={})
 
 
+class MockInteractiveAppWorkflow:
+    def modify_app(self, user_id: str, user_request: str, auto_activate: bool, require_confirmation: bool):
+        return {
+            "new_version": "v2",
+            "files_changed": ["ui.tsx", "style.css"],
+        }
+
+
 class TestLightBrainGateway:
     def setup_method(self):
         import tempfile
@@ -317,6 +325,29 @@ class TestLightBrainGateway:
         assert len(window.records) >= 2
         assert window.records[0].role == "user"
         assert window.records[-1].role == "assistant"
+
+    @pytest.mark.asyncio
+    async def test_enrich_command_includes_linked_and_child_session_context(self):
+        request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        reply = await self.gateway.process_message(request)
+        child_id = f"{reply.session_id}.child.demo"
+        self.gateway._create_child_session(
+            parent_session_id=reply.session_id,
+            child_session_id=child_id,
+            user_id="u1",
+            channel="webchat",
+            actor="skill",
+            topic_key="demo",
+        )
+        self.context_center.append_context_record(
+            child_id,
+            SessionContextRecord(session_id=child_id, role="assistant", content="child note", kind="message"),
+        )
+        command = InterpretedCommand(intent="query_status", confidence=1.0, parameters={}, user_id="u1", raw_input="状态")
+        enriched = self.gateway._enrich_command(command, reply.session_id, [])
+        assert "recent_session_context" in enriched.context
+        assert child_id in enriched.context["linked_session_context"]
+        assert child_id in enriched.context["child_session_contexts"]
 
     @pytest.mark.asyncio
     async def test_gateway_registers_runtime_session_entity(self):
@@ -506,6 +537,24 @@ class TestLightBrainGateway:
         assert runtime_node.actor == "interaction"
         assert context_node is not None
         assert self.gateway._package_manager_executor.calls[-1]["action"] == "package_search"
+
+    @pytest.mark.asyncio
+    async def test_modify_interactive_app_creates_local_child_session(self):
+        self.gateway._interactive_app_workflow = MockInteractiveAppWorkflow()
+        command = InterpretedCommand(
+            intent="modify_interactive_app",
+            confidence=1.0,
+            parameters={},
+            user_id="u1",
+            raw_input="把界面改成深色",
+        )
+        reply = await self.gateway._handle_modify_interactive_app(command, "sess-root", [])
+        assert reply.session_id == "sess-root.local.modify_interactive_app"
+        runtime_node = self.runtime_center.get_session(reply.session_id)
+        context_node = self.context_center.get_session_node(reply.session_id)
+        assert runtime_node is not None
+        assert context_node is not None
+        assert "界面已更新" in reply.content
 
     @pytest.mark.asyncio
     async def test_execute_action_rebuilds_command_from_action_params_without_last_command(self):

@@ -987,6 +987,8 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `master_execute` 本地路径已可自动 fork orchestration child session
 - `list_apps` 本地 gateway 路径已可自动 fork child session
 - package 本地执行路径已切到统一 local child session 包装
+- `modify_interactive_app` / `self_modify` 已切到 local child session
+- `command.context` 已开始注入 linked session / child session context
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口

@@ -196,10 +196,18 @@ class LightBrainGateway:
                 command.context["similar_past_interactions"] = similar
 
         if self._context_center is not None:
-            recent_window = self._context_center.read_context(session_id, limit=100)
+            recent_window = self._context_center.get_recent_context(session_id, limit=100)
             command.context["recent_session_context"] = [
                 record.model_dump(mode="json") for record in recent_window.records
             ]
+            command.context["linked_session_context"] = self._context_center.read_linked_context(session_id, limit=50)
+            command.context["child_session_contexts"] = {
+                node.session_id: [
+                    record.model_dump(mode="json")
+                    for record in self._context_center.get_recent_context(node.session_id, limit=50).records
+                ]
+                for node in self._context_center.get_child_sessions(session_id)
+            }
 
         return command
 
@@ -738,6 +746,21 @@ class LightBrainGateway:
     ) -> ChatMessageResponse:
         """Handle user request to modify the Interactive App UI."""
         user_request = command.raw_input or command.clarification_question or "优化界面"
+        modify_session_id = f"{session_id}.local.modify_interactive_app"
+        self._create_child_session(
+            parent_session_id=session_id,
+            child_session_id=modify_session_id,
+            user_id=command.user_id or "web-user",
+            channel="interactive_app",
+            actor="interaction",
+            topic_key="modify_interactive_app",
+        )
+        self._append_context_record(
+            session_id=modify_session_id,
+            role="system",
+            content=f"local_handler:modify_interactive_app:{user_request}",
+            kind="system_note",
+        )
 
         try:
             if hasattr(self, "_interactive_app_workflow") and self._interactive_app_workflow:
@@ -747,30 +770,47 @@ class LightBrainGateway:
                     auto_activate=True,
                     require_confirmation=False,
                 )
+                content = f"✅ 界面已更新！\n\n修改内容: {user_request}\n新版本: {result['new_version']}\n修改文件: {', '.join(result['files_changed'])}\n\n请刷新页面查看新界面。"
+                self._append_context_record(
+                    session_id=modify_session_id,
+                    role="assistant",
+                    content=content,
+                    kind="message",
+                )
                 return ChatMessageResponse(
                     type="card",
-                    content=f"✅ 界面已更新！\n\n"
-                            f"修改内容: {user_request}\n"
-                            f"新版本: {result['new_version']}\n"
-                            f"修改文件: {', '.join(result['files_changed'])}\n\n"
-                            f"请刷新页面查看新界面。",
-                    session_id=session_id,
+                    content=content,
+                    session_id=modify_session_id,
                     actions=[
                         ActionSuggestion(id="query_status", label="📊 系统状态", action_type="execute", payload={"intent": "query_status"}, style="secondary"),
                     ],
                 )
             else:
+                content = "⚠️ 交互式 App 修改工作流未加载，无法执行自修改。"
+                self._append_context_record(
+                    session_id=modify_session_id,
+                    role="assistant",
+                    content=content,
+                    kind="message",
+                )
                 return ChatMessageResponse(
                     type="text",
-                    content="⚠️ 交互式 App 修改工作流未加载，无法执行自修改。",
-                    session_id=session_id,
+                    content=content,
+                    session_id=modify_session_id,
                     requires_input=False,
                 )
         except Exception as e:
+            content = f"❌ 修改失败: {str(e)}\n\n请稍后重试。"
+            self._append_context_record(
+                session_id=modify_session_id,
+                role="assistant",
+                content=content,
+                kind="message",
+            )
             return ChatMessageResponse(
                 type="text",
-                content=f"❌ 修改失败: {str(e)}\n\n请稍后重试。",
-                session_id=session_id,
+                content=content,
+                session_id=modify_session_id,
                 requires_input=False,
             )
 
