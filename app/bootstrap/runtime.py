@@ -595,7 +595,16 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 "show_permissions": lambda target_user="": user_manager.execute("show_permissions", target_user, {"target_user": target_user}),
             },
             "refinement_worker": {
-                "refine_app": lambda app_name, modification: refinement_worker_m.execute("refine_app", app_name, {"modification": modification}),
+                "refine_app": lambda app_name, modification, target_app=None, context_hints=None, related_session_ids=None: refinement_worker_m.execute(
+                    "refine_app",
+                    app_name,
+                    {
+                        "modification": modification,
+                        "target_app": target_app or app_name,
+                        "context_hints": context_hints or [],
+                        "related_session_ids": related_session_ids or [],
+                    },
+                ),
             },
             "package_manager": {
                 "package_list_installed": lambda asset_type=None: package_manager_executor.execute("package_list_installed", {"asset_type": asset_type}).data,

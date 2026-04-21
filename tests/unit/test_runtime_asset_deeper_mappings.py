@@ -79,3 +79,24 @@ def test_bootstrap_runtime_write_paths_return_structured_results() -> None:
     )
     assert rollback_fail["ok"] is True
     assert rollback_fail["result"] is None
+
+
+def test_bootstrap_runtime_refine_app_mapping_carries_phase_h_context() -> None:
+    services = build_runtime()
+    runtime_center = services["runtime_center"]
+
+    refine_result = runtime_center.call_asset_method(
+        "asset:refinement_worker:v1",
+        "refine_app",
+        {
+            "app_name": "novel",
+            "modification": "改成深色主题",
+            "target_app": "novel",
+            "context_hints": ["recent:App: novel"],
+            "related_session_ids": ["sess-1", "sess-2"],
+        },
+    )
+    assert refine_result["ok"] is False
+    assert refine_result["raw_result"]["data"]["target_app"] == "novel"
+    assert refine_result["raw_result"]["data"]["context_hints"] == ["recent:App: novel"]
+    assert refine_result["raw_result"]["data"]["related_session_ids"] == ["sess-1", "sess-2"]

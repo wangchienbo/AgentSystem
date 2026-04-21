@@ -8,6 +8,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.models.app_refinement import SuggestedSkillRefinementClosureRequest
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,11 +41,35 @@ class RefinementWorker:
         app_target = target or params.get("target_app") or params.get("app_id") or ""
         context_hints = params.get("context_hints", [])
         related_session_ids = params.get("related_session_ids", [])
+        modification = params.get("modification", "")
         try:
-            result = self._refinement_orchestrator.refine(
-                app_instance_id=app_target,
-                modification=params.get("modification", ""),
-            )
+            if hasattr(self._refinement_orchestrator, "refine"):
+                result = self._refinement_orchestrator.refine(
+                    app_instance_id=app_target,
+                    modification=modification,
+                )
+            elif hasattr(self._refinement_orchestrator, "refine_closure"):
+                request = SuggestedSkillRefinementClosureRequest(
+                    blueprint_id=params.get("app_id") or app_target,
+                    name=params.get("name") or app_target or "refined-app",
+                    goal=params.get("description") or modification or "refine app",
+                    user_id=params.get("user_id", "system"),
+                    dry_run=bool(params.get("dry_run", False)),
+                    install=bool(params.get("install", False)),
+                    run=bool(params.get("run", False)),
+                    workflow_inputs=params.get("workflow_inputs", {}),
+                    trigger=params.get("trigger", "manual"),
+                    reviewer=params.get("reviewer", ""),
+                    version=params.get("version", "candidate-1"),
+                    note=params.get("note") or modification or "phase h refine",
+                    target_app=app_target,
+                    context_hints=context_hints,
+                    related_session_ids=related_session_ids,
+                )
+                result = self._refinement_orchestrator.refine_closure(request)
+            else:
+                return {"status": "error", "message": "RefinementOrchestrator 不支持 refine/refine_closure"}
+
             payload = result if isinstance(result, dict) else {"result": result}
             payload.setdefault("target_app", app_target)
             payload.setdefault("context_hints", context_hints)

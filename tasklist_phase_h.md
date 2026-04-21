@@ -994,7 +994,9 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `AppManagementWorker.query_app/modify_app` 已开始消费这些归一化字段
 - `master_execute` 对 delegated 结果已显示 data，便于观察 refinement/query 链透传的上下文
 - `RefinementWorker.refine_app` 已开始消费 `target_app/context_hints/related_session_ids`
+- `RefinementWorker.refine_app` 已兼容 `refine` / `refine_closure` 两类下游 orchestrator
 - `SystemAppRefinementWorker._handle_refine` 已将这些字段透进 closure request 与 RPC output
+- runtime asset `refine_app` 方法映射已支持透传 Phase H 上下文字段，失败时也能回带这些上下文
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口
