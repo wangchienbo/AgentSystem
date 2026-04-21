@@ -215,7 +215,7 @@
 **Phase H+ 待办事项**（已移至 `tasklist_phase_h.md` 0.4 节）：
 
 - [x] 把"上下文摘要"展示格式进一步产品化（`AppPresenter._append_context_summary` 已改为结构化 Markdown 展示）
-- [ ] 继续把 Phase H context 用于更多决策面
+- [x] 继续把 Phase H context 用于更多决策面（`AppLifecycleQueryExecutor.handle_start_app/stop_app` 已支持从 `context_hints` 推断 `target_app`）
 - [ ] 补文档映射（system relationship map / testing docs）
 - [ ] [x] Context upload 白名单和 system note 模板固化（已创建 docs/context-upload-policy.md）
 - [ ] 风险护栏（query 上限 / tool loop 上限 / budget / observability / contract lint）
