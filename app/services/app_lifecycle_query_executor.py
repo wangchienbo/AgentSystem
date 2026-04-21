@@ -464,6 +464,11 @@ class AppLifecycleQueryExecutor:
                             ActionSuggestion(id="start", label="▶️ 启动", action_type="execute", payload={"intent": "start_app", "target": display_name}, style="primary"),
                             ActionSuggestion(id="stop", label="⏹ 停止", action_type="execute", payload={"intent": "stop_app", "target": display_name}, style="danger"),
                         ],
+                        parameters={
+                            "target_app": target,
+                            "context_hints": list((command.parameters or {}).get("context_hints") or []),
+                            "related_session_ids": list((command.parameters or {}).get("related_session_ids") or []),
+                        },
                     )
             except Exception:
                 pass
@@ -474,6 +479,11 @@ class AppLifecycleQueryExecutor:
             related_app=display_name,
             reason="查询详情失败",
             detail="请稍后重试。",
+            parameters={
+                "target_app": target,
+                "context_hints": list((command.parameters or {}).get("context_hints") or []),
+                "related_session_ids": list((command.parameters or {}).get("related_session_ids") or []),
+            },
         )
 
     async def handle_list_apps(self, command: InterpretedCommand, session_id: str, apps: list[dict]) -> ChatMessageResponse:
