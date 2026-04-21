@@ -38,6 +38,9 @@ class SuggestedSkillRefinementClosureRequest(SuggestedSkillRefinementRequest):
     reviewer: str = Field(default="")
     version: str = Field(default="candidate-1")
     note: str = Field(default="phase5 refined candidate")
+    target_app: str = Field(default="")
+    context_hints: list[str] = Field(default_factory=list)
+    related_session_ids: list[str] = Field(default_factory=list)
 
 
 class SuggestedSkillRefinementClosureResult(BaseModel):

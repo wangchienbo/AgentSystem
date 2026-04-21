@@ -97,6 +97,9 @@ class SystemAppRefinementWorker(SkillWorker):
                 reviewer=inputs.get("reviewer", ""),
                 version=inputs.get("version", "candidate-1"),
                 note=inputs.get("note", "phase5 refined candidate"),
+                target_app=inputs.get("target_app", ""),
+                context_hints=inputs.get("context_hints", []),
+                related_session_ids=inputs.get("related_session_ids", []),
             )
 
             result = self._refinement.refine_closure(request)
@@ -110,6 +113,9 @@ class SystemAppRefinementWorker(SkillWorker):
                 "install_result": result.install_result,
                 "execution_result": result.execution_result,
                 "diagnostics": result.diagnostics,
+                "target_app": request.target_app,
+                "context_hints": list(request.context_hints),
+                "related_session_ids": list(request.related_session_ids),
             }
             return self._success(output)
         except Exception as e:
