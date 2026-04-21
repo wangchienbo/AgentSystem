@@ -229,6 +229,12 @@ class TestLightBrainGateway:
         assert "帮助" in reply.content
 
     @pytest.mark.asyncio
+    async def test_blank_session_id_creates_new_session(self):
+        request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好", session_id="   ")
+        reply = await self.gateway.process_message(request)
+        assert reply.session_id
+
+    @pytest.mark.asyncio
     async def test_session_persistence(self):
         req1 = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
         reply1 = await self.gateway.process_message(req1)

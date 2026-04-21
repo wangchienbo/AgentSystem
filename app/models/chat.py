@@ -5,10 +5,12 @@ Request and response schemas for the natural-language interaction layer.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from datetime import UTC, datetime
+from typing import Any, Literal as TypingLiteral
+
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -20,8 +22,18 @@ class ChatMessageRequest(BaseModel):
     user_id: str = Field(..., min_length=1, description="User identifier")
     channel: str = Field(default="webchat", description="Channel: webchat, qqbot, etc.")
     message: str = Field(..., min_length=1, description="User's natural language message")
-    session_id: str | None = Field(default=None, description="Existing session ID; auto-created if omitted")
+    session_id: str | None = Field(default=None, description="Existing session ID; empty/null means create a new session")
     memory_context: str | None = Field(default=None, description="Cross-session memory context summary")
+
+    @field_validator("session_id", mode="before")
+    @classmethod
+    def normalize_session_id(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip()
+            return normalized or None
+        return str(value)
 
 
 class ChatActionRequest(BaseModel):

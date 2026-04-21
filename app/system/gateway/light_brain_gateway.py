@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -128,22 +127,24 @@ class LightBrainGateway:
         log_center=None,
         **extra_deps: Any,
     ) -> ChatMessageResponse:
-        """Entry point: handles a single incoming message."""
-        session_id = request.session_id or str(uuid.uuid4())
+        """Entry point: handles a single incoming message.
 
-        # Phase 5.1: create or get session (ensures persistence)
-        self._memory.create_session(
+        Unified session contract:
+        - empty / null session_id => create a new session
+        - non-empty session_id => reuse that session
+        """
+        session = self._memory.create_session(
             user_id=request.user_id,
             channel=request.channel,
-            session_id=session_id,
+            session_id=request.session_id,
         )
+        session_id = session.session_id
         self._memory.record_user_message(session_id, request.message)
 
         # Phase 7.1: interpret intent using interpreter
         command = self._interpreter.interpret(
             message=request.message,
             user_id=request.user_id,
-            session_id=session_id,
             available_apps=available_apps or [],
         )
 
@@ -651,7 +652,19 @@ class LightBrainGateway:
         payload = dict(command.parameters or {})
         if command.intent in {"query_asset_info", "query_asset_detail"} and not payload.get("asset_id") and command.target_app:
             payload["asset_id"] = command.target_app
-        result = self._asset_tool_executor.execute(command.intent, payload, caller_id)
+        
+        # Check for missing method when calling asset method
+        if command.intent == "call_asset_method" and not payload.get("method"):
+            return ChatMessageResponse(
+                type="text",
+                content="你想调用哪个方法？请告诉我要调用的 method 名称。",
+                session_id=session_id,
+                requires_input=True,
+            )
+        
+        result = self._asset_tool_executor.execute(
+            command.intent, payload, caller_id
+        )
         if not result.success:
             return self._error_reply(session_id, f"❌ {result.error}")
         return ChatMessageResponse(
@@ -673,61 +686,66 @@ class LightBrainGateway:
                 session_id=session_id,
                 requires_input=True,
             )
-        if self._asset_tool_executor:
-            result = self._asset_tool_executor.execute(
-                "query_asset_detail",
-                {"asset_id": asset_id},
-                caller_id,
+        if not self._asset_tool_executor:
+            return ChatMessageResponse(
+                type="text",
+                content="⚠️ 资产查询模块未加载。",
+                session_id=session_id,
+                requires_input=False,
             )
-            if result.success:
-                data = result.data
-                interfaces = data.get("interfaces") or data.get("methods") or {}
-                if isinstance(interfaces, list):
-                    normalized_interfaces = {}
-                    for item in interfaces:
-                        if isinstance(item, dict):
-                            key = item.get("name") or item.get("method") or "unknown"
-                            normalized_interfaces[key] = item
-                    interfaces = normalized_interfaces
-                interface_lines = []
-                for key, info in interfaces.items():
-                    info = info or {}
-                    desc = info.get("description", "")
-                    input_schema = info.get("input_schema") or info.get("input") or {}
-                    output_schema = info.get("output_schema") or info.get("output") or {}
-                    line = f"\n**{key}** - {desc}" if desc else f"\n**{key}**"
-                    if input_schema:
-                        line += f"\n  输入: {json.dumps(input_schema, ensure_ascii=False)}"
-                    if output_schema:
-                        line += f"\n  输出: {json.dumps(output_schema, ensure_ascii=False)}"
-                    interface_lines.append(line)
-                if interface_lines:
-                    content = (
-                        f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
-                        f"资产ID: {data.get('asset_id', asset_id)}\n"
-                        f"{data.get('description', '')}\n\n"
-                        f"**可用接口：**{''.join(interface_lines)}"
-                    )
-                else:
-                    content = (
-                        f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
-                        f"资产ID: {data.get('asset_id', asset_id)}\n"
-                        f"{data.get('description', '')}\n\n无可用接口"
-                    )
-                return ChatMessageResponse(
-                    type="text",
-                    content=content,
-                    session_id=session_id,
-                    requires_input=False,
+        result = self._asset_tool_executor.execute(
+            "query_asset_detail",
+            {"asset_id": asset_id},
+            caller_id,
+        )
+        if result.success:
+            data = result.data
+            interfaces = data.get("interfaces") or data.get("methods") or {}
+            if isinstance(interfaces, list):
+                normalized_interfaces = {}
+                for item in interfaces:
+                    if isinstance(item, dict):
+                        key = item.get("name") or item.get("method") or "unknown"
+                        normalized_interfaces[key] = item
+                interfaces = normalized_interfaces
+            interface_lines = []
+            for key, info in interfaces.items():
+                info = info or {}
+                desc = info.get("description", "")
+                input_schema = info.get("input_schema") or info.get("input") or {}
+                output_schema = info.get("output_schema") or info.get("output") or {}
+                line = f"\n**{key}** - {desc}" if desc else f"\n**{key}**"
+                if input_schema:
+                    line += f"\n  输入: {json.dumps(input_schema, ensure_ascii=False)}"
+                if output_schema:
+                    line += f"\n  输出: {json.dumps(output_schema, ensure_ascii=False)}"
+                interface_lines.append(line)
+            if interface_lines:
+                content = (
+                    f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
+                    f"资产ID: {data.get('asset_id', asset_id)}\n"
+                    f"{data.get('description', '')}\n\n"
+                    f"**可用接口：**{''.join(interface_lines)}"
                 )
             else:
-                return ChatMessageResponse(
-                    type="text",
-                    content=f"❌ 未找到资产「{asset_id}」或你没有权限查看。",
-                    session_id=session_id,
-                    requires_input=False,
+                content = (
+                    f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
+                    f"资产ID: {data.get('asset_id', asset_id)}\n"
+                    f"{data.get('description', '')}\n\n无可用接口"
                 )
-        return self._error_reply(session_id, "⚠️ 资产查询模块未加载。")
+            return ChatMessageResponse(
+                type="text",
+                content=content,
+                session_id=session_id,
+                requires_input=False,
+            )
+        else:
+            return ChatMessageResponse(
+                type="text",
+                content=f"❌ 未找到资产「{asset_id}」或你没有权限查看。",
+                session_id=session_id,
+                requires_input=False,
+            )
 
     def _handle_package_list_installed(self, command, session_id, apps):
         if not self._package_manager_executor:

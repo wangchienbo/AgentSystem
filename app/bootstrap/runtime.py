@@ -83,7 +83,7 @@ from app.services.auth_service import AuthService
 from app.services.session_router import SessionRouter
 from app.services.pipeline_service import PipelineService
 from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
-from app.services.hot_tool_manager import HotToolManager
+from app.services.hot_tool_manager import HotToolManager, FIXED_TOOLS
 from app.tools.openclaw_tools import OPENCLAW_TOOL_HANDLERS
 
 # ── G.1/G.2: MessageBus, Workers, LogCenter, SkillMeta, PathStore ─────
@@ -811,6 +811,36 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             category="asset",
         ))
 
+    # Register asset tool handlers with ToolCallingEngine
+    def _query_asset_detail_handler(asset_id: str) -> dict:
+        """Handler for query_asset_detail tool."""
+        result = asset_tool_executor.execute("query_asset_detail", {"asset_id": asset_id}, "system")
+        return {"success": result.success, "data": result.data, "error": result.error}
+
+    def _list_assets_handler(filter: str | None = None) -> dict:
+        """Handler for list_assets tool."""
+        result = asset_tool_executor.execute("list_assets", {"filter": filter or ""}, "system")
+        return {"success": result.success, "data": result.data, "error": result.error}
+
+    def _query_asset_info_handler(asset_id: str) -> dict:
+        """Handler for query_asset_info tool."""
+        result = asset_tool_executor.execute("query_asset_info", {"asset_id": asset_id}, "system")
+        return {"success": result.success, "data": result.data, "error": result.error}
+
+    def _call_asset_method_handler(asset_id: str, method: str, params: dict | None = None) -> dict:
+        """Handler for call_asset_method tool."""
+        result = asset_tool_executor.execute(
+            "call_asset_method",
+            {"asset_id": asset_id, "method": method, "params": params or {}},
+            "system"
+        )
+        return {"success": result.success, "data": result.data, "error": result.error}
+
+    tool_calling_engine.register_tool("query_asset_detail", _query_asset_detail_handler)
+    tool_calling_engine.register_tool("list_assets", _list_assets_handler)
+    tool_calling_engine.register_tool("query_asset_info", _query_asset_info_handler)
+    tool_calling_engine.register_tool("call_asset_method", _call_asset_method_handler)
+
     # Register package management tools (source/ installed/ separation)
     for tool_def in make_all_package_tools():
         tool_registry.register(ToolDefinition(
@@ -883,22 +913,29 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     # Register core runtime assets after core services exist
     _register_core_runtime_assets()
 
-    # Initialize HotToolManager and register OpenClaw core tools
+    # Initialize HotToolManager and register discoverable tool metadata
     hot_tool_manager = HotToolManager()
     for tool_name, handler in OPENCLAW_TOOL_HANDLERS.items():
         tool_calling_engine.register_tool(tool_name, handler)
-    
-    # Register asset capabilities for discovery
-    for asset in runtime_center.list_assets():
-        capabilities = [
-            {"method": cap.name, "description": cap.description or cap.name}
-            for cap in asset.capabilities
-        ]
-        if capabilities:
-            hot_tool_manager.warm_from_static_asset(
-                asset_id=asset.asset_id,
-                capabilities=capabilities,
-            )
+
+    for tool_def in FIXED_TOOLS:
+        hot_tool_manager.register_tool(tool_def, fixed=True)
+
+    # Register asset-tool metadata for discovery, but do not materialize
+    # capability-level dynamic tool names from runtime assets.
+    for tool_def in make_all_asset_tools():
+        hot_tool_manager.register_tool({
+            "name": tool_def.name,
+            "description": tool_def.description,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    p.name: {"type": p.type, "description": p.description}
+                    for p in tool_def.parameters
+                },
+                "required": [p.name for p in tool_def.parameters if p.required],
+            },
+        })
 
     # Initialize ToolCallingInterpreter with hot tool support + asset visibility
     tool_calling_interpreter = ToolCallingInterpreter(
