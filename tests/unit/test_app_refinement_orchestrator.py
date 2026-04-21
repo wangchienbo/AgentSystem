@@ -35,14 +35,30 @@ class _FakeAppRefinement:
 
 
 class _FakeRegistry:
+    def __init__(self):
+        self.release_calls = []
+
     def register_blueprint(self, blueprint):
         return SimpleNamespace(id=blueprint.id)
 
     def add_release(self, blueprint_id, version, note, reviewer, activate_immediately=False):
+        self.release_calls.append({
+            "blueprint_id": blueprint_id,
+            "version": version,
+            "note": note,
+            "reviewer": reviewer,
+            "activate_immediately": activate_immediately,
+        })
         return SimpleNamespace(model_dump=lambda mode="json": {"blueprint_id": blueprint_id, "version": version, "note": note})
 
     def get_blueprint(self, blueprint_id):
         return SimpleNamespace(runtime_profile={}, runtime_policy={})
+
+
+class _FailingInstaller:
+    def install_app(self, blueprint_id, user_id):
+        from app.services.app_installer import AppInstallerError
+        raise AppInstallerError("install failed")
 
 
 class _FakeInstaller:
@@ -70,9 +86,10 @@ class _FakeWorkflowExecutor:
 
 
 def test_app_refinement_orchestrator_includes_phase_h_context_in_compare_summary() -> None:
+    registry = _FakeRegistry()
     svc = AppRefinementOrchestratorService(
         app_refinement=_FakeAppRefinement(),
-        app_registry=_FakeRegistry(),
+        app_registry=registry,
         app_installer=_FakeInstaller(),
         workflow_executor=_FakeWorkflowExecutor(),
         policy_authority=None,
@@ -81,6 +98,7 @@ def test_app_refinement_orchestrator_includes_phase_h_context_in_compare_summary
     result = svc.refine_closure(SuggestedSkillRefinementClosureRequest(
         blueprint_id="bp.novel",
         name="novel",
+        note="phase5 refined candidate",
         target_app="novel",
         context_hints=["recent:App: novel"],
         related_session_ids=["sess-1"],
@@ -89,6 +107,8 @@ def test_app_refinement_orchestrator_includes_phase_h_context_in_compare_summary
     assert result.compare_summary["target_app"] == "novel"
     assert result.compare_summary["context_hints"] == ["recent:App: novel"]
     assert result.compare_summary["related_session_ids"] == ["sess-1"]
+    assert "target_app=novel" in registry.release_calls[-1]["note"]
+    assert "context_hints=recent:App: novel" in registry.release_calls[-1]["note"]
 
 
 def test_app_refinement_orchestrator_feeds_phase_h_context_into_workflow_inputs() -> None:
@@ -117,3 +137,28 @@ def test_app_refinement_orchestrator_feeds_phase_h_context_into_workflow_inputs(
     assert workflow.calls[-1]["inputs"]["target_app"] == "novel"
     assert workflow.calls[-1]["inputs"]["context_hints"] == ["recent:App: novel"]
     assert workflow.calls[-1]["inputs"]["related_session_ids"] == ["sess-1", "sess-2"]
+
+
+def test_app_refinement_orchestrator_install_diagnostic_carries_phase_h_context() -> None:
+    svc = AppRefinementOrchestratorService(
+        app_refinement=_FakeAppRefinement(),
+        app_registry=_FakeRegistry(),
+        app_installer=_FailingInstaller(),
+        workflow_executor=_FakeWorkflowExecutor(),
+        policy_authority=None,
+    )
+
+    result = svc.refine_closure(SuggestedSkillRefinementClosureRequest(
+        blueprint_id="bp.novel",
+        name="novel",
+        user_id="u1",
+        install=True,
+        target_app="novel",
+        context_hints=["recent:App: novel"],
+        related_session_ids=["sess-1", "sess-2"],
+    ))
+
+    diagnostic = result.diagnostics[-1]
+    assert diagnostic["details"]["target_app"] == "novel"
+    assert diagnostic["details"]["context_hints"] == ["recent:App: novel"]
+    assert diagnostic["details"]["related_session_ids"] == ["sess-1", "sess-2"]

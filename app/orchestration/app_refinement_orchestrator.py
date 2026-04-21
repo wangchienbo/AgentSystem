@@ -40,6 +40,7 @@ class AppRefinementOrchestratorService:
             runtime_inputs["related_session_ids"] = list(request.related_session_ids)
         if request.target_app and "target_app" not in runtime_inputs:
             runtime_inputs["target_app"] = request.target_app
+        contextual_note = self._build_contextual_note(request)
 
         if self._policy_authority is not None:
             try:
@@ -97,7 +98,7 @@ class AppRefinementOrchestratorService:
         release = self._app_registry.add_release(
             refinement.blueprint.id,
             version=request.version,
-            note=request.note,
+            note=contextual_note,
             reviewer=request.reviewer,
             activate_immediately=False,
         )
@@ -116,7 +117,7 @@ class AppRefinementOrchestratorService:
                         message="user_id is required when install or run is requested",
                         retryable=False,
                         hint="Provide a user_id for install/run validation.",
-                        details={"blueprint_id": refinement.blueprint.id, "install": request.install, "run": request.run},
+                        details={"blueprint_id": refinement.blueprint.id, "install": request.install, "run": request.run, "target_app": request.target_app, "context_hints": list(request.context_hints), "related_session_ids": list(request.related_session_ids)},
                         suggested_retry_request={
                             "blueprint_id": refinement.blueprint.id,
                             "user_id": "<user-id>",
@@ -137,7 +138,7 @@ class AppRefinementOrchestratorService:
                             message=str(error),
                             retryable=False,
                             hint="Inspect blueprint validation/install constraints and retry with corrected app inputs or blueprint wiring.",
-                            details={"blueprint_id": refinement.blueprint.id, "user_id": request.user_id},
+                            details={"blueprint_id": refinement.blueprint.id, "user_id": request.user_id, "target_app": request.target_app, "context_hints": list(request.context_hints), "related_session_ids": list(request.related_session_ids)},
                             suggested_retry_request={
                                 "blueprint_id": refinement.blueprint.id,
                                 "user_id": request.user_id,
@@ -167,6 +168,9 @@ class AppRefinementOrchestratorService:
                                     "status": execution.status,
                                     "failed_step_ids": list(execution.failed_step_ids),
                                     "unresolved_step_ids": list(execution.unresolved_step_ids),
+                                    "target_app": request.target_app,
+                                    "context_hints": list(request.context_hints),
+                                    "related_session_ids": list(request.related_session_ids),
                                 },
                                 suggested_retry_request={
                                     "blueprint_id": refinement.blueprint.id,
@@ -255,3 +259,16 @@ class AppRefinementOrchestratorService:
             "runtime_profile": runtime_profile,
             "runtime_policy": runtime_policy,
         }
+
+    def _build_contextual_note(self, request: SuggestedSkillRefinementClosureRequest) -> str:
+        note = (request.note or "phase5 refined candidate").strip()
+        extra_parts: list[str] = []
+        if request.target_app:
+            extra_parts.append(f"target_app={request.target_app}")
+        if request.context_hints:
+            extra_parts.append("context_hints=" + " | ".join(list(request.context_hints)[:2]))
+        if request.related_session_ids:
+            extra_parts.append("related_session_ids=" + ",".join(list(request.related_session_ids)[:3]))
+        if not extra_parts:
+            return note
+        return f"{note} [{' ; '.join(extra_parts)}]"
