@@ -24,6 +24,9 @@ from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryEr
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.system.catalog.runtime_center import RuntimeCenter
+from app.services.rate_limiter import RateLimiter, RateLimitConfig
+from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
+from app.utils.observability import ObservabilityCollector
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +82,11 @@ class LightBrainGateway:
         self._app_presenter: Any | None = None
         self._app_command_service: Any | None = None
         self._name: str | None = None
+        
+        # Phase H+: Risk guards
+        self._rate_limiter = RateLimiter(RateLimitConfig())
+        self._tool_loop_guard = ToolLoopGuard(ToolLoopConfig())
+        self._observability = ObservabilityCollector()
 
         # Legacy: accept app_catalog as initial value
         if app_catalog is not None:
