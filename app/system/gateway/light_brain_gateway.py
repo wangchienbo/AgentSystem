@@ -318,6 +318,41 @@ class LightBrainGateway:
                 )
             )
 
+    def _run_local_child_handler(
+        self,
+        *,
+        parent_session_id: str,
+        user_id: str,
+        topic_key: str,
+        channel: str,
+        system_note: str,
+        build_response,
+    ) -> ChatMessageResponse:
+        child_session_id = f"{parent_session_id}.local.{topic_key}"
+        self._create_child_session(
+            parent_session_id=parent_session_id,
+            child_session_id=child_session_id,
+            user_id=user_id,
+            channel=channel,
+            actor="interaction",
+            topic_key=topic_key,
+        )
+        self._append_context_record(
+            session_id=child_session_id,
+            role="system",
+            content=system_note,
+            kind="system_note",
+        )
+        response = build_response(child_session_id)
+        if isinstance(response, ChatMessageResponse) and response.content:
+            self._append_context_record(
+                session_id=child_session_id,
+                role="assistant",
+                content=response.content,
+                kind="message",
+            )
+        return response
+
     def _append_context_record(self, session_id: str, role: str, content: str, kind: str = "message") -> None:
         if self._context_center is None:
             return
@@ -925,140 +960,217 @@ class LightBrainGateway:
     def _handle_package_list_installed(self, command, session_id, apps):
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
-        result = self._package_manager_executor.execute("package_list_installed", command.parameters)
-        if result.success:
-            packages = result.data.get("packages", [])
-            if not packages:
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_list_installed", command.parameters)
+            if result.success:
+                packages = result.data.get("packages", [])
+                if not packages:
+                    return ChatMessageResponse(
+                        type="text",
+                        content="📦 当前没有已安装的包。\n\n可用 package_search 搜索可安装的包。",
+                        session_id=child_session_id,
+                        requires_input=False,
+                    )
+                lines = ["📦 **已安装的包：**\n"]
+                for p in packages:
+                    lines.append(f"- {p['asset_id']} ({p['asset_type']}) v{p['installed_version']}")
+                    if p.get('description'):
+                        lines.append(f"  {p['description']}")
                 return ChatMessageResponse(
                     type="text",
-                    content="📦 当前没有已安装的包。\n\n可用 package_search 搜索可安装的包。",
-                    session_id=session_id,
+                    content="\n".join(lines),
+                    session_id=child_session_id,
                     requires_input=False,
                 )
-            lines = ["📦 **已安装的包：**\n"]
-            for p in packages:
-                lines.append(f"- {p['asset_id']} ({p['asset_type']}) v{p['installed_version']}")
-                if p.get('description'):
-                    lines.append(f"  {p['description']}")
-            return ChatMessageResponse(
-                type="text",
-                content="\n".join(lines),
-                session_id=session_id,
-                requires_input=False,
-            )
-        return self._error_reply(session_id, f"❌ 查询失败: {result.error}")
+            return self._error_reply(child_session_id, f"❌ 查询失败: {result.error}")
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_list_installed",
+            channel="package_manager",
+            system_note="local_handler:package_list_installed",
+            build_response=build_response,
+        )
 
     def _handle_package_show(self, command, session_id, apps):
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
-        result = self._package_manager_executor.execute("package_show", command.parameters)
-        if result.success:
-            d = result.data
-            lines = [f"📋 **{d.get('name', d['asset_id'])}**\n"]
-            lines.append(f"类型: {d.get('asset_type', 'unknown')}")
-            if d.get('source_version'):
-                lines.append(f"源码版本: {d['source_version']}")
-            if d.get('installed_version'):
-                lines.append(f"已安装版本: {d['installed_version']}")
-            if d.get('description'):
-                lines.append(f"描述: {d['description']}")
-            history = d.get('build_history', [])
-            if history:
-                lines.append(f"\n构建历史 ({len(history)} 次):")
-                for h in history:
-                    lines.append(f"  - v{h['version']} hash={h['build_hash'][:8]} ({h['build_time'][:16]})")
-            return ChatMessageResponse(
-                type="text",
-                content="\n".join(lines),
-                session_id=session_id,
-                requires_input=False,
-            )
-        return self._error_reply(session_id, f"❌ {result.error}")
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_show", command.parameters)
+            if result.success:
+                d = result.data
+                lines = [f"📋 **{d.get('name', d['asset_id'])}**\n"]
+                lines.append(f"类型: {d.get('asset_type', 'unknown')}")
+                if d.get('source_version'):
+                    lines.append(f"源码版本: {d['source_version']}")
+                if d.get('installed_version'):
+                    lines.append(f"已安装版本: {d['installed_version']}")
+                if d.get('description'):
+                    lines.append(f"描述: {d['description']}")
+                history = d.get('build_history', [])
+                if history:
+                    lines.append(f"\n构建历史 ({len(history)} 次):")
+                    for h in history:
+                        lines.append(f"  - v{h['version']} hash={h['build_hash'][:8]} ({h['build_time'][:16]})")
+                return ChatMessageResponse(
+                    type="text",
+                    content="\n".join(lines),
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, f"❌ {result.error}")
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_show",
+            channel="package_manager",
+            system_note="local_handler:package_show",
+            build_response=build_response,
+        )
 
     def _handle_package_build(self, command, session_id, apps):
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
-        result = self._package_manager_executor.execute("package_build", command.parameters)
-        if result.success:
-            d = result.data
-            return ChatMessageResponse(
-                type="text",
-                content=f"✅ 构建成功\n\n包: {d['asset_id']}\n版本: {d['version']}\nHash: {d['build_hash']}\n时间: {d['build_time']}",
-                session_id=session_id,
-                requires_input=False,
-            )
-        return self._error_reply(session_id, f"❌ 构建失败: {result.error}")
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_build", command.parameters)
+            if result.success:
+                d = result.data
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"✅ 构建成功\n\n包: {d['asset_id']}\n版本: {d['version']}\nHash: {d['build_hash']}\n时间: {d['build_time']}",
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, f"❌ 构建失败: {result.error}")
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_build",
+            channel="package_manager",
+            system_note="local_handler:package_build",
+            build_response=build_response,
+        )
 
     def _handle_package_install(self, command, session_id, apps):
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
-        result = self._package_manager_executor.execute("package_install", command.parameters)
-        if result.success:
-            d = result.data
-            msg = f"✅ 安装成功\n\n包: {d['asset_id']}\n版本: {d['installed_version']}"
-            if d.get('build_hash'):
-                msg += f"\nHash: {d['build_hash']}"
-            return ChatMessageResponse(
-                type="text",
-                content=msg,
-                session_id=session_id,
-                requires_input=False,
-            )
-        return self._error_reply(session_id, f"❌ 安装失败: {result.error}")
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_install", command.parameters)
+            if result.success:
+                d = result.data
+                msg = f"✅ 安装成功\n\n包: {d['asset_id']}\n版本: {d['installed_version']}"
+                if d.get('build_hash'):
+                    msg += f"\nHash: {d['build_hash']}"
+                return ChatMessageResponse(
+                    type="text",
+                    content=msg,
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, f"❌ 安装失败: {result.error}")
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_install",
+            channel="package_manager",
+            system_note="local_handler:package_install",
+            build_response=build_response,
+        )
 
     def _handle_package_uninstall(self, command, session_id, apps):
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
-        result = self._package_manager_executor.execute("package_uninstall", command.parameters)
-        if result.success:
-            return ChatMessageResponse(
-                type="text",
-                content=f"✅ 已卸载: {command.parameters.get('asset_id', 'unknown')}",
-                session_id=session_id,
-                requires_input=False,
-            )
-        return self._error_reply(session_id, f"❌ 卸载失败: {result.error}")
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_uninstall", command.parameters)
+            if result.success:
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"✅ 已卸载: {command.parameters.get('asset_id', 'unknown')}",
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, f"❌ 卸载失败: {result.error}")
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_uninstall",
+            channel="package_manager",
+            system_note="local_handler:package_uninstall",
+            build_response=build_response,
+        )
 
     def _handle_package_rollback(self, command, session_id, apps):
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
-        result = self._package_manager_executor.execute("package_rollback", command.parameters)
-        if result.success:
-            d = result.data
-            return ChatMessageResponse(
-                type="text",
-                content=f"✅ 回滚成功\n\n包: {d['asset_id']}\n回滚到: v{d['rolled_back_to']}",
-                session_id=session_id,
-                requires_input=False,
-            )
-        return self._error_reply(session_id, f"❌ 回滚失败: {result.error}")
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_rollback", command.parameters)
+            if result.success:
+                d = result.data
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"✅ 回滚成功\n\n包: {d['asset_id']}\n回滚到: v{d['rolled_back_to']}",
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, f"❌ 回滚失败: {result.error}")
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_rollback",
+            channel="package_manager",
+            system_note="local_handler:package_rollback",
+            build_response=build_response,
+        )
 
     def _handle_package_search(self, command, session_id, apps):
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
-        result = self._package_manager_executor.execute("package_search", command.parameters)
-        if result.success:
-            packages = result.data.get("packages", [])
-            if not packages:
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_search", command.parameters)
+            if result.success:
+                packages = result.data.get("packages", [])
+                if not packages:
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"🔍 未找到与 '{command.parameters.get('query', '')}' 匹配的包。",
+                        session_id=child_session_id,
+                        requires_input=False,
+                    )
+                lines = [f"🔍 搜索结果（{len(packages)} 个）:\n"]
+                for p in packages:
+                    status = "✅ 已安装" if p.get("installed") else "❌ 未安装"
+                    lines.append(f"- {p['asset_id']} ({p['asset_type']}) v{p['version']} [{status}]")
+                    if p.get('description'):
+                        lines.append(f"  {p['description']}")
                 return ChatMessageResponse(
                     type="text",
-                    content=f"🔍 未找到与 '{command.parameters.get('query', '')}' 匹配的包。",
-                    session_id=session_id,
+                    content="\n".join(lines),
+                    session_id=child_session_id,
                     requires_input=False,
                 )
-            lines = [f"🔍 搜索结果（{len(packages)} 个）:\n"]
-            for p in packages:
-                status = "✅ 已安装" if p.get("installed") else "❌ 未安装"
-                lines.append(f"- {p['asset_id']} ({p['asset_type']}) v{p['version']} [{status}]")
-                if p.get('description'):
-                    lines.append(f"  {p['description']}")
-            return ChatMessageResponse(
-                type="text",
-                content="\n".join(lines),
-                session_id=session_id,
-                requires_input=False,
-            )
-        return self._error_reply(session_id, f"❌ 搜索失败: {result.error}")
+            return self._error_reply(child_session_id, f"❌ 搜索失败: {result.error}")
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_search",
+            channel="package_manager",
+            system_note="local_handler:package_search",
+            build_response=build_response,
+        )
 
     def _handle_master_execute(self, command, session_id, apps):
         if not self._master_control:

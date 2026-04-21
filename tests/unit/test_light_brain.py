@@ -230,6 +230,26 @@ class MockMasterControl:
         return dict(self.result)
 
 
+class MockExecutorResult:
+    def __init__(self, success=True, data=None, error=""):
+        self.success = success
+        self.data = data or {}
+        self.error = error
+
+
+class MockPackageManagerExecutor:
+    def __init__(self):
+        self.calls = []
+
+    def execute(self, action: str, params: dict | None = None):
+        self.calls.append({"action": action, "params": params or {}})
+        if action == "package_search":
+            return MockExecutorResult(success=True, data={
+                "packages": [{"asset_id": "pkg-1", "asset_type": "skill", "version": "1.0.0", "installed": False, "description": "demo"}]
+            })
+        return MockExecutorResult(success=True, data={})
+
+
 class TestLightBrainGateway:
     def setup_method(self):
         import tempfile
@@ -468,6 +488,24 @@ class TestLightBrainGateway:
         assert runtime_node is not None
         assert runtime_node.actor == "interaction"
         assert context_node is not None
+
+    def test_package_search_creates_local_child_session(self):
+        self.gateway._package_manager_executor = MockPackageManagerExecutor()
+        command = InterpretedCommand(
+            intent="package_search",
+            confidence=1.0,
+            parameters={"query": "demo"},
+            user_id="u1",
+            raw_input="搜索 demo 包",
+        )
+        reply = self.gateway._handle_package_search(command, "sess-root", [])
+        assert reply.session_id == "sess-root.local.package_search"
+        runtime_node = self.runtime_center.get_session(reply.session_id)
+        context_node = self.context_center.get_session_node(reply.session_id)
+        assert runtime_node is not None
+        assert runtime_node.actor == "interaction"
+        assert context_node is not None
+        assert self.gateway._package_manager_executor.calls[-1]["action"] == "package_search"
 
     @pytest.mark.asyncio
     async def test_execute_action_rebuilds_command_from_action_params_without_last_command(self):
