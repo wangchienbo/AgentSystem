@@ -990,6 +990,8 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `modify_interactive_app` / `self_modify` 已切到 local child session
 - `command.context` 已开始注入 linked session / child session context
 - interpreter finalize 已开始消费 linked / child context，生成 `context_hints` 并可从上下文补 target app
+- gateway 已将 `context_hints` / `related_session_ids` / `target_app` 归一化回填到 command parameters
+- `AppManagementWorker.query_app/modify_app` 已开始消费这些归一化字段
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口

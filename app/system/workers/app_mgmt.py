@@ -264,11 +264,12 @@ class AppManagementWorker:
     def _query_app(self, target: str, params: dict) -> dict:
         if not self._app_registry:
             return {"status": "error", "message": "AppRegistry 未加载"}
+        lookup_target = target or params.get("target_app") or params.get("app_id") or ""
         entries = self._app_registry.list_entries()
         for entry in entries:
             bid = getattr(entry, "blueprint_id", "")
             iid = getattr(entry, "app_instance_id", "")
-            if target in (bid, iid):
+            if lookup_target in (bid, iid):
                 return {
                     "status": "success",
                     "data": {
@@ -278,11 +279,20 @@ class AppManagementWorker:
                         "owner": getattr(entry, "owner_user_id", "system"),
                     },
                 }
-        return {"status": "not_found", "message": f"未找到 App: {target}"}
+        return {"status": "not_found", "message": f"未找到 App: {lookup_target or target}"}
 
     def _modify_app(self, target: str, params: dict) -> dict:
         # Delegate to refinement worker via MasterControl
-        return {"status": "delegated", "message": "修改 App 应通过 refinement_worker 执行"}
+        lookup_target = target or params.get("target_app") or params.get("app_id") or ""
+        return {
+            "status": "delegated",
+            "message": "修改 App 应通过 refinement_worker 执行",
+            "data": {
+                "target_app": lookup_target,
+                "context_hints": params.get("context_hints", []),
+                "related_session_ids": params.get("related_session_ids", []),
+            },
+        }
 
     def _delete_app(self, target: str, params: dict) -> dict:
         if not self._lifecycle:

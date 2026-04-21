@@ -209,7 +209,25 @@ class LightBrainGateway:
                 for node in self._context_center.get_child_sessions(session_id)
             }
 
+        self._normalize_command_from_context(command)
         return command
+
+    def _normalize_command_from_context(self, command: InterpretedCommand) -> None:
+        parameters = dict(command.parameters or {})
+        context_hints = command.context.get("context_hints") or []
+        if context_hints:
+            parameters.setdefault("context_hints", context_hints)
+
+        if command.target_app and not parameters.get("target_app"):
+            parameters["target_app"] = command.target_app
+
+        if not parameters.get("related_session_ids"):
+            linked = command.context.get("linked_session_context") or {}
+            related_ids = [sid for sid in linked.keys() if isinstance(sid, str)]
+            if related_ids:
+                parameters["related_session_ids"] = related_ids
+
+        command.parameters = parameters
 
     def _mirror_session_node(self, session_id: str, user_id: str, channel: str) -> None:
         if self._context_center is None:

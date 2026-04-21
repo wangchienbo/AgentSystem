@@ -373,10 +373,13 @@ class TestLightBrainGateway:
             SessionContextRecord(session_id=child_id, role="assistant", content="child note", kind="message"),
         )
         command = InterpretedCommand(intent="query_status", confidence=1.0, parameters={}, user_id="u1", raw_input="状态")
+        command.context["context_hints"] = ["children:sess-child:child note"]
         enriched = self.gateway._enrich_command(command, reply.session_id, [])
         assert "recent_session_context" in enriched.context
         assert child_id in enriched.context["linked_session_context"]
         assert child_id in enriched.context["child_session_contexts"]
+        assert "context_hints" in enriched.parameters
+        assert child_id in enriched.parameters["related_session_ids"]
 
     @pytest.mark.asyncio
     async def test_gateway_registers_runtime_session_entity(self):
