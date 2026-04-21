@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from app.models.app_refinement import SuggestedSkillRefinementRequest, SuggestedSkillRefinementResult
 from app.models.skill_blueprint import SkillBlueprint
 from app.services.experience_store import ExperienceStore
@@ -75,5 +77,47 @@ class AppRefinementService:
                 raise AppRefinementError(f"Suggested skill blueprints not found: {', '.join(missing)}")
             return found
         if request.experience_id:
-            return self._experience_store.suggest_skills_for_experience(request.experience_id)
-        return self._experience_store.list_skill_blueprints()
+            return self._rank_blueprints_by_context(
+                self._experience_store.suggest_skills_for_experience(request.experience_id),
+                request,
+            )
+        return self._rank_blueprints_by_context(
+            self._experience_store.list_skill_blueprints(),
+            request,
+        )
+
+    def _rank_blueprints_by_context(
+        self,
+        blueprints: list[SkillBlueprint],
+        request: SuggestedSkillRefinementRequest,
+    ) -> list[SkillBlueprint]:
+        target_app = str(getattr(request, "target_app", "") or "")
+        context_hints = list(getattr(request, "context_hints", []) or [])
+        context_text = " ".join([target_app, *context_hints]).strip().lower()
+        if not context_text:
+            return blueprints
+
+        tokens = [token for token in re.split(r"[^a-z0-9_\-.]+", context_text) if len(token) >= 2]
+        if not tokens:
+            return blueprints
+
+        def _score(blueprint: SkillBlueprint) -> tuple[int, str]:
+            haystack_parts = [
+                blueprint.skill_id,
+                blueprint.name,
+                blueprint.goal,
+                *blueprint.inputs,
+                *blueprint.outputs,
+                *blueprint.steps,
+                *blueprint.related_experience_ids,
+            ]
+            haystack = " ".join(haystack_parts).lower()
+            score = 0
+            for token in tokens:
+                if token == target_app.lower() and token and token in haystack:
+                    score += 4
+                elif token in haystack:
+                    score += 1
+            return (-score, blueprint.skill_id)
+
+        return sorted(blueprints, key=_score)

@@ -998,6 +998,7 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `SystemAppRefinementWorker._handle_refine` 已将这些字段透进 closure request 与 RPC output
 - runtime asset `refine_app` 方法映射已支持透传 Phase H 上下文字段，失败时也能回带这些上下文
 - `AppRefinementOrchestratorService.refine_closure` 已开始真实消费这些字段：写入 compare_summary，并回填到 workflow execution inputs
+- `AppRefinementService` 已开始用 `target_app/context_hints` 对 candidate blueprints 做相关性排序
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口
