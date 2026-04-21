@@ -1,5 +1,29 @@
 ### 2026-04-22
 
+#### Module: Phase H single-decision entry tightening (tool registry sync)
+
+继续向“交互层一次 LLM 决策主路径”收口。这一步先不大改解释器策略，而是先消掉一个很实际的入口漂移点：`LightBrainInterpreter` 是否拿到与 gateway 当前回合一致的 tool registry，此前仍依赖外部 bootstrap 注入顺序。
+
+#### Implemented
+- `app/system/gateway/light_brain_gateway.py`
+  - 在每次 `process_message()` 的 interpret 前，统一调用 `self._interpreter.set_tool_registry(self._tool_registry)`
+  - 让 gateway 成为单次解释决策入口的 registry 真相注入方，而不是假设 bootstrap 早已正确注入
+- `tests/unit/test_light_brain.py`
+  - 新增 `test_gateway_syncs_tool_registry_into_interpreter_before_interpret`
+  - 验证 gateway 在解释前会把当前 registry 同步进 interpreter
+
+#### Validation
+- `pytest -q tests/unit/test_light_brain.py`
+- 结果：`66 passed`
+
+#### Notes
+- 这一步不是“单次 LLM 决策主路径”终局，但它确实把单次解释入口往同一处收了一步
+- 后续真正更大的收口点仍然是：
+  - 进一步压缩 builtin exact/fuzzy/LLM 分叉的表述与边界
+  - 继续检查 gateway 是否还有旧本地分支绕开统一解释/执行语义
+
+### 2026-04-22
+
 #### Module: Phase H direct-reply path validation
 
 补上了 H4 里此前还空着的一块, 不再只验证“查上下文再答复”与“调主控创建 child session”，而是把交互层 builtin intent 的直接答复路径也正式锁进验证记录。

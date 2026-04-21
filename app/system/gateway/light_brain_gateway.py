@@ -152,6 +152,8 @@ class LightBrainGateway:
         self._append_context_record(session_id=session_id, role="user", content=request.message, kind="message")
 
         # Phase 7.1: interpret intent using interpreter
+        if hasattr(self._interpreter, "set_tool_registry"):
+            self._interpreter.set_tool_registry(self._tool_registry)
         command = self._interpreter.interpret(
             message=request.message,
             user_id=request.user_id,

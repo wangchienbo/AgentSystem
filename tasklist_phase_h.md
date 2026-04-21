@@ -1069,6 +1069,7 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `AppCreateModifyExecutor` 高层路径已把这批上下文带到 confirm / degraded 最终响应中
 - `AppLifecycleQueryExecutor` 高层路径已把这批上下文带到 query detail / degraded 最终响应中
 - `LightBrainGateway` 已新增统一 reply after-hook，集中执行 reply -> memory/context upload 回写
+- `LightBrainGateway` 已在 interpret 前统一同步 tool registry，减少单次决策入口对外部 bootstrap 注入顺序的依赖
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口

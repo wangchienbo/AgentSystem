@@ -303,7 +303,15 @@ class TestLightBrainGateway:
         )
 
     @pytest.mark.asyncio
-    async def test_greet_reply(self):
+    async def test_gateway_syncs_tool_registry_into_interpreter_before_interpret(self):
+        request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        self.gateway._interpreter._tool_registry = None
+
+        reply = await self.gateway.process_message(request)
+
+        assert reply.session_id
+        assert self.gateway._interpreter._tool_registry is self.gateway._tool_registry
+
         request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
         reply = await self.gateway.process_message(request)
         assert reply.type == "text"
