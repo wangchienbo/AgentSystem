@@ -18,6 +18,8 @@ from app.models.chat import (
     InlineItem,
     InterpretedCommand,
 )
+from app.models.context import SessionContextRecord, SessionNode
+from app.services.context_center import ContextCenter
 from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryError
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
@@ -50,6 +52,7 @@ class LightBrainGateway:
         app_lifecycle_service=None,
         app_runtime_host=None,
         persistence_service=None,
+        context_center: ContextCenter | None = None,
         **extra_deps,
     ):
         self._memory = memory
@@ -58,6 +61,7 @@ class LightBrainGateway:
         self._lifecycle = lifecycle or app_lifecycle_service  # legacy alias
         self._log_center = log_center
         self._persistence = persistence or persistence_service  # legacy alias
+        self._context_center = context_center
         self._permission_skill = permission_skill
         self._permission_validator = permission_validator
         self._package_manager_executor = package_manager_executor
@@ -140,6 +144,8 @@ class LightBrainGateway:
         )
         session_id = session.session_id
         self._memory.record_user_message(session_id, request.message)
+        self._mirror_session_node(session_id=session_id, user_id=request.user_id, channel=request.channel)
+        self._append_context_record(session_id=session_id, role="user", content=request.message, kind="message")
 
         # Phase 7.1: interpret intent using interpreter
         command = self._interpreter.interpret(
@@ -156,6 +162,7 @@ class LightBrainGateway:
         # Phase 7.3: execute workflow and return reply
         result = await self._execute_command(command, session_id, available_apps)
         self._memory.record_reply(session_id, result)
+        self._append_context_record(session_id=session_id, role="assistant", content=result.content, kind="message")
 
         # Phase 7.5: auto-save state if persistence available
         self._auto_save()
@@ -184,7 +191,27 @@ class LightBrainGateway:
             if similar:
                 command.context["similar_past_interactions"] = similar
 
+        if self._context_center is not None:
+            recent_window = self._context_center.read_context(session_id, limit=100)
+            command.context["recent_session_context"] = [
+                record.model_dump(mode="json") for record in recent_window.records
+            ]
+
         return command
+
+    def _mirror_session_node(self, session_id: str, user_id: str, channel: str) -> None:
+        if self._context_center is None:
+            return
+        self._context_center.register_session_node(
+            SessionNode(session_id=session_id, user_id=user_id, channel=channel, kind="root")
+        )
+
+    def _append_context_record(self, session_id: str, role: str, content: str, kind: str = "message") -> None:
+        if self._context_center is None:
+            return
+        self._context_center.append_context(
+            SessionContextRecord(session_id=session_id, role=role, content=content, kind=kind)
+        )
 
     async def _execute_command(
         self,

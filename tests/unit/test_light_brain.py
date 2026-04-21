@@ -11,6 +11,7 @@ from app.models.chat import (
 )
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.light_brain_memory import LightBrainMemory
+from app.services.context_center import ContextCenter
 from app.services.light_brain_gateway import LightBrainGateway
 
 
@@ -198,7 +199,8 @@ class TestLightBrainGateway:
         self.tmpdir = tempfile.mkdtemp()
         memory = LightBrainMemory(data_dir=self.tmpdir)
         interpreter = LightBrainInterpreter()
-        self.gateway = LightBrainGateway(memory=memory, interpreter=interpreter)
+        self.context_center = ContextCenter()
+        self.gateway = LightBrainGateway(memory=memory, interpreter=interpreter, context_center=self.context_center)
 
     @pytest.mark.asyncio
     async def test_greet_reply(self):
@@ -243,6 +245,15 @@ class TestLightBrainGateway:
         request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好", session_id="   ")
         reply = await self.gateway.process_message(request)
         assert reply.session_id
+
+    @pytest.mark.asyncio
+    async def test_gateway_mirrors_recent_context_into_context_center(self):
+        request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        reply = await self.gateway.process_message(request)
+        window = self.context_center.read_context(reply.session_id, limit=10)
+        assert len(window.records) >= 2
+        assert window.records[0].role == "user"
+        assert window.records[-1].role == "assistant"
 
     @pytest.mark.asyncio
     async def test_session_persistence(self):

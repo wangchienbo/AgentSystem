@@ -970,6 +970,11 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `app/system/gateway/light_brain_gateway.py`
 - `app/system/gateway/tool_calling_interpreter.py`
 
+状态：已开始落地。
+- `LightBrainGateway` 已支持可选 `ContextCenter` 注入
+- 当前 active path 已镜像写入 user / assistant 最近窗口到 `ContextCenter`
+- `command.context` 已可携带最近 session context 窗口，后续继续替换旧读取路径
+
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口
 - 固定模型按需查询上下文 / 资源 / 主控
