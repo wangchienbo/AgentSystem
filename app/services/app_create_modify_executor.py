@@ -204,6 +204,8 @@ class AppCreateModifyExecutor:
                 parameters={
                     "target_app": target,
                     "modification": modification,
+                    "context_hints": list(params.get("context_hints") or []),
+                    "related_session_ids": list(params.get("related_session_ids") or []),
                 },
                 confirm_label="✅ 确认修改",
                 confirm_id="confirm_modify",
@@ -211,7 +213,12 @@ class AppCreateModifyExecutor:
             content=self._command_service.build_confirmation_content(
                 intent="modify_app",
                 related_app=display_name,
-                parameters={"modification": modification},
+                parameters={
+                    "modification": modification,
+                    "target_app": target,
+                    "context_hints": list(params.get("context_hints") or []),
+                    "related_session_ids": list(params.get("related_session_ids") or []),
+                },
             ),
             requires_input=True,
         )
@@ -316,6 +323,11 @@ class AppCreateModifyExecutor:
                                     payload={"intent": "list_apps"}, style="secondary",
                                 ),
                             ],
+                            parameters={
+                                "target_app": target,
+                                "context_hints": list(params.get("context_hints") or []),
+                                "related_session_ids": list(params.get("related_session_ids") or []),
+                            },
                         )
             except Exception as e:
                 return self._command_service.build_degraded_response(
@@ -324,6 +336,11 @@ class AppCreateModifyExecutor:
                     related_app=display_name,
                     reason="MessageBus RPC 调用失败",
                     detail=f"错误信息：{e}\n请重试或联系系统管理员。",
+                    parameters={
+                        "target_app": target,
+                        "context_hints": list(params.get("context_hints") or []),
+                        "related_session_ids": list(params.get("related_session_ids") or []),
+                    },
                 )
 
         return self._command_service.build_degraded_response(
@@ -332,4 +349,9 @@ class AppCreateModifyExecutor:
             related_app=display_name,
             reason="系统未配置 MessageBus",
             detail="无法通过 RPC 修改 App。",
+            parameters={
+                "target_app": target,
+                "context_hints": list(params.get("context_hints") or []),
+                "related_session_ids": list(params.get("related_session_ids") or []),
+            },
         )

@@ -1003,6 +1003,7 @@ system note 只能作为结构化附加索引，不替代原始消息。
 - `AppRefinementOrchestratorService` 已把这些上下文继续写入 release note 和 install/execute diagnostics
 - `AppCommandService` 已统一保留/总结 `target_app/context_hints/related_session_ids`，为最终展示出口收口
 - `AppPresenter` 最终文案层已开始真实展示 Phase H context summary
+- `AppCreateModifyExecutor` 高层路径已把这批上下文带到 confirm / degraded 最终响应中
 
 目标：
 - 固定当前消息 + 当前 session + 最近 100 条窗口
