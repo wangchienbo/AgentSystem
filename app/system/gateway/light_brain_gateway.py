@@ -29,7 +29,7 @@ from app.config.context_upload import (
     is_content_allowed_for_upload,
     format_system_note,
 )
-from app.utils.context_upload_helper import ContextUploadHelper
+from app.utils.context_upload import ContextUploadHelper
 from app.services.rate_limiter import RateLimiter, RateLimitConfig
 from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
 from app.utils.observability import ObservabilityCollector
@@ -173,8 +173,8 @@ class LightBrainGateway:
             self._interpreter.set_tool_registry(self._tool_registry)
         command = self._interpreter.interpret(
             message=request.message,
-            user_id=request.user_id,
             available_apps=available_apps or [],
+            user_id=request.user_id or "system",
         )
 
         # Phase 7.2: enrich command with tools and session state
