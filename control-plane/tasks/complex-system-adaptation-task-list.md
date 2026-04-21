@@ -154,51 +154,52 @@
 
 ---
 
-## Phase H，资产化运行态正式设计与执行
-- [ ] 阅读并遵循正式设计文档：`docs/phase-h-execution-design.md`
-- [ ] 以三层结构推进：顶层目标层 / 技术实现层 / 运行验证层
-- [ ] 固化系统边界：ConfigCenter / RuntimeCenter / LightBrainGateway / ToolCallingEngine
-- [ ] 固化主链路：`HTTP/UI -> Login/Auth -> LightBrainGateway -> ToolCallingEngine / Orchestrator -> RuntimeCenter -> Asset`
-- [ ] 先落最小公共资产契约，再推进注册、发现、生命周期、治理
+## Phase H，资产化运行态、上下文中心与交互主路径收敛
+- [x] 阅读并遵循正式设计文档：`tasklist_phase_h.md`
+- [ ] 固化单一主路径：`用户消息 -> 交互层一次 LLM 决策 -> ToolCallingEngine -> 模型按需调用 RuntimeCenter / ContextCenter / MasterControl / App / Skill -> 结果回写上下文`
+- [ ] 固化系统边界：LightBrainGateway / ToolCallingEngine / MasterControl / RuntimeCenter / ContextCenter / StaticAssetCenter / ConfigCenter
+- [x] 坚持一个 tool call 执行层，不再新增 capability 级独立 tool 名
+- [x] 明确交互层初始不预带可见资产，资源能力由模型按需查询
+- [x] 明确日志与上下文严格分层
+- [x] 先收契约，再换主路径，再补风险护栏和验证
 
-### Phase H.0，正式骨架
-- [ ] 定义 `AssetDescriptor`
-- [ ] 定义 `AssetCapability`
-- [ ] 定义 `AssetState`
-- [ ] 定义资产分类模型（fixed/core_runtime/materialized/session）
-- [ ] 定义生命周期状态机（declared -> installing -> starting -> active -> degraded -> stopped -> removed）
+### Phase H.1，基础边界与统一契约
+- [ ] 收敛 ToolCallingEngine 为唯一 tool call 执行层
+- [x] 收敛 HotToolManager 为工具名集合管理器
+- [x] RuntimeCenter 承担 session 实体与运行态资源真相
+- [x] ContextCenter 承担 session 上下文正文与查询真相
+- [x] 固定统一资产调用接口：`list_assets` / `query_asset_info` / `query_asset_detail` / `call_asset_method`
+- [x] 固定统一 session 契约：`session_id` 非空=续约，空值=新建
 
-### Phase H.1，核心服务先资产化
-- [ ] 注册 `master_control`
-- [ ] 注册 `config_center`
-- [ ] 注册 `runtime_center`
-- [ ] 注册 `model_router`
-- [ ] 注册 `tool_calling_engine`
-- [ ] 注册 `light_brain_gateway`
+### Phase H.2，交互主路径与 session/context 机制
+- [ ] 交互层改为“当前消息 + 当前 session + 最近 100 条”的单次 LLM 决策
+- [ ] 路由由模型决定，系统不先做硬编排
+- [x] 定义 root session / child session / continuation child session
+- [x] 增加 SessionLink 与 child session 状态机
+- [x] 模型按需通过 ContextCenter / RuntimeCenter 查询上下文与资源
+- [x] 主控 / app / skill 统一遵循 session 续约 / 新建规则
 
-### Phase H.2，发现工具落地
-- [ ] 实现 `list_assets`
-- [ ] 实现 `query_asset_info`
-- [ ] 实现 `call_asset_method`
-- [ ] 增加安全映射层，避免任意方法直调
-
-### Phase H.3，运行态闭环
-- [ ] App 链路：create/install/materialize/register/start/heartbeat/discoverable
-- [ ] Skill 链路：install/validate/register/materialize/register asset/expose capabilities
-- [ ] Session 链路：login/create session/register/attach memory/close or expire
+### Phase H.3，静态资产 hot tools、context upload 与风险护栏
+- [ ] 为静态资产配置 `default_hot_tools` / `methods` / `default_visible_to`
+- [x] 不再全局预热 capability 级独立工具
+- [ ] 增加统一 context upload after-hook
+- [ ] 固定 upload 白名单和 system note 模板
+- [x] 日志与上下文彻底分层
+- [ ] 增加 query 上限 / tool loop 上限 / budget / observability / contract lint
 
 ### Phase H.4，真实链路验证
-- [ ] 新建 `docs/e2e-test-results.md`
-- [ ] 固定验证记录模板
-- [ ] 验证 A1：我有哪些资产 / 你现在能操作什么
-- [ ] 验证 B1：帮我创建一个简单 App
-- [ ] 验证 D1：启动我的监控应用
+- [ ] 验证交互层直接答复路径
+- [x] 验证交互层查上下文再答复路径
+- [x] 验证交互层调主控并自动创建 child session 路径
+- [x] 验证主控 -> app -> skill 统一 session 契约路径
+- [x] 验证 context upload 回写正确性
+- [ ] 将验证结果写入 `docs/e2e-test-results.md`
 
-### Phase H.5，治理挂接
-- [ ] 接入 MasterControl 权限检查
-- [ ] 接入审计日志
-- [ ] 接入成本与配额控制
-- [ ] 接入降级策略
+### Phase H.5，治理挂接（后置）
+- [ ] 在稳定主路径上接入权限检查
+- [ ] 在稳定主路径上接入审计日志
+- [ ] 在稳定主路径上接入成本与配额控制
+- [ ] 在稳定主路径上接入降级策略
 
 ### Phase H 不可并行项
 - [ ] 资产元数据定义 与 资产发现 tool 实现不可并行
