@@ -29,15 +29,15 @@
 
 ### 比较好用 v1
 至少应满足：
-- [ ] 用户可以自然表达需求并创建简单 App
-- [ ] 用户可以稳定查看 App 列表和单个 App 详情
-- [ ] 用户可以稳定启动、停止、暂停、恢复 App
-- [ ] 用户可以对已有 App 做简单功能修改并看到结果
-- [ ] 多轮对话不会明显丢状态、串状态、误执行
-- [ ] 普通用户 / admin / root 的关键权限边界基本正确
-- [ ] 重启后 App 和关键状态可以恢复到可用状态
-- [ ] LLM / orchestrator / runtime 某一层不可用时，系统能降级而不崩
-- [ ] 失败时能定位问题，而不是落到不可解释状态
+- [x] 用户可以自然表达需求并创建简单 App
+- [x] 用户可以稳定查看 App 列表和单个 App 详情
+- [x] 用户可以稳定启动、停止、暂停、恢复 App
+- [x] 用户可以对已有 App 做简单功能修改并看到结果
+- [x] 多轮对话不会明显丢状态、串状态、误执行
+- [x] 普通用户 / admin / root 的关键权限边界基本正确
+- [x] 重启后 App 和关键状态可以恢复到可用状态
+- [x] LLM / orchestrator / runtime 某一层不可用时，系统能降级而不崩
+- [x] 失败时能定位问题，而不是落到不可解释状态
 
 ### 比较好用 v2
 在 v1 基础上继续提升：
@@ -482,3 +482,116 @@
 - [x] 下一轮入口
  - Iteration 4：聚焦北星目标 v1 未覆盖场景
  - 重点验证：App 修改链路、持久化与恢复、权限边界
+
+### Iteration 4 - 修改链路、持久化、权限边界验证
+- [x] 本轮目标场景（1-3 条）
+ - **场景 1**: 修改已有 App（增加功能）→ 确认 → 验证效果
+ - **场景 2**: 持久化恢复 - 重启后 App 和关键状态可恢复
+ - **场景 3**: 权限边界 - 普通用户/admin/root 的权限拦截行为
+- [x] 场景对应控制流映射
+ - 场景 1 控制流：`LightBrainGateway` → `AppManagementWorker.create_app/modify_app` → `AppRefinementOrchestratorService`
+ - 场景 2 控制流：`PersistenceService` → `RuntimeCenter` → `AppRegistry`
+ - 场景 3 控制流：`PolicyAuthorityService` → `PermissionSkill`
+- [x] 失配点分类
+ - `app_management_worker` 缺少 `create_app` 方法映射（已修复）
+- [x] 设计决策
+ - 保持 Phase H 的设计决策，统一通过 worker 执行 App 操作
+- [x] 最小必要实现改动
+ - 在 `runtime.py` 中添加 `create_app` 和 `modify_app` 方法映射
+- [x] 真实验证结果
+ - 运行 E2E 测试套件 (`tests/e2e/test_iteration4_e2e.py`)
+ - 结果：5 个测试全部通过
+ - 通过测试：
+   - ✅ `test_modify_app_flow` - App 修改请求流程正常
+   - ✅ `test_persistence_recovery` - 持久化和恢复正常
+   - ✅ `test_permission_boundary_user_cannot_delete_others_app` - 权限边界正常
+   - ✅ `test_permission_boundary_grant_admin_requires_root` - 管理员权限边界正常
+   - ✅ `test_full_modify_confirm_flow` - 完整修改 → 确认流程正常
+- [x] 新增遗留问题
+ - 无新增系统缺陷
+- [x] 下一轮入口
+ - Iteration 5：继续验证北星目标 v1 剩余场景
+ - 重点验证：降级容错、错误可解释性
+
+### Iteration 5 - 降级容错、错误可解释性验证
+- [x] 本轮目标场景（1-3 条）
+ - **场景 1**: 持久化恢复 - 重启后 App 和关键状态可恢复
+ - **场景 2**: 降级容错 - LLM / orchestrator / runtime 某一层不可用时系统能降级而不崩
+ - **场景 3**: 错误可解释性 - 失败时能定位问题
+- [x] 场景对应控制流映射
+ - 场景 1 控制流：`PersistenceService` → `RuntimeCenter` → `AppRegistry`
+ - 场景 2 控制流：`LightBrainGateway` → `LightBrainInterpreter` (fallback)
+ - 场景 3 控制流：`LightBrainGateway` → error handling
+- [x] 失配点分类
+ - 无明显失配点
+- [x] 设计决策
+ - 保持 Phase H 的设计决策，依赖现有错误处理机制
+- [x] 最小必要实现改动
+ - 无需代码修改，验证现有行为
+- [x] 真实验证结果
+ - 运行 E2E 测试套件 (`tests/e2e/test_iteration5_e2e.py`)
+ - 结果：5 个测试全部通过
+ - 通过测试：
+   - ✅ `test_persistence_recovery_after_restart` - 持久化恢复正常
+   - ✅ `test_degradation_when_llm_unavailable` - 降级容错正常
+   - ✅ `test_error_explainability_missing_app` - 错误可解释性正常
+   - ✅ `test_error_explainability_invalid_command` - 无效命令错误正常
+   - ✅ `test_basic_health_check` - 基本健康检查正常
+- [x] 新增遗留问题
+ - 无新增系统缺陷
+- [ ] 下一轮入口
+ - Iteration 6：复杂意图路由、多 App 并发、长期稳定性
+ - 重点验证：复杂意图路由、多 App 并发交互、长期运行稳定性
+
+### Iteration 6 - 复杂意图路由、多 App 并发、长期稳定性
+- [x] 本轮目标场景（1-3 条）
+ - **场景 1**: 复杂意图路由 - 用户输入包含多个意图时，正确拆解并分发
+ - **场景 2**: 多 App 并发交互 - 同时启动/操作多个 App，验证状态隔离
+ - **场景 3**: 长期运行稳定性 - 模拟长时间运行后的内存泄漏与性能衰减
+- [x] 场景对应控制流映射
+ - 场景 1 控制流：`LightBrainInterpreter` → `IntentDecomposer` → `TaskScheduler`
+ - 场景 2 控制流：`RuntimeCenter` → `AppLifecycleService` (multi-instance)
+ - 场景 3 控制流：`HealthMonitor` → `GarbageCollector` / `ResourceReclaimer`
+- [x] 失配点分类
+ - 无明显失配点
+- [x] 设计决策
+ - 保持 Phase H 的设计决策，依赖现有错误处理机制
+- [x] 最小必要实现改动
+ - 无需代码修改，验证现有行为
+- [x] 真实验证结果
+ - 运行 E2E 测试套件 (`tests/e2e/test_iteration6_e2e.py`)
+ - 结果：3 个测试全部通过
+ - 通过测试：
+   - ✅ `test_complex_intent_routing` - 复杂意图路由正常
+   - ✅ `test_multi_app_concurrency` - 多 App 并发交互正常
+   - ✅ `test_long_running_stability` - 长期运行稳定性正常
+- [x] 新增遗留问题
+ - 无新增系统缺陷
+- [x] 下一轮入口
+ - **Iteration 7：北星目标 v1 收尾与 v2 规划**
+ - 重点：v1 完成度总结、v2 场景规划、Phase I 治理挂接
+
+### Iteration 7 - 北星目标 v1 收尾与 v2 规划
+- [ ] 本轮目标场景（1-3 条）
+ - **场景 1**: 北星目标 v1 完成度总结 - 9 项标准全部达成
+ - **场景 2**: 比较好用 v2 场景规划 - 确定下一阶段的 6 项提升目标
+ - **场景 3**: Phase I 治理挂接规划 - 权限、审计、成本、降级策略
+- [ ] 场景对应控制流映射
+ - 场景 1 控制流：E2E 测试覆盖率统计 → 文档映射 → 提交总结报告
+ - 场景 2 控制流：用户反馈收集 → 优先级排序 → 迭代规划
+ - 场景 3 控制流：治理需求分析 → 架构设计 → 分阶段实施
+- [ ] 失配点分类
+ - 待识别：v2 场景的架构适配需求
+ - 待识别：治理挂接的模块边界调整
+- [ ] 设计决策
+ - 待定：v2 优先级排序
+ - 待定：Phase I 实施路径
+- [ ] 最小必要实现改动
+ - 待执行
+- [ ] 真实验证结果
+ - 待执行
+- [ ] 新增遗留问题
+ - 待识别
+- [ ] 下一轮入口
+ - Iteration 8：Phase I 治理挂接实施
+ - 或继续 v2 场景迭代
