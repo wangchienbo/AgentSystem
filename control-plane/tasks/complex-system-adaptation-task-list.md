@@ -596,4 +596,29 @@
  - Iteration 8：Phase I 治理挂接实施
  - 或继续 v2 场景迭代
 
-### Iteration 8 - Phase I 治理挂接实施 - [x] 本轮目标场景（1-3 条） - **场景 1**: 权限检查接入主路径 - 在 create_app/modify_app/start_app/stop_app 前接入权限验证 - **场景 2**: 审计日志框架搭建 - 记录关键操作的审计日志（谁、何时、做了什么） - **场景 3**: 成本配额模型初步实现 - 为 LLM 调用和 tool call 设置基础配额限制 - [x] 场景对应控制流映射 - AppManagementWorker 已注入治理服务（audit_logger, cost_quota_manager, policy_authority_service） - 审计日志已集成到 create_app/start_app/stop_app/delete_app/pause_app/resume_app/uninstall_app - 配额检查已集成到 create_app/uninstall_app 操作前 - [x] 失配点分类 - PolicyAuthorityService 需要 store 参数，必须从 runtime.py 注入，不能自动实例化 - 治理服务采用可选注入模式，当服务不可用时优雅降级（GOVERNANCE_ENABLED=false） - [x] 设计决策 - 治理服务通过构造函数注入，支持可选启用 - 配额检查在资源密集型操作前执行（如 create_app） - 所有状态变更操作（包括失败）都必须记录审计日志 - user_id 从 params 提取，默认"system" - [x] 最小必要实现改动 - 更新 AppManagementWorker 构造函数，添加治理服务注入 - 为_create_app 添加配额检查和审计日志 - 为_start_app/_stop_app/_delete_app 添加审计日志 - 为_pause_app/_resume_app 添加审计日志 - 为_uninstall_app 添加配额检查和审计日志 - 修复 PolicyAuthorityService 注入逻辑（需要 store 参数） - [x] 真实验证结果 - 单元测试 test_materialize_blueprint_can_select_executable_with_governance_metadata 通过 - 代码已提交（commit 0f88741） - [ ] 新增遗留问题 - 待执行 E2E 验证 - [ ] 下一轮入口 - 待执行完整 E2E 测试验证治理链路
+### Iteration 8 - Phase I 治理挂接实施 - [x] 本轮目标场景（1-3 条） - **场景 1**: 权限检查接入主路径 - 在 create_app/modify_app/start_app/stop_app 前接入权限验证 - **场景 2**: 审计日志框架搭建 - 记录关键操作的审计日志（谁、何时、做了什么） - **场景 3**: 成本配额模型初步实现 - 为 LLM 调用和 tool call 设置基础配额限制 - [x] 场景对应控制流映射 - AppManagementWorker 已注入治理服务（audit_logger, cost_quota_manager, policy_authority_service） - 审计日志已集成到 create_app/start_app/stop_app/delete_app/pause_app/resume_app/uninstall_app - 配额检查已集成到 create_app/uninstall_app 操作前 - [x] 失配点分类 - PolicyAuthorityService 需要 store 参数，必须从 runtime.py 注入，不能自动实例化 - 治理服务采用可选注入模式，当服务不可用时优雅降级（GOVERNANCE_ENABLED=false） - [x] 设计决策 - 治理服务通过构造函数注入，支持可选启用 - 配额检查在资源密集型操作前执行（如 create_app） - 所有状态变更操作（包括失败）都必须记录审计日志 - user_id 从 params 提取，默认"system" - [x] 最小必要实现改动 - 更新 AppManagementWorker 构造函数，添加治理服务注入 - 为_create_app 添加配额检查和审计日志 - 为_start_app/_stop_app/_delete_app 添加审计日志 - 为_pause_app/_resume_app 添加审计日志 - 为_uninstall_app 添加配额检查和审计日志 - 修复 PolicyAuthorityService 注入逻辑（需要 store 参数） - [x] 真实验证结果 - 单元测试 test_materialize_blueprint_can_select_executable_with_governance_metadata 通过 - E2E 测试 test_iteration8_governance_e2e.py 全部通过（10 tests） - 代码已提交（commits 0f88741, 748f2ad, 582fe84, 652de55, 1e35a58） - [x] 新增遗留问题 - 无新增系统缺陷 - [x] 下一轮入口 - Iteration 9：Phase II 场景规划与实施
+
+### Iteration 9 - Phase II 复杂场景规划与实施
+- [x] 本轮目标场景（1-3 条）
+  - **场景 1**: 复杂意图路由与多轮对话
+    - 用户输入包含多个意图时，正确拆解并分发到不同 App/Task
+  - **场景 2**: 多 App 并发交互与状态隔离
+    - 同时操作多个 App，验证状态隔离与上下文关联
+  - **场景 3**: 长期运行稳定性与内存管理
+    - 模拟长时间运行后的内存泄漏与性能衰减
+- [x] 场景对应控制流映射
+  - 场景 1 控制流：`LightBrainInterpreter` → `IntentDecomposer` → `TaskScheduler`
+  - 场景 2 控制流：`RuntimeCenter` → `AppLifecycleService` (multi-instance)
+  - 场景 3 控制流：`HealthMonitor` → `GarbageCollector` / `ResourceReclaimer`
+- [ ] 失配点分类
+  - 待识别
+- [ ] 设计决策
+  - 待确定
+- [ ] 最小必要实现改动
+  - 待执行
+- [ ] 真实验证结果
+  - 待执行 E2E 测试套件 (`tests/e2e/test_iteration9_complex_scenarios_e2e.py`)
+- [ ] 新增遗留问题
+  - 待识别
+- [ ] 下一轮入口
+  - Iteration 10：北星目标 v2 场景实施
