@@ -1,9 +1,28 @@
 # Architecture Decision Record (ADR-001): Budget/Quota System Unification
 
-> **Status**: Proposed  
+> **Status**: ✅ **IMPLEMENTED**  
 > **Date**: 2026-04-22  
+> **Implementation Date**: 2026-04-22 (Phase V, Iterations 24-26)  
 > **Context**: Iteration 18 - Phase IV  
-> **Related Mismatch**: IC-003  
+> **Related Mismatch**: IC-003 (✅ Resolved)
+
+---
+
+## Implementation Status
+
+**Phase 1** (Interface definition): ✅ Complete  
+**Phase 2** (Governance layer update): ✅ Complete  
+**Phase 3** (LLM/Tool path integration): ✅ Complete  
+
+**Files**:
+- `app/services/resource_budget_manager.py` - Resource layer interface
+- `app/services/budget_tracker.py` - Token budget tracking
+- `app/system/workers/app_mgmt.py` - Governance layer integration
+
+**Integration Points**:
+- ToolCallExecutor: Budget check before tool execution
+- LightBrainGateway: Budget check before LLM calls
+- CostQuotaManager: Governance policy enforcement
 
 ---
 
