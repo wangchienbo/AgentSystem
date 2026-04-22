@@ -715,14 +715,39 @@
 - [x] 下一轮入口 - Iteration 15：主链路失配清单 v1
 
 ### Iteration 15 - 主链路失配清单 v1
-- [ ] 本轮目标场景（1-3 条）
-  - **场景 1**: 汇总 Phase H ~ Iteration 12 的主链路失配项
+- [x] 本轮目标场景（1-3 条）
+  - **场景 1**: 汇总 Phase H ~ Iteration 14 的主链路失配项
   - **场景 2**: 结构化输出 mismatch list v1
   - **场景 3**: 给出下一阶段优先级建议
-- [ ] 场景对应控制流映射
-- [ ] 失配点分类
-- [ ] 设计决策
-- [ ] 最小必要实现改动
-- [ ] 真实验证结果
-- [ ] 新增遗留问题
-- [ ] 下一轮入口 - Phase III 实施或 Phase IV 规划
+- [x] 场景对应控制流映射
+  - 汇总来源：`docs/e2e-test-results.md` (Phase H validation)
+  - 汇总来源：`control-plane/tasks/complex-system-adaptation-task-list.md` (Iteration 1~14)
+  - 汇总来源：`docs/iteration-14-risk-guard-review.md` (risk guard inventory)
+- [x] 失配点分类
+  - 控制流失配：CF-001~003
+  - 状态模型失配：SM-001~002
+  - 模块边界失配：MB-001~003
+  - 接口契约失配：IC-001~004
+  - 持久化失配：无活跃失配
+  - 权限失配：无活跃失配
+  - 降级失配：DG-001~002
+  - 可观测性失配：OB-001~002
+- [x] 设计决策
+  - 采用 8 维度 Mismatch Taxonomy 分类
+  - 每项标注：状态、影响、解决方向、优先级
+  - 区分“已解决”与“活跃缺口”
+- [x] 最小必要实现改动
+  - 新增 `docs/mismatch-list-v1.md`
+  - 10 项失配已结构化记录
+  - 5 项已解决，5 项需后续工作
+- [x] 真实验证结果
+  - 完成 Phase H ~ Iteration 14 失配项汇总
+  - 失配清单 v1 已产出
+  - 下一阶段入口建议已给出
+- [x] 新增遗留问题
+  - 5 项活跃缺口需后续处理（详见 mismatch list）
+  - P2 优先级：risk guard validation, rate limiter wiring, budget/quota unification decision
+  - P3 优先级：multi-intent, context summary productization, doc path alignment
+- [x] 下一轮入口
+  - Phase III 实施：risk guard focused validation (P2)
+  - 或 Phase IV 规划：架构决策与长期优化
