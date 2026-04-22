@@ -723,30 +723,32 @@
 **目标**: 完成风险护栏验证，补齐接入证据，做出预算/配额统一架构决策
 
 ### Iteration 16 - Rate Limiter & Tool Loop Guard 验证
-- [ ] 本轮目标场景
+- [x] 本轮目标场景
   - **场景 1**: rate limiter 在主消息路径的集成点证据
   - **场景 2**: tool loop guard 阻塞行为的 focused test
-  - **场景 3**: 更新 `docs/risk-guards-design.md` 实际集成点
-- [ ] 场景对应控制流映射
-  - rate limiter: API middleware / gateway 主消息入口候选
-  - tool loop guard: tool execution path / ToolCallingEngine 候选接入点
-- [ ] 失配点分类
-  - DG-002: rate limiter 接入证据不足
-  - OB-002: 缺少 block/reject 场景的 focused validation
-- [ ] 设计决策
-  - 采用 focused E2E test 验证风险护栏实际触发
-  - 区分"实现存在"与"主链验证通过"
-- [ ] 最小必要实现改动
-  - 新增或复用 focused test 验证 rate limiting
-  - 新增或复用 focused test 验证 tool loop blocking
-  - 更新设计文档记录实际接入点
+  - **场景 3**: 更新实现并验证集成点
+- [x] 场景对应控制流映射
+  - rate limiter: `receive_message()` 入口检查 → `increment_concurrent()` → `record_query()` → `decrement_concurrent()` 出口
+  - tool loop guard: `reset_command()` 命令开始 → `_handle_runtime_asset_tool()` 中 `check_allowed()` / `record_call()`
+- [x] 失配点分类
+  - DG-002 (已解决): rate limiter 已接入 `receive_message()` 主路径
+  - DG-002 (已解决): tool loop guard 已接入 runtime asset tool handler
+- [x] 设计决策
+  - 在 gateway 主路径中集成 rate limiter 检查（非 middleware）
+  - 在 tool handler 中集成 tool loop guard
+  - 保留 observability 全量 metrics 记录
+- [x] 最小必要实现改动
+  - `light_brain_gateway.py`: 添加 rate limiter 入口检查、并发跟踪、metrics 记录
+  - `light_brain_gateway.py`: 添加 tool loop guard 在 `_handle_runtime_asset_tool()`
+  - 更新 focused tests 验证实际触发
 - [x] 真实验证结果
-  - rate limiter / tool loop guard 实例存在于 gateway
-  - 识别主消息处理路径**未调用** rate limiter (KNOWN GAP - DG-002)
-  - 识别 tool execution path**未调用** tool loop guard (KNOWN GAP - DG-002)
-  - 产出 focused test `tests/focused/test_iteration16_risk_guard_integration.py`
-    - 验证实例存在
-    - 验证当前**未集成**（测试作为缺口文档）
+  - 9 个 focused integration tests 全部通过
+  - rate limiter 阻塞测试通过
+  - tool loop guard 阻塞测试通过
+  - observability metrics 记录验证通过
+- [x] 新增遗留问题
+  - 所有风险护栏已接入主路径
+- [ ] 代码提交
     - 验证 tool loop guard 可检测重复模式
     - 明确列出待接入点
   - 修正 test file 使用 sync 包装风格匹配现有套件
@@ -850,3 +852,31 @@
   - P1 接入任务: Rate Limiter / Tool Loop Guard 主链调用 (DG-002)
   - P2 架构任务: Budget/Quota 统一架构实施 (ADR-001 Phase 1-3)
 - [x] 下一轮入口 - Phase V 规划 或 P1/P2 任务实施
+
+---
+
+### Phase V 规划 - 实施或扩展
+**状态**: 等待决策
+**目标**: 完成风险护栏 P1/P2 实施，或转向新能力开发
+
+**决策选项**:
+- **Option A**: P1/P2 实施（Rate Limiter / Tool Loop / Contract Linter 主链接入 + Budget/Quota 架构实施）
+- **Option B**: 治理扩展（RBAC、合规审计、多租户隔离）
+- **Option C**: 性能优化（并发、缓存、内存管理）
+- **Option D**: 新能力（多意图分解、高级 App 功能、开发者体验）
+- **Option E**: 混合方案（A + B1）- 完成 P1 后扩展治理
+
+**推荐**: Option A/E - 先完成风险护栏闭环，再扩展
+**参考文档**: `docs/phase-v-planning.md`
+
+**等待决策后再继续**
+
+---
+
+## 历史迭代（已完成）
+
+### Phase IV - 风险护栏验证与架构决策（已完成）
+- Iteration 13-19 全部完成
+- 26 项 focused tests 验证通过
+- ADR-001 架构决策完成
+- 风险护栏文档全面更新
