@@ -68,18 +68,19 @@ class TestContractLinterIntegration:
         result = linter.validate_tool_args("test_tool", {"name": 123, "count": "five"}, schema)
         assert result.is_valid is False
 
-    def test_contract_linter_not_wired_to_gateway(self):
-        """Verify contract linter is NOT currently invoked in gateway message path.
-
-        Documents IC-004: contract linter exists but is not wired to main path.
-        This is a KNOWN GAP.
+    def test_contract_linter_wired_to_gateway(self):
+        """Verify contract linter IS now wired into gateway message path.
+        
+        IC-004 CLOSED: contract linter now instantiated in gateway and
+        called in _handle_runtime_asset_tool before tool execution.
         """
         memory = LightBrainMemory()
         interpreter = LightBrainInterpreter()
         gateway = LightBrainGateway(memory=memory, interpreter=interpreter)
 
-        # Contract linter instance not present in gateway
-        assert not hasattr(gateway, '_contract_linter')
+        # Contract linter instance now present in gateway
+        assert hasattr(gateway, '_contract_linter')
+        assert gateway._contract_linter is not None
 
         # No evidence of contract validation in message processing
         # This test documents the gap - when linter IS wired, update this test

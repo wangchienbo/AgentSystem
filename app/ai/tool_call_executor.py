@@ -19,6 +19,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.models.tool_entry import ToolEntry, ToolType
+from app.services.contract_linter import ContractLinter
+from app.services.tool_loop_guard import ToolLoopGuard
 from app.services.unified_tool_registry import UnifiedToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -42,10 +44,14 @@ class ToolCallExecutor:
         self,
         registry: UnifiedToolRegistry,
         max_concurrent: int = 10,
+        tool_loop_guard: ToolLoopGuard | None = None,
+        contract_linter: ContractLinter | None = None,
     ) -> None:
         self._registry = registry
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._call_log: list[dict[str, Any]] = []
+        self._tool_loop_guard = tool_loop_guard
+        self._contract_linter = contract_linter
 
     async def call(
         self,
@@ -72,9 +78,38 @@ class ToolCallExecutor:
                 timestamp=self._now_iso(),
             )
 
+        # Validate arguments with contract linter if configured
+        if self._contract_linter and arguments:
+            lint_result = self._contract_linter.validate_tool_args(tool_id, arguments)
+            if not lint_result.is_valid:
+                return ToolCallResult(
+                    tool_id=tool_id,
+                    success=False,
+                    error=f"Contract validation failed: {'; '.join(lint_result.errors)}",
+                    timestamp=self._now_iso(),
+                )
+
+        # Check tool loop guard if configured
+        if self._tool_loop_guard:
+            import time
+            allowed, reason = self._tool_loop_guard.check_allowed(tool_id, arguments or {}, time.time())
+            if not allowed:
+                return ToolCallResult(
+                    tool_id=tool_id,
+                    success=False,
+                    error=f"Tool loop guard blocked: {reason}",
+                    timestamp=self._now_iso(),
+                )
+
         start = datetime.now(timezone.utc)
         try:
             result = await self._execute(entry, arguments or {})
+
+            # Record successful call
+            if self._tool_loop_guard:
+                import time
+                self._tool_loop_guard.record_call(tool_id, arguments or {}, time.time())
+
             duration = (datetime.now(timezone.utc) - start).total_seconds() * 1000
             tool_result = ToolCallResult(
                 tool_id=tool_id,

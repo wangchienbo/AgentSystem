@@ -15,7 +15,8 @@ from typing import Any
 
 from app.services.skill_rpc import SkillRpcService
 from app.services.unified_tool_registry import UnifiedToolRegistry
-from app.services.tool_call_executor import ToolCallExecutor
+from app.services.contract_linter import ContractLinter
+from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
 from app.services.command_queue import CommandQueue
 from app.services.internal_model_router import InternalModelRouter
 
@@ -46,7 +47,11 @@ class CoreOrchestrator:
         # Phase B components
         self.skill_rpc = SkillRpcService()
         self.tool_registry = UnifiedToolRegistry()
-        self.tool_executor = ToolCallExecutor(registry=self.tool_registry)
+        self.tool_executor = ToolCallExecutor(
+            registry=self.tool_registry,
+            tool_loop_guard=ToolLoopGuard(ToolLoopConfig()),
+            contract_linter=ContractLinter(),
+        )
         self.command_queue = CommandQueue()
         self.model_router = InternalModelRouter()
 

@@ -36,6 +36,8 @@ from app.utils.observability import ObservabilityCollector
 from app.utils.context_upload import ContextUploadHelper
 from app.config.context_upload import ContextUploadConfig
 
+from app.services.contract_linter import ContractLinter
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,6 +98,7 @@ class LightBrainGateway:
         self._tool_loop_guard = ToolLoopGuard(ToolLoopConfig())
         self._observability = ObservabilityCollector()
         self._context_upload_helper = ContextUploadHelper(ContextUploadConfig())
+        self._contract_linter = ContractLinter()
 
         # Legacy: accept app_catalog as initial value
         if app_catalog is not None:
@@ -172,6 +175,19 @@ class LightBrainGateway:
         allowed, block_reason = self._rate_limiter.is_session_allowed(session_id)
         if not allowed:
             logger.warning(f"Rate limit blocked: session={session_id}, reason={block_reason}")
+            # Phase H+: Observability - record blocked command
+            from app.utils.observability import CommandMetrics
+            self._observability.record_command(CommandMetrics(
+                session_id=session_id,
+                user_id=request.user_id,
+                command_type="receive_message",
+                target_app=None,
+                status="blocked",
+                duration_ms=0,
+                tokens_used=0,
+                tool_calls=0,
+                error=f"Rate limit blocked: {block_reason}",
+            ))
             return ChatMessageResponse(
                 type="text",
                 content=f"请求过于频繁，请稍后再试。{block_reason}",
@@ -997,12 +1013,54 @@ class LightBrainGateway:
         )
         if not allowed:
             logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            # Phase H+: Observability - record blocked command
+            from app.utils.observability import CommandMetrics
+            self._observability.record_command(CommandMetrics(
+                session_id=session_id,
+                user_id=command.user_id,
+                command_type=command.intent,
+                target_app=command.target_app,
+                status="blocked",
+                duration_ms=0,
+                tokens_used=0,
+                tool_calls=0,
+                error=f"Tool loop guard blocked: {block_reason}",
+            ))
             return ChatMessageResponse(
                 type="text",
                 content=f"工具调用过于频繁或出现循环，已阻断。{block_reason}",
                 session_id=session_id,
                 requires_input=False,
             )
+        
+        # Phase H+: Contract linter validation before tool execution
+        if command.parameters:
+            lint_result = self._contract_linter.validate_tool_args(
+                command.intent,
+                dict(command.parameters or {})
+            )
+            if not lint_result.is_valid:
+                logger.warning(f"Contract lint failed: session={session_id}, tool={command.intent}, errors={lint_result.errors}")
+                # Phase H+: Observability - record rejected command
+                from app.utils.observability import CommandMetrics
+                self._observability.record_command(CommandMetrics(
+                    session_id=session_id,
+                    user_id=command.user_id,
+                    command_type=command.intent,
+                    target_app=command.target_app,
+                    status="blocked",
+                    duration_ms=0,
+                    tokens_used=0,
+                    tool_calls=0,
+                    error=f"Contract validation failed: {'; '.join(lint_result.errors)}",
+                ))
+                return ChatMessageResponse(
+                    type="text",
+                    content=f"参数校验失败: {'; '.join(lint_result.errors)}",
+                    session_id=session_id,
+                    requires_input=False,
+                )
+        
         # Record tool call after check passes
         self._tool_loop_guard.record_call(
             command.intent,
@@ -1112,6 +1170,16 @@ class LightBrainGateway:
             )
 
     def _handle_package_list_installed(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
 
@@ -1149,6 +1217,16 @@ class LightBrainGateway:
         )
 
     def _handle_package_show(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
 
@@ -1187,6 +1265,16 @@ class LightBrainGateway:
         )
 
     def _handle_package_build(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
 
@@ -1212,6 +1300,16 @@ class LightBrainGateway:
         )
 
     def _handle_package_install(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
 
@@ -1240,6 +1338,16 @@ class LightBrainGateway:
         )
 
     def _handle_package_uninstall(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
 
@@ -1264,6 +1372,16 @@ class LightBrainGateway:
         )
 
     def _handle_package_rollback(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
 
@@ -1289,6 +1407,16 @@ class LightBrainGateway:
         )
 
     def _handle_package_search(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
         if not self._package_manager_executor:
             return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
 
@@ -1327,6 +1455,16 @@ class LightBrainGateway:
         )
 
     def _handle_master_execute(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
         if not self._master_control:
             return self._error_reply(session_id, "⚠️ 主控模块未加载。")
         operation = command.parameters.get("operation") or command.intent

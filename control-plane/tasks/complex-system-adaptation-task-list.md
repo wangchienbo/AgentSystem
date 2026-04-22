@@ -889,11 +889,44 @@
   - 修改 `app/system/gateway/light_brain_gateway.py`
   - 添加 3 个接入点的 rate limiter 调用
   - 更新 `test_iteration16_risk_guard_integration.py` 验证阻止行为
-- [ ] 真实验证结果
-  - 测试验证 rate limiter 实际阻止超限请求
-  - 测试验证并发追踪正确
-- [ ] 新增遗留问题
-- [ ] 下一轮入口 - Iteration 21: Tool Loop Guard 主路径接入
+- [x] 真实验证结果
+  - **意外发现**: `light_brain_gateway.py` 中 Rate Limiter / Tool Loop Guard / Observability 集成代码已存在
+  - 13/13 tests passed - 验证集成实际生效
+  - Rate Limiter: `is_session_allowed()` 入口检查，`record_query()` 追踪，并发计数管理
+  - Tool Loop Guard: `reset_command()` 命令开始时调用
+  - Observability: `record_command()` 处理后记录指标
+  - DG-002 **实际已解决** - 之前判断"未集成"是文档滞后于实现
+### Iteration 21 - Tool Loop Guard 工具执行路径接入
+- [x] 本轮目标场景
+  - **场景 1**: 识别 Tool Calling Engine / Tool Call Executor 入口点
+  - **场景 2**: 在工具调用前接入 `check_allowed()` 检查
+  - **场景 3**: 在工具调用后接入 `record_call()` 记录
+- [x] 场景对应控制流映射
+  - Tool 调用入口:
+    - `app/services/tool_calling_engine.py` (重定向到 tool_call_executor)
+    - `app/ai/tool_call_executor.py` (实际执行层)
+    - `app/orchestration/core_orchestrator.py` (wiring 层)
+- [x] 失配点分类
+  - **发现**: `light_brain_gateway.py` line 993-1007 已完整集成 Tool Loop Guard
+    - `reset_command()` line 189
+    - `check_allowed()` line 993
+    - `record_call()` line 1007
+  - **扩展**: `ToolCallExecutor` 独立执行层补充注入 (双路径保护)
+- [x] 设计决策
+  - `ToolCallExecutor` 接受 `tool_loop_guard` 和 `contract_linter` 注入
+  - 调用前: `check_allowed(tool_name, args, time.time())`
+  - 调用后: `record_call(tool_name, args, time.time())`
+  - 失败时返回包含错误信息的 ToolCallResult
+- [x] 最小必要实现改动
+  - `app/ai/tool_call_executor.py`: 添加 guard/linter 注入和调用点
+  - `app/orchestration/core_orchestrator.py`: wiring 注入 guard 和 linter
+- [x] 真实验证结果
+  - 9/13 tests passed → 13/13 tests passed
+  - Iteration 16 + Iteration 17 全量验证通过
+  - DG-002 **完全解决** - 双重路径保护 (gateway + executor)
+- [x] 新增遗留问题
+  - 无
+- [x] 下一轮入口 - Iteration 22: Contract Linter 工具路径接入
 
 ---
 
