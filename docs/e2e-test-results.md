@@ -1,4 +1,4 @@
-# Phase H E2E Test Results
+# Phase H / Iteration E2E Test Results
 
 ## Record Template
 - 场景:
@@ -10,6 +10,66 @@
 - 修复动作:
 - 当前结论:
 - 遗留问题:
+
+---
+
+## Iteration 10 ~ 12 v2 Regression Summary (2026-04-22)
+
+### Iteration 10 - 北星目标 v2 场景实施
+- 场景:
+  - 复杂创建场景的澄清与需求累积
+  - execute_action 回流执行
+  - 权限和审批链路一致性
+- 主链路:
+  - `LightBrainGateway` → `LightBrainInterpreter` → clarification / pending context
+  - `LightBrainGateway.execute_action` → command rebuild → `AppManagementWorker`
+  - `LightBrainGateway` → `PolicyAuthorityService` → `AppManagementWorker`
+- 对应测试:
+  - `tests/e2e/test_iteration10_v2_scenarios_e2e.py`
+- 实际结果:
+  - 3/3 通过
+- 当前结论:
+  - v2 第一批用户主链路已具备可重复回归记录
+- 遗留问题:
+  - 仍需继续强化复杂创建场景在更长对话中的稳定性
+
+### Iteration 11 - 修改链路 / skill 增减 / 状态一致性
+- 场景:
+  - refinement 与 skill add/remove
+  - 修改后持久化 / 运行时状态一致性
+  - 创建 → 修改 → 查询 / 执行回归
+- 主链路:
+  - `LightBrainGateway` → `RefinementWorker` → `RefinementOrchestrator`
+  - `LightBrainGateway` → `AppManagementWorker` → `PersistenceService`
+  - `LightBrainGateway` → `AppManagementWorker` → `RuntimeCenter`
+- 对应测试:
+  - `tests/e2e/test_iteration11_refinement_e2e.py`
+- 实际结果:
+  - 8/8 通过
+- 当前结论:
+  - v2 修改链路、skill 管理与状态一致性已进入稳定回归范围
+- 遗留问题:
+  - 需要后续把相关场景映射回更高层 testing docs 与 mismatch list
+
+### Iteration 12 - 复杂创建稳定性与 v2 收尾回归
+- 场景:
+  - 多轮复杂创建需求累积稳定性
+  - 澄清后的话题 refinement 连续性
+  - create / modify / execute / approval 全量回归
+- 主链路:
+  - `LightBrainGateway` → `LightBrainInterpreter` → clarification / pending context 累积
+  - create / modify / execute / query 主链路复验
+- 对应测试:
+  - `tests/e2e/test_iteration12_complex_creation_e2e.py`
+- 实际结果:
+  - 初版 async test 风格失败
+  - 修正为同步测试包装后，6/6 通过
+- 修复动作:
+  - 使用 `asyncio.run(...)` 包装 gateway async 接口，保持与现有 pytest 模型一致
+- 当前结论:
+  - v2 场景已完成闭环收尾，并形成第二批可复验回归记录
+- 遗留问题:
+  - `pytest.mark.e2e` 未注册，仍有告警噪声
 
 ---
 

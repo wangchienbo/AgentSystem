@@ -755,10 +755,11 @@ graph TD
 
 > **Phase H 完成时间**: 2026-04-22  
 > **核心目标**: 收敛交互层一次 LLM 决策主路径，固化上下文注入与消费闭环
+> **Phase H 后续验证**: Iteration 10 ~ Iteration 12 已在该主路径上完成 v2 场景回归
 
 **Phase H 主路径流程**：
 
-1. **用户消息进入** → `LightBrainGateway.process_message()`
+1. **用户消息进入** → `LightBrainGateway.process_message()` / `receive_message()`
 2. **意图解释** → `LightBrainInterpreter.interpret()`
    - Exact match（greet/help/status）→ 本地直判，0 LLM 调用
    - Fuzzy match → regex 兜底
@@ -770,6 +771,21 @@ graph TD
 7. **Worker 执行** → `AppManagementWorker` / `RefinementWorker` 消费 Phase H 字段
 8. **Refinement 内部消费** → candidate blueprint 排序 / build goal enrich / release note / diagnostics
 9. **Presenter 展示** → `AppPresenter` 生成结构化 Markdown 上下文摘要
+
+**Iteration 10 ~ 12 在该主路径上的映射**：
+
+- **Iteration 10: 复杂创建 / execute_action / 权限审批**
+  - 复杂创建澄清：`LightBrainGateway` → `LightBrainInterpreter` → clarification / pending context → `AppManagementWorker`
+  - execute_action 回流：`LightBrainGateway.execute_action` → command rebuild → `AppManagementWorker`
+  - 权限审批一致性：`LightBrainGateway` → `PolicyAuthorityService` → `AppManagementWorker`
+- **Iteration 11: refinement / skill 增减 / 状态一致性**
+  - 修改链路：`LightBrainGateway` → `RefinementWorker` → `RefinementOrchestrator`
+  - 持久化一致性：`LightBrainGateway` → `AppManagementWorker` → `PersistenceService`
+  - 运行态一致性：`LightBrainGateway` → `AppManagementWorker` → `RuntimeCenter`
+- **Iteration 12: 复杂创建稳定性 / v2 全量回归**
+  - 多轮复杂创建：`LightBrainGateway` → `LightBrainInterpreter` → clarification/pending context 累积
+  - 创建/修改/执行回归：create/modify/execute/query 主链路复验
+  - Phase III 入口：task list / doc mapping / mismatch closure
 
 **关键文件**：
 
@@ -791,6 +807,26 @@ graph TD
   - `test_direct_reply_path_bypasses_bridge_for_builtin_intents`
   - `test_gateway_syncs_tool_registry_into_interpreter_before_interpret`
   - `test_intent_pattern_view_matches_exact_plus_fuzzy_sources`
+- `tests/e2e/test_iteration10_v2_scenarios_e2e.py`
+  - `test_multiturn_requirement_accumulation`
+  - `test_execute_action_callback`
+  - `test_admin_approval_flow`
+- `tests/e2e/test_iteration11_refinement_e2e.py`
+  - `test_modify_app_add_skill`
+  - `test_modify_app_remove_skill`
+  - `test_persistence_recovery_after_modification`
+  - `test_runtime_state_matches_persistence`
+  - `test_multi_turn_modification_preserves_state`
+  - `test_create_modify_query_flow`
+  - `test_permission_boundary_on_modification`
+  - `test_execute_action_after_modification`
+- `tests/e2e/test_iteration12_complex_creation_e2e.py`
+  - `test_multiturn_complex_creation_accumulates_requirements`
+  - `test_clarification_survives_topic_refinement`
+  - `test_clarification_then_query_does_not_break_context`
+  - `test_v2_create_modify_execute_regression`
+  - `test_v2_permission_and_approval_regression`
+  - `test_v2_execute_action_regression_after_clarification`
 
 **改这里通常会影响**：
 
@@ -799,4 +835,7 @@ graph TD
 - `app/services/app_presenter.py` - 响应展示
 - `app/system/workers/*` - 执行器
 - `tests/unit/test_light_brain.py` - 主路径测试
+- `tests/e2e/test_iteration10_v2_scenarios_e2e.py`
+- `tests/e2e/test_iteration11_refinement_e2e.py`
+- `tests/e2e/test_iteration12_complex_creation_e2e.py`
 

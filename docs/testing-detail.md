@@ -39,6 +39,69 @@
 ### 3.4 回归测试
 目标：验证版本升级、回滚、诊断、持久化兼容性。
 
+### 3.5 Iteration 10 ~ 12 v2 端到端回归
+目标：验证 Phase H 主路径在复杂创建、修改 refinement、execute_action 回流、权限审批、持久化一致性上的稳定性。
+
+#### Iteration 10：北星目标 v2 场景实施
+测试文件：`tests/e2e/test_iteration10_v2_scenarios_e2e.py`
+
+覆盖：
+- 复杂创建场景的澄清与需求累积
+- 按钮 / 卡片 / execute_action 回流执行
+- 权限和审批链路行为一致性
+
+关键用例：
+- `test_multiturn_requirement_accumulation`
+- `test_execute_action_callback`
+- `test_admin_approval_flow`
+
+结果：3/3 通过
+
+#### Iteration 11：修改链路与 skill 增减
+测试文件：`tests/e2e/test_iteration11_refinement_e2e.py`
+
+覆盖：
+- 修改 App 添加 / 移除 skill
+- 修改后持久化恢复
+- 运行时状态与持久化状态一致
+- 多轮修改状态保留
+- 创建 → 修改 → 查询 / 执行回归
+
+关键用例：
+- `test_modify_app_add_skill`
+- `test_modify_app_remove_skill`
+- `test_persistence_recovery_after_modification`
+- `test_runtime_state_matches_persistence`
+- `test_multi_turn_modification_preserves_state`
+- `test_create_modify_query_flow`
+- `test_permission_boundary_on_modification`
+- `test_execute_action_after_modification`
+
+结果：8/8 通过
+
+#### Iteration 12：复杂创建稳定性与 v2 收尾回归
+测试文件：`tests/e2e/test_iteration12_complex_creation_e2e.py`
+
+覆盖：
+- 多轮复杂创建需求累积稳定性
+- 澄清后话题 refinement 稳定性
+- 查询插入后上下文连续性
+- create / modify / execute / approval 全链路回归
+
+关键用例：
+- `test_multiturn_complex_creation_accumulates_requirements`
+- `test_clarification_survives_topic_refinement`
+- `test_clarification_then_query_does_not_break_context`
+- `test_v2_create_modify_execute_regression`
+- `test_v2_permission_and_approval_regression`
+- `test_v2_execute_action_regression_after_clarification`
+
+结果：6/6 通过（初版 async test 风格失败，修正为同步包装后通过）
+
+说明：
+- 当前 E2E 套件通过 `asyncio.run(...)` 包装 gateway async 接口，避免与现有 pytest 执行模型冲突
+- `pytest.mark.e2e` 尚未注册，当前仅产生告警，不影响结果判定
+
 ---
 
 ## 4. 模型测试配置

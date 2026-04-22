@@ -1,5 +1,39 @@
 # AgentSystem Development Log
 
+## 2026-04-22: Iteration 10 ~ 12 v2 Regression Closure
+
+### Summary
+Completed the v2-facing regression closure on top of the Phase H main path.
+This work covered three consecutive iterations:
+- Iteration 10: complex creation clarification, execute_action callback, permission/approval consistency
+- Iteration 11: refinement path, skill add/remove, persistence/runtime consistency
+- Iteration 12: complex creation clarification stability and full v2 regression closure
+
+### Implementation
+- Added `tests/e2e/test_iteration10_v2_scenarios_e2e.py`
+- Added `tests/e2e/test_iteration11_refinement_e2e.py`
+- Added `tests/e2e/test_iteration12_complex_creation_e2e.py`
+- Fixed Iteration 12 test execution style by wrapping gateway async calls with `asyncio.run(...)`
+- Updated task list to mark Iteration 10 / 11 / 12 completed
+
+### Verification
+- Iteration 10: 3 tests passed
+- Iteration 11: 8 tests passed
+- Iteration 12: 6 tests passed after sync-wrapper correction
+
+### Result
+The v2 main-path scenarios now have repeatable E2E regression coverage across:
+- clarification / pending-context accumulation
+- execute_action callback flow
+- permission and approval consistency
+- refinement and skill add/remove
+- persistence and runtime-state consistency
+- create / modify / execute / query end-to-end regression
+
+### Remaining Note
+- `pytest.mark.e2e` is not yet registered in pytest config and still emits warnings.
+- This should be handled as a cleanup item in later testing/tooling hygiene work.
+
 ## 2026-04-22: Iteration 2 Complete & E2E Validation
 
 ### Summary

@@ -87,24 +87,22 @@ Used to validate full user/system flows:
 - store data
 - review runtime practice
 - generate a candidate skill blueprint
+- validate v2 conversation-heavy creation / refinement / execute_action / approval regressions
 
-### 2.3.1 LLM interaction layer tests
-Used to validate the user-facing conversation layer:
-- conversation session lifecycle (create, reset, compact, expire)
-- message history management and compaction behavior
-- intent classification accuracy for each defined intent category
-- parameter extraction correctness from varied natural language inputs
-- clarification trigger behavior when required parameters are missing
-- end-to-end create_app flow through LLM interaction gateway
-- end-to-end manage_app flow through LLM interaction gateway
-- end-to-end query_status flow through LLM interaction gateway
-- response type construction (text, card, list, confirm, error)
-- action suggestion generation and execution routing
-- fallback behavior when model is unavailable
-- multi-channel message format adaptation
-- session isolation between different user_id + channel combinations
-- streaming response (SSE) delivery for long-running operations
-- conversation router JSON output stability and schema compliance
+### 2.3.2 Iteration 10 ~ 12 v2 E2E coverage
+Used to validate the Phase H main path under real user-facing regression scenarios:
+- Iteration 10: complex creation clarification, execute_action callback, permission and approval consistency
+- Iteration 11: refinement path, skill add/remove, persistence and runtime-state consistency
+- Iteration 12: complex creation clarification stability, topic refinement continuity, full v2 create/modify/execute regression
+
+Covered test files:
+- `tests/e2e/test_iteration10_v2_scenarios_e2e.py`
+- `tests/e2e/test_iteration11_refinement_e2e.py`
+- `tests/e2e/test_iteration12_complex_creation_e2e.py`
+
+Validation note:
+- Gateway async interface is currently exercised through sync wrappers in E2E tests (`asyncio.run(...)`) to match the existing suite execution model.
+- `pytest.mark.e2e` should later be registered in pytest config to eliminate current warning noise.
 
 ---
 
