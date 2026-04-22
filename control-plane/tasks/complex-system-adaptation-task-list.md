@@ -663,3 +663,49 @@
 ### Iteration 11 - v2 场景深化：修改链路与 skill 增减 - [x] 本轮目标场景（1-3 条） - **场景 1**: 修改链路支持更复杂的 refinement 与 skill 增减 - 验证修改 App 时可以添加/删除 skill - 验证修改后的 App 状态正确更新 - **场景 2**: 持久化、恢复、运行时状态一致性 - 验证修改后重启状态保留 - 验证运行时状态与持久化状态一致 - **场景 3**: 关键链路回归验证 - 对 v2 场景进行完整回归测试 - [x] 场景对应控制流映射 - 场景 1 控制流：`LightBrainGateway` → `RefinementWorker` → `RefinementOrchestrator` - 场景 2 控制流：`LightBrainGateway` → `AppManagementWorker` → `PersistenceService` - 场景 3 控制流：`LightBrainGateway` → `AppManagementWorker` → `RuntimeCenter` - [x] 失配点分类 - 无明显失配点，现有架构支持 refinement 与 skill 管理 - [x] 设计决策 - 保持 Phase H 设计决策，通过 E2E 测试验证现有能力 - [x] 最小必要实现改动 - 创建 E2E 测试文件 (`tests/e2e/test_iteration11_refinement_e2e.py`) - 包含 8 个测试：修改添加 skill、移除 skill、持久化、状态一致性、多轮修改、回归验证 - [x] 真实验证结果 - 运行 E2E 测试套件 (`tests/e2e/test_iteration11_refinement_e2e.py`) - 结果：8 个测试全部通过 - 通过测试： - ✅ `test_modify_app_add_skill` - 修改 App 添加 skill 正常 - ✅ `test_modify_app_remove_skill` - 修改 App 移除 skill 正常 - ✅ `test_persistence_recovery_after_modification` - 修改后持久化正常 - ✅ `test_runtime_state_matches_persistence` - 运行时状态一致 - ✅ `test_multi_turn_modification_preserves_state` - 多轮修改状态保留 - ✅ `test_create_modify_query_flow` - 创建→修改→查询链路正常 - ✅ `test_permission_boundary_on_modification` - 权限边界正常 - ✅ `test_execute_action_after_modification` - 修改后执行正常 - 代码已提交（commit 6b68629） - [x] 新增遗留问题 - 无新增系统缺陷 - [x] 下一轮入口 - Iteration 12：v2 场景收尾或 Phase III 规划
 
 ### Iteration 12 - v2 场景收尾：复杂创建澄清与需求累积 - [x] 本轮目标场景（1-3 条） - **场景 1**: 复杂创建场景的澄清与需求累积更稳定 - 验证多轮对话中澄清机制的稳定性 - 验证需求累积的完整性 - **场景 2**: v2 完整回归测试 - 对 v2 所有场景进行完整回归 - 确保无退化 - **场景 3**: v2 完成度总结与 Phase III 规划 - 总结 v2 完成度 - 规划 Phase III 方向 - [x] 场景对应控制流映射 - 场景 1 控制流：`LightBrainGateway` → `LightBrainInterpreter` → clarification/pending context → `AppManagementWorker` - 场景 2 控制流：`LightBrainGateway` → create/modify/execute query 主链路回归 - 场景 3 控制流：Task List 回写 → v2 完成度收口 → Phase III 入口规划 - [x] 失配点分类 - 失配点 1：Iteration 12 初版测试采用 async test 风格，与现有套件执行方式不一致 - 失配点 2：长时间整套执行存在外部 SIGTERM 干扰，需要分段确认结果 - [x] 设计决策 - 沿用当前 E2E 同步包装风格，使用 `asyncio.run(...)` 驱动 gateway async 接口 - 对整套回归采用“全量 + 单测补跑”方式确认，避免长任务被外部终止后结果不清 - [x] 最小必要实现改动 - 创建 `tests/e2e/test_iteration12_complex_creation_e2e.py` - 覆盖复杂创建澄清稳定性与 v2 回归共 6 个测试 - 将 async tests 修正为同步测试包装 - [x] 真实验证结果 - Iteration 12 测试文件已创建并验证 - 除首次 async 风格失败外，修正后分段回归通过 - 通过测试： - ✅ `test_multiturn_complex_creation_accumulates_requirements` - ✅ `test_clarification_survives_topic_refinement` - ✅ `test_clarification_then_query_does_not_break_context` - ✅ `test_v2_create_modify_execute_regression` - ✅ `test_v2_permission_and_approval_regression` - ✅ `test_v2_execute_action_regression_after_clarification` - [x] 新增遗留问题 - 需后续把 `pytest.mark.e2e` 注册到 pytest 配置，消除告警 - [x] 下一轮入口 - Phase III 规划：补文档映射、风险护栏与主链路失配清单收敛
+
+
+## Phase III - 收敛与沉淀
+- [x] 生成 Phase III 规划文档：`docs/phase-iii-planning.md`
+- [ ] Iteration 13：文档映射收敛
+- [ ] Iteration 14：风险护栏盘点与缺口评审
+- [ ] Iteration 15：主链路失配清单 v1
+
+### Iteration 13 - 文档映射收敛
+- [ ] 本轮目标场景（1-3 条）
+  - **场景 1**: 补 `system-relationship-map.md` 的主链路映射
+  - **场景 2**: 补 `testing.md` / `testing-detail.md` / `e2e-test-results.md` 的 v2 记录
+  - **场景 3**: 补 `development-log.md` 中 Iteration 10~12 的记录
+- [ ] 场景对应控制流映射
+- [ ] 失配点分类
+- [ ] 设计决策
+- [ ] 最小必要实现改动
+- [ ] 真实验证结果
+- [ ] 新增遗留问题
+- [ ] 下一轮入口 - Iteration 14：风险护栏盘点与缺口评审
+
+### Iteration 14 - 风险护栏盘点与缺口评审
+- [ ] 本轮目标场景（1-3 条）
+  - **场景 1**: query/tool loop/budget/contract lint 盘点
+  - **场景 2**: observability 与长任务中断策略盘点
+  - **场景 3**: 输出风险护栏缺口清单
+- [ ] 场景对应控制流映射
+- [ ] 失配点分类
+- [ ] 设计决策
+- [ ] 最小必要实现改动
+- [ ] 真实验证结果
+- [ ] 新增遗留问题
+- [ ] 下一轮入口 - Iteration 15：主链路失配清单 v1
+
+### Iteration 15 - 主链路失配清单 v1
+- [ ] 本轮目标场景（1-3 条）
+  - **场景 1**: 汇总 Phase H ~ Iteration 12 的主链路失配项
+  - **场景 2**: 结构化输出 mismatch list v1
+  - **场景 3**: 给出下一阶段优先级建议
+- [ ] 场景对应控制流映射
+- [ ] 失配点分类
+- [ ] 设计决策
+- [ ] 最小必要实现改动
+- [ ] 真实验证结果
+- [ ] 新增遗留问题
+- [ ] 下一轮入口 - Phase III 实施或 Phase IV 规划
