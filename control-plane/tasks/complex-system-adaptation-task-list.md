@@ -450,3 +450,25 @@
 - 已完成：收窄 gateway bridge 入口到 App 主路径意图，桥接层的 `None` 语义不再覆盖无关本地意图，减少假性降级探测
 
 - 已完成：修复 `handle_start_app(...)` 中遗留的 start/stop 语义串线，避免启动路径误走 stop 文案与错位前置判断
+
+### Iteration 3 - 真实场景 E2E 验证（当前迭代）
+- [x] 本轮目标场景（1-3 条）
+ - **场景 1**: 创建简单 App → 查看列表 → 启动 → 停止 → 查看详情的完整链路
+ - **场景 2**: 修改 App 增加功能 → 确认 → 验证效果
+ - **场景 3**: 多轮对话创建 App（带澄清）
+- [x] 场景对应控制流映射
+ - 场景 1 控制流：`LightBrainGateway` → `AppCreateModifyExecutor` → `AppInstallerService` → `RuntimeCenter` → `AppLifecycleService`
+ - 场景 2 控制流：`LightBrainGateway` → `AppCreateModifyExecutor` → `AppRefinementOrchestratorService` → `AssetCenter`
+ - 场景 3 控制流：`LightBrainGateway` → `LightBrainInterpreter` (clarification) → `AppCreateModifyExecutor`
+- [x] 失配点分类
+ - 已完成 Phase H 主路径收敛，所有场景的控制流已对齐到统一契约
+- [x] 设计决策
+ - 保持 Phase H 的设计决策，不再引入新的失配点
+- [ ] 最小必要实现改动
+ - 待运行 E2E 测试验证
+- [ ] 真实验证结果
+ - 待运行 E2E 测试套件
+- [ ] 新增遗留问题
+ - 待补充
+- [ ] 下一轮入口
+ - 待确定

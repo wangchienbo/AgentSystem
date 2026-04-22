@@ -66,6 +66,11 @@
 - [x] pattern 真相源统一(移除重复定义,exact/fuzzy/combined 视图一致)
 - [x] 测试验证:exact intent 不走 LLM(66 tests passed)
 - [x] 测试验证:gateway 在 interpret 前同步 tool registry
+- [x] Iteration 3 E2E 验证完成 (2026-04-22)
+  - 运行测试集：`test_app_lifecycle_e2e.py` (5 tests, 4 passed, 1 fixed), `test_continuous_conversation_e2e.py` (3 tests, all passed)
+  - 验证场景：打招呼、创建 App、澄清机制、话题切换、上下文连续性
+  - 发现并修复：测试用例设计问题（第 4 轮尝试启动不存在的 App）
+  - 新增测试文件：`tests/e2e/test_continuous_conversation_e2e.py`
 
 ### 0.4 剩余更像下一阶段的事项（Phase H+）
 
