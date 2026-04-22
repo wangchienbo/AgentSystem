@@ -527,28 +527,28 @@ descriptor 没定，tool 返回结构必然反复改。
 - [x] 明确字段命名、枚举、契约位置 - 已固化在 Pydantic 模型
 
 ### H2.2 核心服务资产化注册
-- [ ] `master_control` 注册
-- [ ] `config_center` 注册
-- [ ] `runtime_center` 注册
-- [ ] `model_router` 注册
-- [ ] `tool_calling_engine` 注册
-- [ ] `light_brain_gateway` 注册
+- [x] `master_control` 注册 - 已实现在 `app/services/master_control.py`
+- [x] `config_center` 注册 - 已实现在 `app/services/config_center.py`
+- [x] `runtime_center` 注册 - 已实现在 `app/system/catalog/runtime_center.py`
+- [x] `model_router` 注册 - 已实现在 `app/ai/internal_model_router.py`
+- [x] `tool_calling_engine` 注册 - 已实现在 `app/ai/tool_call_executor.py`
+- [x] `light_brain_gateway` 注册 - 已实现在 `app/system/gateway/light_brain_gateway.py`
 
 ### H2.3 资产发现工具
-- [ ] `list_assets`
-- [ ] `query_asset_info`
-- [ ] `call_asset_method`
-- [ ] 安全映射层
+- [x] `list_assets` - 已实现在 `app/services/asset_tools.py`
+- [x] `query_asset_info` - 已实现在 `app/services/asset_tools.py`
+- [x] `call_asset_method` - 已实现在 `app/system/catalog/runtime_center.py`
+- [x] 安全映射层 - 已实现在 `app/services/policy_authority_service.py`
 
 ### H3 运行态闭环
-- [ ] App 链路接入
-- [ ] Skill 链路接入
-- [ ] Session 链路接入
+- [x] App 链路接入 - 已实现在 `app/system/workers/app_mgmt.py`
+- [x] Skill 链路接入 - 已实现在 `app/services/skill_registry_service.py`
+- [x] Session 链路接入 - 已实现在 `app/services/context_center.py`
 
 ### H4 验证与记录
-- [ ] 建立 `docs/e2e-test-results.md`
-- [ ] 固定记录模板
-- [ ] 完成 A1/B1/D1 三个场景验证
+- [x] 建立 `docs/e2e-test-results.md` - 已创建
+- [x] 固定记录模板 - 已在开发日志中固化
+- [x] 完成 A1/B1/D1 三个场景验证 - Iterations 9-12 完成
 
 ### H5 治理挂接
 - [x] 权限检查 - Iteration 20-21 完成 (PolicyAuthorityService)
