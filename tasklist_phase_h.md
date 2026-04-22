@@ -71,6 +71,12 @@
   - 验证场景：打招呼、创建 App、澄清机制、话题切换、上下文连续性
   - 发现并修复：测试用例设计问题（第 4 轮尝试启动不存在的 App）
   - 新增测试文件：`tests/e2e/test_continuous_conversation_e2e.py`
+- [x] Iteration 8 治理挂接完成 (2026-04-22)
+  - 治理服务集成：`AuditLogger`、`CostQuotaManager`、`PolicyAuthorityService` 已注入 `AppManagementWorker`
+  - 审计日志覆盖：create/start/stop/delete/pause/resume/uninstall 全操作
+  - 配额检查：`create_app` 和 `uninstall_app` 操作前检查配额
+  - E2E 测试：`test_iteration8_governance_e2e.py` (10 tests, all passed)
+  - 代码提交：commits `0f88741`, `748f2ad`, `582fe84`, `652de55`
 
 ### 0.4 剩余更像下一阶段的事项（Phase H+）
 
