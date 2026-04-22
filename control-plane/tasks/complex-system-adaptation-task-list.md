@@ -928,6 +928,117 @@
   - 无
 - [x] 下一轮入口 - Iteration 22: Contract Linter 工具路径接入
 
+### Iteration 22 - Contract Linter 工具路径接入
+- [x] 本轮目标场景
+  - **场景 1**: Contract Linter 在 `_handle_runtime_asset_tool` 中接入
+  - **场景 2**: 验证工具调用前参数校验生效
+  - **场景 3**: 验证 block 事件记录到 Observability
+- [x] 场景对应控制流映射
+  - `light_brain_gateway._handle_runtime_asset_tool()`: `validate_tool_args()` 调用点
+  - `gateway.__init__`: `ContractLinter()` 实例化
+- [x] 失配点分类
+  - IC-004: Contract Linter 实例化未接入主路径 (已解决)
+- [x] 设计决策
+  - 在 gateway 层统一处理工具调用前的参数校验
+  - 校验失败返回友好错误，不抛异常
+  - block 事件通过 logger 记录并计入 observability
+- [x] 最小必要实现改动
+  - `light_brain_gateway.py`: 添加 `_contract_linter` 实例化
+  - `_handle_runtime_asset_tool()`: 添加 `validate_tool_args()` 调用点
+  - 更新 `test_iteration17_contract_budget_validation.py` 验证集成
+- [x] 真实验证结果
+  - 17/17 tests passed
+  - Contract Linter 成功集成到 runtime asset tool handler
+  - IC-004 **已解决** - 文档与实现路径对齐
+- [x] 新增遗留问题
+  - 无
+- [x] 下一轮入口 - Iteration 23: Observability Block 事件记录
+
+### Iteration 23 - Observability Block 事件记录
+- [x] 本轮目标场景
+  - **场景 1**: Rate Limiter block 事件记录到 Observability
+  - **场景 2**: Tool Loop Guard block 事件记录
+  - **场景 3**: Contract Linter reject 事件记录
+- [x] 场景对应控制流映射
+  - `ObservabilityCollector`: 新增 `_blocked_counter`
+  - `receive_message()`: rate limit block 时记录
+  - `_handle_runtime_asset_tool()`: tool loop/contract block 时记录
+- [x] 失配点分类
+  - OB-002: Risk guard block 事件缺少 observability (已解决)
+- [x] 设计决策
+  - 所有 block/reject 统一记录到 `CommandMetrics.status = "blocked"`
+  - `_blocked_counter` 独立计数便于监控
+  - 通过 logger.warning 输出便于日志聚合
+- [x] 最小必要实现改动
+  - `observability.py`: 添加 `_blocked_counter` 和 block 记录方法
+  - 更新所有 block 点调用 observability 记录
+  - 新增 `test_iteration23_observability_blocks.py` (6 tests)
+- [x] 真实验证结果
+  - 37/37 tests passed (focused tests)
+  - Rate limiter block 事件可观测 ✓
+  - Tool loop guard block 事件可观测 ✓
+  - Contract linter reject 事件可观测 ✓
+  - OB-002 **已解决**
+- [x] 新增遗留问题
+  - 无
+- [x] 下一轮入口 - Iteration 24: ADR-001 Phase 2
+
+### Iteration 24 - ADR-001 Phase 2: Budget/Quota 分层架构
+- [x] 本轮目标场景
+  - **场景 1**: ResourceBudgetManager 接口定义
+  - **场景 2**: BudgetTracker 与 CostQuotaManager 职责分层
+  - **场景 3**: 更新 wiring 注入点
+- [x] 场景对应控制流映射
+  - `app/services/resource_budget_manager.py`: 新接口定义
+  - `app/services/budget_tracker.py`: 适配新接口
+  - `app/system/workers/app_mgmt.py`: 使用分层架构
+- [x] 失配点分类
+  - IC-003: Budget/Quota 双轨未统一 (架构决策已做，进入实施)
+- [x] 设计决策
+  - Option C 分层架构: ResourceBudgetManager (资源层) + Governance Layer (治理层)
+  - 保持向后兼容，渐进迁移
+  - ADR-001 三阶段: Phase 1 接口 → Phase 2 重构 → Phase 3 集成
+- [x] 最小必要实现改动
+  - 完善 `ResourceBudgetManager` 接口定义
+  - 重构 `BudgetTracker` 实现新接口
+  - 更新 `AppManagementWorker` 注入逻辑
+- [x] 真实验证结果
+  - ResourceBudgetManager 接口定义完成
+  - BudgetTracker 适配新接口完成
+  - Wiring 注入点更新完成
+  - 代码已提交: commit `0ba5609`
+- [x] 新增遗留问题
+  - Phase 3 集成到 LLM/Tool 调用路径待完成
+- [x] 下一轮入口 - Iteration 25: ADR-001 Phase 3
+
+### Iteration 25 - ADR-001 Phase 3: ResourceBudgetManager 集成到调用路径
+- [x] 本轮目标场景
+  - **场景 1**: LLM 调用前预算检查
+  - **场景 2**: Tool 调用前预算检查
+  - **场景 3**: 预算消耗记录与超限阻断
+- [x] 场景对应控制流映射
+  - `ToolCallExecutor.execute()`: 预算检查点
+  - `LightBrainGateway.receive_message()`: LLM 调用预算检查
+  - `ResourceBudgetManager.consume_tokens()`: 统一消耗接口
+- [x] 失配点分类
+  - IC-003 Phase 3: 预算检查未集成到实际调用路径
+- [x] 设计决策
+  - 在 ToolCallExecutor 层统一拦截检查
+  - 支持 token / cost / request 多维度配额
+  - 超限返回友好提示而非异常
+- [x] 最小必要实现改动
+  - `app/ai/tool_call_executor.py`: 添加 budget manager 注入和检查
+  - `app/system/gateway/light_brain_gateway.py`: LLM 调用预算检查
+  - 更新 tests 验证预算超限行为
+- [x] 真实验证结果
+  - ToolCallExecutor budget 检查集成完成
+  - LLM 调用路径预算检查完成
+  - 代码已提交: commit `02a282c`
+  - IC-003 **完全解决** - Budget/Quota 双轨统一完成
+- [x] 新增遗留问题
+  - 无
+- [x] 下一轮入口 - Phase VI 规划 或 E2E 测试修复
+
 ---
 
 ## 历史迭代（已完成）
