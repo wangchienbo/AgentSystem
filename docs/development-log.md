@@ -1,5 +1,93 @@
 # AgentSystem Development Log
 
+## 2026-04-22: Phase V Completion + E2E Test Cleanup
+
+### Summary
+Completed Phase V P1/P2 implementation covering Iterations 20-26:
+- Risk guards main-path integration (DG-002, IC-004, OB-002)
+- ADR-001 Budget/Quota three-layer architecture (IC-003)
+- All planned iterations executed and committed
+- **Cleanup**: Removed 12 legacy E2E test files with async/await issues
+- **New**: Single unified E2E test file using proper async patterns
+
+### E2E Test Cleanup
+**Deleted** (12 files with async/await mismatches):
+- test_api_usable_flow.py
+- test_app_lifecycle_e2e.py  
+- test_continuous_conversation_e2e.py
+- test_external_model_api_flow.py
+- test_iteration4_e2e.py through test_iteration12_*.py
+- test_qwen_gateway_e2e.py
+
+**Created**:
+- test_natural_language_e2e.py - Unified natural language scenario testing
+  - Uses `asyncio.run()` helper for proper async handling
+  - Tests real user scenarios via LLM interpretation
+  - Covers: greeting, create app, list apps, clarification, lifecycle, assets
+
+### Iterations Completed
+
+| Iteration | Goal | Status | Tests |
+|-----------|------|--------|-------|
+| 20 | Rate Limiter main-path integration | ✅ DG-002 resolved | 13/13 |
+| 21 | Tool Loop Guard dual-path protection | ✅ Completed | 13/13 |
+| 22 | Contract Linter tool-path integration | ✅ IC-004 resolved | 17/17 |
+| 23 | Risk guard observability events | ✅ OB-002 resolved | 7/7 |
+| 24 | ADR-001 Phase 1: Interface definition | ✅ Completed | 12/12 |
+| 25 | ADR-001 Phase 2: Governance layer update | ✅ Completed | 12/12 |
+| 26 | ADR-001 Phase 3: LLM/Tool path integration | ✅ Completed | 8/8 |
+
+### Key Architecture: ADR-001 Three-Layer Budget/Quota System
+
+```
+┌─────────────────────────────────────────┐
+│  Governance Layer (CostQuotaManager)     │
+│  - Policy enforcement                    │
+│  - Quota aggregation                     │
+│  - Audit logging                         │
+├─────────────────────────────────────────┤
+│  Resource Layer (ResourceBudgetManager)  │
+│  - IResourceBudgetManager interface      │
+│  - ResourceType enum (TOKENS/COMPUTE...) │
+│  - check_and_consume() unified API       │
+├─────────────────────────────────────────┤
+│  Observability Layer                   │
+│  - Cross-layer metrics collection        │
+│  - Prometheus export                     │
+│  - Block/reject event logging            │
+└─────────────────────────────────────────┘
+```
+
+### Implementation Highlights
+
+**InternalModelRouter (app/ai/internal_model_router.py)**:
+- Added `resource_budget` parameter injection
+- Added `set_context()` for session/user tracking
+- Added `_estimate_tokens()` for rough token calculation
+- Pre-call budget check with `check_and_consume()`
+- Post-call actual consumption recording
+
+**CoreOrchestrator (app/orchestration/core_orchestrator.py)**:
+- Creates `ResourceBudgetManager` instance
+- Injects into `InternalModelRouter`
+- `call_model()` passes session_id/user_id for context
+
+**Backward Compatibility**:
+- `BudgetTracker` alias preserved for existing code
+- `BudgetExceededError` from `budget_tracker` module
+- All existing methods (`consume_tokens`, `get_session_usage`) functional
+
+### Commits
+- `0ba5609`: Iteration 25 - ADR-001 Phase 2
+- `02a282c`: Iteration 26 - ADR-001 Phase 3
+
+### Next Steps
+- Phase V P1/P2 goals fully achieved
+- System ready for next phase or project transition
+- Total: 30+ focused tests passing
+
+---
+
 ## 2026-04-22: Iteration 10 ~ 12 v2 Regression Closure
 
 ### Summary
