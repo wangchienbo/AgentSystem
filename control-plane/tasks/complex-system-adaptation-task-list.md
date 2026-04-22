@@ -685,17 +685,34 @@
 - [ ] 下一轮入口 - Iteration 14：风险护栏盘点与缺口评审
 
 ### Iteration 14 - 风险护栏盘点与缺口评审
-- [ ] 本轮目标场景（1-3 条）
+- [x] 本轮目标场景（1-3 条）
   - **场景 1**: query/tool loop/budget/contract lint 盘点
   - **场景 2**: observability 与长任务中断策略盘点
   - **场景 3**: 输出风险护栏缺口清单
-- [ ] 场景对应控制流映射
-- [ ] 失配点分类
-- [ ] 设计决策
-- [ ] 最小必要实现改动
-- [ ] 真实验证结果
-- [ ] 新增遗留问题
-- [ ] 下一轮入口 - Iteration 15：主链路失配清单 v1
+- [x] 场景对应控制流映射
+  - query/rate limit：API middleware / gateway 主消息入口候选
+  - tool loop：tool execution path / ToolCallingEngine 候选接入点
+  - budget/quota：`budget_tracker` 与 governance `CostQuotaManager` 双轨
+  - observability：command metrics + workflow observability 分层
+  - clarification：continuation / pending context 主链已落地
+- [x] 失配点分类
+  - 文档与代码路径漂移
+  - 已实现但未证明主链接入
+  - 护栏分类口径未统一
+  - 缺少 focused validation 记录
+- [x] 设计决策
+  - Iteration 14 先做 inventory/gap review，不直接扩写新抽象层
+  - 后续优先补“接入证据 + focused tests”，而非继续堆设计文档
+- [x] 最小必要实现改动
+  - 新增 `docs/iteration-14-risk-guard-review.md`
+- [x] 真实验证结果
+  - 已完成 query/tool loop/budget/observability/contract lint/clarification 六类护栏盘点
+  - 已识别治理护栏与 clarification 护栏接入度最高
+  - 已识别 rate limit / tool loop / contract lint / observability 主要缺口是主链接入证据不足
+- [x] 新增遗留问题
+  - `risk-guards-design.md` 仍需回写真实文件路径与实现状态
+  - 多数护栏缺少 focused validation tests
+- [x] 下一轮入口 - Iteration 15：主链路失配清单 v1
 
 ### Iteration 15 - 主链路失配清单 v1
 - [ ] 本轮目标场景（1-3 条）
