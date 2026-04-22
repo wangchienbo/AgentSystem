@@ -33,6 +33,8 @@ from app.services.collection_policy_service import CollectionPolicyService
 from app.services.context_retrieval_service import ContextRetrievalService
 from app.services.persistence_health_service import PersistenceHealthService
 from app.services.policy_authority_service import PolicyAuthorityService
+from app.governance.audit_logger import AuditLogger
+from app.governance.cost_quota import CostQuotaManager
 from app.services.policy_guard import PolicyGuardService
 from app.services.log_evidence_service import LogEvidenceService
 from app.services.requirement_router import RequirementRouter
@@ -347,6 +349,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     context_skill_service = ContextSkillService(context_store=app_context_store)
     collection_policy_service = CollectionPolicyService(store=runtime_store)
     policy_authority = PolicyAuthorityService(store=runtime_store)
+    # Phase I Governance services
+    audit_logger = AuditLogger()
+    cost_quota_manager = CostQuotaManager()
     persistence_health = PersistenceHealthService(store=runtime_store)
     upgrade_log_service = UpgradeLogService()
     blueprint_compare = BlueprintCompareService()
@@ -785,6 +790,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         app_catalog=app_catalog,
         tool_registry=tool_registry,
         runtime_center=runtime_center,
+        audit_logger=audit_logger,
+        cost_quota_manager=cost_quota_manager,
+        policy_authority_service=policy_authority,
     )
     user_manager = UserManager(
         user_service=user_service,
