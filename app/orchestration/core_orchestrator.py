@@ -19,6 +19,7 @@ from app.services.contract_linter import ContractLinter
 from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
 from app.services.command_queue import CommandQueue
 from app.services.internal_model_router import InternalModelRouter
+from app.services.resource_budget_manager import ResourceBudgetManager, ResourceBudgetConfig
 
 from app.services.asset_center import AssetCenter
 from app.services.resource_center import ResourceCenter
@@ -47,13 +48,21 @@ class CoreOrchestrator:
         # Phase B components
         self.skill_rpc = SkillRpcService()
         self.tool_registry = UnifiedToolRegistry()
+        
+        # Phase 3: ResourceBudgetManager for token/compute budget tracking
+        self.resource_budget = ResourceBudgetManager(ResourceBudgetConfig())
+        
         self.tool_executor = ToolCallExecutor(
             registry=self.tool_registry,
             tool_loop_guard=ToolLoopGuard(ToolLoopConfig()),
             contract_linter=ContractLinter(),
         )
         self.command_queue = CommandQueue()
-        self.model_router = InternalModelRouter()
+        
+        # Phase 3: Inject resource_budget into model_router
+        self.model_router = InternalModelRouter(
+            resource_budget=self.resource_budget,
+        )
 
         # Phase E components
         self.asset_center = AssetCenter(data_dir=data_dir)
@@ -92,7 +101,7 @@ class CoreOrchestrator:
             resource_center=self.resource_center,
         )
 
-        # 5. Model router
+        # 5. Model router (already initialized with resource_budget in __init__)
         await self.model_router.initialize()
 
         # 6. Register system tools
@@ -141,8 +150,22 @@ class CoreOrchestrator:
         prompt: str,
         system_prompt: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        session_id: str | None = None,
+        user_id: str | None = None,
     ) -> dict[str, Any]:
-        """Make a model API call through the serialized router."""
+        """Make a model API call through the serialized router.
+        
+        Args:
+            prompt: User/system prompt
+            system_prompt: Optional system prompt
+            tools: Optional tool definitions for LLM function calling
+            session_id: Session ID for budget tracking context
+            user_id: User ID for budget tracking context
+        """
+        # Phase 3: Set context for budget tracking
+        if session_id or user_id:
+            self.model_router.set_context(session_id, user_id)
+        
         return await self.model_router.call(
             prompt=prompt,
             system_prompt=system_prompt,

@@ -14,6 +14,8 @@ from typing import Any
 
 from app.services.model_client import OpenAIResponsesClient
 from app.services.model_config_loader import ModelConfigLoader
+from app.services.resource_budget_manager import ResourceBudgetManager, ResourceType
+from app.services.budget_tracker import BudgetExceededError
 
 
 class InternalModelRouter:
@@ -30,11 +32,24 @@ class InternalModelRouter:
         self,
         config_loader: ModelConfigLoader | None = None,
         max_concurrent: int = 1,
+        resource_budget: ResourceBudgetManager | None = None,
     ) -> None:
         self._config_loader = config_loader or ModelConfigLoader()
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._client: OpenAIResponsesClient | None = None
         self._initialized = False
+        self._resource_budget = resource_budget
+        self._current_session_id: str | None = None
+        self._current_user_id: str | None = None
+
+    def set_context(self, session_id: str | None, user_id: str | None) -> None:
+        """Set current session/user context for budget tracking."""
+        self._current_session_id = session_id
+        self._current_user_id = user_id
+
+    def _estimate_tokens(self, text: str) -> int:
+        """Rough token estimation (4 chars per token)."""
+        return len(text) // 4
 
     async def initialize(self) -> None:
         """Load configuration and create model client."""
@@ -71,15 +86,52 @@ class InternalModelRouter:
         if not self._client:
             raise RuntimeError("Model client not initialized")
 
+        # Phase 3: Check token budget before call
+        estimated_tokens = 0
+        if self._resource_budget and self._current_session_id:
+            estimated_tokens = self._estimate_tokens(prompt) + self._estimate_tokens(system_prompt or "")
+            success, error = self._resource_budget.check_and_consume(
+                ResourceType.TOKENS,
+                self._current_session_id,
+                self._current_user_id,
+                estimated_tokens,
+                "tokens",
+                context={"operation": "llm_call", "prompt_length": len(prompt)},
+            )
+            if not success:
+                raise BudgetExceededError(
+                    budget_type="token",
+                    used=estimated_tokens,
+                    limit=0,
+                    message=error or "Token budget exceeded",
+                )
+
         async with self._semaphore:
             # All model calls go through this single gate
-            return await self._client.chat(
+            result = await self._client.chat(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 tools=tools,
                 model_override=model_override,
                 timeout=timeout,
             )
+
+        # Phase 3: Record actual token consumption
+        if self._resource_budget and self._current_session_id:
+            actual_tokens = result.get('usage', {}).get('total_tokens', 0)
+            if actual_tokens > 0:
+                extra_tokens = actual_tokens - estimated_tokens
+                if extra_tokens > 0:
+                    self._resource_budget.check_and_consume(
+                        ResourceType.TOKENS,
+                        self._current_session_id,
+                        self._current_user_id,
+                        extra_tokens,
+                        "tokens",
+                        context={"operation": "llm_call_actual", "total_tokens": actual_tokens},
+                    )
+
+        return result
 
     async def call_with_tools(
         self,
