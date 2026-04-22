@@ -54,7 +54,8 @@ class AppManagementWorker:
         # Governance services (Phase I)
         self._audit_logger = audit_logger or (AuditLogger() if GOVERNANCE_ENABLED else None)
         self._cost_quota_manager = cost_quota_manager or (CostQuotaManager() if GOVERNANCE_ENABLED else None)
-        self._policy_authority_service = policy_authority_service or (PolicyAuthorityService() if GOVERNANCE_ENABLED else None)
+        # PolicyAuthorityService requires store, so it must be injected from runtime.py
+        self._policy_authority_service = policy_authority_service
 
     def execute(self, operation: str, target: str, params: dict) -> dict:
         """Dispatch to the appropriate method."""
@@ -277,19 +278,31 @@ class AppManagementWorker:
     def _pause_app(self, target: str, params: dict) -> dict:
         if not self._lifecycle:
             return {"status": "error", "message": "Lifecycle 未加载"}
+        user_id = params.get("user_id", "system")
         try:
             self._lifecycle.pause_app(target)
+            # Governance: Audit log
+            if self._audit_logger:
+                self._audit_logger.log("pause_app", target, "success", user_id, {})
             return {"status": "success", "message": f"App {target} 已暂停"}
         except Exception as e:
+            if self._audit_logger:
+                self._audit_logger.log("pause_app", target, "failed", user_id, {"error": str(e)})
             return {"status": "error", "message": str(e)}
 
     def _resume_app(self, target: str, params: dict) -> dict:
         if not self._lifecycle:
             return {"status": "error", "message": "Lifecycle 未加载"}
+        user_id = params.get("user_id", "system")
         try:
             self._lifecycle.resume_app(target)
+            # Governance: Audit log
+            if self._audit_logger:
+                self._audit_logger.log("resume_app", target, "success", user_id, {})
             return {"status": "success", "message": f"App {target} 已恢复"}
         except Exception as e:
+            if self._audit_logger:
+                self._audit_logger.log("resume_app", target, "failed", user_id, {"error": str(e)})
             return {"status": "error", "message": str(e)}
 
     def _list_apps(self, target: str, params: dict) -> dict:
@@ -364,6 +377,16 @@ class AppManagementWorker:
         return self._create_app(target, params)
 
     def _uninstall_app(self, target: str, params: dict) -> dict:
+        user_id = params.get("user_id", "system")
+        # Governance: Check quota before operation
+        if self._cost_quota_manager:
+            try:
+                self._cost_quota_manager.check_and_consume("app_uninstall", user_id)
+            except QuotaExceededError as e:
+                if self._audit_logger:
+                    self._audit_logger.log("uninstall_app", target, "failed", user_id, {"reason": "quota_exceeded", "error": str(e)})
+                return {"status": "error", "message": f"配额不足：{str(e)}"}
+        
         # 1. Stop in RuntimeCenter first
         if self._runtime_center:
             entry = self._runtime_center.get(target)
@@ -377,4 +400,10 @@ class AppManagementWorker:
         except Exception:
             pass  # Non-blocking: asset may not be in AssetCenter
         # 3. Delete lifecycle and registry entries
-        return self._delete_app(target, params)
+        result = self._delete_app(target, params)
+        # Governance: Audit log for uninstall
+        if self._audit_logger and result.get("status") == "success":
+            self._audit_logger.log("uninstall_app", target, "success", user_id, {})
+        elif self._audit_logger and result.get("status") == "error":
+            self._audit_logger.log("uninstall_app", target, "failed", user_id, {"error": result.get("message")})
+        return result
