@@ -583,6 +583,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 },
             },
             "app_management_worker": {
+                "create_app": lambda app_name, config=None: app_mgmt_worker.execute("create_app", app_name, {"config": config or {}}),
+                "modify_app": lambda app_name, modification: app_mgmt_worker.execute("modify_app", app_name, {"modification": modification}),
                 "list_apps": lambda status="all": app_mgmt_worker.execute("list_apps", "", {"status": status}),
                 "query_app": lambda app_name: app_mgmt_worker.execute("query_app", app_name, {}),
                 "start_app": lambda app_name: app_mgmt_worker.execute("start_app", app_name, {}),

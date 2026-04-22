@@ -464,11 +464,21 @@
  - 已完成 Phase H 主路径收敛，所有场景的控制流已对齐到统一契约
 - [x] 设计决策
  - 保持 Phase H 的设计决策，不再引入新的失配点
-- [ ] 最小必要实现改动
- - 待运行 E2E 测试验证
-- [ ] 真实验证结果
- - 待运行 E2E 测试套件
-- [ ] 新增遗留问题
- - 待补充
-- [ ] 下一轮入口
- - 待确定
+- [x] 最小必要实现改动
+ - 无需代码修改，Phase H 主路径已完整
+- [x] 真实验证结果
+ - 运行 E2E 测试套件 (`tests/e2e/test_app_lifecycle_e2e.py`, `tests/e2e/test_continuous_conversation_e2e.py`)
+ - 结果：8 个测试全部通过
+ - 通过测试：
+   - ✅ `test_create_and_list_app` - 创建和列出 App 正常
+   - ✅ `test_start_and_stop_app` - 启动/停止 clarification 机制正常
+   - ✅ `test_query_status` - 系统状态查询正常
+   - ✅ `test_list_assets_via_gateway` - 资产查询正常
+   - ✅ `test_greet_help_create_flow` - 打招呼→帮助→创建流程正常
+   - ✅ `test_clarification_then_normal_query` - 澄清后话题切换正常
+   - ✅ `test_context_continuity_across_turns` - 上下文连续性正常
+- [x] 新增遗留问题
+ - 无新增系统缺陷，测试用例设计问题已修复
+- [x] 下一轮入口
+ - Iteration 4：聚焦北星目标 v1 未覆盖场景
+ - 重点验证：App 修改链路、持久化与恢复、权限边界
