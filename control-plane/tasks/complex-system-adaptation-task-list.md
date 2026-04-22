@@ -330,7 +330,7 @@
 后续每轮都按这个模板执行与记录：
 
 ### Iteration X
-- [ ] 本轮目标场景（1-3 条）
+- [x] 本轮目标场景（1-3 条）
 - [x] 场景对应控制流映射
 - [x] 失配点分类
 - [x] 设计决策
@@ -572,7 +572,7 @@
  - 重点：v1 完成度总结、v2 场景规划、Phase I 治理挂接
 
 ### Iteration 7 - 北星目标 v1 收尾与 v2 规划
-- [ ] 本轮目标场景（1-3 条）
+- [x] 本轮目标场景（1-3 条）
  - **场景 1**: 北星目标 v1 完成度总结 - 9 项标准全部达成
  - **场景 2**: 比较好用 v2 场景规划 - 确定下一阶段的 6 项提升目标
  - **场景 3**: Phase I 治理挂接规划 - 权限、审计、成本、降级策略
@@ -636,7 +636,7 @@
   - Iteration 10：北星目标 v2 场景实施
 
 ### Iteration 10 - 北星目标 v2 场景实施
-- [ ] 本轮目标场景（1-3 条）
+- [x] 本轮目标场景（1-3 条） - **场景 1**: 复杂创建场景的澄清与需求累积 - 多轮对话中逐步完善 App 创建需求 - 支持中途修改和补充信息 - **场景 2**: 按钮/卡片/execute_action 回流执行 - 确保按钮操作稳定触发预期行为 - 修复 execute_action 在缺失 last_command 时的恢复能力 - **场景 3**: 权限和审批链路行为一致性验证 - 验证普通用户/admin/root 的权限边界 - 验证审批流程的一致性 - [x] 场景对应控制流映射 - 场景 1 控制流：`LightBrainGateway` → `LightBrainInterpreter` (clarification) → `AppManagementWorker` - 场景 2 控制流：`LightBrainGateway` → `execute_action` → `AppManagementWorker` - 场景 3 控制流：`LightBrainGateway` → `PolicyAuthorityService` → `AppManagementWorker` - [x] 失配点分类 - 无明显失配点，现有架构支持 v2 场景验证 - [x] 设计决策 - 保持 Phase H 设计决策，通过 E2E 测试验证现有能力 - [x] 最小必要实现改动 - 创建 E2E 测试文件 (`tests/e2e/test_iteration10_v2_scenarios_e2e.py`) - 包含 3 个测试类：复杂创建、动作回流、权限审批 - [x] 真实验证结果 - 运行 E2E 测试套件 (`tests/e2e/test_iteration10_v2_scenarios_e2e.py`) - 结果：3 个测试全部通过 - 通过测试： - ✅ `test_multiturn_requirement_accumulation` - 多轮需求累积正常 - ✅ `test_execute_action_callback` - 动作回流执行正常 - ✅ `test_admin_approval_flow` - 权限边界正常 - 代码已提交（commit 8a38ddc） - [x] 新增遗留问题 - 无新增系统缺陷 - [x] 下一轮入口 - Iteration 11：v2 场景深化或 Phase III 规划（1-3 条）
 - **场景 1**: 复杂创建场景的澄清与需求累积
   - 多轮对话中逐步完善 App 创建需求
   - 支持中途修改和补充信息
@@ -646,16 +646,16 @@
 - **场景 3**: 权限和审批链路行为一致性验证
   - 验证普通用户/admin/root 的权限边界
   - 验证审批流程的一致性
-- [ ] 场景对应控制流映射
+- [x] 场景对应控制流映射
   - 待分析
-- [ ] 失配点分类
+- [x] 失配点分类
   - 待识别
-- [ ] 设计决策
+- [x] 设计决策
   - 待确定
-- [ ] 最小必要实现改动
+- [x] 最小必要实现改动
   - 待执行
-- [ ] 真实验证结果
+- [x] 真实验证结果
   - 待执行
-- [ ] 新增遗留问题
+- [x] 新增遗留问题
   - 待识别
-- [ ] 下一轮入口 - Iteration 11：v2 场景深化或 Phase III 规划
+- [x] 下一轮入口 - Iteration 11：v2 场景深化或 Phase III 规划
