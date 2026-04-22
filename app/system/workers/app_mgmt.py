@@ -13,6 +13,20 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Governance imports (Phase I)
+try:
+    from app.governance.audit_logger import AuditLogger
+    from app.governance.cost_quota import CostQuotaManager, QuotaExceededError
+    from app.governance.policy_authority_service import PolicyAuthorityService, PolicyAuthorityError
+    GOVERNANCE_ENABLED = True
+except ImportError:
+    GOVERNANCE_ENABLED = False
+    AuditLogger = None  # type: ignore
+    CostQuotaManager = None  # type: ignore
+    QuotaExceededError = Exception  # type: ignore
+    PolicyAuthorityService = None  # type: ignore
+    PolicyAuthorityError = Exception  # type: ignore
+
 
 class AppManagementWorker:
     """Handles all App lifecycle operations: create, start, stop, pause, resume,
@@ -27,6 +41,9 @@ class AppManagementWorker:
         app_catalog: Any = None,
         tool_registry: Any = None,
         runtime_center: Any = None,
+        audit_logger: Any = None,
+        cost_quota_manager: Any = None,
+        policy_authority_service: Any = None,
     ) -> None:
         self._app_registry = app_registry
         self._lifecycle = lifecycle
@@ -34,6 +51,10 @@ class AppManagementWorker:
         self._app_catalog = app_catalog
         self._tool_registry = tool_registry
         self._runtime_center = runtime_center
+        # Governance services (Phase I)
+        self._audit_logger = audit_logger or (AuditLogger() if GOVERNANCE_ENABLED else None)
+        self._cost_quota_manager = cost_quota_manager or (CostQuotaManager() if GOVERNANCE_ENABLED else None)
+        self._policy_authority_service = policy_authority_service or (PolicyAuthorityService() if GOVERNANCE_ENABLED else None)
 
     def execute(self, operation: str, target: str, params: dict) -> dict:
         """Dispatch to the appropriate method."""
@@ -61,34 +82,62 @@ class AppManagementWorker:
     def _create_app(self, target: str, params: dict) -> dict:
         if not self._app_installer:
             return {"status": "error", "message": "AppInstaller 未加载"}
-        blueprint_id = params.get("blueprint_id", target)
+        
+        # Governance: Check quota before operation
         user_id = params.get("user_id", "system")
+        if self._cost_quota_manager:
+            try:
+                self._cost_quota_manager.check_and_consume("app_create", user_id)
+            except QuotaExceededError as e:
+                if self._audit_logger:
+                    self._audit_logger.log("create_app", target, "failed", user_id, {"reason": "quota_exceeded", "error": str(e)})
+                return {"status": "error", "message": f"配额不足：{str(e)}"}
+        
+        blueprint_id = params.get("blueprint_id", target)
         try:
             result = self._app_installer.install_app(
                 blueprint_id=blueprint_id,
                 user_id=user_id,
                 app_instance_id=params.get("app_instance_id"),
             )
+            # Governance: Audit log
+            if self._audit_logger:
+                self._audit_logger.log("create_app", target, "success", user_id, {"blueprint_id": blueprint_id, "app_id": result.app_instance_id})
             return {"status": "success", "data": {"app_id": result.app_instance_id}}
         except Exception as e:
+            if self._audit_logger:
+                self._audit_logger.log("create_app", target, "failed", user_id, {"error": str(e)})
             return {"status": "error", "message": str(e)}
 
     def _start_app(self, target: str, params: dict) -> dict:
         if not self._lifecycle:
             return {"status": "error", "message": "Lifecycle 未加载"}
+        
+        user_id = params.get("user_id", "system")
         try:
             self._lifecycle.transition(target, "start", reason=params.get("reason", "master_control.start_app"))
+            # Governance: Audit log
+            if self._audit_logger:
+                self._audit_logger.log("start_app", target, "success", user_id, {"reason": params.get("reason", "master_control.start_app")})
             return {"status": "success", "message": f"App {target} 已启动"}
         except Exception as e:
+            if self._audit_logger:
+                self._audit_logger.log("start_app", target, "failed", user_id, {"error": str(e)})
             return {"status": "error", "message": str(e)}
 
     def _stop_app(self, target: str, params: dict) -> dict:
         if not self._lifecycle:
             return {"status": "error", "message": "Lifecycle 未加载"}
+        user_id = params.get("user_id", "system")
         try:
             self._lifecycle.transition(target, "stop", reason=params.get("reason", "master_control.stop_app"))
+            # Governance: Audit log
+            if self._audit_logger:
+                self._audit_logger.log("stop_app", target, "success", user_id, {"reason": params.get("reason", "master_control.stop_app")})
             return {"status": "success", "message": f"App {target} 已停止"}
         except Exception as e:
+            if self._audit_logger:
+                self._audit_logger.log("stop_app", target, "failed", user_id, {"error": str(e)})
             return {"status": "error", "message": str(e)}
 
     def _start_asset(self, target: str, params: dict) -> dict:
@@ -299,10 +348,16 @@ class AppManagementWorker:
     def _delete_app(self, target: str, params: dict) -> dict:
         if not self._lifecycle:
             return {"status": "error", "message": "Lifecycle 未加载"}
+        user_id = params.get("user_id", "system")
         try:
             self._lifecycle.delete_app(target)
+            # Governance: Audit log
+            if self._audit_logger:
+                self._audit_logger.log("delete_app", target, "success", user_id, {})
             return {"status": "success", "message": f"App {target} 已删除"}
         except Exception as e:
+            if self._audit_logger:
+                self._audit_logger.log("delete_app", target, "failed", user_id, {"error": str(e)})
             return {"status": "error", "message": str(e)}
 
     def _install_app(self, target: str, params: dict) -> dict:
