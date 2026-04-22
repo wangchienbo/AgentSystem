@@ -714,40 +714,85 @@
   - 多数护栏缺少 focused validation tests
 - [x] 下一轮入口 - Iteration 15：主链路失配清单 v1
 
-### Iteration 15 - 主链路失配清单 v1
-- [x] 本轮目标场景（1-3 条）
-  - **场景 1**: 汇总 Phase H ~ Iteration 14 的主链路失配项
-  - **场景 2**: 结构化输出 mismatch list v1
-  - **场景 3**: 给出下一阶段优先级建议
-- [x] 场景对应控制流映射
-  - 汇总来源：`docs/e2e-test-results.md` (Phase H validation)
-  - 汇总来源：`control-plane/tasks/complex-system-adaptation-task-list.md` (Iteration 1~14)
-  - 汇总来源：`docs/iteration-14-risk-guard-review.md` (risk guard inventory)
-- [x] 失配点分类
-  - 控制流失配：CF-001~003
-  - 状态模型失配：SM-001~002
-  - 模块边界失配：MB-001~003
-  - 接口契约失配：IC-001~004
-  - 持久化失配：无活跃失配
-  - 权限失配：无活跃失配
-  - 降级失配：DG-001~002
-  - 可观测性失配：OB-001~002
-- [x] 设计决策
-  - 采用 8 维度 Mismatch Taxonomy 分类
-  - 每项标注：状态、影响、解决方向、优先级
-  - 区分“已解决”与“活跃缺口”
-- [x] 最小必要实现改动
-  - 新增 `docs/mismatch-list-v1.md`
-  - 10 项失配已结构化记录
-  - 5 项已解决，5 项需后续工作
-- [x] 真实验证结果
-  - 完成 Phase H ~ Iteration 14 失配项汇总
-  - 失配清单 v1 已产出
-  - 下一阶段入口建议已给出
-- [x] 新增遗留问题
-  - 5 项活跃缺口需后续处理（详见 mismatch list）
-  - P2 优先级：risk guard validation, rate limiter wiring, budget/quota unification decision
-  - P3 优先级：multi-intent, context summary productization, doc path alignment
-- [x] 下一轮入口
-  - Phase III 实施：risk guard focused validation (P2)
-  - 或 Phase IV 规划：架构决策与长期优化
+### Phase III 完成总结
+- Iteration 13: 文档映射收敛 - 5个文档更新，补全 v2 回归覆盖记录
+- Iteration 14: 风险护栏盘点 - 产出 `iteration-14-risk-guard-review.md`
+- Iteration 15: 失配清单 v1 - 产出 `mismatch-list-v1.md`，8维度分类，10项失配结构化
+
+### Phase IV 入口 - Risk Guard 验证与架构决策
+**目标**: 完成风险护栏验证，补齐接入证据，做出预算/配额统一架构决策
+
+### Iteration 16 - Rate Limiter & Tool Loop Guard 验证
+- [ ] 本轮目标场景
+  - **场景 1**: rate limiter 在主消息路径的集成点证据
+  - **场景 2**: tool loop guard 阻塞行为的 focused test
+  - **场景 3**: 更新 `docs/risk-guards-design.md` 实际集成点
+- [ ] 场景对应控制流映射
+  - rate limiter: API middleware / gateway 主消息入口候选
+  - tool loop guard: tool execution path / ToolCallingEngine 候选接入点
+- [ ] 失配点分类
+  - DG-002: rate limiter 接入证据不足
+  - OB-002: 缺少 block/reject 场景的 focused validation
+- [ ] 设计决策
+  - 采用 focused E2E test 验证风险护栏实际触发
+  - 区分"实现存在"与"主链验证通过"
+- [ ] 最小必要实现改动
+  - 新增或复用 focused test 验证 rate limiting
+  - 新增或复用 focused test 验证 tool loop blocking
+  - 更新设计文档记录实际接入点
+- [ ] 真实验证结果
+  - 测试执行结果记录
+- [ ] 新增遗留问题
+- [ ] 下一轮入口 - Iteration 17: Contract Linter & Budget 验证
+
+### Iteration 17 - Contract Linter & Budget 验证
+- [ ] 本轮目标场景
+  - **场景 1**: contract linter 主链接入点识别
+  - **场景 2**: budget tracker 限额触发 focused test
+  - **场景 3**: block/reject 事件可观测性验证
+- [ ] 场景对应控制流映射
+- [ ] 失配点分类
+  - IC-004: contract linter 文档路径漂移需对齐
+  - OB-002: budget tracker 可观测性缺口
+- [ ] 设计决策
+- [ ] 最小必要实现改动
+- [ ] 真实验证结果
+- [ ] 新增遗留问题
+- [ ] 下一轮入口 - Iteration 18: Budget/Quota 统一架构决策
+
+### Iteration 18 - Budget/Quota 统一架构决策
+- [ ] 本轮目标场景
+  - **场景 1**: Budget/Quota 双轨现状分析
+  - **场景 2**: 产出架构决策记录 (ADR)
+  - **场景 3**: 确定迁移路径（如需要）
+- [ ] 场景对应控制流映射
+  - budget_tracker.py (token-level resource tracking)
+  - CostQuotaManager (governance-level operation quotas)
+- [ ] 失配点分类
+  - IC-003: budget/quota 口径未统一
+- [ ] 设计决策
+  - Option 1: 合并为统一配额系统
+  - Option 2: 保持分离（资源 vs 治理关注点）
+  - Option 3: 分层架构（budget 基础层 + quota 策略层）
+- [ ] 最小必要实现改动
+  - 产出 ADR 文档
+  - 如决策为"合并": 产出实现计划
+  - 如决策为"分层": 明确分离界面
+- [ ] 真实验证结果
+- [ ] 新增遗留问题
+- [ ] 下一轮入口 - Iteration 19: 可观测性与文档清理
+
+### Iteration 19 - 可观测性与文档清理
+- [ ] 本轮目标场景
+  - **场景 1**: command-level vs workflow observability 统一
+  - **场景 2**: `risk-guards-design.md` 路径对齐
+  - **场景 3**: context summary 产品化（如时间允许）
+- [ ] 场景对应控制流映射
+- [ ] 失配点分类
+  - OB-001: context summary debug → 产品化
+  - IC-004: 文档路径漂移
+- [ ] 设计决策
+- [ ] 最小必要实现改动
+- [ ] 真实验证结果
+- [ ] 新增遗留问题
+- [ ] 下一轮入口 - Phase V 规划（Governance 扩展或性能优化）
