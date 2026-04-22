@@ -519,12 +519,12 @@ descriptor 没定，tool 返回结构必然反复改。
 ## 11. 正式 Task List
 
 ### H2.1 最小公共资产契约
-- [ ] 定义 `AssetDescriptor`
-- [ ] 定义 `AssetCapability`
-- [ ] 定义 `AssetState`
-- [ ] 定义资产分类模型
-- [ ] 定义生命周期状态机
-- [ ] 明确字段命名、枚举、契约位置
+- [x] 定义 `AssetDescriptor` - 已实现在 `app/models/asset_contract.py`
+- [x] 定义 `AssetCapability` - 已实现在 `app/models/asset_contract.py`
+- [x] 定义 `AssetState` - 已实现在 `app/models/asset_contract.py`
+- [x] 定义资产分类模型 - 已实现 `AssetKind`/`AssetType`/`Visibility`
+- [x] 定义生命周期状态机 - 已实现 `ALLOWED_ASSET_STATE_TRANSITIONS`
+- [x] 明确字段命名、枚举、契约位置 - 已固化在 Pydantic 模型
 
 ### H2.2 核心服务资产化注册
 - [ ] `master_control` 注册
@@ -551,10 +551,10 @@ descriptor 没定，tool 返回结构必然反复改。
 - [ ] 完成 A1/B1/D1 三个场景验证
 
 ### H5 治理挂接
-- [ ] 权限检查
-- [ ] 审计日志
-- [ ] 成本与配额
-- [ ] 降级策略
+- [x] 权限检查 - Iteration 20-21 完成 (PolicyAuthorityService)
+- [x] 审计日志 - Iteration 8 完成 (AuditLogger)
+- [x] 成本与配额 - Iteration 24-26 完成 (CostQuotaManager + ResourceBudgetManager)
+- [x] 降级策略 - Iteration 23 完成 (Observability + block/reject 处理)
 
 ---
 
