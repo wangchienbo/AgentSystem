@@ -168,6 +168,26 @@ class LightBrainGateway:
         self._mirror_session_node(session_id=session_id, user_id=request.user_id, channel=request.channel)
         self._append_context_record(session_id=session_id, role="user", content=request.message, kind="message")
 
+        # Phase H+: Rate limit check
+        allowed, block_reason = self._rate_limiter.is_session_allowed(session_id)
+        if not allowed:
+            logger.warning(f"Rate limit blocked: session={session_id}, reason={block_reason}")
+            return ChatMessageResponse(
+                type="text",
+                content=f"请求过于频繁，请稍后再试。{block_reason}",
+                session_id=session_id,
+            )
+        self._rate_limiter.increment_concurrent(session_id)
+        self._rate_limiter.record_query(session_id)
+
+        # Phase H+: Observability - start command tracking
+        import time as _time
+        _cmd_start_time = _time.time()
+        _cmd_tool_calls = 0
+
+        # Phase H+: Tool loop guard - reset at command start
+        self._tool_loop_guard.reset_command()
+
         # Phase 7.1: interpret intent using interpreter
         if hasattr(self._interpreter, "set_tool_registry"):
             self._interpreter.set_tool_registry(self._tool_registry)
@@ -175,7 +195,6 @@ class LightBrainGateway:
             message=request.message,
             available_apps=available_apps or [],
             user_id=request.user_id or "system",
-            session_id=session_id,
         )
 
         # Phase 7.2: enrich command with tools and session state
@@ -186,6 +205,23 @@ class LightBrainGateway:
         # Phase 7.3: execute workflow and return reply
         result = await self._execute_command(command, session_id, available_apps)
         self._after_reply(session_id=session_id, reply=result)
+
+        # Phase H+: Observability - record command metrics
+        _cmd_duration_ms = int((_time.time() - _cmd_start_time) * 1000)
+        from app.utils.observability import CommandMetrics
+        self._observability.record_command(CommandMetrics(
+            session_id=session_id,
+            user_id=command.user_id,
+            command_type=command.intent,
+            target_app=command.target_app,
+            status="success" if not result.content.startswith("请求过于频繁") else "blocked",
+            duration_ms=_cmd_duration_ms,
+            tokens_used=len(result.content) // 4,  # rough estimate
+            tool_calls=_cmd_tool_calls,
+        ))
+
+        # Phase H+: Rate limit - release concurrent slot
+        self._rate_limiter.decrement_concurrent(session_id)
 
         # Phase 7.5: auto-save state if persistence available
         self._auto_save()
@@ -951,6 +987,29 @@ class LightBrainGateway:
     async def _handle_runtime_asset_tool(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
+        # Phase H+: Tool loop guard check before tool execution
+        import time as _time
+        _cmd_tool_calls = getattr(self, '_cmd_tool_calls', 0)
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, 
+            dict(command.parameters or {}), 
+            _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return ChatMessageResponse(
+                type="text",
+                content=f"工具调用过于频繁或出现循环，已阻断。{block_reason}",
+                session_id=session_id,
+                requires_input=False,
+            )
+        # Record tool call after check passes
+        self._tool_loop_guard.record_call(
+            command.intent,
+            dict(command.parameters or {}),
+            _time.time()
+        )
+        
         if not self._asset_tool_executor:
             return self._error_reply(session_id, "⚠️ 运行态资产工具模块未加载。")
         caller_id = f"user.{command.user_id}" if command.user_id else "system"

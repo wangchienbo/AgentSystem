@@ -856,20 +856,44 @@
 ---
 
 ### Phase V 规划 - 实施或扩展
-**状态**: 等待决策
-**目标**: 完成风险护栏 P1/P2 实施，或转向新能力开发
+**状态**: ✅ 决策已选择
+**选择**: Option A (P1/P2 实施) - 先完成风险护栏闭环，再考虑扩展
+**目标**: 完成风险护栏主链接入，关闭 DG-002 / IC-003 / IC-004 / OB-002
 
-**决策选项**:
-- **Option A**: P1/P2 实施（Rate Limiter / Tool Loop / Contract Linter 主链接入 + Budget/Quota 架构实施）
-- **Option B**: 治理扩展（RBAC、合规审计、多租户隔离）
-- **Option C**: 性能优化（并发、缓存、内存管理）
-- **Option D**: 新能力（多意图分解、高级 App 功能、开发者体验）
-- **Option E**: 混合方案（A + B1）- 完成 P1 后扩展治理
+**决策依据**:
+- Phase IV 已验证所有组件功能完整 (26 tests passed)
+- 仅缺失主链接入 (60-80% 完成度)
+- 风险护栏是系统安全基础，应优先闭环
+- 完成后可为后续扩展 (Governance/Performance) 提供稳定基线
 
-**推荐**: Option A/E - 先完成风险护栏闭环，再扩展
 **参考文档**: `docs/phase-v-planning.md`
 
-**等待决策后再继续**
+---
+
+### Iteration 20 - Rate Limiter 主路径接入
+- [ ] 本轮目标场景
+  - **场景 1**: `receive_message()` 入口接入 `is_session_allowed()` 检查
+  - **场景 2**: 请求处理后接入 `record_query()` 追踪
+  - **场景 3**: 异步处理前后接入并发追踪 `increment/decrement`
+- [ ] 场景对应控制流映射
+  - 接入点 1: `LightBrainGateway.receive_message()` 开始处 - 检查是否允许
+  - 接入点 2: `receive_message()` 成功返回后 - 记录查询
+  - 接入点 3: 异步操作前后 - 并发计数管理
+- [ ] 失配点分类
+  - DG-002: rate limiter 实例化但未调用 (本次迭代解决)
+- [ ] 设计决策
+  - 保持 rate limiter 接口不变，仅添加调用点
+  - 被阻止的请求返回友好提示，不抛异常
+  - 并发追踪使用 try/finally 确保释放
+- [ ] 最小必要实现改动
+  - 修改 `app/system/gateway/light_brain_gateway.py`
+  - 添加 3 个接入点的 rate limiter 调用
+  - 更新 `test_iteration16_risk_guard_integration.py` 验证阻止行为
+- [ ] 真实验证结果
+  - 测试验证 rate limiter 实际阻止超限请求
+  - 测试验证并发追踪正确
+- [ ] 新增遗留问题
+- [ ] 下一轮入口 - Iteration 21: Tool Loop Guard 主路径接入
 
 ---
 

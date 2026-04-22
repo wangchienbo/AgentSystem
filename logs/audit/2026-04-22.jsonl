@@ -4,3 +4,5 @@
 {"timestamp": "2026-04-22T03:30:08.228808+00:00", "action": "start_app", "user_id": "novel", "target_id": "success", "details": "system", "result": {"reason": "master_control.start_app"}, "error_message": ""}
 {"timestamp": "2026-04-22T03:30:08.234872+00:00", "action": "start_app", "user_id": "novel", "target_id": "success", "details": "system", "result": {"reason": "master_control.start_app"}, "error_message": ""}
 {"timestamp": "2026-04-22T03:30:08.236891+00:00", "action": "stop_app", "user_id": "novel", "target_id": "success", "details": "system", "result": {"reason": "master_control.stop_app"}, "error_message": ""}
+{"timestamp": "2026-04-22T07:14:05.770528+00:00", "action": "delete_app", "user_id": "\u5c0f\u8bf4 App", "target_id": "failed", "details": "system", "result": {"error": "'AppLifecycleService' object has no attribute 'delete_app'"}, "error_message": ""}
+{"timestamp": "2026-04-22T07:14:13.621591+00:00", "action": "delete_app", "user_id": "\u5c0f\u8bf4 App", "target_id": "failed", "details": "system", "result": {"error": "'AppLifecycleService' object has no attribute 'delete_app'"}, "error_message": ""}
