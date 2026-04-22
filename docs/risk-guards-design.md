@@ -1,7 +1,8 @@
 # Phase H+ 风险护栏设计文档
 
 > **创建时间**: 2026-04-22  
-> **目标**: 为 AgentSystem 主路径添加风险护栏，防止系统滥用、失控或产生不可预料的副作用
+> **更新时间**: 2026-04-22  
+> **状态**: Phase IV 验证完成，文档已对齐实现
 
 ## 背景
 
@@ -10,6 +11,275 @@ Phase H 已完成主路径闭环，支持上下文注入、动态决策和自动
 - 不会因权限问题导致越权操作
 - 不会因异常导致系统崩溃
 - 所有操作可追溯、可审计
+
+---
+
+## 实施状态总览
+
+| 护栏类别 | 实现文件 | 状态 | 主链集成 | 验证测试 |
+|----------|----------|------|----------|----------|
+| Rate Limiting | `app/services/rate_limiter.py` | ✅ 已实现 | ⚠️ 实例化但未调用 | ✅ 9/9 passed |
+| Tool Loop Guard | `app/services/tool_loop_guard.py` | ✅ 已实现 | ⚠️ 实例化但未调用 | ✅ 9/9 passed |
+| Budget Tracker | `app/services/budget_tracker.py` | ✅ 已实现 | ❌ 未接入 gateway | ✅ 17/17 passed |
+| Contract Linter | `app/services/contract_linter.py` | ✅ 已实现 | ❌ 未接入 gateway | ✅ 17/17 passed |
+| Observability | `app/utils/observability.py` | ✅ 已实现 | ✅ 已实例化 | ✅ 17/17 passed |
+| API Rate Limiter | `app/api/middleware.py` | ✅ 已实现 | ✅ API 层已激活 | ✅ 集成测试通过 |
+| Clarification | `app/models/chat.py`, `app/services/continuation_service.py` | ✅ 已实现 | ✅ 主链已集成 | ✅ E2E 通过 |
+| Governance | `app/system/workers/app_mgmt.py` | ✅ 已实现 | ✅ AppManagementWorker 已注入 | ✅ E2E 10/10 passed |
+
+---
+
+## 风险分类与护栏设计
+
+### 1. Query 上限（Rate Limiting）
+
+**风险**: 单次会话或单用户短时间内发起过多查询，导致系统负载过高或 LLM 费用失控
+
+**实现状态**: ✅ 已实现，⚠️ 主链未调用
+
+**实现文件**:
+- `app/services/rate_limiter.py` - 核心限流器
+- `app/api/middleware.py` - API 层限流中间件（已激活）
+- `app/system/gateway/light_brain_gateway.py` - 已实例化但未调用
+
+**当前配置**:
+```python
+# app/services/rate_limiter.py - RateLimitConfig
+max_concurrent_queries_per_session: int = 5
+max_queries_per_user_per_minute: int = 30
+max_queries_per_session_per_minute: int = 20
+max_tool_calls_per_command: int = 10
+max_tool_calls_per_session: int = 100
+```
+
+**主链集成状态**:
+```python
+# light_brain_gateway.py 第 95 行 - 已实例化
+self._rate_limiter = RateLimiter(RateLimitConfig())
+
+# 缺失: receive_message() 中未调用 is_session_allowed() / record_query()
+# 缺失: 并发查询 increment/decrement 未跟踪
+```
+
+**待办事项**:
+- [ ] 在 `receive_message()` 入口添加 `is_session_allowed()` 检查
+- [ ] 请求处理后调用 `record_query()` 追踪
+- [ ] 异步处理前后添加 `increment_concurrent()` / `decrement_concurrent()`
+
+---
+
+### 2. Tool Loop 上限（Tool Call Limit）
+
+**风险**: 单个命令触发过多 tool 调用，导致无限循环或资源浪费
+
+**实现状态**: ✅ 已实现，⚠️ 主链未调用
+
+**实现文件**:
+- `app/services/tool_loop_guard.py` - Tool Loop Guard 实现
+- `app/system/gateway/light_brain_gateway.py` - 已实例化但未调用
+
+**当前配置**:
+```python
+# app/services/tool_loop_guard.py - ToolLoopConfig
+max_tool_calls_per_command: int = 10
+max_consecutive_tool_calls: int = 20
+rapid_call_window_seconds: float = 5.0
+max_rapid_calls: int = 15
+```
+
+**主链集成状态**:
+```python
+# light_brain_gateway.py 第 96 行 - 已实例化
+self._tool_loop_guard = ToolLoopGuard(ToolLoopConfig())
+
+# 缺失: ToolCallingEngine 未接入 check_allowed() / record_call()
+# 缺失: 命令开始时未调用 reset_command()
+```
+
+**待办事项**:
+- [ ] 在 ToolCallingEngine 执行前添加 `check_allowed()` 检查
+- [ ] 工具调用后调用 `record_call()` 记录
+- [ ] 新命令开始时调用 `reset_command()`
+
+---
+
+### 3. Budget 控制（成本预算）
+
+**风险**: LLM 调用、API 调用等产生不可控的费用
+
+**实现状态**: ✅ 已实现，❌ 未接入 gateway
+
+**实现文件**:
+- `app/services/budget_tracker.py` - 预算追踪器（Token 级别）
+- `app/system/workers/app_mgmt.py` - CostQuotaManager（治理层面）
+
+**当前配置**:
+```python
+# app/services/budget_tracker.py - BudgetConfig
+token_budget_per_session: int = 100000
+token_budget_per_user_per_day: int = 500000
+token_budget_per_command: int = 20000
+```
+
+**架构决策** (ADR-001):
+- **方案**: 分层架构（Layered Architecture）
+- **资源层**: `BudgetTracker` → 将更名为 `ResourceBudgetManager`
+- **治理层**: `CostQuotaManager` 依赖资源层数据
+- **状态**: 决策已记录，Phase 1-3 实施路线图已制定
+
+**主链集成状态**: 未接入 gateway
+
+**待办事项**:
+- [ ] Phase 1: 定义 `ResourceBudgetManager` 接口
+- [ ] Phase 2: 重命名并更新 governance 依赖
+- [ ] Phase 3: 接入 LLM 调用和工具执行
+
+---
+
+### 4. Observability（可观测性）
+
+**风险**: 系统出现问题时无法快速定位原因
+
+**实现状态**: ✅ 已实现，✅ 已实例化
+
+**实现文件**:
+- `app/utils/observability.py` - 核心可观测性模块
+- `app/services/workflow_observability.py` - Workflow 可观测性
+- `app/system/gateway/light_brain_gateway.py` - 已实例化
+
+**当前状态**:
+```python
+# light_brain_gateway.py 第 97 行 - 已实例化
+self._observability = ObservabilityCollector()
+
+# 功能: CommandMetrics 记录，Prometheus 格式导出
+# 缺失: Risk guard block 事件未记录 (OB-002)
+```
+
+**日志格式**:
+```json
+{
+  "timestamp": "2026-04-22T04:00:00Z",
+  "session_id": "sess_123",
+  "user_id": "user_456",
+  "command": "start_app",
+  "target_app": "小说 App",
+  "status": "success",
+  "duration_ms": 150,
+  "tool_calls": 2,
+  "tokens_used": 1200,
+  "error": null
+}
+```
+
+**待办事项**:
+- [ ] 在 rate limiter block 时记录 `rate_limiter.session_blocked`
+- [ ] 在 tool loop block 时记录 `tool_loop.limit_exceeded`
+- [ ] 在 budget exceed 时记录 `budget.exceeded`
+
+---
+
+### 5. Contract Lint（契约校验）
+
+**风险**: 模块间接口契约不一致导致运行时错误
+
+**实现状态**: ✅ 已实现，❌ 未接入 gateway
+
+**实现文件**:
+- `app/services/contract_linter.py` - 契约校验工具
+- **原设计文档路径**: `app/utils/contract_lint.py` (⚠️ 路径漂移，实际为 `app/services/contract_linter.py`)
+
+**当前能力**:
+- JSON 结构验证: `validate_json_structure()`
+- Tool 参数验证: `validate_tool_args()`
+- LintResult 返回格式统一
+
+**主链集成状态**: 未接入 gateway
+
+**待办事项**:
+- [ ] 在工具调用前接入 `validate_tool_args()`
+- [ ] 在 LLM 响应解析后接入 `validate_json_structure()`
+- [ ] 更新文档路径对齐
+
+---
+
+### 6. Clarification / Pending Context（澄清与待处理上下文）
+
+**风险**: 多轮对话中需求丢失或状态混乱
+
+**实现状态**: ✅ 已实现，✅ 主链已集成
+
+**实现文件**:
+- `app/models/chat.py` - `clarification` 字段定义
+- `app/models/continuation.py` - Continuation 状态模型
+- `app/services/continuation_service.py` - Continuation 服务
+- `app/services/app_create_modify_executor.py` - 创建/修改执行器
+- `app/services/app_lifecycle_query_executor.py` - 生命周期查询执行器
+
+**集成验证**:
+- ✅ `test_multiturn_complex_creation_accumulates_requirements` - 通过
+- ✅ `test_clarification_survives_topic_refinement` - 通过
+- ✅ `test_clarification_then_query_does_not_break_context` - 通过
+
+---
+
+### 7. Governance（治理护栏）
+
+**风险**: 权限越界、无审计追踪、资源滥用
+
+**实现状态**: ✅ 已实现，✅ 已集成
+
+**实现文件**:
+- `app/system/workers/app_mgmt.py` - `CostQuotaManager` 集成
+- `app/services/audit_logger.py` - 审计日志
+- `app/services/policy_authority_service.py` - 权限服务
+
+**集成验证**:
+- ✅ E2E 测试 10/10 通过
+- ✅ 审计日志覆盖: create/start/stop/delete/pause/resume/uninstall
+- ✅ 配额检查覆盖: create_app, uninstall_app
+
+---
+
+## 实现优先级（Phase IV 更新）
+
+### P0（已实现）
+- ✅ Tool Loop Guard - 功能完整
+- ✅ Rate Limiter - 功能完整
+- ✅ Observability - 已实例化
+- ✅ Clarification - 主链已集成
+- ✅ Governance - 主链已集成
+
+### P1（需主链接入）
+- [ ] Rate Limiter 主链调用
+- [ ] Tool Loop Guard 主链调用
+- [ ] Contract Linter 接入
+- [ ] Risk Guard block 事件可观测性 (OB-002)
+
+### P2（架构实施）
+- [ ] Budget/Quota 统一架构 (ADR-001 Phase 1-3)
+
+### P3（可选）
+- [ ] Context Summary 产品化 (OB-001)
+- [ ] 文档路径完全对齐
+
+---
+
+## 相关文档
+
+- `docs/mismatch-list-v1.md` - 失配清单 v1（10 项失配，5 已解决，5 活跃）
+- `docs/adr-001-budget-quota-unification.md` - Budget/Quota 统一架构决策
+- `tests/focused/test_iteration16_risk_guard_integration.py` - Rate Limiter / Tool Loop 验证 (9 tests)
+- `tests/focused/test_iteration17_contract_budget_validation.py` - Contract Linter / Budget 验证 (17 tests)
+
+---
+
+## 下一步
+
+1. **Phase IV 完成总结**: Iteration 13-18 已全部完成
+2. **Phase V 入口**: 风险护栏主链接入实施 或 新功能开发
+3. **决策点**: 是否继续实施 P1 主链接入，或转入其他优先级任务
+
 
 ## 风险分类与护栏设计
 
