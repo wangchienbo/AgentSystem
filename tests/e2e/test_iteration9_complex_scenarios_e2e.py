@@ -7,14 +7,6 @@
 import pytest
 from pathlib import Path
 from datetime import UTC, datetime
-from app.services.app_lifecycle_service import AppLifecycleService
-from app.services.app_registry_service import AppRegistryService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.app_management_worker import AppManagementWorker
-from app.governance.audit_logger import AuditLogger
-from app.governance.cost_quota import CostQuotaManager, QuotaConfig
-from app.governance.policy_authority_service import PolicyAuthorityService
-from app.services.permission_skill import PermissionService, UserRole
 
 
 class TestComplexIntentRouting:
@@ -70,7 +62,7 @@ class TestLongRunningStability:
     
     def test_garbage_collection_of_resolved_sessions(self, tmp_path: Path) -> None:
         """已完成会话的垃圾回收"""
-        # TODO: 实现已完成会话回测试
+        # TODO: 实现已完成会话回收测试
         pass
 
 
