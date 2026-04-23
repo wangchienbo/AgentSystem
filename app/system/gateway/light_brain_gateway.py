@@ -594,11 +594,27 @@ class LightBrainGateway:
             "master_execute": self._handle_master_execute,
         }
 
+        # 统一 handler 字典：没有精确匹配的意图全部透传给 ToolCallingEngine（LLM 决定）
+        # 当 ToolCallingEngine 返回 direct_response / unclear 时，由这里兜底生成友好回复
+        def _llm_fallback_handler(command: InterpretedCommand, session_id: str, apps: list[dict]) -> ChatMessageResponse:
+            text = command.parameters.get("text") or command.parameters.get("reply", "")
+            if not text:
+                return ChatMessageResponse(
+                    type="text",
+                    content="我明白了。有什么我可以帮你的吗？",
+                    session_id=session_id,
+                )
+            return ChatMessageResponse(type="text", content=text, session_id=session_id)
+
         handler = local_handlers.get(command.intent)
         if handler:
             return await handler(command, session_id, available_apps)
 
-        return self._error_reply(session_id, f"我还不会处理这个指令。试试说创建 App 或看看我的 App。")
+        # 没有精确 handler → 透传给 LLM fallback handler（direct_response, unclear, 任意未知意图）
+        if command.intent in ("direct_response", "unclear", "clarification_pending"):
+            return _llm_fallback_handler(command, session_id, available_apps)
+
+        return _llm_fallback_handler(command, session_id, available_apps)
 
     def _build_default_tool_registry(self):
         from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter

@@ -24,6 +24,9 @@ Usage:
 """
 from __future__ import annotations
 
+import logging
+logger = logging.getLogger(__name__)
+
 import json
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -121,12 +124,16 @@ class ToolCallingEngine:
             caller = f"asset:{asset_id}:skill:{skill_id}"
         else:
             caller = f"skill:{skill_id}"
+
+        logger.debug(f"ToolCallingEngine: getting client for caller={caller}, model_override={model_override}")
         
         if model_override:
             caller = "override"
             client = self._get_client_by_name(model_override)
         else:
             client = self._router.get_client(caller)
+            
+        logger.debug(f"ToolCallingEngine: client type={type(client).__name__}, client={client}")
 
         # Build tool definitions
         tool_defs = [t.to_openai_format() for t in tools]

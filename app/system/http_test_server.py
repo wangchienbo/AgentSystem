@@ -3,7 +3,7 @@
 Provides:
 - Login page with authentication
 - Mobile-first chat UI
-- Isolated plain-LLM chat endpoint for web testing
+- Web chat endpoint using AgentSystem LightBrain gateway (with Tool/LLM support)
 """
 from __future__ import annotations
 
@@ -16,11 +16,18 @@ from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from openai import AsyncOpenAI
 from pydantic import BaseModel
+
+from app.bootstrap.runtime import build_runtime
+from app.models.chat import ChatMessageRequest
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Build AgentSystem runtime once — ModelRouter 从 ~/.config/agentsystem/config.yaml 读取 LLM 配置
+# HTTP server 只做薄薄一层 HTTP 适配，不应直接读取 model 配置
+runtime_services = build_runtime()
+gateway = runtime_services["light_brain_gateway"]
 
 app = FastAPI(
     title="AgentSystem Test Server",
@@ -34,19 +41,14 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 TEMPLATES_DIR.mkdir(exist_ok=True)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-user_sessions: dict[str, dict[str, Any]] = {}
-conversation_history: dict[str, list[dict[str, str]]] = {}
-
-llm_client = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY") or "sk-placeholder",
-    base_url=os.getenv("OPENAI_BASE_URL") or os.getenv("LLM_BASE_URL") or "https://api.openai.com/v1",
-)
-llm_model = os.getenv("OPENAI_MODEL") or os.getenv("LLM_MODEL") or "gpt-4o-mini"
+user_sessions: dict[str, dict[str, Any]] = {}  # session_id -> user_data
+conversation_history: dict[str, list[dict[str, str]]] = {}  # session_id -> messages
 
 
 class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
+    payload: dict[str, Any] | None = None
 
 
 async def get_current_user(request: Request):
@@ -58,7 +60,13 @@ async def get_current_user(request: Request):
 
 @app.get("/", response_class=FileResponse)
 async def root():
-    return FileResponse(STATIC_DIR / "index.html")
+    # Ensure the index.html exists; if not, fall back to a minimal placeholder
+    index_path = STATIC_DIR / "index.html"
+    if not index_path.is_file():
+        # Create a simple placeholder page on‑the‑fly
+        placeholder = """<html><head><title>AgentSystem</title></head><body><h1>AgentSystem 已启动</h1><p>请检查 static/index.html 是否存在。</p></body></html>"""
+        return HTMLResponse(content=placeholder, status_code=200)
+    return FileResponse(index_path)
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -73,15 +81,31 @@ async def login_page(request: Request):
 async def login(request: Request):
     form_data = await request.form()
     username = form_data.get("username", "testuser")
-    session_id = f"session_{username}_{int(datetime.now().timestamp())}"
-    user_sessions[session_id] = {
-        "username": username,
+    # 按用户名生成稳定的 session_id（同一用户每次登录都恢复同一会话）
+    session_id = f"session_{username}"
+    if session_id in user_sessions:
+        # 已存在 → 更新登录时间，不重建会话
+        user_sessions[session_id]["login_time"] = datetime.now().isoformat()
+        user_sessions[session_id]["last_active"] = datetime.now().isoformat()
+    else:
+        # 新建会话
+        user_sessions[session_id] = {
+            "username": username,
+            "session_id": session_id,
+            "login_time": datetime.now().isoformat(),
+            "last_active": datetime.now().isoformat(),
+        }
+        conversation_history[session_id] = []
+    from fastapi.responses import JSONResponse
+    hist = conversation_history.get(session_id, [])
+    resp = JSONResponse(content={
+        "success": True,
         "session_id": session_id,
-        "login_time": datetime.now().isoformat(),
-    }
-    response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie(key="session_id", value=session_id, max_age=3600, httponly=False)
-    return response
+        "history": hist,
+        "username": username,
+    })
+    resp.set_cookie(key="session_id", value=session_id, max_age=86400, httponly=False)
+    return resp
 
 
 @app.get("/chat")
@@ -100,61 +124,119 @@ async def api_get_history(session_id: str, user: dict = Depends(get_current_user
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
     session_id = req.session_id or user["session_id"]
-    history = conversation_history.get(session_id, [])[-10:]
-
-    messages = [{
-        "role": "system",
-        "content": "You are a helpful coding assistant inside AgentSystem. Reply in Chinese unless the user asks otherwise.",
-    }]
-    for item in history:
-        role = item.get("role")
-        content = item.get("content", "")
-        if role in {"user", "assistant"} and content:
-            messages.append({"role": role, "content": content})
-    messages.append({"role": "user", "content": req.message})
 
     try:
-        resp = await llm_client.chat.completions.create(
-            model=llm_model,
-            messages=messages,
+        # Build ChatMessageRequest for LightBrain gateway
+        chat_req = ChatMessageRequest(
+            user_id=user.get("username", "anonymous"),
+            channel="webchat",
+            message=req.message,
+            session_id=session_id,
+            memory_context=None,
         )
-        response_text = resp.choices[0].message.content or ""
+        # Call AgentSystem LightBrain gateway (which handles LLM routing and Tool calls)
+        llm_resp = await gateway.receive_message(chat_req)
+        response_text = getattr(llm_resp, "content", "") or ""
 
-        conversation_history.setdefault(session_id, []).append(
-            {
-                "role": "user",
-                "content": req.message,
-                "timestamp": datetime.now().isoformat(),
-            }
-        )
-        conversation_history.setdefault(session_id, []).append(
-            {
-                "role": "assistant",
-                "content": response_text,
-                "timestamp": datetime.now().isoformat(),
-            }
-        )
+        # Store in conversation history
+        conversation_history.setdefault(session_id, []).append({
+            "role": "user",
+            "content": req.message,
+            "timestamp": datetime.now().isoformat(),
+        })
+        conversation_history.setdefault(session_id, []).append({
+            "role": "assistant",
+            "content": response_text,
+            "timestamp": datetime.now().isoformat(),
+        })
         return {"success": True, "response": response_text, "session_id": session_id}
     except Exception as e:
         logger.exception("Error processing message")
         return {"success": False, "error": f"LLM request failed: {str(e)}"}
 
 
+# ---------- 新增 Action 接口（前端按钮 / Tool 调用） ----------
+from pydantic import Field
+
+class ActionRequest(BaseModel):
+    action_id: str = Field(..., description="前端发送的按钮/工具标识")
+    action_params: dict[str, Any] = Field(default_factory=dict, description="可选参数")
+
+@app.post("/api/action")
+async def api_action(req: ActionRequest, user: dict = Depends(get_current_user)):
+    """把前端的 Action 转发给 LightBrain gateway，触发对应 Tool/Skill。"""
+    session_id = user["session_id"]
+    try:
+        # 构造 LightBrain 的请求，payload 中放置 action 信息
+        # 使用占位信息满足 ChatMessageRequest 的必填字段
+        chat_req = ChatMessageRequest(
+            user_id=user.get("username", "anonymous"),
+            channel="webchat",
+            message=f"[action:{req.action_id}]",  # 简短占位，实际行为在 payload 中
+            session_id=session_id,
+            memory_context=None,
+        )
+        # 注入 payload 让 LightBrain 能识别要调用的工具
+        chat_req = chat_req.copy(update={"payload": {"action_id": req.action_id, "params": req.action_params}})
+        llm_resp = await gateway.receive_message(chat_req)
+        response_text = getattr(llm_resp, "content", "") or ""
+        # 记录到对话历史（assistant）
+        conversation_history.setdefault(session_id, []).append({
+            "role": "assistant",
+            "content": response_text,
+            "timestamp": datetime.now().isoformat(),
+        })
+        return {"success": True, "response": response_text}
+    except Exception as e:
+        logger.exception("LLM action failed")
+        return {"success": False, "error": f"LLM action failed: {str(e)}"}
+
+
+# ---------- 旧的状态与登出接口继续保留 ----------
 @app.get("/api/status")
 async def api_status():
     return {
         "status": "ok",
         "timestamp": datetime.now().isoformat(),
         "active_sessions": len(user_sessions),
-        "llm_model": llm_model,
     }
 
 
 @app.get("/logout")
 async def logout():
-    response = RedirectResponse(url="/login", status_code=302)
+    response = RedirectResponse(url="/", status_code=302)
     response.delete_cookie("session_id")
     return response
+
+
+# ---------- 会话管理接口 ----------
+@app.get("/api/sessions")
+async def api_list_sessions(user: dict = Depends(get_current_user)):
+    """列出当前用户的所有会话"""
+    username = user["username"]
+    # 当前只有按用户名的单一稳定会话
+    return {
+        "success": True,
+        "sessions": [
+            {
+                "session_id": user["session_id"],
+                "username": username,
+                "login_time": user.get("login_time", ""),
+                "message_count": len(conversation_history.get(user["session_id"], [])),
+                "is_current": True,
+            }
+        ],
+    }
+
+
+@app.get("/api/sessions/{session_id}/history")
+async def api_session_history(session_id: str, user: dict = Depends(get_current_user)):
+    """获取指定会话的历史记录"""
+    # 安全检查：只能查看自己的会话
+    if session_id != user["session_id"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    history = conversation_history.get(session_id, [])
+    return {"success": True, "history": history}
 
 
 if __name__ == "__main__":

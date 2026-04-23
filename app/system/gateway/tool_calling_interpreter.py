@@ -429,15 +429,20 @@ class ToolCallingInterpreter:
             registry_tools = self._build_tool_defs()
         all_tools = registry_tools + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
 
-        # Execute
-        result = self._engine.execute_turns(
-            skill_id="gateway_intent_parser",
-            system_prompt=system_prompt,
-            user_message=message,
-            tools=all_tools,
-            max_turns=2,  # Usually 1; 2 for cases needing param extraction
-            asset_id="asset:light_brain_gateway:v1",
-        )
+        # Execute — 复杂任务（如探索文件系统、多步 App 创建）需要更多轮次
+        try:
+            result = self._engine.execute_turns(
+                skill_id="gateway_intent_parser",
+                system_prompt=system_prompt,
+                user_message=message,
+                tools=all_tools,
+                max_turns=8,  # 8 轮足够完成：探索→分析→决策→生成回复的完整链路
+                asset_id="asset:light_brain_gateway:v1",
+            )
+            logger.info(f"ToolCallingEngine result: final_text={result.final_text[:100] if result.final_text else 'empty'}, tool_calls={[t.tool_name for t in result.tool_calls] if result.tool_calls else 'none'}")
+        except Exception as e:
+            logger.exception("ToolCallingEngine execution failed")
+            raise
 
         return self._process_result(result, message)
 
@@ -558,12 +563,13 @@ class ToolCallingInterpreter:
                 source="llm_unclear",
             )
 
-        # Normal tool call → map to intent
+        # Normal tool call → map to direct_response (pass through LLM-generated content)
+        # The tool execution result is already in final_text from the last LLM turn
         return InterpretedCommand(
-            intent=tool_name,
+            intent="direct_response",
             raw_input=raw_input,
             confidence=0.9,
-            parameters=tool_args,
+            parameters={"text": result.final_text or f"已执行 {tool_name}"},
             source="llm_tool_call",
         )
 
