@@ -62,7 +62,13 @@
         .message.user .avatar { background: var(--accent); }
         .message.system .avatar { background: var(--surface-2); border: 1px solid var(--border); }
         .bubble { max-width: 80%; padding: 12px 16px; border-radius: var(--radius); line-height: 1.6; font-size: 14px; word-wrap: break-word; overflow-wrap: break-word; }
+/* mobile bubble width */
+@media (max-width: 768px) {
+    .bubble { max-width: 95%; }
+}
         .message.user .bubble { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
+.msg-time { font-size: 11px; color: var(--text-dim); margin-top: 2px; text-align: right; }
+.message.system .msg-time { text-align: left; }
         .message.system .bubble { background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
         .bubble p { margin-bottom: 6px; }
         .bubble p:last-child { margin-bottom: 0; }
@@ -169,51 +175,32 @@
     </style>
 </head>
 <body>
-    <div class="app">
-        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header"><h1><span class="dot"></span> AgentSystem</h1></div>
-            <div class="sidebar-user" onclick="openSettings()">
-                <div class="avatar-sm">✦</div>
-                <div class="info"><div class="name" id="sidebarUserName">加载中...</div></div>
-                <span class="role-badge user" id="sidebarRoleBadge">USER</span>
-            </div>
-            <button class="new-chat-btn" onclick="newSession()">✨ 新建对话</button>
-            <div class="session-list" id="sessionList"><div style="text-align:center;color:var(--text-dim);padding:40px 20px;font-size:13px">暂无对话</div></div>
-            <div class="sidebar-footer">
-                <button onclick="openCustomPanel()">🔧 自定义</button>
-                <button onclick="openSettings()">⚙️ 设置</button>
-                <button onclick="doLogout()">退出</button>
-            </div>
-        </aside>
-        <main class="main">
-            <header class="main-header">
-                <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-                <span class="title" id="mainTitle">AgentSystem</span>
-            </header>
-            <div class="messages" id="messages">
-                <div class="welcome" id="welcome">
-                    <div class="welcome-icon">✦</div>
-                    <h2>你好</h2>
-                    <p>用自然语言管理你的 App，一切皆可对话</p>
-                    <div class="quick-actions">
-                        <button class="quick-btn" onclick="sendQuick('你好')">👋 打个招呼</button>
-                        <button class="quick-btn" onclick="sendQuick('看看我的App列表')">📱 查看 App</button>
-                        <button class="quick-btn" onclick="sendQuick('帮我建一个监控App')">🔨 创建 App</button>
-                        <button class="quick-btn" onclick="sendQuick('系统状态怎么样')">📊 系统状态</button>
-                    </div>
+    <!-- Simplified Mobile‑First Chat UI -->
+    <div class="chat-wrapper">
+        <header class="chat-header">
+            <div class="title">AgentSystem</div>
+            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        </header>
+        <div class="messages" id="messages">
+            <div class="welcome" id="welcome">
+                <div class="welcome-icon">✦</div>
+                <h2>你好</h2>
+                <p>用自然语言管理你的 App，一切皆可对话</p>
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="sendQuick('你好')">👋 打个招呼</button>
+                    <button class="quick-btn" onclick="sendQuick('看看我的App列表')">📱 查看 App</button>
+                    <button class="quick-btn" onclick="sendQuick('帮我建一个监控App')">🔨 创建 App</button>
+                    <button class="quick-btn" onclick="sendQuick('系统状态怎么样')">📊 系统状态</button>
                 </div>
             </div>
-            <div class="connection-bar online" id="connBar">● 已连接</div>
-            <div class="input-area">
-                <div class="input-wrapper">
-                    <textarea class="input-box" id="inputBox" rows="1" placeholder="输入你的指令..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-                    <button class="send-btn" id="sendBtn" onclick="sendMessage()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
-                    <button class="stop-btn" id="stopBtn" onclick="stopStreaming()"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg></button>
-                </div>
-            </div>
-        </main>
+        </div>
+        <div class="input-area">
+            <textarea class="input-box" id="inputBox" rows="1" placeholder="输入指令..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()">发送</button>
+            <button class="stop-btn" id="stopBtn" onclick="stopStreaming()">停止</button>
+        </div>
     </div>
+    <!-- Overlays keep original settings/custom/admin UI (hidden on mobile) -->
     <div class="overlay" id="settingsOverlay" onclick="closeOverlay(event,'settingsOverlay')">
         <div class="modal" onclick="event.stopPropagation()">
             <h3>⚙️ 设置 <button class="close-btn" onclick="closeModal('settingsOverlay')">&times;</button></h3>
@@ -348,9 +335,9 @@ async function loadSession(id, title) {
             // Render each message chronologically.
             for (const m of msgs) {
                 if (m.role === 'user') {
-                    appendBubble('user', escHtml(m.content), false);
+                    appendBubble('user', escHtml(m.content), false, null, formatTime(m.timestamp || m.created_at));
                 } else if (m.role === 'assistant') {
-                    appendBubble('system', renderMd(m.content), false, m.actions);
+                    appendBubble('system', renderMd(m.content), false, m.actions, formatTime(m.timestamp || m.created_at));
                 }
             }
         }
@@ -399,7 +386,7 @@ async function sendMessage() {
     const container = document.getElementById('messages');
     const welcome = document.getElementById('welcome');
     if (welcome) welcome.style.display = 'none';
-    appendBubble('user', escHtml(text), false);
+    appendBubble('user', escHtml(text), false, null, formatTime(new Date()));
     scrollToBottom();
     showTyping(true);
 
@@ -413,7 +400,7 @@ async function sendMessage() {
         const data = await r.json();
         showTyping(false);
         const content = data.content || '';
-        appendBubble('system', renderMd(content), false, data.actions);
+        appendBubble('system', renderMd(content), false, data.actions, formatTime(data.timestamp || data.created_at));
         sessionId = data.session_id || sessionId;
         loadSessions();
     } catch (e) {
@@ -429,7 +416,7 @@ function sendQuick(text) {
 }
 
 /* ===== Bubble Helpers ===== */
-function appendBubble(role, html, streaming, actions) {
+function appendBubble(role, html, streaming, actions, time) {
     const container = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = 'message ' + role;
@@ -440,7 +427,13 @@ function appendBubble(role, html, streaming, actions) {
             '<button class="action-btn' + (a.primary ? ' primary' : '') + '" onclick="sendQuick(\'' + escHtml(a.label) + '\')">' + escHtml(a.label) + '</button>'
         ).join('') + '</div>';
     }
-    div.innerHTML = '<div class="avatar">' + avatarContent + '</div><div class="bubble' + (streaming ? ' streaming' : '') + '">' + html + '</div>' + actionsHtml;
+    // bubble content
+    let bubbleHtml = '<div class="bubble' + (streaming ? ' streaming' : '') + '">' + html + '</div>';
+    // optional timestamp
+    if (time) {
+        bubbleHtml += '<div class="msg-time">' + escHtml(time) + '</div>';
+    }
+    div.innerHTML = '<div class="avatar">' + avatarContent + '</div>' + bubbleHtml + actionsHtml;
     container.appendChild(div);
     scrollToBottom();
 }
