@@ -150,6 +150,7 @@
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include', // Include cookies
                     body: JSON.stringify({ message })
                 });
                 const data = await response.json();

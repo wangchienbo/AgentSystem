@@ -44,6 +44,9 @@ security = HTTPBasic()
 # In-memory user sessions (for testing only)
 user_sessions: dict[str, dict[str, Any]] = {}
 
+# Conversation history storage: session_id -> list of messages
+conversation_history: dict[str, list[dict[str, str]]] = {}
+
 # Templates
 templates_dir = Path(__file__).parent / "templates"
 templates_dir.mkdir(exist_ok=True)
@@ -87,10 +90,15 @@ async def login_page(request: Request):
 
 
 @app.post("/login")
-async def login(request: Request, username: str, password: str):
+async def login(request: Request):
     """Handle login."""
+    # Get form data
+    form_data = await request.form()
+    username = form_data.get("username", "testuser")
+    password = form_data.get("password", "testpass")
+    
     # Simple auth (for testing only)
-    session_id = f"session_{username}_{datetime.now().timestamp()}"
+    session_id = f"session_{username}_{int(datetime.now().timestamp())}"
     user_sessions[session_id] = {
         "username": username,
         "session_id": session_id,
@@ -98,21 +106,36 @@ async def login(request: Request, username: str, password: str):
     }
     
     response = RedirectResponse(url="/chat", status_code=302)
-    response.set_cookie(key="session_id", value=session_id, max_age=3600)
+    response.set_cookie(key="session_id", value=session_id, max_age=3600, httponly=False)
     return response
 
 
 @app.get("/chat", response_class=HTMLResponse)
 async def chat_page(request: Request, user: dict = Depends(get_current_user)):
     """Chat interface."""
+    session_id = user["session_id"]
+    # Initialize conversation history if not exists
+    if session_id not in conversation_history:
+        conversation_history[session_id] = []
+    
     return templates.TemplateResponse(
         "chat.html",
         {
             "request": request,
             "title": "Chat - AgentSystem",
             "user": user,
+            "session_id": session_id,
+            "history": conversation_history.get(session_id, []),
         }
     )
+
+@app.get("/api/history/{session_id}")
+async def api_get_history(session_id: str):
+    """Get conversation history for a session."""
+    return {
+        "success": True,
+        "history": conversation_history.get(session_id, []),
+    }
 
 
 @app.post("/api/chat")
@@ -132,6 +155,25 @@ async def api_chat(
     
     try:
         response = await gateway.receive_message(chat_request)
+        
+        # Store in conversation history
+        if session_id not in conversation_history:
+            conversation_history[session_id] = []
+        
+        # Add user message
+        conversation_history[session_id].append({
+            "role": "user",
+            "content": req.message,
+            "timestamp": datetime.now().isoformat(),
+        })
+        
+        # Add AI response
+        conversation_history[session_id].append({
+            "role": "assistant",
+            "content": response.content,
+            "timestamp": datetime.now().isoformat(),
+        })
+        
         return {
             "success": True,
             "response": response.content,

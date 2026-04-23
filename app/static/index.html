@@ -47,7 +47,14 @@
         .main-header { padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; gap: 12px; background: var(--surface); }
         .menu-btn { display: none; background: none; border: none; color: var(--text); font-size: 22px; cursor: pointer; padding: 4px; touch-action: manipulation; }
         .main-header .title { font-size: 15px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .messages { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 20px; min-height: 0; }
+        .messages {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 12px;
+    min-height: 0;
+    scroll-behavior: smooth; /* smoother scrolling on mobile */
+}
         .message { margin-bottom: 20px; display: flex; gap: 10px; animation: fadeIn 0.3s ease; }
         .message.user { flex-direction: row-reverse; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -83,7 +90,19 @@
         .connection-bar { padding: 5px 16px; font-size: 12px; text-align: center; flex-shrink: 0; }
         .connection-bar.online { background: rgba(0,214,143,0.1); color: var(--success); }
         .connection-bar.offline { background: rgba(255,107,107,0.1); color: var(--danger); }
-        .input-area { padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+        /* Fixed input area for mobile – stays at bottom */
+.input-area {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    z-index: 10;
+}
         .input-wrapper { display: flex; gap: 10px; align-items: flex-end; }
         .input-box { flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; color: var(--text); font-size: 15px; resize: none; max-height: 120px; min-height: 44px; height: 44px; line-height: 1.4; font-family: inherit; touch-action: manipulation; }
         .input-box:focus { outline: none; border-color: var(--accent); }
@@ -229,7 +248,7 @@ const API = window.location.origin;
 let sessionId = null, currentStream = null, isStreaming = false;
 let currentUser = null, customTags = [], customCmds = [], confirmCallback = null;
 
-/* ===== Init ===== */
+// ==== Initialization ====
 (async function init() {
     const token = localStorage.getItem('as_token');
     if (!token) { window.location.href = '/'; return; }
@@ -238,22 +257,45 @@ let currentUser = null, customTags = [], customCmds = [], confirmCallback = null
         if (!r.ok) { localStorage.removeItem('as_token'); window.location.href = '/'; return; }
         currentUser = await r.json();
     } catch { localStorage.removeItem('as_token'); window.location.href = '/'; return; }
+    // Populate sidebar user info
     document.getElementById('sidebarUserName').textContent = currentUser.display_name || currentUser.user_id;
     const badge = document.getElementById('sidebarRoleBadge');
     badge.textContent = currentUser.role === 'admin' ? 'ADMIN' : 'USER';
     badge.className = 'role-badge ' + (currentUser.role === 'admin' ? 'admin' : 'user');
     loadCustomData();
-    // Auto-load last session with history
+    // ==== Session Restoration (Memory) ====
+    const storedKey = 'as_last_session_' + currentUser.user_id;
+    const storedSessionId = localStorage.getItem(storedKey);
+    if (storedSessionId) {
+        try {
+            const r = await fetch(`${API}/chat/sessions/${storedSessionId}?user_id=` + encodeURIComponent(currentUser.user_id));
+            if (r.ok) {
+                const d = await r.json();
+                await loadSession(storedSessionId, d.title || '上次对话');
+                if (!d.message_count) throw new Error('empty');
+            } else { throw new Error('invalid'); }
+        } catch (e) {
+            await loadRecentSession();
+        }
+    } else {
+        await loadRecentSession();
+    }
+    loadSessions();
+    document.getElementById('inputBox').focus();
+})();
+
+// Helper to load the most recent non‑empty session for the current user.
+async function loadRecentSession() {
     try {
         const r = await fetch(API + '/chat/sessions/last?user_id=' + encodeURIComponent(currentUser.user_id));
         const d = await r.json();
         if (d.session && d.session.message_count > 0) {
             await loadSession(d.session.session_id, d.session.title || '新对话');
-        } else { showWelcome(); }
+        } else {
+            showWelcome();
+        }
     } catch { showWelcome(); }
-    loadSessions();
-    document.getElementById('inputBox').focus();
-})();
+}
 
 /* ===== Session Management ===== */
 async function loadSessions() {
@@ -285,19 +327,25 @@ function renderSessionList(sessions) {
 async function loadSession(id, title) {
     if (isStreaming) return;
     sessionId = id;
+    // Persist session ID for the current user (memory)
+    if (currentUser && currentUser.user_id) {
+        localStorage.setItem('as_last_session_' + currentUser.user_id, id);
+    }
     document.getElementById('mainTitle').textContent = title || '对话';
-    // Load history from API
+    // Load history from API (limit to recent 100 messages for performance)
     try {
-        const r = await fetch(API + '/chat/sessions/' + id + '/messages?limit=50');
+        const r = await fetch(`${API}/chat/sessions/${id}/messages?limit=100`);
         const d = await r.json();
         const msgs = d.messages || [];
         const container = document.getElementById('messages');
         const welcome = document.getElementById('welcome');
         if (welcome) welcome.style.display = 'none';
+        // Clear existing bubbles
         Array.from(container.querySelectorAll('.message')).forEach(el => el.remove());
         if (!msgs.length) {
             if (welcome) welcome.style.display = 'flex';
         } else {
+            // Render each message chronologically.
             for (const m of msgs) {
                 if (m.role === 'user') {
                     appendBubble('user', escHtml(m.content), false);
@@ -314,6 +362,10 @@ async function loadSession(id, title) {
 function newSession() {
     if (isStreaming) return;
     sessionId = null;
+    // Clear persisted session for this user.
+    if (currentUser && currentUser.user_id) {
+        localStorage.removeItem('as_last_session_' + currentUser.user_id);
+    }
     document.getElementById('mainTitle').textContent = 'AgentSystem';
     const container = document.getElementById('messages');
     Array.from(container.querySelectorAll('.message')).forEach(el => el.remove());
