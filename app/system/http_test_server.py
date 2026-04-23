@@ -21,6 +21,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+# LLM client import
+import os
+from openai import AsyncOpenAI
+
 from app.bootstrap.runtime import build_runtime
 from app.models.chat import ChatMessageRequest
 
@@ -31,6 +35,13 @@ logger = logging.getLogger(__name__)
 runtime_services = build_runtime()
 gateway = runtime_services["light_brain_gateway"]
 
+# LLM client setup
+llm_client = AsyncOpenAI(
+    api_key=os.getenv("LLM_API_KEY", "sk-placeholder"),
+    base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
+)
+llm_model = os.getenv("LLM_MODEL", "gpt-4o-mini")
+
 # FastAPI app
 app = FastAPI(
     title="AgentSystem Test Server",
@@ -38,6 +49,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Serve static files (including the new mobile UI)
+static_dir = Path(__file__).parent.parent / "app" / "static"
+app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 # Security
 security = HTTPBasic()
 
@@ -74,10 +88,13 @@ async def get_current_user(request: Request):
 
 
 # Routes
-@app.get("/", response_class=RedirectResponse)
+from fastapi.responses import FileResponse
+
+@app.get("/", response_class=FileResponse)
 async def root():
-    """Redirect to login or chat based on auth."""
-    return RedirectResponse(url="/login")
+    """Serve the main chat UI (static index.html)."""
+    static_dir = Path(__file__).parent.parent / "app" / "static"
+    return FileResponse(static_dir / "index.html")
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -144,39 +161,44 @@ async def api_chat(
     request: Request,
     user: dict = Depends(get_current_user),
 ):
-    """Process chat message through gateway."""
+    """Process chat message through LLM client."""
     session_id = req.session_id or user["session_id"]
     
-    chat_request = ChatMessageRequest(
-        message=req.message,
-        session_id=session_id,
-        user_id=user["username"],
-    )
+    # Prepare message history (last 10 messages)
+    history = conversation_history.get(session_id, [])[-10:]
+    messages = [{"role": "system", "content": "You are a helpful assistant."}]
+    for h in history:
+        role = "assistant" if h["role"] == "assistant" else "user"
+        messages.append({"role": role, "content": h["content"]})
+    messages.append({"role": "user", "content": req.message})
     
     try:
-        response = await gateway.receive_message(chat_request)
+        # Call LLM
+        llm_response = await llm_client.chat.completions.create(
+            model=llm_model,
+            messages=messages,
+        )
+        response_text = llm_response.choices[0].message.content
         
         # Store in conversation history
         if session_id not in conversation_history:
             conversation_history[session_id] = []
-        
-        # Add user message
+        # User message
         conversation_history[session_id].append({
             "role": "user",
             "content": req.message,
             "timestamp": datetime.now().isoformat(),
         })
-        
-        # Add AI response
+        # Assistant response
         conversation_history[session_id].append({
             "role": "assistant",
-            "content": response.content,
+            "content": response_text,
             "timestamp": datetime.now().isoformat(),
         })
         
         return {
             "success": True,
-            "response": response.content,
+            "response": response_text,
             "session_id": session_id,
         }
     except Exception as e:

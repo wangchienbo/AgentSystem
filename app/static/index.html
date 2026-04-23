@@ -394,15 +394,15 @@ async function sendMessage() {
 
     try {
         const body = { user_id: currentUser.user_id, message: text, session_id: sessionId };
-        const r = await fetch(API + '/chat/message', {
+        const r = await fetch(API + '/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
         const data = await r.json();
         showTyping(false);
-        const content = data.content || '';
-        appendBubble('system', renderMd(content), false, data.actions, formatTime(data.timestamp || data.created_at));
+        // API returns response in "response" field
+        appendBubble('system', renderMd(data.response), false, data.actions, "");
         sessionId = data.session_id || sessionId;
         loadSessions();
     } catch (e) {
