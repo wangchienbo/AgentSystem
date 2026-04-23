@@ -195,7 +195,9 @@
             </div>
         </div>
         <div class="input-area">
+            <input type="file" id="fileInput" style="display:none" multiple accept="image/*,video/*,application/pdf" onchange="handleFiles(this.files)" />
             <textarea class="input-box" id="inputBox" rows="1" placeholder="输入指令..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <button class="attach-btn" title="添加附件" onclick="document.getElementById('fileInput').click();">📎</button>
             <button class="send-btn" id="sendBtn" onclick="sendMessage()">发送</button>
             <button class="stop-btn" id="stopBtn" onclick="stopStreaming()">停止</button>
         </div>
@@ -434,6 +436,12 @@ function appendBubble(role, html, streaming, actions, time) {
         bubbleHtml += '<div class="msg-time">' + escHtml(time) + '</div>';
     }
     div.innerHTML = '<div class="avatar">' + avatarContent + '</div>' + bubbleHtml + actionsHtml;
+    // Add context menu (right-click / long-press)
+    div.addEventListener('contextmenu', function(e){
+        e.preventDefault();
+        showMsgMenu(e.pageX, e.pageY, div);
+    });
+    div.addEventListener('touchstart', handleTouchStart, false);
     container.appendChild(div);
     scrollToBottom();
 }
@@ -641,6 +649,99 @@ function wipeAllUsers() { showConfirm('确定清空所有用户数据？此操�
 function doLogout() {
     showConfirm('确定退出登录？', function() { localStorage.removeItem('as_token'); window.location.href = '/'; });
 }
+
+// ---------- 附件处理 ----------
+function handleFiles(files) {
+    for (const file of files) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const dataUrl = e.target.result;
+            let preview = '';
+            if (file.type.startsWith('image/')) {
+                preview = `<img src="${dataUrl}" style="max-width:100%;border-radius:8px;"/>`;
+            } else if (file.type.startsWith('video/')) {
+                preview = `<video src="${dataUrl}" controls style="max-width:100%;border-radius:8px;"/>`;
+            } else {
+                preview = `<a href="${dataUrl}" download="${file.name}">${file.name}</a>`;
+            }
+            // Insert as system message (could be enhanced to upload to server)
+            appendBubble('system', preview, false, null, formatTime(new Date()));
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// ---------- 消息长按/右键菜单 ----------
+let touchTimer = null;
+function handleTouchStart(e) {
+    const target = e.currentTarget;
+    touchTimer = setTimeout(() => {
+        const rect = target.getBoundingClientRect();
+        showMsgMenu(rect.left + rect.width/2, rect.top + rect.height/2, target);
+    }, 600);
+    target.addEventListener('touchend', () => clearTimeout(touchTimer), {once:true});
+    target.addEventListener('touchmove', () => clearTimeout(touchTimer), {once:true});
+}
+function showMsgMenu(x, y, msgElem) {
+    let menu = document.getElementById('msgMenu');
+    if (!menu) {
+        menu = document.createElement('div');
+        menu.id = 'msgMenu';
+        menu.style.position = 'absolute';
+        menu.style.zIndex = 1000;
+        menu.style.background = 'var(--surface)';
+        menu.style.border = '1px solid var(--border)';
+        menu.style.borderRadius = '8px';
+        menu.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+        menu.innerHTML = `
+            <div class="menu-item" onclick="copyMsg(this)">复制</div>
+            <div class="menu-item" onclick="editMsg(this)">编辑</div>
+            <div class="menu-item" onclick="deleteMsg(this)">删除</div>
+        `;
+        document.body.appendChild(menu);
+    }
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.dataset.elemId = msgElem.id;
+    const hide = () => menu && menu.remove();
+    setTimeout(() => document.addEventListener('click', hide, {once:true}), 0);
+}
+function copyMsg(btn) {
+    const msgDiv = document.getElementById(btn.parentNode.dataset.elemId);
+    const text = msgDiv.innerText;
+    navigator.clipboard.writeText(text).then(()=>alert('已复制'));
+}
+function deleteMsg(btn) {
+    const msgDiv = document.getElementById(btn.parentNode.dataset.elemId);
+    msgDiv.remove();
+}
+function editMsg(btn) {
+    const msgDiv = document.getElementById(btn.parentNode.dataset.elemId);
+    const bubble = msgDiv.querySelector('.bubble');
+    const original = bubble.innerHTML;
+    const textarea = document.createElement('textarea');
+    textarea.style.width = '100%';
+    textarea.value = bubble.innerText;
+    bubble.innerHTML = '';
+    bubble.appendChild(textarea);
+    textarea.focus();
+    textarea.addEventListener('keydown', function(e){
+        if(e.key==='Enter' && !e.shiftKey){
+            e.preventDefault();
+            const newContent = escHtml(textarea.value);
+            bubble.innerHTML = newContent;
+        }
+    });
+}
+
+// ---------- 样式补充 ----------
+const extraStyle = document.createElement('style');
+extraStyle.innerHTML = `
+.attach-btn{font-size:20px;background:none;border:none;color:var(--text);margin-right:4px;cursor:pointer;}
+.menu-item{padding:8px 12px;cursor:pointer;font-size:13px;}
+.menu-item:hover{background:var(--surface-2);}
+`;
+document.head.appendChild(extraStyle);
 </script>
 </body>
 </html>
