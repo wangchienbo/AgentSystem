@@ -59,6 +59,59 @@ def _safe_json(response: httpx.Response) -> dict:
     return data
 
 
+def _parse_sse_json_text(raw_text: str) -> dict:
+    chunks: list[str] = []
+    tool_calls: list[dict[str, Any]] = []
+    finish_reason = "stop"
+    for line in raw_text.splitlines():
+        if not line.startswith("data: "):
+            continue
+        data = line[6:].strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            chunk = json.loads(data)
+        except json.JSONDecodeError:
+            continue
+        choices = chunk.get("choices") or []
+        if not choices:
+            continue
+        choice0 = choices[0] or {}
+        delta = choice0.get("delta") or {}
+        finish_reason = choice0.get("finish_reason") or finish_reason
+        content = delta.get("content")
+        if isinstance(content, str) and content:
+            chunks.append(content)
+        elif isinstance(content, list):
+            for item in content:
+                if isinstance(item, dict):
+                    text_part = item.get("text")
+                    if isinstance(text_part, str) and text_part:
+                        chunks.append(text_part)
+        tc = delta.get("tool_calls")
+        if isinstance(tc, list):
+            tool_calls.extend(x for x in tc if isinstance(x, dict))
+    text = "".join(chunks)
+    return {
+        "choices": [{"message": {"content": text, "tool_calls": tool_calls}, "finish_reason": finish_reason}],
+        "usage": {},
+    }
+
+
+def _safe_chat_completion_payload(response: httpx.Response) -> dict:
+    content_type = (response.headers.get("content-type", "") or "").lower()
+    if "application/json" in content_type:
+        return _safe_json(response)
+    if "text/event-stream" in content_type:
+        return _parse_sse_json_text(response.text)
+    body_preview = response.text[:300]
+    raise ModelClientError(
+        f"LLM returned unsupported response type: {content_type or 'unknown'} {body_preview}",
+        status_code=response.status_code,
+        retryable=response.status_code >= 500,
+    )
+
+
 class OpenAIResponsesClient:
     def __init__(self, config: ModelConfig, api_key: str) -> None:
         self._config = config
@@ -234,7 +287,7 @@ class OpenAIResponsesClient:
                 status_code=response.status_code,
                 retryable=response.status_code >= 500,
             )
-        data = _safe_json(response)
+        data = _safe_chat_completion_payload(response)
         choice = data.get("choices", [{}])[0]
         message = choice.get("message", {})
         usage = data.get("usage", {})
