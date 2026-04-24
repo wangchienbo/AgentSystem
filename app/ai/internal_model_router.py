@@ -108,6 +108,17 @@ class InternalModelRouter:
 
         async with self._semaphore:
             # All model calls go through this single gate
+            # Choose the appropriate API based on configuration
+        # If the provider is set to use the Responses API (wire_api: "responses"),
+        # we must call the generic `request` endpoint which expects an `input` field.
+        # The Responses API does not support function calling directly, so we ignore
+        # the `tools` argument in this mode. For providers using the Chat Completions
+        # API (wire_api: "chat"), we keep the original behavior.
+        if getattr(self._client, "_config", None) and getattr(self._client._config, "wire_api", "chat") == "responses":
+            # Merge system_prompt and user prompt into a single input string
+            merged_input = f"{system_prompt or ''}\n{prompt}".strip()
+            result = await self._client.request(merged_input)
+        else:
             result = await self._client.chat(
                 prompt=prompt,
                 system_prompt=system_prompt,
