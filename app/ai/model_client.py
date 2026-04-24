@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import yaml
+from pathlib import Path
+
 import json
 from typing import Any
 
@@ -13,6 +16,47 @@ class ModelClientError(ValueError):
         super().__init__(message)
         self.status_code = status_code
         self.retryable = retryable
+
+
+def _build_timeout(timeout_seconds: float) -> httpx.Timeout:
+    return httpx.Timeout(
+        connect=min(30.0, timeout_seconds),
+        read=timeout_seconds,
+        write=min(30.0, timeout_seconds),
+        pool=min(30.0, timeout_seconds),
+    )
+
+
+def _safe_json(response: httpx.Response) -> dict:
+    content_type = (response.headers.get("content-type", "") or "").lower()
+    body_preview = response.text[:300]
+    if not body_preview.strip():
+        raise ModelClientError(
+            "LLM returned empty response body",
+            status_code=response.status_code,
+            retryable=response.status_code >= 500,
+        )
+    if "application/json" not in content_type:
+        raise ModelClientError(
+            f"LLM returned non-JSON response: {content_type or 'unknown'} {body_preview}",
+            status_code=response.status_code,
+            retryable=response.status_code >= 500,
+        )
+    try:
+        data = response.json()
+    except json.JSONDecodeError:
+        raise ModelClientError(
+            f"LLM returned invalid JSON: {body_preview}",
+            status_code=response.status_code,
+            retryable=response.status_code >= 500,
+        )
+    if not isinstance(data, dict):
+        raise ModelClientError(
+            f"LLM returned unexpected JSON shape: {type(data).__name__}",
+            status_code=response.status_code,
+            retryable=response.status_code >= 500,
+        )
+    return data
 
 
 class OpenAIResponsesClient:
@@ -32,8 +76,17 @@ class OpenAIResponsesClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        with httpx.Client(timeout=self._config.timeout_seconds) as client:
-            response = client.post(url, json=payload, headers=headers)
+        try:
+            with httpx.Client(timeout=_build_timeout(self._config.timeout_seconds)) as client:
+                response = client.post(url, json=payload, headers=headers)
+        except httpx.ReadTimeout as e:
+            raise ModelClientError(
+                f"LLM request read timed out after {self._config.timeout_seconds}s",
+                status_code=None,
+                retryable=True,
+            ) from e
+        except Exception as e:
+            raise ModelClientError(f"LLM request failed: {str(e)}", status_code=None, retryable=False) from e
         if response.status_code >= 400:
             raise ModelClientError(
                 f"Model probe failed: {response.status_code} {response.text[:300]}",
@@ -81,13 +134,31 @@ class OpenAIResponsesClient:
             "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "stream": True,
+            "stream": stream,
         }
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        with httpx.Client(timeout=self._config.timeout_seconds) as client:
+        with httpx.Client(timeout=_build_timeout(self._config.timeout_seconds)) as client:
+            if not stream:
+                response = client.post(url, json=payload, headers=headers)
+                if response.status_code >= 400:
+                    body = response.text[:300]
+                    raise ModelClientError(
+                        f"Chat request failed: {response.status_code} {body}",
+                        status_code=response.status_code,
+                        retryable=response.status_code >= 500,
+                    )
+                data = _safe_json(response)
+                text = data.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+                usage = data.get("usage", {}) or {}
+                return text, {
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "completion_tokens": usage.get("completion_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
+                    "model": model_name,
+                }
             with client.stream("POST", url, json=payload, headers=headers) as response:
                 if response.status_code >= 400:
                     body = response.read().decode(errors="replace")[:300]
@@ -155,7 +226,7 @@ class OpenAIResponsesClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        with httpx.Client(timeout=self._config.timeout_seconds) as client:
+        with httpx.Client(timeout=_build_timeout(self._config.timeout_seconds)) as client:
             response = client.post(url, json=payload, headers=headers)
         if response.status_code >= 400:
             raise ModelClientError(
@@ -163,7 +234,7 @@ class OpenAIResponsesClient:
                 status_code=response.status_code,
                 retryable=response.status_code >= 500,
             )
-        data = response.json()
+        data = _safe_json(response)
         choice = data.get("choices", [{}])[0]
         message = choice.get("message", {})
         usage = data.get("usage", {})
@@ -192,14 +263,23 @@ class OpenAIResponsesClient:
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        max_turns: int = 10,
+        max_turns: int = 100,
     ) -> tuple[str, dict]:
         """Multi-turn tool calling loop.
+        Load max_turns from global config if not provided.
 
-        1. Send system + user + tools → LLM
-        2. If tool_calls → execute → loop
+        1. Send system + user + tools -> LLM
+        2. If tool_calls -> execute -> loop
         3. Until LLM gives final text answer
         """
+        if max_turns is None:
+            try:
+                cfg = yaml.safe_load(Path("/root/.config/agentsystem/config.yaml").read_text(encoding="utf-8")) or {}
+                app_cfg = cfg.get("app", {}) or {}
+                max_turns = app_cfg.get("max_turns", 10)
+            except Exception:
+                max_turns = 10
+
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
@@ -273,7 +353,7 @@ class OpenAIResponsesClient:
         max_tokens: int = 500,
         temperature: float = 0.7,
     ) -> tuple[str, dict]:
-        """Convenience: system + user message → assistant text and usage."""
+        """Convenience: system + user message -> assistant text and usage."""
         return self.chat(
             [
                 {"role": "system", "content": system_prompt},
