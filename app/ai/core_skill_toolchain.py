@@ -28,6 +28,63 @@ class CoreReplaySelectorSkill:
             interactions = [item for item in interactions if not item.success]
         return [item.interaction_id for item in interactions]
 
+    def select_upgrade_candidates(
+        self,
+        *,
+        app_id: str | None = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        latency_threshold_ms: int = 30000,
+        token_threshold: int = 12000,
+        limit: int = 20,
+    ) -> list[dict[str, object]]:
+        interactions = list(self.telemetry_service._interactions.values())  # noqa: SLF001
+        if app_id is not None:
+            interactions = [item for item in interactions if item.app_id == app_id]
+        if user_id is not None:
+            interactions = [item for item in interactions if item.user_id == user_id]
+        if session_id is not None:
+            interactions = [item for item in interactions if item.session_id == session_id]
+
+        candidates: list[dict[str, object]] = []
+        for item in interactions:
+            reasons: list[str] = []
+            priority = 0
+            if not item.success:
+                reasons.append("failed_interaction")
+                priority += 100
+            if item.total_latency_ms >= latency_threshold_ms:
+                reasons.append("high_latency")
+                priority += min(40, item.total_latency_ms // 1000)
+            if item.total_tokens >= token_threshold:
+                reasons.append("high_token_cost")
+                priority += min(30, item.total_tokens // 1000)
+            if item.failure_reason == "max_turns_reached":
+                reasons.append("convergence_risk")
+                priority += 60
+            if item.total_tool_calls >= 3:
+                reasons.append("high_tool_churn")
+                priority += min(20, item.total_tool_calls * 2)
+            if not reasons:
+                continue
+            candidates.append({
+                "interaction_id": item.interaction_id,
+                "session_id": item.session_id,
+                "user_id": item.user_id,
+                "app_id": item.app_id,
+                "request_type": item.request_type,
+                "success": item.success,
+                "total_latency_ms": item.total_latency_ms,
+                "total_tokens": item.total_tokens,
+                "total_tool_calls": item.total_tool_calls,
+                "failure_reason": item.failure_reason,
+                "priority": priority,
+                "reasons": reasons,
+            })
+
+        candidates.sort(key=lambda x: (-int(x["priority"]), -int(x["total_latency_ms"]), -int(x["total_tokens"])))
+        return candidates[:limit]
+
 
 class CoreCostAnalyzerSkill:
     def __init__(self, telemetry_service: TelemetryService) -> None:

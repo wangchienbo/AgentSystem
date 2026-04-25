@@ -1,6 +1,43 @@
 # AgentSystem Development Log
 
-## 2026-04-26: OPT-003 P2 Tool-step Evidence Closure
+## 2026-04-26: OPT-003 P3 Replay Selection and Upgrade Candidate Discovery
+
+### Summary
+Completed the third closure step for OPT-003 by turning raw telemetry into directly actionable upgrade candidates.
+
+### What Was Done
+- Upgraded `app/ai/core_skill_toolchain.py` replay selection capability
+- Added telemetry-based upgrade candidate selection rules for:
+  - failed interactions
+  - high latency interactions
+  - high token cost interactions
+  - convergence risk (`max_turns_reached`)
+  - high tool churn interactions
+- Upgraded `tools/session_analyzer.py` to output:
+  - `upgrade_candidates`
+  - telemetry-driven optimization suggestions
+
+### Validation
+Analyzer output for user `123` now includes upgrade candidates derived from real telemetry:
+- `telemetry_interactions = 4`
+- `telemetry_steps = 2`
+- identified 2 upgrade candidates
+- both current top candidates are high-latency LightBrain interactions
+
+### Product Conclusion
+OPT-003 P3 is complete.
+AgentSystem now supports the first usable evidence-driven optimization loop:
+- collect telemetry from real traffic
+- correlate interaction + step traces
+- rank upgrade candidates from evidence
+- expose suggestions for replay / optimization prioritization
+
+### Next Step
+Proceed to OPT-003 P4:
+- connect ranked candidates into explicit upgrade task generation
+- bind candidate classes to concrete optimization playbooks
+- feed candidate evaluation back into acceptance gating
+
 
 ### Summary
 Completed the second closure step for OPT-003 by validating a real LightBrain tool-calling scenario and unifying telemetry correlation between interaction-level and step-level evidence.

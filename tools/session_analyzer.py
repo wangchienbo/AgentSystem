@@ -57,6 +57,7 @@ def analyze_sessions(sessions: list[dict[str, Any]], telemetry: dict[str, Any], 
         "error_count": 0,
         "telemetry_interactions": 0,
         "telemetry_steps": 0,
+        "upgrade_candidates": [],
         "user_id": user_id,
         "session_id": session_id,
         "optimization_suggestions": [],
@@ -119,25 +120,61 @@ def analyze_sessions(sessions: list[dict[str, Any]], telemetry: dict[str, Any], 
     analysis["telemetry_steps"] = step_count
 
     failed_interactions = [x for x in interactions if not x.get("success", True)]
+    high_latency = [x for x in interactions if int(x.get("total_latency_ms", 0)) >= 30000]
+    high_tokens = [x for x in interactions if int(x.get("total_tokens", 0)) >= 12000]
+    max_turns = [x for x in interactions if x.get("failure_reason") == "max_turns_reached"]
+
+    candidates = []
+    for x in interactions:
+        reasons = []
+        priority = 0
+        if not x.get("success", True):
+            reasons.append("failed_interaction")
+            priority += 100
+        if int(x.get("total_latency_ms", 0)) >= 30000:
+            reasons.append("high_latency")
+            priority += min(40, int(x.get("total_latency_ms", 0)) // 1000)
+        if int(x.get("total_tokens", 0)) >= 12000:
+            reasons.append("high_token_cost")
+            priority += min(30, int(x.get("total_tokens", 0)) // 1000)
+        if x.get("failure_reason") == "max_turns_reached":
+            reasons.append("convergence_risk")
+            priority += 60
+        if int(x.get("total_tool_calls", 0)) >= 3:
+            reasons.append("high_tool_churn")
+            priority += min(20, int(x.get("total_tool_calls", 0)) * 2)
+        if reasons:
+            candidates.append({
+                "interaction_id": x.get("interaction_id"),
+                "priority": priority,
+                "reasons": reasons,
+                "total_latency_ms": x.get("total_latency_ms", 0),
+                "total_tokens": x.get("total_tokens", 0),
+                "success": x.get("success", True),
+                "request_type": x.get("request_type"),
+            })
+    candidates.sort(key=lambda x: (-int(x["priority"]), -int(x["total_latency_ms"]), -int(x["total_tokens"])))
+    analysis["upgrade_candidates"] = candidates[:10]
+
     if failed_interactions:
         analysis["optimization_suggestions"].append(
             f"{len(failed_interactions)} telemetry interactions failed, prioritize replay + prompt/tooling optimization"
         )
-    if len(interactions) == 0:
+    if high_latency:
         analysis["optimization_suggestions"].append(
-            "No telemetry interactions captured yet, verify LightBrain telemetry hook is active"
+            f"{len(high_latency)} interactions exceeded 30s latency, prioritize response-path optimization"
         )
-    if step_count == 0 and len(interactions) > 0:
+    if high_tokens:
         analysis["optimization_suggestions"].append(
-            "Interactions exist but no telemetry steps recorded, verify ToolCallingEngine step telemetry hook"
+            f"{len(high_tokens)} interactions exceeded 12k tokens, prioritize token-budget optimization"
         )
-    if max_turns_sessions:
+    if max_turns:
         analysis["optimization_suggestions"].append(
-            f"{len(max_turns_sessions)} sessions reached max_turns, inspect convergence rules"
+            f"{len(max_turns)} interactions hit max turns, prioritize convergence-rule optimization"
         )
-    if error_sessions:
+    if analysis["upgrade_candidates"]:
         analysis["optimization_suggestions"].append(
-            f"{len(error_sessions)} sessions had errors/504, inspect provider/network stability"
+            f"{len(analysis['upgrade_candidates'])} upgrade candidates identified from telemetry evidence"
         )
 
     return analysis
