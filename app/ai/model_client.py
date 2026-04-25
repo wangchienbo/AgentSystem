@@ -282,8 +282,13 @@ class OpenAIResponsesClient:
         with httpx.Client(timeout=_build_timeout(self._config.timeout_seconds)) as client:
             response = client.post(url, json=payload, headers=headers)
         if response.status_code >= 400:
+            debug_path = Path('/tmp/agentsystem_chat_with_tools_payload.json')
+            try:
+                debug_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+            except Exception:
+                pass
             raise ModelClientError(
-                f"Chat with tools failed: {response.status_code} {response.text[:300]}",
+                f"Chat with tools failed: {response.status_code} {response.text[:300]} | payload_dump={debug_path}",
                 status_code=response.status_code,
                 retryable=response.status_code >= 500,
             )
@@ -364,7 +369,12 @@ class OpenAIResponsesClient:
                 total_usage["turns"] = turn + 1
                 return response.get("text", ""), total_usage
 
-            messages.append(message)
+            assistant_message = {
+                "role": "assistant",
+                "content": message.get("content") or "",
+                "tool_calls": tool_calls,
+            }
+            messages.append(assistant_message)
 
             for tc in tool_calls:
                 tool_name = tc.get("function", {}).get("name", "")

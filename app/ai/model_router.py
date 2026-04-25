@@ -109,11 +109,11 @@ class ModelRouter:
             model_name = cfg.get("model", alias)
             self._model_pool[alias] = {
                 "model": model_name,
-                "base_url": cfg.get("base_url", "https://crs.ruinique.com/v1"),
-                "api_key_env": cfg.get("api_key_env", "OPENAI_API_KEY"),
+                "base_url": cfg.get("base_url", model_section.get("base_url", "https://crs.ruinique.com/v1") if isinstance(model_section, dict) else "https://crs.ruinique.com/v1"),
+                "api_key_env": cfg.get("api_key_env", model_section.get("api_key_env", "OPENAI_API_KEY") if isinstance(model_section, dict) else "OPENAI_API_KEY"),
                 "temperature": float(cfg.get("temperature", 0.7)),
                 "max_tokens": int(cfg.get("max_tokens", 4096)),
-                "timeout_seconds": float(cfg.get("timeout_seconds", 30.0)),
+                "timeout_seconds": float(cfg.get("timeout_seconds", model_section.get("timeout_seconds", 30.0) if isinstance(model_section, dict) else 30.0)),
             }
 
         # Load caller routes (REQUIRED)

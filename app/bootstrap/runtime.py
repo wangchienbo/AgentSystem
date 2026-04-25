@@ -86,7 +86,7 @@ from app.services.session_router import SessionRouter
 from app.services.pipeline_service import PipelineService
 from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
 from app.services.hot_tool_manager import HotToolManager, FIXED_TOOLS
-from app.tools.openclaw_tools import OPENCLAW_TOOL_HANDLERS
+from app.tools.internal_tools import AGENTSYSTEM_INTERNAL_TOOL_HANDLERS
 
 # ── G.1/G.2: MessageBus, Workers, LogCenter, SkillMeta, PathStore ─────
 from app.core.message_bus import MessageBus
@@ -934,7 +934,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
 
     # Initialize HotToolManager and register discoverable tool metadata
     hot_tool_manager = HotToolManager()
-    for tool_name, handler in OPENCLAW_TOOL_HANDLERS.items():
+    for tool_name, handler in AGENTSYSTEM_INTERNAL_TOOL_HANDLERS.items():
         tool_calling_engine.register_tool(tool_name, handler)
 
     for tool_def in FIXED_TOOLS:

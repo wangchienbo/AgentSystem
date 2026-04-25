@@ -17,6 +17,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+# Context compression utilities
+from app.services.context_compressor import ContextCompressor, CompressionConfig
+
 
 @dataclass
 class ContextBuildResult:
@@ -43,13 +46,15 @@ class ContextManagerRpc:
     In distributed mode: accessed via RPC from Master process.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, compression_config: CompressionConfig | None = None) -> None:
         # Skill rule cache: skill_id → {L1, L2, L3}
         self._skill_rules: dict[str, dict[str, str]] = {}
         # Active hints: trace_id → list of hint texts
         self._active_hints: dict[str, list[str]] = {}
         # Common system context
         self._system_context: dict[str, Any] = {}
+        # Context compressor
+        self._compressor = ContextCompressor(compression_config or CompressionConfig())
 
     def set_system_context(self, context: dict[str, Any]) -> None:
         """Set the global system context (user identity, permissions, etc.)."""
@@ -149,14 +154,28 @@ class ContextManagerRpc:
 
         system_prompt = "\n---\n".join(system_parts) if system_parts else ""
 
-        return ContextBuildResult(
+        # Apply compression (Layered strategy)
+        compressed_system, compressed_user, comp_result = self._compressor.compress(
             system_prompt=system_prompt,
             user_message=user_message,
+            available_tools=available_tools,
+            skill_rules=skill_rules,
+            conversation_history=None,  # Placeholder: full history can be passed in future
+        )
+
+        return ContextBuildResult(
+            system_prompt=compressed_system,
+            user_message=compressed_user,
             available_tools=available_tools,
             skill_rules=skill_rules,
             metadata={
                 "skill_id": skill_id,
                 "rule_level": max_rule_level,
                 "hint_count": len(hints) if include_hints_for else 0,
+                "compression": {
+                    "original_len": comp_result.original_length,
+                    "compressed_len": comp_result.compressed_length,
+                    "discarded_turns": comp_result.discarded_turns,
+                },
             },
         )

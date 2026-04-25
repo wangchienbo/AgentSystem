@@ -1,4 +1,4 @@
-"""Tool Calling Interpreter — unified LLM-driven intent + tool selection.
+"""Tool Calling Interpreter - unified LLM-driven intent + tool selection.
 
 Architecture:
   ┌─────────────────────────────────────────────────────────┐
@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_TEMPLATE = """你是 AgentSystem 的智能交互引擎。
 
-你的职责是根据用户输入，选择最合适的工具来完成任务，并通过工具执行结果生成友好回复。
+你的职责是根据用户输入选择合适工具,并基于工具结果生成友好回复。
 
 ## 当前会话状态
 {session_context}
@@ -59,59 +59,74 @@ SYSTEM_PROMPT_TEMPLATE = """你是 AgentSystem 的智能交互引擎。
 {tools_description}
 
 ## 执行策略
-1. **意图匹配**: 用户请求明确时，选择对应工具并提取参数
-2. **缺参追问**: 缺少必要参数时，使用 `ask_clarification` 询问用户
-3. **上下文续接**: 用户在回答之前的问题时，从 pending intent 推断当前输入的作用
-4. **模糊友好**: 无法理解时，使用 `unclear` 并给出友好引导
+1. **找到答案就停**：一旦发现能回答用户问题的核心信息，立即停止调用工具，直接回复
+2. **边做边评估**：每调用一个工具后，问自己："这些信息够回答用户了吗？"
+   - 够了 → 立即回复，不要继续探索
+   - 不够 → 再调 1-2 个工具，然后必须给结论
+3. **分阶段交付**：
+   - 先给"有没有/是什么"的结论
+   - 如果用户需要，再深入"怎么做/为什么"
+4. **不要过度探索**：用户问"有没有持久化"，找到"有，用 JSON"就够了，不要继续查表结构/字段
+5. **处理"继续"指令**：
+   - 用户说"继续"时，深入 1-2 个关键点后立即停止
+   - 给阶段性结论后，再次询问"还要继续吗？"
+   - 不要为了"更完整"而无限探索
+6. 用户请求明确时，选择对应工具并提取参数
+7. 缺少必要参数时，使用 `ask_clarification` 追问
+8. 用户在回答上一个追问时，从 pending intent 续接上下文
+9. 无法理解时，使用 `unclear` 给出引导
 
 ## 参数提取规则
-- `app_name`: 从用户输入提取 App 名称（如"服务器监控"、"日报"）
-- `app_type`: 提取 App 类型（监控/日报/提醒/翻译/爬虫/定时任务等）
-- `description`: 完整保留用户的原始需求描述
-- `status`: 过滤条件，枚举值: running/stopped/paused/all
+- `app_name`: 从用户输入提取 App 名称
+- `app_type`: 提取 App 类型
+- `description`: 保留原始需求描述
+- `status`: 过滤条件,枚举值 running/stopped/paused/all
 
-## 上下文续接规则（重要！）
-如果【当前会话状态】中标注了"等待完成"，说明：
-- 用户正在回答之前的追问
-- 当前输入应该被填入缺失的参数
-- 例如：pending=start_app, missing=app_name → 用户说"服务器监控" → app_name="服务器监控"
+## 代码自省规则
+当用户要求看代码、查仓库、查持久化、查记忆、查源码位置时:
+- 先在 `/root/project/AgentSystem` 内真实检索,再下结论
+- 优先检查:`app/system/gateway/light_brain_memory.py`、`app/system/gateway/light_brain_gateway.py`、`app/bootstrap/runtime.py`、`app/services/persistence_service.py`、`app/system/http_test_server.py`
+- 没看关键文件前,不要直接说"未实现"或"仅内存"
+- 涉及 Web Chat 时,要区分 HTTP 测试入口状态和底层持久化链路
+- **代码自省约束(硬性)**:只陈述真实 read/search 命中的文件内容;禁止补写:数据库文件名、表结构、接口函数名、伪代码流程;不确定时用"未在已查文件中证实"
 
 ## 回复要求
 - 必须使用 tool calling 格式
-- ask_clarification 的 question 要友好自然，如："你想启动哪个 App 呀？"
-- unclear 的 reply 要有引导性，如："我没太理解，你是想...吗？"
+- ask_clarification 的 question 要自然
+- unclear 的 reply 要有引导性
+- **终止条件**:当你已获得足够信息可以回答用户问题时,直接返回回复内容,不要继续调用工具
 """
 
 
 def format_assets_for_prompt(assets: list[dict[str, Any]]) -> str:
     """Format available assets for prompt section.
-    
+
     Assets are NOT tools. They are system components visible to LLM
     for discovery, but invoked via call_asset_method.
     """
     if not assets:
         return "【系统资产】暂无可用资产"
-    
+
     lines = ["【系统资产】"]
     for asset in assets:
         asset_id = asset.get("asset_id", asset.get("name", "unknown"))
         desc = asset.get("description", "")
         capabilities = asset.get("capabilities", [])
-        
+
         cap_list = []
         for cap in (capabilities[:5] if capabilities else []):
             method = cap.get("method", "unknown")
             cap_list.append(method)
-        
+
         cap_str = ", ".join(cap_list) if cap_list else "多个方法"
         lines.append(f"  • {asset_id}: {cap_str}")
-    
+
     if len(assets) > 5:
         lines.append(f"  • ... 还有 {len(assets) - 5} 个资产")
-    
+
     lines.append("")
     lines.append("调用资产方法: 使用 call_asset_method(asset_id, method, params)")
-    
+
     return "\n".join(lines)
 
 
@@ -146,12 +161,20 @@ def build_session_context(
 
     if history:
         lines.append("【最近对话】")
-        for msg in history[-4:]:
+        # Phase H+: Cap total context to avoid gateway timeouts
+        total_budget = 2000  # chars
+        used = 0
+        for msg in reversed(history):
             role = msg.get("role", "")
-            content = msg.get("content", "")[:80]
-            lines.append(f"  {role}: {content}")
+            content = msg.get("content", "")[:120]
+            line = f"  {role}: {content}"
+            if used + len(line) > total_budget:
+                break
+            lines.append(line)
+            used += len(line)
 
-    return "\n".join(lines) if lines else "新会话，无历史上下文"
+
+    return "\n".join(lines) if lines else "新会话,无历史上下文"
 
 
 def format_tools_for_prompt(registry_tools: list[dict[str, Any]]) -> str:
@@ -161,7 +184,7 @@ def format_tools_for_prompt(registry_tools: list[dict[str, Any]]) -> str:
         name = tool.get("name", "")
         desc = tool.get("description", "")
         params = tool.get("parameters", [])
-        
+
         # Handle structured parameters (dict with properties)
         if isinstance(params, dict):
             props = params.get("properties", {})
@@ -175,7 +198,7 @@ def format_tools_for_prompt(registry_tools: list[dict[str, Any]]) -> str:
                 f"{p.get('name')}: {p.get('description')}"
                 for p in params
             ]
-        
+
         param_line = ", ".join(param_strs) if param_strs else "无参数"
         lines.append(f"  • {name}: {desc}")
         lines.append(f"    参数: {param_line}")
@@ -186,26 +209,26 @@ def format_tools_for_prompt(registry_tools: list[dict[str, Any]]) -> str:
 
 ASK_CLARIFICATION_DEF = ToolDef(
     name="ask_clarification",
-    description="当缺少必要参数或需要用户确认时，向用户友好地询问更多信息",
+    description="当缺少必要参数或需要用户确认时,向用户友好地询问更多信息",
     parameters={
         "type": "object",
         "properties": {
             "question": {
                 "type": "string",
-                "description": "友好自然的问题，引导用户补充信息",
+                "description": "友好自然的问题,引导用户补充信息",
             },
             "pending_intent": {
                 "type": "string",
-                "description": "当前正在等待完成的意图名称（如 start_app）",
+                "description": "当前正在等待完成的意图名称(如 start_app)",
             },
             "missing_param": {
                 "type": "string",
-                "description": "缺少的参数名称（如 app_name）",
+                "description": "缺少的参数名称(如 app_name)",
             },
             "suggested_values": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "建议的可能值（如可用 App 列表）",
+                "description": "建议的可能值(如可用 App 列表)",
             },
         },
         "required": ["question", "pending_intent", "missing_param"],
@@ -214,13 +237,13 @@ ASK_CLARIFICATION_DEF = ToolDef(
 
 UNCLEAR_DEF = ToolDef(
     name="unclear",
-    description="当完全无法理解用户意图时使用，给出友好引导",
+    description="当完全无法理解用户意图时使用,给出友好引导",
     parameters={
         "type": "object",
         "properties": {
             "reply": {
                 "type": "string",
-                "description": "友好的回复文本，引导用户重新表达",
+                "description": "友好的回复文本,引导用户重新表达",
             },
         },
         "required": ["reply"],
@@ -341,7 +364,7 @@ class ToolCallingInterpreter:
         missing_list = pending.get("missing", [])
         first_missing = missing_list[0] if missing_list else "value"
 
-        # Build filled params — user input fills the first missing param
+        # Build filled params - user input fills the first missing param
         filled_params = dict(pending.get("params", {}))
         filled_params[first_missing] = message.strip()
 
@@ -383,7 +406,7 @@ class ToolCallingInterpreter:
         """Full LLM interpretation with tool registry context."""
         # Get history
         history = self._get_history(session_id)
-        
+
         # Get available assets from RuntimeCenter (for prompt visibility)
         available_assets = []
         if self._runtime_center:
@@ -414,7 +437,7 @@ class ToolCallingInterpreter:
             hot_tools = self._hot_tool_manager.get_tools_for_session(session_id)
             tools_desc = format_tools_for_prompt(hot_tools)
         else:
-            tools_desc = format_tools_for_prompt(self._registry.get_all_tools_for_llm())
+            tools_desc = format_tools_for_prompt(self._registry.list_all())
 
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             session_context=session_ctx,
@@ -422,6 +445,7 @@ class ToolCallingInterpreter:
         )
 
         # Phase E.2: Use hot tools + find_tool as escape hatch
+        # Restore hot_tool_manager usage
         if self._hot_tool_manager and session_id:
             hot_tools = self._hot_tool_manager.get_tools_for_session(session_id)
             registry_tools = self._build_tool_defs_from_hot(hot_tools)
@@ -429,14 +453,14 @@ class ToolCallingInterpreter:
             registry_tools = self._build_tool_defs()
         all_tools = registry_tools + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
 
-        # Execute — 复杂任务（如探索文件系统、多步 App 创建）需要更多轮次
+        # Execute - 恢复多轮工具调用,但避免回灌 provider 不兼容的 tool_call 历史 shape
         try:
             result = self._engine.execute_turns(
                 skill_id="gateway_intent_parser",
                 system_prompt=system_prompt,
                 user_message=message,
                 tools=all_tools,
-                max_turns=8,  # 8 轮足够完成：探索→分析→决策→生成回复的完整链路
+                max_turns=6,
                 asset_id="asset:light_brain_gateway:v1",
             )
             logger.info(f"ToolCallingEngine result: final_text={result.final_text[:100] if result.final_text else 'empty'}, tool_calls={[t.tool_name for t in result.tool_calls] if result.tool_calls else 'none'}")
@@ -477,7 +501,7 @@ class ToolCallingInterpreter:
                         schema["properties"][name]["enum"] = p["enum"]
                     if p.get("required", True):
                         schema["required"].append(name)
-            
+
             tool_defs.append(ToolDef(
                 name=tool.get("name", ""),
                 description=tool.get("description", ""),
@@ -488,26 +512,28 @@ class ToolCallingInterpreter:
     def _build_tool_defs(self) -> list[ToolDef]:
         """Convert registry tools to ToolDef."""
         tool_defs = []
-        for tool in self._registry.get_all_tools_for_llm():
+        for tool in self._registry.list_all():
+            # ToolDefinition is an object, not a dict
             schema = {
                 "type": "object",
                 "properties": {},
                 "required": [],
             }
-            for p in tool.get("parameters", []):
-                name = p.get("name", "")
+            for p in getattr(tool, "parameters", []):
+                name = getattr(p, "name", "")
                 schema["properties"][name] = {
-                    "type": p.get("type", "string"),
-                    "description": p.get("description", ""),
+                    "type": getattr(p, "type", "string"),
+                    "description": getattr(p, "description", ""),
                 }
-                if p.get("enum"):
-                    schema["properties"][name]["enum"] = p["enum"]
-                if p.get("required", True):
+                enum_vals = getattr(p, "enum", None)
+                if enum_vals:
+                    schema["properties"][name]["enum"] = enum_vals
+                if getattr(p, "required", True):
                     schema["required"].append(name)
 
             tool_defs.append(ToolDef(
-                name=tool.get("name", ""),
-                description=tool.get("description", ""),
+                name=getattr(tool, "name", ""),
+                description=getattr(tool, "description", ""),
                 parameters=schema,
             ))
         return tool_defs
@@ -519,7 +545,7 @@ class ToolCallingInterpreter:
     ) -> InterpretedCommand:
         """Convert ToolCallingEngine result to InterpretedCommand."""
         if not result.tool_calls:
-            # LLM responded directly (no tool needed, e.g. "好的，我来...")
+            # LLM responded directly (no tool needed, e.g. "好的,我来...")
             return InterpretedCommand(
                 intent="direct_response",
                 raw_input=raw_input,
@@ -559,7 +585,7 @@ class ToolCallingInterpreter:
                 intent="unclear",
                 raw_input=raw_input,
                 confidence=0.4,
-                parameters={"reply": tool_args.get("reply", "我没理解你的意思，换个说法试试？")},
+                parameters={"reply": tool_args.get("reply", "我没理解你的意思,换个说法试试?")},
                 source="llm_unclear",
             )
 

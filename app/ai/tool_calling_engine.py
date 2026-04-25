@@ -19,7 +19,7 @@ Usage:
         system_prompt="你是监控分析助手...",
         user_message="CPU 使用率异常",
         tools=[...],  # tool definitions
-        max_turns=10,
+        max_turns=100,
     )
 """
 from __future__ import annotations
@@ -28,6 +28,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 import json
+import yaml
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -97,7 +99,7 @@ class ToolCallingEngine:
         system_prompt: str,
         user_message: str,
         tools: list[ToolDef],
-        max_turns: int = 10,
+        max_turns: int | None = None,  # None means read from global config
         temperature: float = 0.7,
         max_tokens: int = 4096,
         model_override: str | None = None,
@@ -109,9 +111,7 @@ class ToolCallingEngine:
             skill_id: Skill identifier (used for model routing)
             system_prompt: System prompt
             user_message: User message
-            tools: List of tool definitions
-            max_turns: Maximum tool calling rounds
-            temperature: LLM temperature
+            tools: List of tool definitionstemperature: LLM temperature
             max_tokens: Max tokens per turn
             model_override: Override model (bypasses router)
             asset_id: Caller asset ID for asset-level model configuration
@@ -145,6 +145,10 @@ class ToolCallingEngine:
                 handlers[t.name] = self._tools[t.name]
 
         # Execute multi-turn loop
+        # NOTE: Some upstream chat_with_tools providers reject replaying prior
+        # assistant/tool call history in OpenAI tool-call shape. To maximize
+        # compatibility, keep only the current system+user turn for each tool
+        # selection cycle in this gateway path.
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
@@ -182,7 +186,15 @@ class ToolCallingEngine:
                     usage=total_usage,
                 )
 
-            messages.append(message)
+            # Build trace of what we have done so far so LLM can decide when to stop
+            tool_trace = []
+            for rec in call_records[-3:]:
+                status = "ok" if not rec.error else f"err:{rec.error[:40]}"
+                tool_trace.append(f"{rec.tool_name}({json.dumps(rec.args, ensure_ascii=False)[:60]})->{status}")
+            done_hint = f"[已完成工具] {', '.join(tool_trace)}。若信息足够，请直接回复内容，不再调用工具。"
+
+            # Removed explicit assistant hint; let model decide based on tool result
+
 
             for tc in tool_calls:
                 tool_name = tc.get("function", {}).get("name", "")
@@ -209,8 +221,7 @@ class ToolCallingEngine:
 
                 messages.append({
                     "role": "tool",
-                    "tool_call_id": tool_call_id,
-                    "content": result_str,
+                    "content": result_str[:800],
                 })
 
         total_usage["model"] = model_name

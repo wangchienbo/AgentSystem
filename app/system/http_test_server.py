@@ -12,6 +12,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import json
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -43,6 +44,85 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 user_sessions: dict[str, dict[str, Any]] = {}  # session_id -> user_data
 conversation_history: dict[str, list[dict[str, str]]] = {}  # session_id -> messages
+CHAT_LOG_DIR = BASE_DIR / "data" / "chat_logs"
+CHAT_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _append_chat_log(session_id: str, event: dict[str, Any]) -> None:
+    log_path = CHAT_LOG_DIR / f"{session_id}.jsonl"
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+
+def _build_memory_context(session_id: str, limit: int = 12) -> str:
+    history = conversation_history.get(session_id, [])[-limit:]
+    return "\n".join(
+        f"{item.get('role', 'unknown')}: {item.get('content', '')}"
+        for item in history
+    )
+
+
+def _extract_session_facts(session_id: str) -> dict[str, str]:
+    facts: dict[str, str] = {}
+    history = conversation_history.get(session_id, [])
+    for item in history:
+        if item.get("role") != "user":
+            continue
+        content = item.get("content", "")
+        if "闺女" in content or "女儿" in content:
+            facts["child_gender"] = "女"
+        if "姓王" in content:
+            facts["child_surname"] = "王"
+        if "辰时" in content:
+            facts["birth_time"] = "辰时"
+        if "2026年7月16" in content:
+            facts["birth_date"] = "2026年7月16日"
+        if "起名字" in content or "起名" in content:
+            facts["task"] = "给孩子起名"
+    return facts
+
+
+def _build_session_fact_board(session_id: str) -> str:
+    facts = _extract_session_facts(session_id)
+    if not facts:
+        return ""
+    labels = {
+        "task": "当前任务",
+        "child_gender": "孩子性别",
+        "child_surname": "孩子姓氏",
+        "birth_date": "出生日期",
+        "birth_time": "出生时辰",
+    }
+    lines = ["[当前会话已知事实]"]
+    for key in ["task", "child_gender", "child_surname", "birth_date", "birth_time"]:
+        if key in facts:
+            lines.append(f"- {labels[key]}: {facts[key]}")
+    lines.append("- 对已明确给出的事实，不要重复追问。")
+    return "\n".join(lines)
+
+
+def _build_effective_memory_context(session_id: str) -> str:
+    parts = []
+    fact_board = _build_session_fact_board(session_id)
+    history = _build_memory_context(session_id)
+    if fact_board:
+        parts.append(fact_board)
+    if history:
+        parts.append("[最近对话历史]\n" + history)
+    return "\n\n".join(parts)
+
+
+def _augment_user_message(raw_message: str, session_id: str) -> str:
+    history = conversation_history.get(session_id, [])
+    style_anchor = "回答时必须先给结论，再给细节。"
+    action_first_triggers = ["查看上下文", "看下上下文", "查代码", "源码仓库", "仓库位置", "调用工具查找"]
+    if not history:
+        return raw_message
+    prefix_lines = ["[对话约束]", f"- {style_anchor}"]
+    if any(trigger in raw_message for trigger in action_first_triggers):
+        prefix_lines.append("- 当前请求属于系统自省/检索类请求，必须优先尝试真实工具动作或真实检索，再根据结果回复；不要直接只做泛化能力解释。")
+        prefix_lines.append("- 若无法完成，也要明确说明已尝试了什么、为什么失败、还缺什么权限或信息。")
+    return "\n".join(prefix_lines) + f"\n\n[用户当前消息]\n{raw_message}"
 
 
 class ChatRequest(BaseModel):
@@ -124,35 +204,69 @@ async def api_get_history(session_id: str, user: dict = Depends(get_current_user
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
     session_id = req.session_id or user["session_id"]
+    started_at = datetime.now()
+    user_sessions[session_id]["last_active"] = started_at.isoformat()
 
     try:
         # Build ChatMessageRequest for LightBrain gateway
         chat_req = ChatMessageRequest(
             user_id=user.get("username", "anonymous"),
             channel="webchat",
-            message=req.message,
+            message=_augment_user_message(req.message, session_id),
             session_id=session_id,
-            memory_context=None,
+            memory_context=_build_effective_memory_context(session_id),
         )
         # Call AgentSystem LightBrain gateway (which handles LLM routing and Tool calls)
         llm_resp = await gateway.receive_message(chat_req)
         response_text = getattr(llm_resp, "content", "") or ""
+        finished_at = datetime.now()
+        latency_ms = int((finished_at - started_at).total_seconds() * 1000)
 
         # Store in conversation history
         conversation_history.setdefault(session_id, []).append({
             "role": "user",
             "content": req.message,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": started_at.isoformat(),
         })
         conversation_history.setdefault(session_id, []).append({
             "role": "assistant",
             "content": response_text,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": finished_at.isoformat(),
         })
-        return {"success": True, "response": response_text, "session_id": session_id}
+        _append_chat_log(session_id, {
+            "timestamp": finished_at.isoformat(),
+            "session_id": session_id,
+            "username": user.get("username", "anonymous"),
+            "request": req.message,
+            "response": response_text,
+            "success": True,
+            "error_type": None,
+            "latency_ms": latency_ms,
+        })
+        return {"success": True, "response": response_text, "session_id": session_id, "latency_ms": latency_ms}
     except Exception as e:
+        finished_at = datetime.now()
+        latency_ms = int((finished_at - started_at).total_seconds() * 1000)
+        error_text = str(e)
+        error_type = type(e).__name__
         logger.exception("Error processing message")
-        return {"success": False, "error": f"LLM request failed: {str(e)}"}
+        conversation_history.setdefault(session_id, []).append({
+            "role": "user",
+            "content": req.message,
+            "timestamp": started_at.isoformat(),
+        })
+        _append_chat_log(session_id, {
+            "timestamp": finished_at.isoformat(),
+            "session_id": session_id,
+            "username": user.get("username", "anonymous"),
+            "request": req.message,
+            "response": None,
+            "success": False,
+            "error": error_text,
+            "error_type": error_type,
+            "latency_ms": latency_ms,
+        })
+        return {"success": False, "error": f"LLM request failed: {error_text}", "error_type": error_type, "session_id": session_id, "latency_ms": latency_ms}
 
 
 # ---------- 新增 Action 接口（前端按钮 / Tool 调用） ----------
@@ -174,7 +288,7 @@ async def api_action(req: ActionRequest, user: dict = Depends(get_current_user))
             channel="webchat",
             message=f"[action:{req.action_id}]",  # 简短占位，实际行为在 payload 中
             session_id=session_id,
-            memory_context=None,
+            memory_context=_build_effective_memory_context(session_id),
         )
         # 注入 payload 让 LightBrain 能识别要调用的工具
         chat_req = chat_req.copy(update={"payload": {"action_id": req.action_id, "params": req.action_params}})
