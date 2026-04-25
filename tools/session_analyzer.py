@@ -97,8 +97,18 @@ def analyze_sessions(sessions: list[dict[str, Any]], telemetry: dict[str, Any], 
     relevant_interaction_ids = {x.get("interaction_id") for x in interactions}
     step_count = 0
     for iid, steps in steps_map.items():
-        if not relevant_interaction_ids or iid in relevant_interaction_ids:
+        if iid in relevant_interaction_ids:
             step_count += len(steps)
+
+    if step_count == 0 and (user_id or session_id):
+        for iid, steps in steps_map.items():
+            for step in steps:
+                summary = step.get("payload_summary", {}) or {}
+                if user_id and str(summary.get("user_id")) != str(user_id):
+                    continue
+                if session_id and summary.get("session_id") != session_id:
+                    continue
+                step_count += 1
 
     analysis["total_sessions"] = len(filtered_sessions)
     analysis["total_messages"] = total_messages

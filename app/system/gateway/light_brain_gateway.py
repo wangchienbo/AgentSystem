@@ -221,13 +221,14 @@ class LightBrainGateway:
         self._memory.record_command(session_id, command)
 
         # Phase 7.3: execute workflow and return reply
+        interaction_id = f"lightbrain:{session_id}:{abs(hash(request.message))}"
         result = await self._execute_command(command, session_id, available_apps)
         self._after_reply(session_id=session_id, reply=result)
 
         if self._telemetry_service is not None:
             self._telemetry_service.record_interaction(
                 InteractionTelemetryRecord(
-                    interaction_id=f"lightbrain:{session_id}:{abs(hash(request.message))}",
+                    interaction_id=interaction_id,
                     session_id=session_id,
                     user_id=request.user_id,
                     app_id=command.target_app,

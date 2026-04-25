@@ -1,6 +1,43 @@
 # AgentSystem Development Log
 
-## 2026-04-26: OPT-003 P1 Main-path Telemetry Integration
+## 2026-04-26: OPT-003 P2 Tool-step Evidence Closure
+
+### Summary
+Completed the second closure step for OPT-003 by validating a real LightBrain tool-calling scenario and unifying telemetry correlation between interaction-level and step-level evidence.
+
+### What Was Done
+- Added external `interaction_id` support to `app/ai/tool_calling_engine.py`
+- Unified LightBrain interaction ID propagation across:
+  - `app/system/gateway/tool_calling_interpreter.py`
+  - `app/system/gateway/light_brain_gateway.py`
+- Updated `tools/session_analyzer.py` to support both:
+  - direct `interaction_id` correlation
+  - compatibility fallback via `payload_summary.session_id/user_id` for historical telemetry
+
+### Validation
+Executed a real `/api/chat` request with a tool-forcing prompt:
+- request intent: call `list_assets`
+- runtime boot: success
+- chat execution: success
+- analyzer result after validation:
+  - `telemetry_interactions = 4`
+  - `telemetry_steps = 2`
+  - no remaining analyzer warning about missing step telemetry
+
+### Product Conclusion
+OPT-003 P2 is complete.
+The self-upgrade evidence path now has a usable real main-path signal chain:
+- user interaction
+- LightBrain telemetry record
+- tool/reason step telemetry record
+- analyzer visibility for replay and optimization selection
+
+### Next Step
+Proceed to OPT-003 P3:
+- define replay-selection rules on top of the new evidence
+- prioritize failed / expensive / high-friction interactions
+- connect evidence output to upgrade candidate generation
+
 
 ### Summary
 Completed the first real closure step for OPT-003 (self-upgrade evidence pipeline).

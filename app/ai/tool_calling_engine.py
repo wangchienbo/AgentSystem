@@ -108,6 +108,7 @@ class ToolCallingEngine:
         asset_id: str | None = None,  # Caller asset context for model routing
         session_id: str | None = None,
         user_id: str | None = None,
+        interaction_id: str | None = None,
     ) -> ToolCallingResult:
         """Execute multi-turn tool calling.
 
@@ -164,7 +165,7 @@ class ToolCallingEngine:
         }
         call_records: list[ToolCallRecord] = []
         model_name = model_override or client._config.model
-        interaction_id = f"toolcall:{session_id or 'unknown'}:{skill_id}:{abs(hash(user_message))}"
+        interaction_id = interaction_id or f"toolcall:{session_id or 'unknown'}:{skill_id}:{abs(hash(user_message))}"
 
         for turn in range(max_turns):
             response, usage = client.chat_with_tools(

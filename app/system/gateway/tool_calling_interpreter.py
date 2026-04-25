@@ -470,6 +470,7 @@ class ToolCallingInterpreter:
 
         # Execute - 恢复多轮工具调用,但避免回灌 provider 不兼容的 tool_call 历史 shape
         try:
+            interaction_id = f"lightbrain:{session_id}:{abs(hash(message))}"
             result = self._engine.execute_turns(
                 skill_id="gateway_intent_parser",
                 system_prompt=system_prompt,
@@ -479,6 +480,7 @@ class ToolCallingInterpreter:
                 asset_id="asset:light_brain_gateway:v1",
                 session_id=session_id,
                 user_id=user_id,
+                interaction_id=interaction_id,
             )
             logger.info(f"ToolCallingEngine result: final_text={result.final_text[:100] if result.final_text else 'empty'}, tool_calls={[t.tool_name for t in result.tool_calls] if result.tool_calls else 'none'}")
         except Exception as e:
