@@ -1,5 +1,41 @@
 # AgentSystem Development Log
 
+## 2026-04-26: OPT-003 P1 Main-path Telemetry Integration
+
+### Summary
+Completed the first real closure step for OPT-003 (self-upgrade evidence pipeline).
+This round focused on moving LightBrain from "telemetry design exists" to "real interaction evidence enters the runtime store".
+
+### What Was Done
+- Fixed runtime startup blocker caused by telemetry injection order in `app/bootstrap/runtime.py`
+- Fixed `app/skills/system_skills/permission.py` indentation regression so the HTTP runtime could boot again
+- Integrated `InteractionTelemetryRecord` write path into `app/system/gateway/light_brain_gateway.py`
+- Integrated step telemetry hooks into `app/ai/tool_calling_engine.py`
+- Passed `session_id` / `user_id` through `app/system/gateway/tool_calling_interpreter.py`
+- Updated `tools/session_analyzer.py` to read telemetry from the actual runtime store path: `data/runtime/`
+
+### Validation
+- HTTP runtime booted successfully after fixes
+- Real user interaction for user `123` executed through `/api/chat`
+- `telemetry_interactions.json` confirmed new LightBrain interaction persisted
+- Session analyzer now reports runtime telemetry correctly
+- Current validation request hit `direct_response`, so no new tool-step sample was generated in this round
+
+### Product Conclusion
+OPT-003 is no longer blocked by "no real interaction evidence".
+Current state:
+- ✅ Interaction telemetry is on the real main path
+- ✅ Runtime persistence is verified
+- ✅ Analyzer reads the correct storage location
+- ⏳ Tool-step evidence still needs one forced tool-calling validation sample
+
+### Next Step
+Proceed to OPT-003 P2:
+- Force a real tool-calling scenario
+- Verify `StepTelemetryRecord` generation for LightBrain traffic
+- Update analyzer to correlate interaction + tool-step evidence for replay selection
+
+
 ## 2026-04-22: Phase V Completion + E2E Test Cleanup
 
 ### Summary

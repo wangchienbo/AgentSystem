@@ -282,6 +282,7 @@ class ToolCallingInterpreter:
         continuation_service: Any = None,
         hot_tool_manager: Any = None,
         runtime_center: Any = None,
+        telemetry_service: Any = None,
     ) -> None:
         self._registry = tool_registry
         self._engine = tool_calling_engine
@@ -289,6 +290,7 @@ class ToolCallingInterpreter:
         self._continuation = continuation_service
         self._hot_tool_manager = hot_tool_manager  # Phase E.2: hot tool support
         self._runtime_center = runtime_center  # For asset visibility in prompt
+        self._telemetry_service = telemetry_service
 
     def interpret(
         self,
@@ -475,6 +477,8 @@ class ToolCallingInterpreter:
                 tools=all_tools,
                 max_turns=20,
                 asset_id="asset:light_brain_gateway:v1",
+                session_id=session_id,
+                user_id=user_id,
             )
             logger.info(f"ToolCallingEngine result: final_text={result.final_text[:100] if result.final_text else 'empty'}, tool_calls={[t.tool_name for t in result.tool_calls] if result.tool_calls else 'none'}")
         except Exception as e:

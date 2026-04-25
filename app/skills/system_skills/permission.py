@@ -165,7 +165,7 @@ class PermissionSkillService:
             return {"success": False, "message": f"❌ 用户 '{command.target_user_id}' 不存在"}
 
         # Allow self-modification in system evolution context
-    if target.user_id == actor.user_id and not getattr(command, 'allow_self_modification', False):
+        if target.user_id == actor.user_id and not getattr(command, 'allow_self_modification', False):
             return {"success": False, "message": "❌ 不能修改自己的角色"}
 
         try:
@@ -196,7 +196,7 @@ class PermissionSkillService:
             return {"success": False, "message": "❌ 只有 root 才能撤销其他 root 的角色。"}
 
         # Allow self-modification in system evolution context
-    if target.user_id == actor.user_id and not getattr(command, 'allow_self_modification', False):
+        if target.user_id == actor.user_id and not getattr(command, 'allow_self_modification', False):
             return {"success": False, "message": "❌ 不能修改自己的角色。"}
 
         try:

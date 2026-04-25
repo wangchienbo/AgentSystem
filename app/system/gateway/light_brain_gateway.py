@@ -18,9 +18,9 @@ from app.models.chat import (
     InlineItem,
     InterpretedCommand,
 )
-from app.models.context import SessionContextRecord, SessionLink, SessionNode
+from app.models.telemetry import InteractionTelemetryRecord
 from app.services.context_center import ContextCenter
-from app.services.light_brain_memory import LightBrainMemory, LightBrainMemoryError
+from app.models.context import SessionContextRecord, SessionLink, SessionNode
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.system.catalog.runtime_center import RuntimeCenter
@@ -99,6 +99,7 @@ class LightBrainGateway:
         self._observability = ObservabilityCollector()
         self._context_upload_helper = ContextUploadHelper(ContextUploadConfig())
         self._contract_linter = ContractLinter()
+        self._telemetry_service = extra_deps.get("telemetry_service")
 
         # Legacy: accept app_catalog as initial value
         if app_catalog is not None:
@@ -222,6 +223,25 @@ class LightBrainGateway:
         # Phase 7.3: execute workflow and return reply
         result = await self._execute_command(command, session_id, available_apps)
         self._after_reply(session_id=session_id, reply=result)
+
+        if self._telemetry_service is not None:
+            self._telemetry_service.record_interaction(
+                InteractionTelemetryRecord(
+                    interaction_id=f"lightbrain:{session_id}:{abs(hash(request.message))}",
+                    session_id=session_id,
+                    user_id=request.user_id,
+                    app_id=command.target_app,
+                    request_type="light_brain_message",
+                    success=not result.content.startswith("[Reached max turns"),
+                    failure_reason="max_turns_reached" if result.content.startswith("[Reached max turns") else None,
+                    total_input_tokens=max(1, len(request.message) // 4),
+                    total_output_tokens=max(1, len(result.content) // 4),
+                    total_tokens=max(1, (len(request.message) + len(result.content)) // 4),
+                    total_latency_ms=int((_time.time() - _cmd_start_time) * 1000),
+                    total_tool_calls=_cmd_tool_calls,
+                    strategy_name=command.intent,
+                )
+            )
 
         # Phase H+: Observability - record command metrics
         _cmd_duration_ms = int((_time.time() - _cmd_start_time) * 1000)

@@ -372,6 +372,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         policy_service=collection_policy_service,
         upgrade_log_service=upgrade_log_service,
     )
+    tool_calling_engine._telemetry_service = telemetry_service
     evaluation_summary_service = EvaluationSummaryService(
         store=runtime_store,
         upgrade_log_service=upgrade_log_service,
@@ -964,6 +965,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         continuation_service=None,
         hot_tool_manager=hot_tool_manager,
         runtime_center=runtime_center,  # For asset visibility in prompt
+        telemetry_service=telemetry_service,
     )
 
     light_brain_gateway = LightBrainGateway(
@@ -993,6 +995,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         message_bus=g1g2_bus,  # Pass MessageBus for RPC-based service calls
         config_center=config_center,  # Pass ConfigCenter for default app-skill binding
         master_control=master_control,  # Pass MasterControl for centralized execution
+        telemetry_service=telemetry_service,
     )
 
     runtime_center.register_asset(

@@ -35,6 +35,7 @@ from typing import Any, Callable
 
 from app.services.model_router import ModelRouter, ModelRouterError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
+from app.models.telemetry import StepTelemetryRecord
 
 
 @dataclass
@@ -81,9 +82,10 @@ class ToolCallingEngineError(ValueError):
 class ToolCallingEngine:
     """Multi-turn tool calling engine with model routing."""
 
-    def __init__(self, model_router: ModelRouter) -> None:
+    def __init__(self, model_router: ModelRouter, telemetry_service: Any | None = None) -> None:
         self._router = model_router
         self._tools: dict[str, Callable] = {}
+        self._telemetry_service = telemetry_service
 
     def register_tool(self, name: str, handler: Callable) -> None:
         """Register a tool that LLM can call."""
@@ -104,6 +106,8 @@ class ToolCallingEngine:
         max_tokens: int = 4096,
         model_override: str | None = None,
         asset_id: str | None = None,  # Caller asset context for model routing
+        session_id: str | None = None,
+        user_id: str | None = None,
     ) -> ToolCallingResult:
         """Execute multi-turn tool calling.
 
@@ -160,6 +164,7 @@ class ToolCallingEngine:
         }
         call_records: list[ToolCallRecord] = []
         model_name = model_override or client._config.model
+        interaction_id = f"toolcall:{session_id or 'unknown'}:{skill_id}:{abs(hash(user_message))}"
 
         for turn in range(max_turns):
             response, usage = client.chat_with_tools(
@@ -177,6 +182,25 @@ class ToolCallingEngine:
             tool_calls = response.get("tool_calls", [])
 
             if not tool_calls:
+                if self._telemetry_service is not None:
+                    self._telemetry_service.record_step(
+                        StepTelemetryRecord(
+                            interaction_id=interaction_id,
+                            step_id=f"llm_turn_{turn + 1}",
+                            step_type="reason",
+                            name="llm_final_response",
+                            input_tokens=usage.get("prompt_tokens", 0),
+                            output_tokens=usage.get("completion_tokens", 0),
+                            success=True,
+                            payload_summary={
+                                "turn": turn + 1,
+                                "termination_reason": "final_response",
+                                "session_id": session_id,
+                                "user_id": user_id,
+                            },
+                        ),
+                        app_id=asset_id,
+                    )
                 total_usage["model"] = model_name
                 total_usage["turns"] = turn + 1
                 return ToolCallingResult(
@@ -212,9 +236,47 @@ class ToolCallingEngine:
                         result = handler(**tool_args) if isinstance(tool_args, dict) else handler(tool_args)
                         result_str = json.dumps(result, ensure_ascii=False) if not isinstance(result, str) else result
                         call_records.append(ToolCallRecord(tool_name=tool_name, args=tool_args, result=result))
+                        if self._telemetry_service is not None:
+                            self._telemetry_service.record_step(
+                                StepTelemetryRecord(
+                                    interaction_id=interaction_id,
+                                    step_id=f"tool_{turn + 1}_{len(call_records)}",
+                                    step_type="tool",
+                                    name=tool_name,
+                                    success=True,
+                                    payload_summary={
+                                        "turn": turn + 1,
+                                        "tool_name": tool_name,
+                                        "args": tool_args,
+                                        "session_id": session_id,
+                                        "user_id": user_id,
+                                    },
+                                ),
+                                app_id=asset_id,
+                            )
                     except Exception as e:
                         result_str = json.dumps({"error": str(e)}, ensure_ascii=False)
                         call_records.append(ToolCallRecord(tool_name=tool_name, args=tool_args, result=None, error=str(e)))
+                        if self._telemetry_service is not None:
+                            self._telemetry_service.record_step(
+                                StepTelemetryRecord(
+                                    interaction_id=interaction_id,
+                                    step_id=f"tool_{turn + 1}_{len(call_records)}",
+                                    step_type="tool",
+                                    name=tool_name,
+                                    success=False,
+                                    error_code="tool_execution_error",
+                                    payload_summary={
+                                        "turn": turn + 1,
+                                        "tool_name": tool_name,
+                                        "args": tool_args,
+                                        "error": str(e),
+                                        "session_id": session_id,
+                                        "user_id": user_id,
+                                    },
+                                ),
+                                app_id=asset_id,
+                            )
                 else:
                     result_str = json.dumps({"error": f"Tool not found: {tool_name}"}, ensure_ascii=False)
                     call_records.append(ToolCallRecord(tool_name=tool_name, args=tool_args, result=None, error="Tool not found"))
@@ -224,6 +286,23 @@ class ToolCallingEngine:
                     "content": result_str[:800],
                 })
 
+        if self._telemetry_service is not None:
+            self._telemetry_service.record_step(
+                StepTelemetryRecord(
+                    interaction_id=interaction_id,
+                    step_id=f"llm_truncated_{max_turns}",
+                    step_type="reason",
+                    name="max_turns_reached",
+                    success=False,
+                    error_code="max_turns_reached",
+                    payload_summary={
+                        "max_turns": max_turns,
+                        "session_id": session_id,
+                        "user_id": user_id,
+                    },
+                ),
+                app_id=asset_id,
+            )
         total_usage["model"] = model_name
         total_usage["turns"] = max_turns
         total_usage["truncated"] = True
