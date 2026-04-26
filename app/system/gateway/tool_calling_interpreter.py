@@ -523,6 +523,9 @@ class ToolCallingInterpreter:
             return None
         scan_roots = profile.get("scan_roots", ["app"])
         file_extensions = profile.get("file_extensions", [".py"])
+        max_files = int(profile.get("max_files", 200))
+        max_hits_per_file = int(profile.get("max_hits_per_file", 12))
+        max_rows = int(profile.get("max_rows", 20))
         regex = profile["regex"]
         summary_focus = profile.get("summary_focus", "仅基于脚本命中结果做汇总")
         output_template = profile.get("output_template", "优先使用简洁小节或表格，最后明确未证实点")
@@ -532,9 +535,13 @@ class ToolCallingInterpreter:
 import os, re, json
 roots=json.loads(r'''{roots_json}''')
 exts=set(json.loads(r'''{exts_json}'''))
+max_files={max_files}
+max_hits_per_file={max_hits_per_file}
+max_rows={max_rows}
 pattern=re.compile(r'''{regex}''', re.I)
 rows=[]
 seen=set()
+files_scanned=0
 for root in roots:
     if not os.path.exists(root):
         continue
@@ -550,11 +557,14 @@ for root in roots:
         if path in seen:
             continue
         seen.add(path)
+        if files_scanned >= max_files:
+            continue
         if exts and not any(path.endswith(ext) for ext in exts):
             continue
         try:
             with open(path,'r',encoding='utf-8',errors='replace') as f:
                 content=f.read()
+            files_scanned += 1
         except Exception:
             continue
         if not pattern.search(content):
@@ -564,11 +574,13 @@ for root in roots:
             s=line.strip()
             if pattern.search(s):
                 hits.append({{'line': i, 'text': s[:220]}})
-            if len(hits) >= 12:
+            if len(hits) >= max_hits_per_file:
                 break
         if hits:
             rows.append({{'file': path, 'hits': hits}})
-print(json.dumps(rows[:20], ensure_ascii=False))
+        if len(rows) >= max_rows:
+            break
+print(json.dumps(rows[:max_rows], ensure_ascii=False))
 PY"""
         script_started = datetime.now(UTC)
         prestep = exec_shell(command=command, workdir="/root/project/AgentSystem", timeout=60)
@@ -655,6 +667,9 @@ PY"""
                     "summarizer_latency_ms": summarizer_latency_ms,
                     "fallback": fallback,
                     "result_rows": result_rows,
+                    "max_files": profile.get("max_files"),
+                    "max_hits_per_file": profile.get("max_hits_per_file"),
+                    "max_rows": profile.get("max_rows"),
                 },
             ),
             app_id="light_brain_gateway",

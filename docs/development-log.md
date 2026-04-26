@@ -1,3 +1,43 @@
+## 2026-04-27: Max Scan Controls + Regex Tightening
+
+### Summary
+Added explicit scan-size controls per profile and tightened noisy regexes for high-false-positive themes.
+
+### What Was Done
+- Added per-profile control fields in `app/system/gateway/scan_profiles.py`:
+  - `max_files`
+  - `max_hits_per_file`
+  - `max_rows`
+- Updated deterministic pre-step scanning logic to honor those limits
+- Tightened regexes for higher-noise profiles:
+  - router
+  - validation
+  - api
+- Extended telemetry payload summary to include the active max-control settings
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `26 passed`
+
+### Live Regression
+Ran real `/api/chat` regressions after regex tightening and scan-size limits:
+1. api profile
+   - completed in about 28s
+   - returned cleaner API-layer evidence centered on `app/api/main.py`, middleware, request flow, and response handling
+2. validation profile
+   - completed in about 21s
+   - returned a more policy/constraint-oriented summary with less generic keyword noise
+
+### Product Conclusion
+The deterministic analysis layer now has not only topic selection and scope control, but also explicit scan-budget controls. This improves latency stability and makes the output less vulnerable to broad keyword drift.
+
+### Next Step
+Potential follow-ups:
+- add interaction-level profile counters and fallback counters
+- refine validation/api triggers based on real production prompts
+- evaluate profile-specific stop heuristics beyond simple row/file caps
+
+
 ## 2026-04-27: Per-Profile Scan Scope + Deterministic Pre-Step Telemetry
 
 ### Summary

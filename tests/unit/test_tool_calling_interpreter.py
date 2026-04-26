@@ -37,6 +37,9 @@ def test_scan_profiles_define_scope_metadata() -> None:
     api_profile = next(p for p in SCAN_PROFILES if p["name"] == "api")
     assert api_profile["scan_roots"]
     assert ".py" in api_profile["file_extensions"]
+    assert api_profile["max_files"] > 0
+    assert api_profile["max_hits_per_file"] > 0
+    assert api_profile["max_rows"] > 0
 
 
 def test_build_turn_state_board_adds_script_escalation_hint_after_non_convergence() -> None:
