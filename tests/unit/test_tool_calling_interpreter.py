@@ -22,9 +22,11 @@ class DummyRouter(ModelRouter):
         pass
 
 
-def test_derive_scan_profile_detects_router_and_config_topics() -> None:
+def test_derive_scan_profile_detects_router_config_schema_runtime_topics() -> None:
     assert derive_scan_profile("请遍历路由定义并汇总接口") is not None
     assert derive_scan_profile("请扫描配置和 env 使用") is not None
+    assert derive_scan_profile("请汇总数据模型和字段定义") is not None
+    assert derive_scan_profile("请分析 runtime worker 启动流程") is not None
 
 
 def test_build_turn_state_board_adds_script_escalation_hint_after_non_convergence() -> None:

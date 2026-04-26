@@ -292,16 +292,31 @@ def derive_scan_profile(message: str) -> dict[str, Any] | None:
             "name": "persistence",
             "triggers": ["persistence", "persist", "持久化", "存储"],
             "regex": r"(persistence|persist|sqlite|json|mysql|postgres|storage|backend)",
+            "summary_focus": "存储后端、序列化格式、写入路径、是否出现数据库或文件系统持久化迹象",
         },
         {
             "name": "router",
             "triggers": ["router", "route", "路由", "接口"],
             "regex": r"(router|route|endpoint|api|path|fastapi|flask)",
+            "summary_focus": "接口定义、路径注册、路由装饰器、endpoint/path 相关实现",
         },
         {
             "name": "config",
             "triggers": ["config", "配置", "env", "环境变量", "yaml"],
             "regex": r"(config|setting|env|yaml|yml|toml|ini|os\.getenv)",
+            "summary_focus": "配置来源、默认值、环境变量覆盖、配置文件格式与加载位置",
+        },
+        {
+            "name": "schema",
+            "triggers": ["schema", "model", "字段", "表结构", "数据模型"],
+            "regex": r"(schema|model|field|column|pydantic|basemodel|dataclass)",
+            "summary_focus": "数据模型、字段定义、schema 结构、类型声明与默认值线索",
+        },
+        {
+            "name": "runtime",
+            "triggers": ["runtime", "process", "进程", "运行时", "worker"],
+            "regex": r"(runtime|process|worker|startup|shutdown|heartbeat|uvicorn)",
+            "summary_focus": "运行时组件、进程/worker 管理、启动关闭逻辑、心跳或服务生命周期",
         },
     ]
     for profile in profiles:
@@ -541,6 +556,7 @@ class ToolCallingInterpreter:
         if not profile:
             return None
         regex = profile["regex"]
+        summary_focus = profile.get("summary_focus", "仅基于脚本命中结果做汇总")
         command = f"""python3 - <<'PY'
 import os, re, json
 root='app'
@@ -580,6 +596,8 @@ PY"""
                 "你的任务是仅基于该结果做简洁汇总。"
                 "不要声称没有工具权限，不要要求用户手动执行。"
                 "若证据不足，要明确说仅基于脚本命中结果汇总。"
+                f"本次汇总重点: {summary_focus}。"
+                "不要超出命中结果做额外架构推断。"
             ),
             user_message=(
                 f"用户问题: {message}\n\n"

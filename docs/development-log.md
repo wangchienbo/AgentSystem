@@ -1,3 +1,40 @@
+## 2026-04-26: Expanded Profiles + Profile-Specific Summarizer Focus
+
+### Summary
+Expanded deterministic scan profiles and tightened summarizer guidance with per-profile focus instructions.
+
+### What Was Done
+- Expanded `derive_scan_profile(...)` with new themes:
+  - schema/model
+  - runtime/process
+- Added `summary_focus` to each scan profile so summarizer instructions are profile-specific instead of generic
+- Updated deterministic pre-step summarizer prompt to include:
+  - profile focus area
+  - explicit anti-overreach instruction
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `23 passed`
+
+### Live Regression
+Ran real `/api/chat` regressions for:
+1. schema/model scan
+   - completed in about 37s
+   - produced a bounded summary of model/entity references, field defaults, schema serialization clues
+2. runtime/process scan
+   - completed in about 48s
+   - produced a bounded summary of runtime host service, instance registration, runtime adapter modes, and validation constraints
+
+### Product Conclusion
+The deterministic aggregation pattern is now clearly operating as a reusable topic-aware analysis layer rather than a persistence-only workaround.
+
+### Next Step
+Potential follow-ups:
+- add storage/backend and api/handler focused profiles
+- introduce per-profile output templates for even tighter consistency
+- add telemetry for profile name, scan duration, and summarizer token cost
+
+
 ## 2026-04-26: Generalized Deterministic Pre-Step Profiles
 
 ### Summary
