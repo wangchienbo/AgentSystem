@@ -84,7 +84,7 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 - generated executable skills should enter the system through normal skill registry/runtime paths, then be consumable by app install/workflow execution without introducing a separate app-specific adapter layer
 - generated executable skill scaffolds should separate input/output/error contracts into distinct schema assets instead of collapsing them into one generic schema file, so registry validation, runtime envelope validation, and future review tooling can reason over request/result/error semantics independently
 - manifest validation for executable/generated skills should check more than command-prefix policy: the install-time package gate should also verify non-empty entry metadata, entrypoint existence, timeout sanity, and schema-ref resolvability when a schema registry is available
-- ranking should remain deterministic-first initially (query match + evidence type + priority + recency) before any future model-assisted reranking is introduced
+- code/repository introspection paths should be evidence-bound across both prompt and execution layers: prompt rules may require reading real files first, but the runtime should also replay only bounded excerpts/search-hit summaries from introspection tools into subsequent model turns so later reasoning stays anchored to verified source evidence instead of bloated raw payloads or inferred structure
 
 Network reachability and intelligence availability are separate concerns:
 - an app may have network but should still avoid intelligent calls by default

@@ -33,6 +33,11 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+
+MAX_TOOL_RESULT_CHARS = 800
+MAX_READ_FILE_CONTENT_CHARS = 1200
+MAX_SEARCH_PREVIEW_CHARS = 80
+
 from app.services.model_router import ModelRouter, ModelRouterError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
 from app.models.telemetry import StepTelemetryRecord
@@ -86,6 +91,58 @@ class ToolCallingEngine:
         self._router = model_router
         self._tools: dict[str, Callable] = {}
         self._telemetry_service = telemetry_service
+
+    def _sanitize_tool_result(self, tool_name: str, result: Any) -> str:
+        """Compress tool result into a bounded, evidence-first payload for the next LLM turn."""
+        if isinstance(result, str):
+            return result[:MAX_TOOL_RESULT_CHARS]
+
+        if isinstance(result, dict):
+            sanitized = dict(result)
+
+            if tool_name == "read_file" and sanitized.get("success"):
+                content = sanitized.get("content")
+                if isinstance(content, str):
+                    sanitized["content"] = content[:MAX_READ_FILE_CONTENT_CHARS]
+                    sanitized["content_truncated"] = len(content) > MAX_READ_FILE_CONTENT_CHARS
+                    sanitized["evidence_type"] = "file_excerpt"
+
+            if tool_name == "search_files" and sanitized.get("success"):
+                compact_results = []
+                for item in sanitized.get("results", [])[:3]:
+                    if not isinstance(item, dict):
+                        continue
+                    compact_item = dict(item)
+                    preview = compact_item.get("preview")
+                    if isinstance(preview, str):
+                        compact_item["preview"] = preview[:MAX_SEARCH_PREVIEW_CHARS]
+                        compact_item["preview_truncated"] = len(preview) > MAX_SEARCH_PREVIEW_CHARS
+                    compact_results.append(compact_item)
+                sanitized["results"] = compact_results
+                sanitized["returned_results"] = len(compact_results)
+                sanitized["evidence_type"] = "search_hits"
+
+            encoded = json.dumps(sanitized, ensure_ascii=False)
+            if len(encoded) <= MAX_TOOL_RESULT_CHARS:
+                return encoded
+
+            fallback = {
+                "success": sanitized.get("success"),
+                "error": sanitized.get("error"),
+                "path": sanitized.get("path"),
+                "file": sanitized.get("file"),
+                "lines": sanitized.get("lines"),
+                "matches": sanitized.get("matches"),
+                "returned_results": sanitized.get("returned_results"),
+                "content": sanitized.get("content", "")[:400],
+                "content_truncated": sanitized.get("content_truncated"),
+                "results": sanitized.get("results", []),
+                "truncated": True,
+                "evidence_type": sanitized.get("evidence_type", "tool_result"),
+            }
+            return json.dumps(fallback, ensure_ascii=False)[:MAX_TOOL_RESULT_CHARS]
+
+        return json.dumps(result, ensure_ascii=False)[:MAX_TOOL_RESULT_CHARS]
 
     def register_tool(self, name: str, handler: Callable) -> None:
         """Register a tool that LLM can call."""
@@ -167,6 +224,9 @@ class ToolCallingEngine:
         model_name = model_override or client._config.model
         interaction_id = interaction_id or f"toolcall:{session_id or 'unknown'}:{skill_id}:{abs(hash(user_message))}"
 
+        if max_turns is None:
+            max_turns = 8
+
         for turn in range(max_turns):
             response, usage = client.chat_with_tools(
                 messages=messages,
@@ -235,7 +295,7 @@ class ToolCallingEngine:
                 if handler:
                     try:
                         result = handler(**tool_args) if isinstance(tool_args, dict) else handler(tool_args)
-                        result_str = json.dumps(result, ensure_ascii=False) if not isinstance(result, str) else result
+                        result_str = self._sanitize_tool_result(tool_name, result)
                         call_records.append(ToolCallRecord(tool_name=tool_name, args=tool_args, result=result))
                         if self._telemetry_service is not None:
                             self._telemetry_service.record_step(
@@ -284,7 +344,7 @@ class ToolCallingEngine:
 
                 messages.append({
                     "role": "tool",
-                    "content": result_str[:800],
+                    "content": result_str,
                 })
 
         if self._telemetry_service is not None:
@@ -329,5 +389,5 @@ class ToolCallingEngine:
             import os
             api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ToolCallingEngineError("Missing API key in config or environment")
+            raise ToolCallingEngineError("Missing OPENAI_API_KEY in config or environment")
         return OpenAIResponsesClient(config=config, api_key=api_key)

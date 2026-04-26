@@ -1,4 +1,34 @@
-# AgentSystem Development Log
+## 2026-04-26: OPT-004 Evidence-Bounded Code Introspection Guard
+
+### Summary
+Completed the next product-manager closure step for the current AgentSystem optimization stream by strengthening the code-introspection anti-hallucination path at the tool-execution layer.
+
+### What Was Done
+- Upgraded `app/ai/tool_calling_engine.py` with evidence-first tool-result sanitization before results are fed back into the next LLM turn
+- Added bounded compression rules for high-risk introspection tools:
+  - `read_file` now returns compact file excerpts with `content_truncated` and `evidence_type=file_excerpt`
+  - `search_files` now returns only bounded hit previews with capped result count and `evidence_type=search_hits`
+- Kept raw tool results in `ToolCallRecord` for audit/debug, while constraining only the LLM re-entry payload
+- Added focused unit tests proving next-turn tool payloads stay bounded and evidence-oriented instead of replaying oversized raw content
+
+### Validation
+- Added unit coverage in `tests/unit/test_tool_calling_engine.py` for:
+  - bounded `read_file` replay payloads
+  - bounded `search_files` replay payloads
+- This directly addresses the current blocker where code self-inspection answers could still drift into unverified details after broad search/read context injection
+
+### Product Conclusion
+OPT-004 P1 is complete.
+The system now has a stronger anti-hallucination execution guard for repository/code introspection:
+- prompt layer says "only speak from verified file evidence"
+- execution layer now reinforces that policy by feeding the model compact, explicitly typed evidence instead of noisy oversized raw payloads
+
+### Next Step
+Proceed to OPT-004 P2:
+- add interpreter-level regression tests for code-introspection reply discipline
+- verify real `/api/chat` multi-turn repo-inspection cases do not invent storage engine, schema, or unverified implementation details
+
+
 
 ## 2026-04-26: OPT-003 P3 Replay Selection and Upgrade Candidate Discovery
 

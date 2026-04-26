@@ -238,7 +238,7 @@ The prompt-selection layer should also support a more explicit selection contrac
 - introduce a governed executable-skill runtime contract so future script/binary skills can be registered and invoked through the normal skill/app runtime path rather than ad hoc workflow primitives
 - support a v1 script-skill generation flow that produces a generated executable skill asset (manifest + schema + entrypoint + smoke test), registers it, and lets app management install/use it through normal skill dependencies
 - executable/generated skills must remain invocable through normal skill steps inside app workflows rather than requiring a special app-only execution primitive
-- keep selection policy visible in machine-readable form for testing and later governance
+- when code/repo introspection relies on tool results, the runtime must preserve an evidence-bound reply path: high-risk introspection tool outputs (for example `read_file`, `search_files`) should be compressed into bounded excerpts/hit previews before being replayed into later model turns, so the model is less likely to drift from verified file evidence into invented implementation detail
 
 ### 5.2 Skill control
 The system must provide a stable human-controlled interface for:
