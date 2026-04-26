@@ -1,3 +1,39 @@
+## 2026-04-26: Script-First exec_shell Grounding Bias
+
+### Summary
+Strengthened the dedicated script-first branch to explicitly state that `exec_shell` is available and should be the default first action.
+
+### What Was Done
+- Hardened `SCRIPT_FIRST_EXECUTION_PROMPT` with explicit availability grounding:
+  - `exec_shell` is available in this branch
+  - do not claim it is unavailable unless a real tool call returns an error
+  - default first action should be `exec_shell`
+  - do not fall back to asking the user to run the script unless real tool execution fails
+- Added a compact default script skeleton preference in the prompt to bias first-step generation toward a small `python3 - <<'PY'` script
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `21 passed`
+
+### Live Regression
+Ran a real `/api/chat` regression again on the same aggregation-style persistence task.
+Observed result:
+- completed in about 33s
+- 2 upstream model requests
+- clean direct response, no loop explosion
+- however, the model still incorrectly responded that `exec_shell` was unavailable and asked the user for files / manual execution preference
+
+### Product Conclusion
+This confirms that prompt-level tool-availability grounding has diminishing returns.
+The dedicated script-first branch is now efficient and stable, but the remaining failure mode is not convergence anymore. It is persistent false belief about executable tool availability.
+
+### Next Step
+The next likely step should be structural rather than prompt-only:
+- inject explicit available-tool names into the dedicated branch prompt in a machine-simple format
+- or add a deterministic pre-step that directly executes a templated `exec_shell` command path before asking the model for free-form planning
+- or instrument actual tool-call traces to confirm whether the provider ever emits `exec_shell` attempts in this route
+
+
 ## 2026-04-26: Dedicated Script-First Branch
 
 ### Summary
