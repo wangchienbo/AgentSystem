@@ -1,3 +1,43 @@
+## 2026-04-26: Deterministic exec_shell Pre-Step
+
+### Summary
+Introduced a deterministic execution-layer pre-step for script-like persistence aggregation requests, bypassing the model's false belief about `exec_shell` availability.
+
+### What Was Done
+- Imported and used `exec_shell` directly inside `tool_calling_interpreter.py`
+- Added `_run_deterministic_script_prestep(...)`
+  - detects persistence-oriented script-like tasks
+  - runs a controlled local Python scan over `app/`
+  - collects relevant file hits and matching lines into JSON
+  - if successful, sends that JSON into a 1-turn LLM summarizer path
+- Updated `_run_script_first_route(...)` to try deterministic pre-step first, then fall back to the existing dedicated script-first branch when needed
+- Added unit coverage for:
+  - deterministic pre-step success path
+  - fallback route behavior when shell pre-step fails
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `23 passed`
+
+### Live Regression
+Ran the same real `/api/chat` aggregation request again.
+Observed result:
+- completed in about 9 seconds
+- returned HTTP 200
+- produced a concrete summarized answer from executed script results
+- no looping, no tool-availability confusion, no user handoff request
+
+### Product Conclusion
+This is the first version that truly breaks through the previous blocker.
+The decisive change was moving the first script step out of free-form model choice and into a deterministic execution-layer pre-step.
+
+### Next Step
+Potential follow-ups:
+- generalize deterministic pre-steps for other aggregation shapes beyond persistence
+- tighten the summarizer formatting so it avoids overclaiming beyond script hits
+- add telemetry around deterministic pre-step hit/miss rates
+
+
 ## 2026-04-26: Script-First exec_shell Grounding Bias
 
 ### Summary

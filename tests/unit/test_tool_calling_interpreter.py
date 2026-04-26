@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.models.chat import InterpretedCommand
 from app.services.light_brain_memory import LightBrainMemory
@@ -72,20 +72,19 @@ def _build_interpreter() -> tuple[ToolCallingInterpreter, MagicMock]:
     return interpreter, engine.execute_turns
 
 
-def test_script_like_request_uses_dedicated_script_first_route() -> None:
+def test_persistence_script_route_uses_deterministic_prestep_when_shell_succeeds() -> None:
     interpreter, execute_turns = _build_interpreter()
-    execute_turns.return_value = ToolCallingResult(final_text="脚本已执行并完成汇总", tool_calls=[])
-
-    command = interpreter.interpret(
-        message="请遍历 app 目录并汇总 persistence 定义，如果太碎就先写脚本再执行",
-        user_id="u1",
-        session_id="sess-script",
-        available_apps=[],
-    )
-
+    execute_turns.return_value = ToolCallingResult(final_text="已基于脚本结果完成汇总", tool_calls=[])
+    with patch("app.system.gateway.tool_calling_interpreter.exec_shell", return_value={"success": True, "stdout": "[]"}):
+        command = interpreter.interpret(
+            message="请遍历 app 目录并汇总 persistence 定义，如果太碎就先写脚本再执行",
+            user_id="u1",
+            session_id="sess-prestep",
+            available_apps=[],
+        )
     kwargs = execute_turns.call_args.kwargs
-    assert kwargs["skill_id"] == "gateway_script_first_route"
-    assert kwargs["max_turns"] == 4
+    assert kwargs["skill_id"] == "gateway_script_prestep_summarizer"
+    assert kwargs["max_turns"] == 1
     assert command.intent == "direct_response"
 
 
@@ -93,12 +92,13 @@ def test_script_like_request_uses_dedicated_script_first_route() -> None:
     interpreter, execute_turns = _build_interpreter()
     execute_turns.return_value = ToolCallingResult(final_text="脚本已执行并完成汇总", tool_calls=[])
 
-    command = interpreter.interpret(
-        message="请遍历 app 目录并汇总 persistence 定义，如果太碎就先写脚本再执行",
-        user_id="u1",
-        session_id="sess-script",
-        available_apps=[],
-    )
+    with patch("app.system.gateway.tool_calling_interpreter.exec_shell", return_value={"success": False}):
+        command = interpreter.interpret(
+            message="请遍历 app 目录并汇总 persistence 定义，如果太碎就先写脚本再执行",
+            user_id="u1",
+            session_id="sess-script",
+            available_apps=[],
+        )
 
     kwargs = execute_turns.call_args.kwargs
     assert kwargs["skill_id"] == "gateway_script_first_route"
@@ -132,6 +132,8 @@ def test_explicit_file_path_introspection_uses_fast_read_path() -> None:
     assert "json" in command.parameters["text"]
 
 
+def test_process_result_preserves_evidence_bounded_final_text_without_guessing() -> None:
+    interpreter, _ = _build_interpreter()
     result = ToolCallingResult(
         final_text="已读取 persistence_service.py。当前已查文件中未证实 SQLite，只能确认存在持久化处理逻辑。",
         tool_calls=[

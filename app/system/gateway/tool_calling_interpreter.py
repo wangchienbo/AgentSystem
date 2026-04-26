@@ -43,6 +43,7 @@ from typing import Any
 from app.models.chat import InterpretedCommand
 from app.services.tool_registry import ToolRegistry
 from app.services.tool_calling_engine import ToolCallingEngine, ToolDef
+from app.tools.internal_tools import exec_shell
 
 
 TOOL_LOOP_GOVERNOR_PATH = "docs/tool-loop-governor.md"
@@ -505,6 +506,67 @@ class ToolCallingInterpreter:
         text = (raw_input or "").lower()
         return any(keyword in text for keyword in INTROSPECTION_KEYWORDS)
 
+    def _run_deterministic_script_prestep(
+        self,
+        message: str,
+        user_id: str,
+        session_id: str,
+    ) -> InterpretedCommand | None:
+        text = (message or "").lower()
+        if "persistence" not in text:
+            return None
+        command = """python3 - <<'PY'
+import os, re, json
+root='app'
+rows=[]
+for dirpath, dirnames, filenames in os.walk(root):
+    dirnames[:] = [d for d in dirnames if not d.startswith('__')]
+    for filename in filenames:
+        if not filename.endswith('.py'):
+            continue
+        path=os.path.join(dirpath, filename)
+        try:
+            with open(path,'r',encoding='utf-8',errors='replace') as f:
+                content=f.read()
+        except Exception:
+            continue
+        if 'persistence' not in content.lower() and 'persist' not in content.lower():
+            continue
+        hits=[]
+        for i,line in enumerate(content.splitlines(), start=1):
+            s=line.strip()
+            if re.search(r'(persistence|persist|sqlite|json|mysql|postgres|storage|backend)', s, re.I):
+                hits.append({'line': i, 'text': s[:220]})
+            if len(hits) >= 12:
+                break
+        if hits:
+            rows.append({'file': path, 'hits': hits})
+print(json.dumps(rows[:20], ensure_ascii=False))
+PY"""
+        prestep = exec_shell(command=command, workdir="/root/project/AgentSystem", timeout=60)
+        if not prestep.get("success"):
+            return None
+        result = self._engine.execute_turns(
+            skill_id="gateway_script_prestep_summarizer",
+            system_prompt=(
+                "你会收到一个已经执行成功的本地脚本结果(JSON)。"
+                "你的任务是仅基于该结果做简洁汇总。"
+                "不要声称没有工具权限，不要要求用户手动执行。"
+                "若证据不足，要明确说仅基于脚本命中结果汇总。"
+            ),
+            user_message=(
+                f"用户问题: {message}\n\n"
+                f"脚本结果(JSON):\n{prestep.get('stdout','')}"
+            ),
+            tools=[],
+            max_turns=1,
+            asset_id="asset:light_brain_gateway:v1",
+            session_id=session_id,
+            user_id=user_id,
+            interaction_id=f"lightbrain-script-prestep:{session_id}:{abs(hash(message))}",
+        )
+        return self._process_result(result, message)
+
     def _run_script_first_route(
         self,
         message: str,
@@ -512,6 +574,10 @@ class ToolCallingInterpreter:
         session_id: str,
         available_apps: list[dict[str, Any]],
     ) -> InterpretedCommand:
+        deterministic = self._run_deterministic_script_prestep(message, user_id, session_id)
+        if deterministic:
+            return deterministic
+
         history = self._get_history(session_id)
         session_ctx = build_session_context(
             history=history,
