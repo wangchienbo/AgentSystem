@@ -238,7 +238,7 @@ def test_execute_turns_multi_turn(tmp_path) -> None:
 # ===========================================================================
 
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
-def test_execute_turns_keeps_evidence_items_empty_without_governance_mapping(tmp_path) -> None:
+def test_execute_turns_builds_hint_evidence_for_search_results(tmp_path) -> None:
     router = build_router(tmp_path)
     engine = ToolCallingEngine(router)
     engine.register_tools({
@@ -282,7 +282,9 @@ def test_execute_turns_keeps_evidence_items_empty_without_governance_mapping(tmp
             max_turns=4,
         )
 
-    assert result.evidence_items == []
+    assert len(result.evidence_items) == 1
+    assert result.evidence_items[0].grade == "hint"
+    assert result.evidence_items[0].source_type == "search_files"
 
 
     """Engine should handle tool handler errors gracefully."""

@@ -1,3 +1,44 @@
+## 2026-04-27: First Structured Cognition Contract Pilot in Introspection Path
+
+### Summary
+Started the first code-level implementation slice of the new cognition-governance direction by adding a machine-readable self-model and a structured introspection-style answer contract.
+
+### What Was Done
+- Added `app/models/cognition.py`
+  - `SelfModel`
+  - `StructuredClaim`
+  - `StructuredAnswer`
+- Extended `InterpretedCommand` in `app/models/chat.py` with optional `structured_answer`
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - builds `StructuredAnswer` during direct-response result processing
+  - derives capability self-awareness for introspection-style requests
+  - surfaces non-human-equivalent cognition state in the structured self-model
+  - marks low-evidence paths with explicit unverified points
+- Updated `app/ai/tool_calling_engine.py`
+  - first evidence mapping slice for:
+    - `read_file` -> `excerpt`
+    - `search_files` -> `hint`
+    - `exec_shell` -> `runtime_observation`
+- Extended unit coverage for:
+  - structured answer creation
+  - self-model capability awareness
+  - low-evidence unverified marking
+  - search-result evidence generation
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `28 passed`
+
+### Product Conclusion
+The design is no longer only at documentation level. AgentSystem now has a first machine-readable cognition contract in the introspection path, linking self-awareness, evidence grade, and uncertainty disclosure into the gateway result structure.
+
+### Next Step
+Potential follow-ups:
+- add claim/evidence confidence shaping to summarizer outputs themselves
+- propagate structured answer data into API response surfaces when useful
+- extend evidence mapping beyond introspection tools
+- connect answer-mode choice more directly to `SelfModel` and verification policy
+
 ## 2026-04-27: Capability Self-Awareness Clarification in Self-Model Design
 
 ### Summary

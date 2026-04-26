@@ -43,6 +43,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.models.chat import InterpretedCommand
+from app.models.cognition import SelfModel, StructuredAnswer, StructuredClaim
 from app.models.telemetry import StepTelemetryRecord
 from app.services.tool_registry import ToolRegistry
 from app.services.tool_calling_engine import ToolCallingEngine, ToolDef
@@ -876,12 +877,14 @@ PY"""
         """Convert ToolCallingEngine result to InterpretedCommand."""
         if not result.tool_calls:
             final_text = self._apply_execution_fact_provenance(raw_input=raw_input, result=result)
+            structured_answer = self._build_structured_answer(raw_input, result, final_text, 0.6)
             return InterpretedCommand(
                 intent="direct_response",
                 raw_input=raw_input,
                 confidence=0.6,
                 parameters={"text": final_text},
                 source="llm_text",
+                structured_answer=structured_answer,
             )
 
         call = result.tool_calls[0]
@@ -921,20 +924,57 @@ PY"""
 
         final_text = self._apply_execution_fact_provenance(raw_input=raw_input, result=result)
 
+        final_payload = final_text or f"已执行 {tool_name}"
+        structured_answer = self._build_structured_answer(raw_input, result, final_payload, 0.9)
         return InterpretedCommand(
             intent="direct_response",
             raw_input=raw_input,
             confidence=0.9,
-            parameters={"text": final_text or f"已执行 {tool_name}"},
+            parameters={"text": final_payload},
             source="llm_tool_call",
+            structured_answer=structured_answer,
         )
 
     def _apply_execution_fact_provenance(self, raw_input: str, result: Any) -> str:
         """Temporary pass-through until a tool-agnostic governance module is introduced."""
         return (getattr(result, "final_text", "") or "").strip()
 
+    def _build_structured_answer(self, raw_input: str, result: Any, final_text: str, confidence: float) -> StructuredAnswer:
+        evidence_items = getattr(result, "evidence_items", []) or []
+        claim_grade = "none"
+        evidence = []
+        unverified_points: list[str] = []
+        if evidence_items:
+            grade_rank = {"none": 0, "hint": 1, "excerpt": 2, "verified_fact": 3, "runtime_observation": 4}
+            claim_grade = max((getattr(item, "grade", "none") for item in evidence_items), key=lambda g: grade_rank.get(g, 0))
+            for item in evidence_items[:5]:
+                evidence.append({
+                    "grade": getattr(item, "grade", "none"),
+                    "source_type": getattr(item, "source_type", ""),
+                    "source_ref": getattr(item, "source_ref", ""),
+                    "snippet": getattr(item, "snippet", ""),
+                    "supports_claims": getattr(item, "supports_claims", []),
+                })
+        if claim_grade in ("none", "hint"):
+            unverified_points.append("当前结论仍受限于现有观测与证据等级")
+        self_model = SelfModel(
+            capability_state="tool_required" if self._is_code_introspection_query(raw_input) else "direct",
+            tool_dependence_state="required" if self._is_code_introspection_query(raw_input) else "optional",
+            confidence_state=confidence,
+            uncertainty_state="需先观测或验证" if self._is_code_introspection_query(raw_input) and claim_grade in ("none", "hint") else "",
+        )
+        claim = StructuredClaim(text=final_text, evidence_grade=claim_grade, confidence=confidence)
+        return StructuredAnswer(
+            self_model=self_model,
+            claim=claim,
+            evidence=evidence,
+            unverified_points=unverified_points,
+            text=final_text,
+        )
+
     def _is_code_introspection_query(self, raw_input: str) -> bool:
-        return False
+        text = (raw_input or "").lower()
+        return any(keyword in text for keyword in INTROSPECTION_KEYWORDS)
 
     # ── Helpers ──────────────────────────────────────────────────────────
 

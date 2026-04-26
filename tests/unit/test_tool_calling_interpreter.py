@@ -232,3 +232,45 @@ def test_process_result_preserves_truncated_text_without_special_introspection_r
     assert command.parameters["text"] == "[Reached max turns (20)]"
 
 
+
+
+def test_process_result_builds_structured_answer_for_read_evidence() -> None:
+    interpreter, _ = _build_interpreter()
+    result = ToolCallingResult(
+        final_text="已读取 resource_center.py，其中 persistence_mode 默认值是 json。",
+        tool_calls=[
+            ToolCallRecord(
+                tool_name="read_file",
+                args={"path": "app/system/catalog/resource_center.py"},
+                result={"success": True, "content": 'persistence_mode: str = "json"'},
+            )
+        ],
+        evidence_items=[],
+    )
+
+    command = interpreter._process_result(result, "请读取代码并确认默认值")
+
+    assert command.structured_answer is not None
+    assert command.structured_answer.self_model.human_equivalence_state == "non_human_equivalent"
+    assert command.structured_answer.self_model.capability_state == "tool_required"
+    assert command.structured_answer.claim.text.startswith("已读取")
+
+
+def test_process_result_marks_unverified_when_no_evidence_items() -> None:
+    interpreter, _ = _build_interpreter()
+    result = ToolCallingResult(
+        final_text="根据已搜索到的内容，在某文件中发现了 JSON 默认值。",
+        tool_calls=[
+            ToolCallRecord(
+                tool_name="search_files",
+                args={"pattern": "persist", "path": "app"},
+                result={"success": True, "results": [{"file": "app/services/persistence_service.py"}]},
+            )
+        ],
+    )
+
+    command = interpreter._process_result(result, "查一下 AgentSystem 的持久化是不是 SQLite")
+
+    assert command.structured_answer is not None
+    assert command.structured_answer.claim.evidence_grade == "none"
+    assert command.structured_answer.unverified_points

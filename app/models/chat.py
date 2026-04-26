@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+from app.models.cognition import StructuredAnswer
+
 from datetime import UTC, datetime
 from typing import Any, Literal as TypingLiteral
 
@@ -126,6 +128,7 @@ class InterpretedCommand(BaseModel):
     user_id: str | None = Field(default=None, description="User who issued this command")
     raw_input: str | None = Field(default=None, description="Original user message")
     context: dict[str, Any] = Field(default_factory=dict, description="Runtime context for enrichment")
+    structured_answer: StructuredAnswer | None = Field(default=None, description="Structured cognition/action answer contract")
 
 
 # ---------------------------------------------------------------------------

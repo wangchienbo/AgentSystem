@@ -113,7 +113,44 @@ class ToolCallingEngine:
         return encoded[:MAX_TOOL_RESULT_CHARS]
 
     def _build_evidence_items(self, tool_name: str, result: Any) -> list[EvidenceItem]:
-        return []
+        items: list[EvidenceItem] = []
+        if tool_name == "read_file" and isinstance(result, dict) and result.get("success"):
+            content = str(result.get("content", ""))
+            items.append(EvidenceItem(
+                grade="excerpt",
+                source_type="read_file",
+                source_ref=str(result.get("path", "") or ""),
+                snippet=content[:300],
+                truncated=len(content) > 300,
+                scope="static_code",
+                supports_claims=["implementation_detail", "default_value", "config_fact"],
+            ))
+        elif tool_name == "search_files" and isinstance(result, dict):
+            results = result.get("results", []) or []
+            if results:
+                first = results[0]
+                items.append(EvidenceItem(
+                    grade="hint",
+                    source_type="search_files",
+                    source_ref=str(first.get("file", "") or ""),
+                    snippet=json.dumps(first, ensure_ascii=False)[:300],
+                    truncated=False,
+                    scope="static_code",
+                    supports_claims=["candidate_location"],
+                    metadata={"match_count": len(results)},
+                ))
+        elif tool_name == "exec_shell" and result is not None:
+            encoded = result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
+            items.append(EvidenceItem(
+                grade="runtime_observation",
+                source_type="exec_shell",
+                source_ref="local_command",
+                snippet=encoded[:300],
+                truncated=len(encoded) > 300,
+                scope="runtime_state",
+                supports_claims=["runtime_observation", "script_output"],
+            ))
+        return items
 
     def register_tool(self, name: str, handler: Callable) -> None:
         """Register a tool that LLM can call."""
