@@ -1,3 +1,40 @@
+## 2026-04-26: Script Escalation Contract Draft
+
+### Summary
+Identified that the existing fixed tool layer already exposes a reusable script execution entry: `exec_shell`.
+Based on that, added a first explicit script-escalation contract into the shared interpreter prompt/state board.
+
+### What Was Done
+- confirmed existing reusable execution path in `HotToolManager.FIXED_CORE_TOOLS`:
+  - `exec_shell`
+- strengthened top-level prompt discipline so batch / traversal / aggregation tasks are told to prefer `exec_shell` when ordinary file tools do not converge
+- upgraded `build_turn_state_board(...)`:
+  - now includes recent assistant reply
+  - detects non-convergence markers such as `[Reached max turns ...]`
+  - injects an escalation rule telling the model to prefer `exec_shell` for one-shot local script aggregation on the next turn
+- added unit coverage for the new escalation hint behavior
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `18 passed`
+
+### Live Regression
+Ran a real aggregation-style `/api/chat` regression with follow-up continuation intent.
+Outcome: still timed out under live conditions before producing a stable user-visible script-first result.
+
+### Product Conclusion
+This confirms a sharper boundary:
+- the system now has a real executable script entry (`exec_shell`)
+- the prompt now explicitly tells the model when to escalate
+- but prompt-only escalation is still not strong enough to guarantee actual script conversion under live provider behavior
+
+### Next Step
+The likely next step is architectural rather than prompt-only:
+- introduce a dedicated escalation mechanism in engine/runtime logic
+- for example, when task shape is script-like and repeated file tools exceed threshold, automatically narrow the tool set toward `exec_shell` + minimal supporting tools
+- or add an explicit specialized aggregation/script tool contract instead of relying on free-form tool choice
+
+
 ## 2026-04-26: Turn State Board + Task-Shape Turn Budget
 
 ### Summary

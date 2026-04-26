@@ -20,10 +20,16 @@ class DummyRouter(ModelRouter):
     assert choose_turn_budget("你好") == 20
 
 
-def test_build_turn_state_board_includes_stop_condition() -> None:
-    board = build_turn_state_board("查一下 AgentSystem 的持久化是不是 SQLite", [{"role": "user", "content": "之前问过持久化"}])
-    assert "当前未解决问题" in board
-    assert "停止条件" in board
+def test_build_turn_state_board_adds_script_escalation_hint_after_non_convergence() -> None:
+    board = build_turn_state_board(
+        "请写个脚本遍历目录并聚合结果",
+        [
+            {"role": "user", "content": "请遍历 persistence 相关文件"},
+            {"role": "assistant", "content": "[Reached max turns (10)]"},
+        ],
+    )
+    assert "exec_shell" in board
+    assert "升级规则" in board
 
 
 

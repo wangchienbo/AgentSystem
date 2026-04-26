@@ -83,8 +83,9 @@ SYSTEM_PROMPT_TEMPLATE = """你是 AgentSystem 的智能交互引擎。
 2. 候选线索不是结论; 证据足够才回答
 3. 如果下一步明显依赖上一步输出,优先考虑脚本方案
 4. 每次工具调用后先判断: 还缺什么? 是否已够回答? 是否该转脚本?
-5. 证据已足够时立刻停止调用并回答; 不足时明确未解决问题
-6. 缺少必要参数时用 `ask_clarification`; 无法理解时用 `unclear`
+5. 对遍历、聚合、批量提取类任务,当普通文件工具连续多轮仍未收敛时,优先改用 `exec_shell` 编写并执行一次性本地脚本
+6. 证据已足够时立刻停止调用并回答; 不足时明确未解决问题
+7. 缺少必要参数时用 `ask_clarification`; 无法理解时用 `unclear`
 """
 
 
@@ -206,24 +207,32 @@ def format_tools_for_prompt(registry_tools: list[Any]) -> str:
 
 def build_turn_state_board(message: str, history: list[dict[str, Any]]) -> str:
     recent_user = [m.get("content", "") for m in history if m.get("role") == "user"][-2:]
+    recent_assistant = [m.get("content", "") for m in history if m.get("role") == "assistant"][-1:]
     unresolved = message.strip()
     known = " | ".join(x[:80] for x in recent_user) if recent_user else "(暂无明确既有证据)"
+    recent_reply = recent_assistant[0][:120] if recent_assistant else "(暂无近期回复)"
     text = (message or "").lower()
+    is_script_shape = any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取"))
     if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
         next_action = "优先选择一个最高价值的定位或读取动作，不要同轮规划多个工具"
         stop_condition = "拿到能回答用户当前精度的直接证据后立即停止"
-    elif any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取")):
+    elif is_script_shape:
         next_action = "优先判断是否应该转为脚本方案"
         stop_condition = "一旦脚本比碎片工具链更合适，就切换策略"
     else:
         next_action = "选择一个最高价值下一步动作"
         stop_condition = "当前问题已可回答时立即停止"
+    escalation = ""
+    if is_script_shape and any(marker in recent_reply for marker in ("[Reached max turns", "未完成", "继续搜索")):
+        escalation = "\n- 升级规则: 近期已出现未收敛信号，本轮优先使用 exec_shell 执行一次性脚本聚合，而不是继续零碎搜索"
     return (
         "[当前状态板]\n"
         f"- 当前未解决问题: {unresolved}\n"
         f"- 最近相关上下文: {known}\n"
+        f"- 最近系统回复: {recent_reply}\n"
         f"- 下一步建议: {next_action}\n"
         f"- 停止条件: {stop_condition}"
+        f"{escalation}"
     )
 
 
