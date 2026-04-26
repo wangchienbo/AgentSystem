@@ -254,7 +254,7 @@ class ToolCallingEngine:
             # Removed explicit assistant hint; let model decide based on tool result
 
 
-            for tc in tool_calls:
+            for tc in tool_calls[:1]:
                 tool_name = tc.get("function", {}).get("name", "")
                 tool_args_str = tc.get("function", {}).get("arguments", "{}")
                 tool_call_id = tc.get("id", "")
@@ -263,6 +263,10 @@ class ToolCallingEngine:
                     tool_args = json.loads(tool_args_str)
                 except json.JSONDecodeError:
                     tool_args = {}
+
+                if not tool_name:
+                    call_records.append(ToolCallRecord(tool_name="", args=tool_args, result=None, error="Empty tool name"))
+                    continue
 
                 handler = handlers.get(tool_name)
                 if handler:

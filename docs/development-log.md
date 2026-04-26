@@ -1,3 +1,36 @@
+## 2026-04-26: Tool-Loop Governor Real-Chain Regression Findings
+
+### Summary
+Ran real `/api/chat` regression after integrating the tool-loop governor prompt path.
+The result is mixed: the architecture is connected, but introspection behavior still does not converge reliably under the live chain.
+
+### What Was Observed
+- The governor-guided path now runs through the shared interpreter prompt instead of the deleted explicit-file fast path
+- In live repo-introspection regression, the model still produced long tool-call loops and reached max turns instead of cleanly converging
+- Live traces showed repeated `search_files` / `list_files` behavior and even empty tool-name artifacts from provider output shape noise
+
+### Immediate Mitigations Applied
+- tightened the top-level prompt further toward one-highest-value-tool-per-turn discipline
+- changed engine execution to only execute the first tool call per turn (`tool_calls[:1]`) to suppress same-turn tool bursts
+- added an empty-tool-name guard instead of attempting execution on malformed tool call entries
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_engine.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_http_test_server.py`
+- Result: `17 passed`
+
+### Product Conclusion
+The current root blocker is no longer the old tool-specific hallucination path.
+The new blocker is live-loop convergence:
+- the model still needs a stronger stop/continue contract under real provider behavior
+- prompt integration alone is not yet sufficient to guarantee efficient repository introspection convergence
+
+### Next Step
+Likely next moves:
+- introduce task-shape-sensitive turn budgets (especially lower introspection budgets)
+- inject a stronger unresolved-question / next-best-action / stop-condition scratchpad per turn
+- test script-first escalation on a task that naturally benefits from local scripting instead of repeated repo search turns
+
+
 ## 2026-04-26: Tool-Loop Governor Prompt Integration
 
 ### Summary
