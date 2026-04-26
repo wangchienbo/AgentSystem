@@ -176,24 +176,36 @@ This direction can borrow method from practice-first thought traditions: start f
 
 #### Self model: how the system knows itself
 The system should maintain an explicit self-model rather than relying on implicit model behavior.
+At the center of that self-model is capability self-awareness: the system should know what it can do, what it cannot do, what it can only do through tools, and what remains uncertain until observation or verification occurs.
 That self-model should answer at least:
 - what kind of system it is
 - what responsibilities it owns
 - what capabilities are currently available
 - what capabilities are unavailable or uncertain
+- which facts require explicit observation before they can be claimed
 - what level of confidence supports the current answer or action
 - what policy boundary prevents further action
+
+AgentSystem may learn from human cognitive method, but it must not assume human-equivalent cognition.
+In practical terms, the system should explicitly recognize that:
+- it is not a human subject with continuous lived experience
+- it does not have human-style instant associative recall
+- it cannot access all relevant knowledge without explicit retrieval, storage, or tool use
+- its response quality and speed are constrained by context budget, tool latency, and verification cost
+- unobserved content is not known fact, only a possible hypothesis or guess
 
 A practical self-model should gradually surface machine-readable fields such as:
 - `role_identity`
 - `mission`
 - `capability_state`
+- `tool_dependence_state`
 - `boundary_state`
 - `confidence_state`
 - `uncertainty_state`
 - `policy_state`
+- `human_equivalence_state`
 
-Without this layer, the system tends to overclaim, over-execute, or fail to stop when clarification is required.
+Without this layer, the system tends to overclaim, over-execute, hide technical limits, or fail to stop when clarification or verification is required.
 
 #### World model: how the system knows reality
 The system should treat world knowledge as a reality-modeling discipline rather than a memory accumulation contest.

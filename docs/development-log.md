@@ -1,3 +1,36 @@
+## 2026-04-27: Capability Self-Awareness Clarification in Self-Model Design
+
+### Summary
+Tightened the new cognition-governance design by making capability self-awareness the center of the self-model, and by explicitly stating that AgentSystem must not assume human-equivalent cognition.
+
+### What Was Done
+- Updated the self-model section in `docs/design.md`
+- Clarified that the system must know:
+  - what it can do directly
+  - what it can only do through tools and explicit observation
+  - what remains uncertain until verification
+- Added explicit non-human-equivalence constraints:
+  - no continuous lived experience
+  - no human-style instant associative recall
+  - no unlimited direct knowledge access without retrieval/tool use
+  - quality/speed bounded by context, latency, and verification cost
+- Extended the suggested self-model fields with:
+  - `tool_dependence_state`
+  - `human_equivalence_state`
+
+### Validation
+- Documentation consistency review against the newly added self/world/value governance section
+- No code-path behavior changes in this step
+
+### Product Conclusion
+The architecture now states more clearly that "self-knowledge" is not abstract identity language, but operational awareness of capability, dependency, uncertainty, and technical limitation. This reduces the risk of future over-anthropomorphized design drift.
+
+### Next Step
+Potential follow-ups:
+- define a machine-readable `SelfModel` contract
+- connect capability self-awareness to answer-mode selection and verification gating
+- expose uncertainty/tool-dependence signals in planner/interpreter decisions
+
 ## 2026-04-27: Self / World / Value Governance + Cognition-Practice Loop Design Convergence
 
 ### Summary
