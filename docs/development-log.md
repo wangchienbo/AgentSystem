@@ -1,3 +1,46 @@
+## 2026-04-26: Engine-Level Script Route Narrowing
+
+### Summary
+Moved script-first escalation one step down from prompt-only guidance into interpreter-level execution control by narrowing the available tool set for script-like tasks.
+
+### What Was Done
+- Added `is_script_like_request(...)` helper
+- Added `narrow_tools_for_script_route(...)` helper
+- For script-like requests, the interpreter now narrows tool exposure to:
+  - `exec_shell`
+  - `read_file`
+  - `write_file`
+  - `edit_file`
+  - `ask_clarification`
+  - `unclear`
+- This removes broad search-style tools from the tool surface for script-route tasks, forcing the model into a more constrained execution shape
+- Added unit coverage for:
+  - script-like task detection
+  - narrowed tool-set behavior
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `21 passed`
+
+### Live Regression
+Ran a real aggregation-style `/api/chat` regression after narrowing the tool set.
+Result:
+- request completed within the shaped 10-turn budget
+- returned `[Reached max turns (10)]`
+- did not yet produce a successful user-facing script aggregation answer
+- but avoided the previous follow-up continuation timeout pattern and stayed within a single bounded run
+
+### Product Conclusion
+This is a real execution-layer improvement over prompt-only escalation:
+- the model is now constrained away from repeated broad file-search loops on script-like requests
+- however, constrained tool narrowing alone is still not sufficient to guarantee a successful `exec_shell` conversion and final answer under live provider behavior
+
+### Next Step
+The likely next step is to go one level harder:
+- introduce a dedicated script-route execution branch
+- or precompose an explicit `exec_shell` plan template for script-like tasks instead of leaving the first script step fully open-ended to the model
+
+
 ## 2026-04-26: Script Escalation Contract Draft
 
 ### Summary

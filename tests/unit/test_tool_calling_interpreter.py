@@ -5,9 +5,15 @@ from unittest.mock import MagicMock
 from app.models.chat import InterpretedCommand
 from app.services.light_brain_memory import LightBrainMemory
 from app.services.tool_registry import ToolRegistry
-from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord
+from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord, ToolDef
 from app.services.model_router import ModelRouter
-from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter, choose_turn_budget, build_turn_state_board
+from app.system.gateway.tool_calling_interpreter import (
+    ToolCallingInterpreter,
+    build_turn_state_board,
+    choose_turn_budget,
+    is_script_like_request,
+    narrow_tools_for_script_route,
+)
 
 
 class DummyRouter(ModelRouter):
@@ -15,6 +21,7 @@ class DummyRouter(ModelRouter):
         pass
 
 
+def test_choose_turn_budget_prefers_lower_budget_for_introspection() -> None:
     assert choose_turn_budget("查一下 AgentSystem 的持久化是不是 SQLite") == 8
     assert choose_turn_budget("请写个脚本遍历目录并聚合结果") == 10
     assert choose_turn_budget("你好") == 20
@@ -30,6 +37,24 @@ def test_build_turn_state_board_adds_script_escalation_hint_after_non_convergenc
     )
     assert "exec_shell" in board
     assert "升级规则" in board
+
+
+def test_is_script_like_request_detects_aggregation_shape() -> None:
+    assert is_script_like_request("请遍历目录并汇总 persistence 定义") is True
+    assert is_script_like_request("你好") is False
+
+
+def test_script_route_tool_narrowing_keeps_exec_shell_and_core_file_tools() -> None:
+    narrowed = narrow_tools_for_script_route([
+        ToolDef(name="exec_shell", description="", parameters={}),
+        ToolDef(name="read_file", description="", parameters={}),
+        ToolDef(name="search_files", description="", parameters={}),
+        ToolDef(name="unclear", description="", parameters={}),
+    ])
+    names = [t.name for t in narrowed]
+    assert "exec_shell" in names
+    assert "read_file" in names
+    assert "search_files" not in names
 
 
 

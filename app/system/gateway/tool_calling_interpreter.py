@@ -212,7 +212,7 @@ def build_turn_state_board(message: str, history: list[dict[str, Any]]) -> str:
     known = " | ".join(x[:80] for x in recent_user) if recent_user else "(暂无明确既有证据)"
     recent_reply = recent_assistant[0][:120] if recent_assistant else "(暂无近期回复)"
     text = (message or "").lower()
-    is_script_shape = any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取"))
+    is_script_shape = is_script_like_request(message)
     if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
         next_action = "优先选择一个最高价值的定位或读取动作，不要同轮规划多个工具"
         stop_condition = "拿到能回答用户当前精度的直接证据后立即停止"
@@ -236,13 +236,24 @@ def build_turn_state_board(message: str, history: list[dict[str, Any]]) -> str:
     )
 
 
+def is_script_like_request(message: str) -> bool:
+    text = (message or "").lower()
+    return any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取", "汇总"))
+
+
 def choose_turn_budget(message: str) -> int:
     text = (message or "").lower()
     if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
         return 8
-    if any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取")):
+    if is_script_like_request(message):
         return 10
     return 20
+
+
+def narrow_tools_for_script_route(tools: list[ToolDef]) -> list[ToolDef]:
+    allowed = {"exec_shell", "read_file", "write_file", "edit_file", "ask_clarification", "unclear"}
+    narrowed = [tool for tool in tools if tool.name in allowed]
+    return narrowed or tools
 
 
 # ─── System Tool Definitions ────────────────────────────────────────────────
@@ -523,6 +534,8 @@ class ToolCallingInterpreter:
         else:
             registry_tools = self._build_tool_defs()
         all_tools = registry_tools + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
+        if is_script_like_request(message):
+            all_tools = narrow_tools_for_script_route(all_tools)
 
         # Execute - 恢复多轮工具调用,但避免回灌 provider 不兼容的 tool_call 历史 shape
         try:
