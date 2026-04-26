@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 from app.models.chat import InterpretedCommand
 from app.services.light_brain_memory import LightBrainMemory
 from app.services.tool_registry import ToolRegistry
-from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord, EvidenceItem
+from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord
 from app.services.model_router import ModelRouter
 from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
 
@@ -49,31 +49,9 @@ def test_explicit_file_path_introspection_uses_fast_read_path() -> None:
     )
 
     kwargs = execute_turns.call_args.kwargs
-    assert kwargs["max_turns"] == 6
-    assert len(kwargs["tools"]) == 2
-    assert kwargs["tools"][0].name == "read_file"
-    assert kwargs["tools"][1].name == "search_files"
-    assert "用户指定文件为 app/system/catalog/resource_center.py" in kwargs["user_message"]
+    assert kwargs["max_turns"] == 20
     assert command.intent == "direct_response"
     assert "json" in command.parameters["text"]
-
-
-
-    interpreter.interpret(
-        message="查一下 AgentSystem 的持久化是不是 SQLite",
-        user_id="u1",
-        session_id="sess-1",
-        available_apps=[],
-    )
-
-    kwargs = execute_turns.call_args.kwargs
-    prompt = kwargs["system_prompt"]
-    assert "必须先 read_file 读取真实文件内容后才能给出具体实现细节" in prompt
-    assert "未 read 文件前,不要断言\"SQLite\"\"MySQL\"\"JSON\"等具体存储类型" in prompt
-    assert "如果只搜索了文件名但没 read 内容,不要断言具体实现细节" in prompt
-    assert "第一步必须调用 `read_file`" in prompt
-    assert "search_files` 只能用于定位候选文件" in prompt
-    assert "未读取到文件内容，不能确认具体实现" in prompt
 
 
 def test_process_result_preserves_evidence_bounded_final_text_without_guessing() -> None:
@@ -97,7 +75,7 @@ def test_process_result_preserves_evidence_bounded_final_text_without_guessing()
     assert "read_file" not in command.parameters["text"]
 
 
-def test_process_result_maps_search_only_answer_into_direct_response_but_allows_uncertainty() -> None:
+def test_process_result_returns_final_text_without_tool_specific_gating() -> None:
     interpreter, _ = _build_interpreter()
     result = ToolCallingResult(
         final_text="根据已搜索到的内容，在某文件中发现了 JSON 默认值。",
@@ -113,12 +91,10 @@ def test_process_result_maps_search_only_answer_into_direct_response_but_allows_
     command = interpreter._process_result(result, "查一下 AgentSystem 的持久化是不是 SQLite")
 
     assert command.intent == "direct_response"
-    assert "尚未读取文件内容" in command.parameters["text"]
-    assert "不能确认具体实现细节或存储类型" in command.parameters["text"]
-    assert "JSON 默认值" not in command.parameters["text"]
+    assert command.parameters["text"] == "根据已搜索到的内容，在某文件中发现了 JSON 默认值。"
 
 
-def test_process_result_converts_max_turns_introspection_into_forced_uncertainty() -> None:
+def test_process_result_preserves_truncated_text_without_special_introspection_rewrite() -> None:
     interpreter, _ = _build_interpreter()
     result = ToolCallingResult(
         final_text="[Reached max turns (20)]",
@@ -130,69 +106,6 @@ def test_process_result_converts_max_turns_introspection_into_forced_uncertainty
     command = interpreter._process_result(result, "查一下 AgentSystem 的持久化是不是 SQLite")
 
     assert command.intent == "direct_response"
-    assert "未取得可验证文件证据前已达到收敛上限" in command.parameters["text"]
-    assert "需要改为直接读取相关文件" in command.parameters["text"]
+    assert command.parameters["text"] == "[Reached max turns (20)]"
 
 
-def test_process_result_blocks_read_excerpt_without_claim_privilege() -> None:
-    interpreter, _ = _build_interpreter()
-    result = ToolCallingResult(
-        final_text="我已读取 resource_center.py，可以确认 persistence_mode 默认值是 json。",
-        tool_calls=[
-            ToolCallRecord(
-                tool_name="read_file",
-                args={"path": "app/system/catalog/resource_center.py"},
-                result={"success": True, "content": 'persistence_mode: str = \"json\"'},
-            )
-        ],
-        evidence_items=[
-            EvidenceItem(
-                grade="excerpt",
-                source_type="read_file",
-                source_ref="app/system/catalog/resource_center.py",
-                snippet='persistence_mode: str = "json"',
-                truncated=False,
-                scope="static_code",
-                supports_claims=["file_excerpt"],
-                metadata={},
-            )
-        ],
-    )
-
-    command = interpreter._process_result(result, "查一下 AgentSystem 的持久化是不是 SQLite")
-
-    assert command.intent == "direct_response"
-    assert "这些证据还不足以支持具体实现结论" in command.parameters["text"]
-    assert "默认值是 json" not in command.parameters["text"]
-
-
-def test_process_result_allows_read_confirmed_introspection_text() -> None:
-    interpreter, _ = _build_interpreter()
-    result = ToolCallingResult(
-        final_text="我已读取 resource_center.py，其中 persistence_mode 默认值是 json。",
-        tool_calls=[
-            ToolCallRecord(
-                tool_name="read_file",
-                args={"path": "app/system/catalog/resource_center.py"},
-                result={"success": True, "content": 'persistence_mode: str = \"json\"'},
-            )
-        ],
-        evidence_items=[
-            EvidenceItem(
-                grade="excerpt",
-                source_type="read_file",
-                source_ref="app/system/catalog/resource_center.py",
-                snippet='persistence_mode: str = "json"',
-                truncated=False,
-                scope="static_code",
-                supports_claims=["file_excerpt", "bounded_implementation_claim"],
-                metadata={},
-            )
-        ],
-    )
-
-    command = interpreter._process_result(result, "查一下 AgentSystem 的持久化是不是 SQLite")
-
-    assert command.intent == "direct_response"
-    assert "我已读取 resource_center.py" in command.parameters["text"]
-    assert "json" in command.parameters["text"]

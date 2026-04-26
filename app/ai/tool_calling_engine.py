@@ -35,41 +35,6 @@ from typing import Any, Callable
 
 
 MAX_TOOL_RESULT_CHARS = 800
-MAX_READ_FILE_CONTENT_CHARS = 1200
-MAX_SEARCH_PREVIEW_CHARS = 80
-
-INTROSPECTION_QUERY_KEYWORDS = (
-    "代码", "源码", "仓库", "持久化", "sqlite", "mysql", "json", "字段", "表结构", "默认值", "文件里"
-)
-
-
-EVIDENCE_GATE_APPENDIX = """
-[证据闸门]
-- 只有当工具结果中的 evidence_type 为 file_excerpt 时，才允许你写“某文件中写了什么/默认值是什么/字段是什么”。
-- 如果当前只有 evidence_type=search_hits 或没有 file_excerpt 证据，你只能说“定位到候选文件/尚未读取文件内容/不能确认具体实现”。
-- 不要把 search_hits 里的文件名、预览片段，当作已完整读取文件后的事实陈述。
-""".strip()
-
-
-def _wrap_tool_result_with_evidence_gate(tool_name: str, result_str: str) -> str:
-    if tool_name not in {"read_file", "search_files"}:
-        return result_str[:MAX_TOOL_RESULT_CHARS]
-    suffix = f"\n\n{EVIDENCE_GATE_APPENDIX}"
-    budget = max(0, MAX_TOOL_RESULT_CHARS - len(suffix))
-    return f"{result_str[:budget]}{suffix}"
-
-
-def _is_introspection_query(user_message: str) -> bool:
-    text = (user_message or "").lower()
-    return any(keyword in text for keyword in INTROSPECTION_QUERY_KEYWORDS)
-
-
-def _infer_excerpt_claims(content: str) -> list[str]:
-    supports = ["file_excerpt"]
-    heuristics = (" = ", ": str =", ": int =", ": bool =", "def ", "class ", "return ")
-    if any(token in content for token in heuristics):
-        supports.append("bounded_implementation_claim")
-    return supports
 
 from app.services.model_router import ModelRouter, ModelRouterError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
@@ -140,96 +105,14 @@ class ToolCallingEngine:
         self._telemetry_service = telemetry_service
 
     def _sanitize_tool_result(self, tool_name: str, result: Any) -> str:
-        """Compress tool result into a bounded, evidence-first payload for the next LLM turn."""
+        """Compress tool result into a bounded payload for the next LLM turn."""
         if isinstance(result, str):
             return result[:MAX_TOOL_RESULT_CHARS]
 
-        if isinstance(result, dict):
-            sanitized = dict(result)
-
-            if tool_name == "read_file" and sanitized.get("success"):
-                content = sanitized.get("content")
-                if isinstance(content, str):
-                    sanitized["content"] = content[:MAX_READ_FILE_CONTENT_CHARS]
-                    sanitized["content_truncated"] = len(content) > MAX_READ_FILE_CONTENT_CHARS
-                    sanitized["evidence_type"] = "file_excerpt"
-
-            if tool_name == "search_files" and sanitized.get("success"):
-                compact_results = []
-                for item in sanitized.get("results", [])[:3]:
-                    if not isinstance(item, dict):
-                        continue
-                    compact_item = dict(item)
-                    preview = compact_item.get("preview")
-                    if isinstance(preview, str):
-                        compact_item["preview"] = preview[:MAX_SEARCH_PREVIEW_CHARS]
-                        compact_item["preview_truncated"] = len(preview) > MAX_SEARCH_PREVIEW_CHARS
-                    compact_results.append(compact_item)
-                sanitized["results"] = compact_results
-                sanitized["returned_results"] = len(compact_results)
-                sanitized["evidence_type"] = "search_hits"
-
-            encoded = json.dumps(sanitized, ensure_ascii=False)
-            if len(encoded) <= MAX_TOOL_RESULT_CHARS:
-                return encoded
-
-            fallback = {
-                "success": sanitized.get("success"),
-                "error": sanitized.get("error"),
-                "evidence_type": sanitized.get("evidence_type", "tool_result"),
-                "path": sanitized.get("path"),
-                "file": sanitized.get("file"),
-                "lines": sanitized.get("lines"),
-                "matches": sanitized.get("matches"),
-                "returned_results": sanitized.get("returned_results"),
-                "content": sanitized.get("content", "")[:240],
-                "content_truncated": sanitized.get("content_truncated"),
-                "results": sanitized.get("results", []),
-                "truncated": True,
-            }
-            return json.dumps(fallback, ensure_ascii=False)[:MAX_TOOL_RESULT_CHARS]
-
-        return json.dumps(result, ensure_ascii=False)[:MAX_TOOL_RESULT_CHARS]
+        encoded = json.dumps(result, ensure_ascii=False)
+        return encoded[:MAX_TOOL_RESULT_CHARS]
 
     def _build_evidence_items(self, tool_name: str, result: Any) -> list[EvidenceItem]:
-        if not isinstance(result, dict) or not result.get("success"):
-            return []
-
-        if tool_name == "search_files":
-            items: list[EvidenceItem] = []
-            for hit in result.get("results", [])[:3]:
-                if not isinstance(hit, dict):
-                    continue
-                items.append(EvidenceItem(
-                    grade="hint",
-                    source_type="search_files",
-                    source_ref=str(hit.get("file") or result.get("path") or ""),
-                    snippet=str(hit.get("preview") or "")[:MAX_SEARCH_PREVIEW_CHARS],
-                    truncated=bool(len(str(hit.get("preview") or "")) > MAX_SEARCH_PREVIEW_CHARS),
-                    scope="static_code",
-                    supports_claims=["candidate_location", "uncertainty_only"],
-                    metadata={
-                        "matches": hit.get("matches"),
-                    },
-                ))
-            return items
-
-        if tool_name == "read_file":
-            content = str(result.get("content") or "")
-            return [EvidenceItem(
-                grade="excerpt",
-                source_type="read_file",
-                source_ref=str(result.get("path") or ""),
-                snippet=content[:MAX_READ_FILE_CONTENT_CHARS],
-                truncated=bool(len(content) > MAX_READ_FILE_CONTENT_CHARS),
-                scope="static_code",
-                supports_claims=_infer_excerpt_claims(content),
-                metadata={
-                    "lines": result.get("lines"),
-                    "offset": result.get("offset"),
-                },
-            )]
-
         return []
 
     def register_tool(self, name: str, handler: Callable) -> None:
@@ -435,22 +318,9 @@ class ToolCallingEngine:
 
                 messages.append({
                     "role": "tool",
-                    "content": _wrap_tool_result_with_evidence_gate(tool_name, result_str),
+                    "content": result_str,
                 })
 
-                if _is_introspection_query(user_message):
-                    has_read = any(rec.tool_name == "read_file" for rec in call_records)
-                    has_search = any(rec.tool_name == "search_files" for rec in call_records)
-                    if has_search and not has_read:
-                        total_usage["model"] = model_name
-                        total_usage["turns"] = turn + 1
-                        return ToolCallingResult(
-                            final_text="目前只完成了候选文件搜索，尚未读取文件内容，因此不能确认具体实现细节或存储类型。若要确认，我需要继续读取相关文件内容。",
-                            tool_calls=call_records,
-                            evidence_items=evidence_items,
-                            turns=turn + 1,
-                            usage=total_usage,
-                        )
 
         if self._telemetry_service is not None:
             self._telemetry_service.record_step(

@@ -9,10 +9,6 @@ from app.services.tool_calling_engine import (
     ToolCallRecord,
     ToolCallingResult,
     ToolDef,
-    EVIDENCE_GATE_APPENDIX,
-    _wrap_tool_result_with_evidence_gate,
-    _is_introspection_query,
-    _infer_excerpt_claims,
 )
 from app.services.model_router import ModelRouter
 
@@ -63,11 +59,6 @@ def sample_tool_defs() -> list[ToolDef]:
             },
         ),
     ]
-
-
-def test_infer_excerpt_claims_distinguishes_code_like_content() -> None:
-    assert "bounded_implementation_claim" in _infer_excerpt_claims('persistence_mode: str = "json"')
-    assert _infer_excerpt_claims('"""module docs only"""') == ["file_excerpt"]
 
 
 
@@ -247,7 +238,7 @@ def test_execute_turns_multi_turn(tmp_path) -> None:
 # ===========================================================================
 
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
-def test_execute_turns_emits_evidence_items_for_search_and_read(tmp_path) -> None:
+def test_execute_turns_keeps_evidence_items_empty_without_governance_mapping(tmp_path) -> None:
     router = build_router(tmp_path)
     engine = ToolCallingEngine(router)
     engine.register_tools({
@@ -291,12 +282,7 @@ def test_execute_turns_emits_evidence_items_for_search_and_read(tmp_path) -> Non
             max_turns=4,
         )
 
-    assert len(result.evidence_items) >= 1
-    item = result.evidence_items[0]
-    assert item.grade == "hint"
-    assert item.source_type == "search_files"
-    assert item.source_ref == "app/a.py"
-    assert "candidate_location" in item.supports_claims
+    assert result.evidence_items == []
 
 
     """Engine should handle tool handler errors gracefully."""
@@ -488,194 +474,6 @@ def test_execute_turns_model_override(tmp_path) -> None:
     assert result.final_text == "Override worked"
 
 
-def test_execute_turns_early_stops_on_search_only_introspection_query(tmp_path) -> None:
-    router = build_router(tmp_path)
-    engine = ToolCallingEngine(router)
-    engine.register_tool(
-        "search_files",
-        lambda pattern, path: {
-            "success": True,
-            "results": [{"file": "app/system/catalog/resource_center.py", "preview": "persistence_mode"}],
-        },
-    )
-
-    call_count = [0]
-
-    def mock_chat_with_tools(messages, tools, **kwargs):
-        call_count[0] += 1
-        return (
-            {
-                "message": {"role": "assistant", "content": None},
-                "tool_calls": [
-                    {
-                        "id": "call_1",
-                        "function": {
-                            "name": "search_files",
-                            "arguments": '{"pattern": "SQLite", "path": "app"}',
-                        },
-                    }
-                ],
-                "text": "",
-            },
-            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-        )
-
-    mock_client = MagicMock()
-    mock_client._config.model = "gpt-4o-mini"
-    mock_client.chat_with_tools = mock_chat_with_tools
-
-    with patch.object(router, "get_client", return_value=mock_client):
-        result = engine.execute_turns(
-            skill_id="test-skill",
-            system_prompt="test",
-            user_message="查一下 AgentSystem 的持久化是不是 SQLite",
-            tools=[ToolDef(name="search_files", description="search", parameters={})],
-            max_turns=5,
-        )
-
-    assert call_count[0] == 1
-    assert result.turns == 1
-    assert "尚未读取文件内容" in result.final_text
-    assert result.tool_calls[0].tool_name == "search_files"
-
-
-    """read_file results should be compressed into bounded evidence instead of raw long payloads."""
-    router = build_router(tmp_path)
-    engine = ToolCallingEngine(router)
-
-    long_content = "A" * 3000
-    engine.register_tool("read_file", lambda path: {"success": True, "content": long_content, "lines": 200})
-
-    seen_messages = []
-    call_count = [0]
-
-    def mock_chat_with_tools(messages, tools, **kwargs):
-        call_count[0] += 1
-        seen_messages.append(messages)
-        if call_count[0] == 1:
-            return (
-                {
-                    "message": {"role": "assistant", "content": None},
-                    "tool_calls": [
-                        {
-                            "id": "call_1",
-                            "function": {
-                                "name": "read_file",
-                                "arguments": '{"path": "app/main.py"}',
-                            },
-                        }
-                    ],
-                    "text": "",
-                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-                },
-                {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-            )
-        return (
-            {
-                "message": {"role": "assistant", "content": "已读取"},
-                "tool_calls": [],
-                "text": "已读取",
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-            },
-            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-        )
-
-    mock_client = MagicMock()
-    mock_client._config.model = "gpt-4o-mini"
-    mock_client.chat_with_tools = mock_chat_with_tools
-
-    with patch.object(router, "get_client", return_value=mock_client):
-        result = engine.execute_turns(
-            skill_id="test-skill",
-            system_prompt="test",
-            user_message="读一下这个文件",
-            tools=[ToolDef(name="read_file", description="read", parameters={})],
-            max_turns=3,
-        )
-
-    assert result.final_text == "已读取"
-    tool_message = seen_messages[1][-1]
-    assert tool_message["role"] == "tool"
-    assert len(tool_message["content"]) <= 800
-    assert '"content_truncated": true' in tool_message["content"]
-    assert '"evidence_type": "file_excerpt"' in tool_message["content"]
-    assert EVIDENCE_GATE_APPENDIX in tool_message["content"]
-    assert tool_message["content"] == _wrap_tool_result_with_evidence_gate("read_file", tool_message["content"].split("\n\n[证据闸门]")[0]) or True
-
-
-@patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
-def test_execute_turns_sanitizes_search_results_for_evidence_first_context(tmp_path) -> None:
-    """search_files results should keep only bounded hit previews for the next turn."""
-    router = build_router(tmp_path)
-    engine = ToolCallingEngine(router)
-
-    long_preview = "B" * 800
-    engine.register_tool(
-        "search_files",
-        lambda pattern, path: {
-            "success": True,
-            "matches": 9,
-            "results": [
-                {"file": f"f{i}.py", "matches": i + 1, "preview": long_preview}
-                for i in range(8)
-            ],
-        },
-    )
-
-    seen_messages = []
-    call_count = [0]
-
-    def mock_chat_with_tools(messages, tools, **kwargs):
-        call_count[0] += 1
-        seen_messages.append(messages)
-        if call_count[0] == 1:
-            return (
-                {
-                    "message": {"role": "assistant", "content": None},
-                    "tool_calls": [
-                        {
-                            "id": "call_1",
-                            "function": {
-                                "name": "search_files",
-                                "arguments": '{"pattern": "memory", "path": "app"}',
-                            },
-                        }
-                    ],
-                    "text": "",
-                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-                },
-                {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-            )
-        return (
-            {
-                "message": {"role": "assistant", "content": "已搜索"},
-                "tool_calls": [],
-                "text": "已搜索",
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-            },
-            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-        )
-
-    mock_client = MagicMock()
-    mock_client._config.model = "gpt-4o-mini"
-    mock_client.chat_with_tools = mock_chat_with_tools
-
-    with patch.object(router, "get_client", return_value=mock_client):
-        engine.execute_turns(
-            skill_id="test-skill",
-            system_prompt="test",
-            user_message="搜一下",
-            tools=[ToolDef(name="search_files", description="search", parameters={})],
-            max_turns=3,
-        )
-
-    tool_message = seen_messages[1][-1]
-    assert tool_message["role"] == "tool"
-    assert len(tool_message["content"]) <= 800
-    assert '"returned_results": 3' in tool_message["content"]
-    assert 'search_hits' in tool_message["content"]
-    assert tool_message["content"].count('"file":') <= 3
-    assert EVIDENCE_GATE_APPENDIX in tool_message["content"]
 
 
 # ===========================================================================

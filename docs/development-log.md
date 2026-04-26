@@ -1,3 +1,35 @@
+## 2026-04-26: Remove Tool-Specific Anti-Hallucination Special Cases
+
+### Summary
+Rolled back the tool-specific anti-hallucination path that had been growing around `search_files` and `read_file`.
+The implementation is now returned to a clean baseline so the next design step can be a truly tool-agnostic governance module rather than more fragmented special handling.
+
+### What Was Removed
+- Removed `search_files` / `read_file` specific evidence-gate payload shaping in `ToolCallingEngine`
+- Removed tool-specific evidence-item emission and excerpt claim heuristics
+- Removed interpreter-side introspection answer rewrites based on tool names, evidence grade, or search/read presence
+- Removed old fast-read / search-only special-case test expectations
+
+### What Was Kept
+- `ToolCallingResult.evidence_items` structure remains available as a neutral carrier
+- Existing non-governance execution path remains functional
+- HTTP test server regression fix for explicit `session_id` was preserved
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py tests/unit/test_tool_calling_engine.py tests/unit/test_tool_calling_interpreter.py`
+- Result: `17 passed`
+
+### Product Conclusion
+This is a deliberate product reset, not a regression-by-accident.
+We are explicitly choosing to stop investing in tool-name special cases and to re-enter the problem from a cleaner architectural baseline.
+
+### Next Step
+Design and implement a standalone, tool-agnostic governance module that can:
+- normalize arbitrary tool outputs into evidence
+- evaluate answer privileges independent of tool names
+- apply uniformly across all operations
+
+
 ## 2026-04-26: OPT-005 P2.3 Claim-Privilege Emission + Real-Path Regression
 
 ### Summary
