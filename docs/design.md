@@ -169,6 +169,128 @@ The intended evolutionary chain is:
 
 This should be treated as a disciplined world-model loop rather than a purely verbal planning loop.
 
+### 2.5.5 Self / World / Value governance and the cognition-practice loop
+AgentSystem should not evolve into a system that merely imitates human conversation style. Its deeper target is to become a governed cognition-action system that can know itself, know the world, understand value priorities, and then act on reality through evidence-bound practice.
+
+This direction can borrow method from practice-first thought traditions: start from reality, form provisional understanding, verify through action, revise through contradiction, and then expand capability only after evidence accumulates. In product terms, the system should learn by a disciplined cycle of observation -> organization -> judgment -> verification -> action -> review, rather than by prompt-only confidence.
+
+#### Self model: how the system knows itself
+The system should maintain an explicit self-model rather than relying on implicit model behavior.
+That self-model should answer at least:
+- what kind of system it is
+- what responsibilities it owns
+- what capabilities are currently available
+- what capabilities are unavailable or uncertain
+- what level of confidence supports the current answer or action
+- what policy boundary prevents further action
+
+A practical self-model should gradually surface machine-readable fields such as:
+- `role_identity`
+- `mission`
+- `capability_state`
+- `boundary_state`
+- `confidence_state`
+- `uncertainty_state`
+- `policy_state`
+
+Without this layer, the system tends to overclaim, over-execute, or fail to stop when clarification is required.
+
+#### World model: how the system knows reality
+The system should treat world knowledge as a reality-modeling discipline rather than a memory accumulation contest.
+It should continuously distinguish among:
+- raw observation
+- candidate clue
+- bounded evidence
+- provisional claim
+- contradiction
+- unresolved question
+- verified result
+
+This aligns with current evidence-bound introspection and deterministic analysis work:
+- repository reads, script scans, API calls, runtime observations, and telemetry are world-contact operations
+- summaries should be treated as bounded cognitive products, not reality itself
+- promotion from clue to claim should require explicit evidence semantics
+
+Representative future objects for this layer may include:
+- `ObservationRecord`
+- `EvidenceEnvelope`
+- `EvidenceLedger`
+- `Claim`
+- `ContradictionRecord`
+- `VerificationResult`
+
+#### Value model: how the system prioritizes action
+A capable system still fails if it lacks a stable value-ordering model.
+AgentSystem should therefore carry explicit value priorities that govern tradeoffs, not just task completion pressure.
+
+Preferred value ordering for the current phase:
+1. truthfulness over pleasing fluency
+2. safety and boundary discipline over reckless completion
+3. verified practice over abstract confidence
+4. long-term reusable mechanism over repeated narrow patching
+5. user-helpfulness over blind agreement
+6. auditability over opaque cleverness
+
+These values should influence not only text generation but also execution, review, and later self-refinement.
+
+#### Cognition-practice loop: from knowing to changing reality
+The system should unify current and future modules through a six-part cognition-practice loop:
+1. world observation
+   - read files, inspect runtime state, collect telemetry, query services, run bounded scripts
+2. cognitive organization
+   - group observations by topic, bound excerpts, normalize evidence, record contradictions and unknowns
+3. judgment and hypothesis
+   - produce provisional claims with evidence grade, confidence, and explicit unverified points
+4. practice and verification
+   - run tests, perform actions, compare outcomes, verify whether a claim survives contact with reality
+5. action orchestration
+   - choose skills, workflows, deterministic routes, clarification paths, and fallbacks based on evidence and policy
+6. review and refinement
+   - record why a strategy worked or failed, preserve negative evidence, and feed reusable lessons into future governance and capability evolution
+
+This loop should become the default architectural interpretation of "knowing the world and changing the world" inside AgentSystem.
+The system should not stop at analysis. It should use practice to correct cognition, and use corrected cognition to improve future action.
+
+#### Current module mapping
+The present codebase already contains partial implementations of this direction:
+- world observation
+  - file reads, repository introspection, `exec_shell`, deterministic scan profiles, runtime services, telemetry capture
+- cognitive organization
+  - deterministic pre-step aggregation, bounded scan results, topic-aware scan profiles, prompt/context shaping
+- judgment and hypothesis
+  - evidence-grade governance direction, bounded summarizer prompts, explicit "未证实" discipline, refinement hypothesis objects in later governance flows
+- practice and verification
+  - unit/integration/E2E tests, grouped regression execution, runtime verification paths, approval-gated workflow execution
+- action orchestration
+  - gateway interpreter, workflow engine, skill dispatch, dynamic path composition, script-first routing, ask-clarification paths
+- review and refinement
+  - telemetry/evolution evidence split, proposal review, verification, rollout, failed-hypothesis preservation, governance dashboard paths
+
+This means the architecture does not need a ground-up rewrite. The immediate task is to converge scattered capabilities into a shared cognition-governance model.
+
+#### Immediate design implications
+Near-term implementation and refactoring should follow these consequences:
+- answer generation should expose uncertainty when evidence grade is insufficient instead of optimizing for surface completeness
+- deterministic introspection paths should become the first pilot of the full cognition-practice contract, not remain a one-off workaround
+- telemetry should begin recording not only latency/success but also profile-hit, fallback, overreach-risk, and verification outcomes where practical
+- refinement should preserve negative lessons such as disproven strategies, false-positive scan themes, and repeated fallback patterns
+- future planning/dynamic-path modules should consume evidence and policy state, not only user intent text
+
+#### Implementation posture
+This governance model should be integrated as architecture, not as ideology-only prose.
+That means it should eventually appear in:
+- design principles
+- machine-readable contracts
+- planner/interpreter decision rules
+- workflow and verification policy
+- review/refinement feedback loops
+- operator-facing observability surfaces
+
+The preferred rollout order is:
+1. codify the self/world/value and cognition-practice model in design docs
+2. pilot the contract in deterministic introspection and evidence-bound answer shaping
+3. extend it into workflow verification, refinement governance, and future planning modules
+
 ### 2.5.4 Tool-loop governance skill architecture
 For multi-turn tool use, the preferred near-term control surface should be a compact skill-oriented guidance architecture rather than many embedded tool-specific branches in engine/interpreter code.
 

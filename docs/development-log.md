@@ -1,3 +1,38 @@
+## 2026-04-27: Self / World / Value Governance + Cognition-Practice Loop Design Convergence
+
+### Summary
+Converged recent evidence-bound and deterministic-analysis work into a higher-level architectural direction: AgentSystem should evolve as a cognition-action system with explicit self-model, world-model, value-model, and a disciplined cognition-practice loop.
+
+### What Was Done
+- Updated `docs/design.md`
+- Added a new design section describing:
+  - self-model (`role_identity`, capability/boundary/confidence/uncertainty/policy state)
+  - world-model (observation, evidence, claim, contradiction, unresolved question, verification result)
+  - value-model (truthfulness, safety, practice-first, long-term mechanism, helpfulness, auditability)
+  - six-part cognition-practice loop:
+    1. world observation
+    2. cognitive organization
+    3. judgment and hypothesis
+    4. practice and verification
+    5. action orchestration
+    6. review and refinement
+- Mapped current modules into that loop so the direction remains incremental rather than implying a full rewrite
+- Explicitly positioned deterministic introspection / evidence-bound answer shaping as the first implementation pilot of this broader architecture
+
+### Validation
+- Documentation consistency review against current deterministic scan / evidence-governance / refinement direction
+- No code-path behavior changes in this step
+
+### Product Conclusion
+The project now has a clearer architectural mother-model for future evolution. Recent work on deterministic scan profiles, evidence-grade governance, telemetry, workflow verification, and refinement can now be interpreted as parts of one governed cognition-practice system instead of separate feature lines.
+
+### Next Step
+Potential follow-ups:
+- pilot machine-readable self/world/value contracts in the introspection path
+- add claim/evidence/unverified output contracts to deterministic summarization
+- introduce profile-hit/fallback/overreach counters in telemetry
+- extend verification semantics from introspection into workflow/refinement paths
+
 ## 2026-04-27: Max Scan Controls + Regex Tightening
 
 ### Summary
