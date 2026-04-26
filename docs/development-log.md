@@ -1,3 +1,41 @@
+## 2026-04-26: Dedicated Script-First Branch
+
+### Summary
+Implemented a dedicated script-first sub-route for script-like tasks instead of letting them enter the general free-form tool loop.
+
+### What Was Done
+- Added `SCRIPT_FIRST_EXECUTION_PROMPT`
+- Added `_run_script_first_route(...)`
+- Updated `interpret(...)` so script-like requests now bypass the generic `_llm_interpret(...)` path and enter the dedicated script-first route directly
+- Dedicated route characteristics:
+  - narrowed tool surface via `narrow_tools_for_script_route(...)`
+  - specialized prompt centered on `exec_shell`
+  - tighter turn budget: `max_turns=4`
+- Added unit coverage to verify script-like requests select `gateway_script_first_route`
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `21 passed`
+
+### Live Regression
+Ran a real `/api/chat` regression on the aggregation-style persistence task.
+Observed result:
+- completed in about 84s
+- only 2 upstream model requests were made
+- no long uncontrolled loop
+- produced a concrete script-first answer with a Python script plan instead of timing out or spinning to max-turns
+
+### Caveat
+The model still incorrectly claimed that `exec_shell` permission was unavailable, which means the route behavior improved materially but tool-availability grounding inside the script-first branch is still imperfect.
+
+### Product Conclusion
+This is the first live result that demonstrates the dedicated script-first branch is meaningfully better than prompt-only guidance and generic narrowed looping.
+The remaining issue is no longer convergence, but tool-availability grounding and willingness to actually call `exec_shell` instead of falling back to a manual script handoff.
+
+### Next Step
+The next likely improvement is to make the script-first branch explicitly state available tools in a compact, high-confidence form and possibly bias first action selection toward `exec_shell` even harder.
+
+
 ## 2026-04-26: Engine-Level Script Route Narrowing
 
 ### Summary

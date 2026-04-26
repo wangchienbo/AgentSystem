@@ -62,6 +62,21 @@ logger = logging.getLogger(__name__)
 
 # ─── Prompt Templates ────────────────────────────────────────────────────────
 
+SCRIPT_FIRST_EXECUTION_PROMPT = """你正在执行专用 script-first 子链路。
+
+目标:
+- 对遍历、聚合、批量提取类任务，优先用一次性本地脚本完成证据收集
+- 不要回到宽泛搜索循环
+
+硬规则:
+1. 第一优先工具是 `exec_shell`
+2. 如需补充极少量上下文，可先 `read_file` 读取 1 个关键文件，然后立即回到 `exec_shell`
+3. 禁止先做多轮 search/list/read 链式探索
+4. 脚本应尽量短、小、可审计，优先使用 python3 - <<'PY' 形式
+5. 脚本输出应直接面向用户问题所需的结构化汇总
+6. 一旦脚本结果足够回答，立即停止工具调用并直接作答
+"""
+
 SYSTEM_PROMPT_TEMPLATE = """你是 AgentSystem 的智能交互引擎。
 
 你的职责是根据用户输入选择合适工具,并基于工具结果生成友好回复。
@@ -365,6 +380,9 @@ class ToolCallingInterpreter:
         if fast_path:
             return fast_path
 
+        if is_script_like_request(message):
+            return self._run_script_first_route(message, user_id, session_id, available_apps)
+
         # Tier 3: Full LLM tool calling
         return self._llm_interpret(
             message, user_id, session_id, available_apps
@@ -473,6 +491,43 @@ class ToolCallingInterpreter:
     def _is_code_introspection_query(self, raw_input: str) -> bool:
         text = (raw_input or "").lower()
         return any(keyword in text for keyword in INTROSPECTION_KEYWORDS)
+
+    def _run_script_first_route(
+        self,
+        message: str,
+        user_id: str,
+        session_id: str,
+        available_apps: list[dict[str, Any]],
+    ) -> InterpretedCommand:
+        history = self._get_history(session_id)
+        session_ctx = build_session_context(
+            history=history,
+            pending_intent=None,
+            pending_params={},
+            missing_param=None,
+            available_apps=available_apps,
+            available_assets=None,
+        )
+        script_tools = narrow_tools_for_script_route(self._build_tool_defs() + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
+        system_prompt = (
+            SCRIPT_FIRST_EXECUTION_PROMPT
+            + "\n\n## 当前会话状态\n"
+            + session_ctx
+            + "\n\n## 当前任务\n"
+            + message
+        )
+        result = self._engine.execute_turns(
+            skill_id="gateway_script_first_route",
+            system_prompt=system_prompt,
+            user_message=message,
+            tools=script_tools,
+            max_turns=4,
+            asset_id="asset:light_brain_gateway:v1",
+            session_id=session_id,
+            user_id=user_id,
+            interaction_id=f"lightbrain-script:{session_id}:{abs(hash(message))}",
+        )
+        return self._process_result(result, message)
 
     def _llm_interpret(
         self,
