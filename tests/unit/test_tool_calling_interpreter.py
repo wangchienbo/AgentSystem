@@ -73,7 +73,7 @@ def test_process_result_preserves_evidence_bounded_final_text_without_guessing()
 def test_process_result_maps_search_only_answer_into_direct_response_but_allows_uncertainty() -> None:
     interpreter, _ = _build_interpreter()
     result = ToolCallingResult(
-        final_text="目前只看到了相关文件命中，还没读取文件内容，所以不能确认具体存储实现。",
+        final_text="根据已搜索到的内容，在某文件中发现了 JSON 默认值。",
         tool_calls=[
             ToolCallRecord(
                 tool_name="search_files",
@@ -83,8 +83,29 @@ def test_process_result_maps_search_only_answer_into_direct_response_but_allows_
         ],
     )
 
-    command = interpreter._process_result(result, "查持久化")
+    command = interpreter._process_result(result, "查一下 AgentSystem 的持久化是不是 SQLite")
 
     assert command.intent == "direct_response"
-    assert "还没读取文件内容" in command.parameters["text"]
-    assert "不能确认具体存储实现" in command.parameters["text"]
+    assert "尚未读取文件内容" in command.parameters["text"]
+    assert "不能确认具体实现细节或存储类型" in command.parameters["text"]
+    assert "JSON 默认值" not in command.parameters["text"]
+
+
+def test_process_result_allows_read_confirmed_introspection_text() -> None:
+    interpreter, _ = _build_interpreter()
+    result = ToolCallingResult(
+        final_text="我已读取 resource_center.py，其中 persistence_mode 默认值是 json。",
+        tool_calls=[
+            ToolCallRecord(
+                tool_name="read_file",
+                args={"path": "app/system/catalog/resource_center.py"},
+                result={"success": True, "content": 'persistence_mode: str = \"json\"'},
+            )
+        ],
+    )
+
+    command = interpreter._process_result(result, "查一下 AgentSystem 的持久化是不是 SQLite")
+
+    assert command.intent == "direct_response"
+    assert "我已读取 resource_center.py" in command.parameters["text"]
+    assert "json" in command.parameters["text"]

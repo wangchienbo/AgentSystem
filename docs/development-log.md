@@ -1,3 +1,40 @@
+## 2026-04-26: OPT-004 P5 Execution-Fact Provenance Contract
+
+### Summary
+Implemented the next closure layer at interpreter result-processing time so final user-facing introspection answers are no longer allowed to rely solely on LLM replay phrasing.
+
+### What Was Done
+- Added execution-fact provenance enforcement in `app/system/gateway/tool_calling_interpreter.py`
+- Introduced a code-introspection query detector for repository / persistence / source-inspection prompts
+- Changed final-answer processing rules:
+  - `read_file` present → allow read-confirmed final text through
+  - `search_files` present but no `read_file` → override final answer into a forced uncertainty response
+  - no relevant introspection path → keep original final text behavior
+- Added unit regression tests covering:
+  - search-only hallucination override
+  - read-confirmed pass-through behavior
+
+### Validation
+- Unit tests: `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py` → `18 passed`
+- Real HTTP `/api/chat` validation showed that fabricated first-turn certainty was suppressed, but the session can still hit `[Reached max turns (20)]` under the stricter provenance regime, indicating a remaining convergence-policy gap rather than a hallucination gap
+
+### Product Conclusion
+OPT-004 P5 is functionally complete for provenance enforcement.
+The anti-hallucination chain has now moved from:
+- prompt discipline
+- to replay sanitization
+- to protocol text gating
+- to structured execution-fact override at final answer time
+
+The next blocker is no longer false certainty.
+It is convergence under stricter truth constraints.
+
+### Next Step
+Proceed to OPT-004 P6:
+- add an explicit early-stop / forced-uncertainty termination path for search-only introspection loops
+- ensure the real HTTP gateway returns bounded uncertainty instead of `[Reached max turns (20)]`
+
+
 ## 2026-04-26: OPT-004 P4 Protocol-Level Evidence Gate Spike
 
 ### Summary

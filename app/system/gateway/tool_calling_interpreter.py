@@ -43,6 +43,11 @@ from app.models.chat import InterpretedCommand
 from app.services.tool_registry import ToolRegistry
 from app.services.tool_calling_engine import ToolCallingEngine, ToolDef
 
+
+INTROSPECTION_KEYWORDS = (
+    "代码", "源码", "仓库", "持久化", "sqlite", "mysql", "json", "字段", "表结构", "默认值", "文件里"
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -619,15 +624,37 @@ class ToolCallingInterpreter:
                 source="llm_unclear",
             )
 
-        # Normal tool call → map to direct_response (pass through LLM-generated content)
-        # The tool execution result is already in final_text from the last LLM turn
+        final_text = self._apply_execution_fact_provenance(raw_input=raw_input, result=result)
+
         return InterpretedCommand(
             intent="direct_response",
             raw_input=raw_input,
             confidence=0.9,
-            parameters={"text": result.final_text or f"已执行 {tool_name}"},
+            parameters={"text": final_text or f"已执行 {tool_name}"},
             source="llm_tool_call",
         )
+
+    def _apply_execution_fact_provenance(self, raw_input: str, result: Any) -> str:
+        """Constrain introspection answers using structured tool-call facts."""
+        final_text = (getattr(result, "final_text", "") or "").strip()
+        if not self._is_code_introspection_query(raw_input):
+            return final_text
+
+        tool_calls = getattr(result, "tool_calls", []) or []
+        has_read = any(call.tool_name == "read_file" for call in tool_calls)
+        has_search = any(call.tool_name == "search_files" for call in tool_calls)
+
+        if has_read:
+            return final_text
+
+        if has_search:
+            return "目前只完成了候选文件搜索，尚未读取文件内容，因此不能确认具体实现细节或存储类型。若要确认，我需要继续读取相关文件内容。"
+
+        return final_text
+
+    def _is_code_introspection_query(self, raw_input: str) -> bool:
+        text = (raw_input or "").lower()
+        return any(keyword in text for keyword in INTROSPECTION_KEYWORDS)
 
     # ── Helpers ──────────────────────────────────────────────────────────
 
