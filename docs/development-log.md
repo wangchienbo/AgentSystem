@@ -1,3 +1,35 @@
+## 2026-04-26: OPT-004 P2 Interpreter/Gateway Introspection Regression Guard
+
+### Summary
+Completed the second closure step for OPT-004 by extending the anti-hallucination guard from tool-result replay into the interpreter-facing regression layer.
+
+### What Was Done
+- Added dedicated unit coverage in `tests/unit/test_tool_calling_interpreter.py` for code-introspection scenarios
+- Verified the interpreter prompt carries hard no-guess rules for repository/code introspection:
+  - must `read_file` before specific implementation claims
+  - cannot assert `SQLite` / `MySQL` / `JSON` before verified file evidence
+  - cannot infer implementation detail from `search_files` hits alone
+- Fixed a real compatibility bug in `format_tools_for_prompt(...)` so interpreter prompt generation now supports both:
+  - dict-style hot tool metadata
+  - `ToolDefinition` registry objects
+- Verified evidence-bounded final responses can preserve uncertainty wording such as "未证实" / "还没读取文件内容，不能确认具体实现"
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `17 passed`
+
+### Product Conclusion
+OPT-004 P2 is complete.
+Current anti-hallucination control now spans two layers:
+- execution layer: bound introspection-tool replay payloads
+- interpreter layer: prompt contract + regression coverage for uncertainty-preserving repo/code answers
+
+### Next Step
+Proceed to OPT-004 P3:
+- run real `/api/chat` regression scenarios against the HTTP gateway
+- validate multi-turn code introspection answers no longer invent storage engine, schema, or unverified implementation detail under real runtime conditions
+
+
 ## 2026-04-26: OPT-004 Evidence-Bounded Code Introspection Guard
 
 ### Summary

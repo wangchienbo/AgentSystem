@@ -77,7 +77,7 @@ Used for lightweight client-level validation such as:
 - generated executable skill end-to-end coverage through normal app workflow skill steps
 - blueprint materialization safety-default / adapter-governance coverage, including executable materialization selection and suggested-skill executable closure paths
 - manifest validation separation coverage so script adapters are not rejected by executable-entrypoint rules while executable adapters still require concrete entry metadata
-- code-introspection anti-hallucination coverage for bounded evidence replay, ensuring `read_file` / `search_files` tool outputs are compressed before later LLM turns and do not reintroduce oversized unverified context
+- interpreter/gateway regression coverage should explicitly validate code-introspection uncertainty discipline, including cases where the system must say "未证实" or "尚未读取文件内容，不能确认" instead of inventing concrete storage engines or implementation details
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

@@ -190,25 +190,32 @@ def build_session_context(
     return "\n".join(lines) if lines else "新会话,无历史上下文"
 
 
-def format_tools_for_prompt(registry_tools: list[dict[str, Any]]) -> str:
+def format_tools_for_prompt(registry_tools: list[Any]) -> str:
     """Format tool registry for prompt."""
     lines = []
     for tool in registry_tools:
-        name = tool.get("name", "")
-        desc = tool.get("description", "")
-        params = tool.get("parameters", [])
+        if isinstance(tool, dict):
+            name = tool.get("name", "")
+            desc = tool.get("description", "")
+            params = tool.get("parameters", [])
 
-        # Handle structured parameters (dict with properties)
-        if isinstance(params, dict):
-            props = params.get("properties", {})
-            param_strs = [
-                f"{pn}: {pv.get('description', '')}"
-                for pn, pv in props.items()
-            ]
+            if isinstance(params, dict):
+                props = params.get("properties", {})
+                param_strs = [
+                    f"{pn}: {pv.get('description', '')}"
+                    for pn, pv in props.items()
+                ]
+            else:
+                param_strs = [
+                    f"{p.get('name')}: {p.get('description')}"
+                    for p in params
+                ]
         else:
-            # Legacy list format
+            name = getattr(tool, "name", "")
+            desc = getattr(tool, "description", "")
+            params = getattr(tool, "parameters", [])
             param_strs = [
-                f"{p.get('name')}: {p.get('description')}"
+                f"{getattr(p, 'name', '')}: {getattr(p, 'description', '')}"
                 for p in params
             ]
 
