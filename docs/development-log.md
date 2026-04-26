@@ -1,3 +1,34 @@
+## 2026-04-26: Tool-Loop Governor Skill Draft
+
+### Summary
+Shifted the optimization direction away from tool-specific hallucination patches and toward a skill-oriented loop-discipline architecture.
+
+### What Was Added
+- Drafted a compact top-level tool-loop governor design asset:
+  - `docs/tool-loop-governor.md`
+- Drafted branch guidance files:
+  - `docs/tool-loop-governor-branches/repo-introspection.md`
+  - `docs/tool-loop-governor-branches/runtime-observation.md`
+  - `docs/tool-loop-governor-branches/script-first-strategy.md`
+  - `docs/tool-loop-governor-branches/stop-rules.md`
+- Updated design documentation to record the preferred architecture: compact top-level loop governance + branch files by task shape
+
+### Product Direction
+This draft treats the current root issue primarily as a tool-loop convergence and execution-discipline problem rather than a problem best solved by accumulating tool-name-specific answer rules.
+
+It also explicitly records script-first execution as a first-class strategy for tasks involving:
+- chained dependencies
+- repeated extraction/parsing
+- batching/aggregation
+- multi-step transformations where direct tool-call chaining is inefficient
+
+### Next Step
+Integrate this skill architecture into the actual prompting / selection path used by the tool-calling interpreter, then run real-chain regression to verify:
+- better continuation decisions
+- better stopping behavior
+- better script-first escalation when appropriate
+
+
 ## 2026-04-26: Remove Tool-Specific Anti-Hallucination Special Cases
 
 ### Summary

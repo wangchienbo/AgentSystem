@@ -169,7 +169,28 @@ The intended evolutionary chain is:
 
 This should be treated as a disciplined world-model loop rather than a purely verbal planning loop.
 
-### 2.7 Thin core, skill-centric higher-order behavior
+### 2.5.4 Tool-loop governance skill architecture
+For multi-turn tool use, the preferred near-term control surface should be a compact skill-oriented guidance architecture rather than many embedded tool-specific branches in engine/interpreter code.
+
+Recommended shape:
+- one compact top-level tool-loop governor skill that encodes only the universal loop discipline
+- multiple branch files for scenario-specific retrieval/execution strategies
+- branch selection should depend on task shape, not on hardcoded truth rankings for particular tool names
+
+The top-level governor should focus on:
+- whether to continue calling tools
+- whether the requested precision has been achieved
+- whether the next step should be another direct tool call or a script-first execution strategy
+- when to stop with explicit uncertainty
+
+Suggested initial branch families:
+- repository / code introspection
+- runtime observation
+- script-first execution strategy
+- stop rules / convergence control
+
+This preserves a thin core while making loop discipline inspectable, evolvable, and less likely to fragment into scattered prompt patches.
+
 The platform core should own:
 - standard contracts
 - telemetry/event envelopes
