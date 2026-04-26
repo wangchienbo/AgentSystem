@@ -1,3 +1,28 @@
+## 2026-04-26: Tool-Loop Governor Prompt Integration
+
+### Summary
+Integrated the drafted tool-loop governor guidance into the real tool-calling interpreter prompt path.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py` so the main system prompt now injects:
+  - top-level governor guidance from `docs/tool-loop-governor.md`
+  - branch guidance selected by task shape
+- Added lightweight branch selection for:
+  - repo/code introspection
+  - script-first strategy signals
+- Disabled the old explicit-file fast path by returning `None`, so new loop behavior is governed by the shared prompt path instead of a special branch
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `17 passed`
+
+### Product Conclusion
+The project is now no longer only documenting the governor idea. The real interpreter prompt path has started consuming the new loop-discipline architecture.
+
+### Next Step
+Run real-chain regression to verify whether prompt-governed continuation, stopping, and script-first escalation improve actual behavior under `/api/chat`.
+
+
 ## 2026-04-26: Tool-Loop Governor Skill Draft
 
 ### Summary

@@ -45,6 +45,11 @@ from app.services.tool_registry import ToolRegistry
 from app.services.tool_calling_engine import ToolCallingEngine, ToolDef
 
 
+TOOL_LOOP_GOVERNOR_PATH = "docs/tool-loop-governor.md"
+REPO_INTROSPECTION_BRANCH_PATH = "docs/tool-loop-governor-branches/repo-introspection.md"
+SCRIPT_FIRST_BRANCH_PATH = "docs/tool-loop-governor-branches/script-first-strategy.md"
+
+
 INTROSPECTION_KEYWORDS = (
     "代码", "源码", "仓库", "持久化", "sqlite", "mysql", "json", "字段", "表结构", "默认值", "文件里"
 )
@@ -67,30 +72,20 @@ SYSTEM_PROMPT_TEMPLATE = """你是 AgentSystem 的智能交互引擎。
 ## 可用工具
 {tools_description}
 
+## 工具循环总控
+{tool_loop_governor}
+
+## 当前分支策略
+{branch_guidance}
+
 ## 执行策略
-1. **找到答案就停**:一旦发现能回答用户问题的核心信息,立即停止调用工具,直接回复
-2. **边做边评估**:每调用一个工具后,问自己:"这些信息够回答用户了吗?"
-   - 够了 → 立即回复,不要继续探索
-   - 不够 → 再调 1-2 个工具,然后必须给结论
-3. **分阶段交付**:
-   - 先给"有没有/是什么"的结论
-   - 如果用户需要,再深入"怎么做/为什么"
-4. **不要过度探索**:用户问"有没有持久化",找到"有,用 JSON"就够了,不要继续查表结构/字段
-5. **处理"继续"指令**（重要）：
-   - **模糊继续**（用户只说"继续"）：
-     - 再深入 1 个关键点（读 1 个文件或搜索 1 个关键词）
-     - 给结论，停，问"还要继续吗？"
-   - **具体继续**（用户说"继续看 XX"）：
-     - 完成用户指定的目标（读完 XX 文件/查完 XX 逻辑）
-     - 给结论，停，问"还需要什么？"
-   - **复杂任务**（用户说"全部看完/深入分析"）：
-     - 先评估工作量："需要读 N 个文件，大约 M 分钟"
-     - 等待用户确认
-     - 用户确认后，执行
-6. 用户请求明确时,选择对应工具并提取参数
-7. 缺少必要参数时,使用 `ask_clarification` 追问
-8. 用户在回答上一个追问时,从 pending intent 续接上下文
-9. 无法理解时,使用 `unclear` 给出引导
+1. 找到答案就停,但不要把候选线索当成最终事实
+2. 每调用一个工具后,先判断当前还缺什么,再决定是否继续
+3. 如果当前任务更适合脚本,优先转为脚本方案,不要强行堆很多零碎工具调用
+4. 用户请求明确时,选择对应工具并提取参数
+5. 缺少必要参数时,使用 `ask_clarification` 追问
+6. 用户在回答上一个追问时,从 pending intent 续接上下文
+7. 无法理解时,使用 `unclear` 给出引导
 
 ## 参数提取规则
 - `app_name`: 从用户输入提取 App 名称
@@ -98,29 +93,12 @@ SYSTEM_PROMPT_TEMPLATE = """你是 AgentSystem 的智能交互引擎。
 - `description`: 保留原始需求描述
 - `status`: 过滤条件,枚举值 running/stopped/paused/all
 
-## 代码自省规则
-当用户要求看代码、查仓库、查持久化、查记忆、查源码位置时:
-- **必须先 read_file 读取真实文件内容后才能给出具体实现细节**
-- 优先检查:`app/system/gateway/light_brain_memory.py`、`app/system/gateway/light_brain_gateway.py`、`app/bootstrap/runtime.py`、`app/services/persistence_service.py`、`app/system/http_test_server.py`
-- 没看关键文件前,不要直接说"未实现"或"仅内存"
-- 涉及 Web Chat 时,要区分 HTTP 测试入口状态和底层持久化链路
-- **代码自省约束 (硬性)**:
-  - 只陈述真实 read_file 命中的文件内容
-  - **未 read 文件前,不要断言"SQLite""MySQL""JSON"等具体存储类型**
-  - 禁止补写:数据库类型、表结构、字段名、接口函数名、伪代码流程
-  - 不确定时用"未在已查文件中证实",不要猜测
-  - **如果只搜索了文件名但没 read 内容,不要断言具体实现细节**
-- **首轮检查流程 (强制)**:
-  - 如果问题涉及"是不是用 SQLite/JSON/某种数据库"、"具体字段/表结构/默认值是什么"、"某文件里写了什么"，第一步必须调用 `read_file`
-  - `search_files` 只能用于定位候选文件,不能单独作为具体实现结论的依据
-  - 若首轮尚未 `read_file` 成功,最终回复里必须明确写出"未读取到文件内容，不能确认具体实现"
-
 ## 回复要求
 - 必须使用 tool calling 格式
 - ask_clarification 的 question 要自然
 - unclear 的 reply 要有引导性
-- **收敛规则**: 查到 1-2 个关键文件后立即停止,给出结论并询问是否需要更细节
-- **终止条件**:当你已获得足够信息可以回答用户问题时,直接返回回复内容,不要继续调用工具
+- 当证据已足够支撑用户所需精度时,必须停止调用工具并直接作答
+- 当证据仍不足时,必须明确当前未解决问题,而不是提前下结论
 """
 
 
@@ -426,20 +404,22 @@ class ToolCallingInterpreter:
             requires_clarification=False,
         )
 
-    def _clear_pending(self, session_id: str) -> None:
-        """Clear pending state after successful resume."""
-        if self._continuation:
-            try:
-                self._continuation.clear(session_id)
-            except Exception:
-                pass
-        if hasattr(self._memory, "clear_pending_continuation"):
-            try:
-                self._memory.clear_pending_continuation(session_id)
-            except Exception:
-                pass
+    def _load_governor_text(self, relative_path: str) -> str:
+        try:
+            with open(relative_path, "r", encoding="utf-8") as f:
+                return f.read().strip()
+        except Exception as e:
+            logger.warning("Failed to load governor text %s: %s", relative_path, e)
+            return ""
 
-    # ── Tier 3: LLM tool calling ─────────────────────────────────────────
+    def _select_branch_guidance(self, message: str) -> str:
+        text = (message or "").lower()
+        if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
+            return self._load_governor_text(REPO_INTROSPECTION_BRANCH_PATH)
+        if any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取")):
+            return self._load_governor_text(SCRIPT_FIRST_BRANCH_PATH)
+        return ""
+
 
     def _try_explicit_file_read_fast_path(
         self,
@@ -448,62 +428,7 @@ class ToolCallingInterpreter:
         session_id: str,
         available_apps: list[dict[str, Any]],
     ) -> InterpretedCommand | None:
-        """Force a direct read_file path when user explicitly provides a source file path."""
-        if not self._is_code_introspection_query(message):
-            return None
-
-        match = PATH_PATTERN.search(message or "")
-        if not match:
-            return None
-
-        path = match.group(1)
-        result = self._engine.execute_turns(
-            skill_id="gateway_intent_parser",
-            system_prompt=(
-                "你必须先读取用户明确指定的文件，再仅基于该文件内容回答。"
-                "如果用户询问默认值、字段定义、配置项，先搜索该文件内相关关键词，再读取命中附近内容。"
-                "禁止搜索其他文件替代，禁止扩展到未读取实现。"
-            ),
-            user_message=(
-                f"用户指定文件为 {path}。"
-                f"如果问题涉及默认值/字段/配置定义，先在该文件中搜索相关关键词，再读取命中附近内容。"
-                f"然后仅基于该文件内容回答用户问题：{message}"
-            ),
-            tools=[
-                ToolDef(
-                    name="read_file",
-                    description="读取文件内容。用于查看代码、配置、文档等。",
-                    parameters={
-                        "type": "object",
-                        "properties": {
-                            "path": {"type": "string", "description": "文件路径（绝对或相对路径）"},
-                            "limit": {"type": "integer", "description": "最大读取行数（可选）"},
-                            "offset": {"type": "integer", "description": "起始行号（可选）"},
-                        },
-                        "required": ["path"],
-                    },
-                ),
-                ToolDef(
-                    name="search_files",
-                    description="搜索文件内容。用于在代码/文档中查找关键字。",
-                    parameters={
-                        "type": "object",
-                        "properties": {
-                            "pattern": {"type": "string", "description": "搜索模式（支持正则）"},
-                            "path": {"type": "string", "description": "搜索目录或文件"},
-                            "file_pattern": {"type": "string", "description": "文件过滤模式，如 *.py"},
-                        },
-                        "required": ["pattern", "path"],
-                    },
-                ),
-            ],
-            max_turns=6,
-            asset_id="asset:light_brain_gateway:v1",
-            session_id=session_id,
-            user_id=user_id,
-            interaction_id=f"lightbrain-fastpath:{session_id}:{abs(hash(message))}",
-        )
-        return self._process_result(result, message)
+        return None
 
     def _is_code_introspection_query(self, raw_input: str) -> bool:
         text = (raw_input or "").lower()
@@ -552,9 +477,12 @@ class ToolCallingInterpreter:
         else:
             tools_desc = format_tools_for_prompt(self._registry.list_all())
 
+        branch_guidance = self._select_branch_guidance(message)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             session_context=session_ctx,
             tools_description=tools_desc,
+            tool_loop_governor=self._load_governor_text(TOOL_LOOP_GOVERNOR_PATH),
+            branch_guidance=branch_guidance or "(当前无额外分支 guidance)",
         )
 
         # Phase E.2: Use hot tools + find_tool as escape hatch
