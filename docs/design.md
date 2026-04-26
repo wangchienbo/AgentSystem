@@ -138,7 +138,29 @@ A practical initial rule is:
 - tool replay text remains useful for model continuity
 - but user-facing answer privileges should ultimately depend on ledger semantics rather than replay text alone
 
-### 2.6 System should evolve from practice
+### 2.5.3 OPT-005 P2 implementation slice (initial mapping plan)
+The first implementation slice should avoid introducing a fully generalized evidence system everywhere at once.
+Instead, it should land a narrow but reusable vertical slice across the current high-risk introspection path.
+
+Recommended slice order:
+1. map current introspection tool outputs into ledger-ready evidence items inside `ToolCallingEngine`
+   - `search_files` → `hint`
+   - `read_file` → `excerpt`
+   - bounded result metadata should populate `source_ref`, `snippet`, `truncated`, and initial `supports_claims`
+2. attach ledger summaries or raw ledger items to `ToolCallingResult`
+3. let `ToolCallingInterpreter` consume ledger semantics first for high-risk answer gating, while preserving backward compatibility with existing final-text behavior for non-governed paths
+4. keep the initial governed path intentionally narrow: repository/code introspection, configuration claims, and implementation-detail claims
+
+Initial non-goals for P2:
+- no attempt to fully solve every answer type in one pass
+- no requirement to infer `verified_fact` automatically from every excerpt yet
+- no broad rewrite of all tool handlers before the contract proves useful in one production-critical path
+
+Success criteria for P2:
+- the engine emits structured ledger-ready evidence for current introspection tools
+- the interpreter can choose between replay text and ledger semantics for high-risk answer shaping
+- existing OPT-004 regression scenarios can be re-expressed in terms of ledger-compatible answer privileges
+
 The intended evolutionary chain is:
 - practice
 - experience

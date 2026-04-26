@@ -1,3 +1,33 @@
+## 2026-04-26: OPT-005 P2 Implementation Slice Planning
+
+### Summary
+Defined the first implementation slice for OPT-005 so the next coding step can land a narrow but reusable evidence-governance path instead of another scene-specific patch.
+
+### Planned Slice
+- map `search_files` output into ledger-ready `hint` evidence
+- map `read_file` output into ledger-ready `excerpt` evidence
+- attach ledger summaries or evidence items to `ToolCallingResult`
+- let `ToolCallingInterpreter` prefer ledger semantics for high-risk answer gating while keeping backward compatibility for non-governed paths
+
+### Initial Scope
+Governed first-wave answer types:
+- repository/code introspection
+- configuration claims
+- implementation-detail claims
+
+### Explicit Non-Goals
+- no full generalization to every answer type yet
+- no broad rewrite of all tool handlers yet
+- no requirement to infer all `verified_fact` items automatically in the first pass
+
+### Product Conclusion
+OPT-005 P2 planning is complete.
+The next coding step should implement the first vertical slice across the current introspection path rather than continue with more isolated runtime mitigations.
+
+### Next Step
+Implement the first engine/interpreter evidence-ledger slice and bind it to existing OPT-004 regression cases.
+
+
 ## 2026-04-26: OPT-005 P1 Evidence Ledger Contract
 
 ### Summary
