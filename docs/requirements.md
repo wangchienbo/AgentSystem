@@ -184,7 +184,28 @@ The interaction gateway must also support:
 - action suggestions that users can select to continue the conversation
 - token usage tracking per session
 
-### 5.2 Requirement intake
+## 5.1.1 Evidence-Grade Answer Governance
+The interaction and tool-calling layers must support a reusable evidence-grade governance mechanism for high-risk answers, especially repository/code introspection, configuration claims, runtime-state claims, and implementation-detail claims.
+
+The system must distinguish at least these evidence grades:
+- `hint` — weak signals such as file names, directory structure, search hits, short previews, comments, or partial references
+- `excerpt` — bounded content actually read from a concrete source artifact
+- `verified_fact` — implementation facts that can be directly grounded in one or more concrete excerpts
+- `runtime_observation` — facts observed from actual runtime state, process behavior, HTTP responses, or other live system observations
+
+The system must enforce answer privileges by evidence grade:
+- `hint` may support candidate-location guidance or uncertainty statements, but must not support definitive implementation claims
+- `excerpt` may support bounded "the file shows ..." style statements limited to the actually read content
+- `verified_fact` may support concise implementation conclusions derived from explicit source evidence
+- `runtime_observation` may support claims about current live system state, but must remain distinct from static source-code claims
+
+The system should:
+- preserve structured evidence metadata alongside tool execution results
+- avoid allowing lower-grade evidence to silently inherit the wording privileges of higher-grade evidence
+- bind final answer generation to structured evidence semantics, not only replayed natural-language payload text
+- prefer reusable contract-level governance in engine / interpreter / result processing layers before scene-specific hard-coded mitigation
+- allow temporary scene-specific mitigations only as bounded high-risk regression controls, not as the primary long-term architecture
+
 The system must support routing user requirements into:
 - `app`
 - `skill`

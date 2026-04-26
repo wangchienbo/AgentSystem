@@ -1,3 +1,47 @@
+## 2026-04-26: OPT-005 Unified Evidence-Grade Answer Governance (Initiation)
+
+### Summary
+Opened the next product stream after reviewing the limitations of scene-specific anti-hallucination patches. The main strategy is now shifted toward reusable evidence-grade governance.
+
+### Why This Stream Exists
+Recent OPT-004 work proved that:
+- prompt-only anti-hallucination rules are insufficient
+- replay sanitization helps but does not fully solve answer provenance
+- forced-read / explicit-path branches can mitigate some regressions, but should not become the primary architecture
+
+The deeper root cause is that evidence semantics and answer semantics are not yet coupled strongly enough in a reusable way.
+
+### Product Direction
+OPT-005 should focus on a generalized answer-governance contract that:
+- classifies evidence by grade
+- constrains wording privileges by grade
+- keeps low-grade evidence from being upgraded into high-certainty implementation claims
+- remains reusable across repository introspection, config claims, runtime claims, and future high-risk answer types
+
+### Initial Grade Model
+- `hint`
+- `excerpt`
+- `verified_fact`
+- `runtime_observation`
+
+### Initial Architecture Direction
+- `ToolCallingEngine` should preserve bounded evidence metadata and provenance hints
+- `ToolCallingInterpreter` should enforce grade-compatible answer emission
+- PM/governance flows should diagnose failures by root-cause class before prescribing scene patches
+
+### Relationship to OPT-004
+- OPT-004 P6 remains accepted for the search-only runtime regression path
+- the previous explicit-file-path hardening direction is demoted from mainline strategy
+- OPT-005 becomes the mainline path for durable hallucination governance
+
+### Next Step
+Define concrete contracts and rollout slices for:
+- evidence-grade data shape
+- answer privileges by grade
+- integration points across engine/interpreter/result stages
+- regression cases using current code-introspection scenarios
+
+
 ## 2026-04-26: Product Strategy Adjustment — Prefer Evidence Governance Over Hard-Coded Read Paths
 
 ### Summary

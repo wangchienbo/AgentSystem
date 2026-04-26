@@ -94,7 +94,28 @@ Network reachability and intelligence availability are separate concerns:
 - an app may be offline-capable while still carrying optional intelligent enhancements
 - intelligent invocation should be governed by policy, not by mere model availability
 
-### 2.6 System should evolve from practice
+### 2.5.1 Evidence-grade governance for anti-hallucination control
+The system should treat anti-hallucination control as an evidence-governance discipline rather than a prompt-only discipline.
+
+A preferred design direction is:
+- tool execution produces not only replay text but also typed evidence semantics
+- answer generation consumes an evidence ledger or equivalent structured fact surface
+- wording privileges depend on evidence grade, not only on whether the model appears cautious
+- low-grade evidence should fail closed into uncertainty instead of being promoted into concrete implementation claims
+
+This governance should preferably be implemented through reusable contracts in shared engine / interpreter / result-processing layers, so future high-risk surfaces can inherit the same control model without duplicating many scene-specific rules.
+
+Potential grade model for the current phase:
+- `hint`
+- `excerpt`
+- `verified_fact`
+- `runtime_observation`
+
+Potential contract responsibilities:
+- ToolCallingEngine: preserve bounded evidence metadata and provenance hints
+- ToolCallingInterpreter: enforce answer-grade compatibility before emitting final user text
+- higher-level PM/governance skills: diagnose whether failures arise from prompt weakness, execution semantics, evidence semantics, or termination strategy before recommending patches
+
 The intended evolutionary chain is:
 - practice
 - experience
