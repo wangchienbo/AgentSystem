@@ -1,3 +1,36 @@
+## 2026-04-26: Product Strategy Adjustment — Prefer Evidence Governance Over Hard-Coded Read Paths
+
+### Summary
+Adjusted the current optimization direction after product review: the core problem should be treated as a general hallucination-governance issue, not primarily as a missing forced-read path.
+
+### Decision
+- Do **not** continue making explicit-file / forced-read branches the main strategy
+- Treat those branches only as temporary regression mitigations when needed
+- Elevate the real root cause into a product-level direction:
+  - evidence semantics and answer semantics are insufficiently coupled
+  - low-grade evidence can still be upgraded into high-certainty wording
+  - the durable fix should be a reusable evidence-grade / answer-guard contract
+
+### Product-Manager Principle Captured
+Future PM-style optimization should prefer this order:
+1. identify whether the bug is caused by prompt weakness, execution weakness, evidence semantics, or termination strategy
+2. prefer a reusable contract-level fix over a scene-specific hard-coded patch
+3. treat hard-coded fast paths only as bounded temporary mitigations for high-risk regressions
+4. when hallucination appears, first ask how evidence is typed, promoted, and consumed before asking how to further constrain wording
+
+### Impact on Current Stream
+- OPT-004 P6 remains valid as a search-only runtime regression closure
+- the former P7 direction (deterministic explicit-file inspector) is **demoted from mainline strategy**
+- the next mainline direction should become a generalized evidence-grade governance capability rather than additional read-path hard-coding
+
+### Next Step
+Open the next product stream around reusable evidence governance, for example:
+- define `evidence_grade`
+- define answer privileges by grade
+- bind final answer generation to structured evidence rather than only replay text
+- use the current code-introspection scenarios as regression cases, not as the sole design center
+
+
 ## 2026-04-26: OPT-004 P6 Search-Only Early Stop for Real HTTP Path
 
 ### Summary

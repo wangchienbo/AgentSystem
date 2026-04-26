@@ -85,6 +85,9 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 - generated executable skill scaffolds should separate input/output/error contracts into distinct schema assets instead of collapsing them into one generic schema file, so registry validation, runtime envelope validation, and future review tooling can reason over request/result/error semantics independently
 - manifest validation for executable/generated skills should check more than command-prefix policy: the install-time package gate should also verify non-empty entry metadata, entrypoint existence, timeout sanity, and schema-ref resolvability when a schema registry is available
 - code/repository introspection paths should be evidence-bound across both prompt and execution layers: prompt rules may require reading real files first, but the runtime should also replay only bounded excerpts/search-hit summaries from introspection tools into subsequent model turns so later reasoning stays anchored to verified source evidence instead of bloated raw payloads or inferred structure
+- anti-hallucination control should gradually converge toward a reusable evidence-grade contract instead of accumulating many scenario-specific hard-coded branches
+- answer generation should distinguish at least between low-grade hints, read-confirmed excerpts, verified implementation facts, and runtime observations, and should not allow lower-grade evidence to inherit the wording privileges of higher-grade evidence
+- product/governance skills should prefer diagnosing whether a failure comes from prompt weakness, execution semantics, evidence semantics, or termination strategy before prescribing scene-specific patches
 
 Network reachability and intelligence availability are separate concerns:
 - an app may have network but should still avoid intelligent calls by default

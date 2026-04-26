@@ -57,6 +57,11 @@ The system should:
   - experience / skill assets
 - keep the core platform thin and standard-oriented while pushing higher-order behaviors into skills wherever practical
 - support app and skill self-iteration through evidence-bound loops rather than opaque autonomous mutation
+- treat hallucination control as an evidence-governance problem before treating it as a prompt-writing problem
+- constrain answers by explicit evidence grade rather than only natural-language caution rules
+- prevent low-grade signals (such as search hits, file names, directory hints, partial previews) from being silently upgraded into verified implementation claims
+- prefer reusable anti-hallucination contracts in engine / interpreter / result-processing layers before introducing scenario-specific hard-coded branches
+- allow scenario-specific fast paths only as bounded temporary mitigations for high-risk regressions, not as the primary long-term control surface
 - separate normal operational telemetry from upgrade/evolution evidence logs
 - treat token and runtime cost as first-class optimization dimensions alongside user experience and success rate
 - allow users to define policy separately for apps and skills, including collection, upgrade, publication, and rollback posture
