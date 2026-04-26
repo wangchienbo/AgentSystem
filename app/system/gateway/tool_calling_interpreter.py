@@ -285,6 +285,31 @@ def narrow_tools_for_script_route(tools: list[ToolDef]) -> list[ToolDef]:
     return narrowed or tools
 
 
+def derive_scan_profile(message: str) -> dict[str, Any] | None:
+    text = (message or "").lower()
+    profiles = [
+        {
+            "name": "persistence",
+            "triggers": ["persistence", "persist", "持久化", "存储"],
+            "regex": r"(persistence|persist|sqlite|json|mysql|postgres|storage|backend)",
+        },
+        {
+            "name": "router",
+            "triggers": ["router", "route", "路由", "接口"],
+            "regex": r"(router|route|endpoint|api|path|fastapi|flask)",
+        },
+        {
+            "name": "config",
+            "triggers": ["config", "配置", "env", "环境变量", "yaml"],
+            "regex": r"(config|setting|env|yaml|yml|toml|ini|os\.getenv)",
+        },
+    ]
+    for profile in profiles:
+        if any(trigger in text for trigger in profile["triggers"]):
+            return profile
+    return None
+
+
 # ─── System Tool Definitions ────────────────────────────────────────────────
 
 ASK_CLARIFICATION_DEF = ToolDef(
@@ -512,12 +537,14 @@ class ToolCallingInterpreter:
         user_id: str,
         session_id: str,
     ) -> InterpretedCommand | None:
-        text = (message or "").lower()
-        if "persistence" not in text:
+        profile = derive_scan_profile(message)
+        if not profile:
             return None
-        command = """python3 - <<'PY'
+        regex = profile["regex"]
+        command = f"""python3 - <<'PY'
 import os, re, json
 root='app'
+pattern=re.compile(r'''{regex}''', re.I)
 rows=[]
 for dirpath, dirnames, filenames in os.walk(root):
     dirnames[:] = [d for d in dirnames if not d.startswith('__')]
@@ -530,17 +557,17 @@ for dirpath, dirnames, filenames in os.walk(root):
                 content=f.read()
         except Exception:
             continue
-        if 'persistence' not in content.lower() and 'persist' not in content.lower():
+        if not pattern.search(content):
             continue
         hits=[]
         for i,line in enumerate(content.splitlines(), start=1):
             s=line.strip()
-            if re.search(r'(persistence|persist|sqlite|json|mysql|postgres|storage|backend)', s, re.I):
-                hits.append({'line': i, 'text': s[:220]})
+            if pattern.search(s):
+                hits.append({{'line': i, 'text': s[:220]}})
             if len(hits) >= 12:
                 break
         if hits:
-            rows.append({'file': path, 'hits': hits})
+            rows.append({{'file': path, 'hits': hits}})
 print(json.dumps(rows[:20], ensure_ascii=False))
 PY"""
         prestep = exec_shell(command=command, workdir="/root/project/AgentSystem", timeout=60)

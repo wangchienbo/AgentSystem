@@ -12,6 +12,7 @@ from app.system.gateway.tool_calling_interpreter import (
     build_turn_state_board,
     choose_turn_budget,
     is_script_like_request,
+    derive_scan_profile,
     narrow_tools_for_script_route,
 )
 
@@ -21,10 +22,9 @@ class DummyRouter(ModelRouter):
         pass
 
 
-def test_choose_turn_budget_prefers_lower_budget_for_introspection() -> None:
-    assert choose_turn_budget("查一下 AgentSystem 的持久化是不是 SQLite") == 8
-    assert choose_turn_budget("请写个脚本遍历目录并聚合结果") == 10
-    assert choose_turn_budget("你好") == 20
+def test_derive_scan_profile_detects_router_and_config_topics() -> None:
+    assert derive_scan_profile("请遍历路由定义并汇总接口") is not None
+    assert derive_scan_profile("请扫描配置和 env 使用") is not None
 
 
 def test_build_turn_state_board_adds_script_escalation_hint_after_non_convergence() -> None:

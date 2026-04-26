@@ -1,3 +1,42 @@
+## 2026-04-26: Generalized Deterministic Pre-Step Profiles
+
+### Summary
+Generalized the deterministic script pre-step from a persistence-only path into a small profile-driven aggregation scanner.
+
+### What Was Done
+- Added `derive_scan_profile(message)` with initial profiles for:
+  - persistence
+  - router
+  - config
+- Updated deterministic pre-step execution so it:
+  - derives a scan profile from the user request
+  - builds the scan regex dynamically from the selected profile
+  - reuses the same controlled local Python scan structure
+- Added unit coverage for router/config profile detection
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `23 passed`
+
+### Live Regression
+Ran two real `/api/chat` regressions:
+1. persistence aggregation request
+   - completed in about 22s
+   - returned structured persistence/storage summary
+2. router aggregation request
+   - completed in about 18s
+   - returned a bounded summary explaining that only path/file-operation style hits were found, not explicit web route decorators
+
+### Product Conclusion
+The deterministic pre-step pattern is now no longer a one-off fix for persistence. It has become a reusable aggregation pattern with topic-specific scan profiles.
+
+### Next Step
+Potential follow-ups:
+- expand profiles for schema/model/storage/config/runtime themes
+- add profile-specific summarizer wording to reduce overreach
+- add trace telemetry for which profiles hit and how often they fall back
+
+
 ## 2026-04-26: Deterministic exec_shell Pre-Step
 
 ### Summary
