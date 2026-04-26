@@ -29,6 +29,8 @@ def test_derive_scan_profile_detects_router_config_schema_runtime_topics() -> No
     assert derive_scan_profile("请分析 runtime worker 启动流程") is not None
     assert derive_scan_profile("请检查校验器和 guard 规则") is not None
     assert derive_scan_profile("请检查日志埋点和观测记录") is not None
+    assert derive_scan_profile("请梳理 API handler 和 request/response 流程") is not None
+    assert derive_scan_profile("请检查 storage backend 和读写路径") is not None
 
 
 def test_build_turn_state_board_adds_script_escalation_hint_after_non_convergence() -> None:

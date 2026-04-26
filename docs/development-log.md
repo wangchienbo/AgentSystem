@@ -1,3 +1,43 @@
+## 2026-04-27: Extracted Scan Profile Registry + API/Storage Profiles
+
+### Summary
+Continued structural cleanup by extracting scan profiles out of the interpreter and expanding deterministic analysis coverage to API and storage themes.
+
+### What Was Done
+- Created `app/system/gateway/scan_profiles.py`
+  - centralized `SCAN_PROFILES`
+  - centralized `derive_scan_profile(...)`
+- Updated `app/system/gateway/tool_calling_interpreter.py` to import scan-profile logic instead of embedding all profile definitions inline
+- Added new profiles:
+  - api
+  - storage
+- Extended unit coverage for api/storage trigger detection
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `24 passed`
+
+### Live Regression
+Ran real `/api/chat` regressions for:
+1. api profile
+   - completed in about 21s
+   - returned structured sections for handler files, request-entry evidence, processing-chain clues, and unverified points
+2. storage profile
+   - completed in about 31s
+   - returned structured sections for storage backend type, serialization/data format, read/write methods, and unverified points
+
+### Product Conclusion
+The deterministic analysis layer is now both broader and cleaner:
+- broader, because it now covers api/storage in addition to earlier themes
+- cleaner, because scan-profile growth no longer directly bloats the interpreter file
+
+### Next Step
+Potential follow-ups:
+- add lightweight profile telemetry hooks
+- consider per-profile scan root/filetype narrowing to reduce false-positive hits
+- evaluate whether profile definitions should later move to config-driven governance
+
+
 ## 2026-04-27: Profile-Specific Output Templates + Validation/Telemetry Profiles
 
 ### Summary
