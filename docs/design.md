@@ -116,6 +116,29 @@ Potential contract responsibilities:
 - ToolCallingInterpreter: enforce answer-grade compatibility before emitting final user text
 - higher-level PM/governance skills: diagnose whether failures arise from prompt weakness, execution semantics, evidence semantics, or termination strategy before recommending patches
 
+### 2.5.2 Evidence ledger contract (initial proposal)
+To support reusable hallucination governance, the system should introduce an evidence ledger abstraction that survives tool execution and remains available to final answer shaping.
+
+The evidence ledger should record bounded, typed evidence items such as:
+- `grade`: `hint | excerpt | verified_fact | runtime_observation`
+- `source_type`: for example `search_files | read_file | exec_shell | http_response | runtime_service`
+- `source_ref`: file path, endpoint, command target, asset id, or other bounded source reference
+- `snippet`: bounded supporting content or normalized observation
+- `truncated`: whether the supporting snippet was truncated
+- `scope`: static code, runtime state, configuration, documentation, filesystem, network, or mixed
+- `supports_claims`: machine-readable list of claim classes this evidence is allowed to support
+- `metadata`: optional bounded fields such as line range, match count, status code, timestamp, or observation tags
+
+Initial contract split:
+- ToolCallingEngine should emit or preserve ledger-ready evidence items when tools execute
+- ToolCallingInterpreter should consume the ledger, or a derived summary, when deciding whether final answer wording exceeds the available evidence grade
+- later governance / PM skills may inspect ledger summaries to diagnose whether a failure came from missing evidence, weak evidence, bad promotion, or bad answer shaping
+
+A practical initial rule is:
+- tool replay text remains useful for model continuity
+- but user-facing answer privileges should ultimately depend on ledger semantics rather than replay text alone
+
+### 2.6 System should evolve from practice
 The intended evolutionary chain is:
 - practice
 - experience

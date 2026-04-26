@@ -1,3 +1,41 @@
+## 2026-04-26: OPT-005 P1 Evidence Ledger Contract
+
+### Summary
+Completed the first planning slice for OPT-005 by defining the initial evidence-ledger contract that should sit between tool execution and final answer shaping.
+
+### What Was Defined
+Initial evidence-ledger item fields:
+- `grade`
+- `source_type`
+- `source_ref`
+- `snippet`
+- `truncated`
+- `scope`
+- `supports_claims`
+- `metadata`
+
+Initial grade set:
+- `hint`
+- `excerpt`
+- `verified_fact`
+- `runtime_observation`
+
+Initial responsibility split:
+- `ToolCallingEngine` preserves ledger-ready evidence items
+- `ToolCallingInterpreter` enforces answer-grade compatibility using ledger semantics
+- later governance/PM flows inspect ledger summaries to diagnose why a hallucination happened
+
+### Product Conclusion
+OPT-005 P1 is complete at the design-contract level.
+The system now has a clearer reusable path for anti-hallucination governance that does not depend primarily on scene-specific hard-coded read paths.
+
+### Next Step
+Proceed to OPT-005 P2:
+- map current introspection tool outputs into the evidence-ledger shape
+- define the first implementation slice in engine/interpreter code
+- keep current OPT-004 regression scenarios as acceptance tests for the new contract
+
+
 ## 2026-04-26: OPT-005 Unified Evidence-Grade Answer Governance (Initiation)
 
 ### Summary
