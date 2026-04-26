@@ -1,3 +1,42 @@
+## 2026-04-26: Turn State Board + Task-Shape Turn Budget
+
+### Summary
+Added a lightweight per-turn state board and message-shape-sensitive turn budget selection to improve live-loop convergence.
+
+### What Was Done
+- Added `build_turn_state_board(...)` in `tool_calling_interpreter.py`
+  - summarizes unresolved question
+  - includes recent context
+  - states next-best-action guidance
+  - states explicit stop condition
+- Added `choose_turn_budget(...)` in `tool_calling_interpreter.py`
+  - code/repo introspection: 8 turns
+  - script-first / batch extraction: 10 turns
+  - default: 20 turns
+- Wired the state board into the branch guidance section of the real system prompt
+- Wired the chosen turn budget into `execute_turns(...)`
+- Added unit coverage for both helpers
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `18 passed`
+
+### Live Regression
+Tested a script-first-style request through real `/api/chat`:
+- previously similar real-chain tests ran into much longer uncontrolled loops
+- after this change, the request terminated within the shaped 10-turn budget
+- result still returned `[Reached max turns (10)]`, so script-first escalation is not yet achieved
+
+### Product Conclusion
+This change improved containment and bounded the loop more predictably.
+However, the model still does not reliably convert eligible tasks into an actual script-first execution plan under live conditions.
+
+### Next Step
+Likely next move is not more generic prompt compression, but an explicit script escalation contract, for example:
+- when repeated file-search style turns exceed threshold, require proposing a script/tool plan
+- or expose a dedicated `run_local_script` / scripted aggregation path if the architecture allows it
+
+
 ## 2026-04-26: Tool-Loop Governor Real-Chain Regression Findings
 
 ### Summary

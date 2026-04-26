@@ -7,12 +7,25 @@ from app.services.light_brain_memory import LightBrainMemory
 from app.services.tool_registry import ToolRegistry
 from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord
 from app.services.model_router import ModelRouter
-from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
+from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter, choose_turn_budget, build_turn_state_board
 
 
 class DummyRouter(ModelRouter):
     def __init__(self):
         pass
+
+
+    assert choose_turn_budget("查一下 AgentSystem 的持久化是不是 SQLite") == 8
+    assert choose_turn_budget("请写个脚本遍历目录并聚合结果") == 10
+    assert choose_turn_budget("你好") == 20
+
+
+def test_build_turn_state_board_includes_stop_condition() -> None:
+    board = build_turn_state_board("查一下 AgentSystem 的持久化是不是 SQLite", [{"role": "user", "content": "之前问过持久化"}])
+    assert "当前未解决问题" in board
+    assert "停止条件" in board
+
+
 
 
 def _build_interpreter() -> tuple[ToolCallingInterpreter, MagicMock]:
@@ -49,7 +62,7 @@ def test_explicit_file_path_introspection_uses_fast_read_path() -> None:
     )
 
     kwargs = execute_turns.call_args.kwargs
-    assert kwargs["max_turns"] == 20
+    assert kwargs["max_turns"] == 8
     assert command.intent == "direct_response"
     assert "json" in command.parameters["text"]
 

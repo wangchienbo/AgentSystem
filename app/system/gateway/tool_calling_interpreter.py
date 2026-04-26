@@ -202,6 +202,40 @@ def format_tools_for_prompt(registry_tools: list[Any]) -> str:
     return "\n".join(lines)
 
 
+
+
+def build_turn_state_board(message: str, history: list[dict[str, Any]]) -> str:
+    recent_user = [m.get("content", "") for m in history if m.get("role") == "user"][-2:]
+    unresolved = message.strip()
+    known = " | ".join(x[:80] for x in recent_user) if recent_user else "(暂无明确既有证据)"
+    text = (message or "").lower()
+    if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
+        next_action = "优先选择一个最高价值的定位或读取动作，不要同轮规划多个工具"
+        stop_condition = "拿到能回答用户当前精度的直接证据后立即停止"
+    elif any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取")):
+        next_action = "优先判断是否应该转为脚本方案"
+        stop_condition = "一旦脚本比碎片工具链更合适，就切换策略"
+    else:
+        next_action = "选择一个最高价值下一步动作"
+        stop_condition = "当前问题已可回答时立即停止"
+    return (
+        "[当前状态板]\n"
+        f"- 当前未解决问题: {unresolved}\n"
+        f"- 最近相关上下文: {known}\n"
+        f"- 下一步建议: {next_action}\n"
+        f"- 停止条件: {stop_condition}"
+    )
+
+
+def choose_turn_budget(message: str) -> int:
+    text = (message or "").lower()
+    if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
+        return 8
+    if any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取")):
+        return 10
+    return 20
+
+
 # ─── System Tool Definitions ────────────────────────────────────────────────
 
 ASK_CLARIFICATION_DEF = ToolDef(
@@ -464,11 +498,12 @@ class ToolCallingInterpreter:
             tools_desc = format_tools_for_prompt(self._registry.list_all())
 
         branch_guidance = self._select_branch_guidance(message)
+        turn_state_board = build_turn_state_board(message, history)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             session_context=session_ctx,
             tools_description=tools_desc,
             tool_loop_governor=self._load_governor_text(TOOL_LOOP_GOVERNOR_PATH),
-            branch_guidance=branch_guidance or "(当前无额外分支 guidance)",
+            branch_guidance=(branch_guidance + "\n\n" + turn_state_board) if branch_guidance else turn_state_board,
         )
 
         # Phase E.2: Use hot tools + find_tool as escape hatch
@@ -488,7 +523,7 @@ class ToolCallingInterpreter:
                 system_prompt=system_prompt,
                 user_message=message,
                 tools=all_tools,
-                max_turns=20,
+                max_turns=choose_turn_budget(message),
                 asset_id="asset:light_brain_gateway:v1",
                 session_id=session_id,
                 user_id=user_id,
