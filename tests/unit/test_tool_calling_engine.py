@@ -11,6 +11,7 @@ from app.services.tool_calling_engine import (
     ToolDef,
     EVIDENCE_GATE_APPENDIX,
     _wrap_tool_result_with_evidence_gate,
+    _is_introspection_query,
 )
 from app.services.model_router import ModelRouter
 
@@ -432,8 +433,57 @@ def test_execute_turns_model_override(tmp_path) -> None:
     assert result.final_text == "Override worked"
 
 
-@patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
-def test_execute_turns_sanitizes_read_file_result_for_evidence_first_context(tmp_path) -> None:
+def test_execute_turns_early_stops_on_search_only_introspection_query(tmp_path) -> None:
+    router = build_router(tmp_path)
+    engine = ToolCallingEngine(router)
+    engine.register_tool(
+        "search_files",
+        lambda pattern, path: {
+            "success": True,
+            "results": [{"file": "app/system/catalog/resource_center.py", "preview": "persistence_mode"}],
+        },
+    )
+
+    call_count = [0]
+
+    def mock_chat_with_tools(messages, tools, **kwargs):
+        call_count[0] += 1
+        return (
+            {
+                "message": {"role": "assistant", "content": None},
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "function": {
+                            "name": "search_files",
+                            "arguments": '{"pattern": "SQLite", "path": "app"}',
+                        },
+                    }
+                ],
+                "text": "",
+            },
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        )
+
+    mock_client = MagicMock()
+    mock_client._config.model = "gpt-4o-mini"
+    mock_client.chat_with_tools = mock_chat_with_tools
+
+    with patch.object(router, "get_client", return_value=mock_client):
+        result = engine.execute_turns(
+            skill_id="test-skill",
+            system_prompt="test",
+            user_message="查一下 AgentSystem 的持久化是不是 SQLite",
+            tools=[ToolDef(name="search_files", description="search", parameters={})],
+            max_turns=5,
+        )
+
+    assert call_count[0] == 1
+    assert result.turns == 1
+    assert "尚未读取文件内容" in result.final_text
+    assert result.tool_calls[0].tool_name == "search_files"
+
+
     """read_file results should be compressed into bounded evidence instead of raw long payloads."""
     router = build_router(tmp_path)
     engine = ToolCallingEngine(router)

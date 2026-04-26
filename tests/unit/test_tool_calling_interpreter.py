@@ -91,6 +91,22 @@ def test_process_result_maps_search_only_answer_into_direct_response_but_allows_
     assert "JSON 默认值" not in command.parameters["text"]
 
 
+def test_process_result_converts_max_turns_introspection_into_forced_uncertainty() -> None:
+    interpreter, _ = _build_interpreter()
+    result = ToolCallingResult(
+        final_text="[Reached max turns (20)]",
+        tool_calls=[],
+        turns=20,
+        truncated=True,
+    )
+
+    command = interpreter._process_result(result, "查一下 AgentSystem 的持久化是不是 SQLite")
+
+    assert command.intent == "direct_response"
+    assert "未取得可验证文件证据前已达到收敛上限" in command.parameters["text"]
+    assert "需要改为直接读取相关文件" in command.parameters["text"]
+
+
 def test_process_result_allows_read_confirmed_introspection_text() -> None:
     interpreter, _ = _build_interpreter()
     result = ToolCallingResult(

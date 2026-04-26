@@ -1,3 +1,39 @@
+## 2026-04-26: OPT-004 P6 Search-Only Early Stop for Real HTTP Path
+
+### Summary
+Closed the remaining convergence blocker by adding an engine-side early-stop path for code-introspection queries that have only reached `search_files` evidence and still lack `read_file` confirmation.
+
+### What Was Done
+- Added introspection-query detection in `app/ai/tool_calling_engine.py`
+- Added engine-side early termination rule:
+  - if the request is a code-introspection query
+  - and tool history contains `search_files`
+  - but still has no `read_file`
+  - then stop immediately and return a forced uncertainty answer
+- Kept interpreter-side provenance override in place as a second safety net
+- Added unit regression coverage for search-only early-stop behavior
+
+### Validation
+- Unit tests: `pytest -q tests/unit/test_tool_calling_engine.py tests/unit/test_tool_calling_interpreter.py` → `19 passed`
+- Real HTTP `/api/chat` validation:
+  - request: `查一下 AgentSystem 的持久化是不是 SQLite，只回答已证实内容`
+  - result returned in about 3.2s
+  - final response: `目前只完成了候选文件搜索，尚未读取文件内容，因此不能确认具体实现细节或存储类型。若要确认，我需要继续读取相关文件内容。`
+
+### Product Conclusion
+OPT-004 P6 is complete.
+The real HTTP code-introspection path now satisfies the intended anti-hallucination acceptance line for the search-only case:
+- no fabricated certainty
+- no `[Reached max turns]`
+- no long HTTP timeout stall
+- bounded truthful uncertainty instead
+
+### Next Step
+Proceed to the next acceptance slice:
+- verify the read-confirmed branch in the real HTTP path
+- ensure that when the system actually performs `read_file`, it can still produce concise, verified implementation answers without over-exploring
+
+
 ## 2026-04-26: OPT-004 P5 Execution-Fact Provenance Contract
 
 ### Summary

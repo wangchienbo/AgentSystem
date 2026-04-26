@@ -580,12 +580,12 @@ class ToolCallingInterpreter:
     ) -> InterpretedCommand:
         """Convert ToolCallingEngine result to InterpretedCommand."""
         if not result.tool_calls:
-            # LLM responded directly (no tool needed, e.g. "好的,我来...")
+            final_text = self._apply_execution_fact_provenance(raw_input=raw_input, result=result)
             return InterpretedCommand(
                 intent="direct_response",
                 raw_input=raw_input,
                 confidence=0.6,
-                parameters={"text": result.final_text},
+                parameters={"text": final_text},
                 source="llm_text",
             )
 
@@ -643,12 +643,16 @@ class ToolCallingInterpreter:
         tool_calls = getattr(result, "tool_calls", []) or []
         has_read = any(call.tool_name == "read_file" for call in tool_calls)
         has_search = any(call.tool_name == "search_files" for call in tool_calls)
+        truncated = bool(getattr(result, "truncated", False)) or final_text.startswith("[Reached max turns")
 
         if has_read:
             return final_text
 
         if has_search:
             return "目前只完成了候选文件搜索，尚未读取文件内容，因此不能确认具体实现细节或存储类型。若要确认，我需要继续读取相关文件内容。"
+
+        if truncated:
+            return "当前查询在未取得可验证文件证据前已达到收敛上限，因此不能确认具体实现细节。若要继续，我需要改为直接读取相关文件。"
 
         return final_text
 

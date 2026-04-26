@@ -38,6 +38,10 @@ MAX_TOOL_RESULT_CHARS = 800
 MAX_READ_FILE_CONTENT_CHARS = 1200
 MAX_SEARCH_PREVIEW_CHARS = 80
 
+INTROSPECTION_QUERY_KEYWORDS = (
+    "代码", "源码", "仓库", "持久化", "sqlite", "mysql", "json", "字段", "表结构", "默认值", "文件里"
+)
+
 
 EVIDENCE_GATE_APPENDIX = """
 [证据闸门]
@@ -53,6 +57,11 @@ def _wrap_tool_result_with_evidence_gate(tool_name: str, result_str: str) -> str
     suffix = f"\n\n{EVIDENCE_GATE_APPENDIX}"
     budget = max(0, MAX_TOOL_RESULT_CHARS - len(suffix))
     return f"{result_str[:budget]}{suffix}"
+
+
+def _is_introspection_query(user_message: str) -> bool:
+    text = (user_message or "").lower()
+    return any(keyword in text for keyword in INTROSPECTION_QUERY_KEYWORDS)
 
 from app.services.model_router import ModelRouter, ModelRouterError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
@@ -362,6 +371,19 @@ class ToolCallingEngine:
                     "role": "tool",
                     "content": _wrap_tool_result_with_evidence_gate(tool_name, result_str),
                 })
+
+                if _is_introspection_query(user_message):
+                    has_read = any(rec.tool_name == "read_file" for rec in call_records)
+                    has_search = any(rec.tool_name == "search_files" for rec in call_records)
+                    if has_search and not has_read:
+                        total_usage["model"] = model_name
+                        total_usage["turns"] = turn + 1
+                        return ToolCallingResult(
+                            final_text="目前只完成了候选文件搜索，尚未读取文件内容，因此不能确认具体实现细节或存储类型。若要确认，我需要继续读取相关文件内容。",
+                            tool_calls=call_records,
+                            turns=turn + 1,
+                            usage=total_usage,
+                        )
 
         if self._telemetry_service is not None:
             self._telemetry_service.record_step(
