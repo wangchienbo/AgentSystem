@@ -236,6 +236,7 @@ def test_execute_turns_multi_turn(tmp_path) -> None:
     assert result.tool_calls[0].tool_name == "query_metrics"
     assert result.tool_calls[0].args == {"metric": "cpu"}
     assert result.usage["total_tokens"] == 75
+    assert result.evidence_items == []
 
 
 # ===========================================================================
@@ -243,7 +244,58 @@ def test_execute_turns_multi_turn(tmp_path) -> None:
 # ===========================================================================
 
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
-def test_execute_turns_tool_handler_error(tmp_path) -> None:
+def test_execute_turns_emits_evidence_items_for_search_and_read(tmp_path) -> None:
+    router = build_router(tmp_path)
+    engine = ToolCallingEngine(router)
+    engine.register_tools({
+        "search_files": lambda pattern, path: {
+            "success": True,
+            "results": [{"file": "app/a.py", "matches": 1, "preview": "persistence_mode = json"}],
+        },
+        "read_file": lambda path: {
+            "success": True,
+            "path": path,
+            "content": "persistence_mode: str = \"json\"",
+            "lines": 30,
+        },
+    })
+
+    call_count = [0]
+    def mock_chat_with_tools(messages, tools, **kwargs):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return ({
+                "message": {"role": "assistant", "content": None},
+                "tool_calls": [{"id": "call_1", "function": {"name": "search_files", "arguments": '{"pattern": "persistence_mode", "path": "app"}'}}],
+                "text": "",
+            }, {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15})
+        return ({
+            "message": {"role": "assistant", "content": "done"},
+            "tool_calls": [],
+            "text": "done",
+        }, {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15})
+
+    mock_client = MagicMock()
+    mock_client._config.model = "gpt-4o-mini"
+    mock_client.chat_with_tools = mock_chat_with_tools
+
+    with patch.object(router, "get_client", return_value=mock_client):
+        result = engine.execute_turns(
+            skill_id="test-skill",
+            system_prompt="test",
+            user_message="查一下 AgentSystem 的持久化是不是 SQLite",
+            tools=[ToolDef(name="search_files", description="search", parameters={})],
+            max_turns=4,
+        )
+
+    assert len(result.evidence_items) >= 1
+    item = result.evidence_items[0]
+    assert item.grade == "hint"
+    assert item.source_type == "search_files"
+    assert item.source_ref == "app/a.py"
+    assert "candidate_location" in item.supports_claims
+
+
     """Engine should handle tool handler errors gracefully."""
     router = build_router(tmp_path)
     engine = ToolCallingEngine(router)

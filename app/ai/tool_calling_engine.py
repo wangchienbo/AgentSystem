@@ -96,10 +96,24 @@ class ToolCallRecord:
 
 
 @dataclass
+class EvidenceItem:
+    """Structured evidence item for answer-governance use."""
+    grade: str
+    source_type: str
+    source_ref: str = ""
+    snippet: str = ""
+    truncated: bool = False
+    scope: str = "mixed"
+    supports_claims: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class ToolCallingResult:
     """Result of a multi-turn tool calling session."""
     final_text: str
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
+    evidence_items: list[EvidenceItem] = field(default_factory=list)
     turns: int = 0
     truncated: bool = False
     usage: dict[str, Any] = field(default_factory=dict)
@@ -168,6 +182,47 @@ class ToolCallingEngine:
             return json.dumps(fallback, ensure_ascii=False)[:MAX_TOOL_RESULT_CHARS]
 
         return json.dumps(result, ensure_ascii=False)[:MAX_TOOL_RESULT_CHARS]
+
+    def _build_evidence_items(self, tool_name: str, result: Any) -> list[EvidenceItem]:
+        if not isinstance(result, dict) or not result.get("success"):
+            return []
+
+        if tool_name == "search_files":
+            items: list[EvidenceItem] = []
+            for hit in result.get("results", [])[:3]:
+                if not isinstance(hit, dict):
+                    continue
+                items.append(EvidenceItem(
+                    grade="hint",
+                    source_type="search_files",
+                    source_ref=str(hit.get("file") or result.get("path") or ""),
+                    snippet=str(hit.get("preview") or "")[:MAX_SEARCH_PREVIEW_CHARS],
+                    truncated=bool(len(str(hit.get("preview") or "")) > MAX_SEARCH_PREVIEW_CHARS),
+                    scope="static_code",
+                    supports_claims=["candidate_location", "uncertainty_only"],
+                    metadata={
+                        "matches": hit.get("matches"),
+                    },
+                ))
+            return items
+
+        if tool_name == "read_file":
+            content = str(result.get("content") or "")
+            return [EvidenceItem(
+                grade="excerpt",
+                source_type="read_file",
+                source_ref=str(result.get("path") or ""),
+                snippet=content[:MAX_READ_FILE_CONTENT_CHARS],
+                truncated=bool(len(content) > MAX_READ_FILE_CONTENT_CHARS),
+                scope="static_code",
+                supports_claims=["file_excerpt", "bounded_implementation_claim"],
+                metadata={
+                    "lines": result.get("lines"),
+                    "offset": result.get("offset"),
+                },
+            )]
+
+        return []
 
     def register_tool(self, name: str, handler: Callable) -> None:
         """Register a tool that LLM can call."""
@@ -246,6 +301,7 @@ class ToolCallingEngine:
             "total_tokens": 0,
         }
         call_records: list[ToolCallRecord] = []
+        evidence_items: list[EvidenceItem] = []
         model_name = model_override or client._config.model
         interaction_id = interaction_id or f"toolcall:{session_id or 'unknown'}:{skill_id}:{abs(hash(user_message))}"
 
@@ -292,6 +348,7 @@ class ToolCallingEngine:
                 return ToolCallingResult(
                     final_text=response.get("text", ""),
                     tool_calls=call_records,
+                    evidence_items=evidence_items,
                     turns=turn + 1,
                     usage=total_usage,
                 )
@@ -322,6 +379,7 @@ class ToolCallingEngine:
                         result = handler(**tool_args) if isinstance(tool_args, dict) else handler(tool_args)
                         result_str = self._sanitize_tool_result(tool_name, result)
                         call_records.append(ToolCallRecord(tool_name=tool_name, args=tool_args, result=result))
+                        evidence_items.extend(self._build_evidence_items(tool_name, result))
                         if self._telemetry_service is not None:
                             self._telemetry_service.record_step(
                                 StepTelemetryRecord(
@@ -381,6 +439,7 @@ class ToolCallingEngine:
                         return ToolCallingResult(
                             final_text="目前只完成了候选文件搜索，尚未读取文件内容，因此不能确认具体实现细节或存储类型。若要确认，我需要继续读取相关文件内容。",
                             tool_calls=call_records,
+                            evidence_items=evidence_items,
                             turns=turn + 1,
                             usage=total_usage,
                         )
@@ -408,6 +467,7 @@ class ToolCallingEngine:
         return ToolCallingResult(
             final_text=f"[Reached max turns ({max_turns})]",
             tool_calls=call_records,
+            evidence_items=evidence_items,
             turns=max_turns,
             truncated=True,
             usage=total_usage,

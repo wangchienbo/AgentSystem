@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 from app.models.chat import InterpretedCommand
@@ -47,6 +48,9 @@ from app.services.tool_calling_engine import ToolCallingEngine, ToolDef
 INTROSPECTION_KEYWORDS = (
     "代码", "源码", "仓库", "持久化", "sqlite", "mysql", "json", "字段", "表结构", "默认值", "文件里"
 )
+
+PATH_PATTERN = re.compile(r"([A-Za-z0-9_./-]+\.(?:py|md|yaml|yml|json|toml|ini))")
+
 
 logger = logging.getLogger(__name__)
 
@@ -333,6 +337,16 @@ class ToolCallingInterpreter:
                 message, pending, user_id, session_id, available_apps
             )
 
+        # Tier 2.5: explicit file-path introspection fast path
+        fast_path = self._try_explicit_file_read_fast_path(
+            message=message,
+            user_id=user_id,
+            session_id=session_id,
+            available_apps=available_apps,
+        )
+        if fast_path:
+            return fast_path
+
         # Tier 3: Full LLM tool calling
         return self._llm_interpret(
             message, user_id, session_id, available_apps
@@ -426,6 +440,74 @@ class ToolCallingInterpreter:
                 pass
 
     # ── Tier 3: LLM tool calling ─────────────────────────────────────────
+
+    def _try_explicit_file_read_fast_path(
+        self,
+        message: str,
+        user_id: str,
+        session_id: str,
+        available_apps: list[dict[str, Any]],
+    ) -> InterpretedCommand | None:
+        """Force a direct read_file path when user explicitly provides a source file path."""
+        if not self._is_code_introspection_query(message):
+            return None
+
+        match = PATH_PATTERN.search(message or "")
+        if not match:
+            return None
+
+        path = match.group(1)
+        result = self._engine.execute_turns(
+            skill_id="gateway_intent_parser",
+            system_prompt=(
+                "你必须先读取用户明确指定的文件，再仅基于该文件内容回答。"
+                "如果用户询问默认值、字段定义、配置项，先搜索该文件内相关关键词，再读取命中附近内容。"
+                "禁止搜索其他文件替代，禁止扩展到未读取实现。"
+            ),
+            user_message=(
+                f"用户指定文件为 {path}。"
+                f"如果问题涉及默认值/字段/配置定义，先在该文件中搜索相关关键词，再读取命中附近内容。"
+                f"然后仅基于该文件内容回答用户问题：{message}"
+            ),
+            tools=[
+                ToolDef(
+                    name="read_file",
+                    description="读取文件内容。用于查看代码、配置、文档等。",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "文件路径（绝对或相对路径）"},
+                            "limit": {"type": "integer", "description": "最大读取行数（可选）"},
+                            "offset": {"type": "integer", "description": "起始行号（可选）"},
+                        },
+                        "required": ["path"],
+                    },
+                ),
+                ToolDef(
+                    name="search_files",
+                    description="搜索文件内容。用于在代码/文档中查找关键字。",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "pattern": {"type": "string", "description": "搜索模式（支持正则）"},
+                            "path": {"type": "string", "description": "搜索目录或文件"},
+                            "file_pattern": {"type": "string", "description": "文件过滤模式，如 *.py"},
+                        },
+                        "required": ["pattern", "path"],
+                    },
+                ),
+            ],
+            max_turns=6,
+            asset_id="asset:light_brain_gateway:v1",
+            session_id=session_id,
+            user_id=user_id,
+            interaction_id=f"lightbrain-fastpath:{session_id}:{abs(hash(message))}",
+        )
+        return self._process_result(result, message)
+
+    def _is_code_introspection_query(self, raw_input: str) -> bool:
+        text = (raw_input or "").lower()
+        return any(keyword in text for keyword in INTROSPECTION_KEYWORDS)
 
     def _llm_interpret(
         self,
@@ -641,8 +723,9 @@ class ToolCallingInterpreter:
             return final_text
 
         tool_calls = getattr(result, "tool_calls", []) or []
-        has_read = any(call.tool_name == "read_file" for call in tool_calls)
-        has_search = any(call.tool_name == "search_files" for call in tool_calls)
+        evidence_items = getattr(result, "evidence_items", []) or []
+        has_read = any(call.tool_name == "read_file" for call in tool_calls) or any(getattr(item, "grade", "") == "excerpt" for item in evidence_items)
+        has_search = any(call.tool_name == "search_files" for call in tool_calls) or any(getattr(item, "grade", "") == "hint" for item in evidence_items)
         truncated = bool(getattr(result, "truncated", False)) or final_text.startswith("[Reached max turns")
 
         if has_read:

@@ -1,3 +1,32 @@
+## 2026-04-26: OPT-005 P2 First Code Slice — Ledger-Ready Introspection Evidence
+
+### Summary
+Implemented the first code slice for OPT-005 by adding ledger-ready evidence items to the tool-calling path and wiring the interpreter to consult them during high-risk answer gating.
+
+### What Was Done
+- Added `EvidenceItem` to the tool-calling engine layer
+- Extended `ToolCallingResult` with `evidence_items`
+- Added first introspection evidence mapping:
+  - `search_files` → `hint`
+  - `read_file` → `excerpt`
+- Wired interpreter-side provenance checks to treat ledger evidence as an additional source of truth for high-risk answer gating
+- Preserved backward compatibility for non-governed paths
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_engine.py tests/unit/test_tool_calling_interpreter.py`
+- Result: `19 passed`
+
+### Product Conclusion
+OPT-005 P2 first code slice is complete.
+The system now has an actual code-level bridge from tool execution into structured evidence semantics, not only a design-level contract.
+
+### Next Step
+Proceed to the next implementation slice:
+- expand evidence mapping coverage for read-confirmed scenarios
+- start binding answer privileges more explicitly to `supports_claims`
+- re-run OPT-004 regression cases through the ledger-aware path
+
+
 ## 2026-04-26: OPT-005 P2 Implementation Slice Planning
 
 ### Summary
