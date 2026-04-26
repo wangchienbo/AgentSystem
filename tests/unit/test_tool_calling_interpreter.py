@@ -44,6 +44,9 @@ def test_code_introspection_prompt_contains_hard_no_guess_rules() -> None:
     assert "必须先 read_file 读取真实文件内容后才能给出具体实现细节" in prompt
     assert "未 read 文件前,不要断言\"SQLite\"\"MySQL\"\"JSON\"等具体存储类型" in prompt
     assert "如果只搜索了文件名但没 read 内容,不要断言具体实现细节" in prompt
+    assert "第一步必须调用 `read_file`" in prompt
+    assert "search_files` 只能用于定位候选文件" in prompt
+    assert "未读取到文件内容，不能确认具体实现" in prompt
 
 
 def test_process_result_preserves_evidence_bounded_final_text_without_guessing() -> None:

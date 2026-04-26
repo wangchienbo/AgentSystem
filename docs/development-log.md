@@ -1,3 +1,36 @@
+## 2026-04-26: OPT-004 P3 Real /api/chat Regression Verification
+
+### Summary
+Completed the third closure step for OPT-004 by validating the real HTTP `/api/chat` path against code-introspection anti-hallucination scenarios.
+
+### What Was Done
+- Ran real regression prompts through `app/system/http_test_server.py` on the live local HTTP gateway
+- Validated a three-turn introspection scenario around the question: whether AgentSystem persistence is SQLite
+- Tightened interpreter prompt rules again for the first-turn introspection path:
+  - if user asks whether a concrete storage engine/default/field/file content exists, first step must be `read_file`
+  - `search_files` may only locate candidate files, not justify concrete implementation claims
+  - if first turn has not successfully read file content, final answer must explicitly say "未读取到文件内容，不能确认具体实现"
+- Added unit assertions to ensure the stronger first-turn prompt contract remains regression-tested
+
+### Validation
+Real `/api/chat` observations:
+- Earlier run exposed a real first-turn drift: the model could still turn `search_files` hits into concrete file-content claims
+- After prompt tightening, the first-turn answer improved to "无法证实" and stopped asserting active SQLite usage as fact
+- However, the runtime still shows residual risk that the model may narrate concrete file contents/defaults without explicitly surfacing whether `read_file` evidence was actually consumed
+
+### Product Conclusion
+OPT-004 P3 is partially complete.
+We now have:
+- real HTTP-path regression evidence
+- a verified improvement in first-turn uncertainty behavior
+- a clearer remaining gap: prompt pressure alone is no longer sufficient to fully prevent search-hit-to-file-content drift in the first answer
+
+### Next Step
+Proceed to OPT-004 P4:
+- add a harder protocol-level evidence gate between tool replay payload and final answer style
+- explicitly bind file-content claims to `read_file` / `file_excerpt` evidence rather than relying only on prompt discipline
+
+
 ## 2026-04-26: OPT-004 P2 Interpreter/Gateway Introspection Regression Guard
 
 ### Summary
