@@ -1,4 +1,42 @@
-## 2026-04-26: OPT-004 P3 Real /api/chat Regression Verification
+## 2026-04-26: OPT-004 P4 Protocol-Level Evidence Gate Spike
+
+### Summary
+Executed the next hardening step after P3 by adding a protocol-level evidence gate experiment in `ToolCallingEngine`, then re-validating through the real HTTP `/api/chat` path.
+
+### What Was Done
+- Added a tool-result evidence gate wrapper so `read_file` / `search_files` replay payloads carry explicit answer-style constraints
+- Ensured the gate is provider-compatible by embedding it into the tool payload rather than inserting extra `system` messages (the latter caused upstream `chat_with_tools` 400 failures)
+- Tightened replay fallback layout so `evidence_type` is always retained in the bounded payload head
+- Updated unit regression coverage for the engine-side evidence gate behavior
+
+### Validation
+- Unit tests: `pytest -q tests/unit/test_tool_calling_engine.py tests/unit/test_tool_calling_interpreter.py` → `17 passed`
+- Real HTTP `/api/chat` regression rerun completed successfully after the provider-compatible change
+
+### Key Finding
+The remaining production gap is now sharply localized:
+- the real runtime no longer drifts into broad speculative explanations
+- however, first-turn code introspection can still convert tool replay text into "已证实文件内容" phrasing even when the interaction boundary between `search_files` and `read_file` is not externally auditable enough
+
+This means the residual issue is no longer just prompt weakness or replay truncation.
+It is an execution-fact provenance problem.
+
+### Product Conclusion
+OPT-004 P4 spike is complete.
+We have verified that:
+- prompt-only constraints are insufficient
+- replay sanitization helps but does not fully close the gap
+- protocol-level text gating improves behavior but still cannot fully enforce action provenance in the final answer
+
+### Next Step
+Proceed to OPT-004 P5:
+- introduce explicit execution-fact provenance into the gateway/interpreter result contract
+- make final answer generation depend on structured tool-call facts, not only replayed natural-language payloads
+- ideally distinguish at processing time:
+  - searched-only
+  - read-confirmed
+  - runtime-observed
+
 
 ### Summary
 Completed the third closure step for OPT-004 by validating the real HTTP `/api/chat` path against code-introspection anti-hallucination scenarios.

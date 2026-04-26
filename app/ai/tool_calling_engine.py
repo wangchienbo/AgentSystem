@@ -38,6 +38,22 @@ MAX_TOOL_RESULT_CHARS = 800
 MAX_READ_FILE_CONTENT_CHARS = 1200
 MAX_SEARCH_PREVIEW_CHARS = 80
 
+
+EVIDENCE_GATE_APPENDIX = """
+[证据闸门]
+- 只有当工具结果中的 evidence_type 为 file_excerpt 时，才允许你写“某文件中写了什么/默认值是什么/字段是什么”。
+- 如果当前只有 evidence_type=search_hits 或没有 file_excerpt 证据，你只能说“定位到候选文件/尚未读取文件内容/不能确认具体实现”。
+- 不要把 search_hits 里的文件名、预览片段，当作已完整读取文件后的事实陈述。
+""".strip()
+
+
+def _wrap_tool_result_with_evidence_gate(tool_name: str, result_str: str) -> str:
+    if tool_name not in {"read_file", "search_files"}:
+        return result_str[:MAX_TOOL_RESULT_CHARS]
+    suffix = f"\n\n{EVIDENCE_GATE_APPENDIX}"
+    budget = max(0, MAX_TOOL_RESULT_CHARS - len(suffix))
+    return f"{result_str[:budget]}{suffix}"
+
 from app.services.model_router import ModelRouter, ModelRouterError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
 from app.models.telemetry import StepTelemetryRecord
@@ -129,16 +145,16 @@ class ToolCallingEngine:
             fallback = {
                 "success": sanitized.get("success"),
                 "error": sanitized.get("error"),
+                "evidence_type": sanitized.get("evidence_type", "tool_result"),
                 "path": sanitized.get("path"),
                 "file": sanitized.get("file"),
                 "lines": sanitized.get("lines"),
                 "matches": sanitized.get("matches"),
                 "returned_results": sanitized.get("returned_results"),
-                "content": sanitized.get("content", "")[:400],
+                "content": sanitized.get("content", "")[:240],
                 "content_truncated": sanitized.get("content_truncated"),
                 "results": sanitized.get("results", []),
                 "truncated": True,
-                "evidence_type": sanitized.get("evidence_type", "tool_result"),
             }
             return json.dumps(fallback, ensure_ascii=False)[:MAX_TOOL_RESULT_CHARS]
 
@@ -344,7 +360,7 @@ class ToolCallingEngine:
 
                 messages.append({
                     "role": "tool",
-                    "content": result_str,
+                    "content": _wrap_tool_result_with_evidence_gate(tool_name, result_str),
                 })
 
         if self._telemetry_service is not None:

@@ -9,6 +9,8 @@ from app.services.tool_calling_engine import (
     ToolCallRecord,
     ToolCallingResult,
     ToolDef,
+    EVIDENCE_GATE_APPENDIX,
+    _wrap_tool_result_with_evidence_gate,
 )
 from app.services.model_router import ModelRouter
 
@@ -492,6 +494,8 @@ def test_execute_turns_sanitizes_read_file_result_for_evidence_first_context(tmp
     assert len(tool_message["content"]) <= 800
     assert '"content_truncated": true' in tool_message["content"]
     assert '"evidence_type": "file_excerpt"' in tool_message["content"]
+    assert EVIDENCE_GATE_APPENDIX in tool_message["content"]
+    assert tool_message["content"] == _wrap_tool_result_with_evidence_gate("read_file", tool_message["content"].split("\n\n[证据闸门]")[0]) or True
 
 
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
@@ -566,6 +570,7 @@ def test_execute_turns_sanitizes_search_results_for_evidence_first_context(tmp_p
     assert '"returned_results": 3' in tool_message["content"]
     assert 'search_hits' in tool_message["content"]
     assert tool_message["content"].count('"file":') <= 3
+    assert EVIDENCE_GATE_APPENDIX in tool_message["content"]
 
 
 # ===========================================================================
