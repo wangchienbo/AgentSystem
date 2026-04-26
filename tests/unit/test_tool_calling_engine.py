@@ -12,6 +12,7 @@ from app.services.tool_calling_engine import (
     EVIDENCE_GATE_APPENDIX,
     _wrap_tool_result_with_evidence_gate,
     _is_introspection_query,
+    _infer_excerpt_claims,
 )
 from app.services.model_router import ModelRouter
 
@@ -64,9 +65,11 @@ def sample_tool_defs() -> list[ToolDef]:
     ]
 
 
-# ===========================================================================
-# Tool registration
-# ===========================================================================
+def test_infer_excerpt_claims_distinguishes_code_like_content() -> None:
+    assert "bounded_implementation_claim" in _infer_excerpt_claims('persistence_mode: str = "json"')
+    assert _infer_excerpt_claims('"""module docs only"""') == ["file_excerpt"]
+
+
 
 def test_register_single_tool(tmp_path) -> None:
     """Engine should register a single tool handler."""

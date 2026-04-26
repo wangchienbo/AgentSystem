@@ -205,6 +205,13 @@ async def api_get_history(session_id: str, user: dict = Depends(get_current_user
 async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
     session_id = req.session_id or user["session_id"]
     started_at = datetime.now()
+    user_sessions.setdefault(session_id, {
+        "username": user.get("username", "anonymous"),
+        "session_id": session_id,
+        "login_time": started_at.isoformat(),
+        "last_active": started_at.isoformat(),
+    })
+    conversation_history.setdefault(session_id, [])
     user_sessions[session_id]["last_active"] = started_at.isoformat()
 
     try:

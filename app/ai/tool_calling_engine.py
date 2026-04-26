@@ -63,6 +63,14 @@ def _is_introspection_query(user_message: str) -> bool:
     text = (user_message or "").lower()
     return any(keyword in text for keyword in INTROSPECTION_QUERY_KEYWORDS)
 
+
+def _infer_excerpt_claims(content: str) -> list[str]:
+    supports = ["file_excerpt"]
+    heuristics = (" = ", ": str =", ": int =", ": bool =", "def ", "class ", "return ")
+    if any(token in content for token in heuristics):
+        supports.append("bounded_implementation_claim")
+    return supports
+
 from app.services.model_router import ModelRouter, ModelRouterError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
 from app.models.telemetry import StepTelemetryRecord
@@ -215,7 +223,7 @@ class ToolCallingEngine:
                 snippet=content[:MAX_READ_FILE_CONTENT_CHARS],
                 truncated=bool(len(content) > MAX_READ_FILE_CONTENT_CHARS),
                 scope="static_code",
-                supports_claims=["file_excerpt", "bounded_implementation_claim"],
+                supports_claims=_infer_excerpt_claims(content),
                 metadata={
                     "lines": result.get("lines"),
                     "offset": result.get("offset"),

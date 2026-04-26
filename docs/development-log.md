@@ -1,3 +1,47 @@
+## 2026-04-26: OPT-005 P2.3 Claim-Privilege Emission + Real-Path Regression
+
+### Summary
+Completed the next engine-side slice by making `read_file` evidence emit claim privileges based on excerpt shape instead of granting bounded implementation privilege unconditionally. Also ran real `/api/chat` regression and uncovered a separate test-server session-handling blocker, then fixed it.
+
+### What Was Done
+- Added `_infer_excerpt_claims(content)` in the tool-calling engine
+- Changed `read_file` evidence emission from unconditional:
+  - `['file_excerpt', 'bounded_implementation_claim']`
+  to content-sensitive emission:
+  - code-like excerpt → includes `bounded_implementation_claim`
+  - non-code/documentary excerpt → only `file_excerpt`
+- Re-exported `_infer_excerpt_claims` through `app/services/tool_calling_engine.py`
+- Fixed `app/system/http_test_server.py` so `/api/chat` tolerates explicit new `session_id` values instead of crashing with `KeyError`
+- Added unit regression for the explicit-session-id HTTP path
+
+### Validation
+#### Unit tests
+- `pytest -q tests/unit/test_http_test_server.py tests/unit/test_tool_calling_engine.py tests/unit/test_tool_calling_interpreter.py`
+- Result: `22 passed`
+
+#### Real `/api/chat` path
+Verified on isolated uvicorn instance (`127.0.0.1:18080`):
+1. Search-only introspection query
+   - Returned bounded uncertainty response
+   - No implementation hallucination
+2. Explicit read-file introspection query
+   - Did not hallucinate
+   - Still ended with `[Reached max turns (6)]`
+
+### Product Conclusion
+OPT-005 P2.3 is partially complete in the intended direction:
+- evidence privilege emission is now more governance-oriented and less hardcoded
+- search-only real-path regression behaves correctly
+- explicit read path still has a convergence problem in the real chain, but the failure mode is now bounded truncation rather than fabricated implementation detail
+
+This means the anti-hallucination control is improving, while the next blocker has shifted to fast-read path convergence rather than truthfulness.
+
+### Next Step
+Proceed to the next slice:
+- diagnose why explicit file-path introspection still reaches max turns in the real chain
+- tighten fast-read path planning so the system actually consumes read evidence and exits cleanly within budget
+
+
 ## 2026-04-26: OPT-005 P2.2 Supports-Claims Answer Gating
 
 ### Summary
