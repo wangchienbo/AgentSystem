@@ -27,6 +27,8 @@ def test_derive_scan_profile_detects_router_config_schema_runtime_topics() -> No
     assert derive_scan_profile("请扫描配置和 env 使用") is not None
     assert derive_scan_profile("请汇总数据模型和字段定义") is not None
     assert derive_scan_profile("请分析 runtime worker 启动流程") is not None
+    assert derive_scan_profile("请检查校验器和 guard 规则") is not None
+    assert derive_scan_profile("请检查日志埋点和观测记录") is not None
 
 
 def test_build_turn_state_board_adds_script_escalation_hint_after_non_convergence() -> None:
@@ -72,6 +74,22 @@ def _build_interpreter() -> tuple[ToolCallingInterpreter, MagicMock]:
         memory=memory,
     )
     return interpreter, engine.execute_turns
+
+
+def test_deterministic_prestep_injects_profile_focus_and_template() -> None:
+    interpreter, execute_turns = _build_interpreter()
+    execute_turns.return_value = ToolCallingResult(final_text="已基于脚本结果完成汇总", tool_calls=[])
+    with patch("app.system.gateway.tool_calling_interpreter.exec_shell", return_value={"success": True, "stdout": "[]"}):
+        interpreter.interpret(
+            message="请检查日志埋点和观测记录，并汇总 telemetry 调用链",
+            user_id="u1",
+            session_id="sess-telemetry",
+            available_apps=[],
+        )
+    system_prompt = execute_turns.call_args.kwargs["system_prompt"]
+    assert "本次汇总重点" in system_prompt
+    assert "输出模板要求" in system_prompt
+    assert "观测组件" in system_prompt
 
 
 def test_persistence_script_route_uses_deterministic_prestep_when_shell_succeeds() -> None:

@@ -1,3 +1,46 @@
+## 2026-04-27: Profile-Specific Output Templates + Validation/Telemetry Profiles
+
+### Summary
+Continued productizing the deterministic analysis layer by adding profile-specific output templates and expanding into validation and telemetry themes.
+
+### What Was Done
+- Added `output_template` guidance per profile so the 1-turn summarizer follows a more stable structure
+- Completed template coverage for existing profiles:
+  - persistence
+  - router
+  - config
+  - schema
+  - runtime
+- Added new profiles:
+  - validation
+  - telemetry
+- Updated deterministic summarizer prompt to inject both:
+  - `summary_focus`
+  - `output_template`
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `24 passed`
+
+### Live Regression
+Ran real `/api/chat` regressions for:
+1. validation profile
+   - completed in about 41s
+   - returned structured sections for validation components, conditions, failure paths, and uncovered points
+2. telemetry profile
+   - completed in about 38s
+   - returned structured sections for observability components, logged content, call-chain locations, and unverified points
+
+### Product Conclusion
+The deterministic pre-step layer now has topic-specific scan selection, topic-specific summary focus, and topic-specific output structure. It is increasingly behaving like a reusable analysis subsystem rather than a single prompt workaround.
+
+### Next Step
+Potential follow-ups:
+- add api/handler and storage/backend profiles
+- add profile hit telemetry and fallback telemetry
+- extract scan profiles into a dedicated module or config to keep interpreter size under control
+
+
 ## 2026-04-26: Expanded Profiles + Profile-Specific Summarizer Focus
 
 ### Summary
