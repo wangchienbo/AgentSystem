@@ -724,12 +724,20 @@ class ToolCallingInterpreter:
 
         tool_calls = getattr(result, "tool_calls", []) or []
         evidence_items = getattr(result, "evidence_items", []) or []
+        ledger_present = len(evidence_items) > 0
+        supports_bounded_claim = any(
+            "bounded_implementation_claim" in getattr(item, "supports_claims", [])
+            for item in evidence_items
+        )
         has_read = any(call.tool_name == "read_file" for call in tool_calls) or any(getattr(item, "grade", "") == "excerpt" for item in evidence_items)
         has_search = any(call.tool_name == "search_files" for call in tool_calls) or any(getattr(item, "grade", "") == "hint" for item in evidence_items)
         truncated = bool(getattr(result, "truncated", False)) or final_text.startswith("[Reached max turns")
 
-        if has_read:
+        if has_read and (not ledger_present or supports_bounded_claim):
             return final_text
+
+        if has_read and ledger_present and not supports_bounded_claim:
+            return "当前已读取到文件片段，但这些证据还不足以支持具体实现结论，因此不能确认更细的实现细节。"
 
         if has_search:
             return "目前只完成了候选文件搜索，尚未读取文件内容，因此不能确认具体实现细节或存储类型。若要确认，我需要继续读取相关文件内容。"

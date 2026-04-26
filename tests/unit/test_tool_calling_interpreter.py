@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 from app.models.chat import InterpretedCommand
 from app.services.light_brain_memory import LightBrainMemory
 from app.services.tool_registry import ToolRegistry
-from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord
+from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord, EvidenceItem
 from app.services.model_router import ModelRouter
 from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
 
@@ -28,9 +28,36 @@ def _build_interpreter() -> tuple[ToolCallingInterpreter, MagicMock]:
     return interpreter, engine.execute_turns
 
 
-def test_code_introspection_prompt_contains_hard_no_guess_rules() -> None:
+def test_explicit_file_path_introspection_uses_fast_read_path() -> None:
     interpreter, execute_turns = _build_interpreter()
-    execute_turns.return_value = ToolCallingResult(final_text="done", tool_calls=[])
+    execute_turns.return_value = ToolCallingResult(
+        final_text="我已读取 resource_center.py，其中 persistence_mode 默认值是 json。",
+        tool_calls=[
+            ToolCallRecord(
+                tool_name="read_file",
+                args={"path": "app/system/catalog/resource_center.py"},
+                result={"success": True, "content": 'persistence_mode: str = \"json\"'},
+            )
+        ],
+    )
+
+    command = interpreter.interpret(
+        message="请直接读取 app/system/catalog/resource_center.py，并告诉我 persistence_mode 默认值，只回答已证实内容",
+        user_id="u1",
+        session_id="sess-1",
+        available_apps=[],
+    )
+
+    kwargs = execute_turns.call_args.kwargs
+    assert kwargs["max_turns"] == 6
+    assert len(kwargs["tools"]) == 2
+    assert kwargs["tools"][0].name == "read_file"
+    assert kwargs["tools"][1].name == "search_files"
+    assert "用户指定文件为 app/system/catalog/resource_center.py" in kwargs["user_message"]
+    assert command.intent == "direct_response"
+    assert "json" in command.parameters["text"]
+
+
 
     interpreter.interpret(
         message="查一下 AgentSystem 的持久化是不是 SQLite",
@@ -107,6 +134,38 @@ def test_process_result_converts_max_turns_introspection_into_forced_uncertainty
     assert "需要改为直接读取相关文件" in command.parameters["text"]
 
 
+def test_process_result_blocks_read_excerpt_without_claim_privilege() -> None:
+    interpreter, _ = _build_interpreter()
+    result = ToolCallingResult(
+        final_text="我已读取 resource_center.py，可以确认 persistence_mode 默认值是 json。",
+        tool_calls=[
+            ToolCallRecord(
+                tool_name="read_file",
+                args={"path": "app/system/catalog/resource_center.py"},
+                result={"success": True, "content": 'persistence_mode: str = \"json\"'},
+            )
+        ],
+        evidence_items=[
+            EvidenceItem(
+                grade="excerpt",
+                source_type="read_file",
+                source_ref="app/system/catalog/resource_center.py",
+                snippet='persistence_mode: str = "json"',
+                truncated=False,
+                scope="static_code",
+                supports_claims=["file_excerpt"],
+                metadata={},
+            )
+        ],
+    )
+
+    command = interpreter._process_result(result, "查一下 AgentSystem 的持久化是不是 SQLite")
+
+    assert command.intent == "direct_response"
+    assert "这些证据还不足以支持具体实现结论" in command.parameters["text"]
+    assert "默认值是 json" not in command.parameters["text"]
+
+
 def test_process_result_allows_read_confirmed_introspection_text() -> None:
     interpreter, _ = _build_interpreter()
     result = ToolCallingResult(
@@ -116,6 +175,18 @@ def test_process_result_allows_read_confirmed_introspection_text() -> None:
                 tool_name="read_file",
                 args={"path": "app/system/catalog/resource_center.py"},
                 result={"success": True, "content": 'persistence_mode: str = \"json\"'},
+            )
+        ],
+        evidence_items=[
+            EvidenceItem(
+                grade="excerpt",
+                source_type="read_file",
+                source_ref="app/system/catalog/resource_center.py",
+                snippet='persistence_mode: str = "json"',
+                truncated=False,
+                scope="static_code",
+                supports_claims=["file_excerpt", "bounded_implementation_claim"],
+                metadata={},
             )
         ],
     )

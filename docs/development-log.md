@@ -1,3 +1,37 @@
+## 2026-04-26: OPT-005 P2.2 Supports-Claims Answer Gating
+
+### Summary
+Completed the next evidence-governance slice by making interpreter-side high-risk answer shaping consult `supports_claims` instead of relying only on tool names or evidence grade presence.
+
+### What Was Done
+- Upgraded interpreter-side provenance logic so `excerpt` evidence no longer automatically grants implementation-answer privilege
+- Added gating rule:
+  - if ledger evidence is present and includes `bounded_implementation_claim`, read-confirmed implementation wording may pass through
+  - if ledger evidence is present but lacks that privilege, the answer is downgraded to a bounded insufficiency statement
+- Preserved backward compatibility for older result paths that still carry `read_file` calls but do not yet provide ledger evidence items
+- Added regression tests covering:
+  - excerpt without claim privilege → blocked from concrete implementation conclusion
+  - excerpt with claim privilege → allowed through
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_engine.py tests/unit/test_tool_calling_interpreter.py`
+- Result: `20 passed`
+
+### Product Conclusion
+OPT-005 P2.2 is complete.
+The system now has a stronger separation between:
+- evidence existence
+- evidence grade
+- evidence privilege to support a specific answer class
+
+This is materially closer to the intended reusable anti-hallucination governance model than the previous tool-name-only gating.
+
+### Next Step
+Proceed to the next slice:
+- enrich ledger evidence generation so more read-confirmed cases can explicitly carry `supports_claims`
+- re-run selected OPT-004 real-path scenarios through the ledger-aware path
+
+
 ## 2026-04-26: OPT-005 P2 First Code Slice — Ledger-Ready Introspection Evidence
 
 ### Summary
