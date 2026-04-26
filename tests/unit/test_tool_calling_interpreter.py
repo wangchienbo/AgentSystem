@@ -7,12 +7,12 @@ from app.services.light_brain_memory import LightBrainMemory
 from app.services.tool_registry import ToolRegistry
 from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord, ToolDef
 from app.services.model_router import ModelRouter
+from app.system.gateway.scan_profiles import SCAN_PROFILES, derive_scan_profile
 from app.system.gateway.tool_calling_interpreter import (
     ToolCallingInterpreter,
     build_turn_state_board,
     choose_turn_budget,
     is_script_like_request,
-    derive_scan_profile,
     narrow_tools_for_script_route,
 )
 
@@ -31,6 +31,12 @@ def test_derive_scan_profile_detects_router_config_schema_runtime_topics() -> No
     assert derive_scan_profile("请检查日志埋点和观测记录") is not None
     assert derive_scan_profile("请梳理 API handler 和 request/response 流程") is not None
     assert derive_scan_profile("请检查 storage backend 和读写路径") is not None
+
+
+def test_scan_profiles_define_scope_metadata() -> None:
+    api_profile = next(p for p in SCAN_PROFILES if p["name"] == "api")
+    assert api_profile["scan_roots"]
+    assert ".py" in api_profile["file_extensions"]
 
 
 def test_build_turn_state_board_adds_script_escalation_hint_after_non_convergence() -> None:
@@ -92,6 +98,20 @@ def test_deterministic_prestep_injects_profile_focus_and_template() -> None:
     assert "本次汇总重点" in system_prompt
     assert "输出模板要求" in system_prompt
     assert "观测组件" in system_prompt
+
+
+def test_deterministic_prestep_records_telemetry_when_available() -> None:
+    interpreter, execute_turns = _build_interpreter()
+    interpreter._telemetry_service = MagicMock()
+    execute_turns.return_value = ToolCallingResult(final_text="已基于脚本结果完成汇总", tool_calls=[])
+    with patch("app.system.gateway.tool_calling_interpreter.exec_shell", return_value={"success": True, "stdout": "[]"}):
+        interpreter.interpret(
+            message="请遍历 app 目录并检查 storage backend 和读写路径，再汇总结果",
+            user_id="u1",
+            session_id="sess-telemetry-record",
+            available_apps=[],
+        )
+    assert interpreter._telemetry_service.record_step.called is True
 
 
 def test_persistence_script_route_uses_deterministic_prestep_when_shell_succeeds() -> None:

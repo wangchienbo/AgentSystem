@@ -38,9 +38,12 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import UTC, datetime
+
 from typing import Any
 
 from app.models.chat import InterpretedCommand
+from app.models.telemetry import StepTelemetryRecord
 from app.services.tool_registry import ToolRegistry
 from app.services.tool_calling_engine import ToolCallingEngine, ToolDef
 from app.system.gateway.scan_profiles import derive_scan_profile
@@ -518,20 +521,37 @@ class ToolCallingInterpreter:
         profile = derive_scan_profile(message)
         if not profile:
             return None
+        scan_roots = profile.get("scan_roots", ["app"])
+        file_extensions = profile.get("file_extensions", [".py"])
         regex = profile["regex"]
         summary_focus = profile.get("summary_focus", "仅基于脚本命中结果做汇总")
         output_template = profile.get("output_template", "优先使用简洁小节或表格，最后明确未证实点")
+        roots_json = json.dumps(scan_roots, ensure_ascii=False)
+        exts_json = json.dumps(file_extensions, ensure_ascii=False)
         command = f"""python3 - <<'PY'
 import os, re, json
-root='app'
+roots=json.loads(r'''{roots_json}''')
+exts=set(json.loads(r'''{exts_json}'''))
 pattern=re.compile(r'''{regex}''', re.I)
 rows=[]
-for dirpath, dirnames, filenames in os.walk(root):
-    dirnames[:] = [d for d in dirnames if not d.startswith('__')]
-    for filename in filenames:
-        if not filename.endswith('.py'):
+seen=set()
+for root in roots:
+    if not os.path.exists(root):
+        continue
+    if os.path.isfile(root):
+        candidates=[root]
+    else:
+        candidates=[]
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if not d.startswith('__')]
+            for filename in filenames:
+                candidates.append(os.path.join(dirpath, filename))
+    for path in candidates:
+        if path in seen:
             continue
-        path=os.path.join(dirpath, filename)
+        seen.add(path)
+        if exts and not any(path.endswith(ext) for ext in exts):
+            continue
         try:
             with open(path,'r',encoding='utf-8',errors='replace') as f:
                 content=f.read()
@@ -550,9 +570,26 @@ for dirpath, dirnames, filenames in os.walk(root):
             rows.append({{'file': path, 'hits': hits}})
 print(json.dumps(rows[:20], ensure_ascii=False))
 PY"""
+        script_started = datetime.now(UTC)
         prestep = exec_shell(command=command, workdir="/root/project/AgentSystem", timeout=60)
+        script_latency_ms = int((datetime.now(UTC) - script_started).total_seconds() * 1000)
         if not prestep.get("success"):
+            self._record_deterministic_prestep_telemetry(
+                session_id=session_id,
+                profile=profile,
+                script_latency_ms=script_latency_ms,
+                summarizer_latency_ms=0,
+                success=False,
+                fallback=True,
+                error_code="exec_shell_failed",
+            )
             return None
+        try:
+            parsed_rows = json.loads(prestep.get("stdout", "[]") or "[]")
+            row_count = len(parsed_rows) if isinstance(parsed_rows, list) else None
+        except Exception:
+            row_count = None
+        summarizer_started = datetime.now(UTC)
         result = self._engine.execute_turns(
             skill_id="gateway_script_prestep_summarizer",
             system_prompt=(
@@ -575,7 +612,53 @@ PY"""
             user_id=user_id,
             interaction_id=f"lightbrain-script-prestep:{session_id}:{abs(hash(message))}",
         )
+        summarizer_latency_ms = int((datetime.now(UTC) - summarizer_started).total_seconds() * 1000)
+        self._record_deterministic_prestep_telemetry(
+            session_id=session_id,
+            profile=profile,
+            script_latency_ms=script_latency_ms,
+            summarizer_latency_ms=summarizer_latency_ms,
+            success=True,
+            fallback=False,
+            result_rows=row_count,
+        )
         return self._process_result(result, message)
+
+    def _record_deterministic_prestep_telemetry(
+        self,
+        *,
+        session_id: str,
+        profile: dict[str, Any],
+        script_latency_ms: int,
+        summarizer_latency_ms: int,
+        success: bool,
+        fallback: bool,
+        result_rows: int | None = None,
+        error_code: str | None = None,
+    ) -> None:
+        if self._telemetry_service is None:
+            return
+        self._telemetry_service.record_step(
+            StepTelemetryRecord(
+                interaction_id=f"lightbrain-script-prestep:{session_id}",
+                step_id=f"deterministic-prestep:{profile.get('name', 'unknown')}",
+                step_type="system",
+                name="deterministic_script_prestep",
+                started_at=datetime.now(UTC),
+                ended_at=datetime.now(UTC),
+                latency_ms=script_latency_ms + summarizer_latency_ms,
+                success=success,
+                error_code=error_code,
+                payload_summary={
+                    "profile": profile.get("name"),
+                    "script_latency_ms": script_latency_ms,
+                    "summarizer_latency_ms": summarizer_latency_ms,
+                    "fallback": fallback,
+                    "result_rows": result_rows,
+                },
+            ),
+            app_id="light_brain_gateway",
+        )
 
     def _run_script_first_route(
         self,

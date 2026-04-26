@@ -1,3 +1,46 @@
+## 2026-04-27: Per-Profile Scan Scope + Deterministic Pre-Step Telemetry
+
+### Summary
+Improved run-time quality of the deterministic analysis layer by narrowing scan scope per profile and adding basic telemetry for deterministic pre-steps.
+
+### What Was Done
+- Extended `app/system/gateway/scan_profiles.py` with per-profile scan metadata:
+  - `scan_roots`
+  - `file_extensions`
+- Updated deterministic pre-step scanning to honor profile-specific roots and file extensions instead of always scanning the whole `app/` tree for `.py` only
+- Added deterministic pre-step telemetry recording in `app/system/gateway/tool_calling_interpreter.py`
+  - records profile name
+  - records script latency
+  - records summarizer latency
+  - records fallback flag
+  - records matched row count when parseable
+- Added unit coverage for:
+  - profile scope metadata presence
+  - telemetry recording path on successful deterministic pre-step
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `26 passed`
+
+### Live Regression
+Ran real `/api/chat` regressions after scope narrowing:
+1. api profile
+   - completed in about 38s
+   - returned more direct API-layer evidence including `app/api/main.py`, documented endpoints, and middleware/security-header handling
+2. telemetry profile
+   - completed in about 6s
+   - returned structured observability hits much faster than earlier broad scans, confirming scope narrowing materially reduced scan cost
+
+### Product Conclusion
+The deterministic analysis layer is now not just topic-aware, but also profile-scope-aware and minimally observable. This is a meaningful shift from raw capability expansion toward operational quality.
+
+### Next Step
+Potential follow-ups:
+- record separate success/fallback counters at the interaction level
+- tune overly broad profiles with false-positive prone regexes
+- add optional max-file/max-hit caps per profile to further stabilize latency
+
+
 ## 2026-04-27: Extracted Scan Profile Registry + API/Storage Profiles
 
 ### Summary
