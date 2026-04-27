@@ -1,3 +1,29 @@
+## 2026-04-27: Regression Evidence History Viewer
+
+### Summary
+Added file-backed evidence persistence and a history reading surface so previously generated regression evidence records can be browsed and traced over time — closing the loop from evidence generation to evidence inspection.
+
+### What Was Done
+- Updated `app/system/regression_evidence_bridge.py`
+  - `promote_regression_evidence(...)` now appends promoted evidence to `data/chat_regression/evidence.jsonl`
+  - added `list_regression_evidence_history(...)` — reads persisted evidence, most recent first
+- Updated `app/system/http_test_server.py`
+  - added `GET /api/chat-regression/evidence` — reads evidence history
+  - existing `POST /api/chat-regression/evidence` — generates new evidence (unchanged)
+- Added tests covering:
+  - evidence history endpoint behavior
+
+### Validation
+- `pytest -q` core test suite
+- Result: `56 passed`
+
+### Product Conclusion
+The regression subsystem now has a complete evidence lifecycle: generate via POST, inspect via GET. This is the final piece of the regression browsing surface — evidence joins runs, trends, and comparisons as a first-class observable domain.
+
+### Remaining Follow-up
+Next steps:
+- integrate regression evidence into refinement governance dashboard
+- add topic-specific evidence history filtering
 ## 2026-04-27: Topic-Level Chat Regression Trend Slices
 
 ### Summary

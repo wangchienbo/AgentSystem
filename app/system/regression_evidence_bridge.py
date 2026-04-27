@@ -6,8 +6,13 @@ from uuid import uuid4
 
 from app.governance.log_evidence_service import LogEvidenceService
 from app.models.log_evidence import PromotedEvidence, SuspiciousSignal
-from app.system.chat_regression import build_multi_run_comparison
 
+from pathlib import Path as _Path
+
+from app.system.chat_regression import REGRESSION_LOG_DIR, build_multi_run_comparison
+
+
+REGRESSION_EVIDENCE_LOG_DIR = REGRESSION_LOG_DIR
 
 def build_regression_evidence_from_comparison(
     comparison: dict[str, Any],
@@ -120,16 +125,44 @@ def promote_regression_evidence(
     app_instance_id: str = "chat_regression",
     comparison: dict[str, Any] | None = None,
     limit: int = 5,
+    log_dir: _Path | None = None,
 ) -> dict[str, Any]:
-    """Convenience: compute comparison, promote evidence, and return summary."""
+    """Convenience: compute comparison, promote evidence, persist to file, and return summary."""
     if comparison is None:
         comparison = build_multi_run_comparison(limit=limit)
     evidence_list = build_regression_evidence_from_comparison(
         comparison,
         app_instance_id=app_instance_id,
     )
-    return {
+    result = {
         "comparison": comparison,
         "promoted_evidence": [e.model_dump() for e in evidence_list],
         "promoted_count": len(evidence_list),
     }
+    # Persist to evidence log
+    target_dir = log_dir or REGRESSION_EVIDENCE_LOG_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    import json
+    ev_path = target_dir / "evidence.jsonl"
+    with ev_path.open("a", encoding="utf-8") as f:
+        for e in result["promoted_evidence"]:
+            f.write(json.dumps(e, ensure_ascii=False) + "\n")
+    return result
+
+
+def list_regression_evidence_history(
+    *,
+    log_dir: _Path | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Read previously generated regression evidence from the persistence file."""
+    target_dir = log_dir or REGRESSION_EVIDENCE_LOG_DIR
+    ev_path = target_dir / "evidence.jsonl"
+    if not ev_path.exists():
+        return []
+    lines = ev_path.read_text(encoding="utf-8").splitlines()
+    if not lines:
+        return []
+    parsed = [json.loads(line) for line in lines]
+    # Return most recent first
+    return list(reversed(parsed))[:limit]

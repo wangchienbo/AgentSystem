@@ -335,7 +335,7 @@ async def api_chat_regression_run_detail(run_id: str, user: dict = Depends(get_c
 
 
 
-from app.system.regression_evidence_bridge import promote_regression_evidence
+from app.system.regression_evidence_bridge import list_regression_evidence_history, promote_regression_evidence
 
 
 @app.get("/api/chat-regression/trends")
@@ -440,6 +440,12 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", "80"))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+@app.get("/api/chat-regression/evidence")
+async def api_chat_regression_evidence_history(user: dict = Depends(get_current_user), limit: int = 20):
+    history = list_regression_evidence_history(limit=limit)
+    return {"success": True, "evidence": history, "count": len(history)}
 
 
 @app.post("/api/chat-regression/evidence")
