@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.refinement.refinement_memory import RefinementMemoryStore
+from app.refinement.refinement_rollout import RefinementRolloutService
 from app.system.regression_dashboard import apply_regression_triggers_to_refinement
 from app.system.chat_regression import (
     FIXED_PROMPT_MATRIX,
@@ -286,3 +287,29 @@ def test_apply_regression_triggers_to_refinement_persists_records() -> None:
     assert len(memory.list_hypotheses("agent_system")) == 1
     assert len(memory.list_verifications()) == 1
     assert len(memory.list_queue("agent_system")) == 1
+
+
+def test_refinement_rollout_allows_regression_queue_apply() -> None:
+    from app.models.refinement_loop import RolloutQueueItem
+
+    class FakeProposalReview:
+        def review(self, request):
+            raise AssertionError("proposal review should not be called for regression queue items")
+
+    memory = RefinementMemoryStore()
+    memory.add_queue_item(
+        RolloutQueueItem(
+            queue_id="reg-queue-1",
+            hypothesis_id="reg-hyp-1",
+            proposal_id="regression-trigger-1",
+            app_instance_id="agent_system",
+            status="queued",
+            note="profile_performance_bottlenecks",
+        )
+    )
+    rollout = RefinementRolloutService(memory=memory, proposal_review=FakeProposalReview())
+
+    item = rollout.transition("reg-queue-1", "apply")
+
+    assert item.status == "applied"
+    assert "regression" in item.note

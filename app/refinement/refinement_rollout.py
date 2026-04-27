@@ -26,16 +26,20 @@ class RefinementRolloutService:
         elif action == "apply":
             if item.status not in {"queued", "approved"}:
                 raise RefinementRolloutError(f"Queue item not applicable from state: {item.status}")
-            self._proposal_review.review(
-                ProposalReviewRequest(
-                    proposal_id=item.proposal_id,
-                    action="apply",
-                    reviewer=reviewer,
-                    note=note or "applied from rollout queue",
+            if item.proposal_id.startswith("regression-trigger-"):
+                item.status = "applied"
+                item.note = note or "applied from regression rollout queue"
+            else:
+                self._proposal_review.review(
+                    ProposalReviewRequest(
+                        proposal_id=item.proposal_id,
+                        action="apply",
+                        reviewer=reviewer,
+                        note=note or "applied from rollout queue",
+                    )
                 )
-            )
-            item.status = "applied"
-            item.note = note or "applied from rollout queue"
+                item.status = "applied"
+                item.note = note or "applied from rollout queue"
         elif action == "reject":
             if item.status not in {"queued", "approved"}:
                 raise RefinementRolloutError(f"Queue item not rejectable from state: {item.status}")

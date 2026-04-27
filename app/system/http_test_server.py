@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 runtime_services = build_runtime()
 gateway = runtime_services["light_brain_gateway"]
 refinement_memory = runtime_services["refinement_memory"]
+refinement_rollout = runtime_services["refinement_rollout"]
 
 app = FastAPI(
     title="AgentSystem Test Server",
@@ -490,3 +491,21 @@ async def api_governance_regression_triggers_apply(user: dict = Depends(get_curr
         threshold=threshold,
     )
     return {"success": True, **result}
+
+
+class RegressionQueueTransitionRequest(BaseModel):
+    queue_id: str
+    action: str
+    reviewer: str = "system"
+    note: str = ""
+
+
+@app.post("/api/governance/regression-queue/transition")
+async def api_governance_regression_queue_transition(req: RegressionQueueTransitionRequest, user: dict = Depends(get_current_user)):
+    item = refinement_rollout.transition(
+        queue_id=req.queue_id,
+        action=req.action,
+        reviewer=req.reviewer,
+        note=req.note,
+    )
+    return {"success": True, "item": item.model_dump(mode="json")}

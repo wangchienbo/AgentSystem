@@ -1,3 +1,25 @@
+## 2026-04-27: Wire Regression Queue Items into Refinement Rollout Transition
+
+### Summary
+Extended regression-derived queue items from simple persistence into the actual refinement rollout transition path, so regression-created queue entries can now be approved/applied through the same rollout surface as other refinement work.
+
+### What Was Done
+- Updated `app/refinement/refinement_rollout.py`
+  - regression queue items (`proposal_id` prefixed with `regression-trigger-`) can now transition through `apply` without requiring a registered patch proposal
+  - these items move to `applied` with a regression-specific rollout note
+- Updated `app/system/http_test_server.py`
+  - added `POST /api/governance/regression-queue/transition`
+  - supports queue transition actions such as `approve`, `apply`, `reject`, `rollback`
+- Updated tests:
+  - direct rollout test for regression queue apply path
+  - HTTP endpoint test for regression queue transition
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py`
+- Result: `32 passed`
+
+### Product Conclusion
+The regression governance loop now reaches the rollout transition layer. Regression-detected risks can be generated, persisted into refinement memory, and then advanced through the rollout state machine instead of remaining stuck as queued operator artifacts.
 ## 2026-04-27: Persist Regression Triggers into Refinement Memory Queue
 
 ### Summary

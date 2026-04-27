@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.system.http_test_server import app, user_sessions, conversation_history
+from app.system.http_test_server import app, user_sessions, conversation_history, refinement_rollout
 
 
 client = TestClient(app)
@@ -571,3 +571,40 @@ def test_api_governance_regression_triggers_apply_endpoint() -> None:
     assert data["success"] is True
     assert data["trigger_count"] == 1
     assert data["created_hypotheses"][0]["hypothesis_id"] == "reg-hyp-1"
+
+
+def test_api_governance_regression_queue_transition_endpoint() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+    from app.models.refinement_loop import RolloutQueueItem
+
+    fake_item = RolloutQueueItem(
+        queue_id="reg-queue-1",
+        hypothesis_id="reg-hyp-1",
+        proposal_id="regression-trigger-1",
+        app_instance_id="agent_system",
+        status="applied",
+        note="applied from regression rollout queue",
+    )
+
+    with patch.object(refinement_rollout, "transition", return_value=fake_item):
+        resp = client.post(
+            "/api/governance/regression-queue/transition",
+            json={"queue_id": "reg-queue-1", "action": "apply"},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["item"]["status"] == "applied"
+    assert data["item"]["queue_id"] == "reg-queue-1"
