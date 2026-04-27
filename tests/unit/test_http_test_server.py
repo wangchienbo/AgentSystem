@@ -461,3 +461,35 @@ def test_api_chat_regression_evidence_history_filter_by_topic() -> None:
     assert data["success"] is True
     assert data["count"] == 1
     assert data["evidence"][0]["evidence_id"] == "ev-api"
+
+
+def test_api_governance_operator_summary_endpoint() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_summary = {
+        "app_instance_id": "agent_system",
+        "refinement": {},
+        "regression": {"dashboard_id": "regression-governance", "comparison": {}, "trends": {}, "evidence": [], "risk_flags": []},
+        "generated_at": "2026-04-27T00:00:00Z",
+    }
+
+    with patch("app.system.http_test_server.build_regression_operator_summary", return_value=fake_summary):
+        resp = client.get("/api/governance/operator-summary")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["app_instance_id"] == "agent_system"
+    assert "refinement" in data
+    assert "regression" in data

@@ -1,3 +1,28 @@
+## 2026-04-27: Regression Governance Dashboard Integrated into Refinement Operator Summary
+
+### Summary
+Integrated the standalone regression governance dashboard into a broader refinement operator summary structure, providing a unified governance view that embeds both regression signals and refinement metrics under a single operator-facing surface.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `build_regression_operator_summary(...)` — combines regression governance dashboard with a refinement placeholder structure into a single `RefinementOperatorSummary`-compatible composite view
+  - includes regression comparison, trends, evidence, and risk flags alongside empty refinement metrics (ready for future population)
+- Updated `app/system/http_test_server.py`
+  - added `GET /api/governance/operator-summary`
+- Added tests covering:
+  - operator summary endpoint behavior and response structure
+
+### Validation
+- `pytest -q` core test suite
+- Result: `59 passed`
+
+### Product Conclusion
+The regression subsystem is now fully integrated into the governance layer with two endpoints: a dedicated regression dashboard (`/api/governance/regression-dashboard`) and a broader operator summary that embeds regression alongside refinement context (`/api/governance/operator-summary`). This completes the governance integration layer for regression signals.
+
+### Remaining Follow-up
+Next steps:
+- wire regression alerts into automated refinement triggers
+- populate refinement metrics from live system data
 ## 2026-04-27: Topic-Specific Evidence History Filtering
 
 ### Summary

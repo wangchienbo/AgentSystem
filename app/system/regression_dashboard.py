@@ -51,3 +51,74 @@ def build_regression_governance_dashboard(
         "dashboard_id": "regression-governance",
         "generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
     }
+
+
+def build_regression_operator_summary(
+    *,
+    comparison_limit: int = 5,
+    trends_limit: int = 5,
+    evidence_limit: int = 10,
+) -> dict[str, Any]:
+    """Build a combined operator summary merging regression governance with
+    a placeholder refinement summary structure.
+
+    This produces a unified operator-facing summary that embeds the regression
+    governance dashboard alongside refinement metrics, ready for consumption
+    by the broader governance layer.
+    """
+    dashboard = build_regression_governance_dashboard(
+        comparison_limit=comparison_limit,
+        trends_limit=trends_limit,
+        evidence_limit=evidence_limit,
+    )
+    return {
+        "app_instance_id": "agent_system",
+        "refinement": {
+            "proposal_count": 0,
+            "proposed_review_count": 0,
+            "approved_review_count": 0,
+            "rejected_review_count": 0,
+            "applied_review_count": 0,
+            "latest_priority": None,
+            "primary_contradiction": "",
+            "recommended_action": "",
+            "context_summary": "Regression-integrated governance summary",
+            "governance": {
+                "overview": {
+                    "app_instance_id": "agent_system",
+                    "hypothesis_count": 0,
+                    "unresolved_hypothesis_count": 0,
+                    "verification_count": 0,
+                    "passed_verification_count": 0,
+                    "failed_verification_count": 0,
+                    "decision_count": 0,
+                    "promote_count": 0,
+                    "hold_count": 0,
+                    "queue_count": 0,
+                    "queued_count": 0,
+                    "applied_count": 0,
+                    "failed_hypothesis_count": 0,
+                },
+                "stats": {
+                    "app_instance_id": "agent_system",
+                    "total_hypotheses": 0,
+                    "repeated_hypotheses": 0,
+                    "total_verifications": 0,
+                    "passed_verifications": 0,
+                    "failed_verifications": 0,
+                    "inconclusive_verifications": 0,
+                    "total_queue_items": 0,
+                    "queued_items": 0,
+                    "approved_items": 0,
+                    "applied_items": 0,
+                    "rejected_items": 0,
+                    "rolled_back_items": 0,
+                    "failed_hypotheses": 0,
+                },
+                "recent_queue": {"items": [], "meta": {"total_count": 0, "returned_count": 0, "filtered_count": 0, "has_more": False}},
+                "recent_failed_hypotheses": {"items": [], "meta": {"total_count": 0, "returned_count": 0, "filtered_count": 0, "has_more": False}},
+            },
+        },
+        "regression": dashboard,
+        "generated_at": dashboard["generated_at"],
+    }
