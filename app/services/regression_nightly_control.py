@@ -114,6 +114,18 @@ class RegressionNightlyControlService:
             status["driver"] = driver_status
             last_cycle = status.get("last_cycle_result") or {}
             last_decision = status.get("last_tick_decision")
+            consecutive_failures = status.get("consecutive_failures", 0)
+            degraded = status.get("degraded", False)
+            retry_pending = status.get("retry_pending", False)
+            if degraded:
+                automation_health = "degraded"
+                attention_reason = "consecutive_failures"
+            elif retry_pending:
+                automation_health = "warning"
+                attention_reason = "retry_pending"
+            else:
+                automation_health = "healthy"
+                attention_reason = ""
             status["automation_control"] = {
                 "driver": driver_status,
                 "schedule_registered": status["registered"],
@@ -125,9 +137,11 @@ class RegressionNightlyControlService:
                 "last_cycle_error": last_cycle.get("error"),
                 "last_cycle_error_type": last_cycle.get("error_type"),
                 "last_failure_at": status.get("last_failure_at"),
-                "consecutive_failures": status.get("consecutive_failures", 0),
-                "degraded": status.get("degraded", False),
-                "retry_pending": status.get("retry_pending", False),
+                "consecutive_failures": consecutive_failures,
+                "degraded": degraded,
+                "retry_pending": retry_pending,
+                "automation_health": automation_health,
+                "attention_reason": attention_reason,
                 "last_tick_outcome": (
                     "failed" if last_decision == "failed_cycle" else
                     "triggered" if last_decision == "triggered_due" else

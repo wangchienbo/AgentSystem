@@ -1,3 +1,25 @@
+## 2026-04-28: Add Automation Health and Attention Reason Semantics
+
+### Summary
+Lifted nightly recovery state into a higher-level operator view by deriving explicit automation health and attention reason fields from the underlying control-plane state.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - `automation_control` now derives:
+    - `automation_health` (`healthy` | `warning` | `degraded`)
+    - `attention_reason` (`""` | `retry_pending` | `consecutive_failures`)
+  - degraded state takes priority over retry-pending warning state
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - verified healthy baseline state
+  - verified warning state when retry is pending but not yet degraded
+  - verified degraded state when consecutive failures accumulate
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `37 passed`
+
+### Product Conclusion
+The nightly regression control plane now exposes a much more operator-friendly health model. Instead of requiring the operator to interpret raw counters and booleans, the governance surface can now present a compact health state and the specific attention reason that explains it.
 ## 2026-04-28: Add Failure Recovery Metadata to Nightly Control Plane
 
 ### Summary

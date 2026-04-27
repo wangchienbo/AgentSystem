@@ -88,6 +88,8 @@ def test_build_nightly_status_exposes_automation_control_card(tmp_path: Path) ->
     assert status["automation_control"]["driver"]["running"] is True
     assert status["automation_control"]["schedule_registered"] is True
     assert status["automation_control"]["last_tick_outcome"] == "skipped"
+    assert status["automation_control"]["automation_health"] == "healthy"
+    assert status["automation_control"]["attention_reason"] == ""
 
 
 def test_trigger_due_tick_records_no_trigger_match(tmp_path: Path) -> None:
@@ -181,3 +183,24 @@ def test_build_nightly_status_exposes_recovery_fields_in_automation_control(tmp_
     assert status["automation_control"]["degraded"] is True
     assert status["automation_control"]["retry_pending"] is True
     assert status["automation_control"]["consecutive_failures"] == 2
+    assert status["automation_control"]["automation_health"] == "degraded"
+    assert status["automation_control"]["attention_reason"] == "consecutive_failures"
+
+
+def test_build_nightly_status_exposes_warning_health_for_retry_pending(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    service.save_tick_state({
+        "last_tick_at": "2026-04-28T00:00:00Z",
+        "last_tick_decision": "failed_cycle",
+        "last_tick_triggered": False,
+        "last_cycle_result": {"error": "cycle failed", "error_type": "RuntimeError"},
+        "last_failure_at": "2026-04-28T00:00:00Z",
+        "consecutive_failures": 1,
+        "degraded": False,
+        "retry_pending": True,
+    })
+
+    status = service.build_nightly_status({"running": False})
+
+    assert status["automation_control"]["automation_health"] == "warning"
+    assert status["automation_control"]["attention_reason"] == "retry_pending"
