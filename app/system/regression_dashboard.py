@@ -6,9 +6,14 @@ bridging regression trends, evidence, and comparison into a single refinement-re
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
+from app.models.refinement_loop import RefinementHypothesis, RolloutQueueItem, VerificationResult
+from app.services.refinement_memory import RefinementMemoryStore
 from app.system.chat_regression import build_multi_run_comparison, build_topic_trends
 from app.system.regression_evidence_bridge import list_regression_evidence_history
+
+APP_INSTANCE_ID = "agent_system"
 
 
 def build_regression_governance_dashboard(
@@ -83,7 +88,7 @@ def build_regression_operator_summary(
         recommended_action = _recommend_action_for_signal(worst.get("signal", ""))
 
     return {
-        "app_instance_id": "agent_system",
+        "app_instance_id": APP_INSTANCE_ID,
         "refinement": {
             "proposal_count": 0,
             "proposed_review_count": 0,
@@ -96,7 +101,7 @@ def build_regression_operator_summary(
             "context_summary": "Regression-integrated governance summary",
             "governance": {
                 "overview": {
-                    "app_instance_id": "agent_system",
+                    "app_instance_id": APP_INSTANCE_ID,
                     "hypothesis_count": metrics["total_hypotheses"],
                     "unresolved_hypothesis_count": metrics["failed_hypotheses"],
                     "verification_count": metrics["total_verifications"],
@@ -111,7 +116,7 @@ def build_regression_operator_summary(
                     "failed_hypothesis_count": metrics["failed_hypotheses"],
                 },
                 "stats": {
-                    "app_instance_id": "agent_system",
+                    "app_instance_id": APP_INSTANCE_ID,
                     "total_hypotheses": metrics["total_hypotheses"],
                     "repeated_hypotheses": metrics["repeated_hypotheses"],
                     "total_verifications": metrics["total_verifications"],
@@ -237,6 +242,75 @@ def build_regression_triggers(
         "generated_at": ts,
     }
 
+
+
+def apply_regression_triggers_to_refinement(
+    memory: RefinementMemoryStore,
+    *,
+    comparison_limit: int = 5,
+    threshold: str = "warning",
+) -> dict[str, Any]:
+    """Persist regression trigger outputs into refinement memory as hypotheses,
+    verification records, and rollout queue items.
+    """
+    trigger_payload = build_regression_triggers(
+        comparison_limit=comparison_limit,
+        threshold=threshold,
+    )
+    created_hypotheses = []
+    created_queue_items = []
+    created_verifications = []
+
+    for trigger in trigger_payload["triggers"]:
+        signal = trigger["signal"]
+        contradiction = f"Regression signal: {signal}"
+        hypothesis = memory.add_hypothesis(
+            RefinementHypothesis(
+                hypothesis_id=f"reg-hyp-{uuid4().hex[:12]}",
+                app_instance_id=APP_INSTANCE_ID,
+                proposal_id=trigger["trigger_id"],
+                experience_id=trigger["trigger_id"],
+                contradiction=contradiction,
+                hypothesis=f"Address {signal} through {trigger['recommended_action']}",
+                expected_change=trigger["detail"],
+                evidence=[trigger["detail"]],
+                repeat_risk="medium" if trigger["level"] == "warning" else "low",
+            )
+        )
+        verification = memory.add_verification(
+            VerificationResult(
+                verification_id=f"reg-ver-{uuid4().hex[:12]}",
+                hypothesis_id=hypothesis.hypothesis_id,
+                app_instance_id=APP_INSTANCE_ID,
+                outcome="failed" if trigger["level"] == "warning" else "inconclusive",
+                summary=trigger["detail"],
+                failed_checks=[signal] if trigger["level"] == "warning" else [],
+                execution_reference=trigger["trigger_id"],
+                failure_aware=True,
+                gating_reason=trigger["recommended_action"],
+            )
+        )
+        queue_item = memory.add_queue_item(
+            RolloutQueueItem(
+                queue_id=f"reg-queue-{uuid4().hex[:12]}",
+                hypothesis_id=hypothesis.hypothesis_id,
+                proposal_id=trigger["trigger_id"],
+                app_instance_id=APP_INSTANCE_ID,
+                status="queued",
+                note=trigger["recommended_action"],
+            )
+        )
+        created_hypotheses.append(hypothesis.model_dump(mode="json"))
+        created_verifications.append(verification.model_dump(mode="json"))
+        created_queue_items.append(queue_item.model_dump(mode="json"))
+
+    return {
+        "trigger_count": trigger_payload["trigger_count"],
+        "created_hypotheses": created_hypotheses,
+        "created_verifications": created_verifications,
+        "created_queue_items": created_queue_items,
+        "generated_at": trigger_payload["generated_at"],
+    }
 
 def _recommend_action_for_signal(signal: str) -> str:
     """Map regression risk signals to recommended refinement actions."""

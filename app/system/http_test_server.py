@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # HTTP server 只做薄薄一层 HTTP 适配，不应直接读取 model 配置
 runtime_services = build_runtime()
 gateway = runtime_services["light_brain_gateway"]
+refinement_memory = runtime_services["refinement_memory"]
 
 app = FastAPI(
     title="AgentSystem Test Server",
@@ -335,7 +336,7 @@ async def api_chat_regression_run_detail(run_id: str, user: dict = Depends(get_c
 
 
 
-from app.system.regression_dashboard import build_regression_governance_dashboard, build_regression_operator_summary, build_regression_triggers
+from app.system.regression_dashboard import build_regression_governance_dashboard, build_regression_operator_summary, build_regression_triggers, apply_regression_triggers_to_refinement
 from app.system.regression_evidence_bridge import list_regression_evidence_history, promote_regression_evidence
 
 
@@ -479,3 +480,13 @@ async def api_governance_operator_summary(user: dict = Depends(get_current_user)
 async def api_governance_regression_triggers(user: dict = Depends(get_current_user), comparison_limit: int = 5, threshold: str = "warning"):
     triggers = build_regression_triggers(comparison_limit=comparison_limit, threshold=threshold)
     return {"success": True, **triggers}
+
+
+@app.post("/api/governance/regression-triggers/apply")
+async def api_governance_regression_triggers_apply(user: dict = Depends(get_current_user), comparison_limit: int = 5, threshold: str = "warning"):
+    result = apply_regression_triggers_to_refinement(
+        refinement_memory,
+        comparison_limit=comparison_limit,
+        threshold=threshold,
+    )
+    return {"success": True, **result}

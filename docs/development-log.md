@@ -1,3 +1,28 @@
+## 2026-04-27: Persist Regression Triggers into Refinement Memory Queue
+
+### Summary
+Extended the regression governance loop from trigger generation into real refinement persistence by writing regression-derived triggers into refinement memory as hypotheses, verification records, and rollout queue items.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `apply_regression_triggers_to_refinement(...)`
+  - regression trigger outputs now materialize into:
+    - `RefinementHypothesis`
+    - `VerificationResult`
+    - `RolloutQueueItem`
+- Updated `app/system/http_test_server.py`
+  - added `POST /api/governance/regression-triggers/apply`
+  - endpoint writes generated regression actions into the live `refinement_memory`
+- Updated tests:
+  - direct persistence test for regression-trigger → refinement-memory bridge
+  - HTTP endpoint test for trigger application path
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py`
+- Result: `30 passed`
+
+### Product Conclusion
+The regression loop no longer stops at action suggestion payloads. It now lands those actions into the actual refinement memory/queue surface, which means regression-detected risks can enter the same operator-visible refinement flow as other governed changes.
 ## 2026-04-27: Refinement Metrics Populated from Live Regression Data
 
 ### Summary

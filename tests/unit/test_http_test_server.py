@@ -539,3 +539,35 @@ def test_api_governance_regression_triggers_endpoint() -> None:
     assert data["success"] is True
     assert data["trigger_count"] == 1
     assert data["triggers"][0]["signal"] == "elevated_latency"
+
+
+def test_api_governance_regression_triggers_apply_endpoint() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_result = {
+        "trigger_count": 1,
+        "created_hypotheses": [{"hypothesis_id": "reg-hyp-1"}],
+        "created_verifications": [{"verification_id": "reg-ver-1"}],
+        "created_queue_items": [{"queue_id": "reg-queue-1"}],
+        "generated_at": "2026-04-27T00:00:00Z",
+    }
+
+    with patch("app.system.http_test_server.apply_regression_triggers_to_refinement", return_value=fake_result):
+        resp = client.post("/api/governance/regression-triggers/apply")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["trigger_count"] == 1
+    assert data["created_hypotheses"][0]["hypothesis_id"] == "reg-hyp-1"

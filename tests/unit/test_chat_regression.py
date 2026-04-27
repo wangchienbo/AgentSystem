@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from app.refinement.refinement_memory import RefinementMemoryStore
+from app.system.regression_dashboard import apply_regression_triggers_to_refinement
 from app.system.chat_regression import (
     FIXED_PROMPT_MATRIX,
     build_run_summary,
@@ -254,3 +256,33 @@ def test_build_topic_trends_empty_on_no_runs(tmp_path: Path) -> None:
     trends = build_topic_trends(log_dir=tmp_path, limit=5)
     assert trends["run_count"] == 0
     assert trends["topics"] == {}
+
+
+def test_apply_regression_triggers_to_refinement_persists_records() -> None:
+    memory = RefinementMemoryStore()
+
+    from unittest.mock import patch
+
+    fake_triggers = {
+        "triggers": [
+            {
+                "trigger_id": "regression-trigger-1",
+                "signal": "elevated_latency",
+                "level": "warning",
+                "recommended_action": "profile_performance_bottlenecks",
+                "detail": "Average latency 6200ms across 3 runs",
+                "generated_at": "2026-04-27T00:00:00Z",
+            }
+        ],
+        "trigger_count": 1,
+        "dashboard_comparison": {"run_count": 3},
+        "generated_at": "2026-04-27T00:00:00Z",
+    }
+
+    with patch("app.system.regression_dashboard.build_regression_triggers", return_value=fake_triggers):
+        result = apply_regression_triggers_to_refinement(memory)
+
+    assert result["trigger_count"] == 1
+    assert len(memory.list_hypotheses("agent_system")) == 1
+    assert len(memory.list_verifications()) == 1
+    assert len(memory.list_queue("agent_system")) == 1
