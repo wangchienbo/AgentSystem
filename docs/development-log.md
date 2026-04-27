@@ -1,3 +1,30 @@
+## 2026-04-27: Persist Nightly Tick Decisions and Cycle Results
+
+### Summary
+Upgraded nightly regression governance from a computed schedule view into a persistent control-plane state by recording tick decisions, trigger outcomes, and last cycle results in runtime state.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - added persistent nightly state helpers:
+    - `load_regression_nightly_state()`
+    - `save_regression_nightly_state(...)`
+    - `record_regression_nightly_tick(...)`
+  - nightly status now includes:
+    - `last_tick_at`
+    - `last_tick_decision`
+    - `last_tick_triggered`
+    - `last_cycle_result`
+  - both due and not-due tick paths now persist decision state
+- Updated tests:
+  - verified skipped tick persists `skipped_not_due`
+  - verified due tick persists `triggered_due` and latest cycle run id
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py`
+- Result: `20 passed`
+
+### Product Conclusion
+Nightly regression governance is now auditable as a control plane. Operators can see not only whether the system is scheduled and due, but also what it decided on the last tick and what the last executed cycle produced. This closes the main historical visibility gap in the nightly automation path.
 ## 2026-04-27: Add Due-Aware Nightly Tick for Regression Governance
 
 ### Summary

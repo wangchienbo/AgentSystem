@@ -63,6 +63,7 @@ conversation_history: dict[str, list[dict[str, str]]] = {}  # session_id -> mess
 APP_INSTANCE_ID = "agent_system"
 REGRESSION_CYCLE_TASK_NAME = "regression_governance_cycle"
 REGRESSION_NIGHTLY_SCHEDULE_ID = "sch.regression.governance.nightly"
+REGRESSION_NIGHTLY_STATE_KEY = "regression_nightly_state"
 
 
 def ensure_regression_runtime_instance() -> None:
@@ -87,6 +88,28 @@ def build_regression_nightly_status() -> dict[str, Any]:
 
 
 
+def load_regression_nightly_state() -> dict[str, Any]:
+    return runtime_services["runtime_store"].load_json(REGRESSION_NIGHTLY_STATE_KEY, {})
+
+
+def save_regression_nightly_state(state: dict[str, Any]) -> None:
+    runtime_services["runtime_store"]._write_json(REGRESSION_NIGHTLY_STATE_KEY, state)
+
+
+def record_regression_nightly_tick(*, decision: str, triggered: bool, cycle: dict[str, Any] | None = None, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
+    state = load_regression_nightly_state()
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    state.update({
+        "last_tick_at": now,
+        "last_tick_decision": decision,
+        "last_tick_triggered": triggered,
+        "last_cycle_result": cycle,
+        "last_nightly_status": nightly_status,
+    })
+    save_regression_nightly_state(state)
+    return state
+
+
 def _compute_nightly_schedule_snapshot() -> dict[str, Any]:
     ensure_regression_runtime_instance()
     scheduler = runtime_services["scheduler"]
@@ -105,6 +128,7 @@ def _compute_nightly_schedule_snapshot() -> dict[str, Any]:
             due_schedules.append(item.schedule_id)
         if next_trigger_at is None or due_at < next_trigger_at:
             next_trigger_at = due_at
+    state = load_regression_nightly_state()
     return {
         "registered": bool(schedules),
         "schedule_count": len(schedules),
@@ -114,13 +138,20 @@ def _compute_nightly_schedule_snapshot() -> dict[str, Any]:
         "due_schedule_ids": due_schedules,
         "due_now": bool(due_schedules),
         "next_trigger_at": None if next_trigger_at is None else next_trigger_at.isoformat().replace("+00:00", "Z"),
+        "last_tick_at": state.get("last_tick_at"),
+        "last_tick_decision": state.get("last_tick_decision"),
+        "last_tick_triggered": state.get("last_tick_triggered"),
+        "last_cycle_result": state.get("last_cycle_result"),
     }
 
 
 def tick_regression_nightly_cycle(user_session_id: str) -> dict[str, Any]:
     snapshot = _compute_nightly_schedule_snapshot()
     if not snapshot["due_now"]:
-        return {"triggered": False, "nightly_status": snapshot}
+        state = record_regression_nightly_tick(decision="skipped_not_due", triggered=False, nightly_status=snapshot)
+        refreshed = dict(snapshot)
+        refreshed.update({k: state.get(k) for k in ["last_tick_at", "last_tick_decision", "last_tick_triggered", "last_cycle_result"]})
+        return {"triggered": False, "nightly_status": refreshed}
 
     from fastapi.testclient import TestClient
 
@@ -129,17 +160,25 @@ def tick_regression_nightly_cycle(user_session_id: str) -> dict[str, Any]:
     trigger_results = scheduler.trigger_interval_schedules(APP_INSTANCE_ID)
     matched = [item.model_dump(mode="json") for item in trigger_results if item.task_name == REGRESSION_CYCLE_TASK_NAME and item.triggered]
     if not matched:
-        return {"triggered": False, "nightly_status": _compute_nightly_schedule_snapshot(), "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
+        snapshot = _compute_nightly_schedule_snapshot()
+        state = record_regression_nightly_tick(decision="skipped_no_trigger_match", triggered=False, nightly_status=snapshot)
+        refreshed = dict(snapshot)
+        refreshed.update({k: state.get(k) for k in ["last_tick_at", "last_tick_decision", "last_tick_triggered", "last_cycle_result"]})
+        return {"triggered": False, "nightly_status": refreshed, "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
 
     local_client = TestClient(app)
     local_client.cookies.set("session_id", user_session_id)
     cycle_result = run_regression_governance_cycle(make_testclient_poster(local_client), memory=refinement_memory)
     runtime_host.consume_pending_tasks(APP_INSTANCE_ID, REGRESSION_CYCLE_TASK_NAME)
+    snapshot = _compute_nightly_schedule_snapshot()
+    state = record_regression_nightly_tick(decision="triggered_due", triggered=True, cycle=cycle_result, nightly_status=snapshot)
+    refreshed = dict(snapshot)
+    refreshed.update({k: state.get(k) for k in ["last_tick_at", "last_tick_decision", "last_tick_triggered", "last_cycle_result"]})
     return {
         "triggered": True,
         "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
         "cycle": cycle_result,
-        "nightly_status": _compute_nightly_schedule_snapshot(),
+        "nightly_status": refreshed,
     }
 CHAT_LOG_DIR = BASE_DIR / "data" / "chat_logs"
 CHAT_LOG_DIR.mkdir(parents=True, exist_ok=True)

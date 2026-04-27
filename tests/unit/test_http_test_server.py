@@ -704,6 +704,7 @@ def test_api_governance_regression_cycle_nightly_tick_due_and_not_due() -> None:
     assert not_due_data["success"] is True
     assert not_due_data["triggered"] is False
     assert "due_now" in not_due_data["nightly_status"]
+    assert not_due_data["nightly_status"]["last_tick_decision"] == "skipped_not_due"
 
     import app.system.http_test_server as server
     schedule = server.runtime_services["scheduler"].get_schedule("sch.regression.governance.nightly")
@@ -726,3 +727,5 @@ def test_api_governance_regression_cycle_nightly_tick_due_and_not_due() -> None:
     assert due_data["success"] is True
     assert due_data["triggered"] is True
     assert due_data["cycle"]["run_id"] == "nightly-run-due"
+    assert due_data["nightly_status"]["last_tick_decision"] == "triggered_due"
+    assert due_data["nightly_status"]["last_cycle_result"]["run_id"] == "nightly-run-due"
