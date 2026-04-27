@@ -1,3 +1,41 @@
+## 2026-04-27: Structured Summarizer Consumption + Telemetry Enrichment + UTC Warning Fix
+
+### Summary
+Completed the second implementation slice of the cognition-governance path by teaching the interpreter to consume structured JSON-style summarizer payloads, enriching deterministic pre-step telemetry, and removing the legacy UTC warning in observability utilities.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - `StructuredAnswer` builder now prefers structured JSON payloads when the summarizer returns fields such as:
+    - `claim`
+    - `evidence`
+    - `unverified_points`
+    - `confidence`
+  - falls back to evidence-item-derived shaping when no structured payload exists
+- Enriched deterministic pre-step telemetry payload summaries with:
+  - `profile_hit`
+  - `fallback_count`
+  - `overreach_risk`
+  - `verification_outcome`
+- Updated `app/utils/observability.py`
+  - replaced deprecated `datetime.utcnow()` usage with timezone-aware UTC timestamps
+- Extended unit coverage for:
+  - structured JSON payload preference
+  - enriched deterministic pre-step telemetry payload fields
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py tests/unit/test_http_test_server.py`
+- Result: `30 passed`
+
+### Product Conclusion
+The introspection path now supports a stronger structured-answer contract: when summarization results are already machine-readable, the interpreter preserves and prioritizes that structure instead of flattening it back into plain text. Telemetry also now captures more of the cognition-governance signals needed for future refinement.
+
+### Next Step
+Potential follow-ups:
+- make the deterministic summarizer itself emit the structured JSON contract by default
+- expose structured-answer fields through API response surfaces when useful
+- connect verification policy and answer-mode routing more directly to `SelfModel`
+- extend enriched telemetry and structured answer shaping beyond introspection flows
+
 ## 2026-04-27: First Structured Cognition Contract Pilot in Introspection Path
 
 ### Summary

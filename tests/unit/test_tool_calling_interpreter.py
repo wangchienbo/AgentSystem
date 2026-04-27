@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from unittest.mock import MagicMock, patch
 
 from app.models.chat import InterpretedCommand
@@ -274,3 +276,47 @@ def test_process_result_marks_unverified_when_no_evidence_items() -> None:
     assert command.structured_answer is not None
     assert command.structured_answer.claim.evidence_grade == "none"
     assert command.structured_answer.unverified_points
+
+
+def test_process_result_prefers_structured_json_payload_when_present() -> None:
+    interpreter, _ = _build_interpreter()
+    result = ToolCallingResult(
+        final_text=json.dumps({
+            "claim": {"text": "已确认默认值是 json", "evidence_grade": "excerpt", "confidence": 0.92},
+            "evidence": [{"grade": "excerpt", "source_type": "read_file", "source_ref": "app/system/catalog/resource_center.py", "snippet": "persistence_mode: str = \"json\""}],
+            "unverified_points": ["尚未验证其他配置覆盖路径"],
+        }, ensure_ascii=False),
+        tool_calls=[
+            ToolCallRecord(
+                tool_name="read_file",
+                args={"path": "app/system/catalog/resource_center.py"},
+                result={"success": True, "content": 'persistence_mode: str = "json"'},
+            )
+        ],
+    )
+
+    command = interpreter._process_result(result, "请读取代码并确认默认值")
+
+    assert command.structured_answer is not None
+    assert command.structured_answer.claim.text == "已确认默认值是 json"
+    assert command.structured_answer.claim.evidence_grade == "excerpt"
+    assert command.structured_answer.unverified_points == ["尚未验证其他配置覆盖路径"]
+
+
+def test_deterministic_prestep_telemetry_includes_profile_and_fallback_fields() -> None:
+    interpreter, execute_turns = _build_interpreter()
+    interpreter._telemetry_service = MagicMock()
+    execute_turns.return_value = ToolCallingResult(final_text="已基于脚本结果完成汇总", tool_calls=[])
+    with patch("app.system.gateway.tool_calling_interpreter.exec_shell", return_value={"success": True, "stdout": "[]"}):
+        interpreter.interpret(
+            message="请遍历 app 目录并检查 storage backend 和读写路径，再汇总结果",
+            user_id="u1",
+            session_id="sess-telemetry-extra",
+            available_apps=[],
+        )
+    record = interpreter._telemetry_service.record_step.call_args.args[0]
+    payload = record.payload_summary or {}
+    assert payload["profile_hit"] is True
+    assert "fallback_count" in payload
+    assert "overreach_risk" in payload
+    assert "verification_outcome" in payload

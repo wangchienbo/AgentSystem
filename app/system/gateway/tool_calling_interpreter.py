@@ -664,9 +664,13 @@ PY"""
                 error_code=error_code,
                 payload_summary={
                     "profile": profile.get("name"),
+                    "profile_hit": True,
                     "script_latency_ms": script_latency_ms,
                     "summarizer_latency_ms": summarizer_latency_ms,
                     "fallback": fallback,
+                    "fallback_count": 1 if fallback else 0,
+                    "overreach_risk": result_rows is None or result_rows == 0,
+                    "verification_outcome": "bounded_summary" if success else "fallback",
                     "result_rows": result_rows,
                     "max_files": profile.get("max_files"),
                     "max_hits_per_file": profile.get("max_hits_per_file"),
@@ -940,36 +944,58 @@ PY"""
         return (getattr(result, "final_text", "") or "").strip()
 
     def _build_structured_answer(self, raw_input: str, result: Any, final_text: str, confidence: float) -> StructuredAnswer:
+        payload = None
+        parsed_claim = final_text
+        parsed_confidence = confidence
+        parsed_unverified: list[str] = []
         evidence_items = getattr(result, "evidence_items", []) or []
-        claim_grade = "none"
         evidence = []
-        unverified_points: list[str] = []
-        if evidence_items:
-            grade_rank = {"none": 0, "hint": 1, "excerpt": 2, "verified_fact": 3, "runtime_observation": 4}
-            claim_grade = max((getattr(item, "grade", "none") for item in evidence_items), key=lambda g: grade_rank.get(g, 0))
-            for item in evidence_items[:5]:
-                evidence.append({
-                    "grade": getattr(item, "grade", "none"),
-                    "source_type": getattr(item, "source_type", ""),
-                    "source_ref": getattr(item, "source_ref", ""),
-                    "snippet": getattr(item, "snippet", ""),
-                    "supports_claims": getattr(item, "supports_claims", []),
-                })
-        if claim_grade in ("none", "hint"):
-            unverified_points.append("当前结论仍受限于现有观测与证据等级")
+        grade_rank = {"none": 0, "hint": 1, "excerpt": 2, "verified_fact": 3, "runtime_observation": 4}
+        claim_grade = "none"
+
+        try:
+            maybe = json.loads(final_text) if final_text.strip().startswith("{") else None
+            if isinstance(maybe, dict) and any(k in maybe for k in ("claim", "evidence", "unverified_points", "confidence")):
+                payload = maybe
+        except Exception:
+            payload = None
+
+        if payload is not None:
+            claim_payload = payload.get("claim", {}) if isinstance(payload.get("claim"), dict) else {}
+            parsed_claim = str(claim_payload.get("text") or payload.get("text") or final_text)
+            claim_grade = str(claim_payload.get("evidence_grade") or payload.get("evidence_grade") or "none")
+            parsed_confidence = float(claim_payload.get("confidence") or payload.get("confidence") or confidence)
+            parsed_unverified = [str(x) for x in (payload.get("unverified_points") or [])][:5]
+            for item in (payload.get("evidence") or [])[:5]:
+                if isinstance(item, dict):
+                    evidence.append(item)
+        else:
+            if evidence_items:
+                claim_grade = max((getattr(item, "grade", "none") for item in evidence_items), key=lambda g: grade_rank.get(g, 0))
+                for item in evidence_items[:5]:
+                    evidence.append({
+                        "grade": getattr(item, "grade", "none"),
+                        "source_type": getattr(item, "source_type", ""),
+                        "source_ref": getattr(item, "source_ref", ""),
+                        "snippet": getattr(item, "snippet", ""),
+                        "supports_claims": getattr(item, "supports_claims", []),
+                    })
+            if claim_grade in ("none", "hint"):
+                parsed_unverified.append("当前结论仍受限于现有观测与证据等级")
+
         self_model = SelfModel(
             capability_state="tool_required" if self._is_code_introspection_query(raw_input) else "direct",
             tool_dependence_state="required" if self._is_code_introspection_query(raw_input) else "optional",
-            confidence_state=confidence,
+            confidence_state=parsed_confidence,
             uncertainty_state="需先观测或验证" if self._is_code_introspection_query(raw_input) and claim_grade in ("none", "hint") else "",
         )
-        claim = StructuredClaim(text=final_text, evidence_grade=claim_grade, confidence=confidence)
+        claim = StructuredClaim(text=parsed_claim, evidence_grade=claim_grade, confidence=parsed_confidence)
         return StructuredAnswer(
             self_model=self_model,
             claim=claim,
             evidence=evidence,
-            unverified_points=unverified_points,
-            text=final_text,
+            unverified_points=parsed_unverified,
+            text=parsed_claim,
         )
 
     def _is_code_introspection_query(self, raw_input: str) -> bool:

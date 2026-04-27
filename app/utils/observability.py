@@ -5,7 +5,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -33,7 +33,7 @@ class CommandMetrics:
     
     def __post_init__(self):
         if not self.timestamp:
-            self.timestamp = datetime.utcnow().isoformat() + "Z"
+            self.timestamp = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     
     def to_dict(self) -> dict:
         return asdict(self)
