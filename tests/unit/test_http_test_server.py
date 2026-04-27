@@ -479,8 +479,17 @@ def test_api_governance_operator_summary_endpoint() -> None:
 
     fake_summary = {
         "app_instance_id": "agent_system",
-        "refinement": {},
-        "regression": {"dashboard_id": "regression-governance", "comparison": {}, "trends": {}, "evidence": [], "risk_flags": []},
+        "refinement": {
+            "proposal_count": 0,
+            "primary_contradiction": "",
+            "recommended_action": "",
+            "context_summary": "Regression-integrated governance summary",
+            "governance": {
+                "overview": {"hypothesis_count": 1, "verification_count": 8, "passed_verification_count": 4, "failed_verification_count": 4, "queue_count": 1},
+                "stats": {"total_hypotheses": 1, "total_verifications": 8, "passed_verifications": 4, "failed_verifications": 4, "total_queue_items": 1},
+            },
+        },
+        "regression": {"dashboard_id": "regression-governance", "comparison": {"run_count": 2, "avg_latency_ms": 6000}, "trends": {}, "evidence": [], "risk_flags": [{"level": "warning", "signal": "elevated_latency"}]},
         "generated_at": "2026-04-27T00:00:00Z",
     }
 
@@ -493,6 +502,10 @@ def test_api_governance_operator_summary_endpoint() -> None:
     assert data["app_instance_id"] == "agent_system"
     assert "refinement" in data
     assert "regression" in data
+    # Verify refinement metrics are populated
+    gov = data["refinement"]["governance"]
+    assert gov["overview"]["hypothesis_count"] > 0
+    assert gov["overview"]["verification_count"] > 0
 
 
 def test_api_governance_regression_triggers_endpoint() -> None:

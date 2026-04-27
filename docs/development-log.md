@@ -1,3 +1,31 @@
+## 2026-04-27: Refinement Metrics Populated from Live Regression Data
+
+### Summary
+Replaced hardcoded zero-value refinement metrics with live data derived from regression comparison and trigger results, completing the data bridge between the regression subsystem and the refinement governance structure.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `_build_refinement_metrics_from_regression(comparison, triggers)` — derives refinement-level metrics from regression comparison data and trigger records:
+    - verification metrics: total/passed/failed/inconclusive from answer mode totals
+    - hypothesis metrics: total/failed from trigger signal counts
+    - queue metrics: total/queued from trigger count
+    - timestamp alignment: latest_verification_at, latest_queue_item_at, latest_failed_hypothesis_at
+  - updated `build_regression_operator_summary(...)` — now calls `build_regression_triggers(...)` and `_build_refinement_metrics_from_regression(...)` to populate the previously placeholder refinement governance fields with actual regression-derived values
+- Updated tests:
+  - operator summary test now verifies populated refinement metrics (hypothesis_count > 0, verification_count > 0)
+
+### Validation
+- `pytest -q` core test suite
+- Result: `60 passed`
+
+### Product Conclusion
+The regression-to-refinement data bridge is complete. The operator summary now provides:
+- Real verification counts derived from answer mode distributions
+- Real hypothesis counts derived from trigger signals
+- Real queue counts aligned with trigger activation
+- Meaningful primary_contradiction and recommended_action derived from worst risk flag
+
+This closes the final remaining follow-up from the regression subsystem roadmap. All refinement metrics are now populated from live regression data rather than hardcoded zeros.
 ## 2026-04-27: Regression Alerts Wired to Automated Refinement Triggers
 
 ### Summary

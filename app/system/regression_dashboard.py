@@ -71,6 +71,17 @@ def build_regression_operator_summary(
         trends_limit=trends_limit,
         evidence_limit=evidence_limit,
     )
+    triggers = build_regression_triggers(comparison_limit=comparison_limit)
+    metrics = _build_refinement_metrics_from_regression(dashboard["comparison"], triggers)
+
+    risk_flags = dashboard.get("risk_flags", [])
+    primary_contradiction = ""
+    recommended_action = ""
+    if risk_flags:
+        worst = max(risk_flags, key=lambda f: {"info": 0, "warning": 1}.get(f.get("level", ""), 0))
+        primary_contradiction = f"Regression signal: {worst.get('signal', 'unknown')}"
+        recommended_action = _recommend_action_for_signal(worst.get("signal", ""))
+
     return {
         "app_instance_id": "agent_system",
         "refinement": {
@@ -80,49 +91,101 @@ def build_regression_operator_summary(
             "rejected_review_count": 0,
             "applied_review_count": 0,
             "latest_priority": None,
-            "primary_contradiction": "",
-            "recommended_action": "",
+            "primary_contradiction": primary_contradiction,
+            "recommended_action": recommended_action,
             "context_summary": "Regression-integrated governance summary",
             "governance": {
                 "overview": {
                     "app_instance_id": "agent_system",
-                    "hypothesis_count": 0,
-                    "unresolved_hypothesis_count": 0,
-                    "verification_count": 0,
-                    "passed_verification_count": 0,
-                    "failed_verification_count": 0,
+                    "hypothesis_count": metrics["total_hypotheses"],
+                    "unresolved_hypothesis_count": metrics["failed_hypotheses"],
+                    "verification_count": metrics["total_verifications"],
+                    "passed_verification_count": metrics["passed_verifications"],
+                    "failed_verification_count": metrics["failed_verifications"],
                     "decision_count": 0,
                     "promote_count": 0,
                     "hold_count": 0,
-                    "queue_count": 0,
-                    "queued_count": 0,
-                    "applied_count": 0,
-                    "failed_hypothesis_count": 0,
+                    "queue_count": metrics["queued_items"],
+                    "queued_count": metrics["queued_items"],
+                    "applied_count": metrics["applied_items"],
+                    "failed_hypothesis_count": metrics["failed_hypotheses"],
                 },
                 "stats": {
                     "app_instance_id": "agent_system",
-                    "total_hypotheses": 0,
-                    "repeated_hypotheses": 0,
-                    "total_verifications": 0,
-                    "passed_verifications": 0,
-                    "failed_verifications": 0,
-                    "inconclusive_verifications": 0,
-                    "total_queue_items": 0,
-                    "queued_items": 0,
-                    "approved_items": 0,
-                    "applied_items": 0,
-                    "rejected_items": 0,
-                    "rolled_back_items": 0,
-                    "failed_hypotheses": 0,
+                    "total_hypotheses": metrics["total_hypotheses"],
+                    "repeated_hypotheses": metrics["repeated_hypotheses"],
+                    "total_verifications": metrics["total_verifications"],
+                    "passed_verifications": metrics["passed_verifications"],
+                    "failed_verifications": metrics["failed_verifications"],
+                    "inconclusive_verifications": metrics["inconclusive_verifications"],
+                    "total_queue_items": metrics["total_queue_items"],
+                    "queued_items": metrics["queued_items"],
+                    "approved_items": metrics["approved_items"],
+                    "applied_items": metrics["applied_items"],
+                    "rejected_items": metrics["rejected_items"],
+                    "rolled_back_items": metrics["rolled_back_items"],
+                    "failed_hypotheses": metrics["failed_hypotheses"],
+                    "latest_hypothesis_at": None,
+                    "latest_verification_at": metrics["latest_verification_at"],
+                    "latest_queue_item_at": metrics["latest_queue_item_at"],
+                    "latest_failed_hypothesis_at": metrics["latest_failed_hypothesis_at"],
                 },
-                "recent_queue": {"items": [], "meta": {"total_count": 0, "returned_count": 0, "filtered_count": 0, "has_more": False}},
-                "recent_failed_hypotheses": {"items": [], "meta": {"total_count": 0, "returned_count": 0, "filtered_count": 0, "has_more": False}},
+                "recent_queue": {"items": [], "meta": {"total_count": metrics["queued_items"], "returned_count": 0, "filtered_count": 0, "has_more": False}},
+                "recent_failed_hypotheses": {"items": [], "meta": {"total_count": metrics["failed_hypotheses"], "returned_count": 0, "filtered_count": 0, "has_more": False}},
             },
         },
         "regression": dashboard,
         "generated_at": dashboard["generated_at"],
     }
 
+
+
+
+def _build_refinement_metrics_from_regression(comparison: dict[str, Any], triggers: dict[str, Any]) -> dict[str, Any]:
+    """Derive refinement metrics from regression comparison and trigger data."""
+    answer_totals = comparison.get("answer_mode_totals", {})
+    verification_totals = comparison.get("verification_mode_totals", {})
+    trigger_list = triggers.get("triggers", [])
+
+    # Total verifications = total responses across runs
+    total_verifications = comparison.get("run_count", 0) * 4  # 4 topics
+    passed_verifications = answer_totals.get("direct", 0) + answer_totals.get("balanced", 0)
+    failed_verifications = answer_totals.get("verification_required", 0) + answer_totals.get("clarification_required", 0)
+    inconclusive_verifications = 0  # derived from evidence later if needed
+
+    # Hypotheses from trigger signals
+    total_hypotheses = len(trigger_list)
+    failed_hypotheses = sum(1 for t in trigger_list if t.get("level") == "warning")
+    repeated_hypotheses = 0  # placeholder for future dedup
+
+    # Queue items = triggers that are actionable
+    total_queue_items = len(trigger_list)
+    queued_items = len(trigger_list)
+    approved_items = 0  # requires integration with queue approval
+    applied_items = 0   # requires integration with apply tracking
+    rejected_items = 0
+    rolled_back_items = 0
+
+    ts = comparison.get("timestamp") or __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+
+    return {
+        "total_hypotheses": total_hypotheses,
+        "repeated_hypotheses": repeated_hypotheses,
+        "total_verifications": total_verifications,
+        "passed_verifications": passed_verifications,
+        "failed_verifications": failed_verifications,
+        "inconclusive_verifications": inconclusive_verifications,
+        "total_queue_items": total_queue_items,
+        "queued_items": queued_items,
+        "approved_items": approved_items,
+        "applied_items": applied_items,
+        "rejected_items": rejected_items,
+        "rolled_back_items": rolled_back_items,
+        "failed_hypotheses": failed_hypotheses,
+        "latest_verification_at": ts,
+        "latest_queue_item_at": ts,
+        "latest_failed_hypothesis_at": ts if failed_hypotheses > 0 else None,
+    }
 
 def build_regression_triggers(
     *,
