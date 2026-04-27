@@ -25,6 +25,14 @@ from app.bootstrap.runtime import build_runtime
 from app.models.app_instance import AppInstance
 from app.models.chat import ChatMessageRequest
 from app.models.scheduling import ScheduleRecord
+from app.services.regression_nightly_control import (
+    APP_INSTANCE_ID,
+    REGRESSION_CYCLE_TASK_NAME,
+    REGRESSION_NIGHTLY_DRIVER_STATE_KEY,
+    REGRESSION_NIGHTLY_SERVICE_SESSION_ID,
+    REGRESSION_NIGHTLY_STATE_KEY,
+    RegressionNightlyControlService,
+)
 from app.system.chat_regression import (
     build_multi_run_comparison,
     build_run_summary,
@@ -91,6 +99,12 @@ runtime_services = build_runtime()
 gateway = runtime_services["light_brain_gateway"]
 refinement_memory = runtime_services["refinement_memory"]
 refinement_rollout = runtime_services["refinement_rollout"]
+regression_nightly_control = RegressionNightlyControlService(
+    scheduler=runtime_services["scheduler"],
+    runtime_host=runtime_services["runtime_host"],
+    runtime_store=runtime_services["runtime_store"],
+    refinement_memory=refinement_memory,
+)
 
 app = FastAPI(
     title="AgentSystem Test Server",
@@ -106,12 +120,6 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 user_sessions: dict[str, dict[str, Any]] = {}  # session_id -> user_data
 conversation_history: dict[str, list[dict[str, str]]] = {}  # session_id -> messages
-APP_INSTANCE_ID = "agent_system"
-REGRESSION_CYCLE_TASK_NAME = "regression_governance_cycle"
-REGRESSION_NIGHTLY_SCHEDULE_ID = "sch.regression.governance.nightly"
-REGRESSION_NIGHTLY_STATE_KEY = "regression_nightly_state"
-REGRESSION_NIGHTLY_DRIVER_STATE_KEY = "regression_nightly_driver_state"
-REGRESSION_NIGHTLY_SERVICE_SESSION_ID = "session_regression_nightly_service"
 regression_nightly_driver = RegressionNightlyTickDriver()
 
 
@@ -131,20 +139,7 @@ def ensure_regression_service_session() -> str:
     return REGRESSION_NIGHTLY_SERVICE_SESSION_ID
 
 def ensure_regression_runtime_instance() -> None:
-    lifecycle = runtime_services["lifecycle"]
-    runtime_host = runtime_services["runtime_host"]
-    try:
-        lifecycle.get_instance(APP_INSTANCE_ID)
-        return
-    except Exception:
-        pass
-    runtime_host.register_instance(AppInstance(
-        id=APP_INSTANCE_ID,
-        blueprint_id="bp.regression.governance",
-        owner_user_id="system",
-        status="running",
-        data_namespace="governance/regression",
-    ))
+    regression_nightly_control.ensure_runtime_instance()
 
 
 def build_regression_nightly_status() -> dict[str, Any]:
@@ -164,16 +159,16 @@ def build_regression_nightly_status() -> dict[str, Any]:
 
 
 def load_regression_nightly_state() -> dict[str, Any]:
-    return runtime_services["runtime_store"].load_json(REGRESSION_NIGHTLY_STATE_KEY, {})
+    return regression_nightly_control.load_tick_state()
 
 
 
 def load_regression_nightly_driver_state() -> dict[str, Any]:
-    return runtime_services["runtime_store"].load_json(REGRESSION_NIGHTLY_DRIVER_STATE_KEY, {})
+    return regression_nightly_control.load_driver_state()
 
 
 def save_regression_nightly_driver_state(state: dict[str, Any]) -> None:
-    runtime_services["runtime_store"]._write_json(REGRESSION_NIGHTLY_DRIVER_STATE_KEY, state)
+    regression_nightly_control.save_driver_state(state)
 
 
 def restore_regression_nightly_driver() -> None:
@@ -182,7 +177,7 @@ def restore_regression_nightly_driver() -> None:
         regression_nightly_driver.start(interval_seconds=int(state.get("interval_seconds") or 60))
 
 def save_regression_nightly_state(state: dict[str, Any]) -> None:
-    runtime_services["runtime_store"]._write_json(REGRESSION_NIGHTLY_STATE_KEY, state)
+    regression_nightly_control.save_tick_state(state)
 
 
 def record_regression_nightly_tick(*, decision: str, triggered: bool, cycle: dict[str, Any] | None = None, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -200,38 +195,7 @@ def record_regression_nightly_tick(*, decision: str, triggered: bool, cycle: dic
 
 
 def _compute_nightly_schedule_snapshot() -> dict[str, Any]:
-    ensure_regression_runtime_instance()
-    scheduler = runtime_services["scheduler"]
-    runtime_host = runtime_services["runtime_host"]
-    schedules = [item for item in scheduler.list_schedules(APP_INSTANCE_ID) if item.task_name == REGRESSION_CYCLE_TASK_NAME]
-    overview = runtime_host.get_overview(APP_INSTANCE_ID)
-    recent_runs = list_saved_runs(limit=1)
-    latest_run = recent_runs[0]["summary"] if recent_runs else None
-    due_schedules = []
-    next_trigger_at = None
-    now = datetime.now(UTC)
-    for item in schedules:
-        last = item.last_triggered_at or item.created_at
-        due_at = last + timedelta(seconds=item.interval_seconds or 0)
-        if item.status == "active" and due_at <= now:
-            due_schedules.append(item.schedule_id)
-        if next_trigger_at is None or due_at < next_trigger_at:
-            next_trigger_at = due_at
-    state = load_regression_nightly_state()
-    return {
-        "registered": bool(schedules),
-        "schedule_count": len(schedules),
-        "schedules": [item.model_dump(mode="json") for item in schedules],
-        "pending_task_count": sum(1 for task in overview.pending_tasks if task == REGRESSION_CYCLE_TASK_NAME),
-        "latest_run": latest_run,
-        "due_schedule_ids": due_schedules,
-        "due_now": bool(due_schedules),
-        "next_trigger_at": None if next_trigger_at is None else next_trigger_at.isoformat().replace("+00:00", "Z"),
-        "last_tick_at": state.get("last_tick_at"),
-        "last_tick_decision": state.get("last_tick_decision"),
-        "last_tick_triggered": state.get("last_tick_triggered"),
-        "last_cycle_result": state.get("last_cycle_result"),
-    }
+    return regression_nightly_control.build_nightly_status(regression_nightly_driver.status())
 
 
 def tick_regression_nightly_cycle(user_session_id: str) -> dict[str, Any]:
@@ -742,28 +706,13 @@ async def api_governance_regression_cycle_run(user: dict = Depends(get_current_u
 
 @app.post("/api/governance/regression-cycle/nightly")
 async def api_governance_regression_cycle_nightly_register(interval_seconds: int = 86400, user: dict = Depends(get_current_user)):
-    ensure_regression_runtime_instance()
-    scheduler = runtime_services["scheduler"]
-    record = ScheduleRecord(
-        schedule_id=REGRESSION_NIGHTLY_SCHEDULE_ID,
-        app_instance_id=APP_INSTANCE_ID,
-        trigger_type="interval",
-        task_name=REGRESSION_CYCLE_TASK_NAME,
-        interval_seconds=interval_seconds,
-    )
-    registered = scheduler.register_schedule(record)
+    registered = regression_nightly_control.register_nightly_schedule(interval_seconds)
     return {"success": True, "schedule": registered.model_dump(mode="json")}
 
 
 @app.get("/api/governance/regression-cycle/nightly")
 async def api_governance_regression_cycle_nightly_status(user: dict = Depends(get_current_user)):
-    ensure_regression_runtime_instance()
-    scheduler = runtime_services["scheduler"]
-    schedules = [
-        item.model_dump(mode="json")
-        for item in scheduler.list_schedules(APP_INSTANCE_ID)
-        if item.task_name == REGRESSION_CYCLE_TASK_NAME
-    ]
+    schedules = [item.model_dump(mode="json") for item in regression_nightly_control.list_nightly_schedules()]
     return {"success": True, "schedules": schedules}
 
 

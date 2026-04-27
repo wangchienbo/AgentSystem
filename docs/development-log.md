@@ -1,3 +1,30 @@
+## 2026-04-27: Extract Nightly Automation into Dedicated Service Layer
+
+### Summary
+Began the service-layer cleanup by extracting the nightly regression automation control logic out of the HTTP endpoint layer into a dedicated service module.
+
+### What Was Done
+- Added `app/services/regression_nightly_control.py`
+  - introduced `RegressionNightlyControlService`
+  - centralized:
+    - runtime instance bootstrap
+    - nightly schedule registration/listing
+    - tick state persistence
+    - driver state persistence
+    - nightly status snapshot building
+    - tick record persistence
+    - cycle execution adapter
+- Updated `app/system/http_test_server.py`
+  - now delegates core nightly automation responsibilities to `RegressionNightlyControlService`
+  - reduced endpoint-layer ownership of schedule/state composition logic
+- Validation preserved through existing HTTP suite
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py`
+- Result: `24 passed`
+
+### Product Conclusion
+The nightly regression subsystem is no longer just operationally complete, it is starting to become architecturally clean. Control-plane responsibilities are moving out of transport-layer code and into a reusable service boundary, which makes the automation path easier to evolve toward a stable long-running subsystem.
 ## 2026-04-27: Add Automation Control Card and Service Session Identity
 
 ### Summary
