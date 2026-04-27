@@ -31,6 +31,7 @@ from app.system.chat_regression import (
     run_fixed_prompt_matrix,
     list_saved_runs,
     read_run_details,
+    run_regression_governance_cycle,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -511,3 +512,16 @@ async def api_governance_regression_queue_transition(req: RegressionQueueTransit
         note=req.note,
     )
     return {"success": True, "item": item.model_dump(mode="json")}
+
+
+@app.post("/api/governance/regression-cycle/run")
+async def api_governance_regression_cycle_run(user: dict = Depends(get_current_user)):
+    from fastapi.testclient import TestClient
+
+    local_client = TestClient(app)
+    local_client.cookies.set("session_id", user["session_id"])
+    result = run_regression_governance_cycle(
+        make_testclient_poster(local_client),
+        memory=refinement_memory,
+    )
+    return {"success": True, **result}

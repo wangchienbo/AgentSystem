@@ -13,6 +13,7 @@ from app.system.chat_regression import (
     list_saved_runs,
     read_run_details,
     run_fixed_prompt_matrix,
+    run_regression_governance_cycle,
     summarize_probe_payload,
 )
 
@@ -349,3 +350,34 @@ def test_build_regression_operator_summary_reflects_live_queue_stats() -> None:
     stats = summary["refinement"]["governance"]["stats"]
     assert stats["applied_items"] == 1
     assert summary["refinement"]["governance"]["recent_queue"]["items"][0]["status"] == "applied"
+
+
+def test_run_regression_governance_cycle_returns_full_bundle() -> None:
+    memory = RefinementMemoryStore()
+
+    def fake_post(path: str, payload: dict) -> dict:
+        return {
+            "success": True,
+            "response": "已完成接口梳理。",
+            "latency_ms": 50,
+            "structured_answer": {"self_model": {"answer_mode": "direct", "verification_mode": "none"}},
+        }
+
+    def fake_promote(**kwargs):
+        return {"promoted_count": 1, "promoted_evidence": [{"evidence_id": "ev-1"}], "comparison": {"run_count": 2}}
+
+    def fake_apply(mem):
+        assert mem is memory
+        return {"trigger_count": 1, "created_hypotheses": [{"hypothesis_id": "reg-hyp-1"}], "created_verifications": [], "created_queue_items": []}
+
+    result = run_regression_governance_cycle(
+        fake_post,
+        persist_results_fn=lambda results, summary: Path("/tmp/") / f"{summary.run_id}.jsonl",
+        promote_evidence_fn=fake_promote,
+        apply_triggers_fn=fake_apply,
+        memory=memory,
+    )
+
+    assert result["summary"]["topic_count"] == 4
+    assert result["evidence"]["promoted_count"] == 1
+    assert result["trigger_application"]["trigger_count"] == 1

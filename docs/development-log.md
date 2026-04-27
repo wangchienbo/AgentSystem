@@ -1,3 +1,29 @@
+## 2026-04-27: Add One-Shot Regression Governance Cycle Runner
+
+### Summary
+Moved the regression governance loop closer to nightly automation by adding a one-shot cycle runner that executes regression, persists results, promotes evidence, and applies triggers into refinement memory through a single entrypoint.
+
+### What Was Done
+- Updated `app/system/chat_regression.py`
+  - added `run_regression_governance_cycle(...)`
+  - orchestrates:
+    - fixed prompt regression execution
+    - run summary persistence
+    - evidence promotion
+    - optional trigger application into refinement memory
+- Updated `app/system/http_test_server.py`
+  - added `POST /api/governance/regression-cycle/run`
+  - endpoint runs the full regression governance cycle against the real HTTP chat path using a local TestClient session
+- Updated tests:
+  - direct unit test for full cycle bundle
+  - HTTP endpoint test for cycle runner
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py`
+- Result: `35 passed`
+
+### Product Conclusion
+The system now has a concrete automation primitive for regression governance. While not yet scheduled by clock time, the full run → evidence → trigger → refinement path can now be invoked as a single operation, making nightly or scheduled execution a thin follow-up instead of a large new integration.
 ## 2026-04-27: Reflect Regression Rollout State in Governance Summary
 
 ### Summary

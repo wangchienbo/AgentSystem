@@ -608,3 +608,36 @@ def test_api_governance_regression_queue_transition_endpoint() -> None:
     assert data["success"] is True
     assert data["item"]["status"] == "applied"
     assert data["item"]["queue_id"] == "reg-queue-1"
+
+
+def test_api_governance_regression_cycle_run_endpoint() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_result = {
+        "run_id": "chat-regression-cycle-1",
+        "summary": {"topic_count": 4},
+        "path": "/tmp/chat-regression-cycle-1.jsonl",
+        "evidence": {"promoted_count": 1},
+        "trigger_application": {"trigger_count": 1},
+    }
+
+    with patch("app.system.http_test_server.run_regression_governance_cycle", return_value=fake_result):
+        resp = client.post("/api/governance/regression-cycle/run")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["run_id"] == "chat-regression-cycle-1"
+    assert data["evidence"]["promoted_count"] == 1
+    assert data["trigger_application"]["trigger_count"] == 1

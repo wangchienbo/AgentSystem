@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 import json
 from pathlib import Path
 from typing import Any, Callable
+
+from app.services.refinement_memory import RefinementMemoryStore
 from uuid import uuid4
 
 
@@ -243,3 +245,39 @@ def build_topic_trends(*, log_dir: Path | None = None, limit: int = 5) -> dict[s
         }
 
     return {"topics": trend_result, "run_count": len(run_ids)}
+
+
+def run_regression_governance_cycle(
+    post_json: Callable[[str, dict[str, Any]], dict[str, Any]],
+    *,
+    persist_results_fn: Callable[[list[RegressionProbeResult], RegressionRunSummary], Path] = persist_run_results,
+    promote_evidence_fn: Callable[..., dict[str, Any]] | None = None,
+    apply_triggers_fn: Callable[..., dict[str, Any]] | None = None,
+    memory: RefinementMemoryStore | None = None,
+) -> dict[str, Any]:
+    """Execute a full one-shot regression governance cycle.
+
+    Runs the fixed prompt matrix, persists the run, promotes evidence, and optionally
+    writes regression triggers into refinement memory.
+    """
+    from app.system.regression_evidence_bridge import promote_regression_evidence
+    from app.system.regression_dashboard import apply_regression_triggers_to_refinement
+
+    promote_evidence_fn = promote_evidence_fn or promote_regression_evidence
+    apply_triggers_fn = apply_triggers_fn or apply_regression_triggers_to_refinement
+
+    results = run_fixed_prompt_matrix(post_json)
+    summary = build_run_summary(results)
+    out = persist_results_fn(results, summary)
+    evidence_result = promote_evidence_fn(comparison=build_multi_run_comparison(limit=5))
+    trigger_result = {"trigger_count": 0, "created_hypotheses": [], "created_verifications": [], "created_queue_items": []}
+    if memory is not None:
+        trigger_result = apply_triggers_fn(memory)
+
+    return {
+        "run_id": summary.run_id,
+        "summary": summary.__dict__,
+        "path": str(out),
+        "evidence": evidence_result,
+        "trigger_application": trigger_result,
+    }
