@@ -1,3 +1,21 @@
+## 2026-04-27: Integrate Nightly Status Snapshot Through Dedicated Service
+
+### Summary
+Continued the service-layer cleanup by routing nightly automation status snapshot generation through the new dedicated nightly control service, while keeping the HTTP surface stable.
+
+### What Was Done
+- Added `app/services/regression_nightly_control.py` in the prior refactor step and now actively integrated it into the HTTP stack
+- Updated `app/system/http_test_server.py`
+  - instantiated `RegressionNightlyControlService`
+  - `build_regression_nightly_status()` now delegates to `RegressionNightlyControlService.build_nightly_status(...)`
+- Preserved existing endpoints and behavior while moving one more chunk of control-plane composition behind the service boundary
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py`
+- Result: `24 passed`
+
+### Product Conclusion
+This step keeps the product surface unchanged while improving structure underneath. Nightly automation status is now generated through a reusable service layer instead of being composed only inside the HTTP transport module, which makes the control plane easier to evolve without destabilizing operator endpoints.
 ## 2026-04-27: Extract Nightly Automation into Dedicated Service Layer
 
 ### Summary

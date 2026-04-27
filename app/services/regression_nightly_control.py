@@ -134,3 +134,34 @@ class RegressionNightlyControlService:
 
     def run_cycle(self, client: Any) -> dict[str, Any]:
         return run_regression_governance_cycle(make_testclient_poster(client), memory=self._refinement_memory)
+
+
+    def trigger_due_tick(self, *, client: Any, driver_status: dict[str, Any] | None = None) -> dict[str, Any]:
+        snapshot = self.build_nightly_status(driver_status)
+        if not snapshot["due_now"]:
+            state = self.record_tick(decision="skipped_not_due", triggered=False, nightly_status=snapshot)
+            refreshed = dict(snapshot)
+            refreshed.update({k: state.get(k) for k in ["last_tick_at", "last_tick_decision", "last_tick_triggered", "last_cycle_result"]})
+            return {"triggered": False, "nightly_status": refreshed}
+
+        trigger_results = self._scheduler.trigger_interval_schedules(APP_INSTANCE_ID)
+        matched = [item.model_dump(mode="json") for item in trigger_results if item.task_name == REGRESSION_CYCLE_TASK_NAME and item.triggered]
+        if not matched:
+            snapshot = self.build_nightly_status(driver_status)
+            state = self.record_tick(decision="skipped_no_trigger_match", triggered=False, nightly_status=snapshot)
+            refreshed = dict(snapshot)
+            refreshed.update({k: state.get(k) for k in ["last_tick_at", "last_tick_decision", "last_tick_triggered", "last_cycle_result"]})
+            return {"triggered": False, "nightly_status": refreshed, "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
+
+        cycle_result = self.run_cycle(client)
+        self._runtime_host.consume_pending_tasks(APP_INSTANCE_ID, REGRESSION_CYCLE_TASK_NAME)
+        snapshot = self.build_nightly_status(driver_status)
+        state = self.record_tick(decision="triggered_due", triggered=True, cycle=cycle_result, nightly_status=snapshot)
+        refreshed = dict(snapshot)
+        refreshed.update({k: state.get(k) for k in ["last_tick_at", "last_tick_decision", "last_tick_triggered", "last_cycle_result"]})
+        return {
+            "triggered": True,
+            "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
+            "cycle": cycle_result,
+            "nightly_status": refreshed,
+        }
