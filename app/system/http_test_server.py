@@ -20,7 +20,9 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from app.bootstrap.runtime import build_runtime
+from app.models.app_instance import AppInstance
 from app.models.chat import ChatMessageRequest
+from app.models.scheduling import ScheduleRecord
 from app.system.chat_regression import (
     build_multi_run_comparison,
     build_run_summary,
@@ -58,6 +60,26 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 user_sessions: dict[str, dict[str, Any]] = {}  # session_id -> user_data
 conversation_history: dict[str, list[dict[str, str]]] = {}  # session_id -> messages
+APP_INSTANCE_ID = "agent_system"
+REGRESSION_CYCLE_TASK_NAME = "regression_governance_cycle"
+REGRESSION_NIGHTLY_SCHEDULE_ID = "sch.regression.governance.nightly"
+
+
+def ensure_regression_runtime_instance() -> None:
+    lifecycle = runtime_services["lifecycle"]
+    runtime_host = runtime_services["runtime_host"]
+    try:
+        lifecycle.get_instance(APP_INSTANCE_ID)
+        return
+    except Exception:
+        pass
+    runtime_host.register_instance(AppInstance(
+        id=APP_INSTANCE_ID,
+        blueprint_id="bp.regression.governance",
+        owner_user_id="system",
+        status="running",
+        data_namespace="governance/regression",
+    ))
 CHAT_LOG_DIR = BASE_DIR / "data" / "chat_logs"
 CHAT_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -525,3 +547,61 @@ async def api_governance_regression_cycle_run(user: dict = Depends(get_current_u
         memory=refinement_memory,
     )
     return {"success": True, **result}
+
+
+@app.post("/api/governance/regression-cycle/nightly")
+async def api_governance_regression_cycle_nightly_register(interval_seconds: int = 86400, user: dict = Depends(get_current_user)):
+    ensure_regression_runtime_instance()
+    scheduler = runtime_services["scheduler"]
+    record = ScheduleRecord(
+        schedule_id=REGRESSION_NIGHTLY_SCHEDULE_ID,
+        app_instance_id=APP_INSTANCE_ID,
+        trigger_type="interval",
+        task_name=REGRESSION_CYCLE_TASK_NAME,
+        interval_seconds=interval_seconds,
+    )
+    registered = scheduler.register_schedule(record)
+    return {"success": True, "schedule": registered.model_dump(mode="json")}
+
+
+@app.get("/api/governance/regression-cycle/nightly")
+async def api_governance_regression_cycle_nightly_status(user: dict = Depends(get_current_user)):
+    ensure_regression_runtime_instance()
+    scheduler = runtime_services["scheduler"]
+    schedules = [
+        item.model_dump(mode="json")
+        for item in scheduler.list_schedules(APP_INSTANCE_ID)
+        if item.task_name == REGRESSION_CYCLE_TASK_NAME
+    ]
+    return {"success": True, "schedules": schedules}
+
+
+@app.post("/api/governance/regression-cycle/nightly/trigger")
+async def api_governance_regression_cycle_nightly_trigger(user: dict = Depends(get_current_user)):
+    from fastapi.testclient import TestClient
+
+    ensure_regression_runtime_instance()
+    scheduler = runtime_services["scheduler"]
+    runtime_host = runtime_services["runtime_host"]
+    trigger_results = scheduler.trigger_interval_schedules(APP_INSTANCE_ID)
+    matched = [
+        item.model_dump(mode="json")
+        for item in trigger_results
+        if item.task_name == REGRESSION_CYCLE_TASK_NAME and item.triggered
+    ]
+    if not matched:
+        return {"success": True, "triggered": False, "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
+
+    local_client = TestClient(app)
+    local_client.cookies.set("session_id", user["session_id"])
+    cycle_result = run_regression_governance_cycle(
+        make_testclient_poster(local_client),
+        memory=refinement_memory,
+    )
+    runtime_host.consume_pending_tasks(APP_INSTANCE_ID, REGRESSION_CYCLE_TASK_NAME)
+    return {
+        "success": True,
+        "triggered": True,
+        "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
+        "cycle": cycle_result,
+    }

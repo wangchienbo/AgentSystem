@@ -1,3 +1,26 @@
+## 2026-04-27: Add Nightly Registration and Trigger Flow for Regression Governance
+
+### Summary
+Extended the one-shot regression governance cycle into a schedulable nightly path by adding schedule registration, schedule status, and trigger endpoints backed by the runtime scheduler.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - added `POST /api/governance/regression-cycle/nightly`
+  - added `GET /api/governance/regression-cycle/nightly`
+  - added `POST /api/governance/regression-cycle/nightly/trigger`
+  - added runtime bootstrap helper to ensure the regression governance app instance exists before scheduler registration/triggering
+- Updated `app/system/runtime/runtime_host.py`
+  - added `consume_pending_tasks(...)` so executed scheduled tasks can be cleared from runtime pending queue after the cycle is run
+- Updated tests:
+  - nightly registration and trigger flow now covered through HTTP test
+  - scheduler regression path validated alongside existing cycle tests
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py tests/unit/test_chat_regression.py tests/unit/test_scheduler_supervisor.py`
+- Result: `41 passed`
+
+### Product Conclusion
+Regression governance is now no longer just manually invokable. The system can register a nightly interval schedule, expose schedule status, and execute the full governance cycle through a scheduler-backed trigger path. The remaining gap to fully autonomous nightly execution is the external ticking mechanism, not business workflow wiring.
 ## 2026-04-27: Add One-Shot Regression Governance Cycle Runner
 
 ### Summary

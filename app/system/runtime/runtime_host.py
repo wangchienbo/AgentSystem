@@ -93,6 +93,19 @@ class AppRuntimeHostService:
         self._persist()
         return list(tasks)
 
+
+    def consume_pending_tasks(self, app_instance_id: str, task_name: str | None = None) -> list[str]:
+        self._lifecycle.get_instance(app_instance_id)
+        tasks = list(self._pending_tasks.get(app_instance_id, []))
+        if task_name is None:
+            consumed = tasks
+            self._pending_tasks[app_instance_id] = []
+        else:
+            consumed = [task for task in tasks if task == task_name]
+            self._pending_tasks[app_instance_id] = [task for task in tasks if task != task_name]
+        self._persist()
+        return consumed
+
     def get_overview(self, app_instance_id: str) -> RuntimeOverview:
         instance = self._lifecycle.get_instance(app_instance_id)
         checkpoints = self._checkpoints.get(app_instance_id, [])

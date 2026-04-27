@@ -641,3 +641,44 @@ def test_api_governance_regression_cycle_run_endpoint() -> None:
     assert data["run_id"] == "chat-regression-cycle-1"
     assert data["evidence"]["promoted_count"] == 1
     assert data["trigger_application"]["trigger_count"] == 1
+
+
+def test_api_governance_regression_cycle_nightly_register_and_trigger() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    reg_resp = client.post("/api/governance/regression-cycle/nightly?interval_seconds=3600")
+    assert reg_resp.status_code == 200
+    reg_data = reg_resp.json()
+    assert reg_data["success"] is True
+    assert reg_data["schedule"]["task_name"] == "regression_governance_cycle"
+
+    status_resp = client.get("/api/governance/regression-cycle/nightly")
+    assert status_resp.status_code == 200
+    status_data = status_resp.json()
+    assert status_data["schedules"]
+
+    from unittest.mock import patch
+    fake_cycle = {
+        "run_id": "nightly-run-1",
+        "summary": {"topic_count": 4},
+        "path": "/tmp/nightly-run-1.jsonl",
+        "evidence": {"promoted_count": 1},
+        "trigger_application": {"trigger_count": 1},
+    }
+    with patch("app.system.http_test_server.run_regression_governance_cycle", return_value=fake_cycle):
+        trig_resp = client.post("/api/governance/regression-cycle/nightly/trigger")
+
+    assert trig_resp.status_code == 200
+    trig_data = trig_resp.json()
+    assert trig_data["success"] is True
+    assert trig_data["triggered"] is True
+    assert trig_data["cycle"]["run_id"] == "nightly-run-1"
