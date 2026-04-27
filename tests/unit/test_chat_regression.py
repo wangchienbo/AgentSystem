@@ -381,3 +381,23 @@ def test_run_regression_governance_cycle_returns_full_bundle() -> None:
     assert result["summary"]["topic_count"] == 4
     assert result["evidence"]["promoted_count"] == 1
     assert result["trigger_application"]["trigger_count"] == 1
+
+
+def test_build_regression_dashboard_and_summary_include_nightly_status() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_governance_dashboard, build_regression_operator_summary
+
+    nightly_status = {
+        "registered": True,
+        "schedule_count": 1,
+        "schedules": [{"schedule_id": "sch.regression.governance.nightly", "task_name": "regression_governance_cycle"}],
+        "pending_task_count": 0,
+        "latest_run": {"run_id": "nightly-run-1"},
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value={"run_count": 1, "avg_latency_ms": 0, "avg_fallback_count": 0, "avg_overreach_risk_count": 0, "answer_mode_totals": {}, "verification_mode_totals": {}}),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]),          patch("app.system.regression_dashboard.build_regression_triggers", return_value={"triggers": [], "trigger_count": 0}):
+        dashboard = build_regression_governance_dashboard(nightly_status=nightly_status)
+        summary = build_regression_operator_summary(nightly_status=nightly_status)
+
+    assert dashboard["nightly_automation"]["registered"] is True
+    assert summary["refinement"]["governance"]["nightly_automation"]["latest_run"]["run_id"] == "nightly-run-1"

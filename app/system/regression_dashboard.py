@@ -22,6 +22,7 @@ def build_regression_governance_dashboard(
     trends_limit: int = 5,
     evidence_limit: int = 10,
     memory: RefinementMemoryStore | None = None,
+    nightly_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a comprehensive governance dashboard from regression data.
 
@@ -66,6 +67,7 @@ def build_regression_governance_dashboard(
         "evidence": evidence,
         "risk_flags": risk_flags,
         "rollout_summary": rollout_summary,
+        "nightly_automation": nightly_status,
         "dashboard_id": "regression-governance",
         "generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
     }
@@ -77,6 +79,7 @@ def build_regression_operator_summary(
     trends_limit: int = 5,
     evidence_limit: int = 10,
     memory: RefinementMemoryStore | None = None,
+    nightly_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a combined operator summary merging regression governance with
     a placeholder refinement summary structure.
@@ -90,6 +93,7 @@ def build_regression_operator_summary(
         trends_limit=trends_limit,
         evidence_limit=evidence_limit,
         memory=memory,
+        nightly_status=nightly_status,
     )
     triggers = build_regression_triggers(comparison_limit=comparison_limit)
     metrics = _build_refinement_metrics_from_regression(dashboard["comparison"], triggers)
@@ -160,6 +164,7 @@ def build_regression_operator_summary(
                 "stats": stats,
                 "recent_queue": recent_queue,
                 "recent_failed_hypotheses": recent_failed_hypotheses,
+                "nightly_automation": nightly_status,
             },
         },
         "regression": dashboard,

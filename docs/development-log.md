@@ -1,3 +1,32 @@
+## 2026-04-27: Surface Nightly Automation Status in Governance Views
+
+### Summary
+Added nightly automation observability to the regression governance dashboard and operator summary, so operators can now see whether the nightly cycle is registered, whether tasks are pending, and what the latest regression run was.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - `build_regression_governance_dashboard(...)` now accepts `nightly_status`
+  - `build_regression_operator_summary(...)` now accepts `nightly_status`
+  - both surfaces now expose `nightly_automation`
+- Updated `app/system/http_test_server.py`
+  - added `build_regression_nightly_status()` helper
+  - governance HTTP endpoints now inject live nightly automation status into dashboard/summary builders
+  - nightly status includes:
+    - registration state
+    - schedule count
+    - schedule payloads
+    - pending regression-governance task count
+    - latest saved regression run summary
+- Updated tests:
+  - direct coverage for dashboard/operator summary nightly state inclusion
+  - existing endpoint suite still passes with the new injection path
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py`
+- Result: `37 passed`
+
+### Product Conclusion
+Regression governance is now observable as an automation system, not just a data/reporting surface. Operators can tell whether nightly governance is wired up, whether work is queued, and what the latest execution artifact was, closing the main visibility gap left after scheduler integration.
 ## 2026-04-27: Add Nightly Registration and Trigger Flow for Regression Governance
 
 ### Summary

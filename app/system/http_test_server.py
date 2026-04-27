@@ -80,6 +80,23 @@ def ensure_regression_runtime_instance() -> None:
         status="running",
         data_namespace="governance/regression",
     ))
+
+
+def build_regression_nightly_status() -> dict[str, Any]:
+    ensure_regression_runtime_instance()
+    scheduler = runtime_services["scheduler"]
+    runtime_host = runtime_services["runtime_host"]
+    schedules = [item for item in scheduler.list_schedules(APP_INSTANCE_ID) if item.task_name == REGRESSION_CYCLE_TASK_NAME]
+    overview = runtime_host.get_overview(APP_INSTANCE_ID)
+    recent_runs = list_saved_runs(limit=1)
+    latest_run = recent_runs[0]["summary"] if recent_runs else None
+    return {
+        "registered": bool(schedules),
+        "schedule_count": len(schedules),
+        "schedules": [item.model_dump(mode="json") for item in schedules],
+        "pending_task_count": sum(1 for task in overview.pending_tasks if task == REGRESSION_CYCLE_TASK_NAME),
+        "latest_run": latest_run,
+    }
 CHAT_LOG_DIR = BASE_DIR / "data" / "chat_logs"
 CHAT_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -487,6 +504,7 @@ async def api_governance_regression_dashboard(user: dict = Depends(get_current_u
         trends_limit=trends_limit,
         evidence_limit=evidence_limit,
         memory=refinement_memory,
+        nightly_status=build_regression_nightly_status(),
     )
     return {"success": True, **dashboard}
 
@@ -498,6 +516,7 @@ async def api_governance_operator_summary(user: dict = Depends(get_current_user)
         trends_limit=trends_limit,
         evidence_limit=evidence_limit,
         memory=refinement_memory,
+        nightly_status=build_regression_nightly_status(),
     )
     return {"success": True, **summary}
 
