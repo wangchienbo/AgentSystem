@@ -66,3 +66,11 @@ def run_fixed_prompt_matrix(
         payload = post_json(path, {"message": prompt})
         results.append(summarize_probe_payload(topic, payload))
     return results
+
+
+def make_testclient_poster(client: Any) -> Callable[[str, dict[str, Any]], dict[str, Any]]:
+    def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        response = client.post(path, json=payload)
+        return dict(response.json())
+
+    return _post

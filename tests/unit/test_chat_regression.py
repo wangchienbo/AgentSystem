@@ -1,4 +1,4 @@
-from app.system.chat_regression import FIXED_PROMPT_MATRIX, run_fixed_prompt_matrix, summarize_probe_payload
+from app.system.chat_regression import FIXED_PROMPT_MATRIX, make_testclient_poster, run_fixed_prompt_matrix, summarize_probe_payload
 
 
 def test_fixed_prompt_matrix_topics_are_stable() -> None:
@@ -69,3 +69,24 @@ def test_run_fixed_prompt_matrix_executes_all_topics() -> None:
     assert [r.topic for r in results] == ["api", "validation", "telemetry", "storage"]
     assert all(path == "/api/chat" for path, _ in calls)
     assert [payload["message"] for _, payload in calls] == list(FIXED_PROMPT_MATRIX.values())
+
+
+def test_make_testclient_poster_wraps_client_json_response() -> None:
+    class FakeResponse:
+        def json(self) -> dict:
+            return {"success": True, "response": "ok", "latency_ms": 1}
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def post(self, path: str, json: dict):
+            self.calls.append((path, json))
+            return FakeResponse()
+
+    client = FakeClient()
+    post_json = make_testclient_poster(client)
+    payload = post_json("/api/chat", {"message": "hello"})
+
+    assert payload["success"] is True
+    assert client.calls == [("/api/chat", {"message": "hello"})]

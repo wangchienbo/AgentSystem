@@ -1,3 +1,31 @@
+## 2026-04-27: TestClient-backed Chat Regression Probes
+
+### Summary
+Extended the executable chat regression harness so it can run through a real `TestClient`-style `/api/chat` path, not only through injected fake callers.
+
+### What Was Done
+- Updated `app/system/chat_regression.py`
+  - added `make_testclient_poster(...)`
+  - adapts a TestClient-like object into the `run_fixed_prompt_matrix(...)` caller contract
+- Updated `tests/unit/test_chat_regression.py`
+  - verifies the TestClient adapter preserves request path and JSON payload behavior
+- Updated `tests/unit/test_http_test_server.py`
+  - verifies the fixed prompt matrix can execute through the real HTTP test server client path
+  - verifies the resulting regression summaries preserve topic success and cognition mode data
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `42 passed`
+
+### Product Conclusion
+The regression harness is now connected to a real API-facing execution path. This is the first practical step from internal cognition structure toward repeatable user-surface regression runs.
+
+### Remaining Follow-up
+Next steps:
+- persist probe results for longitudinal comparison
+- add per-run summary metrics across topics
+- start feeding verification outcomes back into a structured evidence ledger
+
 ## 2026-04-27: Executable Fixed-Prompt Chat Regression Harness
 
 ### Summary
