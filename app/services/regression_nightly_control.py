@@ -108,14 +108,23 @@ class RegressionNightlyControlService:
         }
         if driver_status is not None:
             status["driver"] = driver_status
+            last_cycle = status.get("last_cycle_result") or {}
+            last_decision = status.get("last_tick_decision")
             status["automation_control"] = {
                 "driver": driver_status,
                 "schedule_registered": status["registered"],
                 "due_now": status["due_now"],
                 "next_trigger_at": status["next_trigger_at"],
                 "last_tick_at": status.get("last_tick_at"),
-                "last_tick_decision": status.get("last_tick_decision"),
-                "last_cycle_run_id": None if not status.get("last_cycle_result") else status["last_cycle_result"].get("run_id"),
+                "last_tick_decision": last_decision,
+                "last_cycle_run_id": last_cycle.get("run_id"),
+                "last_cycle_error": last_cycle.get("error"),
+                "last_cycle_error_type": last_cycle.get("error_type"),
+                "last_tick_outcome": (
+                    "failed" if last_decision == "failed_cycle" else
+                    "triggered" if last_decision == "triggered_due" else
+                    "skipped"
+                ),
             }
         return status
 

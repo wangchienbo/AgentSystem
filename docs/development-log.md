@@ -1,3 +1,24 @@
+## 2026-04-28: Enrich Automation Control Card with Outcome and Failure Fields
+
+### Summary
+Improved the nightly automation control card so it now surfaces execution outcome semantics directly, including failed-cycle error metadata, instead of leaving operators to infer control-plane state from raw fields.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - enriched `automation_control` with:
+    - `last_cycle_error`
+    - `last_cycle_error_type`
+    - `last_tick_outcome` (`skipped` | `triggered` | `failed`)
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - verified default control-card outcome shape
+  - verified failed-cycle state is reflected explicitly in `automation_control`
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `33 passed`
+
+### Product Conclusion
+The nightly control card now behaves more like a real operator surface. It tells the operator not just what the last decision label was, but also whether the automation loop effectively skipped, triggered, or failed, and why. This makes the governance view much closer to a usable control plane instead of a raw state dump.
 ## 2026-04-28: Record Failed Cycle State in Nightly Control Plane
 
 ### Summary

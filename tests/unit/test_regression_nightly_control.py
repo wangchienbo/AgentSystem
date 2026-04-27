@@ -87,6 +87,7 @@ def test_build_nightly_status_exposes_automation_control_card(tmp_path: Path) ->
     assert "automation_control" in status
     assert status["automation_control"]["driver"]["running"] is True
     assert status["automation_control"]["schedule_registered"] is True
+    assert status["automation_control"]["last_tick_outcome"] == "skipped"
 
 
 def test_trigger_due_tick_records_no_trigger_match(tmp_path: Path) -> None:
@@ -121,3 +122,20 @@ def test_trigger_due_tick_propagates_cycle_failure_and_records_failed_state(tmp_
     state = service.load_tick_state()
     assert state["last_tick_decision"] == "failed_cycle"
     assert state["last_cycle_result"]["error_type"] == "RuntimeError"
+
+
+def test_build_nightly_status_exposes_failure_fields_in_automation_control(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    service.register_nightly_schedule(interval_seconds=3600)
+    service.save_tick_state({
+        "last_tick_at": "2026-04-28T00:00:00Z",
+        "last_tick_decision": "failed_cycle",
+        "last_tick_triggered": False,
+        "last_cycle_result": {"error": "cycle failed", "error_type": "RuntimeError"},
+    })
+
+    status = service.build_nightly_status({"running": False})
+
+    assert status["automation_control"]["last_tick_outcome"] == "failed"
+    assert status["automation_control"]["last_cycle_error"] == "cycle failed"
+    assert status["automation_control"]["last_cycle_error_type"] == "RuntimeError"
