@@ -1,3 +1,39 @@
+## 2026-04-27: Fixed-Prompt Chat Regression Harness Seed
+
+### Summary
+Extended the fifth implementation slice by adding a first structured regression harness seed for `/api/chat`-style introspection prompts and a normalized probe summary model for latency/mode/risk observations.
+
+### What Was Done
+- Added `app/system/chat_regression.py`
+  - fixed prompt matrix for core introspection topics:
+    - `api`
+    - `validation`
+    - `telemetry`
+    - `storage`
+  - normalized `RegressionProbeResult` summary object capturing:
+    - `latency_ms`
+    - `answer_mode`
+    - `verification_mode`
+    - `fallback_like`
+    - `overreach_risk`
+- Added `tests/unit/test_chat_regression.py`
+  - verifies stable topic set
+  - verifies mode/risk extraction behavior
+  - verifies sensible defaults when structured payload is missing
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `39 passed`
+
+### Product Conclusion
+The system now has a lightweight normalized surface for fixed-prompt regression observations, which is a useful precursor to a true executable `/api/chat` regression harness and later operational comparison runs.
+
+### Remaining Follow-up
+Next steps:
+- wire the probe summary into a runnable `/api/chat` harness
+- persist per-topic observations for comparison
+- connect verification-result feedback into a broader evidence ledger
+
 ## 2026-04-27: Response Policy Mode Consumption + Regression Seed Matrix
 
 ### Summary
