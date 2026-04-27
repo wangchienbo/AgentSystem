@@ -170,3 +170,47 @@ def test_build_multi_run_comparison_aggregates_saved_summaries(tmp_path: Path) -
     assert comp["avg_overreach_risk_count"] == 0.5
     assert comp["answer_mode_totals"]["direct"] == 1
     assert comp["answer_mode_totals"]["verification_required"] == 1
+
+
+def test_build_regression_evidence_from_comparison_generates_correct_signals() -> None:
+    from app.system.regression_evidence_bridge import build_regression_evidence_from_comparison
+
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6000,
+        "avg_fallback_count": 2.0,
+        "avg_overreach_risk_count": 1.5,
+        "answer_mode_totals": {"verification_required": 4, "clarification_required": 3, "direct": 3},
+        "verification_mode_totals": {"none": 5, "required": 5},
+        "runs": [],
+    }
+
+    evidence_list = build_regression_evidence_from_comparison(comparison)
+    assert len(evidence_list) >= 3
+
+    topics = [e.summary for e in evidence_list]
+    assert any("latency" in s for s in topics)
+    assert any("fallback" in s for s in topics)
+    assert any("overreach" in s for s in topics)
+
+    for e in evidence_list:
+        assert e.category in {"workflow_failure", "policy_pressure", "clarify_unresolved"}
+        assert e.app_instance_id == "chat_regression"
+        assert e.impact_area in {"runtime", "response_quality", "boundary_policy"}
+
+
+def test_build_regression_evidence_from_comparison_no_evidence_for_small_data() -> None:
+    from app.system.regression_evidence_bridge import build_regression_evidence_from_comparison
+
+    comparison = {
+        "run_count": 1,
+        "avg_latency_ms": 1000,
+        "avg_fallback_count": 0,
+        "avg_overreach_risk_count": 0,
+        "answer_mode_totals": {"direct": 2},
+        "verification_mode_totals": {"none": 2},
+        "runs": [],
+    }
+
+    evidence_list = build_regression_evidence_from_comparison(comparison)
+    assert evidence_list == []

@@ -1,3 +1,32 @@
+## 2026-04-27: Regression Evidence Bridge to Refinement
+
+### Summary
+Connected the chat regression subsystem's operational outputs into the evidence/refinement pipeline, so the system can self-monitor and detect performance regressions that warrant action.
+
+### What Was Done
+- Created `app/system/regression_evidence_bridge.py`
+  - added `build_regression_evidence_from_comparison(...)` – transforms multi-run comparison data into `PromotedEvidence` records via the existing `LogEvidenceService._promote_signal` flow
+  - added `promote_regression_evidence(...)` – convenience wrapper
+  - Five detection rules: elevated latency, elevated fallback rate, overreach risk, conservative answer mode skew, conflicting direct+overreach signals
+- Updated `app/system/http_test_server.py`
+  - added `POST /api/chat-regression/evidence`
+- Added tests covering:
+  - evidence generation from comparison data
+  - no evidence for small/healthy data
+  - evidence endpoint behavior
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `52 passed`
+
+### Product Conclusion
+The regression subsystem is now fully connected: from execution (run) through observation (latest/runs/detail/compare) to evidence generation that feeds into the refinement pipeline. This enables the system to self-detect regressions (latency spikes, elevated fallback/overreach, mode skew) and surface them as structured evidence for operator review or automated refinement.
+
+### Remaining Follow-up
+Next steps:
+- add topic-level trend slices for more granular evidence
+- integrate evidence into refinement governance dashboard
+- add evidence history viewer for regression evidence
 ## 2026-04-27: Multi-Run Chat Regression Comparative Summary
 
 ### Summary

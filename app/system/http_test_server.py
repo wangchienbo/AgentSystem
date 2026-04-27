@@ -22,8 +22,8 @@ from pydantic import BaseModel
 from app.bootstrap.runtime import build_runtime
 from app.models.chat import ChatMessageRequest
 from app.system.chat_regression import (
-    build_run_summary,
     build_multi_run_comparison,
+    build_run_summary,
     make_testclient_poster,
     persist_run_results,
     REGRESSION_LOG_DIR,
@@ -333,6 +333,10 @@ async def api_chat_regression_run_detail(run_id: str, user: dict = Depends(get_c
     return {"success": True, **detail}
 
 
+
+from app.system.regression_evidence_bridge import promote_regression_evidence
+
+
 @app.get("/api/chat-regression/compare")
 async def api_chat_regression_compare(user: dict = Depends(get_current_user), limit: int = 5):
     comparison = build_multi_run_comparison(limit=limit)
@@ -429,3 +433,9 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", "80"))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+@app.post("/api/chat-regression/evidence")
+async def api_chat_regression_evidence(user: dict = Depends(get_current_user), limit: int = 5):
+    result = promote_regression_evidence(limit=limit)
+    return {"success": True, **result}

@@ -293,3 +293,41 @@ def test_api_chat_regression_compare_endpoint() -> None:
     assert data["success"] is True
     assert data["run_count"] == 2
     assert data["avg_latency_ms"] == 200
+
+
+def test_api_chat_regression_evidence_endpoint() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6000,
+        "avg_fallback_count": 2.0,
+        "avg_overreach_risk_count": 1.5,
+        "answer_mode_totals": {"verification_required": 4, "clarification_required": 3, "direct": 3},
+        "verification_mode_totals": {"none": 5, "required": 5},
+        "runs": [],
+    }
+
+    with patch("app.system.http_test_server.build_multi_run_comparison", return_value=fake_comparison),          patch("app.system.http_test_server.promote_regression_evidence", return_value={
+             "comparison": fake_comparison,
+             "promoted_evidence": [{"evidence_id": "evidence-abc", "summary": "elevated latency"}],
+             "promoted_count": 1,
+         }):
+        resp = client.post("/api/chat-regression/evidence")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["promoted_count"] == 1
+    assert data["promoted_evidence"][0]["evidence_id"] == "evidence-abc"
