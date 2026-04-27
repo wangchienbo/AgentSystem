@@ -61,6 +61,16 @@ def build_regression_governance_dashboard(
             "latest_queue_item": None if overview.latest_queue_item is None else overview.latest_queue_item.model_dump(mode="json"),
         }
 
+    automation_attention = None
+    if nightly_status is not None:
+        automation = nightly_status.get("automation_control") or {}
+        if automation.get("automation_health") in {"warning", "degraded"}:
+            automation_attention = {
+                "health": automation.get("automation_health"),
+                "reason": automation.get("attention_reason") or automation.get("last_tick_decision") or "",
+                "last_tick_outcome": automation.get("last_tick_outcome"),
+            }
+
     return {
         "comparison": comparison,
         "trends": trends,
@@ -68,6 +78,7 @@ def build_regression_governance_dashboard(
         "risk_flags": risk_flags,
         "rollout_summary": rollout_summary,
         "nightly_automation": nightly_status,
+        "automation_attention": automation_attention,
         "dashboard_id": "regression-governance",
         "generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
     }
@@ -165,6 +176,7 @@ def build_regression_operator_summary(
                 "recent_queue": recent_queue,
                 "recent_failed_hypotheses": recent_failed_hypotheses,
                 "nightly_automation": nightly_status,
+                "automation_attention": dashboard.get("automation_attention"),
             },
         },
         "regression": dashboard,

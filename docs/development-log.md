@@ -1,3 +1,22 @@
+## 2026-04-28: Map Automation Health into Governance Attention Surfaces
+
+### Summary
+Promoted nightly automation health into higher-level governance/operator views so warning and degraded automation states now appear as explicit attention signals instead of only living inside the raw control card.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - governance dashboard now derives `automation_attention` from nightly automation health
+  - operator summary now exposes `automation_attention` inside `refinement.governance`
+  - warning/degraded automation states are mapped into concise health/reason/outcome attention payloads
+- Updated tests:
+  - verified degraded automation state is reflected in both dashboard and operator summary attention views
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `38 passed`
+
+### Product Conclusion
+Automation health is now no longer buried inside a nested control card. The governance surface can actively highlight when the nightly automation loop itself needs attention, which makes the operator summary feel much more like a real operational overview instead of a passive state dump.
 ## 2026-04-28: Add Automation Health and Attention Reason Semantics
 
 ### Summary

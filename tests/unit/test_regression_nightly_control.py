@@ -204,3 +204,23 @@ def test_build_nightly_status_exposes_warning_health_for_retry_pending(tmp_path:
 
     assert status["automation_control"]["automation_health"] == "warning"
     assert status["automation_control"]["attention_reason"] == "retry_pending"
+
+
+def test_regression_dashboard_maps_automation_attention() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_governance_dashboard, build_regression_operator_summary
+
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "degraded",
+            "attention_reason": "consecutive_failures",
+            "last_tick_outcome": "failed",
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value={"run_count": 1, "avg_latency_ms": 0, "avg_fallback_count": 0, "avg_overreach_risk_count": 0, "answer_mode_totals": {}, "verification_mode_totals": {}}),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]),          patch("app.system.regression_dashboard.build_regression_triggers", return_value={"triggers": [], "trigger_count": 0}):
+        dashboard = build_regression_governance_dashboard(nightly_status=nightly_status)
+        summary = build_regression_operator_summary(nightly_status=nightly_status)
+
+    assert dashboard["automation_attention"]["health"] == "degraded"
+    assert summary["refinement"]["governance"]["automation_attention"]["reason"] == "consecutive_failures"
