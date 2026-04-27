@@ -17,6 +17,8 @@ class SelfModel(BaseModel):
     uncertainty_state: str = Field(default="")
     policy_state: str = Field(default="evidence_first")
     human_equivalence_state: Literal["non_human_equivalent"] = Field(default="non_human_equivalent")
+    answer_mode: Literal["direct", "tool_required", "verification_required", "clarification_required"] = Field(default="direct")
+    verification_mode: Literal["none", "light", "required"] = Field(default="none")
 
 
 class StructuredClaim(BaseModel):

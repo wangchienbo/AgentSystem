@@ -1,3 +1,42 @@
+## 2026-04-27: Structured Answer Schema Hardening + SelfModel Mode Routing
+
+### Summary
+Completed the fourth implementation slice of the cognition-governance path by hardening structured-answer parsing and making `SelfModel` express answer-mode and verification-mode more directly.
+
+### What Was Done
+- Updated `app/models/cognition.py`
+  - extended `SelfModel` with:
+    - `answer_mode`
+    - `verification_mode`
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - hardened structured JSON parsing logic
+  - added safe fallback behavior when JSON is invalid or incomplete
+  - normalized unknown `evidence_grade` values to bounded defaults
+  - clamped confidence into `[0.0, 1.0]`
+  - promoted `SelfModel` from passive expression toward mode signaling:
+    - `tool_required`
+    - `verification_required`
+    - `clarification_required`
+    - paired verification intensity (`none` / `light` / `required`)
+- Added tests covering:
+  - invalid JSON fallback
+  - unknown grade normalization
+  - confidence clamping
+  - excerpt-level introspection mode routing
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_http_test_server.py tests/unit/test_tool_calling_engine.py`
+- Result: `34 passed`
+
+### Product Conclusion
+The cognition contract is now more resilient under malformed structured output, and `SelfModel` has started to influence response semantics more explicitly instead of only describing them after the fact.
+
+### Remaining Follow-up
+Potential next steps:
+- wire `answer_mode` / `verification_mode` into more external response policies
+- add verification-result ingestion into a broader evidence ledger
+- build fixed-prompt `/api/chat` regression suites for operational observability
+
 ## 2026-04-27: Structured Summarizer Default JSON + Response Surface Exposure
 
 ### Summary

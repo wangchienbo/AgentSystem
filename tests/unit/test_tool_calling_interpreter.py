@@ -320,3 +320,54 @@ def test_deterministic_prestep_telemetry_includes_profile_and_fallback_fields() 
     assert "fallback_count" in payload
     assert "overreach_risk" in payload
     assert "verification_outcome" in payload
+
+
+def test_build_structured_answer_falls_back_when_json_is_invalid() -> None:
+    interpreter, _ = _build_interpreter()
+    result = ToolCallingResult(final_text='{"claim": ', tool_calls=[])
+
+    command = interpreter._process_result(result, "请确认代码默认值")
+
+    assert command.structured_answer is not None
+    assert command.structured_answer.claim.text == '{"claim":'
+    assert "结构化结果缺失或无效" in command.structured_answer.unverified_points[0]
+    assert command.structured_answer.self_model.answer_mode == "verification_required"
+    assert command.structured_answer.self_model.verification_mode == "required"
+
+
+def test_build_structured_answer_normalizes_unknown_grade_and_clamps_confidence() -> None:
+    interpreter, _ = _build_interpreter()
+    result = ToolCallingResult(
+        final_text=json.dumps({
+            "claim": {"text": "已得到一个不稳定结论", "evidence_grade": "weird", "confidence": 9},
+            "evidence": [{"grade": "odd", "source_type": "read_file", "source_ref": "a.py", "snippet": "x=1"}],
+            "unverified_points": [],
+        }, ensure_ascii=False),
+        tool_calls=[],
+    )
+
+    command = interpreter._process_result(result, "请确认代码默认值")
+
+    assert command.structured_answer is not None
+    assert command.structured_answer.claim.evidence_grade == "none"
+    assert command.structured_answer.claim.confidence == 1.0
+    assert command.structured_answer.evidence[0]["grade"] == "none"
+    assert command.structured_answer.self_model.answer_mode == "verification_required"
+
+
+def test_build_structured_answer_sets_tool_mode_for_excerpt_level_introspection() -> None:
+    interpreter, _ = _build_interpreter()
+    result = ToolCallingResult(
+        final_text=json.dumps({
+            "claim": {"text": "已确认默认值是 json", "evidence_grade": "excerpt", "confidence": 0.88},
+            "evidence": [{"grade": "excerpt", "source_type": "read_file", "source_ref": "a.py", "snippet": "persistence_mode='json'"}],
+            "unverified_points": ["尚未验证环境覆盖"],
+        }, ensure_ascii=False),
+        tool_calls=[],
+    )
+
+    command = interpreter._process_result(result, "请确认代码默认值")
+
+    assert command.structured_answer is not None
+    assert command.structured_answer.self_model.answer_mode == "tool_required"
+    assert command.structured_answer.self_model.verification_mode == "light"

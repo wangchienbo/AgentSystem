@@ -958,28 +958,60 @@ PY"""
         grade_rank = {"none": 0, "hint": 1, "excerpt": 2, "verified_fact": 3, "runtime_observation": 4}
         claim_grade = "none"
 
+        def _clamp_conf(value: Any, default: float) -> float:
+            try:
+                return max(0.0, min(1.0, float(value)))
+            except Exception:
+                return default
+
+        def _normalize_evidence_grade(value: Any) -> str:
+            val = str(value or "none")
+            return val if val in grade_rank else "none"
+
+        def _fallback_text_payload(text: str) -> dict[str, Any]:
+            return {
+                "claim": {
+                    "text": text,
+                    "evidence_grade": "none",
+                    "confidence": confidence,
+                },
+                "evidence": [],
+                "unverified_points": ["结构化结果缺失或无效，已回退为保守文本结论"],
+                "confidence": confidence,
+            }
+
         try:
             maybe = json.loads(final_text) if final_text.strip().startswith("{") else None
             if isinstance(maybe, dict) and any(k in maybe for k in ("claim", "evidence", "unverified_points", "confidence")):
                 payload = maybe
         except Exception:
-            payload = None
+            payload = _fallback_text_payload(final_text)
 
         if payload is not None:
             claim_payload = payload.get("claim", {}) if isinstance(payload.get("claim"), dict) else {}
-            parsed_claim = str(claim_payload.get("text") or payload.get("text") or final_text)
-            claim_grade = str(claim_payload.get("evidence_grade") or payload.get("evidence_grade") or "none")
-            parsed_confidence = float(claim_payload.get("confidence") or payload.get("confidence") or confidence)
-            parsed_unverified = [str(x) for x in (payload.get("unverified_points") or [])][:5]
+            parsed_claim = str(claim_payload.get("text") or payload.get("text") or final_text or "")
+            claim_grade = _normalize_evidence_grade(claim_payload.get("evidence_grade") or payload.get("evidence_grade") or "none")
+            parsed_confidence = _clamp_conf(claim_payload.get("confidence") or payload.get("confidence") or confidence, confidence)
+            parsed_unverified = [str(x) for x in (payload.get("unverified_points") or []) if str(x).strip()][:5]
             for item in (payload.get("evidence") or [])[:5]:
                 if isinstance(item, dict):
-                    evidence.append(item)
+                    evidence.append({
+                        "grade": _normalize_evidence_grade(item.get("grade")),
+                        "source_type": str(item.get("source_type", "")),
+                        "source_ref": str(item.get("source_ref", "")),
+                        "snippet": str(item.get("snippet", "")),
+                        "supports_claims": item.get("supports_claims", []),
+                    })
+            if not parsed_claim.strip():
+                parsed_claim = str(final_text or "")
+            if claim_grade in ("none", "hint") and not parsed_unverified:
+                parsed_unverified.append("当前结论仍受限于现有观测与证据等级")
         else:
             if evidence_items:
-                claim_grade = max((getattr(item, "grade", "none") for item in evidence_items), key=lambda g: grade_rank.get(g, 0))
+                claim_grade = max((_normalize_evidence_grade(getattr(item, "grade", "none")) for item in evidence_items), key=lambda g: grade_rank.get(g, 0))
                 for item in evidence_items[:5]:
                     evidence.append({
-                        "grade": getattr(item, "grade", "none"),
+                        "grade": _normalize_evidence_grade(getattr(item, "grade", "none")),
                         "source_type": getattr(item, "source_type", ""),
                         "source_ref": getattr(item, "source_ref", ""),
                         "snippet": getattr(item, "snippet", ""),
@@ -988,11 +1020,35 @@ PY"""
             if claim_grade in ("none", "hint"):
                 parsed_unverified.append("当前结论仍受限于现有观测与证据等级")
 
+        is_introspection = self._is_code_introspection_query(raw_input)
+        answer_mode = "direct"
+        verification_mode = "none"
+        capability_state = "direct"
+        tool_dependence_state = "optional"
+        uncertainty_state = ""
+
+        if is_introspection:
+            capability_state = "tool_required"
+            tool_dependence_state = "required"
+            if claim_grade in ("none", "hint"):
+                answer_mode = "verification_required"
+                verification_mode = "required"
+                uncertainty_state = "需先观测或验证"
+            else:
+                answer_mode = "tool_required"
+                verification_mode = "light" if claim_grade == "excerpt" else "none"
+        elif parsed_unverified:
+            answer_mode = "clarification_required" if parsed_confidence < 0.5 else "verification_required"
+            verification_mode = "light"
+            capability_state = "verification_required" if answer_mode == "verification_required" else "direct"
+
         self_model = SelfModel(
-            capability_state="tool_required" if self._is_code_introspection_query(raw_input) else "direct",
-            tool_dependence_state="required" if self._is_code_introspection_query(raw_input) else "optional",
+            capability_state=capability_state,
+            tool_dependence_state=tool_dependence_state,
             confidence_state=parsed_confidence,
-            uncertainty_state="需先观测或验证" if self._is_code_introspection_query(raw_input) and claim_grade in ("none", "hint") else "",
+            uncertainty_state=uncertainty_state,
+            answer_mode=answer_mode,
+            verification_mode=verification_mode,
         )
         claim = StructuredClaim(text=parsed_claim, evidence_grade=claim_grade, confidence=parsed_confidence)
         return StructuredAnswer(
