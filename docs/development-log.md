@@ -1,3 +1,22 @@
+## 2026-04-28: Expand Direct Coverage for Nightly Control Service
+
+### Summary
+Strengthened the nightly automation service boundary by adding more direct unit coverage for the manual trigger path and the automation control snapshot shape.
+
+### What Was Done
+- Updated `tests/unit/test_regression_nightly_control.py`
+- Added direct service tests for:
+  - manual trigger returns `triggered=false` when scheduler has no matching runnable schedule
+  - manual trigger executes and returns cycle result when schedule matches
+  - nightly status exposes the `automation_control` card with driver + schedule fields
+- Retained HTTP coverage as a separate transport-layer verification layer
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `30 passed`
+
+### Product Conclusion
+The nightly regression control plane is now better protected at the service layer. Manual trigger semantics and control-card structure can be evolved with more confidence because they are no longer only implied by HTTP behavior, they are directly asserted where the logic lives.
 ## 2026-04-28: Move Manual Nightly Trigger Behind Service Seam
 
 ### Summary

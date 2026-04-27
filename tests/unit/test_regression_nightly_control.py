@@ -58,3 +58,32 @@ def test_trigger_due_tick_executes_when_due(tmp_path: Path) -> None:
     assert result["triggered"] is True
     assert result["cycle"]["run_id"] == "svc-nightly-run"
     assert result["nightly_status"]["last_tick_decision"] == "triggered_due"
+
+
+def test_trigger_manual_cycle_returns_not_triggered_when_scheduler_no_match(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    result = service.trigger_manual_cycle(client=Mock())
+    assert result["triggered"] is False
+    assert isinstance(result["schedule_results"], list)
+
+
+def test_trigger_manual_cycle_executes_and_clears_pending_when_schedule_matches(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    service.register_nightly_schedule(interval_seconds=3600)
+    service.run_cycle = Mock(return_value={"run_id": "manual-run-1"})
+
+    result = service.trigger_manual_cycle(client=Mock())
+
+    assert result["triggered"] is True
+    assert result["cycle"]["run_id"] == "manual-run-1"
+
+
+def test_build_nightly_status_exposes_automation_control_card(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    service.register_nightly_schedule(interval_seconds=3600)
+
+    status = service.build_nightly_status({"running": True, "interval_seconds": 60})
+
+    assert "automation_control" in status
+    assert status["automation_control"]["driver"]["running"] is True
+    assert status["automation_control"]["schedule_registered"] is True
