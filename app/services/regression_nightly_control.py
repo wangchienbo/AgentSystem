@@ -105,6 +105,10 @@ class RegressionNightlyControlService:
             "last_tick_decision": state.get("last_tick_decision"),
             "last_tick_triggered": state.get("last_tick_triggered"),
             "last_cycle_result": state.get("last_cycle_result"),
+            "last_failure_at": state.get("last_failure_at"),
+            "consecutive_failures": state.get("consecutive_failures", 0),
+            "degraded": state.get("degraded", False),
+            "retry_pending": state.get("retry_pending", False),
         }
         if driver_status is not None:
             status["driver"] = driver_status
@@ -120,6 +124,10 @@ class RegressionNightlyControlService:
                 "last_cycle_run_id": last_cycle.get("run_id"),
                 "last_cycle_error": last_cycle.get("error"),
                 "last_cycle_error_type": last_cycle.get("error_type"),
+                "last_failure_at": status.get("last_failure_at"),
+                "consecutive_failures": status.get("consecutive_failures", 0),
+                "degraded": status.get("degraded", False),
+                "retry_pending": status.get("retry_pending", False),
                 "last_tick_outcome": (
                     "failed" if last_decision == "failed_cycle" else
                     "triggered" if last_decision == "triggered_due" else
@@ -131,12 +139,25 @@ class RegressionNightlyControlService:
     def record_tick(self, *, decision: str, triggered: bool, cycle: dict[str, Any] | None = None, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
         state = self.load_tick_state()
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        consecutive_failures = int(state.get("consecutive_failures") or 0)
+        last_failure_at = state.get("last_failure_at")
+        if decision == "failed_cycle":
+            consecutive_failures += 1
+            last_failure_at = now
+        elif decision == "triggered_due":
+            consecutive_failures = 0
+        degraded = consecutive_failures >= 2
+        retry_pending = decision == "failed_cycle"
         state.update({
             "last_tick_at": now,
             "last_tick_decision": decision,
             "last_tick_triggered": triggered,
             "last_cycle_result": cycle,
             "last_nightly_status": nightly_status,
+            "last_failure_at": last_failure_at,
+            "consecutive_failures": consecutive_failures,
+            "degraded": degraded,
+            "retry_pending": retry_pending,
         })
         self.save_tick_state(state)
         return state

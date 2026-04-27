@@ -1,3 +1,30 @@
+## 2026-04-28: Add Failure Recovery Metadata to Nightly Control Plane
+
+### Summary
+Extended nightly regression control semantics beyond simple failure visibility by introducing recovery-oriented state such as consecutive failure counting, degraded mode, and retry-pending signals.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - `record_tick(...)` now maintains:
+    - `last_failure_at`
+    - `consecutive_failures`
+    - `degraded`
+    - `retry_pending`
+  - successful trigger resets failure counters
+  - repeated `failed_cycle` decisions accumulate failure count and can mark the control plane degraded
+  - `automation_control` now exposes these recovery-oriented fields directly
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - verified failure count increments across repeated failed cycles
+  - verified degraded mode activates after consecutive failures
+  - verified successful trigger resets failure counters
+  - verified recovery fields surface in `automation_control`
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `36 passed`
+
+### Product Conclusion
+The nightly regression control plane now has a much stronger operational vocabulary. It can distinguish between an isolated failure and an ongoing degraded condition, and it exposes whether the system effectively needs a retry. This makes the governance surface substantially more useful for real operator decisions.
 ## 2026-04-28: Enrich Automation Control Card with Outcome and Failure Fields
 
 ### Summary
