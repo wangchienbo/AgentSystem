@@ -1,3 +1,22 @@
+## 2026-04-28: Move Manual Nightly Trigger Behind Service Seam
+
+### Summary
+Completed the next service-boundary step by moving the manual nightly trigger path behind `RegressionNightlyControlService` and updating the HTTP test seam to patch the service instead of raw endpoint-level execution helpers.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - ensured `trigger_manual_cycle(...)` exists as a service-owned manual trigger path
+- Updated `app/system/http_test_server.py`
+  - `/api/governance/regression-cycle/nightly/trigger` now delegates to `regression_nightly_control.trigger_manual_cycle(...)`
+- Updated `tests/unit/test_http_test_server.py`
+  - nightly trigger endpoint test now patches the service seam instead of patching lower-level cycle execution directly
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `27 passed`
+
+### Product Conclusion
+The nightly regression subsystem now has cleaner endpoint boundaries: both the due-driven tick path and the manual nightly trigger path sit behind the same control service seam. This reduces HTTP-layer orchestration responsibility and makes future refactors safer because the testing seam now matches the architectural seam.
 ## 2026-04-28: Add Direct Unit Tests for Regression Nightly Control Service
 
 ### Summary

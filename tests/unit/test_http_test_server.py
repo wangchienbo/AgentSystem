@@ -674,7 +674,7 @@ def test_api_governance_regression_cycle_nightly_register_and_trigger() -> None:
         "evidence": {"promoted_count": 1},
         "trigger_application": {"trigger_count": 1},
     }
-    with patch("app.system.http_test_server.run_regression_governance_cycle", return_value=fake_cycle):
+    with patch("app.system.http_test_server.regression_nightly_control.trigger_manual_cycle", return_value={"triggered": True, "schedule_results": [], "cycle": fake_cycle}):
         trig_resp = client.post("/api/governance/regression-cycle/nightly/trigger")
 
     assert trig_resp.status_code == 200

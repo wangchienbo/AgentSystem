@@ -767,31 +767,10 @@ async def api_governance_regression_cycle_nightly_status(user: dict = Depends(ge
 async def api_governance_regression_cycle_nightly_trigger(user: dict = Depends(get_current_user)):
     from fastapi.testclient import TestClient
 
-    ensure_regression_runtime_instance()
-    scheduler = runtime_services["scheduler"]
-    runtime_host = runtime_services["runtime_host"]
-    trigger_results = scheduler.trigger_interval_schedules(APP_INSTANCE_ID)
-    matched = [
-        item.model_dump(mode="json")
-        for item in trigger_results
-        if item.task_name == REGRESSION_CYCLE_TASK_NAME and item.triggered
-    ]
-    if not matched:
-        return {"success": True, "triggered": False, "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
-
     local_client = TestClient(app)
     local_client.cookies.set("session_id", user["session_id"])
-    cycle_result = run_regression_governance_cycle(
-        make_testclient_poster(local_client),
-        memory=refinement_memory,
-    )
-    runtime_host.consume_pending_tasks(APP_INSTANCE_ID, REGRESSION_CYCLE_TASK_NAME)
-    return {
-        "success": True,
-        "triggered": True,
-        "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
-        "cycle": cycle_result,
-    }
+    result = regression_nightly_control.trigger_manual_cycle(client=local_client)
+    return {"success": True, **result}
 
 @app.post("/api/governance/regression-cycle/nightly/tick")
 async def api_governance_regression_cycle_nightly_tick(user: dict = Depends(get_current_user)):
