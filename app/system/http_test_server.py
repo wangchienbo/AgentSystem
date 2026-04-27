@@ -24,6 +24,7 @@ from app.models.chat import ChatMessageRequest
 from app.system.chat_regression import (
     build_multi_run_comparison,
     build_run_summary,
+    build_topic_trends,
     make_testclient_poster,
     persist_run_results,
     REGRESSION_LOG_DIR,
@@ -335,6 +336,12 @@ async def api_chat_regression_run_detail(run_id: str, user: dict = Depends(get_c
 
 
 from app.system.regression_evidence_bridge import promote_regression_evidence
+
+
+@app.get("/api/chat-regression/trends")
+async def api_chat_regression_trends(user: dict = Depends(get_current_user), limit: int = 5):
+    trends = build_topic_trends(limit=limit)
+    return {"success": True, **trends}
 
 
 @app.get("/api/chat-regression/compare")

@@ -188,3 +188,58 @@ def build_multi_run_comparison(*, log_dir: Path | None = None, limit: int = 5) -
         "verification_mode_totals": verification_mode_totals,
         "runs": runs,
     }
+
+
+def build_topic_trends(*, log_dir: Path | None = None, limit: int = 5) -> dict[str, Any]:
+    """Build per-topic trend data across multiple saved regression runs.
+
+    Reads recent runs and extracts each topic's probe across runs,
+    producing per-topic latency/fallback/overreach/mode trends.
+    """
+    from collections import defaultdict
+
+    runs = list_saved_runs(log_dir=log_dir, limit=limit)
+    run_ids = [row["summary"]["run_id"] for row in runs]
+
+    # Collect per-topic probe data across runs
+    topics_data: dict[str, list[dict]] = defaultdict(list)
+    for run_id in run_ids:
+        detail = read_run_details(run_id, log_dir=log_dir)
+        if detail is None:
+            continue
+        for probe in detail.get("probes", []):
+            topic = probe.get("topic", "")
+            if topic:
+                topics_data[topic].append({
+                    "run_id": run_id,
+                    **probe,
+                })
+
+    if not topics_data:
+        return {"topics": {}, "run_count": 0}
+
+    # Compute per-topic trends
+    trend_result: dict[str, Any] = {}
+    for topic, data_points in sorted(topics_data.items()):
+        latencies = [p.get("latency_ms", 0) for p in data_points]
+        fallbacks = [1 if p.get("fallback_like") else 0 for p in data_points]
+        overreaches = [1 if p.get("overreach_risk") else 0 for p in data_points]
+        answer_modes: dict[str, int] = {}
+        verification_modes: dict[str, int] = {}
+        for p in data_points:
+            am = p.get("answer_mode", "unknown")
+            vm = p.get("verification_mode", "unknown")
+            answer_modes[am] = answer_modes.get(am, 0) + 1
+            verification_modes[vm] = verification_modes.get(vm, 0) + 1
+
+        trend_result[topic] = {
+            "run_count": len(data_points),
+            "avg_latency_ms": int(sum(latencies) / len(latencies)) if latencies else 0,
+            "avg_fallback": sum(fallbacks) / len(fallbacks) if fallbacks else 0.0,
+            "avg_overreach": sum(overreaches) / len(overreaches) if overreaches else 0.0,
+            "answer_mode_counts": answer_modes,
+            "verification_mode_counts": verification_modes,
+            "data_points": data_points,
+        }
+
+    return {"topics": trend_result, "run_count": len(run_ids)}

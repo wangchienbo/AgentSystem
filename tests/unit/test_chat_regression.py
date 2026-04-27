@@ -4,6 +4,7 @@ from app.system.chat_regression import (
     FIXED_PROMPT_MATRIX,
     build_run_summary,
     build_multi_run_comparison,
+    build_topic_trends,
     make_testclient_poster,
     persist_run_results,
     list_saved_runs,
@@ -214,3 +215,42 @@ def test_build_regression_evidence_from_comparison_no_evidence_for_small_data() 
 
     evidence_list = build_regression_evidence_from_comparison(comparison)
     assert evidence_list == []
+
+
+def test_build_topic_trends_groups_probes_by_topic(tmp_path: Path) -> None:
+    r1 = [
+        summarize_probe_payload("api", {"success": True, "response": "ok", "latency_ms": 100}),
+        summarize_probe_payload("storage", {"success": True, "response": "ok", "latency_ms": 50}),
+    ]
+    s1 = build_run_summary(r1, run_id="run-a", started_at="2026-04-27T00:00:00Z")
+    persist_run_results(r1, s1, log_dir=tmp_path)
+
+    r2 = [
+        summarize_probe_payload("api", {"success": True, "response": "ok", "latency_ms": 200}),
+        summarize_probe_payload("storage", {"success": True, "response": "过度", "latency_ms": 60,
+            "structured_answer": {"self_model": {"answer_mode": "verification_required", "verification_mode": "required"}}}),
+    ]
+    s2 = build_run_summary(r2, run_id="run-b", started_at="2026-04-27T00:10:00Z")
+    persist_run_results(r2, s2, log_dir=tmp_path)
+
+    trends = build_topic_trends(log_dir=tmp_path, limit=5)
+
+    assert trends["run_count"] == 2
+    assert set(trends["topics"].keys()) == {"api", "storage"}
+
+    api_trend = trends["topics"]["api"]
+    assert api_trend["run_count"] == 2
+    assert api_trend["avg_latency_ms"] == 150
+    assert api_trend["avg_fallback"] == 0.0
+
+    storage_trend = trends["topics"]["storage"]
+    assert storage_trend["run_count"] == 2
+    assert storage_trend["avg_overreach"] == 0.5
+    assert storage_trend["answer_mode_counts"]["direct"] == 1
+    assert storage_trend["answer_mode_counts"]["verification_required"] == 1
+
+
+def test_build_topic_trends_empty_on_no_runs(tmp_path: Path) -> None:
+    trends = build_topic_trends(log_dir=tmp_path, limit=5)
+    assert trends["run_count"] == 0
+    assert trends["topics"] == {}

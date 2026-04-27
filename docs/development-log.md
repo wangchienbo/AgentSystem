@@ -1,3 +1,33 @@
+## 2026-04-27: Topic-Level Chat Regression Trend Slices
+
+### Summary
+Added per-topic trend decomposition across multiple saved runs, so each regression topic (api, validation, telemetry, storage) has its own latency, fallback, overreach, and mode distribution trends instead of only an aggregate cross-topic view.
+
+### What Was Done
+- Updated `app/system/chat_regression.py`
+  - added `build_topic_trends(...)` — reads recent runs, extracts per-topic probe data, and computes:
+    - per-topic `avg_latency_ms`, `avg_fallback`, `avg_overreach`
+    - per-topic answer mode and verification mode distributions
+    - per-topic per-run data points
+- Updated `app/system/http_test_server.py`
+  - added `GET /api/chat-regression/trends`
+- Added tests covering:
+  - topic trend grouping from saved runs
+  - empty result when no runs exist
+  - trends endpoint behavior
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `55 passed`
+
+### Product Conclusion
+The regression subsystem now supports three levels of observation granularity: point (single run detail), cross-topic aggregate (compare), and per-topic trends (trends). This completes the observation surface for operational regression analytics.
+
+### Remaining Follow-up
+Next steps:
+- integrate topic trends into refinement governance dashboard
+- add evidence history viewer for regression evidence
+- add topic-level evidence generation from trends
 ## 2026-04-27: Regression Evidence Bridge to Refinement
 
 ### Summary

@@ -331,3 +331,34 @@ def test_api_chat_regression_evidence_endpoint() -> None:
     assert data["success"] is True
     assert data["promoted_count"] == 1
     assert data["promoted_evidence"][0]["evidence_id"] == "evidence-abc"
+
+
+def test_api_chat_regression_trends_endpoint() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_trends = {
+        "topics": {
+            "api": {"run_count": 2, "avg_latency_ms": 150, "avg_fallback": 0.0, "avg_overreach": 0.0, "answer_mode_counts": {}, "verification_mode_counts": {}, "data_points": []},
+        },
+        "run_count": 2,
+    }
+
+    with patch("app.system.http_test_server.build_topic_trends", return_value=fake_trends):
+        resp = client.get("/api/chat-regression/trends")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["run_count"] == 2
+    assert "api" in data["topics"]
