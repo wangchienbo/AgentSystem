@@ -8,6 +8,8 @@ Provides:
 from __future__ import annotations
 
 import logging
+import threading
+import time
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -39,6 +41,45 @@ from app.system.chat_regression import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+class RegressionNightlyTickDriver:
+    def __init__(self) -> None:
+        self._thread: threading.Thread | None = None
+        self._stop_event = threading.Event()
+        self._interval_seconds = 60
+        self._running = False
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "running": self._running and self._thread is not None and self._thread.is_alive(),
+            "interval_seconds": self._interval_seconds,
+            "thread_alive": self._thread is not None and self._thread.is_alive(),
+        }
+
+    def start(self, *, interval_seconds: int = 60) -> dict[str, Any]:
+        self._interval_seconds = max(5, interval_seconds)
+        if self._thread is not None and self._thread.is_alive():
+            self._running = True
+            return self.status()
+        self._stop_event.clear()
+        self._running = True
+        self._thread = threading.Thread(target=self._loop, name="regression-nightly-tick", daemon=True)
+        self._thread.start()
+        return self.status()
+
+    def stop(self) -> dict[str, Any]:
+        self._running = False
+        self._stop_event.set()
+        return self.status()
+
+    def _loop(self) -> None:
+        while not self._stop_event.wait(self._interval_seconds):
+            try:
+                tick_regression_nightly_cycle("session_tester")
+            except Exception as error:
+                logger.warning("regression nightly tick driver iteration failed: %s", error)
+
+
 # Build AgentSystem runtime once — ModelRouter 从 ~/.config/agentsystem/config.yaml 读取 LLM 配置
 # HTTP server 只做薄薄一层 HTTP 适配，不应直接读取 model 配置
 runtime_services = build_runtime()
@@ -64,6 +105,7 @@ APP_INSTANCE_ID = "agent_system"
 REGRESSION_CYCLE_TASK_NAME = "regression_governance_cycle"
 REGRESSION_NIGHTLY_SCHEDULE_ID = "sch.regression.governance.nightly"
 REGRESSION_NIGHTLY_STATE_KEY = "regression_nightly_state"
+regression_nightly_driver = RegressionNightlyTickDriver()
 
 
 def ensure_regression_runtime_instance() -> None:
@@ -713,3 +755,18 @@ async def api_governance_regression_cycle_nightly_trigger(user: dict = Depends(g
 async def api_governance_regression_cycle_nightly_tick(user: dict = Depends(get_current_user)):
     result = tick_regression_nightly_cycle(user["session_id"])
     return {"success": True, **result}
+
+
+@app.get("/api/governance/regression-cycle/nightly/driver")
+async def api_governance_regression_cycle_nightly_driver_status(user: dict = Depends(get_current_user)):
+    return {"success": True, "driver": regression_nightly_driver.status()}
+
+
+@app.post("/api/governance/regression-cycle/nightly/driver/start")
+async def api_governance_regression_cycle_nightly_driver_start(interval_seconds: int = 60, user: dict = Depends(get_current_user)):
+    return {"success": True, "driver": regression_nightly_driver.start(interval_seconds=interval_seconds)}
+
+
+@app.post("/api/governance/regression-cycle/nightly/driver/stop")
+async def api_governance_regression_cycle_nightly_driver_stop(user: dict = Depends(get_current_user)):
+    return {"success": True, "driver": regression_nightly_driver.stop()}

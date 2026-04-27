@@ -729,3 +729,31 @@ def test_api_governance_regression_cycle_nightly_tick_due_and_not_due() -> None:
     assert due_data["cycle"]["run_id"] == "nightly-run-due"
     assert due_data["nightly_status"]["last_tick_decision"] == "triggered_due"
     assert due_data["nightly_status"]["last_cycle_result"]["run_id"] == "nightly-run-due"
+
+
+def test_api_governance_regression_cycle_nightly_driver_controls() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    import app.system.http_test_server as server
+    server.regression_nightly_driver.stop()
+
+    status_resp = client.get("/api/governance/regression-cycle/nightly/driver")
+    assert status_resp.status_code == 200
+    assert status_resp.json()["driver"]["running"] is False
+
+    start_resp = client.post("/api/governance/regression-cycle/nightly/driver/start?interval_seconds=5")
+    assert start_resp.status_code == 200
+    assert start_resp.json()["driver"]["interval_seconds"] == 5
+
+    stop_resp = client.post("/api/governance/regression-cycle/nightly/driver/stop")
+    assert stop_resp.status_code == 200
+    assert stop_resp.json()["driver"]["running"] is False

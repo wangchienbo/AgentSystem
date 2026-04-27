@@ -1,3 +1,25 @@
+## 2026-04-27: Add Background Nightly Tick Driver Controls
+
+### Summary
+Added a lightweight background tick driver for nightly regression governance, so the system can continuously evaluate whether the nightly schedule is due without requiring a manual endpoint hit each time.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - added `RegressionNightlyTickDriver`
+  - added driver control endpoints:
+    - `GET /api/governance/regression-cycle/nightly/driver`
+    - `POST /api/governance/regression-cycle/nightly/driver/start`
+    - `POST /api/governance/regression-cycle/nightly/driver/stop`
+  - driver runs as a daemon thread and periodically calls `tick_regression_nightly_cycle(...)`
+- Updated tests:
+  - verified driver status / start / stop endpoints through HTTP
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py`
+- Result: `21 passed`
+
+### Product Conclusion
+Regression governance now has a built-in lightweight driver layer. While still intentionally operator-controlled, the system can now sustain its own due-check loop in-process, completing the path from manual governance execution to a controllable self-running automation cycle.
 ## 2026-04-27: Persist Nightly Tick Decisions and Cycle Results
 
 ### Summary
