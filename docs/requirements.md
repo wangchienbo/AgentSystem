@@ -184,6 +184,27 @@ The interaction gateway must also support:
 - action suggestions that users can select to continue the conversation
 - token usage tracking per session
 
+## 5.1.2 Chat Regression Governance Loop
+The system should support a persistent chat regression subsystem for validating interaction quality, governance posture, and refinement readiness through repeatable prompt matrices.
+
+The chat regression subsystem must support:
+- running a fixed prompt matrix against the real HTTP chat surface
+- persisting run summaries and detailed probe results as JSONL artifacts
+- listing historical runs and reading a single run in detail
+- aggregating multi-run comparison metrics across saved runs
+- exposing per-topic trend slices for the canonical topics `api`, `validation`, `telemetry`, and `storage`
+- promoting regression outcomes into reusable evidence records
+- browsing evidence history, including topic-filtered browsing even when evidence records do not have a dedicated topic field
+- building a governance dashboard that combines comparison, trends, evidence, and risk flags
+- exposing a broader operator summary that embeds regression signals into refinement governance structures
+- generating automated refinement triggers from regression risk flags
+- deriving refinement metrics from regression comparison/trigger data rather than returning hardcoded placeholder values
+
+The subsystem should treat regression as an operator loop with three layers:
+- **Observe**: run, latest, runs, run detail, compare, trends, evidence history
+- **Summarize**: governance dashboard and operator summary
+- **Act**: automated refinement triggers derived from risk signals
+
 ## 5.1.1 Evidence-Grade Answer Governance
 The interaction and tool-calling layers must support a reusable evidence-grade governance mechanism for high-risk answers, especially repository/code introspection, configuration claims, runtime-state claims, and implementation-detail claims.
 

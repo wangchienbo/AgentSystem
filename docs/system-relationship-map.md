@@ -236,6 +236,22 @@ graph TD
 
 > Integration note: LLM interaction gateway depends on all existing subsystem services it routes to. Changes in any routed service should be treated as potentially affecting the conversation router's extracted parameters and response construction.
 
+### 3.7.2 Chat Regression Governance Surface
+
+```mermaid
+graph TD
+    HTTP[app/system/http_test_server.py] --> CR[app/system/chat_regression.py]
+    HTTP --> RED[app/system/regression_evidence_bridge.py]
+    HTTP --> RGD[app/system/regression_dashboard.py]
+    CR --> LOG[(data/chat_regression/*.jsonl)]
+    RED --> ELOG[(data/chat_regression/evidence.jsonl)]
+    RGD --> CR
+    RGD --> RED
+    RGD --> REF[models/refinement_loop.py\noperator summary shape]
+```
+
+> Regression note: the chat regression surface is now a real operator loop, not just a harness. Changes in persistence shape, comparison aggregation, evidence promotion, or governance summary fields should be treated as coupled changes across `chat_regression.py`, `regression_evidence_bridge.py`, `regression_dashboard.py`, `http_test_server.py`, and HTTP regression tests.
+
 ### 3.8 External Model / Config
 
 ```mermaid
@@ -570,6 +586,39 @@ graph TD
 
 ---
 
+## 5.13 Chat Regression / Governance Loop
+
+```mermaid
+graph TD
+    F[功能: Chat Regression Governance]
+    F --> H[app/system/http_test_server.py]
+    F --> CR[app/system/chat_regression.py]
+    F --> REB[app/system/regression_evidence_bridge.py]
+    F --> RGD[app/system/regression_dashboard.py]
+    F --> T1[tests/unit/test_chat_regression.py]
+    F --> T2[tests/unit/test_http_test_server.py]
+```
+
+**关键接口面:**
+- `POST /api/chat-regression/run`
+- `GET /api/chat-regression/latest`
+- `GET /api/chat-regression/runs`
+- `GET /api/chat-regression/runs/{run_id}`
+- `GET /api/chat-regression/compare`
+- `GET /api/chat-regression/trends`
+- `POST /api/chat-regression/evidence`
+- `GET /api/chat-regression/evidence`
+- `GET /api/governance/regression-dashboard`
+- `GET /api/governance/operator-summary`
+- `POST /api/governance/regression-triggers`
+
+**改这里通常会影响:**
+- `data/chat_regression/*.jsonl` 持久化兼容性
+- evidence topic 过滤规则（当前按 `summary/scope_key` 匹配 topic 名）
+- refinement governance summary 字段映射
+- 风险信号到自动 refinement action 的映射
+- HTTP 端点测试与 dashboard contract 断言
+
 ## 6. 测试关系网(按"改哪里,先跑哪些"组织)
 
 ### 6.1 改 `app/api/main.py`
@@ -685,6 +734,18 @@ graph TD
 - `tests/unit/test_refinement_governance_dashboard.py`
 - 是否影响 API path 测试的耗时与稳定性
 
+### 7.6 改 chat regression / governance loop 时
+
+检查:
+- `app/system/chat_regression.py`
+- `app/system/regression_evidence_bridge.py`
+- `app/system/regression_dashboard.py`
+- `app/system/http_test_server.py`
+- `tests/unit/test_chat_regression.py`
+- `tests/unit/test_http_test_server.py`
+- `docs/testing.md` 与 `docs/development-log.md` 是否需要同步
+- JSONL 持久化字段是否保持后向兼容
+
 ---
 
 ## 8. 关系边定义说明
@@ -728,6 +789,21 @@ graph TD
 - 如果两个模块开始频繁一起改 → 即使不是直接 import,也补一条边
 
 > 原则:**宁可多连一条边,也不要少连一条会导致漏改的边。**
+
+### 6.7 改 chat regression / governance loop 时
+
+优先跑:
+- `tests/unit/test_chat_regression.py`
+- `tests/unit/test_http_test_server.py`
+- 与 refinement governance summary 相关的 operator / dashboard 测试切片
+- 任何涉及 JSONL persistence 兼容性的回归样例
+
+检查:
+- `app/system/chat_regression.py`
+- `app/system/regression_evidence_bridge.py`
+- `app/system/regression_dashboard.py`
+- `app/system/http_test_server.py`
+- `docs/testing.md` 与 `docs/development-log.md` 是否需要同步
 
 ### 6.6 改 telemetry / upgrade-log / collection-policy 时
 

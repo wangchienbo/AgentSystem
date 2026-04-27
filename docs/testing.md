@@ -79,6 +79,19 @@ Used for lightweight client-level validation such as:
 - manifest validation separation coverage so script adapters are not rejected by executable-entrypoint rules while executable adapters still require concrete entry metadata
 - interpreter/gateway regression coverage should explicitly validate code-introspection uncertainty discipline, including cases where the system must say "未证实" or "尚未读取文件内容，不能确认" instead of inventing concrete storage engines or implementation details
 
+### 2.2.2 Chat regression governance tests
+Used to validate the new chat regression operator loop end to end through the HTTP test surface:
+- fixed prompt matrix execution through real TestClient posting
+- persisted JSONL run summaries and run detail retrieval
+- comparison aggregation across saved runs
+- per-topic trend slices for `api | validation | telemetry | storage`
+- regression evidence promotion and evidence history browsing
+- topic-filtered evidence history behavior when evidence records do not carry an explicit topic field
+- governance dashboard aggregation (`regression-dashboard`)
+- broader operator summary integration (`operator-summary`)
+- automated refinement trigger generation from regression risk flags (`regression-triggers`)
+- regression-derived refinement metric population in governance summaries
+
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:
 - install a blueprint
@@ -196,6 +209,20 @@ Covered behavior:
 - scheduler/supervisor API flow
 - proposal review / priority analysis context-aware scoring and review notes
 - refinement operator summary coverage across proposal/review/priority/governance aggregation
+- chat regression governance coverage across run execution, persistence, browsing, governance dashboards, operator summaries, and automated trigger generation
+
+## 3.6 Chat regression governance loop
+Covered behavior:
+- execute fixed prompt regression matrix through HTTP path
+- persist run summaries and per-run results to JSONL
+- read latest run, run list, and run details
+- aggregate multi-run comparison metrics
+- expose per-topic trend slices
+- promote regression outcomes into evidence records
+- read evidence history with topic-aware filtering
+- build governance dashboard and regression-integrated operator summary
+- map risk flags into automated refinement triggers
+- populate refinement metrics from live regression comparison/trigger data
 
 ## 3.6 Registry and installer
 Covered behavior:
