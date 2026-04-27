@@ -1,3 +1,25 @@
+## 2026-04-28: Record Failed Cycle State in Nightly Control Plane
+
+### Summary
+Upgraded nightly regression failure handling so cycle execution errors are now explicitly recorded in tick state instead of only being surfaced as thrown exceptions.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - when `trigger_due_tick(...)` hits a cycle execution exception, it now records:
+    - `last_tick_decision = failed_cycle`
+    - `last_cycle_result.error`
+    - `last_cycle_result.error_type`
+  - exception is still re-raised after state recording
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - verified cycle failure still propagates
+  - verified failed tick state is persisted with `failed_cycle` and error metadata
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `32 passed`
+
+### Product Conclusion
+The nightly regression control plane now has a much more honest failure model. Operators and future automation layers can distinguish between a skipped tick and a failed execution attempt, which is essential for retries, degraded-state handling, and trustworthy automation observability.
 ## 2026-04-28: Add Failure-Path Tests for Nightly Control Service
 
 ### Summary

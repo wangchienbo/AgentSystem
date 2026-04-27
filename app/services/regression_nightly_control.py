@@ -153,7 +153,17 @@ class RegressionNightlyControlService:
             refreshed.update({k: state.get(k) for k in ["last_tick_at", "last_tick_decision", "last_tick_triggered", "last_cycle_result"]})
             return {"triggered": False, "nightly_status": refreshed, "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
 
-        cycle_result = self.run_cycle(client)
+        try:
+            cycle_result = self.run_cycle(client)
+        except Exception as exc:
+            snapshot = self.build_nightly_status(driver_status)
+            state = self.record_tick(
+                decision="failed_cycle",
+                triggered=False,
+                cycle={"error": str(exc), "error_type": exc.__class__.__name__},
+                nightly_status=snapshot,
+            )
+            raise
         self._runtime_host.consume_pending_tasks(APP_INSTANCE_ID, REGRESSION_CYCLE_TASK_NAME)
         snapshot = self.build_nightly_status(driver_status)
         state = self.record_tick(decision="triggered_due", triggered=True, cycle=cycle_result, nightly_status=snapshot)

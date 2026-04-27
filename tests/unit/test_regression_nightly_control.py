@@ -101,7 +101,7 @@ def test_trigger_due_tick_records_no_trigger_match(tmp_path: Path) -> None:
     assert result["nightly_status"]["last_tick_decision"] == "skipped_no_trigger_match"
 
 
-def test_trigger_due_tick_propagates_cycle_failure(tmp_path: Path) -> None:
+def test_trigger_due_tick_propagates_cycle_failure_and_records_failed_state(tmp_path: Path) -> None:
     service = build_service(tmp_path)
     record = service.register_nightly_schedule(interval_seconds=3600)
     record.last_triggered_at = datetime.now(UTC) - timedelta(seconds=7200)
@@ -117,3 +117,7 @@ def test_trigger_due_tick_propagates_cycle_failure(tmp_path: Path) -> None:
         assert str(exc) == "cycle failed"
     else:
         raise AssertionError("expected RuntimeError")
+
+    state = service.load_tick_state()
+    assert state["last_tick_decision"] == "failed_cycle"
+    assert state["last_cycle_result"]["error_type"] == "RuntimeError"
