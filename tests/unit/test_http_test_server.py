@@ -785,3 +785,40 @@ def test_api_governance_nightly_status_includes_driver_state() -> None:
     assert "driver" in dash_data["nightly_automation"]
 
     client.post("/api/governance/regression-cycle/nightly/driver/stop")
+
+
+def test_nightly_tick_uses_service_session_identity() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    import app.system.http_test_server as server
+    service_session = server.ensure_regression_service_session()
+    assert service_session == "session_regression_nightly_service"
+    assert service_session in user_sessions
+
+
+def test_governance_dashboard_exposes_automation_control_card() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    resp = client.get("/api/governance/regression-dashboard")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "automation_control" in data["nightly_automation"]
+    assert "driver" in data["nightly_automation"]["automation_control"]

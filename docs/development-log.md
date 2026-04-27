@@ -1,3 +1,30 @@
+## 2026-04-27: Add Automation Control Card and Service Session Identity
+
+### Summary
+Refined the nightly regression control plane by introducing an explicit automation control card in governance status and replacing the background driver's placeholder session usage with a formal service session identity.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - added `REGRESSION_NIGHTLY_SERVICE_SESSION_ID`
+  - added `ensure_regression_service_session()`
+  - background driver now ticks using a dedicated service session identity instead of a test session placeholder
+  - nightly status now exposes `automation_control` with:
+    - driver state
+    - schedule registration state
+    - due-now state
+    - next trigger time
+    - last tick decision/time
+    - last cycle run id
+- Updated tests:
+  - verified service session identity is created and registered
+  - verified governance dashboard exposes the `automation_control` card structure
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py`
+- Result: `24 passed`
+
+### Product Conclusion
+The nightly regression subsystem now presents its control plane as a first-class governance concept instead of a loose bundle of raw fields. At the same time, background execution no longer depends on a testing-style session assumption, which makes the automation loop cleaner and closer to a production service identity model.
 ## 2026-04-27: Persist and Surface Nightly Driver State
 
 ### Summary

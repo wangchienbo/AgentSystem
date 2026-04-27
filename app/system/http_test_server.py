@@ -80,7 +80,7 @@ class RegressionNightlyTickDriver:
     def _loop(self) -> None:
         while not self._stop_event.wait(self._interval_seconds):
             try:
-                tick_regression_nightly_cycle("session_tester")
+                tick_regression_nightly_cycle(ensure_regression_service_session())
             except Exception as error:
                 logger.warning("regression nightly tick driver iteration failed: %s", error)
 
@@ -111,8 +111,24 @@ REGRESSION_CYCLE_TASK_NAME = "regression_governance_cycle"
 REGRESSION_NIGHTLY_SCHEDULE_ID = "sch.regression.governance.nightly"
 REGRESSION_NIGHTLY_STATE_KEY = "regression_nightly_state"
 REGRESSION_NIGHTLY_DRIVER_STATE_KEY = "regression_nightly_driver_state"
+REGRESSION_NIGHTLY_SERVICE_SESSION_ID = "session_regression_nightly_service"
 regression_nightly_driver = RegressionNightlyTickDriver()
 
+
+
+
+def ensure_regression_service_session() -> str:
+    user_sessions.setdefault(
+        REGRESSION_NIGHTLY_SERVICE_SESSION_ID,
+        {
+            "username": "regression-nightly-service",
+            "session_id": REGRESSION_NIGHTLY_SERVICE_SESSION_ID,
+            "login_time": datetime.now().isoformat(),
+            "last_active": datetime.now().isoformat(),
+        },
+    )
+    conversation_history.setdefault(REGRESSION_NIGHTLY_SERVICE_SESSION_ID, [])
+    return REGRESSION_NIGHTLY_SERVICE_SESSION_ID
 
 def ensure_regression_runtime_instance() -> None:
     lifecycle = runtime_services["lifecycle"]
@@ -134,6 +150,15 @@ def ensure_regression_runtime_instance() -> None:
 def build_regression_nightly_status() -> dict[str, Any]:
     snapshot = _compute_nightly_schedule_snapshot()
     snapshot["driver"] = regression_nightly_driver.status()
+    snapshot["automation_control"] = {
+        "driver": snapshot["driver"],
+        "schedule_registered": snapshot["registered"],
+        "due_now": snapshot["due_now"],
+        "next_trigger_at": snapshot["next_trigger_at"],
+        "last_tick_at": snapshot.get("last_tick_at"),
+        "last_tick_decision": snapshot.get("last_tick_decision"),
+        "last_cycle_run_id": None if not snapshot.get("last_cycle_result") else snapshot["last_cycle_result"].get("run_id"),
+    }
     return snapshot
 
 
