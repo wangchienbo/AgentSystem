@@ -425,3 +425,39 @@ def test_api_governance_regression_dashboard_endpoint() -> None:
     assert data["dashboard_id"] == "regression-governance"
     assert len(data["risk_flags"]) == 1
     assert len(data["evidence"]) == 1
+
+
+def test_api_chat_regression_evidence_history_filter_by_topic() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_history = [
+        {"evidence_id": "ev-api", "category": "policy_pressure", "summary": "api latency elevated"},
+        {"evidence_id": "ev-telemetry", "category": "workflow_failure", "summary": "telemetry overreach"},
+    ]
+
+    def fake_list_evidence(*, limit=20, topic=None, **kwargs):
+        if topic == "api":
+            return [e for e in fake_history if e["evidence_id"] == "ev-api"]
+        if topic == "telemetry":
+            return [e for e in fake_history if e["evidence_id"] == "ev-telemetry"]
+        return fake_history
+
+    with patch("app.system.http_test_server.list_regression_evidence_history", side_effect=fake_list_evidence):
+        resp = client.get("/api/chat-regression/evidence?topic=api")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["count"] == 1
+    assert data["evidence"][0]["evidence_id"] == "ev-api"

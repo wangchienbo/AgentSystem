@@ -154,8 +154,12 @@ def list_regression_evidence_history(
     *,
     log_dir: _Path | None = None,
     limit: int = 20,
+    topic: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Read previously generated regression evidence from the persistence file."""
+    """Read previously generated regression evidence from the persistence file.
+    
+    Optionally filter by topic name (api, validation, telemetry, storage).
+    """
     target_dir = log_dir or REGRESSION_EVIDENCE_LOG_DIR
     ev_path = target_dir / "evidence.jsonl"
     if not ev_path.exists():
@@ -164,5 +168,9 @@ def list_regression_evidence_history(
     if not lines:
         return []
     parsed = [json.loads(line) for line in lines]
+    idx = {"api": 0, "validation": 1, "telemetry": 2, "storage": 3}
+    if topic is not None and topic in idx:
+        needIdx = idx[topic]
+        parsed = [e for e in parsed if (e.get("summary","")[needIdx:needIdx+len(topic)] == topic if len(e.get("summary","")) > needIdx else False)]
     # Return most recent first
     return list(reversed(parsed))[:limit]

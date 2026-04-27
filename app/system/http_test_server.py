@@ -444,8 +444,8 @@ if __name__ == "__main__":
 
 
 @app.get("/api/chat-regression/evidence")
-async def api_chat_regression_evidence_history(user: dict = Depends(get_current_user), limit: int = 20):
-    history = list_regression_evidence_history(limit=limit)
+async def api_chat_regression_evidence_history(user: dict = Depends(get_current_user), limit: int = 20, topic: str | None = None):
+    history = list_regression_evidence_history(limit=limit, topic=topic)
     return {"success": True, "evidence": history, "count": len(history)}
 
 

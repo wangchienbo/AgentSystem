@@ -1,3 +1,29 @@
+## 2026-04-27: Topic-Specific Evidence History Filtering
+
+### Summary
+Added topic filtering to the evidence history surface, so operators can narrow regression evidence views to a specific topic (api, validation, telemetry, storage) rather than only seeing all evidence at once.
+
+### What Was Done
+- Updated `app/system/regression_evidence_bridge.py`
+  - `list_regression_evidence_history(...)` now accepts an optional `topic` parameter
+  - filters evidence records by matching topic name against evidence summary strings
+- Updated `app/system/http_test_server.py`
+  - `GET /api/chat-regression/evidence` now accepts `?topic=` query parameter
+- Added tests covering:
+  - evidence filtering by topic
+  - topic filter endpoint behavior
+
+### Validation
+- `pytest -q` core test suite
+- Result: `58 passed`
+
+### Product Conclusion
+The regression evidence subsystem now supports both a full-history view and per-topic filtered views. This is the final piece of the regression browsing surface — all three observation dimensions (comparison, trends, evidence) now support topic-level drill-down.
+
+### Remaining Follow-up
+Next steps (broader system integration):
+- integrate regression dashboard into the broader refinement operator summary
+- wire regression alerts into automated refinement triggers
 ## 2026-04-27: Regression Governance Dashboard Integration
 
 ### Summary
