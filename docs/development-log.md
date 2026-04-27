@@ -1,3 +1,31 @@
+## 2026-04-27: Executable Fixed-Prompt Chat Regression Harness
+
+### Summary
+Completed the next step of the fifth implementation slice by turning the fixed-prompt regression seed into an executable harness entry that can drive `/api/chat`-style probes through an injected post function.
+
+### What Was Done
+- Updated `app/system/chat_regression.py`
+  - added `run_fixed_prompt_matrix(...)`
+  - allows the fixed prompt matrix to execute through an injected HTTP-like caller
+  - returns normalized `RegressionProbeResult` objects for all configured topics
+- Updated `tests/unit/test_chat_regression.py`
+  - verifies all configured topics are executed in stable order
+  - verifies payloads are sent to `/api/chat`
+  - verifies the resulting summaries preserve normalized topic/mode fields
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `40 passed`
+
+### Product Conclusion
+The regression harness is now no longer only a static topic registry. It can execute a repeatable matrix of introspection probes and summarize them into a normalized observation surface, which is the right precursor to later real-environment regression runs and persisted comparison reports.
+
+### Remaining Follow-up
+Next steps:
+- bind the harness to a concrete TestClient or API execution path
+- persist per-run probe summaries for comparison over time
+- feed verification outcomes back into a broader structured evidence ledger
+
 ## 2026-04-27: Fixed-Prompt Chat Regression Harness Seed
 
 ### Summary

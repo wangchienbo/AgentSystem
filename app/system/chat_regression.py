@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 
 FIXED_PROMPT_MATRIX: dict[str, str] = {
@@ -54,3 +54,15 @@ def summarize_probe_payload(topic: str, payload: dict[str, Any]) -> RegressionPr
         fallback_like=fallback_like,
         overreach_risk=overreach_risk,
     )
+
+
+def run_fixed_prompt_matrix(
+    post_json: Callable[[str, dict[str, Any]], dict[str, Any]],
+    *,
+    path: str = "/api/chat",
+) -> list[RegressionProbeResult]:
+    results: list[RegressionProbeResult] = []
+    for topic, prompt in FIXED_PROMPT_MATRIX.items():
+        payload = post_json(path, {"message": prompt})
+        results.append(summarize_probe_payload(topic, payload))
+    return results

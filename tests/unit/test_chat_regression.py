@@ -1,4 +1,4 @@
-from app.system.chat_regression import FIXED_PROMPT_MATRIX, summarize_probe_payload
+from app.system.chat_regression import FIXED_PROMPT_MATRIX, run_fixed_prompt_matrix, summarize_probe_payload
 
 
 def test_fixed_prompt_matrix_topics_are_stable() -> None:
@@ -44,3 +44,28 @@ def test_summarize_probe_payload_defaults_for_missing_structure() -> None:
     assert result.verification_mode == "none"
     assert result.fallback_like is False
     assert result.overreach_risk is False
+
+
+def test_run_fixed_prompt_matrix_executes_all_topics() -> None:
+    calls: list[tuple[str, dict]] = []
+
+    def fake_post(path: str, payload: dict) -> dict:
+        calls.append((path, payload))
+        return {
+            "success": True,
+            "response": f"已处理 {payload['message']}",
+            "latency_ms": 42,
+            "structured_answer": {
+                "self_model": {
+                    "answer_mode": "direct",
+                    "verification_mode": "none",
+                }
+            },
+        }
+
+    results = run_fixed_prompt_matrix(fake_post)
+
+    assert len(results) == 4
+    assert [r.topic for r in results] == ["api", "validation", "telemetry", "storage"]
+    assert all(path == "/api/chat" for path, _ in calls)
+    assert [payload["message"] for _, payload in calls] == list(FIXED_PROMPT_MATRIX.values())
