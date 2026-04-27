@@ -87,3 +87,33 @@ def test_build_nightly_status_exposes_automation_control_card(tmp_path: Path) ->
     assert "automation_control" in status
     assert status["automation_control"]["driver"]["running"] is True
     assert status["automation_control"]["schedule_registered"] is True
+
+
+def test_trigger_due_tick_records_no_trigger_match(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    record = service.register_nightly_schedule(interval_seconds=3600)
+    record.last_triggered_at = datetime.now(UTC) - timedelta(seconds=7200)
+    service._scheduler.trigger_interval_schedules = Mock(return_value=[])
+
+    result = service.trigger_due_tick(client=Mock(), driver_status={"running": False})
+
+    assert result["triggered"] is False
+    assert result["nightly_status"]["last_tick_decision"] == "skipped_no_trigger_match"
+
+
+def test_trigger_due_tick_propagates_cycle_failure(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    record = service.register_nightly_schedule(interval_seconds=3600)
+    record.last_triggered_at = datetime.now(UTC) - timedelta(seconds=7200)
+
+    def _boom(client):
+        raise RuntimeError("cycle failed")
+
+    service.run_cycle = _boom
+
+    try:
+        service.trigger_due_tick(client=Mock(), driver_status={"running": True})
+    except RuntimeError as exc:
+        assert str(exc) == "cycle failed"
+    else:
+        raise AssertionError("expected RuntimeError")

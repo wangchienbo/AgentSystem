@@ -1,3 +1,21 @@
+## 2026-04-28: Add Failure-Path Tests for Nightly Control Service
+
+### Summary
+Expanded service-level coverage into edge and failure paths, so the nightly regression control plane is now tested not only for happy-path execution but also for skipped and failed decision branches.
+
+### What Was Done
+- Updated `tests/unit/test_regression_nightly_control.py`
+- Added direct service tests for:
+  - due-tick records `skipped_no_trigger_match` when the schedule is due but scheduler returns no runnable trigger result
+  - due-tick propagates cycle execution failure instead of swallowing it silently
+- Retained existing HTTP coverage and positive-path service tests
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `32 passed`
+
+### Product Conclusion
+The nightly regression service now has much better behavioral confidence at the edges. This is important because autonomous control systems are defined by how they behave when conditions are imperfect, not just when the happy path works.
 ## 2026-04-28: Expand Direct Coverage for Nightly Control Service
 
 ### Summary
