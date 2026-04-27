@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from app.models.refinement_loop import RefinementHypothesis, RolloutQueueItem, VerificationResult
+from app.models.refinement_loop import RefinementFilter, RefinementHypothesis, RolloutQueueItem, VerificationResult
 from app.services.refinement_memory import RefinementMemoryStore
 from app.system.chat_regression import build_multi_run_comparison, build_topic_trends
 from app.system.regression_evidence_bridge import list_regression_evidence_history
@@ -21,6 +21,7 @@ def build_regression_governance_dashboard(
     comparison_limit: int = 5,
     trends_limit: int = 5,
     evidence_limit: int = 10,
+    memory: RefinementMemoryStore | None = None,
 ) -> dict[str, Any]:
     """Build a comprehensive governance dashboard from regression data.
 
@@ -48,11 +49,23 @@ def build_regression_governance_dashboard(
     if total > 0 and conservative / total > 0.5:
         risk_flags.append({"level": "warning" if conservative / total > 0.75 else "info", "signal": "conservative_mode_skew", "detail": f"Conservative modes {conservative}/{total} ({conservative / total:.1%})"})
 
+    rollout_summary = None
+    if memory is not None:
+        overview = memory.build_overview(APP_INSTANCE_ID)
+        rollout_summary = {
+            "queue_count": overview.queue_count,
+            "queued_count": overview.queued_count,
+            "applied_count": overview.applied_count,
+            "failed_hypothesis_count": overview.failed_hypothesis_count,
+            "latest_queue_item": None if overview.latest_queue_item is None else overview.latest_queue_item.model_dump(mode="json"),
+        }
+
     return {
         "comparison": comparison,
         "trends": trends,
         "evidence": evidence,
         "risk_flags": risk_flags,
+        "rollout_summary": rollout_summary,
         "dashboard_id": "regression-governance",
         "generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
     }
@@ -63,6 +76,7 @@ def build_regression_operator_summary(
     comparison_limit: int = 5,
     trends_limit: int = 5,
     evidence_limit: int = 10,
+    memory: RefinementMemoryStore | None = None,
 ) -> dict[str, Any]:
     """Build a combined operator summary merging regression governance with
     a placeholder refinement summary structure.
@@ -75,9 +89,13 @@ def build_regression_operator_summary(
         comparison_limit=comparison_limit,
         trends_limit=trends_limit,
         evidence_limit=evidence_limit,
+        memory=memory,
     )
     triggers = build_regression_triggers(comparison_limit=comparison_limit)
     metrics = _build_refinement_metrics_from_regression(dashboard["comparison"], triggers)
+    live_governance = None
+    if memory is not None:
+        live_governance = memory.get_governance_dashboard(RefinementFilter(app_instance_id=APP_INSTANCE_ID), recent_limit=5)
 
     risk_flags = dashboard.get("risk_flags", [])
     primary_contradiction = ""
@@ -87,20 +105,7 @@ def build_regression_operator_summary(
         primary_contradiction = f"Regression signal: {worst.get('signal', 'unknown')}"
         recommended_action = _recommend_action_for_signal(worst.get("signal", ""))
 
-    return {
-        "app_instance_id": APP_INSTANCE_ID,
-        "refinement": {
-            "proposal_count": 0,
-            "proposed_review_count": 0,
-            "approved_review_count": 0,
-            "rejected_review_count": 0,
-            "applied_review_count": 0,
-            "latest_priority": None,
-            "primary_contradiction": primary_contradiction,
-            "recommended_action": recommended_action,
-            "context_summary": "Regression-integrated governance summary",
-            "governance": {
-                "overview": {
+    overview = live_governance.overview.model_dump(mode="json") if live_governance is not None else {
                     "app_instance_id": APP_INSTANCE_ID,
                     "hypothesis_count": metrics["total_hypotheses"],
                     "unresolved_hypothesis_count": metrics["failed_hypotheses"],
@@ -114,8 +119,8 @@ def build_regression_operator_summary(
                     "queued_count": metrics["queued_items"],
                     "applied_count": metrics["applied_items"],
                     "failed_hypothesis_count": metrics["failed_hypotheses"],
-                },
-                "stats": {
+                }
+    stats = live_governance.stats.model_dump(mode="json") if live_governance is not None else {
                     "app_instance_id": APP_INSTANCE_ID,
                     "total_hypotheses": metrics["total_hypotheses"],
                     "repeated_hypotheses": metrics["repeated_hypotheses"],
@@ -134,9 +139,27 @@ def build_regression_operator_summary(
                     "latest_verification_at": metrics["latest_verification_at"],
                     "latest_queue_item_at": metrics["latest_queue_item_at"],
                     "latest_failed_hypothesis_at": metrics["latest_failed_hypothesis_at"],
-                },
-                "recent_queue": {"items": [], "meta": {"total_count": metrics["queued_items"], "returned_count": 0, "filtered_count": 0, "has_more": False}},
-                "recent_failed_hypotheses": {"items": [], "meta": {"total_count": metrics["failed_hypotheses"], "returned_count": 0, "filtered_count": 0, "has_more": False}},
+                }
+    recent_queue = live_governance.recent_queue.model_dump(mode="json") if live_governance is not None else {"items": [], "meta": {"total_count": metrics["queued_items"], "returned_count": 0, "filtered_count": 0, "has_more": False}}
+    recent_failed_hypotheses = live_governance.recent_failed_hypotheses.model_dump(mode="json") if live_governance is not None else {"items": [], "meta": {"total_count": metrics["failed_hypotheses"], "returned_count": 0, "filtered_count": 0, "has_more": False}}
+
+    return {
+        "app_instance_id": APP_INSTANCE_ID,
+        "refinement": {
+            "proposal_count": 0,
+            "proposed_review_count": 0,
+            "approved_review_count": 0,
+            "rejected_review_count": 0,
+            "applied_review_count": 0,
+            "latest_priority": None,
+            "primary_contradiction": primary_contradiction,
+            "recommended_action": recommended_action,
+            "context_summary": "Regression-integrated governance summary",
+            "governance": {
+                "overview": overview,
+                "stats": stats,
+                "recent_queue": recent_queue,
+                "recent_failed_hypotheses": recent_failed_hypotheses,
             },
         },
         "regression": dashboard,

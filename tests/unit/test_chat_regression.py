@@ -313,3 +313,39 @@ def test_refinement_rollout_allows_regression_queue_apply() -> None:
 
     assert item.status == "applied"
     assert "regression" in item.note
+
+
+def test_build_regression_operator_summary_reflects_live_queue_stats() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_operator_summary
+
+    memory = RefinementMemoryStore()
+    fake_triggers = {
+        "triggers": [
+            {
+                "trigger_id": "regression-trigger-1",
+                "signal": "elevated_latency",
+                "level": "warning",
+                "recommended_action": "profile_performance_bottlenecks",
+                "detail": "Average latency 6200ms across 3 runs",
+                "generated_at": "2026-04-27T00:00:00Z",
+            }
+        ],
+        "trigger_count": 1,
+        "dashboard_comparison": {"run_count": 3},
+        "generated_at": "2026-04-27T00:00:00Z",
+    }
+
+    with patch("app.system.regression_dashboard.build_regression_triggers", return_value=fake_triggers):
+        apply_regression_triggers_to_refinement(memory)
+
+    queue_id = memory.list_queue("agent_system")[0].queue_id
+    rollout = RefinementRolloutService(memory=memory, proposal_review=type("P", (), {"review": lambda self, req: None})())
+    rollout.transition(queue_id, "apply")
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value={"run_count": 1, "avg_latency_ms": 6000, "avg_fallback_count": 0, "avg_overreach_risk_count": 0, "answer_mode_totals": {"direct": 1}}),          patch("app.system.regression_dashboard.build_topic_trends", return_value={}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]),          patch("app.system.regression_dashboard.build_regression_triggers", return_value=fake_triggers):
+        summary = build_regression_operator_summary(memory=memory)
+
+    stats = summary["refinement"]["governance"]["stats"]
+    assert stats["applied_items"] == 1
+    assert summary["refinement"]["governance"]["recent_queue"]["items"][0]["status"] == "applied"

@@ -1,3 +1,27 @@
+## 2026-04-27: Reflect Regression Rollout State in Governance Summary
+
+### Summary
+Fed live refinement queue and rollout state back into the regression governance surfaces, so operator summary and regression dashboard now reflect actual queue/application results instead of only trigger-derived estimates.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - `build_regression_governance_dashboard(...)` now accepts optional refinement memory and exposes `rollout_summary`
+  - `build_regression_operator_summary(...)` now accepts optional refinement memory and, when present, pulls:
+    - live governance overview/stats
+    - recent queue items
+    - recent failed hypotheses
+  - fallback behavior remains in place when no refinement memory is provided
+- Updated `app/system/http_test_server.py`
+  - governance endpoints now pass the live `refinement_memory` into dashboard/summary builders
+- Updated tests:
+  - direct test verifies applied regression queue items appear in operator summary stats and recent queue
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py`
+- Result: `33 passed`
+
+### Product Conclusion
+The governance view is now stateful in both directions: regression signals can enter refinement queue/rollout, and the resulting queue/application state is reflected back into the operator summary and dashboard. This closes the visibility gap between trigger generation and rollout execution.
 ## 2026-04-27: Wire Regression Queue Items into Refinement Rollout Transition
 
 ### Summary

@@ -463,6 +463,7 @@ async def api_governance_regression_dashboard(user: dict = Depends(get_current_u
         comparison_limit=comparison_limit,
         trends_limit=trends_limit,
         evidence_limit=evidence_limit,
+        memory=refinement_memory,
     )
     return {"success": True, **dashboard}
 
@@ -473,6 +474,7 @@ async def api_governance_operator_summary(user: dict = Depends(get_current_user)
         comparison_limit=comparison_limit,
         trends_limit=trends_limit,
         evidence_limit=evidence_limit,
+        memory=refinement_memory,
     )
     return {"success": True, **summary}
 
