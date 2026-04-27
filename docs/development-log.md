@@ -1,3 +1,34 @@
+## 2026-04-27: Structured Summarizer Default JSON + Response Surface Exposure
+
+### Summary
+Completed the third implementation slice of the cognition-governance path by pushing structured cognition output closer to the primary generation path and exposing `structured_answer` through HTTP response surfaces.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - strengthened deterministic summarizer prompt so the default expected output is a JSON object containing:
+    - `claim`
+    - `evidence`
+    - `unverified_points`
+    - `confidence`
+- Updated `app/models/chat.py`
+  - added `structured_answer` to `ChatMessageResponse`
+  - removed duplicate `requires_input` field definition
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - propagated `InterpretedCommand.structured_answer` into fallback `ChatMessageResponse`
+- Updated `app/system/http_test_server.py`
+  - exposed `structured_answer` in `/api/chat` and `/api/action` responses
+- Added/updated tests to verify HTTP response payloads now include structured cognition data when available
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `31 passed`
+
+### Product Conclusion
+The structured cognition contract is no longer only an internal interpreter detail. It now has a clearer forward path from summarization intent to external response payload, which is necessary for UI, governance, and later refinement consumers.
+
+### Risk Note
+The deterministic summarizer is now instructed to emit structured JSON by default, but additional follow-up may still be needed to harden schema guarantees for every response branch, especially beyond introspection-oriented flows.
+
 ## 2026-04-27: Structured Summarizer Consumption + Telemetry Enrichment + UTC Warning Fix
 
 ### Summary

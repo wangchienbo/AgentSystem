@@ -90,8 +90,8 @@ class ChatMessageResponse(BaseModel):
     requires_input: bool = Field(default=False, description="Whether the reply expects further user input")
     usage: TokenUsage | None = Field(default=None, description="Token usage for this interaction")
     session_id: str = Field(..., description="Session this reply belongs to")
+    structured_answer: StructuredAnswer | None = Field(default=None, description="Structured cognition/action answer contract")
     related_app: str | None = Field(default=None, description="App this reply references")
-    requires_input: bool = Field(default=False, description="Whether further user input is expected")
 
 
 class SessionSummary(BaseModel):

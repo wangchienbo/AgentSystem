@@ -625,7 +625,7 @@ class LightBrainGateway:
                     content="我明白了。有什么我可以帮你的吗？",
                     session_id=session_id,
                 )
-            return ChatMessageResponse(type="text", content=text, session_id=session_id)
+            return ChatMessageResponse(type="text", content=text, session_id=session_id, structured_answer=getattr(command, "structured_answer", None))
 
         handler = local_handlers.get(command.intent)
         if handler:

@@ -226,6 +226,8 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
         # Call AgentSystem LightBrain gateway (which handles LLM routing and Tool calls)
         llm_resp = await gateway.receive_message(chat_req)
         response_text = getattr(llm_resp, "content", "") or ""
+        structured_answer = getattr(llm_resp, "structured_answer", None)
+        structured_answer = getattr(llm_resp, "structured_answer", None)
         finished_at = datetime.now()
         latency_ms = int((finished_at - started_at).total_seconds() * 1000)
 
@@ -250,7 +252,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
             "error_type": None,
             "latency_ms": latency_ms,
         })
-        return {"success": True, "response": response_text, "session_id": session_id, "latency_ms": latency_ms}
+        return {"success": True, "response": response_text, "structured_answer": structured_answer.model_dump() if structured_answer else None, "session_id": session_id, "latency_ms": latency_ms}
     except Exception as e:
         finished_at = datetime.now()
         latency_ms = int((finished_at - started_at).total_seconds() * 1000)
@@ -301,13 +303,14 @@ async def api_action(req: ActionRequest, user: dict = Depends(get_current_user))
         chat_req = chat_req.copy(update={"payload": {"action_id": req.action_id, "params": req.action_params}})
         llm_resp = await gateway.receive_message(chat_req)
         response_text = getattr(llm_resp, "content", "") or ""
+        structured_answer = getattr(llm_resp, "structured_answer", None)
         # 记录到对话历史（assistant）
         conversation_history.setdefault(session_id, []).append({
             "role": "assistant",
             "content": response_text,
             "timestamp": datetime.now().isoformat(),
         })
-        return {"success": True, "response": response_text}
+        return {"success": True, "response": response_text, "structured_answer": structured_answer.model_dump() if structured_answer else None}
     except Exception as e:
         logger.exception("LLM action failed")
         return {"success": False, "error": f"LLM action failed: {str(e)}"}

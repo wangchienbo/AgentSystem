@@ -613,6 +613,11 @@ PY"""
                 f"本次汇总重点: {summary_focus}。"
                 f"输出模板要求: {output_template}。"
                 "不要超出命中结果做额外架构推断。"
+                "默认输出必须是 JSON 对象，字段至少包含 claim, evidence, unverified_points, confidence。"
+                "claim 必须是对象，含 text, evidence_grade, confidence。"
+                "evidence 必须是数组，只能复述脚本结果中已有的命中。"
+                "unverified_points 必须列出未确认之处。"
+                "若无法形成充分结论，也必须返回合法 JSON，而不是普通文本。"
             ),
             user_message=(
                 f"用户问题: {message}\n\n"
