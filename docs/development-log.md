@@ -1,3 +1,35 @@
+## 2026-04-27: Chat Regression Result Persistence + Run Summary Aggregation
+
+### Summary
+Extended the chat regression harness with persistent per-run output and normalized run-level summary aggregation so probe observations can be compared over time instead of only asserted in-memory during tests.
+
+### What Was Done
+- Updated `app/system/chat_regression.py`
+  - added `RegressionRunSummary`
+  - added `build_run_summary(...)`
+  - added `persist_run_results(...)`
+  - writes a JSONL file containing:
+    - one summary row
+    - one probe row per topic
+- Added tests covering:
+  - run-level latency aggregation
+  - fallback and overreach counts
+  - answer-mode distribution
+  - persisted JSONL structure and run id propagation
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `44 passed`
+
+### Product Conclusion
+The regression harness has now moved beyond execution into observability persistence. This creates the first durable substrate for comparing introspection behavior across repeated runs and future system revisions.
+
+### Remaining Follow-up
+Next steps:
+- add a higher-level command or endpoint to trigger and inspect regression runs
+- connect regression outcomes to refinement or evidence-ledger ingestion
+- add topic-to-topic trend summaries across multiple saved runs
+
 ## 2026-04-27: TestClient-backed Chat Regression Probes
 
 ### Summary

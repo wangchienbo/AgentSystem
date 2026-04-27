@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+import json
+from pathlib import Path
 from typing import Any, Callable
+from uuid import uuid4
 
 
 FIXED_PROMPT_MATRIX: dict[str, str] = {
@@ -10,6 +14,8 @@ FIXED_PROMPT_MATRIX: dict[str, str] = {
     "telemetry": "请检查日志埋点和观测记录",
     "storage": "请检查 storage backend 和读写路径",
 }
+
+REGRESSION_LOG_DIR = Path("/root/project/AgentSystem/data/chat_regression")
 
 
 @dataclass
@@ -23,6 +29,19 @@ class RegressionProbeResult:
     verification_mode: str
     fallback_like: bool
     overreach_risk: bool
+
+
+@dataclass
+class RegressionRunSummary:
+    run_id: str
+    started_at: str
+    topic_count: int
+    success_count: int
+    avg_latency_ms: int
+    fallback_count: int
+    overreach_risk_count: int
+    answer_mode_counts: dict[str, int]
+    verification_mode_counts: dict[str, int]
 
 
 def summarize_probe_payload(topic: str, payload: dict[str, Any]) -> RegressionProbeResult:
@@ -74,3 +93,36 @@ def make_testclient_poster(client: Any) -> Callable[[str, dict[str, Any]], dict[
         return dict(response.json())
 
     return _post
+
+
+def build_run_summary(results: list[RegressionProbeResult], *, run_id: str | None = None, started_at: str | None = None) -> RegressionRunSummary:
+    rid = run_id or f"chat-regression-{uuid4().hex[:12]}"
+    ts = started_at or datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    answer_mode_counts: dict[str, int] = {}
+    verification_mode_counts: dict[str, int] = {}
+    for item in results:
+        answer_mode_counts[item.answer_mode] = answer_mode_counts.get(item.answer_mode, 0) + 1
+        verification_mode_counts[item.verification_mode] = verification_mode_counts.get(item.verification_mode, 0) + 1
+    avg_latency_ms = int(sum(item.latency_ms for item in results) / len(results)) if results else 0
+    return RegressionRunSummary(
+        run_id=rid,
+        started_at=ts,
+        topic_count=len(results),
+        success_count=sum(1 for item in results if item.success),
+        avg_latency_ms=avg_latency_ms,
+        fallback_count=sum(1 for item in results if item.fallback_like),
+        overreach_risk_count=sum(1 for item in results if item.overreach_risk),
+        answer_mode_counts=answer_mode_counts,
+        verification_mode_counts=verification_mode_counts,
+    )
+
+
+def persist_run_results(results: list[RegressionProbeResult], summary: RegressionRunSummary, *, log_dir: Path | None = None) -> Path:
+    target_dir = log_dir or REGRESSION_LOG_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    out = target_dir / f"{summary.run_id}.jsonl"
+    with out.open("w", encoding="utf-8") as f:
+        f.write(json.dumps({"kind": "summary", **asdict(summary)}, ensure_ascii=False) + "\n")
+        for item in results:
+            f.write(json.dumps({"kind": "probe", "run_id": summary.run_id, **asdict(item)}, ensure_ascii=False) + "\n")
+    return out
