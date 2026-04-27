@@ -23,6 +23,7 @@ from app.bootstrap.runtime import build_runtime
 from app.models.chat import ChatMessageRequest
 from app.system.chat_regression import (
     build_run_summary,
+    build_multi_run_comparison,
     make_testclient_poster,
     persist_run_results,
     REGRESSION_LOG_DIR,
@@ -330,6 +331,12 @@ async def api_chat_regression_run_detail(run_id: str, user: dict = Depends(get_c
     if detail is None:
         return {"success": False, "error": "run not found", "run_id": run_id}
     return {"success": True, **detail}
+
+
+@app.get("/api/chat-regression/compare")
+async def api_chat_regression_compare(user: dict = Depends(get_current_user), limit: int = 5):
+    comparison = build_multi_run_comparison(limit=limit)
+    return {"success": True, **comparison}
 
 
 # ---------- 新增 Action 接口（前端按钮 / Tool 调用） ----------

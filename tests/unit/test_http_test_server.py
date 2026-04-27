@@ -259,3 +259,37 @@ def test_api_chat_regression_runs_and_detail_endpoints() -> None:
     assert detail_data["success"] is True
     assert detail_data["summary"]["run_id"] == "run-list"
     assert detail_data["probes"][0]["topic"] == "api"
+
+
+def test_api_chat_regression_compare_endpoint() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_comp = {
+        "run_count": 2,
+        "avg_latency_ms": 200,
+        "avg_fallback_count": 0.5,
+        "avg_overreach_risk_count": 0.5,
+        "answer_mode_totals": {"direct": 1},
+        "verification_mode_totals": {"none": 1},
+        "runs": [],
+    }
+
+    with patch("app.system.http_test_server.build_multi_run_comparison", return_value=fake_comp):
+        resp = client.get("/api/chat-regression/compare")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["run_count"] == 2
+    assert data["avg_latency_ms"] == 200

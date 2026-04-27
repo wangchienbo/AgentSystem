@@ -155,3 +155,36 @@ def read_run_details(run_id: str, *, log_dir: Path | None = None) -> dict[str, A
     summary = parsed[0]
     probes = parsed[1:]
     return {"path": str(path), "summary": summary, "probes": probes}
+
+
+def build_multi_run_comparison(*, log_dir: Path | None = None, limit: int = 5) -> dict[str, Any]:
+    runs = list_saved_runs(log_dir=log_dir, limit=limit)
+    summaries = [row.get("summary", {}) for row in runs]
+    if not summaries:
+        return {
+            "run_count": 0,
+            "avg_latency_ms": 0,
+            "avg_fallback_count": 0,
+            "avg_overreach_risk_count": 0,
+            "answer_mode_totals": {},
+            "verification_mode_totals": {},
+            "runs": [],
+        }
+
+    answer_mode_totals: dict[str, int] = {}
+    verification_mode_totals: dict[str, int] = {}
+    for summary in summaries:
+        for key, value in (summary.get("answer_mode_counts") or {}).items():
+            answer_mode_totals[key] = answer_mode_totals.get(key, 0) + int(value)
+        for key, value in (summary.get("verification_mode_counts") or {}).items():
+            verification_mode_totals[key] = verification_mode_totals.get(key, 0) + int(value)
+
+    return {
+        "run_count": len(summaries),
+        "avg_latency_ms": int(sum(int(s.get("avg_latency_ms", 0)) for s in summaries) / len(summaries)),
+        "avg_fallback_count": sum(int(s.get("fallback_count", 0)) for s in summaries) / len(summaries),
+        "avg_overreach_risk_count": sum(int(s.get("overreach_risk_count", 0)) for s in summaries) / len(summaries),
+        "answer_mode_totals": answer_mode_totals,
+        "verification_mode_totals": verification_mode_totals,
+        "runs": runs,
+    }

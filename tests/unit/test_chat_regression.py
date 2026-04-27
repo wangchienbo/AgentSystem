@@ -3,6 +3,7 @@ from pathlib import Path
 from app.system.chat_regression import (
     FIXED_PROMPT_MATRIX,
     build_run_summary,
+    build_multi_run_comparison,
     make_testclient_poster,
     persist_run_results,
     list_saved_runs,
@@ -150,3 +151,22 @@ def test_list_saved_runs_and_read_run_details(tmp_path: Path) -> None:
     assert detail is not None
     assert detail["summary"]["run_id"] == "run-read"
     assert detail["probes"][0]["topic"] == "api"
+
+
+def test_build_multi_run_comparison_aggregates_saved_summaries(tmp_path: Path) -> None:
+    r1 = [summarize_probe_payload("api", {"success": True, "response": "ok", "latency_ms": 100})]
+    s1 = build_run_summary(r1, run_id="run-a", started_at="2026-04-27T00:00:00Z")
+    persist_run_results(r1, s1, log_dir=tmp_path)
+
+    r2 = [summarize_probe_payload("telemetry", {"success": True, "response": "当前结论仍需进一步验证。", "latency_ms": 300, "structured_answer": {"self_model": {"answer_mode": "verification_required", "verification_mode": "required"}}})]
+    s2 = build_run_summary(r2, run_id="run-b", started_at="2026-04-27T00:10:00Z")
+    persist_run_results(r2, s2, log_dir=tmp_path)
+
+    comp = build_multi_run_comparison(log_dir=tmp_path, limit=5)
+
+    assert comp["run_count"] == 2
+    assert comp["avg_latency_ms"] == 200
+    assert comp["avg_fallback_count"] == 0.5
+    assert comp["avg_overreach_risk_count"] == 0.5
+    assert comp["answer_mode_totals"]["direct"] == 1
+    assert comp["answer_mode_totals"]["verification_required"] == 1

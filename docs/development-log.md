@@ -1,3 +1,36 @@
+## 2026-04-27: Multi-Run Chat Regression Comparative Summary
+
+### Summary
+Extended the chat regression subsystem with a comparative summary surface across multiple saved runs, so regression observation can move from point inspection to trend inspection.
+
+### What Was Done
+- Updated `app/system/chat_regression.py`
+  - added `build_multi_run_comparison(...)`
+  - aggregates recent run summaries into comparative signals such as:
+    - average latency
+    - average fallback count
+    - average overreach-risk count
+    - total answer-mode distribution
+    - total verification-mode distribution
+- Updated `app/system/http_test_server.py`
+  - added `GET /api/chat-regression/compare`
+- Added tests covering:
+  - multi-run comparison aggregation
+  - compare endpoint behavior
+
+### Validation
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `49 passed`
+
+### Product Conclusion
+The chat regression subsystem now supports not only single-run inspection but also trend-oriented comparison across multiple runs, which is the first meaningful step toward operational regression analytics.
+
+### Remaining Follow-up
+Next steps:
+- connect regression trends into refinement/evidence workflows
+- add topic-level comparison slices across runs
+- expose compare summaries in a more operator-friendly dashboard surface
+
 ## 2026-04-27: Chat Regression Runs List + Run Detail Surfaces
 
 ### Summary
