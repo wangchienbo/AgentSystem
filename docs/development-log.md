@@ -1,3 +1,31 @@
+## 2026-04-27: Regression Governance Dashboard Integration
+
+### Summary
+Created a unified governance dashboard that bridges regression operational data (comparison, trends, evidence) into a single refinement-ready surface, making regression signals actionable from the governance layer.
+
+### What Was Done
+- Created `app/system/regression_dashboard.py`
+  - added `build_regression_governance_dashboard(...)` — aggregates comparison + trends + evidence into a governance view with:
+    - cross-topic comparison summary
+    - per-topic trend slices
+    - evidence history
+    - risk flags (latency, fallback, overreach, conservative mode skew)
+- Updated `app/system/http_test_server.py`
+  - added `GET /api/governance/regression-dashboard`
+- Added tests covering:
+  - dashboard endpoint behavior and response structure
+
+### Validation
+- `pytest -q` core test suite
+- Result: `57 passed`
+
+### Product Conclusion
+The regression subsystem is now integrated into the governance layer with a dedicated dashboard endpoint. This connects the three regression lenses (comparison, trends, evidence) into a single operator-friendly governance view that surfaces risks and trends for refinement decision-making.
+
+### Remaining Follow-up
+Next steps:
+- add topic-specific evidence history filtering
+- integrate regression dashboard into the broader refinement operator summary
 ## 2026-04-27: Regression Evidence History Viewer
 
 ### Summary

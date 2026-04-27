@@ -335,6 +335,7 @@ async def api_chat_regression_run_detail(run_id: str, user: dict = Depends(get_c
 
 
 
+from app.system.regression_dashboard import build_regression_governance_dashboard
 from app.system.regression_evidence_bridge import list_regression_evidence_history, promote_regression_evidence
 
 
@@ -452,3 +453,13 @@ async def api_chat_regression_evidence_history(user: dict = Depends(get_current_
 async def api_chat_regression_evidence(user: dict = Depends(get_current_user), limit: int = 5):
     result = promote_regression_evidence(limit=limit)
     return {"success": True, **result}
+
+
+@app.get("/api/governance/regression-dashboard")
+async def api_governance_regression_dashboard(user: dict = Depends(get_current_user), comparison_limit: int = 5, trends_limit: int = 5, evidence_limit: int = 10):
+    dashboard = build_regression_governance_dashboard(
+        comparison_limit=comparison_limit,
+        trends_limit=trends_limit,
+        evidence_limit=evidence_limit,
+    )
+    return {"success": True, **dashboard}

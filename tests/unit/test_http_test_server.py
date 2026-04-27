@@ -391,3 +391,37 @@ def test_api_chat_regression_evidence_history_endpoint() -> None:
     assert data["success"] is True
     assert data["count"] == 2
     assert data["evidence"][0]["evidence_id"] == "evidence-abc"
+
+
+def test_api_governance_regression_dashboard_endpoint() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_dashboard = {
+        "comparison": {"run_count": 3, "avg_latency_ms": 4000},
+        "trends": {"topics": {}, "run_count": 3},
+        "evidence": [{"evidence_id": "ev-1", "category": "policy_pressure"}],
+        "risk_flags": [{"level": "warning", "signal": "elevated_latency", "detail": "Latency elevated"}],
+        "dashboard_id": "regression-governance",
+        "generated_at": "2026-04-27T00:00:00Z",
+    }
+
+    with patch("app.system.http_test_server.build_regression_governance_dashboard", return_value=fake_dashboard):
+        resp = client.get("/api/governance/regression-dashboard")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["dashboard_id"] == "regression-governance"
+    assert len(data["risk_flags"]) == 1
+    assert len(data["evidence"]) == 1
