@@ -21,6 +21,13 @@ from pydantic import BaseModel
 
 from app.bootstrap.runtime import build_runtime
 from app.models.chat import ChatMessageRequest
+from app.system.chat_regression import (
+    build_run_summary,
+    make_testclient_poster,
+    persist_run_results,
+    REGRESSION_LOG_DIR,
+    run_fixed_prompt_matrix,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -275,6 +282,38 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
             "latency_ms": latency_ms,
         })
         return {"success": False, "error": f"LLM request failed: {error_text}", "error_type": error_type, "session_id": session_id, "latency_ms": latency_ms}
+
+
+@app.post("/api/chat-regression/run")
+async def api_chat_regression_run(user: dict = Depends(get_current_user)):
+    from fastapi.testclient import TestClient
+
+    local_client = TestClient(app)
+    local_client.cookies.set("session_id", user["session_id"])
+    results = run_fixed_prompt_matrix(make_testclient_poster(local_client))
+    summary = build_run_summary(results)
+    out = persist_run_results(results, summary)
+    return {
+        "success": True,
+        "run_id": summary.run_id,
+        "summary": summary.__dict__,
+        "path": str(out),
+    }
+
+
+@app.get("/api/chat-regression/latest")
+async def api_chat_regression_latest(user: dict = Depends(get_current_user)):
+    if not REGRESSION_LOG_DIR.exists():
+        return {"success": False, "error": "no regression runs found"}
+    files = sorted(REGRESSION_LOG_DIR.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not files:
+        return {"success": False, "error": "no regression runs found"}
+    latest = files[0]
+    lines = latest.read_text(encoding="utf-8").splitlines()
+    if not lines:
+        return {"success": False, "error": "latest regression file is empty"}
+    summary = json.loads(lines[0])
+    return {"success": True, "path": str(latest), "summary": summary}
 
 
 # ---------- 新增 Action 接口（前端按钮 / Tool 调用） ----------

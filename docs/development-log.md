@@ -1,3 +1,33 @@
+## 2026-04-27: Chat Regression Trigger + Latest Summary Endpoints
+
+### Summary
+Added HTTP-layer trigger and inspection endpoints for chat regression runs so the regression harness is no longer only a library/test construct but also has a user-surface control path.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - added `POST /api/chat-regression/run`
+    - executes the fixed prompt regression matrix through a local TestClient-backed path
+    - builds a run summary
+    - persists run results
+  - added `GET /api/chat-regression/latest`
+    - reads the most recent regression summary from persisted JSONL output
+- Updated tests to verify:
+  - run endpoint success and summary exposure
+  - latest endpoint can load the most recent saved summary
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py tests/unit/test_chat_regression.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `45 passed`
+
+### Product Conclusion
+The regression system now has an initial operational surface: runs can be triggered and the latest summary can be inspected without reaching into internal modules directly.
+
+### Remaining Follow-up
+Next steps:
+- add endpoint(s) for listing recent runs and full probe details
+- connect saved regression outcomes to refinement/evidence workflows
+- expose richer multi-run comparison summaries
+
 ## 2026-04-27: Chat Regression Result Persistence + Run Summary Aggregation
 
 ### Summary

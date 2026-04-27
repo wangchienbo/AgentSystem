@@ -166,3 +166,60 @@ def test_fixed_prompt_matrix_runs_through_real_testclient_adapter() -> None:
     assert results[0].topic == "api"
     assert all(item.success for item in results)
     assert all(item.answer_mode == "tool_required" for item in results)
+
+
+def test_api_chat_regression_run_and_latest_endpoints() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+    from app.system.chat_regression import RegressionProbeResult, RegressionRunSummary
+
+    fake_results = [
+        RegressionProbeResult(
+            topic="api", prompt="p1", success=True, latency_ms=10, response="ok",
+            answer_mode="direct", verification_mode="none", fallback_like=False, overreach_risk=False,
+        )
+    ]
+    fake_summary = RegressionRunSummary(
+        run_id="run-endpoint",
+        started_at="2026-04-27T00:00:00Z",
+        topic_count=1,
+        success_count=1,
+        avg_latency_ms=10,
+        fallback_count=0,
+        overreach_risk_count=0,
+        answer_mode_counts={"direct": 1},
+        verification_mode_counts={"none": 1},
+    )
+
+    with patch("app.system.http_test_server.run_fixed_prompt_matrix", return_value=fake_results), \
+         patch("app.system.http_test_server.build_run_summary", return_value=fake_summary), \
+         patch("app.system.http_test_server.persist_run_results") as persist_mock:
+        persist_mock.return_value = __import__("pathlib").Path("/tmp/run-endpoint.jsonl")
+        run_resp = client.post("/api/chat-regression/run")
+
+    assert run_resp.status_code == 200
+    run_data = run_resp.json()
+    assert run_data["success"] is True
+    assert run_data["run_id"] == "run-endpoint"
+
+    import pathlib
+    regression_dir = pathlib.Path("/root/project/AgentSystem/data/chat_regression")
+    regression_dir.mkdir(parents=True, exist_ok=True)
+    latest_file = regression_dir / "run-endpoint.jsonl"
+    latest_file.write_text("{\"kind\":\"summary\",\"run_id\":\"run-endpoint\",\"started_at\":\"2026-04-27T00:00:00Z\"}\n", encoding="utf-8")
+
+    latest_resp = client.get("/api/chat-regression/latest")
+    assert latest_resp.status_code == 200
+    latest_data = latest_resp.json()
+    assert latest_data["success"] is True
+    assert latest_data["summary"]["run_id"] == "run-endpoint"
