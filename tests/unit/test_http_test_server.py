@@ -753,7 +753,35 @@ def test_api_governance_regression_cycle_nightly_driver_controls() -> None:
     start_resp = client.post("/api/governance/regression-cycle/nightly/driver/start?interval_seconds=5")
     assert start_resp.status_code == 200
     assert start_resp.json()["driver"]["interval_seconds"] == 5
+    assert start_resp.json()["driver"]["persisted_running"] is True
 
     stop_resp = client.post("/api/governance/regression-cycle/nightly/driver/stop")
     assert stop_resp.status_code == 200
     assert stop_resp.json()["driver"]["running"] is False
+    assert stop_resp.json()["driver"]["persisted_running"] is False
+
+
+def test_api_governance_nightly_status_includes_driver_state() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    client.post("/api/governance/regression-cycle/nightly/driver/start?interval_seconds=5")
+    status_resp = client.get("/api/governance/regression-cycle/nightly")
+    assert status_resp.status_code == 200
+    status_data = status_resp.json()
+    assert status_data["schedules"] is not None
+
+    dash_resp = client.get("/api/governance/regression-dashboard")
+    assert dash_resp.status_code == 200
+    dash_data = dash_resp.json()
+    assert "driver" in dash_data["nightly_automation"]
+
+    client.post("/api/governance/regression-cycle/nightly/driver/stop")

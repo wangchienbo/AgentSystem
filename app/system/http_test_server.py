@@ -50,10 +50,13 @@ class RegressionNightlyTickDriver:
         self._running = False
 
     def status(self) -> dict[str, Any]:
+        state = load_regression_nightly_driver_state()
         return {
             "running": self._running and self._thread is not None and self._thread.is_alive(),
             "interval_seconds": self._interval_seconds,
             "thread_alive": self._thread is not None and self._thread.is_alive(),
+            "persisted_running": state.get("running", False),
+            "persisted_interval_seconds": state.get("interval_seconds", self._interval_seconds),
         }
 
     def start(self, *, interval_seconds: int = 60) -> dict[str, Any]:
@@ -65,11 +68,13 @@ class RegressionNightlyTickDriver:
         self._running = True
         self._thread = threading.Thread(target=self._loop, name="regression-nightly-tick", daemon=True)
         self._thread.start()
+        save_regression_nightly_driver_state({"running": True, "interval_seconds": self._interval_seconds})
         return self.status()
 
     def stop(self) -> dict[str, Any]:
         self._running = False
         self._stop_event.set()
+        save_regression_nightly_driver_state({"running": False, "interval_seconds": self._interval_seconds})
         return self.status()
 
     def _loop(self) -> None:
@@ -105,6 +110,7 @@ APP_INSTANCE_ID = "agent_system"
 REGRESSION_CYCLE_TASK_NAME = "regression_governance_cycle"
 REGRESSION_NIGHTLY_SCHEDULE_ID = "sch.regression.governance.nightly"
 REGRESSION_NIGHTLY_STATE_KEY = "regression_nightly_state"
+REGRESSION_NIGHTLY_DRIVER_STATE_KEY = "regression_nightly_driver_state"
 regression_nightly_driver = RegressionNightlyTickDriver()
 
 
@@ -126,13 +132,29 @@ def ensure_regression_runtime_instance() -> None:
 
 
 def build_regression_nightly_status() -> dict[str, Any]:
-    return _compute_nightly_schedule_snapshot()
+    snapshot = _compute_nightly_schedule_snapshot()
+    snapshot["driver"] = regression_nightly_driver.status()
+    return snapshot
 
 
 
 def load_regression_nightly_state() -> dict[str, Any]:
     return runtime_services["runtime_store"].load_json(REGRESSION_NIGHTLY_STATE_KEY, {})
 
+
+
+def load_regression_nightly_driver_state() -> dict[str, Any]:
+    return runtime_services["runtime_store"].load_json(REGRESSION_NIGHTLY_DRIVER_STATE_KEY, {})
+
+
+def save_regression_nightly_driver_state(state: dict[str, Any]) -> None:
+    runtime_services["runtime_store"]._write_json(REGRESSION_NIGHTLY_DRIVER_STATE_KEY, state)
+
+
+def restore_regression_nightly_driver() -> None:
+    state = load_regression_nightly_driver_state()
+    if state.get("running"):
+        regression_nightly_driver.start(interval_seconds=int(state.get("interval_seconds") or 60))
 
 def save_regression_nightly_state(state: dict[str, Any]) -> None:
     runtime_services["runtime_store"]._write_json(REGRESSION_NIGHTLY_STATE_KEY, state)

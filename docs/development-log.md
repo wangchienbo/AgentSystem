@@ -1,3 +1,28 @@
+## 2026-04-27: Persist and Surface Nightly Driver State
+
+### Summary
+Completed the next control-plane layer by persisting nightly driver state across restarts and surfacing driver status directly inside nightly governance status views.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - added persistent driver state helpers:
+    - `load_regression_nightly_driver_state()`
+    - `save_regression_nightly_driver_state(...)`
+    - `restore_regression_nightly_driver()`
+  - driver start/stop now persist running state and interval
+  - nightly status now includes embedded `driver` status
+  - driver status now exposes both live and persisted fields
+  - driver restore is invoked during HTTP server module initialization
+- Updated tests:
+  - verified persisted driver state on start/stop
+  - verified nightly governance status/dashboard path includes driver data
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py`
+- Result: `22 passed`
+
+### Product Conclusion
+Nightly regression governance now treats its background driver as part of the observable control plane rather than an invisible helper thread. Driver intent survives restart boundaries, and governance surfaces can report whether the automation loop is configured to keep running.
 ## 2026-04-27: Add Background Nightly Tick Driver Controls
 
 ### Summary
