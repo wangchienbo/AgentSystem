@@ -1,3 +1,22 @@
+## 2026-04-28: Add Direct Unit Tests for Regression Nightly Control Service
+
+### Summary
+Added service-level direct tests for `RegressionNightlyControlService`, so the nightly automation control plane now has its own behavioral test coverage instead of relying only on HTTP endpoint tests.
+
+### What Was Done
+- Added `tests/unit/test_regression_nightly_control.py`
+- Covered direct service behaviors:
+  - nightly status exposes due-state correctly
+  - due-tick skips when not due and records `skipped_not_due`
+  - due-tick executes when due and records `triggered_due`
+- Kept existing HTTP coverage in place for transport-layer verification
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `27 passed`
+
+### Product Conclusion
+The nightly regression subsystem now has a cleaner testing shape: control-plane behavior is verified at the service layer, while HTTP tests can stay focused on transport and route behavior. This is an important step toward finishing the structural cleanup without losing confidence in the automation loop.
 ## 2026-04-28: Move Due-Tick Decision Flow Behind Nightly Control Service
 
 ### Summary
