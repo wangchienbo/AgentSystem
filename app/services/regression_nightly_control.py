@@ -165,3 +165,16 @@ class RegressionNightlyControlService:
             "cycle": cycle_result,
             "nightly_status": refreshed,
         }
+
+    def trigger_manual_cycle(self, *, client: Any) -> dict[str, Any]:
+        trigger_results = self._scheduler.trigger_interval_schedules(APP_INSTANCE_ID)
+        matched = [item.model_dump(mode="json") for item in trigger_results if item.task_name == REGRESSION_CYCLE_TASK_NAME and item.triggered]
+        if not matched:
+            return {"triggered": False, "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
+        cycle_result = self.run_cycle(client)
+        self._runtime_host.consume_pending_tasks(APP_INSTANCE_ID, REGRESSION_CYCLE_TASK_NAME)
+        return {
+            "triggered": True,
+            "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
+            "cycle": cycle_result,
+        }

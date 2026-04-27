@@ -1,3 +1,22 @@
+## 2026-04-28: Move Due-Tick Decision Flow Behind Nightly Control Service
+
+### Summary
+Continued the structural cleanup by moving the due-aware nightly tick decision path behind `RegressionNightlyControlService`, while deliberately keeping the manual nightly trigger endpoint in its previous shape to preserve stable test seams and transport behavior.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - added `trigger_due_tick(...)` as a service-owned control-plane decision flow
+  - centralizes due-check, scheduler trigger evaluation, tick record persistence, and cycle result wrapping for the due-driven path
+- Updated `app/system/http_test_server.py`
+  - `tick_regression_nightly_cycle(...)` now delegates to `RegressionNightlyControlService.trigger_due_tick(...)`
+  - kept `/api/governance/regression-cycle/nightly/trigger` on its stable wrapper path to avoid breaking existing endpoint-level patch seams during incremental refactor
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py`
+- Result: `24 passed`
+
+### Product Conclusion
+The nightly subsystem is now being refactored with better judgment: not every path is forced through the service boundary at once. The due-driven automation flow has moved under service ownership, while the manual trigger path remains stable until its test seams and adapter boundaries are ready for a safe migration.
 ## 2026-04-27: Integrate Nightly Status Snapshot Through Dedicated Service
 
 ### Summary

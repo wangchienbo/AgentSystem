@@ -793,7 +793,6 @@ async def api_governance_regression_cycle_nightly_trigger(user: dict = Depends(g
         "cycle": cycle_result,
     }
 
-
 @app.post("/api/governance/regression-cycle/nightly/tick")
 async def api_governance_regression_cycle_nightly_tick(user: dict = Depends(get_current_user)):
     result = tick_regression_nightly_cycle(user["session_id"])
