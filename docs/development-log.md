@@ -1,3 +1,31 @@
+## 2026-04-27: Add Due-Aware Nightly Tick for Regression Governance
+
+### Summary
+Added a due-aware nightly tick path so regression governance can now decide whether it should run based on schedule timing, rather than only exposing a manual trigger endpoint.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - added `_compute_nightly_schedule_snapshot()`
+  - nightly status now includes:
+    - `due_schedule_ids`
+    - `due_now`
+    - `next_trigger_at`
+  - added `tick_regression_nightly_cycle(...)`
+  - added `POST /api/governance/regression-cycle/nightly/tick`
+- Tick behavior:
+  - checks whether the registered nightly schedule is due based on `last_triggered_at` / `created_at` + `interval_seconds`
+  - skips execution when not due
+  - triggers the full regression governance cycle when due
+  - clears executed pending tasks after completion
+- Updated tests:
+  - verified both not-due and due execution branches through HTTP
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py`
+- Result: `20 passed`
+
+### Product Conclusion
+Nightly regression governance now has real interval semantics. The system can inspect its own schedule timing, determine whether work is due, and run only when appropriate. This moves nightly governance from a manually triggered schedule wrapper toward an actual autonomous execution loop.
 ## 2026-04-27: Surface Nightly Automation Status in Governance Views
 
 ### Summary

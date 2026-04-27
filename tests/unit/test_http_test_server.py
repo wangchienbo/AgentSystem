@@ -682,3 +682,47 @@ def test_api_governance_regression_cycle_nightly_register_and_trigger() -> None:
     assert trig_data["success"] is True
     assert trig_data["triggered"] is True
     assert trig_data["cycle"]["run_id"] == "nightly-run-1"
+
+
+def test_api_governance_regression_cycle_nightly_tick_due_and_not_due() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    client.post("/api/governance/regression-cycle/nightly?interval_seconds=3600")
+
+    not_due_resp = client.post("/api/governance/regression-cycle/nightly/tick")
+    assert not_due_resp.status_code == 200
+    not_due_data = not_due_resp.json()
+    assert not_due_data["success"] is True
+    assert not_due_data["triggered"] is False
+    assert "due_now" in not_due_data["nightly_status"]
+
+    import app.system.http_test_server as server
+    schedule = server.runtime_services["scheduler"].get_schedule("sch.regression.governance.nightly")
+    from datetime import UTC, datetime, timedelta
+    schedule.last_triggered_at = datetime.now(UTC) - timedelta(seconds=7200)
+
+    from unittest.mock import patch
+    fake_cycle = {
+        "run_id": "nightly-run-due",
+        "summary": {"topic_count": 4},
+        "path": "/tmp/nightly-run-due.jsonl",
+        "evidence": {"promoted_count": 1},
+        "trigger_application": {"trigger_count": 1},
+    }
+    with patch("app.system.http_test_server.run_regression_governance_cycle", return_value=fake_cycle):
+        due_resp = client.post("/api/governance/regression-cycle/nightly/tick")
+
+    assert due_resp.status_code == 200
+    due_data = due_resp.json()
+    assert due_data["success"] is True
+    assert due_data["triggered"] is True
+    assert due_data["cycle"]["run_id"] == "nightly-run-due"

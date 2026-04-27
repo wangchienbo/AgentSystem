@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 import json
@@ -83,6 +83,11 @@ def ensure_regression_runtime_instance() -> None:
 
 
 def build_regression_nightly_status() -> dict[str, Any]:
+    return _compute_nightly_schedule_snapshot()
+
+
+
+def _compute_nightly_schedule_snapshot() -> dict[str, Any]:
     ensure_regression_runtime_instance()
     scheduler = runtime_services["scheduler"]
     runtime_host = runtime_services["runtime_host"]
@@ -90,12 +95,51 @@ def build_regression_nightly_status() -> dict[str, Any]:
     overview = runtime_host.get_overview(APP_INSTANCE_ID)
     recent_runs = list_saved_runs(limit=1)
     latest_run = recent_runs[0]["summary"] if recent_runs else None
+    due_schedules = []
+    next_trigger_at = None
+    now = datetime.now(UTC)
+    for item in schedules:
+        last = item.last_triggered_at or item.created_at
+        due_at = last + timedelta(seconds=item.interval_seconds or 0)
+        if item.status == "active" and due_at <= now:
+            due_schedules.append(item.schedule_id)
+        if next_trigger_at is None or due_at < next_trigger_at:
+            next_trigger_at = due_at
     return {
         "registered": bool(schedules),
         "schedule_count": len(schedules),
         "schedules": [item.model_dump(mode="json") for item in schedules],
         "pending_task_count": sum(1 for task in overview.pending_tasks if task == REGRESSION_CYCLE_TASK_NAME),
         "latest_run": latest_run,
+        "due_schedule_ids": due_schedules,
+        "due_now": bool(due_schedules),
+        "next_trigger_at": None if next_trigger_at is None else next_trigger_at.isoformat().replace("+00:00", "Z"),
+    }
+
+
+def tick_regression_nightly_cycle(user_session_id: str) -> dict[str, Any]:
+    snapshot = _compute_nightly_schedule_snapshot()
+    if not snapshot["due_now"]:
+        return {"triggered": False, "nightly_status": snapshot}
+
+    from fastapi.testclient import TestClient
+
+    scheduler = runtime_services["scheduler"]
+    runtime_host = runtime_services["runtime_host"]
+    trigger_results = scheduler.trigger_interval_schedules(APP_INSTANCE_ID)
+    matched = [item.model_dump(mode="json") for item in trigger_results if item.task_name == REGRESSION_CYCLE_TASK_NAME and item.triggered]
+    if not matched:
+        return {"triggered": False, "nightly_status": _compute_nightly_schedule_snapshot(), "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
+
+    local_client = TestClient(app)
+    local_client.cookies.set("session_id", user_session_id)
+    cycle_result = run_regression_governance_cycle(make_testclient_poster(local_client), memory=refinement_memory)
+    runtime_host.consume_pending_tasks(APP_INSTANCE_ID, REGRESSION_CYCLE_TASK_NAME)
+    return {
+        "triggered": True,
+        "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
+        "cycle": cycle_result,
+        "nightly_status": _compute_nightly_schedule_snapshot(),
     }
 CHAT_LOG_DIR = BASE_DIR / "data" / "chat_logs"
 CHAT_LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -624,3 +668,9 @@ async def api_governance_regression_cycle_nightly_trigger(user: dict = Depends(g
         "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
         "cycle": cycle_result,
     }
+
+
+@app.post("/api/governance/regression-cycle/nightly/tick")
+async def api_governance_regression_cycle_nightly_tick(user: dict = Depends(get_current_user)):
+    result = tick_regression_nightly_cycle(user["session_id"])
+    return {"success": True, **result}
