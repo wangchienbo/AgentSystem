@@ -5,6 +5,8 @@ from app.system.chat_regression import (
     build_run_summary,
     make_testclient_poster,
     persist_run_results,
+    list_saved_runs,
+    read_run_details,
     run_fixed_prompt_matrix,
     summarize_probe_payload,
 )
@@ -133,3 +135,18 @@ def test_persist_run_results_writes_summary_and_probes(tmp_path: Path) -> None:
     assert '"kind": "summary"' in lines[0]
     assert '"kind": "probe"' in lines[1]
     assert '"run_id": "run-persist"' in lines[1]
+
+
+def test_list_saved_runs_and_read_run_details(tmp_path: Path) -> None:
+    results = [summarize_probe_payload("api", {"success": True, "response": "ok", "latency_ms": 10})]
+    summary = build_run_summary(results, run_id="run-read", started_at="2026-04-27T00:00:00Z")
+    persist_run_results(results, summary, log_dir=tmp_path)
+
+    rows = list_saved_runs(log_dir=tmp_path, limit=5)
+    assert len(rows) == 1
+    assert rows[0]["summary"]["run_id"] == "run-read"
+
+    detail = read_run_details("run-read", log_dir=tmp_path)
+    assert detail is not None
+    assert detail["summary"]["run_id"] == "run-read"
+    assert detail["probes"][0]["topic"] == "api"

@@ -223,3 +223,39 @@ def test_api_chat_regression_run_and_latest_endpoints() -> None:
     latest_data = latest_resp.json()
     assert latest_data["success"] is True
     assert latest_data["summary"]["run_id"] == "run-endpoint"
+
+
+def test_api_chat_regression_runs_and_detail_endpoints() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    import pathlib
+    regression_dir = pathlib.Path("/root/project/AgentSystem/data/chat_regression")
+    regression_dir.mkdir(parents=True, exist_ok=True)
+    run_path = regression_dir / "run-list.jsonl"
+    run_path.write_text(
+        "{\"kind\":\"summary\",\"run_id\":\"run-list\",\"started_at\":\"2026-04-27T00:00:00Z\"}\n"
+        "{\"kind\":\"probe\",\"run_id\":\"run-list\",\"topic\":\"api\"}\n",
+        encoding="utf-8",
+    )
+
+    runs_resp = client.get("/api/chat-regression/runs")
+    assert runs_resp.status_code == 200
+    runs_data = runs_resp.json()
+    assert runs_data["success"] is True
+    assert any(item["summary"]["run_id"] == "run-list" for item in runs_data["runs"])
+
+    detail_resp = client.get("/api/chat-regression/runs/run-list")
+    assert detail_resp.status_code == 200
+    detail_data = detail_resp.json()
+    assert detail_data["success"] is True
+    assert detail_data["summary"]["run_id"] == "run-list"
+    assert detail_data["probes"][0]["topic"] == "api"

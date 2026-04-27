@@ -126,3 +126,32 @@ def persist_run_results(results: list[RegressionProbeResult], summary: Regressio
         for item in results:
             f.write(json.dumps({"kind": "probe", "run_id": summary.run_id, **asdict(item)}, ensure_ascii=False) + "\n")
     return out
+
+
+def list_saved_runs(*, log_dir: Path | None = None, limit: int = 10) -> list[dict[str, Any]]:
+    target_dir = log_dir or REGRESSION_LOG_DIR
+    if not target_dir.exists():
+        return []
+    files = sorted(target_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+    rows: list[dict[str, Any]] = []
+    for path in files:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if not lines:
+            continue
+        summary = json.loads(lines[0])
+        rows.append({"path": str(path), "summary": summary})
+    return rows
+
+
+def read_run_details(run_id: str, *, log_dir: Path | None = None) -> dict[str, Any] | None:
+    target_dir = log_dir or REGRESSION_LOG_DIR
+    path = target_dir / f"{run_id}.jsonl"
+    if not path.exists():
+        return None
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines:
+        return None
+    parsed = [json.loads(line) for line in lines]
+    summary = parsed[0]
+    probes = parsed[1:]
+    return {"path": str(path), "summary": summary, "probes": probes}

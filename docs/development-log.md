@@ -1,3 +1,33 @@
+## 2026-04-27: Chat Regression Runs List + Run Detail Surfaces
+
+### Summary
+Extended the chat regression operational surface with list/detail read models so saved regression runs can be browsed and inspected beyond only the latest summary.
+
+### What Was Done
+- Updated `app/system/chat_regression.py`
+  - added `list_saved_runs(...)`
+  - added `read_run_details(...)`
+- Updated `app/system/http_test_server.py`
+  - added `GET /api/chat-regression/runs`
+  - added `GET /api/chat-regression/runs/{run_id}`
+- Added tests covering:
+  - saved run listing
+  - run detail loading
+  - HTTP endpoints for list/detail regression inspection
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py tests/unit/test_chat_regression.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `47 passed`
+
+### Product Conclusion
+The chat regression subsystem now has a basic but usable operational browsing surface: runs can be triggered, latest summaries can be read, recent runs can be listed, and individual run probe details can be inspected.
+
+### Remaining Follow-up
+Next steps:
+- add multi-run comparative summaries
+- connect regression outcomes into refinement/evidence workflows
+- add filtering/sorting or topic-specific inspection views when the dataset grows
+
 ## 2026-04-27: Chat Regression Trigger + Latest Summary Endpoints
 
 ### Summary

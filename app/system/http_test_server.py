@@ -27,6 +27,8 @@ from app.system.chat_regression import (
     persist_run_results,
     REGRESSION_LOG_DIR,
     run_fixed_prompt_matrix,
+    list_saved_runs,
+    read_run_details,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -314,6 +316,20 @@ async def api_chat_regression_latest(user: dict = Depends(get_current_user)):
         return {"success": False, "error": "latest regression file is empty"}
     summary = json.loads(lines[0])
     return {"success": True, "path": str(latest), "summary": summary}
+
+
+@app.get("/api/chat-regression/runs")
+async def api_chat_regression_runs(user: dict = Depends(get_current_user), limit: int = 10):
+    rows = list_saved_runs(limit=limit)
+    return {"success": True, "runs": rows}
+
+
+@app.get("/api/chat-regression/runs/{run_id}")
+async def api_chat_regression_run_detail(run_id: str, user: dict = Depends(get_current_user)):
+    detail = read_run_details(run_id)
+    if detail is None:
+        return {"success": False, "error": "run not found", "run_id": run_id}
+    return {"success": True, **detail}
 
 
 # ---------- 新增 Action 接口（前端按钮 / Tool 调用） ----------
