@@ -335,7 +335,7 @@ async def api_chat_regression_run_detail(run_id: str, user: dict = Depends(get_c
 
 
 
-from app.system.regression_dashboard import build_regression_governance_dashboard, build_regression_operator_summary
+from app.system.regression_dashboard import build_regression_governance_dashboard, build_regression_operator_summary, build_regression_triggers
 from app.system.regression_evidence_bridge import list_regression_evidence_history, promote_regression_evidence
 
 
@@ -473,3 +473,9 @@ async def api_governance_operator_summary(user: dict = Depends(get_current_user)
         evidence_limit=evidence_limit,
     )
     return {"success": True, **summary}
+
+
+@app.post("/api/governance/regression-triggers")
+async def api_governance_regression_triggers(user: dict = Depends(get_current_user), comparison_limit: int = 5, threshold: str = "warning"):
+    triggers = build_regression_triggers(comparison_limit=comparison_limit, threshold=threshold)
+    return {"success": True, **triggers}

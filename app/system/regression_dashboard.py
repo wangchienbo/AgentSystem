@@ -122,3 +122,65 @@ def build_regression_operator_summary(
         "regression": dashboard,
         "generated_at": dashboard["generated_at"],
     }
+
+
+def build_regression_triggers(
+    *,
+    comparison_limit: int = 5,
+    threshold: str = "warning",
+) -> dict[str, Any]:
+    """Generate actionable refinement triggers from regression risk flags.
+
+    Reads the regression governance dashboard, extracts risk flags at or above
+    the given threshold, and converts them into structured trigger records ready
+    for ingestion by the refinement pipeline.
+
+    Returns a list of triggers each containing:
+      - trigger_id: unique identifier
+      - signal: risk signal name
+      - level: severity level
+      - recommended_action: suggested refinement action
+      - detail: human-readable description
+      - generated_at: timestamp
+    """
+    dashboard = build_regression_governance_dashboard(
+        comparison_limit=comparison_limit,
+    )
+    risk_flags = dashboard.get("risk_flags", [])
+    # Filter by severity
+    level_priority = {"info": 0, "warning": 1}
+    min_priority = level_priority.get(threshold, 0)
+    actionable = [flag for flag in risk_flags if level_priority.get(flag.get("level", ""), 0) >= min_priority]
+
+    from uuid import uuid4
+    from datetime import timezone as _tz
+    ts = __import__("datetime").datetime.now(_tz.utc).isoformat()
+
+    triggers = []
+    for flag in actionable:
+        triggers.append({
+            "trigger_id": f"regression-trigger-{uuid4().hex[:12]}",
+            "signal": flag.get("signal", ""),
+            "level": flag.get("level", ""),
+            "recommended_action": _recommend_action_for_signal(flag.get("signal", "")),
+            "detail": flag.get("detail", ""),
+            "generated_at": ts,
+        })
+
+    return {
+        "triggers": triggers,
+        "trigger_count": len(triggers),
+        "dashboard_comparison": dashboard["comparison"],
+        "generated_at": ts,
+    }
+
+
+def _recommend_action_for_signal(signal: str) -> str:
+    """Map regression risk signals to recommended refinement actions."""
+    actions = {
+        "elevated_latency": "profile_performance_bottlenecks",
+        "elevated_fallback": "review_tool_calling_prompt_template",
+        "elevated_overreach": "tighten_evidence_boundary_guard",
+        "conservative_mode_skew": "audit_verification_policy_thresholds",
+    }
+    return actions.get(signal, "manual_review_required")

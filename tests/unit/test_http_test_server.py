@@ -493,3 +493,36 @@ def test_api_governance_operator_summary_endpoint() -> None:
     assert data["app_instance_id"] == "agent_system"
     assert "refinement" in data
     assert "regression" in data
+
+
+def test_api_governance_regression_triggers_endpoint() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_triggers = {
+        "triggers": [
+            {"trigger_id": "trig-1", "signal": "elevated_latency", "level": "warning", "recommended_action": "profile_performance_bottlenecks", "detail": "Latency elevated", "generated_at": "2026-04-27T00:00:00Z"},
+        ],
+        "trigger_count": 1,
+        "dashboard_comparison": {"run_count": 2},
+        "generated_at": "2026-04-27T00:00:00Z",
+    }
+
+    with patch("app.system.http_test_server.build_regression_triggers", return_value=fake_triggers):
+        resp = client.post("/api/governance/regression-triggers")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["trigger_count"] == 1
+    assert data["triggers"][0]["signal"] == "elevated_latency"

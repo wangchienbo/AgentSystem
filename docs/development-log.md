@@ -1,3 +1,33 @@
+## 2026-04-27: Regression Alerts Wired to Automated Refinement Triggers
+
+### Summary
+Closed the regression-to-refinement loop by wiring regression risk alerts into actionable automated refinement trigger records, making the regression subsystem capable of not just observing and reporting, but triggering refinement actions.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `build_regression_triggers(...)` — reads regression risk flags, filters by severity threshold, and maps each to an actionable trigger with:
+    - trigger_id, signal, level, recommended_action, detail
+  - added `_recommend_action_for_signal(...)` — maps signals to concrete refinement actions:
+    - elevated_latency → profile_performance_bottlenecks
+    - elevated_fallback → review_tool_calling_prompt_template
+    - elevated_overreach → tighten_evidence_boundary_guard
+    - conservative_mode_skew → audit_verification_policy_thresholds
+- Updated `app/system/http_test_server.py`
+  - added `POST /api/governance/regression-triggers`
+- Added tests covering:
+  - triggers endpoint behavior and response structure
+
+### Validation
+- `pytest -q` core test suite
+- Result: `60 passed`
+
+### Product Conclusion
+The regression subsystem now has a complete three-tier governance integration:
+1. **Observe** — `/api/governance/regression-dashboard` (read-only)
+2. **Summarize** — `/api/governance/operator-summary` (composite view)
+3. **Act** — `/api/governance/regression-triggers` (actionable triggers)
+
+This is the final piece of the regression integration roadmap — the system can now self-monitor, self-report, and self-trigger refinement actions based on regressions detected.
 ## 2026-04-27: Regression Governance Dashboard Integrated into Refinement Operator Summary
 
 ### Summary
