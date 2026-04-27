@@ -619,13 +619,27 @@ class LightBrainGateway:
         # 当 ToolCallingEngine 返回 direct_response / unclear 时，由这里兜底生成友好回复
         def _llm_fallback_handler(command: InterpretedCommand, session_id: str, apps: list[dict]) -> ChatMessageResponse:
             text = command.parameters.get("text") or command.parameters.get("reply", "")
+            structured_answer = getattr(command, "structured_answer", None)
+            self_model = getattr(structured_answer, "self_model", None) if structured_answer else None
+            answer_mode = getattr(self_model, "answer_mode", "direct") if self_model else "direct"
+            verification_mode = getattr(self_model, "verification_mode", "none") if self_model else "none"
+            unverified_points = getattr(structured_answer, "unverified_points", []) if structured_answer else []
+
             if not text:
-                return ChatMessageResponse(
-                    type="text",
-                    content="我明白了。有什么我可以帮你的吗？",
-                    session_id=session_id,
-                )
-            return ChatMessageResponse(type="text", content=text, session_id=session_id, structured_answer=getattr(command, "structured_answer", None))
+                text = "我明白了。有什么我可以帮你的吗？"
+
+            if answer_mode == "clarification_required":
+                hint = unverified_points[0] if unverified_points else "当前信息还不够完整，需要你补充一个关键点。"
+                text = f"当前还不能直接下结论。{hint}"
+            elif answer_mode == "verification_required":
+                prefix = "当前结论仍需进一步验证。"
+                if verification_mode == "light":
+                    prefix = "当前结论建议做轻量验证。"
+                text = f"{prefix}{text}" if text else prefix
+            elif answer_mode == "tool_required" and verification_mode == "light":
+                text = f"以下结论基于当前工具证据，仍建议做轻量验证。{text}" if text else "以下结论基于当前工具证据，仍建议做轻量验证。"
+
+            return ChatMessageResponse(type="text", content=text, session_id=session_id, structured_answer=structured_answer)
 
         handler = local_handlers.get(command.intent)
         if handler:

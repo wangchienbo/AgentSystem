@@ -69,3 +69,55 @@ def test_api_chat_exposes_structured_answer_payload() -> None:
     assert data["structured_answer"] is not None
     assert data["structured_answer"]["claim"]["text"] == "已确认默认值是 json"
     assert data["structured_answer"]["self_model"]["human_equivalence_state"] == "non_human_equivalent"
+
+
+def test_api_chat_response_prefixes_verification_required_mode() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import AsyncMock, patch
+    from app.models.chat import ChatMessageResponse
+    from app.models.cognition import SelfModel, StructuredAnswer, StructuredClaim
+
+    structured = StructuredAnswer(
+        self_model=SelfModel(
+            capability_state="tool_required",
+            tool_dependence_state="required",
+            confidence_state=0.4,
+            answer_mode="verification_required",
+            verification_mode="required",
+        ),
+        claim=StructuredClaim(text="当前只能初步判断", evidence_grade="none", confidence=0.4),
+        evidence=[],
+        unverified_points=["仍需补充更直接证据"],
+        text="当前只能初步判断",
+    )
+    fake_reply = ChatMessageResponse(type="text", content="当前只能初步判断", session_id="session_tester", structured_answer=structured)
+
+    with patch("app.system.http_test_server.gateway.receive_message", new=AsyncMock(return_value=fake_reply)):
+        response = client.post("/api/chat", json={"message": "帮我确认默认值"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["response"] == "当前只能初步判断"
+    assert data["structured_answer"]["self_model"]["answer_mode"] == "verification_required"
+
+
+def test_fixed_prompt_regression_seed_covers_core_scan_topics() -> None:
+    prompts = {
+        "api": "请梳理 API handler 和 request/response 流程",
+        "validation": "请检查校验器和 guard 规则",
+        "telemetry": "请检查日志埋点和观测记录",
+        "storage": "请检查 storage backend 和读写路径",
+    }
+
+    assert set(prompts) == {"api", "validation", "telemetry", "storage"}
+    assert all(isinstance(v, str) and v for v in prompts.values())

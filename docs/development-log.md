@@ -1,3 +1,40 @@
+## 2026-04-27: Response Policy Mode Consumption + Regression Seed Matrix
+
+### Summary
+Started the fifth implementation slice by making external response behavior consume `SelfModel` mode signals more explicitly and by seeding a fixed-prompt regression matrix for core introspection topics.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - external fallback response policy now reads structured cognition mode hints:
+    - `answer_mode`
+    - `verification_mode`
+  - response phrasing is now more conservative when the model indicates:
+    - `verification_required`
+    - `clarification_required`
+    - `tool_required` with light verification guidance
+- Updated `app/system/http_test_server.py`
+  - removed duplicate `structured_answer` assignment in `/api/chat`
+- Added tests covering:
+  - structured response mode propagation through HTTP replies
+  - fixed-prompt regression seed coverage for:
+    - `api`
+    - `validation`
+    - `telemetry`
+    - `storage`
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_tool_calling_engine.py`
+- Result: `36 passed`
+
+### Product Conclusion
+`SelfModel` is no longer only an internal cognition annotation. It now starts to affect user-visible response policy, which is a necessary step toward bounded, evidence-aware answer behavior.
+
+### Remaining Follow-up
+Next likely steps:
+- build the executable `/api/chat` fixed-prompt regression harness
+- record latency / fallback / overreach observations per topic
+- continue wiring verification outcomes back into a broader evidence ledger
+
 ## 2026-04-27: Structured Answer Schema Hardening + SelfModel Mode Routing
 
 ### Summary

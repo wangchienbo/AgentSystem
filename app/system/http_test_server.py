@@ -227,7 +227,6 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
         llm_resp = await gateway.receive_message(chat_req)
         response_text = getattr(llm_resp, "content", "") or ""
         structured_answer = getattr(llm_resp, "structured_answer", None)
-        structured_answer = getattr(llm_resp, "structured_answer", None)
         finished_at = datetime.now()
         latency_ms = int((finished_at - started_at).total_seconds() * 1000)
 
