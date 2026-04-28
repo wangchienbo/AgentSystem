@@ -1048,3 +1048,69 @@ def test_trigger_manual_cycle_can_auto_apply_governance_selection(tmp_path: Path
     assert result["governance_rollout"]["applied"] is True
     assert result["governance_rollout"]["queue_id"] == "q-primary"
     assert result["governance_rollout"]["item"]["status"] == "applied"
+
+
+def test_governance_execution_preflight_blocks_secondary_selection(tmp_path: Path) -> None:
+    from unittest.mock import patch
+    from app.models.refinement_loop import RolloutQueueItem
+
+    service = build_service(tmp_path)
+    service._refinement_memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-secondary",
+        hypothesis_id="h1",
+        proposal_id="regression-trigger-1",
+        app_instance_id="agent_system",
+        status="queued",
+        note="regression_quality::execution_semantics::profile_performance_bottlenecks::execution::priority=secondary",
+    ))
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        preflight = service.build_governance_execution_preflight(nightly_status=None)
+        result = service.apply_governance_selected_rollout(nightly_status=None)
+
+    assert preflight["can_apply"] is False
+    assert preflight["hold_reason"] == "secondary_requires_review"
+    assert result["applied"] is False
+    assert result["preflight"]["hold_reason"] == "secondary_requires_review"
+
+
+def test_trigger_manual_cycle_auto_apply_returns_preflight_metadata(tmp_path: Path) -> None:
+    from unittest.mock import patch
+    from app.models.refinement_loop import RolloutQueueItem
+
+    service = build_service(tmp_path)
+    service.register_nightly_schedule(interval_seconds=3600)
+    service._refinement_memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-primary",
+        hypothesis_id="h1",
+        proposal_id="regression-trigger-1",
+        app_instance_id="agent_system",
+        status="queued",
+        note="automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution::priority=primary",
+    ))
+    service.run_cycle = Mock(return_value={"run_id": "manual-run-1"})
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        result = service.trigger_manual_cycle(client=Mock(), auto_apply_governance=True)
+
+    assert result["governance_rollout"]["applied"] is True
+    assert result["governance_rollout"]["preflight"]["can_apply"] is True
+    assert result["governance_rollout"]["preflight"]["required_review_scope"] == "light"

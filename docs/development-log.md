@@ -1,3 +1,52 @@
+## 2026-04-28: Add Governance Execution Preflight Gate
+
+### Summary
+Added an explicit execution preflight layer in front of governance auto-apply so the newly closed control loop is no longer a direct selector-to-apply path. Auto-apply now consumes a structured preflight decision with clear allow/deny reasoning, risk grading, and review-scope metadata.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - added `build_governance_execution_preflight(...)`
+  - preflight currently returns:
+    - `can_apply`
+    - `apply_risk`
+    - `hold_reason`
+    - `required_review_scope`
+    - `recommended_queue_id`
+    - `priority_tier`
+  - `apply_governance_selected_rollout(...)` now always evaluates preflight first
+  - blocked preflight results are returned as structured `preflight` metadata instead of silently skipping
+  - successful auto-apply responses now also include the preflight decision that allowed execution
+- Kept current gating conservative:
+  - block when rollout service is unavailable
+  - block when no recommended queue exists
+  - allow `primary` with non-failure automation attention as a light-review path
+  - block `secondary` with `secondary_requires_review`
+  - block all other cases as higher risk
+- Expanded tests
+  - `tests/unit/test_regression_nightly_control.py`
+    - verified secondary selection is blocked by preflight
+    - verified successful primary auto-apply now returns preflight metadata
+  - `tests/unit/test_http_test_server.py`
+    - verified HTTP trigger path can return a structured preflight block payload
+
+### Design Notes
+This keeps the new closed loop from becoming opaque automation:
+- auto-apply still opt-in
+- rollout still uses existing transition service
+- no persistence schema change
+- every deny path is now explicit and machine-readable
+- every allow path carries its own justification metadata
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_execution_preflight_blocks_secondary_selection or auto_apply_returns_preflight_metadata or auto_apply_governance_selection'`
+  - Result: `3 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_can_auto_apply_governance or nightly_trigger_returns_preflight_block'`
+  - Result: `2 passed`
+
+### Product Conclusion
+The governance line now has a genuine safety boundary. The system can still close the loop and execute when conditions are favorable, but it no longer jumps straight from recommendation to action. Instead, it produces an explicit preflight judgment that makes the execution decision auditable, explainable, and easier to tighten further in future iterations.
+
 ## 2026-04-28: Close the Governance Loop with Optional Auto-Apply Execution Path
 
 ### Summary

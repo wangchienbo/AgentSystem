@@ -201,9 +201,70 @@ class RegressionNightlyControlService:
     def run_cycle(self, client: Any) -> dict[str, Any]:
         return run_regression_governance_cycle(make_testclient_poster(client), memory=self._refinement_memory)
 
-    def apply_governance_selected_rollout(self, *, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
+    def build_governance_execution_preflight(self, *, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
+        summary = build_regression_operator_summary(
+            memory=self._refinement_memory,
+            nightly_status=nightly_status,
+        )
+        governance = summary.get("refinement", {}).get("governance", {})
+        selection = governance.get("rollout_selection") or {}
+        packet = governance.get("rollout_review_packet") or {}
+        queue_id = selection.get("recommended_queue_id")
+        priority_tier = selection.get("recommended_priority_tier")
+        automation_attention = packet.get("automation_attention") or {}
+        attention_reason = automation_attention.get("reason") or ""
+
         if self._refinement_rollout is None:
-            return {"applied": False, "reason": "rollout_service_unavailable"}
+            return {
+                "can_apply": False,
+                "apply_risk": "blocked",
+                "hold_reason": "rollout_service_unavailable",
+                "required_review_scope": "operator",
+                "recommended_queue_id": queue_id,
+                "priority_tier": priority_tier,
+            }
+        if not queue_id:
+            return {
+                "can_apply": False,
+                "apply_risk": "blocked",
+                "hold_reason": "no_recommended_queue",
+                "required_review_scope": "operator",
+                "recommended_queue_id": None,
+                "priority_tier": priority_tier,
+            }
+        if priority_tier == "primary" and attention_reason != "consecutive_failures":
+            return {
+                "can_apply": True,
+                "apply_risk": "medium",
+                "hold_reason": "",
+                "required_review_scope": "light",
+                "recommended_queue_id": queue_id,
+                "priority_tier": priority_tier,
+            }
+        if priority_tier == "secondary":
+            return {
+                "can_apply": False,
+                "apply_risk": "medium",
+                "hold_reason": "secondary_requires_review",
+                "required_review_scope": "operator",
+                "recommended_queue_id": queue_id,
+                "priority_tier": priority_tier,
+            }
+        return {
+            "can_apply": False,
+            "apply_risk": "high",
+            "hold_reason": attention_reason or f"priority_tier_blocked:{priority_tier or 'none'}",
+            "required_review_scope": "operator",
+            "recommended_queue_id": queue_id,
+            "priority_tier": priority_tier,
+        }
+
+    def apply_governance_selected_rollout(self, *, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
+        preflight = self.build_governance_execution_preflight(nightly_status=nightly_status)
+        if not preflight.get("can_apply"):
+            return {"applied": False, "reason": preflight.get("hold_reason"), "preflight": preflight}
+        if self._refinement_rollout is None:
+            return {"applied": False, "reason": "rollout_service_unavailable", "preflight": preflight}
 
         summary = build_regression_operator_summary(
             memory=self._refinement_memory,
@@ -231,6 +292,7 @@ class RegressionNightlyControlService:
             "queue_id": queue_id,
             "priority_tier": priority_tier,
             "selection_reason": packet.get("selection_reason"),
+            "preflight": preflight,
             "item": item.model_dump(mode="json"),
         }
 
