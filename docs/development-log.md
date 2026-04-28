@@ -1,3 +1,32 @@
+## 2026-04-28: Introduce Typed Governance Preflight Decision Model
+
+### Summary
+Added a typed `GovernancePreflightDecision` model so governance auto-apply preflight is no longer only a loose dict contract internally, while preserving the existing JSON payload shape for service and API consumers.
+
+### What Was Done
+- Added `app/models/governance_preflight.py`
+  - introduced `GovernancePreflightDecision`
+  - captured the stable preflight contract fields already used by service/API/tests
+  - added `to_payload()` helper for JSON-compatible emission
+- Updated `app/system/regression_governance_policy.py`
+  - `build_governance_preflight_decision(...)` now returns a typed `GovernancePreflightDecision`
+- Updated `app/services/regression_nightly_control.py`
+  - preflight evaluation now builds typed decisions internally
+  - service responses still emit plain dict payloads via `to_payload()` to avoid breaking current callers
+- Expanded tests
+  - added direct coverage that the shared preflight decision builder returns the typed model
+  - preserved existing service/API assertions against serialized payloads
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_preflight_decision_builder_returns_typed_payload or auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or degraded_automation_health or retry_pending_warning'`
+  - Result: `5 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+This gives the governance control loop a stronger contract without forcing an immediate surface-level migration. Policy logic can now evolve against a real typed object, while higher layers keep receiving the same JSON-shaped payloads until or unless they are explicitly upgraded.
+
 ## 2026-04-28: Extract Governance Preflight Policy into Shared Policy Module
 
 ### Summary

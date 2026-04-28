@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.models.governance_preflight import GovernancePreflightDecision
+
 PREFLIGHT_HOLD_NONE = ""
 PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE = "rollout_service_unavailable"
 PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE = "no_recommended_queue"
@@ -35,18 +37,18 @@ def build_governance_preflight_decision(
     review_scope: str,
     review_reason: str,
     **extra: Any,
-) -> dict[str, Any]:
-    return {
+) -> GovernancePreflightDecision:
+    return GovernancePreflightDecision(
         **base,
         **extra,
-        "can_apply": can_apply,
-        "apply_risk": apply_risk,
-        "hold_reason": hold_reason,
-        "hold_category": hold_reason.split(":", 1)[0] if hold_reason else "none",
-        "required_review_scope": review_scope,
-        "review_scope": review_scope,
-        "review_reason": review_reason,
-    }
+        can_apply=can_apply,
+        apply_risk=apply_risk,
+        hold_reason=hold_reason,
+        hold_category=hold_reason.split(":", 1)[0] if hold_reason else "none",
+        required_review_scope=review_scope,
+        review_scope=review_scope,
+        review_reason=review_reason,
+    )
 
 _SIGNAL_PRIORITY = {
     "nightly_automation_degraded": 40,

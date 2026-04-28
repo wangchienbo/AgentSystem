@@ -74,6 +74,25 @@ def build_service(tmp_path: Path) -> RegressionNightlyControlService:
     assert signal_priority({"level": "warning", "signal": "nightly_automation_degraded"}) > signal_priority({"level": "warning", "signal": "elevated_latency"})
 
 
+def test_governance_preflight_decision_builder_returns_typed_payload() -> None:
+    from app.models.governance_preflight import GovernancePreflightDecision
+    from app.system.regression_governance_policy import build_governance_preflight_decision
+
+    decision = build_governance_preflight_decision(
+        base={"recommended_queue_id": "q1", "priority_tier": "primary"},
+        can_apply=True,
+        apply_risk="medium",
+        hold_reason="",
+        review_scope=PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK,
+        review_reason=PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY,
+        queue_status="queued",
+    )
+
+    assert isinstance(decision, GovernancePreflightDecision)
+    assert decision.review_scope == PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK
+    assert decision.to_payload()["hold_category"] == "none"
+
+
 def test_comparison_risk_flag_helper_builds_expected_flags() -> None:
     flags = build_comparison_risk_flags({
         "run_count": 2,

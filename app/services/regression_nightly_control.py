@@ -260,7 +260,7 @@ class RegressionNightlyControlService:
                 hold_reason=PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE,
                 review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
                 review_reason=PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE,
-            )
+            ).to_payload()
         if not queue_id:
             return build_governance_preflight_decision(
                 base=base,
@@ -269,7 +269,7 @@ class RegressionNightlyControlService:
                 hold_reason=PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE,
                 review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
                 review_reason=PREFLIGHT_REVIEW_REASON_SELECTION_MISSING,
-            )
+            ).to_payload()
 
         queue_item = next((item for item in self._refinement_memory.list_queue(APP_INSTANCE_ID) if item.queue_id == queue_id), None)
         if queue_item is None:
@@ -280,7 +280,7 @@ class RegressionNightlyControlService:
                 hold_reason=PREFLIGHT_HOLD_RECOMMENDED_QUEUE_MISSING,
                 review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
                 review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_MISSING,
-            )
+            ).to_payload()
         if queue_item.status != "queued":
             return build_governance_preflight_decision(
                 base=base,
@@ -290,7 +290,7 @@ class RegressionNightlyControlService:
                 review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE,
                 review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_STATE_BLOCKED,
                 queue_status=queue_item.status,
-            )
+            ).to_payload()
         if automation_health == "degraded" or control_attention_reason == "consecutive_failures":
             return build_governance_preflight_decision(
                 base=base,
@@ -301,7 +301,7 @@ class RegressionNightlyControlService:
                 review_reason=PREFLIGHT_REVIEW_REASON_AUTOMATION_DEGRADED,
                 queue_status=queue_item.status,
                 priority_lane=priority_lane,
-            )
+            ).to_payload()
         if retry_pending or automation_health == "warning" or control_attention_reason == "retry_pending":
             return build_governance_preflight_decision(
                 base=base,
@@ -312,7 +312,7 @@ class RegressionNightlyControlService:
                 review_reason=PREFLIGHT_REVIEW_REASON_AUTOMATION_RETRY_PENDING,
                 queue_status=queue_item.status,
                 priority_lane=priority_lane,
-            )
+            ).to_payload()
         if priority_tier == "primary":
             return build_governance_preflight_decision(
                 base=base,
@@ -323,7 +323,7 @@ class RegressionNightlyControlService:
                 review_reason=PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY,
                 queue_status=queue_item.status,
                 priority_lane=priority_lane,
-            )
+            ).to_payload()
         if priority_tier == "secondary":
             return build_governance_preflight_decision(
                 base=base,
@@ -334,7 +334,7 @@ class RegressionNightlyControlService:
                 review_reason=PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY,
                 queue_status=queue_item.status,
                 priority_lane=priority_lane,
-            )
+            ).to_payload()
         return build_governance_preflight_decision(
             base=base,
             can_apply=False,
@@ -344,7 +344,7 @@ class RegressionNightlyControlService:
             review_reason=PREFLIGHT_REVIEW_REASON_PRIORITY_TIER_BLOCKED,
             queue_status=queue_item.status,
             priority_lane=priority_lane,
-        )
+        ).to_payload()
 
     def apply_governance_selected_rollout(self, *, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
         preflight = self.build_governance_execution_preflight(nightly_status=nightly_status)
