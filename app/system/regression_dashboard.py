@@ -17,6 +17,7 @@ from app.system.regression_governance_policy import (
     build_automation_risk_flags,
     build_comparison_risk_flags,
     classify_signal_domain,
+    classify_signal_family,
     recommend_action_for_signal,
     signal_priority,
 )
@@ -131,11 +132,13 @@ def build_regression_operator_summary(
     primary_contradiction = ""
     recommended_action = ""
     priority_domain = ""
+    priority_family = ""
     priority_signal = ""
     if risk_flags:
         worst = max(risk_flags, key=signal_priority)
         priority_signal = worst.get("signal", "unknown")
         priority_domain = classify_signal_domain(priority_signal)
+        priority_family = classify_signal_family(priority_signal)
         primary_contradiction = f"{priority_domain}: {priority_signal}"
         recommended_action = recommend_action_for_signal(priority_signal)
 
@@ -189,6 +192,7 @@ def build_regression_operator_summary(
             "primary_contradiction": primary_contradiction,
             "recommended_action": recommended_action,
             "priority_domain": priority_domain or None,
+            "priority_family": priority_family or None,
             "priority_signal": priority_signal or None,
             "context_summary": "Regression-integrated governance summary",
             "governance": {
@@ -306,6 +310,7 @@ def build_regression_triggers(
             "signal": signal,
             "level": flag.get("level", ""),
             "domain": classify_signal_domain(signal),
+            "family": classify_signal_family(signal),
             "recommended_action": recommend_action_for_signal(signal),
             "detail": flag.get("detail", ""),
             "failure_stage": _derive_failure_stage_for_signal(signal, observation_digest),

@@ -14,6 +14,7 @@ from app.system.regression_governance_policy import (
     build_automation_risk_flags,
     build_comparison_risk_flags,
     classify_signal_domain,
+    classify_signal_family,
     recommend_action_for_signal,
     signal_priority,
 )
@@ -51,6 +52,8 @@ def build_service(tmp_path: Path) -> RegressionNightlyControlService:
     assert build_automation_risk_flags(attention)[0]["signal"] == "nightly_automation_degraded"
     assert classify_signal_domain("nightly_automation_warning") == "automation_control_plane"
     assert classify_signal_domain("elevated_latency") == "regression_quality"
+    assert classify_signal_family("nightly_automation_degraded") == "automation_recovery"
+    assert classify_signal_family("elevated_overreach") == "answer_shaping"
     assert recommend_action_for_signal("nightly_automation_degraded") == "stabilize_nightly_automation_control_plane"
     assert signal_priority({"level": "warning", "signal": "nightly_automation_degraded"}) > signal_priority({"level": "warning", "signal": "elevated_latency"})
 
@@ -139,10 +142,12 @@ def test_refinement_translation_helper_builds_domain_specific_payloads() -> None
         "failure_stage": "answer_shaping",
     })
 
-    assert automation_payload["queue_note"] == "automation_control_plane::stabilize_nightly_automation_control_plane::execution"
+    assert automation_payload["queue_note"] == "automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution"
     assert "Automation control-plane risk" in automation_payload["novelty_note"]
-    assert regression_payload["queue_note"] == "regression_quality::profile_performance_bottlenecks::answer_shaping"
+    assert "family=automation_recovery" in automation_payload["novelty_note"]
+    assert regression_payload["queue_note"] == "regression_quality::execution_semantics::profile_performance_bottlenecks::answer_shaping"
     assert "Regression-quality risk" in regression_payload["novelty_note"]
+    assert "family=execution_semantics" in regression_payload["novelty_note"]
 
 
 def test_build_nightly_status_exposes_due_state(tmp_path: Path) -> None:
@@ -350,6 +355,7 @@ def test_regression_dashboard_maps_automation_attention() -> None:
     assert summary["refinement"]["governance"]["automation_attention"]["reason"] == "consecutive_failures"
     assert summary["refinement"]["recommended_action"] == "stabilize_nightly_automation_control_plane"
     assert summary["refinement"]["priority_domain"] == "automation_control_plane"
+    assert summary["refinement"]["priority_family"] == "automation_recovery"
     assert summary["refinement"]["priority_signal"] == "nightly_automation_degraded"
     assert summary["refinement"]["primary_contradiction"] == "automation_control_plane: nightly_automation_degraded"
 
@@ -380,6 +386,7 @@ def test_operator_summary_prioritizes_automation_degraded_over_other_warning_sig
         summary = build_regression_operator_summary(nightly_status=nightly_status)
 
     assert summary["refinement"]["priority_domain"] == "automation_control_plane"
+    assert summary["refinement"]["priority_family"] == "automation_recovery"
     assert summary["refinement"]["priority_signal"] == "nightly_automation_degraded"
     assert summary["refinement"]["recommended_action"] == "stabilize_nightly_automation_control_plane"
 
@@ -480,8 +487,8 @@ def test_apply_regression_triggers_to_refinement_uses_domain_specific_payloads(t
 
     assert "automation_control_plane: nightly_automation_degraded" in contradictions
     assert "regression_quality: elevated_latency" in contradictions
-    assert "automation_control_plane::stabilize_nightly_automation_control_plane::execution" in queue_notes
-    assert "regression_quality::profile_performance_bottlenecks::execution" in queue_notes
+    assert "automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution" in queue_notes
+    assert "regression_quality::execution_semantics::profile_performance_bottlenecks::execution" in queue_notes
     assert any("Automation control-plane risk" in item for item in novelty_notes)
     assert any("Regression-quality risk" in item for item in novelty_notes)
     assert any("Automation control-plane attention recorded" in item for item in verification_summaries)
@@ -550,8 +557,11 @@ def test_regression_triggers_propagate_failure_stage_from_observation_digest() -
         payload = build_regression_triggers()
 
     stage_by_signal = {item["signal"]: item["failure_stage"] for item in payload["triggers"]}
+    family_by_signal = {item["signal"]: item["family"] for item in payload["triggers"]}
     assert stage_by_signal["elevated_overreach"] == "answer_shaping"
     assert stage_by_signal["elevated_latency"] == "execution"
+    assert family_by_signal["elevated_overreach"] == "answer_shaping"
+    assert family_by_signal["elevated_latency"] == "execution_semantics"
 
 
 def test_replay_observation_digest_builds_from_recent_history() -> None:

@@ -1,3 +1,42 @@
+## 2026-04-28: Add Backward-Compatible Contradiction Family Taxonomy
+
+### Summary
+Inserted a contradiction-family layer into the governance pipeline without breaking the existing `domain -> signal -> failure_stage` contract.
+
+### What Was Done
+- Updated `app/system/regression_governance_policy.py`
+  - added `classify_signal_family(...)`
+  - introduced a first compatible family taxonomy:
+    - `automation_recovery`
+    - `execution_semantics`
+    - `answer_shaping`
+    - `requirement_understanding`
+- Updated `app/system/regression_dashboard.py`
+  - operator summary now exposes `priority_family`
+  - generated triggers now include `family` alongside existing `domain`, `signal`, and `failure_stage`
+- Updated `app/system/regression_refinement_translation.py`
+  - refinement queue notes now preserve `family`
+  - novelty notes also retain explicit family context for downstream review/debugging
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added family classification assertions
+  - added trigger family propagation assertions
+  - updated queue-note expectations to include family while preserving prior domain/action/stage semantics
+
+### Compatibility Notes
+This slice is intentionally additive:
+- existing `domain` values remain unchanged
+- existing `signal` values remain unchanged
+- existing `failure_stage` propagation remains unchanged
+- `primary_contradiction` string format remains unchanged
+- `family` is added as a new governance axis rather than replacing any old field
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `50 passed in 3.43s`
+
+### Product Conclusion
+The governance system now has a stable insertion point for the future contradiction tree. Instead of jumping directly from domain to raw signal, it can reason through a compatible family layer, which is exactly the right shape for later subdomain taxonomy growth without destabilizing the current operator/refinement pipeline.
+
 ## 2026-04-28: Add Bounded Replay Observation Support to Governance Dashboard
 
 ### Summary

@@ -25,6 +25,18 @@ def classify_signal_domain(signal: str) -> str:
     return "regression_quality"
 
 
+def classify_signal_family(signal: str) -> str:
+    families = {
+        "nightly_automation_degraded": "automation_recovery",
+        "nightly_automation_warning": "automation_recovery",
+        "elevated_latency": "execution_semantics",
+        "elevated_fallback": "execution_semantics",
+        "elevated_overreach": "answer_shaping",
+        "conservative_mode_skew": "requirement_understanding",
+    }
+    return families.get(signal, "unclassified")
+
+
 def build_automation_attention(automation: dict[str, Any]) -> dict[str, str] | None:
     if automation.get("automation_health") not in {"warning", "degraded"}:
         return None
