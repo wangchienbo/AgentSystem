@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.models.governance_preflight import GovernancePreflightDecision
+from app.models.governance_preflight import GovernancePreflightContext, GovernancePreflightDecision
 
 PREFLIGHT_HOLD_NONE = ""
 PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE = "rollout_service_unavailable"
@@ -48,6 +48,108 @@ def build_governance_preflight_decision(
         required_review_scope=review_scope,
         review_scope=review_scope,
         review_reason=review_reason,
+    )
+
+def evaluate_governance_preflight(context: GovernancePreflightContext) -> GovernancePreflightDecision:
+    base = {
+        "recommended_queue_id": context.recommended_queue_id,
+        "priority_tier": context.priority_tier,
+        "automation_health": context.automation_health,
+        "automation_attention_reason": context.automation_attention_reason,
+        "last_tick_outcome": context.last_tick_outcome,
+        "consecutive_failures": context.consecutive_failures,
+    }
+
+    if not context.rollout_available:
+        return build_governance_preflight_decision(
+            base=base,
+            can_apply=False,
+            apply_risk="blocked",
+            hold_reason=PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE,
+            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
+            review_reason=PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE,
+        )
+    if not context.recommended_queue_id:
+        return build_governance_preflight_decision(
+            base=base,
+            can_apply=False,
+            apply_risk="blocked",
+            hold_reason=PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE,
+            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
+            review_reason=PREFLIGHT_REVIEW_REASON_SELECTION_MISSING,
+        )
+    if context.queue_status is None:
+        return build_governance_preflight_decision(
+            base=base,
+            can_apply=False,
+            apply_risk="blocked",
+            hold_reason=PREFLIGHT_HOLD_RECOMMENDED_QUEUE_MISSING,
+            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
+            review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_MISSING,
+        )
+    if context.queue_status != "queued":
+        return build_governance_preflight_decision(
+            base=base,
+            can_apply=False,
+            apply_risk="blocked",
+            hold_reason=f"queue_status_blocked:{context.queue_status}",
+            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE,
+            review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_STATE_BLOCKED,
+            queue_status=context.queue_status,
+        )
+    if context.automation_health == "degraded" or context.automation_attention_reason == "consecutive_failures":
+        return build_governance_preflight_decision(
+            base=base,
+            can_apply=False,
+            apply_risk="high",
+            hold_reason=PREFLIGHT_HOLD_AUTOMATION_DEGRADED_REQUIRES_REVIEW,
+            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
+            review_reason=PREFLIGHT_REVIEW_REASON_AUTOMATION_DEGRADED,
+            queue_status=context.queue_status,
+            priority_lane=context.priority_lane,
+        )
+    if context.retry_pending or context.automation_health == "warning" or context.automation_attention_reason == "retry_pending":
+        return build_governance_preflight_decision(
+            base=base,
+            can_apply=False,
+            apply_risk="medium",
+            hold_reason=PREFLIGHT_HOLD_AUTOMATION_RETRY_PENDING_REQUIRES_REVIEW,
+            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
+            review_reason=PREFLIGHT_REVIEW_REASON_AUTOMATION_RETRY_PENDING,
+            queue_status=context.queue_status,
+            priority_lane=context.priority_lane,
+        )
+    if context.priority_tier == "primary":
+        return build_governance_preflight_decision(
+            base=base,
+            can_apply=True,
+            apply_risk="medium",
+            hold_reason=PREFLIGHT_HOLD_NONE,
+            review_scope=PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK,
+            review_reason=PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY,
+            queue_status=context.queue_status,
+            priority_lane=context.priority_lane,
+        )
+    if context.priority_tier == "secondary":
+        return build_governance_preflight_decision(
+            base=base,
+            can_apply=False,
+            apply_risk="medium",
+            hold_reason=PREFLIGHT_HOLD_SECONDARY_REQUIRES_REVIEW,
+            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
+            review_reason=PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY,
+            queue_status=context.queue_status,
+            priority_lane=context.priority_lane,
+        )
+    return build_governance_preflight_decision(
+        base=base,
+        can_apply=False,
+        apply_risk="high",
+        hold_reason=f"priority_tier_blocked:{context.priority_tier or 'none'}",
+        review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
+        review_reason=PREFLIGHT_REVIEW_REASON_PRIORITY_TIER_BLOCKED,
+        queue_status=context.queue_status,
+        priority_lane=context.priority_lane,
     )
 
 _SIGNAL_PRIORITY = {

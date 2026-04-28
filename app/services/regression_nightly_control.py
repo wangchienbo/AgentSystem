@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from app.models.governance_preflight import GovernancePreflightContext
 from app.models.app_instance import AppInstance
 from app.models.scheduling import ScheduleRecord
 from app.services.refinement_memory import RefinementMemoryStore
@@ -32,7 +33,7 @@ from app.system.regression_governance_policy import (
     PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
     PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
     PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE,
-    build_governance_preflight_decision,
+    evaluate_governance_preflight,
 )
 from app.refinement.refinement_rollout import RefinementRolloutService
 
@@ -243,108 +244,20 @@ class RegressionNightlyControlService:
         retry_pending = bool(automation_control.get("retry_pending") or False)
         priority_lane = packet.get("priority_lane") or ""
 
-        base = {
-            "recommended_queue_id": queue_id,
-            "priority_tier": priority_tier,
-            "automation_health": automation_health,
-            "automation_attention_reason": control_attention_reason,
-            "last_tick_outcome": last_tick_outcome,
-            "consecutive_failures": consecutive_failures,
-        }
-
-        if self._refinement_rollout is None:
-            return build_governance_preflight_decision(
-                base=base,
-                can_apply=False,
-                apply_risk="blocked",
-                hold_reason=PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE,
-                review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
-                review_reason=PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE,
-            ).to_payload()
-        if not queue_id:
-            return build_governance_preflight_decision(
-                base=base,
-                can_apply=False,
-                apply_risk="blocked",
-                hold_reason=PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE,
-                review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
-                review_reason=PREFLIGHT_REVIEW_REASON_SELECTION_MISSING,
-            ).to_payload()
-
         queue_item = next((item for item in self._refinement_memory.list_queue(APP_INSTANCE_ID) if item.queue_id == queue_id), None)
-        if queue_item is None:
-            return build_governance_preflight_decision(
-                base=base,
-                can_apply=False,
-                apply_risk="blocked",
-                hold_reason=PREFLIGHT_HOLD_RECOMMENDED_QUEUE_MISSING,
-                review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
-                review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_MISSING,
-            ).to_payload()
-        if queue_item.status != "queued":
-            return build_governance_preflight_decision(
-                base=base,
-                can_apply=False,
-                apply_risk="blocked",
-                hold_reason=f"queue_status_blocked:{queue_item.status}",
-                review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE,
-                review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_STATE_BLOCKED,
-                queue_status=queue_item.status,
-            ).to_payload()
-        if automation_health == "degraded" or control_attention_reason == "consecutive_failures":
-            return build_governance_preflight_decision(
-                base=base,
-                can_apply=False,
-                apply_risk="high",
-                hold_reason=PREFLIGHT_HOLD_AUTOMATION_DEGRADED_REQUIRES_REVIEW,
-                review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
-                review_reason=PREFLIGHT_REVIEW_REASON_AUTOMATION_DEGRADED,
-                queue_status=queue_item.status,
-                priority_lane=priority_lane,
-            ).to_payload()
-        if retry_pending or automation_health == "warning" or control_attention_reason == "retry_pending":
-            return build_governance_preflight_decision(
-                base=base,
-                can_apply=False,
-                apply_risk="medium",
-                hold_reason=PREFLIGHT_HOLD_AUTOMATION_RETRY_PENDING_REQUIRES_REVIEW,
-                review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
-                review_reason=PREFLIGHT_REVIEW_REASON_AUTOMATION_RETRY_PENDING,
-                queue_status=queue_item.status,
-                priority_lane=priority_lane,
-            ).to_payload()
-        if priority_tier == "primary":
-            return build_governance_preflight_decision(
-                base=base,
-                can_apply=True,
-                apply_risk="medium",
-                hold_reason=PREFLIGHT_HOLD_NONE,
-                review_scope=PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK,
-                review_reason=PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY,
-                queue_status=queue_item.status,
-                priority_lane=priority_lane,
-            ).to_payload()
-        if priority_tier == "secondary":
-            return build_governance_preflight_decision(
-                base=base,
-                can_apply=False,
-                apply_risk="medium",
-                hold_reason=PREFLIGHT_HOLD_SECONDARY_REQUIRES_REVIEW,
-                review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
-                review_reason=PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY,
-                queue_status=queue_item.status,
-                priority_lane=priority_lane,
-            ).to_payload()
-        return build_governance_preflight_decision(
-            base=base,
-            can_apply=False,
-            apply_risk="high",
-            hold_reason=f"priority_tier_blocked:{priority_tier or 'none'}",
-            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
-            review_reason=PREFLIGHT_REVIEW_REASON_PRIORITY_TIER_BLOCKED,
-            queue_status=queue_item.status,
-            priority_lane=priority_lane,
-        ).to_payload()
+        context = GovernancePreflightContext(
+            recommended_queue_id=queue_id,
+            priority_tier=priority_tier,
+            automation_health=automation_health,
+            automation_attention_reason=control_attention_reason,
+            last_tick_outcome=last_tick_outcome,
+            consecutive_failures=consecutive_failures,
+            retry_pending=retry_pending,
+            priority_lane=priority_lane or None,
+            rollout_available=self._refinement_rollout is not None,
+            queue_status=None if queue_item is None else queue_item.status,
+        )
+        return evaluate_governance_preflight(context).to_payload()
 
     def apply_governance_selected_rollout(self, *, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
         preflight = self.build_governance_execution_preflight(nightly_status=nightly_status)

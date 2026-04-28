@@ -1,3 +1,38 @@
+## 2026-04-28: Extract Governance Preflight Evaluator into Policy Module
+
+### Summary
+Moved the actual governance preflight rule evaluation out of `RegressionNightlyControlService` and into the shared governance policy module, so the service now focuses on context collection while policy evaluation lives behind a dedicated evaluator.
+
+### What Was Done
+- Updated `app/models/governance_preflight.py`
+  - added `GovernancePreflightContext` as the typed input model for policy evaluation
+- Updated `app/system/regression_governance_policy.py`
+  - added `evaluate_governance_preflight(context)`
+  - moved the preflight branch logic into the shared policy module
+  - kept the typed `GovernancePreflightDecision` contract unchanged
+- Updated `app/services/regression_nightly_control.py`
+  - preflight path now gathers summary-derived and state-derived inputs
+  - constructs `GovernancePreflightContext`
+  - delegates rule evaluation to `evaluate_governance_preflight(...)`
+  - still serializes the decision to JSON payloads for current callers
+- Expanded tests
+  - added direct evaluator coverage for missing-queue deny behavior
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_preflight_evaluator_blocks_missing_queue or governance_preflight_decision_builder_returns_typed_payload or auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or degraded_automation_health or retry_pending_warning'`
+  - Result: `6 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+This finishes the key separation of concerns for the current slice:
+- service = orchestration + context gathering
+- policy module = vocabulary + typed decision builder + evaluator
+- model layer = typed input/output contracts
+
+That makes the governance auto-apply boundary substantially cleaner and gives later policy growth a proper home instead of pushing more branching logic back into the service layer.
+
 ## 2026-04-28: Introduce Typed Governance Preflight Decision Model
 
 ### Summary

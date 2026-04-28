@@ -5,6 +5,19 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class GovernancePreflightContext(BaseModel):
+    recommended_queue_id: str | None = None
+    priority_tier: str | None = None
+    automation_health: str = "healthy"
+    automation_attention_reason: str = ""
+    last_tick_outcome: str = "unknown"
+    consecutive_failures: int = 0
+    retry_pending: bool = False
+    priority_lane: str | None = None
+    rollout_available: bool = True
+    queue_status: str | None = None
+
+
 class GovernancePreflightDecision(BaseModel):
     recommended_queue_id: str | None = None
     priority_tier: str | None = None
