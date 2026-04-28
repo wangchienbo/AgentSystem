@@ -1,3 +1,42 @@
+## 2026-04-28: Add Governance-Aware Rollout Selection Helper
+
+### Summary
+Advanced the governance queue work from ordering-only into recommendation-only rollout selection by adding a derived `rollout_selection` helper on top of the governance-prioritized queue view. This surfaces a recommended queue target and selection reason without changing any rollout state machine behavior.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `_build_governance_rollout_selection(...)`
+  - operator governance summary now exposes `rollout_selection`
+  - selection currently derives:
+    - `recommended_queue_id`
+    - `recommended_priority_tier`
+    - `selection_reason`
+    - `selection_mode`
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added coverage proving the highest-priority queue item is recommended from the prioritized queue view
+  - verified recommendation reason metadata is stable and explicit
+
+### Design Notes
+This helper is intentionally advisory only:
+- no rollout transition behavior changed
+- no queue item mutation
+- no auto-apply or auto-approve path added
+- no persistence schema change
+- selector remains a derived governance read model built on top of queue note hints
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `59 passed in 3.69s`
+
+### Product Conclusion
+Governance output now spans four practical layers:
+1. nightly automation attention
+2. trigger and queue priority hints
+3. prioritized queue ordering view
+4. advisory rollout selection helper
+
+This creates a safe precondition for any future governance-aware rollout automation, while preserving a strict separation between recommendation and execution.
+
 ## 2026-04-28: Add Governance-Prioritized Queue View as a Read-Side Ordering Layer
 
 ### Summary

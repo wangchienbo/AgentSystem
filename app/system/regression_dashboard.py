@@ -190,6 +190,7 @@ def build_regression_operator_summary(
                 }
     recent_queue = live_governance.recent_queue.model_dump(mode="json") if live_governance is not None else {"items": [], "meta": {"total_count": metrics["queued_items"], "returned_count": 0, "filtered_count": 0, "has_more": False}}
     prioritized_queue_view = _build_governance_prioritized_queue_view(recent_queue)
+    rollout_selection = _build_governance_rollout_selection(prioritized_queue_view)
     recent_failed_hypotheses = live_governance.recent_failed_hypotheses.model_dump(mode="json") if live_governance is not None else {"items": [], "meta": {"total_count": metrics["failed_hypotheses"], "returned_count": 0, "filtered_count": 0, "has_more": False}}
 
     return {
@@ -213,6 +214,7 @@ def build_regression_operator_summary(
                 "stats": stats,
                 "recent_queue": recent_queue,
                 "prioritized_queue_view": prioritized_queue_view,
+                "rollout_selection": rollout_selection,
                 "family_breakdown": family_breakdown,
                 "subdomain_breakdown": subdomain_breakdown,
                 "family_queue_lane_summary": family_queue_lane_summary,
@@ -260,6 +262,33 @@ def _build_governance_prioritized_queue_view(recent_queue: dict[str, Any]) -> di
         "meta": recent_queue.get("meta", {}),
         "priority_counts": counts,
         "ordering": ["primary", "secondary", "normal"],
+    }
+
+
+def _build_governance_rollout_selection(prioritized_queue_view: dict[str, Any]) -> dict[str, Any]:
+    items = prioritized_queue_view.get("items", [])
+    if not items:
+        return {
+            "recommended_queue_id": None,
+            "recommended_priority_tier": None,
+            "selection_reason": "no_queue_items_available",
+            "selection_mode": "governance_priority_ordering",
+        }
+
+    top = items[0]
+    note = top.get("note", "")
+    if "::priority=primary" in note:
+        tier = "primary"
+    elif "::priority=secondary" in note:
+        tier = "secondary"
+    else:
+        tier = "normal"
+
+    return {
+        "recommended_queue_id": top.get("queue_id"),
+        "recommended_priority_tier": tier,
+        "selection_reason": f"highest_governance_priority:{tier}",
+        "selection_mode": "governance_priority_ordering",
     }
 
 
