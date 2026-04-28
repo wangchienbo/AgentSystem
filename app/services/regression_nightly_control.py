@@ -212,12 +212,21 @@ class RegressionNightlyControlService:
         queue_id = selection.get("recommended_queue_id")
         priority_tier = selection.get("recommended_priority_tier")
         automation_attention = packet.get("automation_attention") or {}
-        attention_reason = automation_attention.get("reason") or ""
+        automation_control = (nightly_status or {}).get("automation_control") or {}
+        automation_health = automation_control.get("automation_health") or automation_attention.get("health") or "healthy"
+        control_attention_reason = automation_control.get("attention_reason") or automation_attention.get("reason") or ""
+        last_tick_outcome = automation_control.get("last_tick_outcome") or automation_attention.get("last_tick_outcome") or "unknown"
+        consecutive_failures = int(automation_control.get("consecutive_failures") or 0)
+        retry_pending = bool(automation_control.get("retry_pending") or False)
         priority_lane = packet.get("priority_lane") or ""
 
         base = {
             "recommended_queue_id": queue_id,
             "priority_tier": priority_tier,
+            "automation_health": automation_health,
+            "automation_attention_reason": control_attention_reason,
+            "last_tick_outcome": last_tick_outcome,
+            "consecutive_failures": consecutive_failures,
         }
 
         if self._refinement_rollout is None:
@@ -255,12 +264,22 @@ class RegressionNightlyControlService:
                 "required_review_scope": "operator",
                 "queue_status": queue_item.status,
             }
-        if attention_reason == "consecutive_failures":
+        if automation_health == "degraded" or control_attention_reason == "consecutive_failures":
             return {
                 **base,
                 "can_apply": False,
                 "apply_risk": "high",
-                "hold_reason": "consecutive_failures",
+                "hold_reason": "automation_degraded_requires_review",
+                "required_review_scope": "operator",
+                "queue_status": queue_item.status,
+                "priority_lane": priority_lane,
+            }
+        if retry_pending or automation_health == "warning" or control_attention_reason == "retry_pending":
+            return {
+                **base,
+                "can_apply": False,
+                "apply_risk": "medium",
+                "hold_reason": "automation_retry_pending_requires_review",
                 "required_review_scope": "operator",
                 "queue_status": queue_item.status,
                 "priority_lane": priority_lane,

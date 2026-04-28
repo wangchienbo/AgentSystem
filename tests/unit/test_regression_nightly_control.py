@@ -1175,3 +1175,82 @@ def test_governance_execution_preflight_exposes_priority_lane_metadata(tmp_path:
 
     assert preflight["priority_lane"] == "answer_shaping::tighten_evidence_boundary_guard"
     assert preflight["can_apply"] is True
+
+
+def test_governance_execution_preflight_blocks_degraded_automation_health(tmp_path: Path) -> None:
+    from unittest.mock import patch
+    from app.models.refinement_loop import RolloutQueueItem
+
+    service = build_service(tmp_path)
+    service._refinement_memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-primary",
+        hypothesis_id="h1",
+        proposal_id="regression-trigger-1",
+        app_instance_id="agent_system",
+        status="queued",
+        note="automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution::priority=primary",
+    ))
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "degraded",
+            "attention_reason": "consecutive_failures",
+            "last_tick_outcome": "failed",
+            "consecutive_failures": 3,
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        preflight = service.build_governance_execution_preflight(nightly_status=nightly_status)
+
+    assert preflight["can_apply"] is False
+    assert preflight["hold_reason"] == "automation_degraded_requires_review"
+    assert preflight["automation_health"] == "degraded"
+    assert preflight["consecutive_failures"] == 3
+
+
+def test_governance_execution_preflight_blocks_retry_pending_warning(tmp_path: Path) -> None:
+    from unittest.mock import patch
+    from app.models.refinement_loop import RolloutQueueItem
+
+    service = build_service(tmp_path)
+    service._refinement_memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-primary",
+        hypothesis_id="h1",
+        proposal_id="regression-trigger-1",
+        app_instance_id="agent_system",
+        status="queued",
+        note="automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution::priority=primary",
+    ))
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "warning",
+            "attention_reason": "retry_pending",
+            "last_tick_outcome": "skipped",
+            "retry_pending": True,
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        preflight = service.build_governance_execution_preflight(nightly_status=nightly_status)
+
+    assert preflight["can_apply"] is False
+    assert preflight["hold_reason"] == "automation_retry_pending_requires_review"
+    assert preflight["automation_health"] == "warning"

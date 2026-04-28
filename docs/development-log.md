@@ -1,3 +1,42 @@
+## 2026-04-28: Make Governance Preflight Automation-Health Aware
+
+### Summary
+Extended governance execution preflight with explicit automation-control health policy so auto-apply decisions now consider both rollout queue state and nightly automation health before execution.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - preflight now reads `automation_control` from `nightly_status` when available
+  - added explicit automation metadata to preflight output:
+    - `automation_health`
+    - `automation_attention_reason`
+    - `last_tick_outcome`
+    - `consecutive_failures`
+  - added health-aware policy:
+    - `degraded` or `consecutive_failures` → hold with `automation_degraded_requires_review`
+    - `warning` or `retry_pending` → hold with `automation_retry_pending_requires_review`
+    - healthy state preserves existing primary allow path
+- Kept the preflight layered in the right order:
+  - service availability
+  - queue recommendation presence
+  - queue existence/status
+  - automation control health
+  - rollout priority tier
+
+### Tests
+Expanded service coverage in `tests/unit/test_regression_nightly_control.py`:
+- degraded automation health blocks execution
+- warning/retry-pending automation state blocks execution
+- previous allow/deny paths still hold
+
+Validated with targeted runs:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'degraded_automation_health or retry_pending_warning or trigger_manual_cycle_can_auto_apply_governance_selection or governance_execution_preflight_blocks_secondary_selection or preflight_blocks_nonqueued_item or priority_lane_metadata or auto_apply_returns_preflight_metadata'`
+  - Result: `7 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_can_auto_apply_governance or nightly_trigger_returns_preflight_block'`
+  - Result: `2 passed`
+
+### Design Outcome
+This closes another blind spot in the safety boundary. Governance auto-apply is no longer allowed to treat automation instability as background noise. If the nightly control plane is degraded or retrying, execution is held for operator review even when the queue recommendation itself looks valid.
+
 ## 2026-04-28: Enrich Governance Preflight with Queue-State Policy
 
 ### Summary
