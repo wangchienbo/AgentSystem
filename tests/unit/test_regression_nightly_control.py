@@ -20,6 +20,7 @@ from app.system.regression_governance_policy import (
 from app.system.regression_governance_observation import (
     build_governance_evidence_digest,
     build_observation_record,
+    build_replay_observation_digest,
 )
 from app.system.regression_refinement_translation import build_refinement_payload_from_trigger
 
@@ -551,3 +552,44 @@ def test_regression_triggers_propagate_failure_stage_from_observation_digest() -
     stage_by_signal = {item["signal"]: item["failure_stage"] for item in payload["triggers"]}
     assert stage_by_signal["elevated_overreach"] == "answer_shaping"
     assert stage_by_signal["elevated_latency"] == "execution"
+
+
+def test_replay_observation_digest_builds_from_recent_history() -> None:
+    digest = build_replay_observation_digest("session-replay-1", [
+        {"role": "user", "content": "为什么这个接口这样设计"},
+        {"role": "assistant", "content": "这里还需要进一步验证后再下结论"},
+        {"role": "assistant", "content": "请先澄清你的目标"},
+        {"role": "assistant", "content": "已经确认完成"},
+    ], limit=3)
+
+    assert digest.total_observations == 3
+    assert digest.failure_stage_counts["evidence"] == 1
+    assert digest.failure_stage_counts["requirement_understanding"] == 1
+    assert digest.observation_samples[0].evidence[0].source == "conversation_history_replay"
+
+
+def test_regression_dashboard_exposes_replay_observation_digest() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_governance_dashboard
+
+    comparison = {
+        "run_count": 1,
+        "avg_latency_ms": 1000,
+        "avg_fallback_count": 0,
+        "avg_overreach_risk_count": 0,
+        "answer_mode_totals": {"direct": 1},
+        "verification_mode_totals": {"none": 1},
+        "runs": [],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        dashboard = build_regression_governance_dashboard(
+            replay_session_id="session-replay-2",
+            replay_history=[
+                {"role": "assistant", "content": "需要进一步验证后再判断"},
+                {"role": "assistant", "content": "请先澄清目标"},
+            ],
+        )
+
+    assert dashboard["replay_observation_digest"]["total_observations"] == 2
+    assert dashboard["replay_observation_digest"]["failure_stage_counts"]["evidence"] == 1

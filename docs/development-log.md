@@ -1,3 +1,34 @@
+## 2026-04-28: Add Bounded Replay Observation Support to Governance Dashboard
+
+### Summary
+Implemented the next G1 slice by letting governance observation digesting consume bounded replay-style conversation history samples in addition to saved synthetic regression probes.
+
+### What Was Done
+- Updated `app/system/regression_governance_observation.py`
+  - added bounded replay helpers for turning recent conversation history into replay probes
+  - added `build_replay_observation_digest(...)`
+  - replay-derived observation records now preserve `session_id` / `history_index` metadata
+  - replay observation evidence is explicitly marked with source `conversation_history_replay`
+- Updated `app/system/regression_dashboard.py`
+  - `build_regression_governance_dashboard(...)` now accepts optional:
+    - `replay_session_id`
+    - `replay_history`
+  - dashboard now emits `replay_observation_digest` when bounded replay input is provided
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added direct replay-observation digest tests
+  - added dashboard exposure coverage for replay-backed observation digest output
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `50 passed in 3.49s`
+
+### Product Conclusion
+The governance layer can now observe two bounded evidence sources:
+- saved synthetic regression probes
+- bounded replay-style recent conversation samples
+
+This is still intentionally small and controlled, but it is the first real step from fixed regression matrices toward replay-grade governance observation grounded in historical runtime behavior.
+
 ## 2026-04-28: Propagate Failure-Stage Semantics into Regression Triggers
 
 ### Summary

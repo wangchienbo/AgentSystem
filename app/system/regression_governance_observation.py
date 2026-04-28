@@ -9,6 +9,9 @@ from app.models.governance_observation import (
 )
 
 
+REPLAY_SAMPLE_LIMIT = 3
+
+
 def classify_failure_stage(probe: dict[str, Any]) -> str | None:
     answer_mode = str(probe.get("answer_mode") or "")
     verification_mode = str(probe.get("verification_mode") or "")
@@ -35,18 +38,19 @@ def build_observation_record(run_id: str, probe: dict[str, Any]) -> ObservationR
     latency_ms = int(probe.get("latency_ms") or 0)
     prompt_summary = str(probe.get("prompt") or f"probe topic={topic}")
     output_summary = response[:240] if response else f"answer_mode={answer_mode}"
+    source = str(probe.get("source") or "chat_regression_probe")
 
     evidence = [
         EvidenceEnvelope(
             kind="input",
             summary=prompt_summary,
-            source="fixed_prompt_matrix",
-            metadata={"topic": topic},
+            source=source if source == "conversation_history_replay" else "fixed_prompt_matrix",
+            metadata={"topic": topic, "session_id": probe.get("session_id"), "history_index": probe.get("history_index")},
         ),
         EvidenceEnvelope(
             kind="output",
             summary=output_summary,
-            source="chat_regression_probe",
+            source=source,
             metadata={
                 "answer_mode": answer_mode,
                 "verification_mode": verification_mode,
@@ -55,7 +59,7 @@ def build_observation_record(run_id: str, probe: dict[str, Any]) -> ObservationR
         EvidenceEnvelope(
             kind="execution",
             summary=f"latency_ms={latency_ms}",
-            source="chat_regression_probe",
+            source=source,
             metadata={
                 "latency_ms": latency_ms,
                 "fallback_like": bool(probe.get("fallback_like")),
@@ -97,3 +101,56 @@ def build_governance_evidence_digest(run_detail: dict[str, Any] | None) -> Gover
         topic_failure_stage_counts=topic_failure_stage_counts,
         observation_samples=observations,
     )
+
+
+def build_replay_probe_from_history_entry(session_id: str, index: int, entry: dict[str, Any]) -> dict[str, Any]:
+    role = str(entry.get("role") or "unknown")
+    content = str(entry.get("content") or "")
+    topic = "validation" if any(token in content for token in ("验证", "check", "确认")) else "replay"
+
+    answer_mode = "direct"
+    verification_mode = "none"
+    fallback_like = False
+    overreach_risk = False
+
+    if role == "assistant":
+        if any(token in content for token in ("需要进一步验证", "不能直接下结论", "建议做轻量验证")):
+            answer_mode = "verification_required"
+            verification_mode = "evidence_required"
+            fallback_like = True
+            overreach_risk = True
+        elif "请先澄清" in content:
+            answer_mode = "clarification_required"
+    elif role == "user":
+        if "为什么" in content or "怎么" in content:
+            topic = "api"
+
+    return {
+        "topic": topic,
+        "prompt": content[:240] or f"history-entry-{index}",
+        "success": True,
+        "latency_ms": 0,
+        "response": content[:240],
+        "answer_mode": answer_mode,
+        "verification_mode": verification_mode,
+        "fallback_like": fallback_like,
+        "overreach_risk": overreach_risk,
+        "source": "conversation_history_replay",
+        "session_id": session_id,
+        "history_index": index,
+    }
+
+
+def build_replay_observation_digest(session_id: str, history: list[dict[str, Any]], *, limit: int = REPLAY_SAMPLE_LIMIT) -> GovernanceEvidenceDigest:
+    if not history:
+        return GovernanceEvidenceDigest()
+
+    trimmed = history[-limit:]
+    run_detail = {
+        "summary": {"run_id": f"replay-{session_id}"},
+        "probes": [
+            build_replay_probe_from_history_entry(session_id, idx, entry)
+            for idx, entry in enumerate(trimmed)
+        ],
+    }
+    return build_governance_evidence_digest(run_detail)
