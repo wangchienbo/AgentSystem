@@ -1,4 +1,34 @@
-## 2026-04-29: Roll Back Dashboard-Side Pseudo-Preflight Reuse to Restore Boundary Clarity
+## 2026-04-29: Add Service-Up Self-Iteration E2E Acceptance Path
+
+### Summary
+Shifted the next regression-governance slice away from dashboard/display expansion and back onto the main system objective: validating a real self-iteration closure path after service startup. Instead of introducing new orchestration layers, this slice formalizes the shortest existing HTTP path as the preferred acceptance route.
+
+### What Was Done
+- Added a dedicated service-up E2E script:
+  - `tests/scripts/e2e_self_iteration_service_up.py`
+- The script validates the following real HTTP flow:
+  1. login/session establishment
+  2. real `/api/chat` interaction
+  3. nightly governance trigger via `/api/governance/regression-cycle/nightly/trigger?auto_apply_governance=true`
+  4. regression cycle result presence (`cycle.run_id`)
+  5. governance result presence (`governance_rollout`)
+  6. governance outcome is either:
+     - auto-applied, or
+     - explicitly blocked by preflight with a hold reason
+  7. latest persisted regression run remains queryable
+- Updated `docs/testing.md`
+  - documented the new service-up self-iteration path as a preferred acceptance path
+  - clarified that E2E is the main validation surface for this workstream, while only minimal targeted unit/smoke checks remain as guardrails
+- Added a minimal HTTP contract regression in `tests/unit/test_http_test_server.py`
+  - verifies the nightly trigger response keeps `cycle` and `governance_rollout` together in the same contract shape
+
+### Design Outcome
+This slice does not widen schema or add a new dashboard-facing abstraction. It re-centers the system on a more Mao-style practical line: first establish a working mass-line loop from real interaction to observed contradiction to governance action, then iterate from the smallest running closure instead of elaborating presentation layers.
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance or keeps_cycle_and_rollout_fields_together'`
+  - Result: `3 passed`
+
 
 ### Summary
 Removed the dashboard-side pseudo-preflight rendering adapter that reused `GovernancePreflightDecision` for operator summary rollout-review display. This rollback restores the decision contract to its intended role as execution/preflight truth rather than letting it expand into a mixed execution-plus-projection model.

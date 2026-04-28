@@ -134,6 +134,8 @@ def test_governance_preflight_decision_builder_returns_typed_payload() -> None:
     assert decision.to_payload()["matched_stage"] == "tier_gate"
     assert decision.to_payload()["decision_code"] == "tier.primary_auto_apply"
     assert decision.to_payload()["decision_label"] == "Primary tier auto-apply allowed"
+    assert decision.to_payload()["render_badge"] == "AUTO | Primary tier auto-apply allowed"
+    assert "code=tier.primary_auto_apply" in decision.to_payload()["render_operator_note"]
 
 
 def test_governance_preflight_render_helpers_return_shared_operator_strings() -> None:

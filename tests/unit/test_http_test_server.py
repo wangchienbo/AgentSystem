@@ -933,7 +933,15 @@ def test_governance_nightly_trigger_contract_keeps_cycle_and_rollout_fields_toge
         "governance_rollout": {
             "applied": True,
             "queue_id": "q-primary",
-            "preflight": {"can_apply": True, "hold_reason": "none"},
+            "preflight": {
+                "can_apply": True,
+                "hold_reason": "none",
+                "matched_stage": "tier_gate",
+                "decision_code": "tier.primary_auto_apply",
+                "decision_label": "Primary tier auto-apply allowed",
+                "render_badge": "AUTO | Primary tier auto-apply allowed",
+                "render_operator_note": "AUTO | Primary tier auto-apply allowed | code=tier.primary_auto_apply | stage=tier_gate | scope=light_auto_apply_ok | risk=medium | queue=q-primary",
+            },
             "item": {"status": "applied"},
         },
     }
@@ -948,3 +956,5 @@ def test_governance_nightly_trigger_contract_keeps_cycle_and_rollout_fields_toge
     assert data["cycle"]["trigger_application"]["trigger_count"] == 1
     assert data["governance_rollout"]["applied"] is True
     assert data["governance_rollout"]["preflight"]["can_apply"] is True
+    assert data["governance_rollout"]["preflight"]["render_badge"] == "AUTO | Primary tier auto-apply allowed"
+    assert "code=tier.primary_auto_apply" in data["governance_rollout"]["preflight"]["render_operator_note"]
