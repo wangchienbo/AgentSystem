@@ -9,8 +9,9 @@ from typing import Any
 
 from app.models.refinement_loop import RefinementFilter
 from app.services.refinement_memory import RefinementMemoryStore
-from app.system.chat_regression import build_multi_run_comparison, build_topic_trends
+from app.system.chat_regression import build_multi_run_comparison, build_topic_trends, read_run_details
 from app.system.regression_evidence_bridge import list_regression_evidence_history
+from app.system.regression_governance_observation import build_governance_evidence_digest
 from app.system.regression_governance_policy import (
     build_automation_attention,
     build_automation_risk_flags,
@@ -43,6 +44,12 @@ def build_regression_governance_dashboard(
     trends = build_topic_trends(limit=trends_limit)
     evidence = list_regression_evidence_history(limit=evidence_limit)
 
+    latest_run = None
+    comparison_runs = comparison.get("runs") or []
+    if comparison_runs:
+        latest_run = comparison_runs[0].get("summary", {}).get("run_id")
+    observation_digest = build_governance_evidence_digest(read_run_details(latest_run)) if latest_run else build_governance_evidence_digest(None)
+
     # Build risk summary from comparison data
     risk_flags = build_comparison_risk_flags(comparison)
 
@@ -66,6 +73,7 @@ def build_regression_governance_dashboard(
         "comparison": comparison,
         "trends": trends,
         "evidence": evidence,
+        "observation_digest": observation_digest.model_dump(mode="json"),
         "risk_flags": risk_flags,
         "rollout_summary": rollout_summary,
         "nightly_automation": nightly_status,

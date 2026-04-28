@@ -17,6 +17,10 @@ from app.system.regression_governance_policy import (
     recommend_action_for_signal,
     signal_priority,
 )
+from app.system.regression_governance_observation import (
+    build_governance_evidence_digest,
+    build_observation_record,
+)
 from app.system.regression_refinement_translation import build_refinement_payload_from_trigger
 
 
@@ -62,6 +66,60 @@ def test_comparison_risk_flag_helper_builds_expected_flags() -> None:
     assert {"elevated_latency", "elevated_fallback", "elevated_overreach", "conservative_mode_skew"}.issubset(signals)
 
 
+def test_governance_observation_digest_classifies_failure_stages() -> None:
+    digest = build_governance_evidence_digest({
+        "summary": {"run_id": "chat-regression-1"},
+        "probes": [
+            {
+                "topic": "api",
+                "prompt": "check api",
+                "success": True,
+                "latency_ms": 1200,
+                "response": "需要进一步验证后再下结论",
+                "answer_mode": "verification_required",
+                "verification_mode": "evidence_required",
+                "fallback_like": True,
+                "overreach_risk": True,
+            },
+            {
+                "topic": "storage",
+                "prompt": "check storage",
+                "success": True,
+                "latency_ms": 800,
+                "response": "请先澄清目标",
+                "answer_mode": "clarification_required",
+                "verification_mode": "none",
+                "fallback_like": False,
+                "overreach_risk": False,
+            },
+        ],
+    })
+
+    assert digest.total_observations == 2
+    assert digest.failure_stage_counts["evidence"] == 1
+    assert digest.failure_stage_counts["requirement_understanding"] == 1
+    assert digest.topic_failure_stage_counts["api"]["evidence"] == 1
+    assert digest.observation_samples[0].evidence[0].kind == "input"
+
+
+def test_build_observation_record_emits_structured_evidence() -> None:
+    record = build_observation_record("chat-regression-2", {
+        "topic": "telemetry",
+        "prompt": "check telemetry",
+        "success": True,
+        "latency_ms": 900,
+        "response": "这里还不能直接下结论",
+        "answer_mode": "verification_required",
+        "verification_mode": "none",
+        "fallback_like": False,
+        "overreach_risk": True,
+    })
+
+    assert record.run_id == "chat-regression-2"
+    assert record.failure_stage == "answer_shaping"
+    assert [item.kind for item in record.evidence] == ["input", "output", "execution"]
+
+
 def test_refinement_translation_helper_builds_domain_specific_payloads() -> None:
     automation_payload = build_refinement_payload_from_trigger({
         "signal": "nightly_automation_degraded",
@@ -69,6 +127,7 @@ def test_refinement_translation_helper_builds_domain_specific_payloads() -> None
         "recommended_action": "stabilize_nightly_automation_control_plane",
         "detail": "Nightly automation health degraded",
         "level": "warning",
+        "failure_stage": "execution",
     })
     regression_payload = build_refinement_payload_from_trigger({
         "signal": "elevated_latency",
@@ -76,11 +135,12 @@ def test_refinement_translation_helper_builds_domain_specific_payloads() -> None
         "recommended_action": "profile_performance_bottlenecks",
         "detail": "Average latency high",
         "level": "warning",
+        "failure_stage": "answer_shaping",
     })
 
-    assert automation_payload["queue_note"] == "automation_control_plane::stabilize_nightly_automation_control_plane"
+    assert automation_payload["queue_note"] == "automation_control_plane::stabilize_nightly_automation_control_plane::execution"
     assert "Automation control-plane risk" in automation_payload["novelty_note"]
-    assert regression_payload["queue_note"] == "regression_quality::profile_performance_bottlenecks"
+    assert regression_payload["queue_note"] == "regression_quality::profile_performance_bottlenecks::answer_shaping"
     assert "Regression-quality risk" in regression_payload["novelty_note"]
 
 
@@ -419,8 +479,46 @@ def test_apply_regression_triggers_to_refinement_uses_domain_specific_payloads(t
 
     assert "automation_control_plane: nightly_automation_degraded" in contradictions
     assert "regression_quality: elevated_latency" in contradictions
-    assert "automation_control_plane::stabilize_nightly_automation_control_plane" in queue_notes
-    assert "regression_quality::profile_performance_bottlenecks" in queue_notes
+    assert "automation_control_plane::stabilize_nightly_automation_control_plane::unclassified" in queue_notes
+    assert "regression_quality::profile_performance_bottlenecks::unclassified" in queue_notes
     assert any("Automation control-plane risk" in item for item in novelty_notes)
     assert any("Regression-quality risk" in item for item in novelty_notes)
     assert any("Automation control-plane attention recorded" in item for item in verification_summaries)
+
+
+def test_regression_dashboard_exposes_observation_digest() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_governance_dashboard
+
+    comparison = {
+        "run_count": 1,
+        "avg_latency_ms": 1000,
+        "avg_fallback_count": 1,
+        "avg_overreach_risk_count": 1,
+        "answer_mode_totals": {"verification_required": 1},
+        "verification_mode_totals": {"evidence_required": 1},
+        "runs": [{"summary": {"run_id": "chat-regression-obs-1"}}],
+    }
+    run_detail = {
+        "summary": {"run_id": "chat-regression-obs-1"},
+        "probes": [{
+            "topic": "api",
+            "prompt": "check api",
+            "success": True,
+            "latency_ms": 1000,
+            "response": "需要进一步验证",
+            "answer_mode": "verification_required",
+            "verification_mode": "evidence_required",
+            "fallback_like": True,
+            "overreach_risk": True,
+        }],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison), \
+         patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}), \
+         patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]), \
+         patch("app.system.regression_dashboard.read_run_details", return_value=run_detail):
+        dashboard = build_regression_governance_dashboard()
+
+    assert dashboard["observation_digest"]["total_observations"] == 1
+    assert dashboard["observation_digest"]["failure_stage_counts"]["evidence"] == 1

@@ -1,3 +1,35 @@
+## 2026-04-28: Implement G1 Observation Digest Slice for Regression Governance
+
+### Summary
+Started the first concrete implementation slice of the new governance roadmap by adding replay-grade observation digesting on top of the existing regression dashboard, without reopening a large structural refactor.
+
+### What Was Done
+- Added `app/models/governance_observation.py`
+  - `EvidenceEnvelope`
+  - `ObservationRecord`
+  - `GovernanceEvidenceDigest`
+- Added `app/system/regression_governance_observation.py`
+  - classifies bounded per-probe failure stages
+  - builds structured observation records from saved regression probes
+  - aggregates latest-run observation data into a governance evidence digest
+- Updated `app/system/regression_dashboard.py`
+  - now reads the latest saved regression run details
+  - emits `observation_digest` alongside comparison / trends / evidence / risk flags
+- Updated `app/system/regression_refinement_translation.py`
+  - queue notes now preserve `failure_stage` context when available
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added direct tests for observation digest classification
+  - added structured evidence record coverage
+  - added dashboard exposure coverage for `observation_digest`
+  - updated refinement queue-note assertions for failure-stage-aware formatting
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `47 passed in 3.43s`
+
+### Product Conclusion
+This slice does not yet implement full replay ingestion, but it establishes the first bounded G1 contract: governance can now explain failures with a small typed observation digest instead of only broad comparison counters. That gives the next phase a concrete place to attach richer evidence and replay-backed probes.
+
 ## 2026-04-28: Add Next-Stage Governance Evolution Roadmap to Design
 
 ### Summary

@@ -16,6 +16,7 @@ def build_refinement_payload_from_trigger(trigger: dict[str, Any]) -> dict[str, 
     action = trigger["recommended_action"]
     detail = trigger["detail"]
     level = trigger["level"]
+    failure_stage = trigger.get("failure_stage") or "unclassified"
 
     if domain == "automation_control_plane":
         return {
@@ -23,7 +24,7 @@ def build_refinement_payload_from_trigger(trigger: dict[str, Any]) -> dict[str, 
             "hypothesis": f"Stabilize automation control plane via {action}",
             "expected_change": f"Reduce nightly automation instability: {detail}",
             "novelty_note": "Automation control-plane risk should follow a recovery/stability path, not a prompt-quality path.",
-            "queue_note": f"automation_control_plane::{action}",
+            "queue_note": f"automation_control_plane::{action}::{failure_stage}",
             "verification_summary": f"Automation control-plane attention recorded for {signal}",
             "verification_outcome": "failed" if level == "warning" else "inconclusive",
         }
@@ -32,7 +33,7 @@ def build_refinement_payload_from_trigger(trigger: dict[str, Any]) -> dict[str, 
         "hypothesis": f"Address regression quality signal {signal} through {action}",
         "expected_change": detail,
         "novelty_note": "Regression-quality risk should remain in the model/tool/evidence refinement lane.",
-        "queue_note": f"regression_quality::{action}",
+        "queue_note": f"regression_quality::{action}::{failure_stage}",
         "verification_summary": detail,
         "verification_outcome": "failed" if level == "warning" else "inconclusive",
     }
