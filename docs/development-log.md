@@ -1,3 +1,44 @@
+## 2026-04-28: Add Governance-Prioritized Queue View as a Read-Side Ordering Layer
+
+### Summary
+Extended governance priority hints into a true operator-facing queue ordering view by adding a derived `prioritized_queue_view` on top of the existing refinement recent queue. This keeps persistence untouched while making governance priority consumable as an ordering surface.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `_build_governance_prioritized_queue_view(...)`
+  - operator governance summary now exposes `prioritized_queue_view` alongside `recent_queue`
+  - prioritized view sorts queue items by derived priority suffix in queue notes:
+    - `primary`
+    - `secondary`
+    - `normal`
+  - view also includes:
+    - `priority_counts`
+    - `ordering`
+    - original `meta`
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added coverage showing mixed queue items are surfaced in `primary -> secondary -> normal` order
+  - verified counts are preserved in the derived view
+
+### Design Notes
+This remains a pure read-side governance layer:
+- no queue persistence model change
+- no rollout transition logic change
+- no scheduler mutation
+- original `recent_queue` remains intact for compatibility
+- `prioritized_queue_view` is an additive operator surface only
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `58 passed in 3.61s`
+
+### Product Conclusion
+Governance output now influences three layers of real consumption:
+1. nightly automation attention
+2. trigger/queue priority hints
+3. operator queue ordering view
+
+This is a meaningful step toward governance-guided rollout selection while still honoring compatibility-first constraints and keeping all prioritization logic derived rather than schema-bound.
+
 ## 2026-04-28: Add Governance Priority Hints to Trigger and Queue Translation Path
 
 ### Summary

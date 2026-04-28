@@ -189,6 +189,7 @@ def build_regression_operator_summary(
                     "latest_failed_hypothesis_at": metrics["latest_failed_hypothesis_at"],
                 }
     recent_queue = live_governance.recent_queue.model_dump(mode="json") if live_governance is not None else {"items": [], "meta": {"total_count": metrics["queued_items"], "returned_count": 0, "filtered_count": 0, "has_more": False}}
+    prioritized_queue_view = _build_governance_prioritized_queue_view(recent_queue)
     recent_failed_hypotheses = live_governance.recent_failed_hypotheses.model_dump(mode="json") if live_governance is not None else {"items": [], "meta": {"total_count": metrics["failed_hypotheses"], "returned_count": 0, "filtered_count": 0, "has_more": False}}
 
     return {
@@ -211,6 +212,7 @@ def build_regression_operator_summary(
                 "overview": overview,
                 "stats": stats,
                 "recent_queue": recent_queue,
+                "prioritized_queue_view": prioritized_queue_view,
                 "family_breakdown": family_breakdown,
                 "subdomain_breakdown": subdomain_breakdown,
                 "family_queue_lane_summary": family_queue_lane_summary,
@@ -225,6 +227,40 @@ def build_regression_operator_summary(
     }
 
 
+
+
+def _build_governance_prioritized_queue_view(recent_queue: dict[str, Any]) -> dict[str, Any]:
+    items = list(recent_queue.get("items", []))
+
+    def _priority_rank(note: str) -> int:
+        if "::priority=primary" in note:
+            return 0
+        if "::priority=secondary" in note:
+            return 1
+        return 2
+
+    ordered = sorted(
+        items,
+        key=lambda item: (_priority_rank(item.get("note", "")), item.get("created_at", "")),
+        reverse=False,
+    )
+
+    counts = {"primary": 0, "secondary": 0, "normal": 0}
+    for item in ordered:
+        note = item.get("note", "")
+        if "::priority=primary" in note:
+            counts["primary"] += 1
+        elif "::priority=secondary" in note:
+            counts["secondary"] += 1
+        else:
+            counts["normal"] += 1
+
+    return {
+        "items": ordered,
+        "meta": recent_queue.get("meta", {}),
+        "priority_counts": counts,
+        "ordering": ["primary", "secondary", "normal"],
+    }
 
 
 def _build_cross_level_governance_summary(

@@ -823,3 +823,53 @@ def test_regression_triggers_include_governance_priority_hints() -> None:
     priority_by_signal = {item["signal"]: item["governance_priority"]["suggested_priority_tier"] for item in payload["triggers"]}
     assert priority_by_signal["nightly_automation_degraded"] == "primary"
     assert priority_by_signal["elevated_latency"] == "secondary"
+
+
+def test_operator_summary_exposes_governance_prioritized_queue_view(tmp_path: Path) -> None:
+    from unittest.mock import patch
+    from app.models.refinement_loop import RolloutQueueItem
+    from app.system.regression_dashboard import build_regression_operator_summary
+
+    service = build_service(tmp_path)
+    memory = service._refinement_memory
+    memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-normal",
+        hypothesis_id="h1",
+        proposal_id="p1",
+        app_instance_id="agent_system",
+        status="queued",
+        note="regression_quality::execution_semantics::profile_performance_bottlenecks::execution::priority=normal",
+    ))
+    memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-primary",
+        hypothesis_id="h2",
+        proposal_id="p2",
+        app_instance_id="agent_system",
+        status="queued",
+        note="automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution::priority=primary",
+    ))
+    memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-secondary",
+        hypothesis_id="h3",
+        proposal_id="p3",
+        app_instance_id="agent_system",
+        status="queued",
+        note="regression_quality::execution_semantics::profile_performance_bottlenecks::execution::priority=secondary",
+    ))
+
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        summary = build_regression_operator_summary(memory=memory)
+
+    view = summary["refinement"]["governance"]["prioritized_queue_view"]
+    assert [item["queue_id"] for item in view["items"]] == ["q-primary", "q-secondary", "q-normal"]
+    assert view["priority_counts"] == {"primary": 1, "secondary": 1, "normal": 1}
