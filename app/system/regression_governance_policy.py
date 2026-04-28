@@ -37,6 +37,18 @@ def classify_signal_family(signal: str) -> str:
     return families.get(signal, "unclassified")
 
 
+def classify_signal_subdomain_candidate(signal: str) -> str:
+    candidates = {
+        "nightly_automation_degraded": "degraded_guard",
+        "nightly_automation_warning": "recovery_path",
+        "elevated_latency": "latency_path",
+        "elevated_fallback": "fallback_path",
+        "elevated_overreach": "overreach_boundary",
+        "conservative_mode_skew": "clarification_threshold",
+    }
+    return candidates.get(signal, "unclassified")
+
+
 def build_automation_attention(automation: dict[str, Any]) -> dict[str, str] | None:
     if automation.get("automation_health") not in {"warning", "degraded"}:
         return None

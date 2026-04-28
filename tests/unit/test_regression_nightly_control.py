@@ -15,6 +15,7 @@ from app.system.regression_governance_policy import (
     build_comparison_risk_flags,
     classify_signal_domain,
     classify_signal_family,
+    classify_signal_subdomain_candidate,
     recommend_action_for_signal,
     signal_priority,
 )
@@ -54,6 +55,8 @@ def build_service(tmp_path: Path) -> RegressionNightlyControlService:
     assert classify_signal_domain("elevated_latency") == "regression_quality"
     assert classify_signal_family("nightly_automation_degraded") == "automation_recovery"
     assert classify_signal_family("elevated_overreach") == "answer_shaping"
+    assert classify_signal_subdomain_candidate("elevated_latency") == "latency_path"
+    assert classify_signal_subdomain_candidate("conservative_mode_skew") == "clarification_threshold"
     assert recommend_action_for_signal("nightly_automation_degraded") == "stabilize_nightly_automation_control_plane"
     assert signal_priority({"level": "warning", "signal": "nightly_automation_degraded"}) > signal_priority({"level": "warning", "signal": "elevated_latency"})
 
@@ -356,6 +359,7 @@ def test_regression_dashboard_maps_automation_attention() -> None:
     assert summary["refinement"]["recommended_action"] == "stabilize_nightly_automation_control_plane"
     assert summary["refinement"]["priority_domain"] == "automation_control_plane"
     assert summary["refinement"]["priority_family"] == "automation_recovery"
+    assert summary["refinement"]["priority_subdomain_candidate"] == "degraded_guard"
     assert summary["refinement"]["priority_signal"] == "nightly_automation_degraded"
     assert summary["refinement"]["primary_contradiction"] == "automation_control_plane: nightly_automation_degraded"
 
@@ -387,6 +391,7 @@ def test_operator_summary_prioritizes_automation_degraded_over_other_warning_sig
 
     assert summary["refinement"]["priority_domain"] == "automation_control_plane"
     assert summary["refinement"]["priority_family"] == "automation_recovery"
+    assert summary["refinement"]["priority_subdomain_candidate"] == "degraded_guard"
     assert summary["refinement"]["priority_signal"] == "nightly_automation_degraded"
     assert summary["refinement"]["recommended_action"] == "stabilize_nightly_automation_control_plane"
 
@@ -560,8 +565,11 @@ def test_regression_triggers_propagate_failure_stage_from_observation_digest() -
     family_by_signal = {item["signal"]: item["family"] for item in payload["triggers"]}
     assert stage_by_signal["elevated_overreach"] == "answer_shaping"
     assert stage_by_signal["elevated_latency"] == "execution"
+    subdomain_by_signal = {item["signal"]: item["subdomain_candidate"] for item in payload["triggers"]}
     assert family_by_signal["elevated_overreach"] == "answer_shaping"
     assert family_by_signal["elevated_latency"] == "execution_semantics"
+    assert subdomain_by_signal["elevated_overreach"] == "overreach_boundary"
+    assert subdomain_by_signal["elevated_latency"] == "latency_path"
 
 
 def test_replay_observation_digest_builds_from_recent_history() -> None:
@@ -664,3 +672,33 @@ def test_operator_summary_exposes_family_queue_lane_summary() -> None:
     assert lane_summary["family_warning_counts"]["automation_recovery"] == 1
     assert lane_summary["action_counts"]["execution_semantics"]["profile_performance_bottlenecks"] >= 1
     assert lane_summary["latest_lane_items"]["automation_recovery::stabilize_nightly_automation_control_plane"]["signal"] == "nightly_automation_degraded"
+
+
+def test_operator_summary_exposes_priority_subdomain_candidate_and_family_metadata() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_operator_summary
+
+    comparison = {
+        "run_count": 2,
+        "avg_latency_ms": 6200,
+        "avg_fallback_count": 1.2,
+        "avg_overreach_risk_count": 0.8,
+        "answer_mode_totals": {"verification_required": 2},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "degraded",
+            "attention_reason": "consecutive_failures",
+            "last_tick_outcome": "failed",
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 2}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        summary = build_regression_operator_summary(nightly_status=nightly_status)
+
+    assert summary["refinement"]["priority_subdomain_candidate"] == "degraded_guard"
+    assert summary["refinement"]["governance"]["family_breakdown"]["latest_items"]["automation_recovery"]["subdomain_candidate"] == "degraded_guard"
+    lane = summary["refinement"]["governance"]["family_queue_lane_summary"]["latest_lane_items"]["automation_recovery::stabilize_nightly_automation_control_plane"]
+    assert lane["subdomain_candidate"] == "degraded_guard"

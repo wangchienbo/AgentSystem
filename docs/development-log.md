@@ -1,3 +1,42 @@
+## 2026-04-28: Add Compatible Subdomain Candidate Mapping to Governance Surface
+
+### Summary
+Added a derived subdomain-candidate layer on top of the existing domain/family/signal pipeline, keeping the implementation additive and avoiding any storage-schema change.
+
+### What Was Done
+- Updated `app/system/regression_governance_policy.py`
+  - added `classify_signal_subdomain_candidate(...)`
+  - introduced initial candidate mappings:
+    - `degraded_guard`
+    - `recovery_path`
+    - `latency_path`
+    - `fallback_path`
+    - `overreach_boundary`
+    - `clarification_threshold`
+- Updated `app/system/regression_dashboard.py`
+  - triggers now include `subdomain_candidate`
+  - operator summary now exposes `priority_subdomain_candidate`
+  - family breakdown latest items now retain `subdomain_candidate`
+  - family queue lane summary latest items now retain `subdomain_candidate`
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added direct subdomain-candidate classification assertions
+  - added trigger propagation assertions
+  - added operator-summary visibility assertions for priority subdomain candidate and family/lane metadata
+
+### Compatibility Notes
+This slice remains intentionally lightweight and compatible:
+- no persisted queue model change
+- no refinement memory migration
+- no replacement of existing `domain`, `family`, `signal`, or `failure_stage`
+- `subdomain_candidate` is currently a derived governance hint, not a hard storage contract
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `53 passed in 3.53s`
+
+### Product Conclusion
+The governance stack now has a stable semantic layer between family and any future persisted contradiction tree. This is the right compatibility-preserving move because it lets the system validate whether subdomain segmentation is useful in practice before forcing that structure into storage or rollout primitives.
+
 ## 2026-04-28: Add Family-Aware Queue Lane Summary to Operator Governance Surface
 
 ### Summary

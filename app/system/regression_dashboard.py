@@ -18,6 +18,7 @@ from app.system.regression_governance_policy import (
     build_comparison_risk_flags,
     classify_signal_domain,
     classify_signal_family,
+    classify_signal_subdomain_candidate,
     recommend_action_for_signal,
     signal_priority,
 )
@@ -135,11 +136,13 @@ def build_regression_operator_summary(
     priority_domain = ""
     priority_family = ""
     priority_signal = ""
+    priority_subdomain_candidate = ""
     if risk_flags:
         worst = max(risk_flags, key=signal_priority)
         priority_signal = worst.get("signal", "unknown")
         priority_domain = classify_signal_domain(priority_signal)
         priority_family = classify_signal_family(priority_signal)
+        priority_subdomain_candidate = classify_signal_subdomain_candidate(priority_signal)
         primary_contradiction = f"{priority_domain}: {priority_signal}"
         recommended_action = recommend_action_for_signal(priority_signal)
 
@@ -194,6 +197,7 @@ def build_regression_operator_summary(
             "recommended_action": recommended_action,
             "priority_domain": priority_domain or None,
             "priority_family": priority_family or None,
+            "priority_subdomain_candidate": priority_subdomain_candidate or None,
             "priority_signal": priority_signal or None,
             "context_summary": "Regression-integrated governance summary",
             "governance": {
@@ -233,6 +237,7 @@ def _build_family_queue_lane_summary(triggers: dict[str, Any]) -> dict[str, Any]
         latest_lane_items[lane_key] = {
             "domain": item.get("domain"),
             "family": family,
+            "subdomain_candidate": item.get("subdomain_candidate"),
             "signal": item.get("signal"),
             "recommended_action": action,
             "failure_stage": item.get("failure_stage"),
@@ -260,6 +265,7 @@ def _build_family_breakdown_from_triggers(triggers: dict[str, Any]) -> dict[str,
             "signal": item.get("signal"),
             "domain": item.get("domain"),
             "family": family,
+            "subdomain_candidate": item.get("subdomain_candidate"),
             "recommended_action": item.get("recommended_action"),
             "failure_stage": item.get("failure_stage"),
             "generated_at": item.get("generated_at"),
@@ -371,6 +377,7 @@ def build_regression_triggers(
             "level": flag.get("level", ""),
             "domain": classify_signal_domain(signal),
             "family": classify_signal_family(signal),
+            "subdomain_candidate": classify_signal_subdomain_candidate(signal),
             "recommended_action": recommend_action_for_signal(signal),
             "detail": flag.get("detail", ""),
             "failure_stage": _derive_failure_stage_for_signal(signal, observation_digest),
