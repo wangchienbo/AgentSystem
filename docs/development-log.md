@@ -1,3 +1,39 @@
+## 2026-04-29: Add Stable Decision Codes to Governance Preflight Decisions
+
+### Summary
+Extended governance preflight explainability with stable rule-level `decision_code` values so each decision now identifies not only the matched pipeline stage but also the exact rule path that produced the outcome.
+
+### What Was Done
+- Updated `app/models/governance_preflight.py`
+  - added `decision_code` to `GovernancePreflightDecision`
+- Updated `app/system/regression_governance_policy.py`
+  - extended `build_governance_preflight_decision(...)` to require `decision_code`
+  - assigned stable rule codes for each decision path, including:
+    - `availability.rollout_unavailable`
+    - `selection.recommended_queue_missing`
+    - `queue_state.queue_record_missing`
+    - `queue_state.status_blocked`
+    - `automation.degraded_requires_review`
+    - `automation.retry_pending_requires_review`
+    - `tier.primary_auto_apply`
+    - `tier.secondary_requires_review`
+    - `tier.unrecognized_blocked`
+- Kept control flow and decision semantics unchanged
+  - this slice only refines explainability and downstream audit surfaces
+- Expanded tests
+  - asserted representative `decision_code` values across allow and deny paths
+  - updated direct builder coverage for the new required field
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_preflight_decision_builder_returns_typed_payload or pipeline_prioritizes_availability_before_selection or governance_preflight_evaluator_blocks_missing_queue or auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or queue_status_blocked or degraded_automation_health or retry_pending_warning'`
+  - Result: `7 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+The governance preflight contract now carries both stage-level and rule-level explainability. That gives operator tooling and future dashboards a stable identifier for analytics, auditing, and UI labeling without parsing `hold_reason` strings or reconstructing intent from broader fields.
+
 ## 2026-04-28: Add Matched-Stage Explainability to Governance Preflight Decisions
 
 ### Summary

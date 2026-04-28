@@ -37,12 +37,14 @@ def build_governance_preflight_decision(
     review_scope: str,
     review_reason: str,
     matched_stage: str,
+    decision_code: str,
     **extra: Any,
 ) -> GovernancePreflightDecision:
     return GovernancePreflightDecision(
         **base,
         **extra,
         matched_stage=matched_stage,
+        decision_code=decision_code,
         can_apply=can_apply,
         apply_risk=apply_risk,
         hold_reason=hold_reason,
@@ -74,6 +76,7 @@ def _availability_gate(context: GovernancePreflightContext) -> GovernancePreflig
         review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
         review_reason=PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE,
         matched_stage="availability_gate",
+        decision_code="availability.rollout_unavailable",
     )
 
 
@@ -88,6 +91,7 @@ def _selection_gate(context: GovernancePreflightContext) -> GovernancePreflightD
         review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
         review_reason=PREFLIGHT_REVIEW_REASON_SELECTION_MISSING,
         matched_stage="selection_gate",
+        decision_code="selection.recommended_queue_missing",
     )
 
 
@@ -101,6 +105,7 @@ def _queue_state_gate(context: GovernancePreflightContext) -> GovernancePrefligh
             review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
             review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_MISSING,
             matched_stage="queue_state_gate",
+            decision_code="queue_state.queue_record_missing",
         )
     if context.queue_status != "queued":
         return build_governance_preflight_decision(
@@ -111,6 +116,7 @@ def _queue_state_gate(context: GovernancePreflightContext) -> GovernancePrefligh
             review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE,
             review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_STATE_BLOCKED,
             matched_stage="queue_state_gate",
+            decision_code="queue_state.status_blocked",
             queue_status=context.queue_status,
         )
     return None
@@ -126,6 +132,7 @@ def _automation_health_gate(context: GovernancePreflightContext) -> GovernancePr
             review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
             review_reason=PREFLIGHT_REVIEW_REASON_AUTOMATION_DEGRADED,
             matched_stage="automation_health_gate",
+            decision_code="automation.degraded_requires_review",
             queue_status=context.queue_status,
             priority_lane=context.priority_lane,
         )
@@ -138,6 +145,7 @@ def _automation_health_gate(context: GovernancePreflightContext) -> GovernancePr
             review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
             review_reason=PREFLIGHT_REVIEW_REASON_AUTOMATION_RETRY_PENDING,
             matched_stage="automation_health_gate",
+            decision_code="automation.retry_pending_requires_review",
             queue_status=context.queue_status,
             priority_lane=context.priority_lane,
         )
@@ -154,6 +162,7 @@ def _tier_gate(context: GovernancePreflightContext) -> GovernancePreflightDecisi
             review_scope=PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK,
             review_reason=PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY,
             matched_stage="tier_gate",
+            decision_code="tier.primary_auto_apply",
             queue_status=context.queue_status,
             priority_lane=context.priority_lane,
         )
@@ -166,6 +175,7 @@ def _tier_gate(context: GovernancePreflightContext) -> GovernancePreflightDecisi
             review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
             review_reason=PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY,
             matched_stage="tier_gate",
+            decision_code="tier.secondary_requires_review",
             queue_status=context.queue_status,
             priority_lane=context.priority_lane,
         )
@@ -177,6 +187,7 @@ def _tier_gate(context: GovernancePreflightContext) -> GovernancePreflightDecisi
         review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
         review_reason=PREFLIGHT_REVIEW_REASON_PRIORITY_TIER_BLOCKED,
         matched_stage="tier_gate",
+        decision_code="tier.unrecognized_blocked",
         queue_status=context.queue_status,
         priority_lane=context.priority_lane,
     )

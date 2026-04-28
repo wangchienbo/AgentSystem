@@ -87,6 +87,7 @@ def test_governance_preflight_pipeline_prioritizes_availability_before_selection
 
     assert decision.hold_reason == "rollout_service_unavailable"
     assert decision.matched_stage == "availability_gate"
+    assert decision.decision_code == "availability.rollout_unavailable"
 
 
 def test_governance_preflight_evaluator_blocks_missing_queue() -> None:
@@ -103,6 +104,7 @@ def test_governance_preflight_evaluator_blocks_missing_queue() -> None:
     assert decision.can_apply is False
     assert decision.hold_reason == "recommended_queue_missing"
     assert decision.matched_stage == "queue_state_gate"
+    assert decision.decision_code == "queue_state.queue_record_missing"
 
 
 def test_governance_preflight_decision_builder_returns_typed_payload() -> None:
@@ -117,6 +119,7 @@ def test_governance_preflight_decision_builder_returns_typed_payload() -> None:
         review_scope=PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK,
         review_reason=PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY,
         matched_stage="tier_gate",
+        decision_code="tier.primary_auto_apply",
         queue_status="queued",
     )
 
@@ -124,6 +127,7 @@ def test_governance_preflight_decision_builder_returns_typed_payload() -> None:
     assert decision.review_scope == PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK
     assert decision.to_payload()["hold_category"] == "none"
     assert decision.to_payload()["matched_stage"] == "tier_gate"
+    assert decision.to_payload()["decision_code"] == "tier.primary_auto_apply"
 
 
 def test_comparison_risk_flag_helper_builds_expected_flags() -> None:
@@ -1147,6 +1151,7 @@ def test_governance_execution_preflight_blocks_secondary_selection(tmp_path: Pat
     assert result["preflight"]["hold_reason"] == PREFLIGHT_HOLD_SECONDARY_REQUIRES_REVIEW
     assert result["preflight"]["review_reason"] == PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY
     assert result["preflight"]["matched_stage"] == "tier_gate"
+    assert result["preflight"]["decision_code"] == "tier.secondary_requires_review"
 
 
 def test_trigger_manual_cycle_auto_apply_returns_preflight_metadata(tmp_path: Path) -> None:
@@ -1182,6 +1187,7 @@ def test_trigger_manual_cycle_auto_apply_returns_preflight_metadata(tmp_path: Pa
     assert result["governance_rollout"]["preflight"]["required_review_scope"] == PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK
     assert result["governance_rollout"]["preflight"]["review_reason"] == PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY
     assert result["governance_rollout"]["preflight"]["matched_stage"] == "tier_gate"
+    assert result["governance_rollout"]["preflight"]["decision_code"] == "tier.primary_auto_apply"
 
 
 def test_governance_execution_preflight_blocks_nonqueued_item(tmp_path: Path) -> None:
@@ -1216,6 +1222,7 @@ def test_governance_execution_preflight_blocks_nonqueued_item(tmp_path: Path) ->
     assert preflight["review_scope"] == PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE
     assert preflight["hold_category"] == "queue_status_blocked"
     assert preflight["matched_stage"] == "queue_state_gate"
+    assert preflight["decision_code"] == "queue_state.status_blocked"
 
 
 def test_governance_execution_preflight_exposes_priority_lane_metadata(tmp_path: Path) -> None:
@@ -1287,6 +1294,7 @@ def test_governance_execution_preflight_blocks_degraded_automation_health(tmp_pa
     assert preflight["review_scope"] == PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION
     assert preflight["review_reason"] == PREFLIGHT_REVIEW_REASON_AUTOMATION_DEGRADED
     assert preflight["matched_stage"] == "automation_health_gate"
+    assert preflight["decision_code"] == "automation.degraded_requires_review"
     assert preflight["automation_health"] == "degraded"
     assert preflight["consecutive_failures"] == 3
 
@@ -1330,4 +1338,5 @@ def test_governance_execution_preflight_blocks_retry_pending_warning(tmp_path: P
     assert preflight["review_scope"] == PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION
     assert preflight["review_reason"] == PREFLIGHT_REVIEW_REASON_AUTOMATION_RETRY_PENDING
     assert preflight["matched_stage"] == "automation_health_gate"
+    assert preflight["decision_code"] == "automation.retry_pending_requires_review"
     assert preflight["automation_health"] == "warning"
