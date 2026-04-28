@@ -1,3 +1,29 @@
+## 2026-04-28: Differentiate Refinement Persistence for Automation vs Regression Risks
+
+### Summary
+Pushed the governance loop one layer deeper by making refinement persistence domain-aware, so automation control-plane risks and regression-quality risks now generate different hypothesis language, verification semantics, and queue notes.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - `build_regression_triggers(...)` now emits `domain` alongside signal/action metadata
+  - added `_build_refinement_payload_from_trigger(...)` to translate governance triggers into domain-specific refinement payloads
+  - `apply_regression_triggers_to_refinement(...)` now persists differentiated outputs:
+    - automation control-plane triggers produce automation-stability contradiction/hypothesis/queue phrasing
+    - regression-quality triggers stay in the quality/prompt/evidence refinement lane
+  - queue notes now encode domain-prefixed execution intent, for example:
+    - `automation_control_plane::stabilize_nightly_automation_control_plane`
+    - `regression_quality::profile_performance_bottlenecks`
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - verified trigger payloads now carry `domain`
+  - verified mixed automation + regression trigger persistence creates distinct contradiction, novelty note, verification summary, and queue note outputs
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `42 passed`
+
+### Product Conclusion
+The governance loop is now no longer just labeling risks differently, it is persisting different kinds of operational intent. That is an important product step because automation degradation should not enter the refinement system disguised as a generic prompt-quality issue. The system now preserves that distinction all the way into the queued refinement artifacts.
+
 ## 2026-04-28: Add Governance Priority Separation for Automation vs Regression Risks
 
 ### Summary

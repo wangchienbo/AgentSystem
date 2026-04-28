@@ -296,3 +296,71 @@ def test_governance_dashboard_aggregates_regression_and_automation_signals() -> 
     assert dashboard["evidence"] == evidence
     assert dashboard["automation_attention"]["reason"] == "retry_pending"
     assert {"elevated_latency", "elevated_fallback", "elevated_overreach", "nightly_automation_warning"}.issubset(signals)
+
+
+def test_regression_triggers_include_automation_warning_signal() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_triggers
+
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "warning",
+            "attention_reason": "retry_pending",
+            "last_tick_outcome": "failed",
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value={"run_count": 1, "avg_latency_ms": 0, "avg_fallback_count": 0, "avg_overreach_risk_count": 0, "answer_mode_totals": {}, "verification_mode_totals": {}}), \
+         patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}), \
+         patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        warning_payload = build_regression_triggers(threshold="info", nightly_status=nightly_status)
+        warning_only = build_regression_triggers(threshold="warning", nightly_status=nightly_status)
+
+    assert any(item["signal"] == "nightly_automation_warning" for item in warning_payload["triggers"])
+    assert all(item["signal"] != "nightly_automation_warning" for item in warning_only["triggers"])
+    assert any(item["recommended_action"] == "inspect_nightly_automation_recovery_path" for item in warning_payload["triggers"])
+    assert any(item["domain"] == "automation_control_plane" for item in warning_payload["triggers"])
+
+
+def test_apply_regression_triggers_to_refinement_uses_domain_specific_payloads(tmp_path: Path) -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import apply_regression_triggers_to_refinement
+
+    services = build_runtime(
+        runtime_store_base_dir=str(tmp_path / "runtime"),
+        app_data_base_dir=str(tmp_path / "namespaces"),
+    )
+    memory = services["refinement_memory"]
+    comparison = {
+        "run_count": 2,
+        "avg_latency_ms": 6200,
+        "avg_fallback_count": 0,
+        "avg_overreach_risk_count": 0,
+        "answer_mode_totals": {"direct": 1, "verification_required": 1},
+        "verification_mode_totals": {},
+    }
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "degraded",
+            "attention_reason": "consecutive_failures",
+            "last_tick_outcome": "failed",
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison), \
+         patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 2}), \
+         patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        payload = apply_regression_triggers_to_refinement(memory, nightly_status=nightly_status)
+
+    contradictions = {item["contradiction"] for item in payload["created_hypotheses"]}
+    queue_notes = {item["note"] for item in payload["created_queue_items"]}
+    novelty_notes = {item["novelty_note"] for item in payload["created_hypotheses"]}
+    verification_summaries = {item["summary"] for item in payload["created_verifications"]}
+
+    assert "automation_control_plane: nightly_automation_degraded" in contradictions
+    assert "regression_quality: elevated_latency" in contradictions
+    assert "automation_control_plane::stabilize_nightly_automation_control_plane" in queue_notes
+    assert "regression_quality::profile_performance_bottlenecks" in queue_notes
+    assert any("Automation control-plane risk" in item for item in novelty_notes)
+    assert any("Regression-quality risk" in item for item in novelty_notes)
+    assert any("Automation control-plane attention recorded" in item for item in verification_summaries)

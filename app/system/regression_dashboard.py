@@ -313,11 +313,13 @@ def build_regression_triggers(
 
     triggers = []
     for flag in actionable:
+        signal = flag.get("signal", "")
         triggers.append({
             "trigger_id": f"regression-trigger-{uuid4().hex[:12]}",
-            "signal": flag.get("signal", ""),
+            "signal": signal,
             "level": flag.get("level", ""),
-            "recommended_action": _recommend_action_for_signal(flag.get("signal", "")),
+            "domain": _classify_signal_domain(signal),
+            "recommended_action": _recommend_action_for_signal(signal),
             "detail": flag.get("detail", ""),
             "generated_at": ts,
         })
@@ -327,6 +329,35 @@ def build_regression_triggers(
         "trigger_count": len(triggers),
         "dashboard_comparison": dashboard["comparison"],
         "generated_at": ts,
+    }
+
+
+
+def _build_refinement_payload_from_trigger(trigger: dict[str, Any]) -> dict[str, str]:
+    signal = trigger["signal"]
+    domain = trigger.get("domain") or _classify_signal_domain(signal)
+    action = trigger["recommended_action"]
+    detail = trigger["detail"]
+    level = trigger["level"]
+
+    if domain == "automation_control_plane":
+        return {
+            "contradiction": f"automation_control_plane: {signal}",
+            "hypothesis": f"Stabilize automation control plane via {action}",
+            "expected_change": f"Reduce nightly automation instability: {detail}",
+            "novelty_note": "Automation control-plane risk should follow a recovery/stability path, not a prompt-quality path.",
+            "queue_note": f"automation_control_plane::{action}",
+            "verification_summary": f"Automation control-plane attention recorded for {signal}",
+            "verification_outcome": "failed" if level == "warning" else "inconclusive",
+        }
+    return {
+        "contradiction": f"regression_quality: {signal}",
+        "hypothesis": f"Address regression quality signal {signal} through {action}",
+        "expected_change": detail,
+        "novelty_note": "Regression-quality risk should remain in the model/tool/evidence refinement lane.",
+        "queue_note": f"regression_quality::{action}",
+        "verification_summary": detail,
+        "verification_outcome": "failed" if level == "warning" else "inconclusive",
     }
 
 
@@ -352,18 +383,19 @@ def apply_regression_triggers_to_refinement(
 
     for trigger in trigger_payload["triggers"]:
         signal = trigger["signal"]
-        contradiction = f"Regression signal: {signal}"
+        payload = _build_refinement_payload_from_trigger(trigger)
         hypothesis = memory.add_hypothesis(
             RefinementHypothesis(
                 hypothesis_id=f"reg-hyp-{uuid4().hex[:12]}",
                 app_instance_id=APP_INSTANCE_ID,
                 proposal_id=trigger["trigger_id"],
                 experience_id=trigger["trigger_id"],
-                contradiction=contradiction,
-                hypothesis=f"Address {signal} through {trigger['recommended_action']}",
-                expected_change=trigger["detail"],
+                contradiction=payload["contradiction"],
+                hypothesis=payload["hypothesis"],
+                expected_change=payload["expected_change"],
                 evidence=[trigger["detail"]],
                 repeat_risk="medium" if trigger["level"] == "warning" else "low",
+                novelty_note=payload["novelty_note"],
             )
         )
         verification = memory.add_verification(
@@ -371,8 +403,8 @@ def apply_regression_triggers_to_refinement(
                 verification_id=f"reg-ver-{uuid4().hex[:12]}",
                 hypothesis_id=hypothesis.hypothesis_id,
                 app_instance_id=APP_INSTANCE_ID,
-                outcome="failed" if trigger["level"] == "warning" else "inconclusive",
-                summary=trigger["detail"],
+                outcome=payload["verification_outcome"],
+                summary=payload["verification_summary"],
                 failed_checks=[signal] if trigger["level"] == "warning" else [],
                 execution_reference=trigger["trigger_id"],
                 failure_aware=True,
@@ -386,7 +418,7 @@ def apply_regression_triggers_to_refinement(
                 proposal_id=trigger["trigger_id"],
                 app_instance_id=APP_INSTANCE_ID,
                 status="queued",
-                note=trigger["recommended_action"],
+                note=payload["queue_note"],
             )
         )
         created_hypotheses.append(hypothesis.model_dump(mode="json"))
