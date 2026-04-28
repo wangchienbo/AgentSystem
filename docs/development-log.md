@@ -1,3 +1,47 @@
+## 2026-04-28: Normalize Governance Preflight Review Taxonomy
+
+### Summary
+Standardized governance preflight output so downstream API, UI, and orchestration layers can consume structured review scope and hold taxonomy without parsing ad hoc strings.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - introduced a shared preflight decision builder
+  - normalized review classification fields:
+    - `review_scope`
+    - `review_reason`
+    - `hold_category`
+  - kept `required_review_scope` for compatibility while aligning it to normalized values
+- New review-scope taxonomy now distinguishes:
+  - `light_auto_apply_ok`
+  - `operator_review_required`
+  - `operator_review_required_due_to_queue_state`
+  - `operator_review_required_due_to_automation`
+- New review-reason taxonomy includes:
+  - `primary_selection_healthy`
+  - `priority_secondary`
+  - `queue_state_blocked`
+  - `automation_degraded`
+  - `automation_retry_pending`
+  - plus blocked selection/service fallback reasons
+- Hold reasons remain intact for backward compatibility, but are now paired with `hold_category` for stable downstream grouping
+
+### Tests
+Expanded assertions in unit tests to verify normalized taxonomy on both allow and deny paths:
+- primary allow path returns `light_auto_apply_ok`
+- queue-state deny path returns `operator_review_required_due_to_queue_state`
+- automation deny paths return `operator_review_required_due_to_automation`
+- secondary deny path exposes `priority_secondary`
+- HTTP preflight block payload remains compatible and now carries normalized review metadata
+
+Validated with targeted runs:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or preflight_blocks_nonqueued_item or degraded_automation_health or retry_pending_warning'`
+  - Result: `5 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+The execution boundary now exposes a cleaner contract. Higher layers no longer need to infer intent from raw hold strings alone, which makes it much easier to render operator actions, branch orchestration behavior, and tighten policy further without brittle string parsing.
+
 ## 2026-04-28: Make Governance Preflight Automation-Health Aware
 
 ### Summary

@@ -1081,6 +1081,7 @@ def test_governance_execution_preflight_blocks_secondary_selection(tmp_path: Pat
     assert preflight["hold_reason"] == "secondary_requires_review"
     assert result["applied"] is False
     assert result["preflight"]["hold_reason"] == "secondary_requires_review"
+    assert result["preflight"]["review_reason"] == "priority_secondary"
 
 
 def test_trigger_manual_cycle_auto_apply_returns_preflight_metadata(tmp_path: Path) -> None:
@@ -1113,7 +1114,8 @@ def test_trigger_manual_cycle_auto_apply_returns_preflight_metadata(tmp_path: Pa
 
     assert result["governance_rollout"]["applied"] is True
     assert result["governance_rollout"]["preflight"]["can_apply"] is True
-    assert result["governance_rollout"]["preflight"]["required_review_scope"] == "light"
+    assert result["governance_rollout"]["preflight"]["required_review_scope"] == "light_auto_apply_ok"
+    assert result["governance_rollout"]["preflight"]["review_reason"] == "primary_selection_healthy"
 
 
 def test_governance_execution_preflight_blocks_nonqueued_item(tmp_path: Path) -> None:
@@ -1145,6 +1147,8 @@ def test_governance_execution_preflight_blocks_nonqueued_item(tmp_path: Path) ->
     assert preflight["can_apply"] is False
     assert preflight["hold_reason"] == "queue_status_blocked:applied"
     assert preflight["queue_status"] == "applied"
+    assert preflight["review_scope"] == "operator_review_required_due_to_queue_state"
+    assert preflight["hold_category"] == "queue_status_blocked"
 
 
 def test_governance_execution_preflight_exposes_priority_lane_metadata(tmp_path: Path) -> None:
@@ -1213,6 +1217,8 @@ def test_governance_execution_preflight_blocks_degraded_automation_health(tmp_pa
 
     assert preflight["can_apply"] is False
     assert preflight["hold_reason"] == "automation_degraded_requires_review"
+    assert preflight["review_scope"] == "operator_review_required_due_to_automation"
+    assert preflight["review_reason"] == "automation_degraded"
     assert preflight["automation_health"] == "degraded"
     assert preflight["consecutive_failures"] == 3
 
@@ -1253,4 +1259,6 @@ def test_governance_execution_preflight_blocks_retry_pending_warning(tmp_path: P
 
     assert preflight["can_apply"] is False
     assert preflight["hold_reason"] == "automation_retry_pending_requires_review"
+    assert preflight["review_scope"] == "operator_review_required_due_to_automation"
+    assert preflight["review_reason"] == "automation_retry_pending"
     assert preflight["automation_health"] == "warning"

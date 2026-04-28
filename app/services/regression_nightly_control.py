@@ -229,90 +229,103 @@ class RegressionNightlyControlService:
             "consecutive_failures": consecutive_failures,
         }
 
+        def build_decision(*, can_apply: bool, apply_risk: str, hold_reason: str, review_scope: str, review_reason: str, **extra: Any) -> dict[str, Any]:
+            return {
+                **base,
+                **extra,
+                "can_apply": can_apply,
+                "apply_risk": apply_risk,
+                "hold_reason": hold_reason,
+                "hold_category": hold_reason.split(":", 1)[0] if hold_reason else "none",
+                "required_review_scope": review_scope,
+                "review_scope": review_scope,
+                "review_reason": review_reason,
+            }
+
         if self._refinement_rollout is None:
-            return {
-                **base,
-                "can_apply": False,
-                "apply_risk": "blocked",
-                "hold_reason": "rollout_service_unavailable",
-                "required_review_scope": "operator",
-            }
+            return build_decision(
+                can_apply=False,
+                apply_risk="blocked",
+                hold_reason="rollout_service_unavailable",
+                review_scope="operator_review_required",
+                review_reason="service_unavailable",
+            )
         if not queue_id:
-            return {
-                **base,
-                "can_apply": False,
-                "apply_risk": "blocked",
-                "hold_reason": "no_recommended_queue",
-                "required_review_scope": "operator",
-            }
+            return build_decision(
+                can_apply=False,
+                apply_risk="blocked",
+                hold_reason="no_recommended_queue",
+                review_scope="operator_review_required",
+                review_reason="selection_missing",
+            )
 
         queue_item = next((item for item in self._refinement_memory.list_queue(APP_INSTANCE_ID) if item.queue_id == queue_id), None)
         if queue_item is None:
-            return {
-                **base,
-                "can_apply": False,
-                "apply_risk": "blocked",
-                "hold_reason": "recommended_queue_missing",
-                "required_review_scope": "operator",
-            }
+            return build_decision(
+                can_apply=False,
+                apply_risk="blocked",
+                hold_reason="recommended_queue_missing",
+                review_scope="operator_review_required",
+                review_reason="queue_missing",
+            )
         if queue_item.status != "queued":
-            return {
-                **base,
-                "can_apply": False,
-                "apply_risk": "blocked",
-                "hold_reason": f"queue_status_blocked:{queue_item.status}",
-                "required_review_scope": "operator",
-                "queue_status": queue_item.status,
-            }
+            return build_decision(
+                can_apply=False,
+                apply_risk="blocked",
+                hold_reason=f"queue_status_blocked:{queue_item.status}",
+                review_scope="operator_review_required_due_to_queue_state",
+                review_reason="queue_state_blocked",
+                queue_status=queue_item.status,
+            )
         if automation_health == "degraded" or control_attention_reason == "consecutive_failures":
-            return {
-                **base,
-                "can_apply": False,
-                "apply_risk": "high",
-                "hold_reason": "automation_degraded_requires_review",
-                "required_review_scope": "operator",
-                "queue_status": queue_item.status,
-                "priority_lane": priority_lane,
-            }
+            return build_decision(
+                can_apply=False,
+                apply_risk="high",
+                hold_reason="automation_degraded_requires_review",
+                review_scope="operator_review_required_due_to_automation",
+                review_reason="automation_degraded",
+                queue_status=queue_item.status,
+                priority_lane=priority_lane,
+            )
         if retry_pending or automation_health == "warning" or control_attention_reason == "retry_pending":
-            return {
-                **base,
-                "can_apply": False,
-                "apply_risk": "medium",
-                "hold_reason": "automation_retry_pending_requires_review",
-                "required_review_scope": "operator",
-                "queue_status": queue_item.status,
-                "priority_lane": priority_lane,
-            }
+            return build_decision(
+                can_apply=False,
+                apply_risk="medium",
+                hold_reason="automation_retry_pending_requires_review",
+                review_scope="operator_review_required_due_to_automation",
+                review_reason="automation_retry_pending",
+                queue_status=queue_item.status,
+                priority_lane=priority_lane,
+            )
         if priority_tier == "primary":
-            return {
-                **base,
-                "can_apply": True,
-                "apply_risk": "medium",
-                "hold_reason": "",
-                "required_review_scope": "light",
-                "queue_status": queue_item.status,
-                "priority_lane": priority_lane,
-            }
+            return build_decision(
+                can_apply=True,
+                apply_risk="medium",
+                hold_reason="",
+                review_scope="light_auto_apply_ok",
+                review_reason="primary_selection_healthy",
+                queue_status=queue_item.status,
+                priority_lane=priority_lane,
+            )
         if priority_tier == "secondary":
-            return {
-                **base,
-                "can_apply": False,
-                "apply_risk": "medium",
-                "hold_reason": "secondary_requires_review",
-                "required_review_scope": "operator",
-                "queue_status": queue_item.status,
-                "priority_lane": priority_lane,
-            }
-        return {
-            **base,
-            "can_apply": False,
-            "apply_risk": "high",
-            "hold_reason": f"priority_tier_blocked:{priority_tier or 'none'}",
-            "required_review_scope": "operator",
-            "queue_status": queue_item.status,
-            "priority_lane": priority_lane,
-        }
+            return build_decision(
+                can_apply=False,
+                apply_risk="medium",
+                hold_reason="secondary_requires_review",
+                review_scope="operator_review_required",
+                review_reason="priority_secondary",
+                queue_status=queue_item.status,
+                priority_lane=priority_lane,
+            )
+        return build_decision(
+            can_apply=False,
+            apply_risk="high",
+            hold_reason=f"priority_tier_blocked:{priority_tier or 'none'}",
+            review_scope="operator_review_required",
+            review_reason="priority_tier_blocked",
+            queue_status=queue_item.status,
+            priority_lane=priority_lane,
+        )
 
     def apply_governance_selected_rollout(self, *, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
         preflight = self.build_governance_execution_preflight(nightly_status=nightly_status)

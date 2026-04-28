@@ -894,7 +894,7 @@ def test_api_governance_regression_cycle_nightly_trigger_returns_preflight_block
         "governance_rollout": {
             "applied": False,
             "reason": "secondary_requires_review",
-            "preflight": {"can_apply": False, "hold_reason": "secondary_requires_review"},
+            "preflight": {"can_apply": False, "hold_reason": "secondary_requires_review", "review_scope": "operator_review_required", "review_reason": "priority_secondary"},
         },
     }
     with patch("app.system.http_test_server.regression_nightly_control.trigger_manual_cycle", return_value=fake_result):
