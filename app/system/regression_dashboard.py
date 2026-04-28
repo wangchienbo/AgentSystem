@@ -126,6 +126,7 @@ def build_regression_operator_summary(
     triggers = build_regression_triggers(comparison_limit=comparison_limit, nightly_status=nightly_status)
     metrics = _build_refinement_metrics_from_regression(dashboard["comparison"], triggers)
     family_breakdown = _build_family_breakdown_from_triggers(triggers)
+    subdomain_breakdown = _build_subdomain_breakdown_from_triggers(triggers)
     live_governance = None
     if memory is not None:
         live_governance = memory.get_governance_dashboard(RefinementFilter(app_instance_id=APP_INSTANCE_ID), recent_limit=5)
@@ -205,6 +206,7 @@ def build_regression_operator_summary(
                 "stats": stats,
                 "recent_queue": recent_queue,
                 "family_breakdown": family_breakdown,
+                "subdomain_breakdown": subdomain_breakdown,
                 "family_queue_lane_summary": _build_family_queue_lane_summary(triggers),
                 "recent_failed_hypotheses": recent_failed_hypotheses,
                 "nightly_automation": nightly_status,
@@ -216,6 +218,40 @@ def build_regression_operator_summary(
     }
 
 
+
+
+def _build_subdomain_breakdown_from_triggers(triggers: dict[str, Any]) -> dict[str, Any]:
+    trigger_list = triggers.get("triggers", [])
+    counts: dict[str, int] = {}
+    warning_counts: dict[str, int] = {}
+    family_map: dict[str, str] = {}
+    latest_items: dict[str, dict[str, Any]] = {}
+
+    for item in trigger_list:
+        subdomain = item.get("subdomain_candidate") or "unclassified"
+        family = item.get("family") or "unclassified"
+        counts[subdomain] = counts.get(subdomain, 0) + 1
+        family_map[subdomain] = family
+        if item.get("level") == "warning":
+            warning_counts[subdomain] = warning_counts.get(subdomain, 0) + 1
+        latest_items[subdomain] = {
+            "signal": item.get("signal"),
+            "domain": item.get("domain"),
+            "family": family,
+            "subdomain_candidate": subdomain,
+            "recommended_action": item.get("recommended_action"),
+            "failure_stage": item.get("failure_stage"),
+            "level": item.get("level"),
+            "generated_at": item.get("generated_at"),
+        }
+
+    return {
+        "counts": counts,
+        "warning_counts": warning_counts,
+        "family_map": family_map,
+        "latest_items": latest_items,
+        "subdomain_count": len(counts),
+    }
 
 
 def _build_family_queue_lane_summary(triggers: dict[str, Any]) -> dict[str, Any]:

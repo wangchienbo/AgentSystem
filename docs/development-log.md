@@ -1,3 +1,37 @@
+## 2026-04-28: Surface Subdomain-Candidate Breakdown in Operator Governance Summary
+
+### Summary
+Extended the governance operator surface with a dedicated subdomain-candidate breakdown, keeping the implementation derived from trigger output and fully backward compatible with the current persistence model.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `_build_subdomain_breakdown_from_triggers(...)`
+  - operator governance summary now exposes `subdomain_breakdown`
+  - subdomain breakdown currently includes:
+    - `counts`
+    - `warning_counts`
+    - `family_map`
+    - `latest_items`
+    - `subdomain_count`
+- Preserved compatibility by deriving subdomain breakdown from existing trigger payloads rather than changing queue storage or refinement memory models
+- Fixed a helper-function placement regression during implementation and revalidated the targeted test slice
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added coverage for subdomain breakdown visibility and representative item content
+
+### Compatibility Notes
+This slice remains additive and low-risk:
+- no queue schema change
+- no refinement memory migration
+- no existing operator summary key removed or renamed
+- subdomain breakdown is a derived governance view, not yet a persisted control-plane contract
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `54 passed in 3.37s`
+
+### Product Conclusion
+The governance surface can now express problem structure across domain, family, lane, and subdomain-candidate levels without prematurely hardening the taxonomy into storage. That is the right compatibility-first posture for validating whether subdomain segmentation is stable and useful before committing to persisted queue or rollout model changes.
+
 ## 2026-04-28: Add Compatible Subdomain Candidate Mapping to Governance Surface
 
 ### Summary
