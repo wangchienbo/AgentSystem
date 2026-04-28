@@ -127,6 +127,7 @@ def build_regression_operator_summary(
     metrics = _build_refinement_metrics_from_regression(dashboard["comparison"], triggers)
     family_breakdown = _build_family_breakdown_from_triggers(triggers)
     subdomain_breakdown = _build_subdomain_breakdown_from_triggers(triggers)
+    family_queue_lane_summary = _build_family_queue_lane_summary(triggers)
     live_governance = None
     if memory is not None:
         live_governance = memory.get_governance_dashboard(RefinementFilter(app_instance_id=APP_INSTANCE_ID), recent_limit=5)
@@ -146,6 +147,11 @@ def build_regression_operator_summary(
         priority_subdomain_candidate = classify_signal_subdomain_candidate(priority_signal)
         primary_contradiction = f"{priority_domain}: {priority_signal}"
         recommended_action = recommend_action_for_signal(priority_signal)
+    cross_level_summary = _build_cross_level_governance_summary(
+        triggers,
+        priority_family=priority_family,
+        priority_subdomain_candidate=priority_subdomain_candidate,
+    )
 
     overview = live_governance.overview.model_dump(mode="json") if live_governance is not None else {
                     "app_instance_id": APP_INSTANCE_ID,
@@ -207,7 +213,8 @@ def build_regression_operator_summary(
                 "recent_queue": recent_queue,
                 "family_breakdown": family_breakdown,
                 "subdomain_breakdown": subdomain_breakdown,
-                "family_queue_lane_summary": _build_family_queue_lane_summary(triggers),
+                "family_queue_lane_summary": family_queue_lane_summary,
+                "cross_level_summary": cross_level_summary,
                 "recent_failed_hypotheses": recent_failed_hypotheses,
                 "nightly_automation": nightly_status,
                 "automation_attention": dashboard.get("automation_attention"),
@@ -218,6 +225,58 @@ def build_regression_operator_summary(
     }
 
 
+
+
+def _build_cross_level_governance_summary(
+    triggers: dict[str, Any],
+    *,
+    priority_family: str,
+    priority_subdomain_candidate: str,
+) -> dict[str, Any]:
+    trigger_list = triggers.get("triggers", [])
+    family_to_subdomains: dict[str, list[str]] = {}
+    subdomain_to_latest_lane: dict[str, str] = {}
+    family_warning_density: dict[str, float] = {}
+    subdomain_warning_density: dict[str, float] = {}
+    priority_lane = None
+
+    family_totals: dict[str, int] = {}
+    family_warnings: dict[str, int] = {}
+    subdomain_totals: dict[str, int] = {}
+    subdomain_warnings: dict[str, int] = {}
+
+    for item in trigger_list:
+        family = item.get("family") or "unclassified"
+        subdomain = item.get("subdomain_candidate") or "unclassified"
+        action = item.get("recommended_action") or "manual_review_required"
+        lane = f"{family}::{action}"
+
+        family_totals[family] = family_totals.get(family, 0) + 1
+        subdomain_totals[subdomain] = subdomain_totals.get(subdomain, 0) + 1
+        if item.get("level") == "warning":
+            family_warnings[family] = family_warnings.get(family, 0) + 1
+            subdomain_warnings[subdomain] = subdomain_warnings.get(subdomain, 0) + 1
+
+        bucket = family_to_subdomains.setdefault(family, [])
+        if subdomain not in bucket:
+            bucket.append(subdomain)
+        subdomain_to_latest_lane[subdomain] = lane
+
+        if priority_lane is None and family == priority_family and subdomain == priority_subdomain_candidate:
+            priority_lane = lane
+
+    for family, total in family_totals.items():
+        family_warning_density[family] = family_warnings.get(family, 0) / total if total else 0.0
+    for subdomain, total in subdomain_totals.items():
+        subdomain_warning_density[subdomain] = subdomain_warnings.get(subdomain, 0) / total if total else 0.0
+
+    return {
+        "priority_lane": priority_lane,
+        "family_to_subdomains": family_to_subdomains,
+        "subdomain_to_latest_lane": subdomain_to_latest_lane,
+        "family_warning_density": family_warning_density,
+        "subdomain_warning_density": subdomain_warning_density,
+    }
 
 
 def _build_subdomain_breakdown_from_triggers(triggers: dict[str, Any]) -> dict[str, Any]:

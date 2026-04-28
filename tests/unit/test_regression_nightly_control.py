@@ -733,3 +733,35 @@ def test_operator_summary_exposes_subdomain_breakdown() -> None:
     assert breakdown["warning_counts"]["degraded_guard"] == 1
     assert breakdown["family_map"]["degraded_guard"] == "automation_recovery"
     assert breakdown["latest_items"]["degraded_guard"]["signal"] == "nightly_automation_degraded"
+
+
+def test_operator_summary_exposes_cross_level_governance_summary() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_operator_summary
+
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "degraded",
+            "attention_reason": "consecutive_failures",
+            "last_tick_outcome": "failed",
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        summary = build_regression_operator_summary(nightly_status=nightly_status)
+
+    cross = summary["refinement"]["governance"]["cross_level_summary"]
+    assert cross["priority_lane"] == "automation_recovery::stabilize_nightly_automation_control_plane"
+    assert "degraded_guard" in cross["family_to_subdomains"]["automation_recovery"]
+    assert cross["subdomain_to_latest_lane"]["degraded_guard"] == "automation_recovery::stabilize_nightly_automation_control_plane"
+    assert cross["family_warning_density"]["automation_recovery"] == 1.0
+    assert cross["subdomain_warning_density"]["degraded_guard"] == 1.0

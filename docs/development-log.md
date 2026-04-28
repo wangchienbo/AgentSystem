@@ -1,3 +1,39 @@
+## 2026-04-28: Add Cross-Level Governance Summary Glue for Family, Subdomain, and Lane Views
+
+### Summary
+Connected the existing family, subdomain-candidate, and lane breakdowns with a derived cross-level governance summary, while keeping all changes additive and persistence-free.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `_build_cross_level_governance_summary(...)`
+  - operator governance summary now exposes `cross_level_summary`
+  - cross-level summary currently includes:
+    - `priority_lane`
+    - `family_to_subdomains`
+    - `subdomain_to_latest_lane`
+    - `family_warning_density`
+    - `subdomain_warning_density`
+- Kept the implementation derived from existing trigger output rather than introducing persisted lane or subdomain queue fields
+- Fixed two implementation regressions during landing:
+  - helper-function placement issue
+  - cross-level summary evaluation order issue before priority variables were populated
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added coverage for priority lane, family-to-subdomain mapping, latest lane lookup, and warning density outputs
+
+### Compatibility Notes
+This slice remains architecture-safe and additive:
+- no queue schema change
+- no refinement memory migration
+- no removal of prior operator summary keys
+- cross-level glue is a read-side governance summary, not a write-path contract change
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `55 passed in 3.40s`
+
+### Product Conclusion
+The operator surface now has a much more coherent governance map instead of several parallel breakdowns. It can express priority lane, family-to-subdomain relationships, and warning density at multiple abstraction levels, which is exactly the kind of compatibility-first consolidation needed before considering any persisted taxonomy or lane-native rollout model.
+
 ## 2026-04-28: Surface Subdomain-Candidate Breakdown in Operator Governance Summary
 
 ### Summary
