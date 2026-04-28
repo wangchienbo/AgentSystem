@@ -1,3 +1,26 @@
+## 2026-04-28: Propagate Failure-Stage Semantics into Regression Triggers
+
+### Summary
+Completed the next governance slice by moving failure-stage awareness forward from observation digesting and refinement translation into trigger generation itself.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added signal-to-stage fallback mapping for current regression/governance signals
+  - added `_derive_failure_stage_for_signal(...)`
+  - `build_regression_triggers(...)` now reads `observation_digest`
+  - generated triggers now carry explicit `failure_stage`
+- Preserved downstream propagation so refinement payload translation and queue notes now receive stage-aware trigger input from the source instead of fabricating it late
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added direct trigger-stage propagation coverage
+  - updated refinement application expectations to assert stage-aware queue notes derived from trigger generation
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `48 passed in 3.53s`
+
+### Product Conclusion
+This closes the first meaningful governance propagation loop for G1: the system can now observe a likely failure stage, summarize it in the dashboard, propagate it into triggers, and preserve it through refinement queue semantics. That is a much stronger substrate for later replay-backed observation and contradiction-tree work than plain risk-flag-only triggering.
+
 ## 2026-04-28: Implement G1 Observation Digest Slice for Regression Governance
 
 ### Summary

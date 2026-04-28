@@ -25,6 +25,16 @@ from app.system.regression_refinement_translation import persist_trigger_payload
 APP_INSTANCE_ID = "agent_system"
 
 
+FAILURE_STAGE_SIGNAL_MAP = {
+    "elevated_latency": "execution",
+    "elevated_fallback": "execution",
+    "elevated_overreach": "answer_shaping",
+    "conservative_mode_skew": "requirement_understanding",
+    "nightly_automation_warning": "execution",
+    "nightly_automation_degraded": "execution",
+}
+
+
 def build_regression_governance_dashboard(
     *,
     comparison_limit: int = 5,
@@ -237,6 +247,16 @@ def _build_refinement_metrics_from_regression(comparison: dict[str, Any], trigge
         "latest_failed_hypothesis_at": ts if failed_hypotheses > 0 else None,
     }
 
+def _derive_failure_stage_for_signal(signal: str, observation_digest: dict[str, Any]) -> str:
+    failure_stage_counts = observation_digest.get("failure_stage_counts") or {}
+    mapped = FAILURE_STAGE_SIGNAL_MAP.get(signal)
+    if mapped and failure_stage_counts.get(mapped, 0) > 0:
+        return mapped
+    if failure_stage_counts:
+        return max(failure_stage_counts.items(), key=lambda item: item[1])[0]
+    return mapped or "unclassified"
+
+
 def build_regression_triggers(
     *,
     comparison_limit: int = 5,
@@ -262,6 +282,7 @@ def build_regression_triggers(
         nightly_status=nightly_status,
     )
     risk_flags = dashboard.get("risk_flags", [])
+    observation_digest = dashboard.get("observation_digest") or build_governance_evidence_digest(None).model_dump(mode="json")
     # Filter by severity
     level_priority = {"info": 0, "warning": 1}
     min_priority = level_priority.get(threshold, 0)
@@ -281,6 +302,7 @@ def build_regression_triggers(
             "domain": classify_signal_domain(signal),
             "recommended_action": recommend_action_for_signal(signal),
             "detail": flag.get("detail", ""),
+            "failure_stage": _derive_failure_stage_for_signal(signal, observation_digest),
             "generated_at": ts,
         })
 

@@ -479,8 +479,8 @@ def test_apply_regression_triggers_to_refinement_uses_domain_specific_payloads(t
 
     assert "automation_control_plane: nightly_automation_degraded" in contradictions
     assert "regression_quality: elevated_latency" in contradictions
-    assert "automation_control_plane::stabilize_nightly_automation_control_plane::unclassified" in queue_notes
-    assert "regression_quality::profile_performance_bottlenecks::unclassified" in queue_notes
+    assert "automation_control_plane::stabilize_nightly_automation_control_plane::execution" in queue_notes
+    assert "regression_quality::profile_performance_bottlenecks::execution" in queue_notes
     assert any("Automation control-plane risk" in item for item in novelty_notes)
     assert any("Regression-quality risk" in item for item in novelty_notes)
     assert any("Automation control-plane attention recorded" in item for item in verification_summaries)
@@ -522,3 +522,32 @@ def test_regression_dashboard_exposes_observation_digest() -> None:
 
     assert dashboard["observation_digest"]["total_observations"] == 1
     assert dashboard["observation_digest"]["failure_stage_counts"]["evidence"] == 1
+
+
+def test_regression_triggers_propagate_failure_stage_from_observation_digest() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_triggers
+
+    dashboard = {
+        "comparison": {"run_count": 1},
+        "risk_flags": [
+            {"signal": "elevated_overreach", "level": "warning", "detail": "Overreach risk high"},
+            {"signal": "elevated_latency", "level": "warning", "detail": "Latency high"},
+        ],
+        "observation_digest": {
+            "total_observations": 2,
+            "failure_stage_counts": {
+                "answer_shaping": 1,
+                "execution": 1,
+            },
+            "topic_failure_stage_counts": {},
+            "observation_samples": [],
+        },
+    }
+
+    with patch("app.system.regression_dashboard.build_regression_governance_dashboard", return_value=dashboard):
+        payload = build_regression_triggers()
+
+    stage_by_signal = {item["signal"]: item["failure_stage"] for item in payload["triggers"]}
+    assert stage_by_signal["elevated_overreach"] == "answer_shaping"
+    assert stage_by_signal["elevated_latency"] == "execution"
