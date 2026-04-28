@@ -1,3 +1,36 @@
+## 2026-04-29: Integrate Shared Preflight Render Helpers into Operator Summary Payload
+
+### Summary
+Connected the shared governance preflight render helpers to a real operator-facing payload surface by wiring them into the regression operator summary rollout review packet and card.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - imported shared render helpers and the typed preflight decision model
+  - added `_build_rollout_review_render_decision(...)` as a dashboard-local adapter that converts rollout review packet state into a typed renderable decision
+  - enriched `rollout_review_packet` with:
+    - `review_badge`
+    - `review_note`
+  - enriched `rollout_review_card` with:
+    - `review_badge`
+    - `review_note`
+- Kept existing packet/card fields intact
+  - this slice adds render-ready fields without removing or renaming current payload keys
+- Preserved layer boundaries
+  - dashboard reuses the shared typed contract and render helpers directly
+  - no new dependency on service-layer preflight execution paths
+- Expanded tests
+  - added direct operator summary coverage asserting the new render-ready payload fields on a representative secondary-tier review path
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_preflight_decision_builder_returns_typed_payload or governance_preflight_render_helpers_return_shared_operator_strings or operator_summary_rollout_review_payload_includes_render_helpers or pipeline_prioritizes_availability_before_selection or governance_preflight_evaluator_blocks_missing_queue or auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or queue_status_blocked or degraded_automation_health or retry_pending_warning'`
+  - Result: `9 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+The governance preflight module is now consumed by a real operator-facing surface instead of existing only as an internal contract. That reduces future presentation drift because rollout review payloads can reuse shared badge/note semantics while keeping the pre-existing summary structure stable.
+
 ## 2026-04-29: Add Shared Governance Preflight Render Helpers
 
 ### Summary

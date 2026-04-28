@@ -1146,6 +1146,41 @@ def test_trigger_manual_cycle_can_auto_apply_governance_selection(tmp_path: Path
     assert result["governance_rollout"]["item"]["status"] == "applied"
 
 
+def test_operator_summary_rollout_review_payload_includes_render_helpers(tmp_path: Path) -> None:
+    from unittest.mock import patch
+    from app.models.refinement_loop import RolloutQueueItem
+    from app.system.regression_dashboard import build_regression_operator_summary
+
+    service = build_service(tmp_path)
+    service._refinement_memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-secondary",
+        hypothesis_id="h1",
+        proposal_id="regression-trigger-1",
+        app_instance_id="agent_system",
+        status="queued",
+        note="regression_quality::execution_semantics::profile_performance_bottlenecks::execution::priority=secondary",
+    ))
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        summary = build_regression_operator_summary(memory=service._refinement_memory, nightly_status=None)
+
+    packet = summary["refinement"]["governance"]["rollout_review_packet"]
+    card = summary["refinement"]["governance"]["rollout_review_card"]
+    assert packet["review_badge"] == "HOLD | Secondary tier review required"
+    assert "code=tier.secondary_requires_review" in packet["review_note"]
+    assert card["review_badge"] == "HOLD | Secondary tier review required"
+    assert "stage=dashboard_rollout_review" in card["review_note"]
+
+
 def test_governance_execution_preflight_blocks_secondary_selection(tmp_path: Path) -> None:
     from unittest.mock import patch
     from app.models.refinement_loop import RolloutQueueItem
