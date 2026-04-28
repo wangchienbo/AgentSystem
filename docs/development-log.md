@@ -1,3 +1,33 @@
+## 2026-04-28: Refactor Regression Governance Chain into Policy and Translation Modules
+
+### Summary
+Closed the current governance expansion wave with a structural cleanup so the dashboard, governance-policy rules, and refinement-translation logic are no longer continuing to accumulate inside one growing module.
+
+### What Was Done
+- Added `app/system/regression_governance_policy.py`
+  - extracted signal priority policy
+  - extracted signal domain classification
+  - extracted automation attention / automation risk-flag shaping
+  - extracted comparison-derived governance risk-flag rules
+  - extracted signal → recommended action mapping
+- Added `app/system/regression_refinement_translation.py`
+  - extracted trigger → refinement payload translation
+  - extracted refinement persistence helper for hypotheses, verifications, and queue items
+- Simplified `app/system/regression_dashboard.py`
+  - dashboard now imports policy helpers instead of carrying all policy logic inline
+  - refinement persistence now delegates to the translation module
+  - module responsibility is narrower and closer to an aggregation/orchestration surface again
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - added direct helper coverage for the extracted policy and translation modules
+  - retained mixed-signal governance and persistence regression coverage after the refactor
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `44 passed`
+
+### Product Conclusion
+This refactor is the right stopping point for the current wave. The repository is in a cleaner state than if we had kept stacking governance features directly inside `regression_dashboard.py`. The core shape is now more maintainable: observe/aggregate in the dashboard module, govern in policy helpers, and translate into refinement artifacts in a dedicated translation module.
+
 ## 2026-04-28: Differentiate Refinement Persistence for Automation vs Regression Risks
 
 ### Summary

@@ -9,6 +9,15 @@ from app.services.regression_nightly_control import (
     REGRESSION_NIGHTLY_SCHEDULE_ID,
     RegressionNightlyControlService,
 )
+from app.system.regression_governance_policy import (
+    build_automation_attention,
+    build_automation_risk_flags,
+    build_comparison_risk_flags,
+    classify_signal_domain,
+    recommend_action_for_signal,
+    signal_priority,
+)
+from app.system.regression_refinement_translation import build_refinement_payload_from_trigger
 
 
 def build_service(tmp_path: Path) -> RegressionNightlyControlService:
@@ -22,6 +31,57 @@ def build_service(tmp_path: Path) -> RegressionNightlyControlService:
         runtime_store=services["runtime_store"],
         refinement_memory=services["refinement_memory"],
     )
+
+
+    attention = build_automation_attention({
+        "automation_health": "degraded",
+        "attention_reason": "consecutive_failures",
+        "last_tick_outcome": "failed",
+    })
+    assert attention == {
+        "health": "degraded",
+        "reason": "consecutive_failures",
+        "last_tick_outcome": "failed",
+    }
+    assert build_automation_risk_flags(attention)[0]["signal"] == "nightly_automation_degraded"
+    assert classify_signal_domain("nightly_automation_warning") == "automation_control_plane"
+    assert classify_signal_domain("elevated_latency") == "regression_quality"
+    assert recommend_action_for_signal("nightly_automation_degraded") == "stabilize_nightly_automation_control_plane"
+    assert signal_priority({"level": "warning", "signal": "nightly_automation_degraded"}) > signal_priority({"level": "warning", "signal": "elevated_latency"})
+
+
+def test_comparison_risk_flag_helper_builds_expected_flags() -> None:
+    flags = build_comparison_risk_flags({
+        "run_count": 2,
+        "avg_latency_ms": 6000,
+        "avg_fallback_count": 1.2,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"verification_required": 2, "direct": 1},
+    })
+    signals = {item["signal"] for item in flags}
+    assert {"elevated_latency", "elevated_fallback", "elevated_overreach", "conservative_mode_skew"}.issubset(signals)
+
+
+def test_refinement_translation_helper_builds_domain_specific_payloads() -> None:
+    automation_payload = build_refinement_payload_from_trigger({
+        "signal": "nightly_automation_degraded",
+        "domain": "automation_control_plane",
+        "recommended_action": "stabilize_nightly_automation_control_plane",
+        "detail": "Nightly automation health degraded",
+        "level": "warning",
+    })
+    regression_payload = build_refinement_payload_from_trigger({
+        "signal": "elevated_latency",
+        "domain": "regression_quality",
+        "recommended_action": "profile_performance_bottlenecks",
+        "detail": "Average latency high",
+        "level": "warning",
+    })
+
+    assert automation_payload["queue_note"] == "automation_control_plane::stabilize_nightly_automation_control_plane"
+    assert "Automation control-plane risk" in automation_payload["novelty_note"]
+    assert regression_payload["queue_note"] == "regression_quality::profile_performance_bottlenecks"
+    assert "Regression-quality risk" in regression_payload["novelty_note"]
 
 
 def test_build_nightly_status_exposes_due_state(tmp_path: Path) -> None:

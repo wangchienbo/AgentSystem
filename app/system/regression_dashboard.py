@@ -6,58 +6,22 @@ bridging regression trends, evidence, and comparison into a single refinement-re
 from __future__ import annotations
 
 from typing import Any
-from uuid import uuid4
 
-from app.models.refinement_loop import RefinementFilter, RefinementHypothesis, RolloutQueueItem, VerificationResult
+from app.models.refinement_loop import RefinementFilter
 from app.services.refinement_memory import RefinementMemoryStore
 from app.system.chat_regression import build_multi_run_comparison, build_topic_trends
 from app.system.regression_evidence_bridge import list_regression_evidence_history
+from app.system.regression_governance_policy import (
+    build_automation_attention,
+    build_automation_risk_flags,
+    build_comparison_risk_flags,
+    classify_signal_domain,
+    recommend_action_for_signal,
+    signal_priority,
+)
+from app.system.regression_refinement_translation import persist_trigger_payloads
 
 APP_INSTANCE_ID = "agent_system"
-
-
-_SIGNAL_PRIORITY = {
-    "nightly_automation_degraded": 40,
-    "elevated_overreach": 35,
-    "elevated_fallback": 30,
-    "elevated_latency": 25,
-    "conservative_mode_skew": 20,
-    "nightly_automation_warning": 10,
-}
-
-
-def _signal_priority(flag: dict[str, str]) -> tuple[int, int]:
-    return (
-        {"info": 0, "warning": 1}.get(flag.get("level", ""), 0),
-        _SIGNAL_PRIORITY.get(flag.get("signal", ""), 0),
-    )
-
-
-def _classify_signal_domain(signal: str) -> str:
-    if signal.startswith("nightly_automation_"):
-        return "automation_control_plane"
-    return "regression_quality"
-
-
-def _build_automation_attention(automation: dict[str, Any]) -> dict[str, str] | None:
-    if automation.get("automation_health") not in {"warning", "degraded"}:
-        return None
-    return {
-        "health": automation.get("automation_health"),
-        "reason": automation.get("attention_reason") or automation.get("last_tick_decision") or "",
-        "last_tick_outcome": automation.get("last_tick_outcome") or "",
-    }
-
-
-def _build_automation_risk_flags(automation_attention: dict[str, str] | None) -> list[dict[str, str]]:
-    if automation_attention is None:
-        return []
-    health = automation_attention.get("health") or "warning"
-    reason = automation_attention.get("reason") or "automation_attention"
-    outcome = automation_attention.get("last_tick_outcome") or "unknown"
-    signal = "nightly_automation_degraded" if health == "degraded" else "nightly_automation_warning"
-    detail = f"Nightly automation health {health}; reason={reason}; outcome={outcome}"
-    return [{"level": "warning" if health == "degraded" else "info", "signal": signal, "detail": detail}]
 
 
 def build_regression_governance_dashboard(
@@ -80,19 +44,7 @@ def build_regression_governance_dashboard(
     evidence = list_regression_evidence_history(limit=evidence_limit)
 
     # Build risk summary from comparison data
-    risk_flags: list[dict[str, str]] = []
-    if comparison.get("avg_latency_ms", 0) > 5000:
-        risk_flags.append({"level": "warning", "signal": "elevated_latency", "detail": f"Average latency {comparison['avg_latency_ms']:.0f}ms across {comparison['run_count']} runs"})
-    if comparison.get("avg_fallback_count", 0) > 1.0:
-        risk_flags.append({"level": "warning", "signal": "elevated_fallback", "detail": f"Average fallback count {comparison['avg_fallback_count']:.1f} across {comparison['run_count']} runs"})
-    if comparison.get("avg_overreach_risk_count", 0) > 0.5:
-        risk_flags.append({"level": "warning", "signal": "elevated_overreach", "detail": f"Average overreach count {comparison['avg_overreach_risk_count']:.1f} across {comparison['run_count']} runs"})
-
-    answer_totals = comparison.get("answer_mode_totals", {})
-    conservative = answer_totals.get("verification_required", 0) + answer_totals.get("clarification_required", 0)
-    total = sum(answer_totals.values())
-    if total > 0 and conservative / total > 0.5:
-        risk_flags.append({"level": "warning" if conservative / total > 0.75 else "info", "signal": "conservative_mode_skew", "detail": f"Conservative modes {conservative}/{total} ({conservative / total:.1%})"})
+    risk_flags = build_comparison_risk_flags(comparison)
 
     rollout_summary = None
     if memory is not None:
@@ -107,8 +59,8 @@ def build_regression_governance_dashboard(
 
     automation_attention = None
     if nightly_status is not None:
-        automation_attention = _build_automation_attention(nightly_status.get("automation_control") or {})
-        risk_flags.extend(_build_automation_risk_flags(automation_attention))
+        automation_attention = build_automation_attention(nightly_status.get("automation_control") or {})
+        risk_flags.extend(build_automation_risk_flags(automation_attention))
 
     return {
         "comparison": comparison,
@@ -157,11 +109,11 @@ def build_regression_operator_summary(
     priority_domain = ""
     priority_signal = ""
     if risk_flags:
-        worst = max(risk_flags, key=_signal_priority)
+        worst = max(risk_flags, key=signal_priority)
         priority_signal = worst.get("signal", "unknown")
-        priority_domain = _classify_signal_domain(priority_signal)
+        priority_domain = classify_signal_domain(priority_signal)
         primary_contradiction = f"{priority_domain}: {priority_signal}"
-        recommended_action = _recommend_action_for_signal(priority_signal)
+        recommended_action = recommend_action_for_signal(priority_signal)
 
     overview = live_governance.overview.model_dump(mode="json") if live_governance is not None else {
                     "app_instance_id": APP_INSTANCE_ID,
@@ -318,8 +270,8 @@ def build_regression_triggers(
             "trigger_id": f"regression-trigger-{uuid4().hex[:12]}",
             "signal": signal,
             "level": flag.get("level", ""),
-            "domain": _classify_signal_domain(signal),
-            "recommended_action": _recommend_action_for_signal(signal),
+            "domain": classify_signal_domain(signal),
+            "recommended_action": recommend_action_for_signal(signal),
             "detail": flag.get("detail", ""),
             "generated_at": ts,
         })
@@ -331,34 +283,6 @@ def build_regression_triggers(
         "generated_at": ts,
     }
 
-
-
-def _build_refinement_payload_from_trigger(trigger: dict[str, Any]) -> dict[str, str]:
-    signal = trigger["signal"]
-    domain = trigger.get("domain") or _classify_signal_domain(signal)
-    action = trigger["recommended_action"]
-    detail = trigger["detail"]
-    level = trigger["level"]
-
-    if domain == "automation_control_plane":
-        return {
-            "contradiction": f"automation_control_plane: {signal}",
-            "hypothesis": f"Stabilize automation control plane via {action}",
-            "expected_change": f"Reduce nightly automation instability: {detail}",
-            "novelty_note": "Automation control-plane risk should follow a recovery/stability path, not a prompt-quality path.",
-            "queue_note": f"automation_control_plane::{action}",
-            "verification_summary": f"Automation control-plane attention recorded for {signal}",
-            "verification_outcome": "failed" if level == "warning" else "inconclusive",
-        }
-    return {
-        "contradiction": f"regression_quality: {signal}",
-        "hypothesis": f"Address regression quality signal {signal} through {action}",
-        "expected_change": detail,
-        "novelty_note": "Regression-quality risk should remain in the model/tool/evidence refinement lane.",
-        "queue_note": f"regression_quality::{action}",
-        "verification_summary": detail,
-        "verification_outcome": "failed" if level == "warning" else "inconclusive",
-    }
 
 
 
@@ -377,61 +301,9 @@ def apply_regression_triggers_to_refinement(
         threshold=threshold,
         nightly_status=nightly_status,
     )
-    created_hypotheses = []
-    created_queue_items = []
-    created_verifications = []
-
-    for trigger in trigger_payload["triggers"]:
-        signal = trigger["signal"]
-        payload = _build_refinement_payload_from_trigger(trigger)
-        hypothesis = memory.add_hypothesis(
-            RefinementHypothesis(
-                hypothesis_id=f"reg-hyp-{uuid4().hex[:12]}",
-                app_instance_id=APP_INSTANCE_ID,
-                proposal_id=trigger["trigger_id"],
-                experience_id=trigger["trigger_id"],
-                contradiction=payload["contradiction"],
-                hypothesis=payload["hypothesis"],
-                expected_change=payload["expected_change"],
-                evidence=[trigger["detail"]],
-                repeat_risk="medium" if trigger["level"] == "warning" else "low",
-                novelty_note=payload["novelty_note"],
-            )
-        )
-        verification = memory.add_verification(
-            VerificationResult(
-                verification_id=f"reg-ver-{uuid4().hex[:12]}",
-                hypothesis_id=hypothesis.hypothesis_id,
-                app_instance_id=APP_INSTANCE_ID,
-                outcome=payload["verification_outcome"],
-                summary=payload["verification_summary"],
-                failed_checks=[signal] if trigger["level"] == "warning" else [],
-                execution_reference=trigger["trigger_id"],
-                failure_aware=True,
-                gating_reason=trigger["recommended_action"],
-            )
-        )
-        queue_item = memory.add_queue_item(
-            RolloutQueueItem(
-                queue_id=f"reg-queue-{uuid4().hex[:12]}",
-                hypothesis_id=hypothesis.hypothesis_id,
-                proposal_id=trigger["trigger_id"],
-                app_instance_id=APP_INSTANCE_ID,
-                status="queued",
-                note=payload["queue_note"],
-            )
-        )
-        created_hypotheses.append(hypothesis.model_dump(mode="json"))
-        created_verifications.append(verification.model_dump(mode="json"))
-        created_queue_items.append(queue_item.model_dump(mode="json"))
-
-    return {
-        "trigger_count": trigger_payload["trigger_count"],
-        "created_hypotheses": created_hypotheses,
-        "created_verifications": created_verifications,
-        "created_queue_items": created_queue_items,
-        "generated_at": trigger_payload["generated_at"],
-    }
+    persisted = persist_trigger_payloads(memory, trigger_payload["triggers"])
+    persisted["generated_at"] = trigger_payload["generated_at"]
+    return persisted
 
 def _recommend_action_for_signal(signal: str) -> str:
     """Map regression risk signals to recommended refinement actions."""
