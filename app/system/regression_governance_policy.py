@@ -28,6 +28,29 @@ PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY = "priority_secondary"
 PREFLIGHT_REVIEW_REASON_PRIORITY_TIER_BLOCKED = "priority_tier_blocked"
 
 
+def _build_decision_label(decision_code: str) -> str:
+    labels = {
+        "availability.rollout_unavailable": "Rollout service unavailable",
+        "selection.recommended_queue_missing": "Recommended queue missing",
+        "queue_state.queue_record_missing": "Recommended queue record missing",
+        "queue_state.status_blocked": "Queue state blocked",
+        "automation.degraded_requires_review": "Automation degraded, review required",
+        "automation.retry_pending_requires_review": "Automation retry pending, review required",
+        "tier.primary_auto_apply": "Primary tier auto-apply allowed",
+        "tier.secondary_requires_review": "Secondary tier review required",
+        "tier.unrecognized_blocked": "Priority tier blocked",
+    }
+    return labels.get(decision_code, "Unknown preflight decision")
+
+
+def _build_decision_summary(*, decision_code: str, matched_stage: str, hold_reason: str, review_scope: str) -> str:
+    summary = _build_decision_label(decision_code)
+    parts = [summary, f"stage={matched_stage}", f"review_scope={review_scope}"]
+    if hold_reason:
+        parts.append(f"hold_reason={hold_reason}")
+    return "; ".join(parts)
+
+
 def build_governance_preflight_decision(
     *,
     base: dict[str, Any],
@@ -40,11 +63,20 @@ def build_governance_preflight_decision(
     decision_code: str,
     **extra: Any,
 ) -> GovernancePreflightDecision:
+    decision_label = _build_decision_label(decision_code)
+    decision_summary = _build_decision_summary(
+        decision_code=decision_code,
+        matched_stage=matched_stage,
+        hold_reason=hold_reason,
+        review_scope=review_scope,
+    )
     return GovernancePreflightDecision(
         **base,
         **extra,
         matched_stage=matched_stage,
         decision_code=decision_code,
+        decision_label=decision_label,
+        decision_summary=decision_summary,
         can_apply=can_apply,
         apply_risk=apply_risk,
         hold_reason=hold_reason,

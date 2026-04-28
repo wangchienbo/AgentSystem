@@ -1,3 +1,32 @@
+## 2026-04-29: Add Operator-Facing Labels and Summaries to Governance Preflight Decisions
+
+### Summary
+Added operator-facing `decision_label` and `decision_summary` fields to governance preflight decisions so downstream dashboards and APIs can render consistent human-readable explanations without reconstructing them from lower-level policy fields.
+
+### What Was Done
+- Updated `app/models/governance_preflight.py`
+  - added `decision_label`
+  - added `decision_summary`
+- Updated `app/system/regression_governance_policy.py`
+  - added `_build_decision_label(decision_code)`
+  - added `_build_decision_summary(...)`
+  - updated `build_governance_preflight_decision(...)` to populate label and summary centrally for every path
+- Kept rule evaluation semantics unchanged
+  - no gate ordering or allow/deny behavior changed in this slice
+- Expanded tests
+  - asserted representative `decision_label` values on allow and deny paths
+  - asserted summary content includes stable stage context on representative decisions
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_preflight_decision_builder_returns_typed_payload or pipeline_prioritizes_availability_before_selection or governance_preflight_evaluator_blocks_missing_queue or auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or queue_status_blocked or degraded_automation_health or retry_pending_warning'`
+  - Result: `7 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+The preflight contract now exposes a fully operator-facing explanation layer in addition to its policy-facing fields. That reduces duplicated formatting logic in clients and gives dashboards a stable, centrally-authored explanation surface for the same decision semantics already enforced by the policy layer.
+
 ## 2026-04-29: Add Stable Decision Codes to Governance Preflight Decisions
 
 ### Summary

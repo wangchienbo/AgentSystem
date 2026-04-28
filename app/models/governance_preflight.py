@@ -29,6 +29,8 @@ class GovernancePreflightDecision(BaseModel):
     priority_lane: str | None = None
     matched_stage: str = "unknown"
     decision_code: str = "unknown"
+    decision_label: str = "Unknown preflight decision"
+    decision_summary: str = "Unknown preflight decision"
     can_apply: bool
     apply_risk: str
     hold_reason: str = ""

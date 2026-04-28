@@ -88,6 +88,8 @@ def test_governance_preflight_pipeline_prioritizes_availability_before_selection
     assert decision.hold_reason == "rollout_service_unavailable"
     assert decision.matched_stage == "availability_gate"
     assert decision.decision_code == "availability.rollout_unavailable"
+    assert decision.decision_label == "Rollout service unavailable"
+    assert "stage=availability_gate" in decision.decision_summary
 
 
 def test_governance_preflight_evaluator_blocks_missing_queue() -> None:
@@ -105,6 +107,7 @@ def test_governance_preflight_evaluator_blocks_missing_queue() -> None:
     assert decision.hold_reason == "recommended_queue_missing"
     assert decision.matched_stage == "queue_state_gate"
     assert decision.decision_code == "queue_state.queue_record_missing"
+    assert decision.decision_label == "Recommended queue record missing"
 
 
 def test_governance_preflight_decision_builder_returns_typed_payload() -> None:
@@ -128,6 +131,7 @@ def test_governance_preflight_decision_builder_returns_typed_payload() -> None:
     assert decision.to_payload()["hold_category"] == "none"
     assert decision.to_payload()["matched_stage"] == "tier_gate"
     assert decision.to_payload()["decision_code"] == "tier.primary_auto_apply"
+    assert decision.to_payload()["decision_label"] == "Primary tier auto-apply allowed"
 
 
 def test_comparison_risk_flag_helper_builds_expected_flags() -> None:
@@ -1152,6 +1156,7 @@ def test_governance_execution_preflight_blocks_secondary_selection(tmp_path: Pat
     assert result["preflight"]["review_reason"] == PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY
     assert result["preflight"]["matched_stage"] == "tier_gate"
     assert result["preflight"]["decision_code"] == "tier.secondary_requires_review"
+    assert result["preflight"]["decision_label"] == "Secondary tier review required"
 
 
 def test_trigger_manual_cycle_auto_apply_returns_preflight_metadata(tmp_path: Path) -> None:
@@ -1223,6 +1228,7 @@ def test_governance_execution_preflight_blocks_nonqueued_item(tmp_path: Path) ->
     assert preflight["hold_category"] == "queue_status_blocked"
     assert preflight["matched_stage"] == "queue_state_gate"
     assert preflight["decision_code"] == "queue_state.status_blocked"
+    assert preflight["decision_label"] == "Queue state blocked"
 
 
 def test_governance_execution_preflight_exposes_priority_lane_metadata(tmp_path: Path) -> None:
@@ -1295,6 +1301,7 @@ def test_governance_execution_preflight_blocks_degraded_automation_health(tmp_pa
     assert preflight["review_reason"] == PREFLIGHT_REVIEW_REASON_AUTOMATION_DEGRADED
     assert preflight["matched_stage"] == "automation_health_gate"
     assert preflight["decision_code"] == "automation.degraded_requires_review"
+    assert preflight["decision_label"] == "Automation degraded, review required"
     assert preflight["automation_health"] == "degraded"
     assert preflight["consecutive_failures"] == 3
 
@@ -1339,4 +1346,5 @@ def test_governance_execution_preflight_blocks_retry_pending_warning(tmp_path: P
     assert preflight["review_reason"] == PREFLIGHT_REVIEW_REASON_AUTOMATION_RETRY_PENDING
     assert preflight["matched_stage"] == "automation_health_gate"
     assert preflight["decision_code"] == "automation.retry_pending_requires_review"
+    assert preflight["decision_label"] == "Automation retry pending, review required"
     assert preflight["automation_health"] == "warning"
