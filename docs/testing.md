@@ -101,6 +101,37 @@ Used to validate full user/system flows:
 - review runtime practice
 - generate a candidate skill blueprint
 - validate v2 conversation-heavy creation / refinement / execute_action / approval regressions
+- validate service-up self-iteration closure through real HTTP interaction followed by governance cycle trigger/apply or preflight block
+
+### 2.3.1 Service-up self-iteration acceptance path
+This is now a preferred acceptance path for regression-governance and self-iteration work.
+
+Goal:
+- start the real HTTP service
+- perform a real user chat interaction first
+- trigger the nightly governance regression cycle through HTTP
+- verify that the cycle produces a persisted run and reaches either:
+  - rollout auto-apply, or
+  - an explicit governance preflight block
+
+Script:
+- `tests/scripts/e2e_self_iteration_service_up.py`
+
+Expected acceptance shape:
+1. service is reachable
+2. login/session works
+3. `/api/chat` returns a real interaction payload
+4. `/api/governance/regression-cycle/nightly/trigger?auto_apply_governance=true` returns `triggered=true`
+5. response includes `cycle.run_id`
+6. response includes `governance_rollout`
+7. `governance_rollout` is either:
+   - `applied=true`, or
+   - `preflight.can_apply=false` with an explicit hold reason
+8. latest regression run remains queryable through `/api/chat-regression/latest`
+
+Design intent:
+- make service-up user-simulated E2E the main validation path for self-iteration closure work
+- retain only minimal targeted unit/smoke coverage as a fast regression guardrail
 
 ### 2.3.2 Iteration 10 ~ 12 v2 E2E coverage
 Used to validate the Phase H main path under real user-facing regression scenarios:

@@ -904,3 +904,47 @@ def test_api_governance_regression_cycle_nightly_trigger_returns_preflight_block
     data = resp.json()
     assert data["governance_rollout"]["applied"] is False
     assert data["governance_rollout"]["preflight"]["hold_reason"] == "secondary_requires_review"
+
+
+def test_governance_nightly_trigger_contract_keeps_cycle_and_rollout_fields_together() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_result = {
+        "triggered": True,
+        "schedule_results": [],
+        "cycle": {
+            "run_id": "nightly-run-contract",
+            "summary": {"topic_count": 4},
+            "path": "/tmp/nightly-run-contract.jsonl",
+            "evidence": {"promoted_count": 1},
+            "trigger_application": {"trigger_count": 1},
+        },
+        "governance_rollout": {
+            "applied": True,
+            "queue_id": "q-primary",
+            "preflight": {"can_apply": True, "hold_reason": "none"},
+            "item": {"status": "applied"},
+        },
+    }
+    with patch("app.system.http_test_server.regression_nightly_control.trigger_manual_cycle", return_value=fake_result):
+        resp = client.post("/api/governance/regression-cycle/nightly/trigger?auto_apply_governance=true")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["triggered"] is True
+    assert data["cycle"]["run_id"] == "nightly-run-contract"
+    assert data["cycle"]["trigger_application"]["trigger_count"] == 1
+    assert data["governance_rollout"]["applied"] is True
+    assert data["governance_rollout"]["preflight"]["can_apply"] is True
