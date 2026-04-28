@@ -428,6 +428,18 @@ def _derive_failure_stage_for_signal(signal: str, observation_digest: dict[str, 
     return mapped or "unclassified"
 
 
+def _derive_governance_priority_hints(risk_flags: list[dict[str, Any]]) -> tuple[str | None, str | None, str | None]:
+    if not risk_flags:
+        return None, None, None
+    worst = max(risk_flags, key=signal_priority)
+    priority_signal = worst.get("signal", "unknown")
+    priority_family = classify_signal_family(priority_signal)
+    priority_subdomain_candidate = classify_signal_subdomain_candidate(priority_signal)
+    priority_lane = f"{priority_family}::{recommend_action_for_signal(priority_signal)}"
+    return priority_family, priority_subdomain_candidate, priority_lane
+
+
+
 def build_regression_triggers(
     *,
     comparison_limit: int = 5,
@@ -453,6 +465,7 @@ def build_regression_triggers(
         nightly_status=nightly_status,
     )
     risk_flags = dashboard.get("risk_flags", [])
+    priority_family, priority_subdomain_candidate, priority_lane = _derive_governance_priority_hints(risk_flags)
     observation_digest = dashboard.get("observation_digest") or build_governance_evidence_digest(None).model_dump(mode="json")
     # Filter by severity
     level_priority = {"info": 0, "warning": 1}
@@ -466,16 +479,30 @@ def build_regression_triggers(
     triggers = []
     for flag in actionable:
         signal = flag.get("signal", "")
+        family = classify_signal_family(signal)
+        subdomain_candidate = classify_signal_subdomain_candidate(signal)
+        action = recommend_action_for_signal(signal)
+        suggested_priority_tier = (
+            "primary" if f"{family}::{action}" == priority_lane else
+            "secondary" if flag.get("level", "") == "warning" else
+            "normal"
+        )
         triggers.append({
             "trigger_id": f"regression-trigger-{uuid4().hex[:12]}",
             "signal": signal,
             "level": flag.get("level", ""),
             "domain": classify_signal_domain(signal),
-            "family": classify_signal_family(signal),
-            "subdomain_candidate": classify_signal_subdomain_candidate(signal),
-            "recommended_action": recommend_action_for_signal(signal),
+            "family": family,
+            "subdomain_candidate": subdomain_candidate,
+            "recommended_action": action,
             "detail": flag.get("detail", ""),
             "failure_stage": _derive_failure_stage_for_signal(signal, observation_digest),
+            "governance_priority": {
+                "is_priority_family": family == priority_family,
+                "is_priority_subdomain_candidate": subdomain_candidate == priority_subdomain_candidate,
+                "priority_lane": priority_lane,
+                "suggested_priority_tier": suggested_priority_tier,
+            },
             "generated_at": ts,
         })
 

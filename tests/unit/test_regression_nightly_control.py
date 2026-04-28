@@ -145,12 +145,14 @@ def test_refinement_translation_helper_builds_domain_specific_payloads() -> None
         "failure_stage": "answer_shaping",
     })
 
-    assert automation_payload["queue_note"] == "automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution"
+    assert automation_payload["queue_note"] == "automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution::priority=normal"
     assert "Automation control-plane risk" in automation_payload["novelty_note"]
     assert "family=automation_recovery" in automation_payload["novelty_note"]
-    assert regression_payload["queue_note"] == "regression_quality::execution_semantics::profile_performance_bottlenecks::answer_shaping"
+    assert "priority_tier=normal" in automation_payload["novelty_note"]
+    assert regression_payload["queue_note"] == "regression_quality::execution_semantics::profile_performance_bottlenecks::answer_shaping::priority=normal"
     assert "Regression-quality risk" in regression_payload["novelty_note"]
     assert "family=execution_semantics" in regression_payload["novelty_note"]
+    assert "priority_tier=normal" in regression_payload["novelty_note"]
 
 
 def test_build_nightly_status_exposes_due_state(tmp_path: Path) -> None:
@@ -492,8 +494,8 @@ def test_apply_regression_triggers_to_refinement_uses_domain_specific_payloads(t
 
     assert "automation_control_plane: nightly_automation_degraded" in contradictions
     assert "regression_quality: elevated_latency" in contradictions
-    assert "automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution" in queue_notes
-    assert "regression_quality::execution_semantics::profile_performance_bottlenecks::execution" in queue_notes
+    assert "automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution::priority=primary" in queue_notes
+    assert "regression_quality::execution_semantics::profile_performance_bottlenecks::execution::priority=secondary" in queue_notes
     assert any("Automation control-plane risk" in item for item in novelty_notes)
     assert any("Regression-quality risk" in item for item in novelty_notes)
     assert any("Automation control-plane attention recorded" in item for item in verification_summaries)
@@ -792,3 +794,32 @@ def test_build_nightly_status_exposes_governance_attention_consumer(tmp_path: Pa
     assert attention["priority_subdomain_candidate"] == "degraded_guard"
     assert attention["priority_lane"] == "automation_recovery::stabilize_nightly_automation_control_plane"
     assert attention["recommended_action"] == "stabilize_nightly_automation_control_plane"
+
+
+def test_regression_triggers_include_governance_priority_hints() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_triggers
+
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "degraded",
+            "attention_reason": "consecutive_failures",
+            "last_tick_outcome": "failed",
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        payload = build_regression_triggers(nightly_status=nightly_status)
+
+    priority_by_signal = {item["signal"]: item["governance_priority"]["suggested_priority_tier"] for item in payload["triggers"]}
+    assert priority_by_signal["nightly_automation_degraded"] == "primary"
+    assert priority_by_signal["elevated_latency"] == "secondary"

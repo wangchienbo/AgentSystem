@@ -20,21 +20,27 @@ def build_refinement_payload_from_trigger(trigger: dict[str, Any]) -> dict[str, 
     failure_stage = trigger.get("failure_stage") or "unclassified"
 
     if domain == "automation_control_plane":
+        priority = trigger.get("governance_priority") or {}
+        priority_tier = priority.get("suggested_priority_tier") or "normal"
+        priority_lane = priority.get("priority_lane") or ""
         return {
             "contradiction": f"automation_control_plane: {signal}",
             "hypothesis": f"Stabilize automation control plane via {action}",
             "expected_change": f"Reduce nightly automation instability: {detail}",
-            "novelty_note": f"Automation control-plane risk should follow a recovery/stability path, not a prompt-quality path. family={family}.",
-            "queue_note": f"automation_control_plane::{family}::{action}::{failure_stage}",
+            "novelty_note": f"Automation control-plane risk should follow a recovery/stability path, not a prompt-quality path. family={family}. priority_tier={priority_tier}.",
+            "queue_note": f"automation_control_plane::{family}::{action}::{failure_stage}::priority={priority_tier}",
             "verification_summary": f"Automation control-plane attention recorded for {signal}",
             "verification_outcome": "failed" if level == "warning" else "inconclusive",
         }
+    priority = trigger.get("governance_priority") or {}
+    priority_tier = priority.get("suggested_priority_tier") or "normal"
+    priority_lane = priority.get("priority_lane") or ""
     return {
         "contradiction": f"regression_quality: {signal}",
         "hypothesis": f"Address regression quality signal {signal} through {action}",
         "expected_change": detail,
-        "novelty_note": f"Regression-quality risk should remain in the model/tool/evidence refinement lane. family={family}.",
-        "queue_note": f"regression_quality::{family}::{action}::{failure_stage}",
+        "novelty_note": f"Regression-quality risk should remain in the model/tool/evidence refinement lane. family={family}. priority_tier={priority_tier}. lane={priority_lane}.",
+        "queue_note": f"regression_quality::{family}::{action}::{failure_stage}::priority={priority_tier}",
         "verification_summary": detail,
         "verification_outcome": "failed" if level == "warning" else "inconclusive",
     }

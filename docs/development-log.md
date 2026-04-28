@@ -1,3 +1,40 @@
+## 2026-04-28: Add Governance Priority Hints to Trigger and Queue Translation Path
+
+### Summary
+Promoted the governance taxonomy from nightly attention-only consumption into the trigger translation path by adding compatibility-safe governance priority hints to generated regression triggers, then surfacing those hints into refinement queue notes and novelty annotations.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - `build_regression_triggers(...)` now derives `governance_priority` metadata per trigger
+  - added a local helper to compute the dominant priority lane from current risk flags without recursively calling the operator summary stack
+  - each trigger now carries:
+    - `is_priority_family`
+    - `is_priority_subdomain_candidate`
+    - `priority_lane`
+    - `suggested_priority_tier` (`primary` / `secondary` / `normal`)
+- Updated `app/system/regression_refinement_translation.py`
+  - refinement payload construction now consumes `governance_priority`
+  - queue notes now append a non-breaking priority suffix such as `::priority=primary`
+  - novelty notes now mention the derived `priority_tier`, and regression-quality notes also include the active lane when present
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - validated trigger-level governance priority hints
+  - validated queue translation preserves domain/family/action semantics while exposing derived priority hints
+  - validated nightly automation and regression-quality items receive `primary` and `secondary` queue priority hints in the expected mixed-risk scenario
+
+### Design Notes
+This integration remains intentionally read-side and derived:
+- no persistence schema migration
+- no refinement queue model change
+- no write-path contract break
+- existing queue note grammar preserved, only extended with a suffix hint
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `57 passed in 3.56s`
+
+### Product Conclusion
+Governance output now influences not just attention/status surfaces, but also trigger translation and queued refinement context. The system can begin distinguishing the dominant lane (`primary`) from related warning work (`secondary`) without hard-coding orchestration behavior into storage contracts. This creates a safe bridge toward future queue ordering or rollout prioritization logic.
+
 ## 2026-04-28: Connect Governance Summary to Nightly Automation Attention Path
 
 ### Summary
