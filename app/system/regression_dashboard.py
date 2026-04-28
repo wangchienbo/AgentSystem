@@ -201,6 +201,7 @@ def build_regression_operator_summary(
                 "stats": stats,
                 "recent_queue": recent_queue,
                 "family_breakdown": family_breakdown,
+                "family_queue_lane_summary": _build_family_queue_lane_summary(triggers),
                 "recent_failed_hypotheses": recent_failed_hypotheses,
                 "nightly_automation": nightly_status,
                 "automation_attention": dashboard.get("automation_attention"),
@@ -211,6 +212,41 @@ def build_regression_operator_summary(
     }
 
 
+
+
+def _build_family_queue_lane_summary(triggers: dict[str, Any]) -> dict[str, Any]:
+    trigger_list = triggers.get("triggers", [])
+    family_counts: dict[str, int] = {}
+    action_counts: dict[str, dict[str, int]] = {}
+    warning_counts: dict[str, int] = {}
+    latest_lane_items: dict[str, dict[str, Any]] = {}
+
+    for item in trigger_list:
+        family = item.get("family") or "unclassified"
+        action = item.get("recommended_action") or "manual_review_required"
+        lane_key = f"{family}::{action}"
+        family_counts[family] = family_counts.get(family, 0) + 1
+        action_bucket = action_counts.setdefault(family, {})
+        action_bucket[action] = action_bucket.get(action, 0) + 1
+        if item.get("level") == "warning":
+            warning_counts[family] = warning_counts.get(family, 0) + 1
+        latest_lane_items[lane_key] = {
+            "domain": item.get("domain"),
+            "family": family,
+            "signal": item.get("signal"),
+            "recommended_action": action,
+            "failure_stage": item.get("failure_stage"),
+            "level": item.get("level"),
+            "generated_at": item.get("generated_at"),
+        }
+
+    return {
+        "family_counts": family_counts,
+        "family_warning_counts": warning_counts,
+        "action_counts": action_counts,
+        "latest_lane_items": latest_lane_items,
+        "lane_count": len(latest_lane_items),
+    }
 
 
 def _build_family_breakdown_from_triggers(triggers: dict[str, Any]) -> dict[str, Any]:

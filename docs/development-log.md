@@ -1,3 +1,37 @@
+## 2026-04-28: Add Family-Aware Queue Lane Summary to Operator Governance Surface
+
+### Summary
+Extended the operator-facing governance summary with a family-aware queue lane view, while keeping refinement storage and existing queue contracts unchanged.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `_build_family_queue_lane_summary(...)`
+  - operator governance summary now exposes `family_queue_lane_summary`
+  - lane summary currently includes:
+    - `family_counts`
+    - `family_warning_counts`
+    - `action_counts`
+    - `latest_lane_items`
+    - `lane_count`
+- Reused existing trigger semantics (`family`, `recommended_action`, `failure_stage`, `level`) instead of modifying queue persistence or refinement memory models
+- Fixed a function-placement regression during implementation and revalidated the full targeted test slice
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added coverage for family-aware queue lane summary visibility and representative lane content
+
+### Compatibility Notes
+This step remains additive and architecture-safe:
+- no queue schema change
+- no refinement memory migration
+- no operator summary key removal
+- queue-lane summary is derived from existing trigger output, so rollback cost stays low
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `52 passed in 3.43s`
+
+### Product Conclusion
+The governance surface can now show not only which contradiction families exist, but also which queue lanes they map into, how warning-heavy each family is, and which action lane is currently latest. This gives the operator view a much stronger intermediate control surface before any future deepening into subdomains or persisted lane-native queue models.
+
 ## 2026-04-28: Surface Contradiction Family Breakdown in Operator Summary
 
 ### Summary
