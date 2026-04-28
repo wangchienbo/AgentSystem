@@ -16,6 +16,29 @@ from app.system.regression_evidence_bridge import list_regression_evidence_histo
 APP_INSTANCE_ID = "agent_system"
 
 
+_SIGNAL_PRIORITY = {
+    "nightly_automation_degraded": 40,
+    "elevated_overreach": 35,
+    "elevated_fallback": 30,
+    "elevated_latency": 25,
+    "conservative_mode_skew": 20,
+    "nightly_automation_warning": 10,
+}
+
+
+def _signal_priority(flag: dict[str, str]) -> tuple[int, int]:
+    return (
+        {"info": 0, "warning": 1}.get(flag.get("level", ""), 0),
+        _SIGNAL_PRIORITY.get(flag.get("signal", ""), 0),
+    )
+
+
+def _classify_signal_domain(signal: str) -> str:
+    if signal.startswith("nightly_automation_"):
+        return "automation_control_plane"
+    return "regression_quality"
+
+
 def _build_automation_attention(automation: dict[str, Any]) -> dict[str, str] | None:
     if automation.get("automation_health") not in {"warning", "degraded"}:
         return None
@@ -131,10 +154,14 @@ def build_regression_operator_summary(
     risk_flags = dashboard.get("risk_flags", [])
     primary_contradiction = ""
     recommended_action = ""
+    priority_domain = ""
+    priority_signal = ""
     if risk_flags:
-        worst = max(risk_flags, key=lambda f: {"info": 0, "warning": 1}.get(f.get("level", ""), 0))
-        primary_contradiction = f"Regression signal: {worst.get('signal', 'unknown')}"
-        recommended_action = _recommend_action_for_signal(worst.get("signal", ""))
+        worst = max(risk_flags, key=_signal_priority)
+        priority_signal = worst.get("signal", "unknown")
+        priority_domain = _classify_signal_domain(priority_signal)
+        primary_contradiction = f"{priority_domain}: {priority_signal}"
+        recommended_action = _recommend_action_for_signal(priority_signal)
 
     overview = live_governance.overview.model_dump(mode="json") if live_governance is not None else {
                     "app_instance_id": APP_INSTANCE_ID,
@@ -185,6 +212,8 @@ def build_regression_operator_summary(
             "latest_priority": None,
             "primary_contradiction": primary_contradiction,
             "recommended_action": recommended_action,
+            "priority_domain": priority_domain or None,
+            "priority_signal": priority_signal or None,
             "context_summary": "Regression-integrated governance summary",
             "governance": {
                 "overview": overview,

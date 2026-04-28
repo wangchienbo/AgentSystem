@@ -1,3 +1,30 @@
+## 2026-04-28: Add Governance Priority Separation for Automation vs Regression Risks
+
+### Summary
+Refined the operator-facing governance summary so automation control-plane failures are prioritized explicitly against normal regression-quality risks, and added broader aggregation tests for mixed-signal dashboards.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - introduced signal-priority ordering so `nightly_automation_degraded` can outrank ordinary regression warnings when appropriate
+  - classified top governance signals by domain:
+    - `automation_control_plane`
+    - `regression_quality`
+  - operator summary now exposes:
+    - `priority_domain`
+    - `priority_signal`
+    - a domain-aware `primary_contradiction`
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - verified degraded automation becomes the top-priority operator signal even when latency/fallback warnings also exist
+  - verified dashboard aggregation preserves mixed regression + automation signals together
+  - retained trigger-threshold coverage for warning-level automation signals
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `40 passed`
+
+### Product Conclusion
+The governance layer now distinguishes between “the model/runtime quality looks risky” and “the automation loop itself is unhealthy.” That separation makes the operator summary more trustworthy as a control-plane surface, because it can escalate infrastructure-like automation degradation above ordinary regression drift instead of flattening everything into one undifferentiated warning list.
+
 ## 2026-04-28: Promote Nightly Automation Health into Triggerable Governance Signals
 
 ### Summary

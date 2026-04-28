@@ -228,12 +228,55 @@ def test_regression_dashboard_maps_automation_attention() -> None:
     assert any(flag["signal"] == "nightly_automation_degraded" for flag in dashboard["risk_flags"])
     assert summary["refinement"]["governance"]["automation_attention"]["reason"] == "consecutive_failures"
     assert summary["refinement"]["recommended_action"] == "stabilize_nightly_automation_control_plane"
+    assert summary["refinement"]["priority_domain"] == "automation_control_plane"
+    assert summary["refinement"]["priority_signal"] == "nightly_automation_degraded"
+    assert summary["refinement"]["primary_contradiction"] == "automation_control_plane: nightly_automation_degraded"
 
 
-def test_regression_triggers_include_automation_warning_signal() -> None:
+def test_operator_summary_prioritizes_automation_degraded_over_other_warning_signals() -> None:
     from unittest.mock import patch
-    from app.system.regression_dashboard import build_regression_triggers
+    from app.system.regression_dashboard import build_regression_operator_summary
 
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.2,
+        "answer_mode_totals": {"direct": 2, "verification_required": 2},
+        "verification_mode_totals": {},
+    }
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "degraded",
+            "attention_reason": "consecutive_failures",
+            "last_tick_outcome": "failed",
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison), \
+         patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {"api": []}, "run_count": 3}), \
+         patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        summary = build_regression_operator_summary(nightly_status=nightly_status)
+
+    assert summary["refinement"]["priority_domain"] == "automation_control_plane"
+    assert summary["refinement"]["priority_signal"] == "nightly_automation_degraded"
+    assert summary["refinement"]["recommended_action"] == "stabilize_nightly_automation_control_plane"
+
+
+def test_governance_dashboard_aggregates_regression_and_automation_signals() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_governance_dashboard
+
+    comparison = {
+        "run_count": 4,
+        "avg_latency_ms": 7000,
+        "avg_fallback_count": 1.2,
+        "avg_overreach_risk_count": 0.8,
+        "answer_mode_totals": {"direct": 1, "verification_required": 3},
+        "verification_mode_totals": {"required": 3},
+    }
+    trends = {"topics": {"api": [{"run_id": "r1"}]}, "run_count": 4}
+    evidence = [{"summary": "e1"}]
     nightly_status = {
         "automation_control": {
             "automation_health": "warning",
@@ -242,12 +285,14 @@ def test_regression_triggers_include_automation_warning_signal() -> None:
         }
     }
 
-    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value={"run_count": 1, "avg_latency_ms": 0, "avg_fallback_count": 0, "avg_overreach_risk_count": 0, "answer_mode_totals": {}, "verification_mode_totals": {}}), \
-         patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}), \
-         patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
-        warning_payload = build_regression_triggers(threshold="info", nightly_status=nightly_status)
-        warning_only = build_regression_triggers(threshold="warning", nightly_status=nightly_status)
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison), \
+         patch("app.system.regression_dashboard.build_topic_trends", return_value=trends), \
+         patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=evidence):
+        dashboard = build_regression_governance_dashboard(nightly_status=nightly_status)
 
-    assert any(item["signal"] == "nightly_automation_warning" for item in warning_payload["triggers"])
-    assert all(item["signal"] != "nightly_automation_warning" for item in warning_only["triggers"])
-    assert any(item["recommended_action"] == "inspect_nightly_automation_recovery_path" for item in warning_payload["triggers"])
+    signals = {item["signal"] for item in dashboard["risk_flags"]}
+    assert dashboard["comparison"] == comparison
+    assert dashboard["trends"] == trends
+    assert dashboard["evidence"] == evidence
+    assert dashboard["automation_attention"]["reason"] == "retry_pending"
+    assert {"elevated_latency", "elevated_fallback", "elevated_overreach", "nightly_automation_warning"}.issubset(signals)
