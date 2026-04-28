@@ -1,3 +1,36 @@
+## 2026-04-28: Enrich Governance Preflight with Queue-State Policy
+
+### Summary
+Refined the new governance execution preflight so it reasons over actual rollout queue state instead of only tier selection. This keeps the main auto-apply path working while adding stronger guardrails where the data model is trustworthy today.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - preflight now validates the recommended queue item exists in memory
+  - preflight now blocks non-`queued` items with explicit `queue_status_blocked:<status>` reasons
+  - preserved explicit block on `consecutive_failures`
+  - preserved `secondary_requires_review` gate
+  - exposed `queue_status` and `priority_lane` as audit metadata on both allow and deny paths
+- Deliberately did **not** hard-block on lane-to-note matching
+  - investigation showed `priority_lane` comes from dashboard governance synthesis rather than a stable queue-note schema
+  - using it as a hard gate caused false negatives on the primary execution path
+  - it is now retained as observability metadata instead of an execution blocker
+
+### Tests
+Expanded service coverage in `tests/unit/test_regression_nightly_control.py`:
+- block when recommended item is already `applied`
+- preserve deny for `secondary`
+- preserve allow for `primary`
+- expose `priority_lane` metadata on preflight output
+
+Validated with targeted runs:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'trigger_manual_cycle_can_auto_apply_governance_selection or governance_execution_preflight_blocks_secondary_selection or auto_apply_returns_preflight_metadata or preflight_blocks_nonqueued_item or priority_lane_metadata'`
+  - Result: `5 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_can_auto_apply_governance or nightly_trigger_returns_preflight_block'`
+  - Result: `2 passed`
+
+### Design Outcome
+The preflight is now stricter on trustworthy execution facts, especially queue state, without inventing unsafe coupling between dashboard-derived lane labels and rollout queue notes. This keeps the closed loop live while tightening the boundary around real apply operations.
+
 ## 2026-04-28: Add Governance Execution Preflight Gate
 
 ### Summary

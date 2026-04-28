@@ -213,50 +213,86 @@ class RegressionNightlyControlService:
         priority_tier = selection.get("recommended_priority_tier")
         automation_attention = packet.get("automation_attention") or {}
         attention_reason = automation_attention.get("reason") or ""
+        priority_lane = packet.get("priority_lane") or ""
+
+        base = {
+            "recommended_queue_id": queue_id,
+            "priority_tier": priority_tier,
+        }
 
         if self._refinement_rollout is None:
             return {
+                **base,
                 "can_apply": False,
                 "apply_risk": "blocked",
                 "hold_reason": "rollout_service_unavailable",
                 "required_review_scope": "operator",
-                "recommended_queue_id": queue_id,
-                "priority_tier": priority_tier,
             }
         if not queue_id:
             return {
+                **base,
                 "can_apply": False,
                 "apply_risk": "blocked",
                 "hold_reason": "no_recommended_queue",
                 "required_review_scope": "operator",
-                "recommended_queue_id": None,
-                "priority_tier": priority_tier,
             }
-        if priority_tier == "primary" and attention_reason != "consecutive_failures":
+
+        queue_item = next((item for item in self._refinement_memory.list_queue(APP_INSTANCE_ID) if item.queue_id == queue_id), None)
+        if queue_item is None:
             return {
+                **base,
+                "can_apply": False,
+                "apply_risk": "blocked",
+                "hold_reason": "recommended_queue_missing",
+                "required_review_scope": "operator",
+            }
+        if queue_item.status != "queued":
+            return {
+                **base,
+                "can_apply": False,
+                "apply_risk": "blocked",
+                "hold_reason": f"queue_status_blocked:{queue_item.status}",
+                "required_review_scope": "operator",
+                "queue_status": queue_item.status,
+            }
+        if attention_reason == "consecutive_failures":
+            return {
+                **base,
+                "can_apply": False,
+                "apply_risk": "high",
+                "hold_reason": "consecutive_failures",
+                "required_review_scope": "operator",
+                "queue_status": queue_item.status,
+                "priority_lane": priority_lane,
+            }
+        if priority_tier == "primary":
+            return {
+                **base,
                 "can_apply": True,
                 "apply_risk": "medium",
                 "hold_reason": "",
                 "required_review_scope": "light",
-                "recommended_queue_id": queue_id,
-                "priority_tier": priority_tier,
+                "queue_status": queue_item.status,
+                "priority_lane": priority_lane,
             }
         if priority_tier == "secondary":
             return {
+                **base,
                 "can_apply": False,
                 "apply_risk": "medium",
                 "hold_reason": "secondary_requires_review",
                 "required_review_scope": "operator",
-                "recommended_queue_id": queue_id,
-                "priority_tier": priority_tier,
+                "queue_status": queue_item.status,
+                "priority_lane": priority_lane,
             }
         return {
+            **base,
             "can_apply": False,
             "apply_risk": "high",
-            "hold_reason": attention_reason or f"priority_tier_blocked:{priority_tier or 'none'}",
+            "hold_reason": f"priority_tier_blocked:{priority_tier or 'none'}",
             "required_review_scope": "operator",
-            "recommended_queue_id": queue_id,
-            "priority_tier": priority_tier,
+            "queue_status": queue_item.status,
+            "priority_lane": priority_lane,
         }
 
     def apply_governance_selected_rollout(self, *, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
