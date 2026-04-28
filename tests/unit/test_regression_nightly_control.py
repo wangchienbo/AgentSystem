@@ -23,6 +23,8 @@ from app.system.regression_governance_policy import (
 )
 from app.system.regression_governance_policy import (
     build_automation_attention,
+    format_governance_preflight_badge,
+    format_governance_preflight_operator_note,
     build_automation_risk_flags,
     build_comparison_risk_flags,
     classify_signal_domain,
@@ -132,6 +134,28 @@ def test_governance_preflight_decision_builder_returns_typed_payload() -> None:
     assert decision.to_payload()["matched_stage"] == "tier_gate"
     assert decision.to_payload()["decision_code"] == "tier.primary_auto_apply"
     assert decision.to_payload()["decision_label"] == "Primary tier auto-apply allowed"
+
+
+def test_governance_preflight_render_helpers_return_shared_operator_strings() -> None:
+    from app.system.regression_governance_policy import build_governance_preflight_decision
+
+    decision = build_governance_preflight_decision(
+        base={"recommended_queue_id": "q1", "priority_tier": "secondary"},
+        can_apply=False,
+        apply_risk="medium",
+        hold_reason="secondary_requires_review",
+        review_scope="operator_review_required",
+        review_reason="priority_secondary",
+        matched_stage="tier_gate",
+        decision_code="tier.secondary_requires_review",
+        queue_status="queued",
+    )
+
+    assert format_governance_preflight_badge(decision) == "HOLD | Secondary tier review required"
+    note = format_governance_preflight_operator_note(decision)
+    assert "code=tier.secondary_requires_review" in note
+    assert "stage=tier_gate" in note
+    assert "queue=q1" in note
 
 
 def test_comparison_risk_flag_helper_builds_expected_flags() -> None:

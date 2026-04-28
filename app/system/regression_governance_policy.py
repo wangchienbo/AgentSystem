@@ -51,6 +51,26 @@ def _build_decision_summary(*, decision_code: str, matched_stage: str, hold_reas
     return "; ".join(parts)
 
 
+def format_governance_preflight_badge(decision: GovernancePreflightDecision) -> str:
+    status = "AUTO" if decision.can_apply else "HOLD"
+    return f"{status} | {decision.decision_label}"
+
+
+def format_governance_preflight_operator_note(decision: GovernancePreflightDecision) -> str:
+    parts = [
+        format_governance_preflight_badge(decision),
+        f"code={decision.decision_code}",
+        f"stage={decision.matched_stage}",
+        f"scope={decision.review_scope}",
+        f"risk={decision.apply_risk}",
+    ]
+    if decision.hold_reason:
+        parts.append(f"hold={decision.hold_reason}")
+    if decision.recommended_queue_id:
+        parts.append(f"queue={decision.recommended_queue_id}")
+    return " | ".join(parts)
+
+
 def build_governance_preflight_decision(
     *,
     base: dict[str, Any],
@@ -85,6 +105,7 @@ def build_governance_preflight_decision(
         review_scope=review_scope,
         review_reason=review_reason,
     )
+
 
 def _preflight_base(context: GovernancePreflightContext) -> dict[str, Any]:
     return {

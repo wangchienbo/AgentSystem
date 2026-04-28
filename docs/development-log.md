@@ -1,3 +1,30 @@
+## 2026-04-29: Add Shared Governance Preflight Render Helpers
+
+### Summary
+Added shared render helpers for governance preflight decisions so operator-facing surfaces can reuse centralized badge and note formatting instead of rebuilding display strings independently.
+
+### What Was Done
+- Updated `app/system/regression_governance_policy.py`
+  - added `format_governance_preflight_badge(decision)`
+  - added `format_governance_preflight_operator_note(decision)`
+  - both helpers consume `GovernancePreflightDecision` directly as the single typed input contract
+- Preserved centralized decision construction
+  - render helpers build on top of existing `decision_label`, `decision_summary`, `matched_stage`, and `decision_code`
+  - no policy semantics or rule ordering changed
+- Expanded tests
+  - added direct coverage for shared badge formatting
+  - added direct coverage for shared operator note formatting on a representative hold path
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_preflight_decision_builder_returns_typed_payload or governance_preflight_render_helpers_return_shared_operator_strings or pipeline_prioritizes_availability_before_selection or governance_preflight_evaluator_blocks_missing_queue or auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or queue_status_blocked or degraded_automation_health or retry_pending_warning'`
+  - Result: `8 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+The governance preflight contract now includes a reusable presentation layer built around the typed decision object itself. That makes dashboard, API, and audit surfaces less likely to drift because they can share one formatter path instead of reassembling operator-facing strings from low-level policy fields.
+
 ## 2026-04-29: Add Operator-Facing Labels and Summaries to Governance Preflight Decisions
 
 ### Summary
