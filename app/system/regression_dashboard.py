@@ -16,6 +16,27 @@ from app.system.regression_evidence_bridge import list_regression_evidence_histo
 APP_INSTANCE_ID = "agent_system"
 
 
+def _build_automation_attention(automation: dict[str, Any]) -> dict[str, str] | None:
+    if automation.get("automation_health") not in {"warning", "degraded"}:
+        return None
+    return {
+        "health": automation.get("automation_health"),
+        "reason": automation.get("attention_reason") or automation.get("last_tick_decision") or "",
+        "last_tick_outcome": automation.get("last_tick_outcome") or "",
+    }
+
+
+def _build_automation_risk_flags(automation_attention: dict[str, str] | None) -> list[dict[str, str]]:
+    if automation_attention is None:
+        return []
+    health = automation_attention.get("health") or "warning"
+    reason = automation_attention.get("reason") or "automation_attention"
+    outcome = automation_attention.get("last_tick_outcome") or "unknown"
+    signal = "nightly_automation_degraded" if health == "degraded" else "nightly_automation_warning"
+    detail = f"Nightly automation health {health}; reason={reason}; outcome={outcome}"
+    return [{"level": "warning" if health == "degraded" else "info", "signal": signal, "detail": detail}]
+
+
 def build_regression_governance_dashboard(
     *,
     comparison_limit: int = 5,
@@ -63,13 +84,8 @@ def build_regression_governance_dashboard(
 
     automation_attention = None
     if nightly_status is not None:
-        automation = nightly_status.get("automation_control") or {}
-        if automation.get("automation_health") in {"warning", "degraded"}:
-            automation_attention = {
-                "health": automation.get("automation_health"),
-                "reason": automation.get("attention_reason") or automation.get("last_tick_decision") or "",
-                "last_tick_outcome": automation.get("last_tick_outcome"),
-            }
+        automation_attention = _build_automation_attention(nightly_status.get("automation_control") or {})
+        risk_flags.extend(_build_automation_risk_flags(automation_attention))
 
     return {
         "comparison": comparison,
@@ -106,7 +122,7 @@ def build_regression_operator_summary(
         memory=memory,
         nightly_status=nightly_status,
     )
-    triggers = build_regression_triggers(comparison_limit=comparison_limit)
+    triggers = build_regression_triggers(comparison_limit=comparison_limit, nightly_status=nightly_status)
     metrics = _build_refinement_metrics_from_regression(dashboard["comparison"], triggers)
     live_governance = None
     if memory is not None:
@@ -236,6 +252,7 @@ def build_regression_triggers(
     *,
     comparison_limit: int = 5,
     threshold: str = "warning",
+    nightly_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Generate actionable refinement triggers from regression risk flags.
 
@@ -253,6 +270,7 @@ def build_regression_triggers(
     """
     dashboard = build_regression_governance_dashboard(
         comparison_limit=comparison_limit,
+        nightly_status=nightly_status,
     )
     risk_flags = dashboard.get("risk_flags", [])
     # Filter by severity
@@ -289,6 +307,7 @@ def apply_regression_triggers_to_refinement(
     *,
     comparison_limit: int = 5,
     threshold: str = "warning",
+    nightly_status: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist regression trigger outputs into refinement memory as hypotheses,
     verification records, and rollout queue items.
@@ -296,6 +315,7 @@ def apply_regression_triggers_to_refinement(
     trigger_payload = build_regression_triggers(
         comparison_limit=comparison_limit,
         threshold=threshold,
+        nightly_status=nightly_status,
     )
     created_hypotheses = []
     created_queue_items = []
@@ -359,5 +379,7 @@ def _recommend_action_for_signal(signal: str) -> str:
         "elevated_fallback": "review_tool_calling_prompt_template",
         "elevated_overreach": "tighten_evidence_boundary_guard",
         "conservative_mode_skew": "audit_verification_policy_thresholds",
+        "nightly_automation_warning": "inspect_nightly_automation_recovery_path",
+        "nightly_automation_degraded": "stabilize_nightly_automation_control_plane",
     }
     return actions.get(signal, "manual_review_required")

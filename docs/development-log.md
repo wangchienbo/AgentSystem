@@ -1,4 +1,28 @@
-## 2026-04-28: Map Automation Health into Governance Attention Surfaces
+## 2026-04-28: Promote Nightly Automation Health into Triggerable Governance Signals
+
+### Summary
+Extended nightly automation attention beyond passive dashboard visibility by turning warning and degraded automation health states into governance risk flags and refinement-ready trigger signals.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - extracted automation attention shaping into reusable helpers
+  - mapped nightly automation warning/degraded states into governance `risk_flags`
+  - threaded `nightly_status` through `build_regression_triggers(...)` and `apply_regression_triggers_to_refinement(...)`
+  - added action mapping for automation-specific signals:
+    - `nightly_automation_warning` → `inspect_nightly_automation_recovery_path`
+    - `nightly_automation_degraded` → `stabilize_nightly_automation_control_plane`
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - verified degraded automation attention now also surfaces as a governance risk flag
+  - verified automation warning state can generate an `info`-level trigger and is excluded by `warning` threshold filtering
+  - verified operator summary now recommends the automation stabilization action when degraded automation is the strongest signal
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `39 passed`
+
+### Product Conclusion
+Nightly regression automation is now part of the real governance action loop instead of only being a dashboard annotation. The system can distinguish between mild recovery pressure and truly degraded automation health, then promote those states into operator-facing refinement actions using the same trigger pathway as other regression risks.
+
 
 ### Summary
 Promoted nightly automation health into higher-level governance/operator views so warning and degraded automation states now appear as explicit attention signals instead of only living inside the raw control card.
