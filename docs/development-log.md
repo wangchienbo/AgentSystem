@@ -1,3 +1,39 @@
+## 2026-04-28: Connect Governance Summary to Nightly Automation Attention Path
+
+### Summary
+Integrated the new governance summary stack into a real consumer path by letting nightly automation status synthesize governance attention from the operator summary, instead of leaving the taxonomy purely as a passive dashboard surface.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - nightly status builder now imports and calls `build_regression_operator_summary(...)`
+  - `automation_control` now exposes `governance_attention`
+  - governance attention currently includes:
+    - `priority_domain`
+    - `priority_family`
+    - `priority_subdomain_candidate`
+    - `priority_signal`
+    - `recommended_action`
+    - `priority_lane`
+    - `family_warning_density`
+    - `subdomain_warning_density`
+- Kept the integration compatibility-safe by consuming the already-derived operator summary rather than changing runtime write paths or persistence schemas
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added consumer-path coverage proving nightly status now surfaces governance attention derived from the regression summary stack
+
+### Compatibility Notes
+This slice is a real functional integration, but still remains safe:
+- no queue schema change
+- no refinement memory migration
+- no change to regression cycle persistence contracts
+- nightly control reads governance summary output, it does not mutate that taxonomy into storage
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `56 passed in 3.53s`
+
+### Product Conclusion
+The governance taxonomy now has a real consumer. Nightly automation status can surface not only raw health/degraded state, but also a governance-informed attention packet that points to the current dominant family, subdomain candidate, lane, and recommended action. This is the first step from passive governance observability to actual governance-guided operational control.
+
 ## 2026-04-28: Add Cross-Level Governance Summary Glue for Family, Subdomain, and Lane Views
 
 ### Summary

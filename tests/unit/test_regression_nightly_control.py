@@ -765,3 +765,30 @@ def test_operator_summary_exposes_cross_level_governance_summary() -> None:
     assert cross["subdomain_to_latest_lane"]["degraded_guard"] == "automation_recovery::stabilize_nightly_automation_control_plane"
     assert cross["family_warning_density"]["automation_recovery"] == 1.0
     assert cross["subdomain_warning_density"]["degraded_guard"] == 1.0
+
+
+def test_build_nightly_status_exposes_governance_attention_consumer(tmp_path: Path) -> None:
+    service = build_service(tmp_path)
+    service.register_nightly_schedule(interval_seconds=3600)
+    service.record_tick(decision="failed_cycle", triggered=False, cycle={"error": "boom"}, nightly_status={})
+    service.record_tick(decision="failed_cycle", triggered=False, cycle={"error": "boom-again"}, nightly_status={})
+
+    from unittest.mock import patch
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        status = service.build_nightly_status({"running": False})
+
+    attention = status["automation_control"]["governance_attention"]
+    assert attention["priority_family"] == "automation_recovery"
+    assert attention["priority_subdomain_candidate"] == "degraded_guard"
+    assert attention["priority_lane"] == "automation_recovery::stabilize_nightly_automation_control_plane"
+    assert attention["recommended_action"] == "stabilize_nightly_automation_control_plane"

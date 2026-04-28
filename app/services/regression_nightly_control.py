@@ -10,6 +10,7 @@ from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.system.chat_regression import list_saved_runs, make_testclient_poster, run_regression_governance_cycle
+from app.system.regression_dashboard import build_regression_operator_summary
 
 APP_INSTANCE_ID = "agent_system"
 REGRESSION_CYCLE_TASK_NAME = "regression_governance_cycle"
@@ -147,6 +148,24 @@ class RegressionNightlyControlService:
                     "triggered" if last_decision == "triggered_due" else
                     "skipped"
                 ),
+            }
+            operator_summary = build_regression_operator_summary(
+                memory=self._refinement_memory,
+                nightly_status={
+                    "automation_control": status["automation_control"],
+                },
+            )
+            governance = operator_summary.get("refinement", {}).get("governance", {})
+            cross = governance.get("cross_level_summary") or {}
+            status["automation_control"]["governance_attention"] = {
+                "priority_domain": operator_summary.get("refinement", {}).get("priority_domain"),
+                "priority_family": operator_summary.get("refinement", {}).get("priority_family"),
+                "priority_subdomain_candidate": operator_summary.get("refinement", {}).get("priority_subdomain_candidate"),
+                "priority_signal": operator_summary.get("refinement", {}).get("priority_signal"),
+                "recommended_action": operator_summary.get("refinement", {}).get("recommended_action"),
+                "priority_lane": cross.get("priority_lane"),
+                "family_warning_density": cross.get("family_warning_density", {}).get(operator_summary.get("refinement", {}).get("priority_family") or ""),
+                "subdomain_warning_density": cross.get("subdomain_warning_density", {}).get(operator_summary.get("refinement", {}).get("priority_subdomain_candidate") or ""),
             }
         return status
 
