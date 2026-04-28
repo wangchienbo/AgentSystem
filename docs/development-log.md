@@ -1,3 +1,37 @@
+## 2026-04-28: Extract Governance Preflight Policy into Shared Policy Module
+
+### Summary
+Pulled governance preflight policy constants and the shared decision builder out of `RegressionNightlyControlService` into `app/system/regression_governance_policy.py`, separating execution orchestration from policy definition.
+
+### What Was Done
+- Updated `app/system/regression_governance_policy.py`
+  - added shared preflight hold constants
+  - added shared preflight review-scope constants
+  - added shared preflight review-reason constants
+  - added `build_governance_preflight_decision(...)`
+- Updated `app/services/regression_nightly_control.py`
+  - removed local preflight taxonomy definitions
+  - imported shared policy constants and decision builder from the policy module
+  - kept service behavior unchanged while delegating policy vocabulary construction
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - switched constant imports to the shared policy module
+
+### Why This Matters
+This creates the right architectural seam:
+- `RegressionNightlyControlService` now focuses on orchestration and state access
+- `regression_governance_policy.py` owns policy vocabulary and decision-shaping helpers
+- future policy expansion can happen in one place without re-entangling execution code
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or preflight_blocks_nonqueued_item or degraded_automation_health or retry_pending_warning'`
+  - Result: `5 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+The governance control loop now has a cleaner boundary between execution flow and policy semantics. This is the right foundation for the next step, whether that becomes typed decision models, richer policy composition, or moving more of the preflight evaluation logic behind a dedicated policy API.
+
 ## 2026-04-28: Consolidate Governance Preflight Taxonomy into Policy Constants
 
 ### Summary

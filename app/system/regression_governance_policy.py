@@ -2,6 +2,52 @@ from __future__ import annotations
 
 from typing import Any
 
+PREFLIGHT_HOLD_NONE = ""
+PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE = "rollout_service_unavailable"
+PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE = "no_recommended_queue"
+PREFLIGHT_HOLD_RECOMMENDED_QUEUE_MISSING = "recommended_queue_missing"
+PREFLIGHT_HOLD_AUTOMATION_DEGRADED_REQUIRES_REVIEW = "automation_degraded_requires_review"
+PREFLIGHT_HOLD_AUTOMATION_RETRY_PENDING_REQUIRES_REVIEW = "automation_retry_pending_requires_review"
+PREFLIGHT_HOLD_SECONDARY_REQUIRES_REVIEW = "secondary_requires_review"
+
+PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK = "light_auto_apply_ok"
+PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED = "operator_review_required"
+PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE = "operator_review_required_due_to_queue_state"
+PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION = "operator_review_required_due_to_automation"
+
+PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY = "primary_selection_healthy"
+PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE = "service_unavailable"
+PREFLIGHT_REVIEW_REASON_SELECTION_MISSING = "selection_missing"
+PREFLIGHT_REVIEW_REASON_QUEUE_MISSING = "queue_missing"
+PREFLIGHT_REVIEW_REASON_QUEUE_STATE_BLOCKED = "queue_state_blocked"
+PREFLIGHT_REVIEW_REASON_AUTOMATION_DEGRADED = "automation_degraded"
+PREFLIGHT_REVIEW_REASON_AUTOMATION_RETRY_PENDING = "automation_retry_pending"
+PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY = "priority_secondary"
+PREFLIGHT_REVIEW_REASON_PRIORITY_TIER_BLOCKED = "priority_tier_blocked"
+
+
+def build_governance_preflight_decision(
+    *,
+    base: dict[str, Any],
+    can_apply: bool,
+    apply_risk: str,
+    hold_reason: str,
+    review_scope: str,
+    review_reason: str,
+    **extra: Any,
+) -> dict[str, Any]:
+    return {
+        **base,
+        **extra,
+        "can_apply": can_apply,
+        "apply_risk": apply_risk,
+        "hold_reason": hold_reason,
+        "hold_category": hold_reason.split(":", 1)[0] if hold_reason else "none",
+        "required_review_scope": review_scope,
+        "review_scope": review_scope,
+        "review_reason": review_reason,
+    }
+
 _SIGNAL_PRIORITY = {
     "nightly_automation_degraded": 40,
     "elevated_overreach": 35,

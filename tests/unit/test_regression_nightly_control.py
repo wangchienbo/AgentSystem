@@ -6,6 +6,10 @@ from unittest.mock import Mock
 
 from app.bootstrap.runtime import build_runtime
 from app.services.regression_nightly_control import (
+    REGRESSION_NIGHTLY_SCHEDULE_ID,
+    RegressionNightlyControlService,
+)
+from app.system.regression_governance_policy import (
     PREFLIGHT_HOLD_AUTOMATION_DEGRADED_REQUIRES_REVIEW,
     PREFLIGHT_HOLD_AUTOMATION_RETRY_PENDING_REQUIRES_REVIEW,
     PREFLIGHT_HOLD_SECONDARY_REQUIRES_REVIEW,
@@ -16,8 +20,6 @@ from app.services.regression_nightly_control import (
     PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK,
     PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
     PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE,
-    REGRESSION_NIGHTLY_SCHEDULE_ID,
-    RegressionNightlyControlService,
 )
 from app.system.regression_governance_policy import (
     build_automation_attention,

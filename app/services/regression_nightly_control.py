@@ -11,6 +11,29 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.system.chat_regression import list_saved_runs, make_testclient_poster, run_regression_governance_cycle
 from app.system.regression_dashboard import build_regression_operator_summary
+from app.system.regression_governance_policy import (
+    PREFLIGHT_HOLD_AUTOMATION_DEGRADED_REQUIRES_REVIEW,
+    PREFLIGHT_HOLD_AUTOMATION_RETRY_PENDING_REQUIRES_REVIEW,
+    PREFLIGHT_HOLD_NONE,
+    PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE,
+    PREFLIGHT_HOLD_RECOMMENDED_QUEUE_MISSING,
+    PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE,
+    PREFLIGHT_HOLD_SECONDARY_REQUIRES_REVIEW,
+    PREFLIGHT_REVIEW_REASON_AUTOMATION_DEGRADED,
+    PREFLIGHT_REVIEW_REASON_AUTOMATION_RETRY_PENDING,
+    PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY,
+    PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY,
+    PREFLIGHT_REVIEW_REASON_PRIORITY_TIER_BLOCKED,
+    PREFLIGHT_REVIEW_REASON_QUEUE_MISSING,
+    PREFLIGHT_REVIEW_REASON_QUEUE_STATE_BLOCKED,
+    PREFLIGHT_REVIEW_REASON_SELECTION_MISSING,
+    PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE,
+    PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK,
+    PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
+    PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
+    PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE,
+    build_governance_preflight_decision,
+)
 from app.refinement.refinement_rollout import RefinementRolloutService
 
 APP_INSTANCE_ID = "agent_system"
@@ -19,29 +42,6 @@ REGRESSION_NIGHTLY_SCHEDULE_ID = "sch.regression.governance.nightly"
 REGRESSION_NIGHTLY_STATE_KEY = "regression_nightly_state"
 REGRESSION_NIGHTLY_DRIVER_STATE_KEY = "regression_nightly_driver_state"
 REGRESSION_NIGHTLY_SERVICE_SESSION_ID = "session_regression_nightly_service"
-
-PREFLIGHT_HOLD_NONE = ""
-PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE = "rollout_service_unavailable"
-PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE = "no_recommended_queue"
-PREFLIGHT_HOLD_RECOMMENDED_QUEUE_MISSING = "recommended_queue_missing"
-PREFLIGHT_HOLD_AUTOMATION_DEGRADED_REQUIRES_REVIEW = "automation_degraded_requires_review"
-PREFLIGHT_HOLD_AUTOMATION_RETRY_PENDING_REQUIRES_REVIEW = "automation_retry_pending_requires_review"
-PREFLIGHT_HOLD_SECONDARY_REQUIRES_REVIEW = "secondary_requires_review"
-
-PREFLIGHT_REVIEW_SCOPE_LIGHT_AUTO_APPLY_OK = "light_auto_apply_ok"
-PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED = "operator_review_required"
-PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE = "operator_review_required_due_to_queue_state"
-PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION = "operator_review_required_due_to_automation"
-
-PREFLIGHT_REVIEW_REASON_PRIMARY_SELECTION_HEALTHY = "primary_selection_healthy"
-PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE = "service_unavailable"
-PREFLIGHT_REVIEW_REASON_SELECTION_MISSING = "selection_missing"
-PREFLIGHT_REVIEW_REASON_QUEUE_MISSING = "queue_missing"
-PREFLIGHT_REVIEW_REASON_QUEUE_STATE_BLOCKED = "queue_state_blocked"
-PREFLIGHT_REVIEW_REASON_AUTOMATION_DEGRADED = "automation_degraded"
-PREFLIGHT_REVIEW_REASON_AUTOMATION_RETRY_PENDING = "automation_retry_pending"
-PREFLIGHT_REVIEW_REASON_PRIORITY_SECONDARY = "priority_secondary"
-PREFLIGHT_REVIEW_REASON_PRIORITY_TIER_BLOCKED = "priority_tier_blocked"
 
 
 class RegressionNightlyControlService:
@@ -252,21 +252,9 @@ class RegressionNightlyControlService:
             "consecutive_failures": consecutive_failures,
         }
 
-        def build_decision(*, can_apply: bool, apply_risk: str, hold_reason: str, review_scope: str, review_reason: str, **extra: Any) -> dict[str, Any]:
-            return {
-                **base,
-                **extra,
-                "can_apply": can_apply,
-                "apply_risk": apply_risk,
-                "hold_reason": hold_reason,
-                "hold_category": hold_reason.split(":", 1)[0] if hold_reason else "none",
-                "required_review_scope": review_scope,
-                "review_scope": review_scope,
-                "review_reason": review_reason,
-            }
-
         if self._refinement_rollout is None:
-            return build_decision(
+            return build_governance_preflight_decision(
+                base=base,
                 can_apply=False,
                 apply_risk="blocked",
                 hold_reason=PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE,
@@ -274,7 +262,8 @@ class RegressionNightlyControlService:
                 review_reason=PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE,
             )
         if not queue_id:
-            return build_decision(
+            return build_governance_preflight_decision(
+                base=base,
                 can_apply=False,
                 apply_risk="blocked",
                 hold_reason=PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE,
@@ -284,7 +273,8 @@ class RegressionNightlyControlService:
 
         queue_item = next((item for item in self._refinement_memory.list_queue(APP_INSTANCE_ID) if item.queue_id == queue_id), None)
         if queue_item is None:
-            return build_decision(
+            return build_governance_preflight_decision(
+                base=base,
                 can_apply=False,
                 apply_risk="blocked",
                 hold_reason=PREFLIGHT_HOLD_RECOMMENDED_QUEUE_MISSING,
@@ -292,7 +282,8 @@ class RegressionNightlyControlService:
                 review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_MISSING,
             )
         if queue_item.status != "queued":
-            return build_decision(
+            return build_governance_preflight_decision(
+                base=base,
                 can_apply=False,
                 apply_risk="blocked",
                 hold_reason=f"queue_status_blocked:{queue_item.status}",
@@ -301,7 +292,8 @@ class RegressionNightlyControlService:
                 queue_status=queue_item.status,
             )
         if automation_health == "degraded" or control_attention_reason == "consecutive_failures":
-            return build_decision(
+            return build_governance_preflight_decision(
+                base=base,
                 can_apply=False,
                 apply_risk="high",
                 hold_reason=PREFLIGHT_HOLD_AUTOMATION_DEGRADED_REQUIRES_REVIEW,
@@ -311,7 +303,8 @@ class RegressionNightlyControlService:
                 priority_lane=priority_lane,
             )
         if retry_pending or automation_health == "warning" or control_attention_reason == "retry_pending":
-            return build_decision(
+            return build_governance_preflight_decision(
+                base=base,
                 can_apply=False,
                 apply_risk="medium",
                 hold_reason=PREFLIGHT_HOLD_AUTOMATION_RETRY_PENDING_REQUIRES_REVIEW,
@@ -321,7 +314,8 @@ class RegressionNightlyControlService:
                 priority_lane=priority_lane,
             )
         if priority_tier == "primary":
-            return build_decision(
+            return build_governance_preflight_decision(
+                base=base,
                 can_apply=True,
                 apply_risk="medium",
                 hold_reason=PREFLIGHT_HOLD_NONE,
@@ -331,7 +325,8 @@ class RegressionNightlyControlService:
                 priority_lane=priority_lane,
             )
         if priority_tier == "secondary":
-            return build_decision(
+            return build_governance_preflight_decision(
+                base=base,
                 can_apply=False,
                 apply_risk="medium",
                 hold_reason=PREFLIGHT_HOLD_SECONDARY_REQUIRES_REVIEW,
@@ -340,7 +335,8 @@ class RegressionNightlyControlService:
                 queue_status=queue_item.status,
                 priority_lane=priority_lane,
             )
-        return build_decision(
+        return build_governance_preflight_decision(
+            base=base,
             can_apply=False,
             apply_risk="high",
             hold_reason=f"priority_tier_blocked:{priority_tier or 'none'}",
