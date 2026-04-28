@@ -97,6 +97,7 @@ regression_nightly_control = RegressionNightlyControlService(
     runtime_host=runtime_services["runtime_host"],
     runtime_store=runtime_services["runtime_store"],
     refinement_memory=refinement_memory,
+    refinement_rollout=refinement_rollout,
 )
 
 app = FastAPI(
@@ -764,17 +765,25 @@ async def api_governance_regression_cycle_nightly_status(user: dict = Depends(ge
 
 
 @app.post("/api/governance/regression-cycle/nightly/trigger")
-async def api_governance_regression_cycle_nightly_trigger(user: dict = Depends(get_current_user)):
+async def api_governance_regression_cycle_nightly_trigger(auto_apply_governance: bool = False, user: dict = Depends(get_current_user)):
     from fastapi.testclient import TestClient
 
     local_client = TestClient(app)
     local_client.cookies.set("session_id", user["session_id"])
-    result = regression_nightly_control.trigger_manual_cycle(client=local_client)
+    result = regression_nightly_control.trigger_manual_cycle(client=local_client, auto_apply_governance=auto_apply_governance)
     return {"success": True, **result}
 
 @app.post("/api/governance/regression-cycle/nightly/tick")
-async def api_governance_regression_cycle_nightly_tick(user: dict = Depends(get_current_user)):
-    result = tick_regression_nightly_cycle(user["session_id"])
+async def api_governance_regression_cycle_nightly_tick(auto_apply_governance: bool = False, user: dict = Depends(get_current_user)):
+    from fastapi.testclient import TestClient
+
+    local_client = TestClient(app)
+    local_client.cookies.set("session_id", user["session_id"])
+    result = regression_nightly_control.trigger_due_tick(
+        client=local_client,
+        driver_status=regression_nightly_driver.status(),
+        auto_apply_governance=auto_apply_governance,
+    )
     return {"success": True, **result}
 
 

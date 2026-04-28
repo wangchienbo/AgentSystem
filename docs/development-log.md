@@ -1,3 +1,50 @@
+## 2026-04-28: Close the Governance Loop with Optional Auto-Apply Execution Path
+
+### Summary
+Shifted the regression governance line from read-side recommendation only into a real optional execution loop. Nightly and manual regression cycle triggers can now, when explicitly enabled, consume governance selection output and automatically apply the recommended rollout queue item through the existing rollout service.
+
+### What Was Done
+- Updated `app/services/regression_nightly_control.py`
+  - injected optional `refinement_rollout` dependency
+  - added `apply_governance_selected_rollout(...)`
+  - governance-assisted execution flow now:
+    1. build fresh operator summary
+    2. read `rollout_selection` and `rollout_review_packet`
+    3. require a recommended queue id
+    4. only auto-apply `primary` or `secondary` recommendations
+    5. execute real rollout via `RefinementRolloutService.transition(..., action="apply")`
+  - `trigger_due_tick(...)` now supports `auto_apply_governance: bool = False`
+  - `trigger_manual_cycle(...)` now supports `auto_apply_governance: bool = False`
+  - both methods now return `governance_rollout` result payload when enabled
+- Updated `app/system/http_test_server.py`
+  - wired `refinement_rollout` into `RegressionNightlyControlService`
+  - `/api/governance/regression-cycle/nightly/trigger` now supports `auto_apply_governance`
+  - `/api/governance/regression-cycle/nightly/tick` now supports `auto_apply_governance`
+  - nightly tick endpoint now routes through the service implementation instead of the older wrapper path, so the same governance-assisted execution logic is shared
+- Expanded tests
+  - `tests/unit/test_regression_nightly_control.py`
+    - added service-level coverage proving manual cycle can auto-apply the governance-selected queue item
+  - `tests/unit/test_http_test_server.py`
+    - added HTTP coverage proving the trigger endpoint forwards `auto_apply_governance=true` and returns governance rollout results
+
+### Design Notes
+This is a deliberate loop-closing step, but still constrained:
+- auto-apply is opt-in, default remains off
+- no schema migration
+- no new queue state machine
+- execution still flows through existing `RefinementRolloutService`
+- gating remains conservative: only `primary` / `secondary` recommendations are auto-applied
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'auto_apply_governance_selection or trigger_manual_cycle_executes_and_clears_pending_when_schedule_matches or trigger_due_tick_executes_when_due'`
+  - Result: `3 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_can_auto_apply_governance'`
+  - Result: `1 passed`
+
+### Product Conclusion
+This is the first true governance execution loop in the regression chain. The system no longer only classifies, prioritizes, and recommends. When explicitly enabled, it can now consume its own governance decision output and drive a real rollout action through the existing queue transition path. That is the architectural point where the governance line stops being observational infrastructure and becomes an actionable control loop.
+
 ## 2026-04-28: Add Governance Rollout Review Card
 
 ### Summary

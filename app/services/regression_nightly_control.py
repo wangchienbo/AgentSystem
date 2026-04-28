@@ -11,6 +11,7 @@ from app.services.runtime_state_store import RuntimeStateStore
 from app.services.scheduler import SchedulerService
 from app.system.chat_regression import list_saved_runs, make_testclient_poster, run_regression_governance_cycle
 from app.system.regression_dashboard import build_regression_operator_summary
+from app.refinement.refinement_rollout import RefinementRolloutService
 
 APP_INSTANCE_ID = "agent_system"
 REGRESSION_CYCLE_TASK_NAME = "regression_governance_cycle"
@@ -28,11 +29,13 @@ class RegressionNightlyControlService:
         runtime_host: AppRuntimeHostService,
         runtime_store: RuntimeStateStore,
         refinement_memory: RefinementMemoryStore,
+        refinement_rollout: RefinementRolloutService | None = None,
     ) -> None:
         self._scheduler = scheduler
         self._runtime_host = runtime_host
         self._runtime_store = runtime_store
         self._refinement_memory = refinement_memory
+        self._refinement_rollout = refinement_rollout
 
     def ensure_runtime_instance(self) -> None:
         try:
@@ -198,8 +201,41 @@ class RegressionNightlyControlService:
     def run_cycle(self, client: Any) -> dict[str, Any]:
         return run_regression_governance_cycle(make_testclient_poster(client), memory=self._refinement_memory)
 
+    def apply_governance_selected_rollout(self, *, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
+        if self._refinement_rollout is None:
+            return {"applied": False, "reason": "rollout_service_unavailable"}
 
-    def trigger_due_tick(self, *, client: Any, driver_status: dict[str, Any] | None = None) -> dict[str, Any]:
+        summary = build_regression_operator_summary(
+            memory=self._refinement_memory,
+            nightly_status=nightly_status,
+        )
+        governance = summary.get("refinement", {}).get("governance", {})
+        selection = governance.get("rollout_selection") or {}
+        packet = governance.get("rollout_review_packet") or {}
+        queue_id = selection.get("recommended_queue_id")
+        if not queue_id:
+            return {"applied": False, "reason": "no_recommended_queue"}
+
+        priority_tier = selection.get("recommended_priority_tier")
+        if priority_tier not in {"primary", "secondary"}:
+            return {"applied": False, "reason": f"priority_tier_blocked:{priority_tier or 'none'}", "queue_id": queue_id}
+
+        note = (
+            f"governance_auto_apply::{priority_tier}::"
+            f"{packet.get('selection_reason') or 'unspecified'}::"
+            f"{packet.get('priority_lane') or 'unclassified'}"
+        )
+        item = self._refinement_rollout.transition(queue_id=queue_id, action="apply", reviewer="governance", note=note)
+        return {
+            "applied": True,
+            "queue_id": queue_id,
+            "priority_tier": priority_tier,
+            "selection_reason": packet.get("selection_reason"),
+            "item": item.model_dump(mode="json"),
+        }
+
+
+    def trigger_due_tick(self, *, client: Any, driver_status: dict[str, Any] | None = None, auto_apply_governance: bool = False) -> dict[str, Any]:
         snapshot = self.build_nightly_status(driver_status)
         if not snapshot["due_now"]:
             state = self.record_tick(decision="skipped_not_due", triggered=False, nightly_status=snapshot)
@@ -232,22 +268,30 @@ class RegressionNightlyControlService:
         state = self.record_tick(decision="triggered_due", triggered=True, cycle=cycle_result, nightly_status=snapshot)
         refreshed = dict(snapshot)
         refreshed.update({k: state.get(k) for k in ["last_tick_at", "last_tick_decision", "last_tick_triggered", "last_cycle_result"]})
+        governance_rollout = None
+        if auto_apply_governance:
+            governance_rollout = self.apply_governance_selected_rollout(nightly_status={"automation_control": refreshed.get("automation_control")})
         return {
             "triggered": True,
             "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
             "cycle": cycle_result,
             "nightly_status": refreshed,
+            "governance_rollout": governance_rollout,
         }
 
-    def trigger_manual_cycle(self, *, client: Any) -> dict[str, Any]:
+    def trigger_manual_cycle(self, *, client: Any, auto_apply_governance: bool = False) -> dict[str, Any]:
         trigger_results = self._scheduler.trigger_interval_schedules(APP_INSTANCE_ID)
         matched = [item.model_dump(mode="json") for item in trigger_results if item.task_name == REGRESSION_CYCLE_TASK_NAME and item.triggered]
         if not matched:
             return {"triggered": False, "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
         cycle_result = self.run_cycle(client)
         self._runtime_host.consume_pending_tasks(APP_INSTANCE_ID, REGRESSION_CYCLE_TASK_NAME)
+        governance_rollout = None
+        if auto_apply_governance:
+            governance_rollout = self.apply_governance_selected_rollout(nightly_status=self.build_nightly_status())
         return {
             "triggered": True,
             "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
             "cycle": cycle_result,
+            "governance_rollout": governance_rollout,
         }

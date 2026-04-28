@@ -822,3 +822,45 @@ def test_governance_dashboard_exposes_automation_control_card() -> None:
     data = resp.json()
     assert "automation_control" in data["nightly_automation"]
     assert "driver" in data["nightly_automation"]["automation_control"]
+
+
+def test_api_governance_regression_cycle_nightly_trigger_can_auto_apply_governance() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import patch
+
+    fake_cycle = {
+        "run_id": "nightly-run-1",
+        "summary": {"topic_count": 4},
+        "path": "/tmp/nightly-run-1.jsonl",
+        "evidence": {"promoted_count": 1},
+        "trigger_application": {"trigger_count": 1},
+    }
+    fake_result = {
+        "triggered": True,
+        "schedule_results": [],
+        "cycle": fake_cycle,
+        "governance_rollout": {
+            "applied": True,
+            "queue_id": "q-primary",
+            "item": {"status": "applied"},
+        },
+    }
+    with patch("app.system.http_test_server.regression_nightly_control.trigger_manual_cycle", return_value=fake_result) as mocked:
+        resp = client.post("/api/governance/regression-cycle/nightly/trigger?auto_apply_governance=true")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["success"] is True
+    assert data["governance_rollout"]["applied"] is True
+    mocked.assert_called_once()
+    assert mocked.call_args.kwargs["auto_apply_governance"] is True

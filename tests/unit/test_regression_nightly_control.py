@@ -37,6 +37,7 @@ def build_service(tmp_path: Path) -> RegressionNightlyControlService:
         runtime_host=services["runtime_host"],
         runtime_store=services["runtime_store"],
         refinement_memory=services["refinement_memory"],
+        refinement_rollout=services.get("refinement_rollout"),
     )
 
 
@@ -1013,3 +1014,37 @@ def test_operator_summary_exposes_governance_rollout_review_card(tmp_path: Path)
     assert card["priority_tier"] == "primary"
     assert card["recommended_action"] == "stabilize_nightly_automation_control_plane"
     assert card["attention_reason"] == "consecutive_failures"
+
+
+def test_trigger_manual_cycle_can_auto_apply_governance_selection(tmp_path: Path) -> None:
+    from unittest.mock import patch
+    from app.models.refinement_loop import RolloutQueueItem
+
+    service = build_service(tmp_path)
+    service.register_nightly_schedule(interval_seconds=3600)
+    service._refinement_memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-primary",
+        hypothesis_id="h1",
+        proposal_id="regression-trigger-1",
+        app_instance_id="agent_system",
+        status="queued",
+        note="automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution::priority=primary",
+    ))
+    service.run_cycle = Mock(return_value={"run_id": "manual-run-1"})
+
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        result = service.trigger_manual_cycle(client=Mock(), auto_apply_governance=True)
+
+    assert result["triggered"] is True
+    assert result["governance_rollout"]["applied"] is True
+    assert result["governance_rollout"]["queue_id"] == "q-primary"
+    assert result["governance_rollout"]["item"]["status"] == "applied"
