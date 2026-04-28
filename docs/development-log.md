@@ -1,3 +1,29 @@
+## 2026-04-29: Roll Back Dashboard-Side Pseudo-Preflight Reuse to Restore Boundary Clarity
+
+### Summary
+Removed the dashboard-side pseudo-preflight rendering adapter that reused `GovernancePreflightDecision` for operator summary rollout-review display. This rollback restores the decision contract to its intended role as execution/preflight truth rather than letting it expand into a mixed execution-plus-projection model.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - removed dashboard-local pseudo-preflight render adapter
+  - removed rollout review packet/card render-field injection that depended on the pseudo decision projection
+  - restored rollout review packet/card construction to the prior summary-only shape
+- Updated tests
+  - removed the temporary operator-summary integration test that validated dashboard-injected preflight render fields
+- Preserved the core policy/render contract work
+  - `GovernancePreflightDecision`, explainability fields, and shared render helpers remain available for true preflight/execution surfaces
+  - only the semantically inflated dashboard projection path was rolled back
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_preflight_decision_builder_returns_typed_payload or governance_preflight_render_helpers_return_shared_operator_strings or pipeline_prioritizes_availability_before_selection or governance_preflight_evaluator_blocks_missing_queue or auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or queue_status_blocked or degraded_automation_health or retry_pending_warning'`
+  - Result: `8 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+This rollback intentionally narrows the semantic scope of `GovernancePreflightDecision` back to execution-facing governance truth. It prevents the contract from becoming a general-purpose projection model and reopens a cleaner path toward the real next objective: closing the self-iteration upgrade loop and making service-up user-simulated end-to-end execution the primary validation path.
+
 ## 2026-04-29: Integrate Shared Preflight Render Helpers into Operator Summary Payload
 
 ### Summary

@@ -7,22 +7,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.models.governance_preflight import GovernancePreflightDecision
 from app.models.refinement_loop import RefinementFilter
 from app.services.refinement_memory import RefinementMemoryStore
 from app.system.chat_regression import build_multi_run_comparison, build_topic_trends, read_run_details
 from app.system.regression_evidence_bridge import list_regression_evidence_history
 from app.system.regression_governance_observation import build_governance_evidence_digest, build_replay_observation_digest
 from app.system.regression_governance_policy import (
-    PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
     build_automation_attention,
     build_automation_risk_flags,
     build_comparison_risk_flags,
     classify_signal_domain,
     classify_signal_family,
     classify_signal_subdomain_candidate,
-    format_governance_preflight_badge,
-    format_governance_preflight_operator_note,
     recommend_action_for_signal,
     signal_priority,
 )
@@ -321,12 +317,6 @@ def _build_governance_rollout_review_packet(
             selected_item = item
             break
 
-    render_decision = _build_rollout_review_render_decision({
-        "recommended_queue_id": selected_id,
-        "recommended_priority_tier": rollout_selection.get("recommended_priority_tier"),
-        "top_queue_status": None if selected_item is None else selected_item.get("status"),
-    })
-
     return {
         "recommended_queue_id": selected_id,
         "recommended_priority_tier": rollout_selection.get("recommended_priority_tier"),
@@ -340,51 +330,10 @@ def _build_governance_rollout_review_packet(
         "top_queue_note": None if selected_item is None else selected_item.get("note"),
         "top_queue_status": None if selected_item is None else selected_item.get("status"),
         "automation_attention": automation_attention,
-        "review_badge": format_governance_preflight_badge(render_decision),
-        "review_note": format_governance_preflight_operator_note(render_decision),
     }
 
 
-def _build_rollout_review_render_decision(rollout_review_packet: dict[str, Any]) -> GovernancePreflightDecision:
-    queue_id = rollout_review_packet.get("recommended_queue_id")
-    tier = rollout_review_packet.get("recommended_priority_tier") or "none"
-    queue_status = rollout_review_packet.get("top_queue_status")
-    can_apply = bool(tier == "primary" and queue_id and queue_status == "queued")
-    if can_apply:
-        decision_code = "tier.primary_auto_apply"
-        decision_label = "Primary tier auto-apply allowed"
-        hold_reason = ""
-        review_scope = "light_auto_apply_ok"
-    elif tier == "secondary":
-        decision_code = "tier.secondary_requires_review"
-        decision_label = "Secondary tier review required"
-        hold_reason = "dashboard_review_pending"
-        review_scope = PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED
-    else:
-        decision_code = "tier.unrecognized_blocked"
-        decision_label = "Priority tier blocked"
-        hold_reason = "dashboard_review_pending"
-        review_scope = PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED
-    return GovernancePreflightDecision(
-        recommended_queue_id=queue_id,
-        priority_tier=tier,
-        queue_status=queue_status,
-        matched_stage="dashboard_rollout_review",
-        decision_code=decision_code,
-        decision_label=decision_label,
-        decision_summary=f"{decision_label}; stage=dashboard_rollout_review; review_scope={review_scope}",
-        can_apply=can_apply,
-        apply_risk="medium" if tier in {"primary", "secondary"} else "high",
-        hold_reason=hold_reason,
-        hold_category=hold_reason.split(":", 1)[0] if hold_reason else "none",
-        required_review_scope=review_scope,
-        review_scope=review_scope,
-        review_reason="dashboard_rollout_review",
-    )
-
-
 def _build_governance_rollout_review_card(rollout_review_packet: dict[str, Any]) -> dict[str, Any]:
-    render_decision = _build_rollout_review_render_decision(rollout_review_packet)
     queue_id = rollout_review_packet.get("recommended_queue_id")
     tier = rollout_review_packet.get("recommended_priority_tier") or "none"
     action = rollout_review_packet.get("recommended_action") or "manual_review_required"
@@ -409,8 +358,6 @@ def _build_governance_rollout_review_card(rollout_review_packet: dict[str, Any])
         "attention_reason": attention_reason,
         "top_queue_note": rollout_review_packet.get("top_queue_note"),
         "status": rollout_review_packet.get("top_queue_status"),
-        "review_badge": format_governance_preflight_badge(render_decision),
-        "review_note": format_governance_preflight_operator_note(render_decision),
     }
 
 
