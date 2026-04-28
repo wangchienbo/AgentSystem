@@ -191,6 +191,13 @@ def build_regression_operator_summary(
     recent_queue = live_governance.recent_queue.model_dump(mode="json") if live_governance is not None else {"items": [], "meta": {"total_count": metrics["queued_items"], "returned_count": 0, "filtered_count": 0, "has_more": False}}
     prioritized_queue_view = _build_governance_prioritized_queue_view(recent_queue)
     rollout_selection = _build_governance_rollout_selection(prioritized_queue_view)
+    rollout_review_packet = _build_governance_rollout_review_packet(
+        prioritized_queue_view=prioritized_queue_view,
+        rollout_selection=rollout_selection,
+        cross_level_summary=cross_level_summary,
+        automation_attention=dashboard.get("automation_attention"),
+        recommended_action=recommended_action,
+    )
     recent_failed_hypotheses = live_governance.recent_failed_hypotheses.model_dump(mode="json") if live_governance is not None else {"items": [], "meta": {"total_count": metrics["failed_hypotheses"], "returned_count": 0, "filtered_count": 0, "has_more": False}}
 
     return {
@@ -215,6 +222,7 @@ def build_regression_operator_summary(
                 "recent_queue": recent_queue,
                 "prioritized_queue_view": prioritized_queue_view,
                 "rollout_selection": rollout_selection,
+                "rollout_review_packet": rollout_review_packet,
                 "family_breakdown": family_breakdown,
                 "subdomain_breakdown": subdomain_breakdown,
                 "family_queue_lane_summary": family_queue_lane_summary,
@@ -289,6 +297,37 @@ def _build_governance_rollout_selection(prioritized_queue_view: dict[str, Any]) 
         "recommended_priority_tier": tier,
         "selection_reason": f"highest_governance_priority:{tier}",
         "selection_mode": "governance_priority_ordering",
+    }
+
+
+def _build_governance_rollout_review_packet(
+    *,
+    prioritized_queue_view: dict[str, Any],
+    rollout_selection: dict[str, Any],
+    cross_level_summary: dict[str, Any],
+    automation_attention: dict[str, Any] | None,
+    recommended_action: str,
+) -> dict[str, Any]:
+    selected_id = rollout_selection.get("recommended_queue_id")
+    selected_item = None
+    for item in prioritized_queue_view.get("items", []):
+        if item.get("queue_id") == selected_id:
+            selected_item = item
+            break
+
+    return {
+        "recommended_queue_id": selected_id,
+        "recommended_priority_tier": rollout_selection.get("recommended_priority_tier"),
+        "selection_reason": rollout_selection.get("selection_reason"),
+        "selection_mode": rollout_selection.get("selection_mode"),
+        "priority_lane": cross_level_summary.get("priority_lane"),
+        "recommended_action": recommended_action or None,
+        "family_warning_density": cross_level_summary.get("family_warning_density", {}),
+        "subdomain_warning_density": cross_level_summary.get("subdomain_warning_density", {}),
+        "priority_counts": prioritized_queue_view.get("priority_counts", {}),
+        "top_queue_note": None if selected_item is None else selected_item.get("note"),
+        "top_queue_status": None if selected_item is None else selected_item.get("status"),
+        "automation_attention": automation_attention,
     }
 
 

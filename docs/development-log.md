@@ -1,3 +1,42 @@
+## 2026-04-28: Add Governance Rollout Review Packet
+
+### Summary
+Bundled the previously separated governance rollout recommendation surfaces into a single additive `rollout_review_packet`, giving operator and API consumers one stable object for rollout review context without coupling them to multiple internal helper views.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `_build_governance_rollout_review_packet(...)`
+  - governance summary now exposes `rollout_review_packet`
+  - packet currently combines:
+    - `recommended_queue_id`
+    - `recommended_priority_tier`
+    - `selection_reason`
+    - `selection_mode`
+    - `priority_lane`
+    - `recommended_action`
+    - `family_warning_density`
+    - `subdomain_warning_density`
+    - `priority_counts`
+    - `top_queue_note`
+    - `top_queue_status`
+    - `automation_attention`
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added coverage proving the packet reflects the recommended queue target, lane, action, top queue note, and automation attention context in a mixed-risk scenario
+
+### Design Notes
+This remains a packaging layer, not an execution layer:
+- no rollout transition behavior changed
+- no persistence or queue schema changed
+- no new write path introduced
+- packet is derived only from existing governance summary components
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `60 passed in 3.84s`
+
+### Product Conclusion
+The governance rollout chain now has a cohesive review object. Instead of requiring consumers to inspect selection helpers, priority views, cross-level density maps, and automation attention separately, they can now read one stable packet that explains what to look at next and why. This is the right stopping point before any future move toward governance-aware execution assistance.
+
 ## 2026-04-28: Add Governance-Aware Rollout Selection Helper
 
 ### Summary
