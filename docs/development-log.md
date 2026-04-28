@@ -1,3 +1,31 @@
+## 2026-04-28: Add Next-Stage Governance Evolution Roadmap to Design
+
+### Summary
+Documented the next-stage governance evolution design so the recently completed regression/nightly/refinement governance loop now has an explicit architectural roadmap instead of only an implementation trail.
+
+### What Was Done
+- Updated `docs/design.md`
+- Added a new governance evolution roadmap section covering five next-stage phases:
+  - **G1** evidence refinement and replay-grade observation
+  - **G2** contradiction tree and governance taxonomy
+  - **G3** domain-specific refinement and rollout policies
+  - **G4** human feedback and accepted-practice return flow
+  - **G5** full governance pipeline orchestration
+- Added explicit roadmap guardrails to avoid re-accumulating fat modules or prompt-only governance judgments
+- Added a practice-first governance mapping section that ties observation, contradiction, prioritization, remediation, and return-to-practice validation back into the broader AgentSystem architecture
+
+### Validation
+- Design review against existing `docs/requirements.md` governance / evidence / regression requirements
+- Verified consistency with the newly completed implementation chain:
+  - regression governance loop
+  - nightly automation governance
+  - automation-vs-regression prioritization
+  - domain-aware refinement persistence
+  - policy/translation module refactor
+
+### Product Conclusion
+The system now has not only a completed first-generation governance loop, but also a written architectural route for evolving that loop into a reusable governance operating model. This is important because it turns recent implementation momentum into an explicit long-range design trajectory rather than leaving it as a pile of successful commits.
+
 ## 2026-04-28: Refactor Regression Governance Chain into Policy and Translation Modules
 
 ### Summary

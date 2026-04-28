@@ -89,6 +89,187 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 - answer generation should distinguish at least between low-grade hints, read-confirmed excerpts, verified implementation facts, and runtime observations, and should not allow lower-grade evidence to inherit the wording privileges of higher-grade evidence
 - product/governance skills should prefer diagnosing whether a failure comes from prompt weakness, execution semantics, evidence semantics, or termination strategy before prescribing scene-specific patches
 
+### 2.5.6 Governance evolution roadmap (next-stage design)
+The recently completed chat-regression governance loop, nightly automation control plane, and domain-aware refinement persistence establish a usable first-generation self-governance substrate.
+The next design task is not to blindly add more signals, but to evolve that substrate into a disciplined, layered governance pipeline that can absorb more reality while remaining auditable and structurally stable.
+
+The preferred next-stage roadmap is five phased layers.
+
+#### Phase G1: Evidence refinement and replay-grade observation
+The first next step should deepen the observation layer so governance is grounded not only in fixed prompt matrices but also in richer structured evidence.
+
+Target capabilities:
+- extend regression evidence from summary/result-level artifacts into finer-grained envelopes such as:
+  - input evidence
+  - routing evidence
+  - tool-selection evidence
+  - execution evidence
+  - output evidence
+  - user-feedback evidence
+- introduce replay-grade regression samples derived from real production traces or accepted historical conversations rather than only manually curated prompt seeds
+- allow governance summaries to distinguish whether a poor outcome came from:
+  - requirement misunderstanding
+  - routing error
+  - missing evidence
+  - bad tool execution
+  - weak final answer shaping
+
+Preferred design objects:
+- `ObservationRecord`
+- `EvidenceEnvelope`
+- `ReplayRegressionSample`
+- `GovernanceEvidenceDigest`
+
+Boundaries:
+- this phase should enrich evidence structure without yet requiring a full universal evidence graph
+- replay ingestion should remain bounded and curated, not an unfiltered mirror of all production traffic
+
+Success criteria:
+- operator surfaces can explain not only that a regression happened, but what evidence layer it failed in
+- nightly regression can include a bounded replay-backed slice in addition to the fixed canonical prompt matrix
+
+#### Phase G2: Contradiction tree and governance taxonomy
+The current system can already distinguish `automation_control_plane` from `regression_quality`.
+The next step should refine that binary split into a contradiction tree so governance can represent finer classes of failure without flattening them into one warning list.
+
+Target taxonomy direction:
+- `automation_control_plane`
+  - schedule_trigger_failure
+  - retry_recovery_failure
+  - degraded_automation_loop
+- `regression_quality`
+  - prompt_policy_risk
+  - evidence_governance_risk
+  - execution_semantics_risk
+  - answer_shaping_risk
+  - cost_efficiency_risk
+
+Required behaviors:
+- signals should carry `domain`, `subdomain`, and `signal`
+- operator summary should surface both the top contradiction and the contradiction family
+- refinement memory should preserve contradiction family so later review can detect repeated structural failure classes
+
+Success criteria:
+- the system can tell whether two regressions are instances of the same contradiction family or unrelated symptoms
+- prioritization can operate at both signal level and contradiction-family level
+
+#### Phase G3: Domain-specific refinement and rollout policies
+The current implementation already persists different queue-note and hypothesis semantics for automation vs regression risks.
+The next step should let those differences influence actual execution policy, not only stored text.
+
+Target capabilities:
+- domain-specific verification checklists
+- domain-specific rollout queue lanes
+- domain-specific approval rules
+- domain-specific remediation templates
+- domain-specific rollback posture
+
+Illustrative direction:
+- automation-control-plane items may require stronger runtime validation, health stabilization checks, and lower tolerance for risky rollout
+- regression-quality items may prefer faster prompt/evidence iteration cycles, replay-based acceptance, and lower-cost experimentation loops
+
+Preferred objects or fields:
+- `queue_domain`
+- `verification_profile`
+- `rollout_policy_profile`
+- `approval_posture`
+
+Success criteria:
+- two items with equal severity but different contradiction families do not automatically flow through the same remediation path
+- operator review can see why one queued item requires stricter validation than another
+
+#### Phase G4: Human feedback and accepted-practice return flow
+A governance loop remains incomplete if it only circulates system-generated observations.
+The next phase should explicitly connect operator decisions, user feedback, and accepted production outcomes back into refinement memory.
+
+Target capabilities:
+- attach explicit human/operator confirmation to regression findings
+- attach user-visible acceptance or dissatisfaction signals to governance evidence
+- preserve whether a refinement was accepted because:
+  - tests improved
+  - operator confirmed the diagnosis
+  - production outcomes improved
+  - user feedback improved
+- distinguish system-internal confidence from socially validated usefulness
+
+Preferred objects:
+- `FeedbackEvidenceRecord`
+- `OperatorConfirmationRecord`
+- `AcceptedPracticeRecord`
+
+Success criteria:
+- refinement memory can explain not only what the system believed, but what was later confirmed by operators or users
+- future prioritization can weight human-confirmed contradictions above purely model-internal suspicions
+
+#### Phase G5: Full governance pipeline orchestration
+After evidence refinement, contradiction taxonomy, differentiated execution policy, and human-return flow are in place, the final step should be to make governance itself a first-class long-running pipeline.
+
+Target layered pipeline:
+1. observe
+2. organize
+3. diagnose
+4. prioritize
+5. refine
+6. verify
+7. rollout
+8. review
+
+This should eventually become a reusable governance substrate rather than a special-purpose regression bundle.
+That means:
+- governance stages should have explicit contracts
+- each stage should emit auditable artifacts
+- later apps or skills should be able to reuse the same governance pipeline shape with different probes and policy profiles
+
+Preferred future services:
+- `GovernanceObservationService`
+- `GovernanceDiagnosisService`
+- `GovernancePrioritizationService`
+- `GovernanceRefinementService`
+- `GovernanceVerificationService`
+- `GovernanceRolloutService`
+
+Success criteria:
+- governance stops being a growing set of adjacent helpers and becomes an explicit operating capability of the platform
+- the same pipeline shape can later govern prompt systems, skill systems, executable skills, or app workflows under shared evidence and policy discipline
+
+#### Roadmap guardrails
+This roadmap should follow several guardrails:
+- do not collapse evidence, governance policy, and execution into one fat module again
+- prefer typed intermediate artifacts over hidden prompt-only judgments
+- let high-risk rollout remain slower and more verified than low-risk prompt tuning
+- keep replay/observation bounded and auditable
+- preserve user governance and human override over autonomous mutation
+- treat cost and operator attention as first-class constraints, not afterthoughts
+
+#### Why this roadmap fits the current architecture
+This roadmap is a continuation of the current design direction, not a reset.
+It extends the already-established sequence:
+- observe through regression and nightly automation
+- summarize through dashboard/operator summary
+- act through triggers and refinement persistence
+- separate policy from aggregation
+- move toward evidence-bound self-governance
+
+In practical terms, it evolves the current system from a first useful governance loop into a reusable governance operating model for the broader AgentSystem platform.
+
+### 2.5.7 Practice-first governance method and architectural mapping
+The governance roadmap above is consistent with a practice-first systems method:
+- reality produces signals
+- signals become bounded evidence
+- evidence is organized into contradictions
+- contradictions are prioritized by domain and severity
+- prioritized contradictions are translated into differentiated remediation paths
+- remediation returns to practice for verification
+
+Architecturally, that maps to:
+- regression / replay / runtime observation -> practice acquisition
+- evidence digests / ledgers / automation health -> investigation and organization
+- contradiction family + signal priority -> principal-contradiction identification
+- domain-aware refinement + queue policy -> differentiated treatment
+- nightly verification + operator review + rollout evidence -> return-to-practice validation
+
+The long-term product implication is that AgentSystem should become not merely a more capable responder, but a more disciplined governed system that improves by structured confrontation with reality rather than by prompt-only improvisation.
+
 Network reachability and intelligence availability are separate concerns:
 - an app may have network but should still avoid intelligent calls by default
 - an app may be offline-capable while still carrying optional intelligent enhancements
