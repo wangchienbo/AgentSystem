@@ -74,6 +74,20 @@ def build_service(tmp_path: Path) -> RegressionNightlyControlService:
     assert signal_priority({"level": "warning", "signal": "nightly_automation_degraded"}) > signal_priority({"level": "warning", "signal": "elevated_latency"})
 
 
+def test_governance_preflight_pipeline_prioritizes_availability_before_selection() -> None:
+    from app.models.governance_preflight import GovernancePreflightContext
+    from app.system.regression_governance_policy import evaluate_governance_preflight
+
+    decision = evaluate_governance_preflight(GovernancePreflightContext(
+        recommended_queue_id=None,
+        priority_tier="primary",
+        rollout_available=False,
+        queue_status=None,
+    ))
+
+    assert decision.hold_reason == "rollout_service_unavailable"
+
+
 def test_governance_preflight_evaluator_blocks_missing_queue() -> None:
     from app.models.governance_preflight import GovernancePreflightContext
     from app.system.regression_governance_policy import evaluate_governance_preflight

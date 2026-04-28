@@ -50,8 +50,8 @@ def build_governance_preflight_decision(
         review_reason=review_reason,
     )
 
-def evaluate_governance_preflight(context: GovernancePreflightContext) -> GovernancePreflightDecision:
-    base = {
+def _preflight_base(context: GovernancePreflightContext) -> dict[str, Any]:
+    return {
         "recommended_queue_id": context.recommended_queue_id,
         "priority_tier": context.priority_tier,
         "automation_health": context.automation_health,
@@ -60,27 +60,37 @@ def evaluate_governance_preflight(context: GovernancePreflightContext) -> Govern
         "consecutive_failures": context.consecutive_failures,
     }
 
-    if not context.rollout_available:
-        return build_governance_preflight_decision(
-            base=base,
-            can_apply=False,
-            apply_risk="blocked",
-            hold_reason=PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE,
-            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
-            review_reason=PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE,
-        )
-    if not context.recommended_queue_id:
-        return build_governance_preflight_decision(
-            base=base,
-            can_apply=False,
-            apply_risk="blocked",
-            hold_reason=PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE,
-            review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
-            review_reason=PREFLIGHT_REVIEW_REASON_SELECTION_MISSING,
-        )
+
+def _availability_gate(context: GovernancePreflightContext) -> GovernancePreflightDecision | None:
+    if context.rollout_available:
+        return None
+    return build_governance_preflight_decision(
+        base=_preflight_base(context),
+        can_apply=False,
+        apply_risk="blocked",
+        hold_reason=PREFLIGHT_HOLD_ROLLOUT_SERVICE_UNAVAILABLE,
+        review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
+        review_reason=PREFLIGHT_REVIEW_REASON_SERVICE_UNAVAILABLE,
+    )
+
+
+def _selection_gate(context: GovernancePreflightContext) -> GovernancePreflightDecision | None:
+    if context.recommended_queue_id:
+        return None
+    return build_governance_preflight_decision(
+        base=_preflight_base(context),
+        can_apply=False,
+        apply_risk="blocked",
+        hold_reason=PREFLIGHT_HOLD_NO_RECOMMENDED_QUEUE,
+        review_scope=PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
+        review_reason=PREFLIGHT_REVIEW_REASON_SELECTION_MISSING,
+    )
+
+
+def _queue_state_gate(context: GovernancePreflightContext) -> GovernancePreflightDecision | None:
     if context.queue_status is None:
         return build_governance_preflight_decision(
-            base=base,
+            base=_preflight_base(context),
             can_apply=False,
             apply_risk="blocked",
             hold_reason=PREFLIGHT_HOLD_RECOMMENDED_QUEUE_MISSING,
@@ -89,7 +99,7 @@ def evaluate_governance_preflight(context: GovernancePreflightContext) -> Govern
         )
     if context.queue_status != "queued":
         return build_governance_preflight_decision(
-            base=base,
+            base=_preflight_base(context),
             can_apply=False,
             apply_risk="blocked",
             hold_reason=f"queue_status_blocked:{context.queue_status}",
@@ -97,9 +107,13 @@ def evaluate_governance_preflight(context: GovernancePreflightContext) -> Govern
             review_reason=PREFLIGHT_REVIEW_REASON_QUEUE_STATE_BLOCKED,
             queue_status=context.queue_status,
         )
+    return None
+
+
+def _automation_health_gate(context: GovernancePreflightContext) -> GovernancePreflightDecision | None:
     if context.automation_health == "degraded" or context.automation_attention_reason == "consecutive_failures":
         return build_governance_preflight_decision(
-            base=base,
+            base=_preflight_base(context),
             can_apply=False,
             apply_risk="high",
             hold_reason=PREFLIGHT_HOLD_AUTOMATION_DEGRADED_REQUIRES_REVIEW,
@@ -110,7 +124,7 @@ def evaluate_governance_preflight(context: GovernancePreflightContext) -> Govern
         )
     if context.retry_pending or context.automation_health == "warning" or context.automation_attention_reason == "retry_pending":
         return build_governance_preflight_decision(
-            base=base,
+            base=_preflight_base(context),
             can_apply=False,
             apply_risk="medium",
             hold_reason=PREFLIGHT_HOLD_AUTOMATION_RETRY_PENDING_REQUIRES_REVIEW,
@@ -119,9 +133,13 @@ def evaluate_governance_preflight(context: GovernancePreflightContext) -> Govern
             queue_status=context.queue_status,
             priority_lane=context.priority_lane,
         )
+    return None
+
+
+def _tier_gate(context: GovernancePreflightContext) -> GovernancePreflightDecision:
     if context.priority_tier == "primary":
         return build_governance_preflight_decision(
-            base=base,
+            base=_preflight_base(context),
             can_apply=True,
             apply_risk="medium",
             hold_reason=PREFLIGHT_HOLD_NONE,
@@ -132,7 +150,7 @@ def evaluate_governance_preflight(context: GovernancePreflightContext) -> Govern
         )
     if context.priority_tier == "secondary":
         return build_governance_preflight_decision(
-            base=base,
+            base=_preflight_base(context),
             can_apply=False,
             apply_risk="medium",
             hold_reason=PREFLIGHT_HOLD_SECONDARY_REQUIRES_REVIEW,
@@ -142,7 +160,7 @@ def evaluate_governance_preflight(context: GovernancePreflightContext) -> Govern
             priority_lane=context.priority_lane,
         )
     return build_governance_preflight_decision(
-        base=base,
+        base=_preflight_base(context),
         can_apply=False,
         apply_risk="high",
         hold_reason=f"priority_tier_blocked:{context.priority_tier or 'none'}",
@@ -151,6 +169,19 @@ def evaluate_governance_preflight(context: GovernancePreflightContext) -> Govern
         queue_status=context.queue_status,
         priority_lane=context.priority_lane,
     )
+
+
+def evaluate_governance_preflight(context: GovernancePreflightContext) -> GovernancePreflightDecision:
+    for stage in (
+        _availability_gate,
+        _selection_gate,
+        _queue_state_gate,
+        _automation_health_gate,
+    ):
+        decision = stage(context)
+        if decision is not None:
+            return decision
+    return _tier_gate(context)
 
 _SIGNAL_PRIORITY = {
     "nightly_automation_degraded": 40,

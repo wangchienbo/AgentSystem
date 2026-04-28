@@ -1,3 +1,32 @@
+## 2026-04-28: Refactor Governance Preflight Evaluator into Rule Pipeline
+
+### Summary
+Reworked governance preflight evaluation from a single serial branch block into an explicit staged rule pipeline inside the shared policy module, while keeping the decision contract and service/API outputs unchanged.
+
+### What Was Done
+- Updated `app/system/regression_governance_policy.py`
+  - introduced explicit stage helpers:
+    - `_availability_gate`
+    - `_selection_gate`
+    - `_queue_state_gate`
+    - `_automation_health_gate`
+    - `_tier_gate`
+  - added `_preflight_base(context)` helper to centralize shared payload fields
+  - `evaluate_governance_preflight(...)` now runs the ordered pipeline and returns the first matched blocking decision, otherwise falls through to tier evaluation
+- Kept `RegressionNightlyControlService` unchanged for this slice except for consuming the same evaluator path
+- Expanded tests
+  - added direct coverage that pipeline ordering prefers rollout availability failure before selection-missing failure
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'pipeline_prioritizes_availability_before_selection or governance_preflight_evaluator_blocks_missing_queue or auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or degraded_automation_health or retry_pending_warning'`
+  - Result: `6 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+The policy layer now has explicit stage boundaries and evaluation order instead of one growing conditional block. That makes later rule additions safer, more explainable, and easier to test because each gate now has a concrete home in the pipeline.
+
 ## 2026-04-28: Extract Governance Preflight Evaluator into Policy Module
 
 ### Summary
