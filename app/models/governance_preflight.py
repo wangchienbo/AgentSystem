@@ -27,6 +27,7 @@ class GovernancePreflightDecision(BaseModel):
     consecutive_failures: int = 0
     queue_status: str | None = None
     priority_lane: str | None = None
+    matched_stage: str = "unknown"
     can_apply: bool
     apply_risk: str
     hold_reason: str = ""

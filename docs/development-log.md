@@ -1,3 +1,35 @@
+## 2026-04-28: Add Matched-Stage Explainability to Governance Preflight Decisions
+
+### Summary
+Added explicit matched-stage explainability to governance preflight decisions so every returned decision now states which pipeline stage produced it, improving operator auditability and future UI/debug surfaces without changing gate behavior.
+
+### What Was Done
+- Updated `app/models/governance_preflight.py`
+  - added `matched_stage` to `GovernancePreflightDecision`
+- Updated `app/system/regression_governance_policy.py`
+  - extended `build_governance_preflight_decision(...)` to require `matched_stage`
+  - propagated explicit stage names from every decision path:
+    - `availability_gate`
+    - `selection_gate`
+    - `queue_state_gate`
+    - `automation_health_gate`
+    - `tier_gate`
+- Kept service integration unchanged
+  - service continues to serialize the typed decision payload as before, now including `matched_stage`
+- Expanded tests
+  - asserted `matched_stage` on representative allow and deny paths
+  - updated direct builder coverage for the new required field
+
+### Validation
+Targeted validation completed:
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_preflight_decision_builder_returns_typed_payload or pipeline_prioritizes_availability_before_selection or governance_preflight_evaluator_blocks_missing_queue or auto_apply_returns_preflight_metadata or governance_execution_preflight_blocks_secondary_selection or queue_status_blocked or degraded_automation_health or retry_pending_warning'`
+  - Result: `7 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_returns_preflight_block or nightly_trigger_can_auto_apply_governance'`
+  - Result: `2 passed`
+
+### Design Outcome
+Governance preflight decisions are now self-explanatory at the stage level. That gives later dashboards, API consumers, and operator tooling a stable audit field for explaining why a decision was allowed or blocked, without re-deriving policy intent from hold reasons alone.
+
 ## 2026-04-28: Refactor Governance Preflight Evaluator into Rule Pipeline
 
 ### Summary
