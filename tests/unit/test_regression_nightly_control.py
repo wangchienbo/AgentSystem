@@ -970,3 +970,46 @@ def test_operator_summary_exposes_governance_rollout_review_packet(tmp_path: Pat
     assert packet["recommended_action"] == "stabilize_nightly_automation_control_plane"
     assert packet["top_queue_note"] == "automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution::priority=primary"
     assert packet["automation_attention"]["reason"] == "consecutive_failures"
+
+
+def test_operator_summary_exposes_governance_rollout_review_card(tmp_path: Path) -> None:
+    from unittest.mock import patch
+    from app.models.refinement_loop import RolloutQueueItem
+    from app.system.regression_dashboard import build_regression_operator_summary
+
+    service = build_service(tmp_path)
+    memory = service._refinement_memory
+    memory.add_queue_item(RolloutQueueItem(
+        queue_id="q-primary",
+        hypothesis_id="h2",
+        proposal_id="p2",
+        app_instance_id="agent_system",
+        status="queued",
+        note="automation_control_plane::automation_recovery::stabilize_nightly_automation_control_plane::execution::priority=primary",
+    ))
+
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 1, "verification_required": 2, "clarification_required": 1},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "degraded",
+            "attention_reason": "consecutive_failures",
+            "last_tick_outcome": "failed",
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        summary = build_regression_operator_summary(memory=memory, nightly_status=nightly_status)
+
+    card = summary["refinement"]["governance"]["rollout_review_card"]
+    assert card["title"] == "Review queue item q-primary"
+    assert card["priority_tier"] == "primary"
+    assert card["recommended_action"] == "stabilize_nightly_automation_control_plane"
+    assert card["attention_reason"] == "consecutive_failures"

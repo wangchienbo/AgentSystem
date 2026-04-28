@@ -198,6 +198,7 @@ def build_regression_operator_summary(
         automation_attention=dashboard.get("automation_attention"),
         recommended_action=recommended_action,
     )
+    rollout_review_card = _build_governance_rollout_review_card(rollout_review_packet)
     recent_failed_hypotheses = live_governance.recent_failed_hypotheses.model_dump(mode="json") if live_governance is not None else {"items": [], "meta": {"total_count": metrics["failed_hypotheses"], "returned_count": 0, "filtered_count": 0, "has_more": False}}
 
     return {
@@ -223,6 +224,7 @@ def build_regression_operator_summary(
                 "prioritized_queue_view": prioritized_queue_view,
                 "rollout_selection": rollout_selection,
                 "rollout_review_packet": rollout_review_packet,
+                "rollout_review_card": rollout_review_card,
                 "family_breakdown": family_breakdown,
                 "subdomain_breakdown": subdomain_breakdown,
                 "family_queue_lane_summary": family_queue_lane_summary,
@@ -328,6 +330,34 @@ def _build_governance_rollout_review_packet(
         "top_queue_note": None if selected_item is None else selected_item.get("note"),
         "top_queue_status": None if selected_item is None else selected_item.get("status"),
         "automation_attention": automation_attention,
+    }
+
+
+def _build_governance_rollout_review_card(rollout_review_packet: dict[str, Any]) -> dict[str, Any]:
+    queue_id = rollout_review_packet.get("recommended_queue_id")
+    tier = rollout_review_packet.get("recommended_priority_tier") or "none"
+    action = rollout_review_packet.get("recommended_action") or "manual_review_required"
+    lane = rollout_review_packet.get("priority_lane") or "unclassified"
+    attention = rollout_review_packet.get("automation_attention") or {}
+    attention_reason = attention.get("reason") or "no_automation_attention"
+
+    if queue_id:
+        title = f"Review queue item {queue_id}"
+        summary = f"Prioritize {tier} governance item on lane {lane}."
+    else:
+        title = "No rollout candidate ready"
+        summary = "No queued governance candidate is currently available."
+
+    return {
+        "title": title,
+        "summary": summary,
+        "recommended_queue_id": queue_id,
+        "priority_tier": tier,
+        "recommended_action": action,
+        "priority_lane": lane,
+        "attention_reason": attention_reason,
+        "top_queue_note": rollout_review_packet.get("top_queue_note"),
+        "status": rollout_review_packet.get("top_queue_status"),
     }
 
 

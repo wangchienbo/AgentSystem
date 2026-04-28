@@ -1,3 +1,42 @@
+## 2026-04-28: Add Governance Rollout Review Card
+
+### Summary
+Built a display-friendly governance rollout review card on top of the existing rollout review packet so UI and operator consumers can render a concise review object without reassembling titles, summaries, attention signals, or queue context on the client side.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `_build_governance_rollout_review_card(...)`
+  - governance summary now exposes `rollout_review_card`
+  - card currently includes:
+    - `title`
+    - `summary`
+    - `recommended_queue_id`
+    - `priority_tier`
+    - `recommended_action`
+    - `priority_lane`
+    - `attention_reason`
+    - `top_queue_note`
+    - `status`
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added coverage proving operator summary includes a readable review card with stable title, tier, action, and attention reason
+- Expanded `tests/unit/test_http_test_server.py`
+  - operator-summary API fixture now includes `rollout_review_card`
+  - added assertions proving the card is visible on the HTTP operator surface
+
+### Design Notes
+This stays strictly on the read and presentation side:
+- no execution behavior changed
+- no queue mutation introduced
+- no persistence model changed
+- review card is a thin presentation adapter over the rollout review packet
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `61 passed in 3.98s`
+
+### Product Conclusion
+The governance chain now includes a first-class presentation object. That means downstream UI and operator clients no longer need to understand the internal packet structure just to show a useful card. This is the cleanest endpoint of the read-model phase before considering whether any part of the governance chain should influence real approval or rollout behavior.
+
 ## 2026-04-28: Lock Governance Rollout Review Packet onto HTTP Operator Surface
 
 ### Summary
