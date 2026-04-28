@@ -124,6 +124,7 @@ def build_regression_operator_summary(
     )
     triggers = build_regression_triggers(comparison_limit=comparison_limit, nightly_status=nightly_status)
     metrics = _build_refinement_metrics_from_regression(dashboard["comparison"], triggers)
+    family_breakdown = _build_family_breakdown_from_triggers(triggers)
     live_governance = None
     if memory is not None:
         live_governance = memory.get_governance_dashboard(RefinementFilter(app_instance_id=APP_INSTANCE_ID), recent_limit=5)
@@ -199,6 +200,7 @@ def build_regression_operator_summary(
                 "overview": overview,
                 "stats": stats,
                 "recent_queue": recent_queue,
+                "family_breakdown": family_breakdown,
                 "recent_failed_hypotheses": recent_failed_hypotheses,
                 "nightly_automation": nightly_status,
                 "automation_attention": dashboard.get("automation_attention"),
@@ -209,6 +211,28 @@ def build_regression_operator_summary(
     }
 
 
+
+
+def _build_family_breakdown_from_triggers(triggers: dict[str, Any]) -> dict[str, Any]:
+    trigger_list = triggers.get("triggers", [])
+    counts: dict[str, int] = {}
+    latest_items: dict[str, dict[str, Any]] = {}
+    for item in trigger_list:
+        family = item.get("family") or "unclassified"
+        counts[family] = counts.get(family, 0) + 1
+        latest_items[family] = {
+            "signal": item.get("signal"),
+            "domain": item.get("domain"),
+            "family": family,
+            "recommended_action": item.get("recommended_action"),
+            "failure_stage": item.get("failure_stage"),
+            "generated_at": item.get("generated_at"),
+        }
+    return {
+        "counts": counts,
+        "latest_items": latest_items,
+        "family_count": len(counts),
+    }
 
 
 def _build_refinement_metrics_from_regression(comparison: dict[str, Any], triggers: dict[str, Any]) -> dict[str, Any]:

@@ -1,3 +1,34 @@
+## 2026-04-28: Surface Contradiction Family Breakdown in Operator Summary
+
+### Summary
+Completed the next compatible operator-facing slice by making contradiction-family taxonomy visible in governance summary surfaces instead of leaving it only inside trigger/refinement internals.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added `_build_family_breakdown_from_triggers(...)`
+  - operator summary now emits `family_breakdown` under `refinement.governance`
+  - `family_breakdown` currently includes:
+    - per-family counts
+    - latest item per family
+    - total family count
+- Preserved compatibility by computing family breakdown from trigger outputs rather than changing refinement memory schemas or queue storage contracts
+- Expanded `tests/unit/test_regression_nightly_control.py`
+  - added operator-summary assertions for family breakdown visibility and counts
+
+### Compatibility Notes
+This slice remains additive and low-risk:
+- no refinement memory schema change
+- no queue storage format migration
+- no existing summary keys removed or renamed
+- family breakdown is derived from already-generated trigger payloads
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py tests/unit/test_http_test_server.py`
+- Result: `51 passed in 3.37s`
+
+### Product Conclusion
+The contradiction-family layer is now visible at the operator surface, not just buried in queue notes or trigger internals. That gives the governance pipeline a stable review-facing intermediate layer, which is exactly what is needed before later expansion into deeper family/subdomain breakdowns or queue-lane specialisation.
+
 ## 2026-04-28: Add Backward-Compatible Contradiction Family Taxonomy
 
 ### Summary

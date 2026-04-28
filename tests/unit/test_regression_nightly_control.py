@@ -603,3 +603,33 @@ def test_regression_dashboard_exposes_replay_observation_digest() -> None:
 
     assert dashboard["replay_observation_digest"]["total_observations"] == 2
     assert dashboard["replay_observation_digest"]["failure_stage_counts"]["evidence"] == 1
+
+
+def test_operator_summary_exposes_family_breakdown() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_operator_summary
+
+    comparison = {
+        "run_count": 3,
+        "avg_latency_ms": 6500,
+        "avg_fallback_count": 1.5,
+        "avg_overreach_risk_count": 0.7,
+        "answer_mode_totals": {"direct": 2, "verification_required": 2},
+        "verification_mode_totals": {},
+        "runs": [],
+    }
+    nightly_status = {
+        "automation_control": {
+            "automation_health": "degraded",
+            "attention_reason": "consecutive_failures",
+            "last_tick_outcome": "failed",
+        }
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {"api": []}, "run_count": 3}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]):
+        summary = build_regression_operator_summary(nightly_status=nightly_status)
+
+    breakdown = summary["refinement"]["governance"]["family_breakdown"]
+    assert breakdown["counts"]["automation_recovery"] == 1
+    assert breakdown["counts"]["execution_semantics"] >= 1
+    assert breakdown["latest_items"]["automation_recovery"]["domain"] == "automation_control_plane"
