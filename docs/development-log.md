@@ -1,3 +1,49 @@
+## 2026-04-29: App-generation phase closure summary
+
+### Summary
+Closed the current app-generation hardening phase with a final summary audit. At this point the `app_designer` path has moved from a design-only stub flow into a staged closure path that can generate design output, continue through blueprint materialization, hand off to install, and expose both success and partial-failure state in structured results.
+
+### Phase Outcome
+The current phase is considered functionally closed for this scope because the following are now in place:
+- intent analysis and design generation remain intact
+- `confirm_and_create()` now bridges into blueprint materialization instead of stopping at skill creation
+- `AppDesignResult -> AppBlueprint` has a dedicated deterministic builder contract
+- app creation results expose structured closure metadata:
+  - `blueprint_id`
+  - `install_status`
+  - `blueprint_error`
+  - `install_error`
+- validation no longer relies only on isolated mocks
+  - there is now a focused acceptance-style slice using the real design-blueprint builder
+- partial failures in the post-confirm tail are visible instead of silently swallowed
+
+### What Is Closed
+For the current phase, the following concerns are now adequately covered:
+- design generation exists and is test-backed
+- confirm-step continuation into blueprint/install exists
+- deterministic design-to-blueprint translation exists
+- structured closure state exists for upper layers
+- structured partial-failure visibility exists for operators and callers
+- focused validation exists for both success and failure slices
+
+### Remaining Boundaries (Intentionally Deferred)
+The following remain legitimate next-phase work, but they are outside this closure slice and do not block phase completion:
+- replacing the hard-coded `user_id="system"` install handoff with a caller-aware user/install context contract
+- deeper integration coverage against the real registry/install/runtime stack instead of fake installer handoff only
+- policy decisions on whether blueprint/install partial failures should continue to return `status="success"` or graduate into a richer staged-status model
+- stronger observability around skill-stub creation failures, which still degrade softly
+
+### Why This Summary Matters
+Without a formal closure summary, this workstream risks re-opening the same questions repeatedly: whether app generation actually produces a plan, whether confirm really closes into blueprint/install, and whether failures are inspectable. This summary marks those questions as answered for the current phase while clearly naming the next boundaries.
+
+### Final Validation Reference
+This phase was closed against the following focused evidence gathered across the hardening slices:
+- confirm-step blueprint/install continuation tests
+- deterministic design-blueprint builder tests
+- structured app-creation result tests
+- focused acceptance-style app-generation test slice
+- blueprint/install partial-failure visibility tests
+
 ## 2026-04-29: Surface blueprint/install partial failures in app creation results
 
 ### Summary
