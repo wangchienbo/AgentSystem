@@ -171,6 +171,84 @@ def test_app_install_manifest_dependencies_use_skill_asset_ids(tmp_path: Path) -
     assert manifest["dependencies"] == ["skill.monitor.control", "skill.monitor.collect"]
 
 
+def test_app_install_prefers_core_skill_asset_source_when_available(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "installer-core-skill-assets-store"))
+    registry = AppRegistryService(store=store)
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "installer-core-skill-assets-ns"), store=store)
+    asset_center = AssetCenter(
+        source_dir=str(tmp_path / "source"),
+        installed_dir=str(tmp_path / "installed"),
+        build_dir=str(tmp_path / "build"),
+        data_dir=str(tmp_path / "asset-data"),
+    )
+    skill_control = SkillControlService()
+    skill_control.register(
+        SkillRegistryEntry(
+            skill_id="monitor.control",
+            name="monitor.control",
+            immutable_interface=True,
+            active_version="1.0.0",
+            versions=[SkillVersion(version="1.0.0", content="monitor.control")],
+            dependencies=[],
+            capability_profile=SkillCapabilityProfile(
+                intelligence_level="L0_deterministic",
+                network_requirement="N0_none",
+                runtime_criticality="C2_required_runtime",
+                execution_locality="local",
+                invocation_default="automatic",
+                risk_level="R1_local_write",
+            ),
+            runtime_adapter="callable",
+        )
+    )
+    core_dir = tmp_path / "installer-core-skill-assets-ns" / "skill_assets" / "core" / "executable" / "monitor_control"
+    core_dir.mkdir(parents=True, exist_ok=True)
+    (core_dir / "manifest.json").write_text(json.dumps({
+        "skill_id": "monitor.control",
+        "name": "Core Monitor Control",
+        "version": "9.9.9",
+        "description": "core asset description",
+        "runtime_adapter": "executable",
+        "adapter": {"kind": "executable", "command": ["python3"], "entry": str(core_dir / "main.py")},
+        "contract": {},
+        "tags": ["core"],
+        "risk": {"risk_level": "R1_local_write"}
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    (core_dir / "metadata.json").write_text(json.dumps({
+        "skill_id": "monitor.control",
+        "asset_slug": "monitor_control",
+        "asset_status": "core",
+        "asset_origin": "generated",
+        "runtime_adapter": "executable",
+        "version": "9.9.9",
+        "content_maturity": "complete"
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    (core_dir / "main.py").write_text("print('ok')\n", encoding="utf-8")
+    (core_dir / "README.md").write_text("# Core monitor control\n", encoding="utf-8")
+    (core_dir / "input.schema.json").write_text("{}", encoding="utf-8")
+    (core_dir / "output.schema.json").write_text("{}", encoding="utf-8")
+    (core_dir / "error.schema.json").write_text("{}", encoding="utf-8")
+
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        asset_center=asset_center,
+        skill_control=skill_control,
+    )
+    registry.register_blueprint(
+        build_blueprint(
+            blueprint_id="bp.test.corepreferred",
+            name="Core Preferred App",
+        ).model_copy(update={"required_skills": ["monitor.control"]})
+    )
+
+    installer.install_app("bp.test.corepreferred", user_id="user.install")
+
+    manifest = json.loads((tmp_path / "source" / "skill.monitor.control" / "manifest.json").read_text(encoding="utf-8"))
 def test_app_design_confirm_registers_blueprint_before_real_install(tmp_path: Path) -> None:
     store = RuntimeStateStore(base_dir=str(tmp_path / "designer-installer-store"))
     registry = AppRegistryService(store=store)
@@ -262,5 +340,3 @@ def test_app_design_confirm_registers_blueprint_before_real_install(tmp_path: Pa
     assert instance.status == "installed"
     snapshot = app_config.get_snapshot("bp.designed.monitor-app:system")
     assert snapshot.values["app"]["blueprint_id"] == "bp.designed.monitor-app"
-
-

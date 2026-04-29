@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from app.models.app_instance import AppInstance
@@ -34,6 +36,14 @@ def _skill_id_to_asset_dependency(skill_id: str) -> str:
     return skill_id if skill_id.startswith("skill.") else f"skill.{skill_id}"
 
 
+def _skill_asset_slug(skill_id: str) -> str:
+    return skill_id.replace('.', '_')
+
+
+def _skill_asset_manifest_path(base_dir: Path, skill_id: str) -> Path:
+    return base_dir / "skill_assets" / "core" / "executable" / _skill_asset_slug(skill_id) / "manifest.json"
+
+
 class AppInstallerService:
     def __init__(
         self,
@@ -50,6 +60,7 @@ class AppInstallerService:
         runtime_center: Any = None,
         system_catalog: SystemCatalog | None = None,
         skill_control: SkillControlService | None = None,
+        skill_asset_base_dir: str | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -64,6 +75,8 @@ class AppInstallerService:
         self._runtime_center = runtime_center
         self._system_catalog = system_catalog
         self._skill_control = skill_control
+        store_base = getattr(getattr(data_store, "_store", None), "base_path", None)
+        self._skill_asset_base_dir = Path(skill_asset_base_dir) if skill_asset_base_dir is not None else (Path(store_base).parent if store_base is not None else None)
 
     def install_app(self, blueprint_id: str, user_id: str, app_instance_id: str | None = None) -> AppInstallResult:
         blueprint = self._registry.get_blueprint(blueprint_id)
@@ -230,6 +243,43 @@ class AppInstallerService:
 
         return {"status": "success", "app_instance_id": app_instance_id}
 
+    def _materialize_skill_asset_source_from_core(self, *, skill_id: str, asset_id: str, source_dir: Path) -> bool:
+        if self._skill_asset_base_dir is None:
+            return False
+        manifest_path = _skill_asset_manifest_path(self._skill_asset_base_dir, skill_id)
+        if not manifest_path.exists():
+            return False
+        core_dir = manifest_path.parent
+        source_dir.mkdir(parents=True, exist_ok=True)
+        skill_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = {
+            "asset_id": asset_id,
+            "asset_type": "skill",
+            "name": skill_manifest.get("name", skill_id),
+            "version": skill_manifest.get("version", "0.1.0"),
+            "entry": "main.py",
+            "owner": "system",
+            "owner_role": "admin",
+            "dependencies": [],
+            "source_path": f"source/{asset_id}",
+            "description": skill_manifest.get("description", skill_id),
+            "tags": list(skill_manifest.get("tags", [])),
+            "metadata": {
+                "skill_id": skill_id,
+                "runtime_adapter": skill_manifest.get("runtime_adapter", "executable"),
+                "source": "skill_assets_core",
+            },
+        }
+        (source_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        for name in ["main.py", "input.schema.json", "output.schema.json", "error.schema.json", "README.md"]:
+            path = core_dir / name
+            if path.exists():
+                (source_dir / name).write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+        metadata_path = core_dir / "metadata.json"
+        if metadata_path.exists():
+            (source_dir / "skill-asset-metadata.json").write_text(metadata_path.read_text(encoding="utf-8"), encoding="utf-8")
+        return True
+
     def _ensure_skill_asset_sources(self, skill_ids: list[str]) -> None:
         if self._asset_center is None or self._skill_control is None:
             return
@@ -237,11 +287,13 @@ class AppInstallerService:
             asset_id = _skill_id_to_asset_dependency(skill_id)
             if self._asset_center.get_asset(asset_id) is not None:
                 continue
+            source_dir = self._asset_center._source_dir / asset_id  # noqa: SLF001
+            if self._materialize_skill_asset_source_from_core(skill_id=skill_id, asset_id=asset_id, source_dir=source_dir):
+                continue
             try:
                 entry = self._skill_control.get_skill(skill_id)
             except Exception:
                 continue
-            source_dir = self._asset_center._source_dir / asset_id  # noqa: SLF001
             source_dir.mkdir(parents=True, exist_ok=True)
             manifest = {
                 "asset_id": asset_id,
@@ -258,11 +310,12 @@ class AppInstallerService:
                     "skill_id": entry.skill_id,
                     "runtime_adapter": entry.runtime_adapter,
                     "tags": [] if entry.manifest is None else list(entry.manifest.tags),
+                    "source": "skill_control_registry",
                 },
             }
             skill_payload = entry.model_dump(mode="json")
-            (source_dir / "manifest.json").write_text(__import__("json").dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-            (source_dir / "skill.json").write_text(__import__("json").dumps(skill_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            (source_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+            (source_dir / "skill.json").write_text(json.dumps(skill_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         self._asset_center.discover()
 
     def _ensure_asset_installed(self, blueprint) -> str:

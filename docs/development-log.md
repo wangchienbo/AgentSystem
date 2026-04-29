@@ -1,3 +1,39 @@
+## 2026-04-30: Prefer promoted core skill assets before registry fallback during app install
+
+### Summary
+The first skill-asset materialization bridge closed the source-availability gap, but it also exposed a new duplication risk: promoted `skill_assets/core` artifacts and installer-generated AssetCenter `source/skill.*` artifacts could drift if both existed independently. The next hardening step was to define precedence explicitly instead of letting the installer always synthesize fresh source manifests.
+
+### What Was Done
+- Updated `app/app_installer.py`
+  - added explicit `skill_asset_base_dir` support so the installer can resolve promoted skill assets without guessing unrelated storage internals
+  - when bridging required skills into AssetCenter source, the installer now:
+    1. checks for an existing promoted core skill asset under `skill_assets/core`
+    2. adapts that core artifact into an AssetCenter-compatible `source/skill.*` manifest and file set
+    3. falls back to minimal `SkillControlService`-derived source generation only if no core artifact exists
+  - added an adaptation layer instead of copying the skill manifest verbatim, so AssetCenter-required fields (`asset_id`, `asset_type`, `owner`, `owner_role`, `metadata`, `source_path`) are always present
+- Expanded `tests/unit/test_registry_installer.py`
+  - added focused coverage that a promoted core skill asset is preferred during app install source materialization
+  - retained fallback-path and registry/install integration coverage
+
+### Why This Matters
+This reduces the chance of dual-truth drift while still keeping the lightweight bridge approach:
+- promoted core skill assets become the higher-priority source of truth
+- registry-only synthesis remains available as a continuity fallback
+- AssetCenter no longer receives invalid copied skill manifests that fail discovery validation
+
+The effective precedence is now:
+1. `skill_assets/core`
+2. `SkillControlService` registry fallback
+
+### Validation
+- `pytest -q tests/unit/test_registry_installer.py -k 'core_skill_asset_source_when_available or materializes_missing_skill_asset_sources or skill_asset_ids or registers_blueprint_before_real_install'`
+  - Result: `3 passed, 2 deselected`
+- `python3` smoke for core skill asset precedence
+  - Result: `core-skill-asset-preferred-smoke: ok`
+
+### Remaining Boundary
+This still is not a full lifecycle unification. AssetCenter `source/` remains a derived install-time projection, while `skill_assets/core` remains the promoted skill artifact store. If later phases need a single authoritative asset graph, that should be handled as an explicit architectural merge instead of continuing with ad hoc convergence.
+
 ## 2026-04-30: Materialize missing skill assets on demand during app install
 
 ### Summary
