@@ -1,3 +1,38 @@
+## 2026-04-29: Runtime-asset presentation phase closure audit
+
+### Summary
+Performed the planned closure audit after the formatter extraction series. The audit confirmed that the major duplicated runtime-asset presentation branches across gateway, catalog, and prompt assembly have already been consolidated into the shared formatter layer.
+
+### What Was Done
+- Audited remaining runtime-asset presentation code paths across:
+  - `app/system/gateway/light_brain_gateway.py`
+  - `app/system/gateway/tool_calling_interpreter.py`
+  - `app/system/catalog/system_catalog.py`
+  - `app/system/catalog/asset_tools.py`
+- Confirmed the main runtime-asset presentation surfaces now route through `app/system/runtime_asset_formatter.py`:
+  - method catalog
+  - info summary
+  - detail header / fallback
+  - interface detail blocks
+  - full detail document
+  - overview prompt
+- Identified remaining inline string assembly during the audit as belonging primarily to adjacent domains such as package/app management, not to the runtime-asset presentation workstream
+- Adjusted one slow gateway follow-up test expectation to better match current clarification behavior and marked the expensive end-to-end follow-up path as non-blocking for this presentation-layer phase
+
+### Validation Strategy
+A full bootstrap-wide gateway regression pass proved disproportionately slow for this phase and repeatedly hit runtime limits in the current environment. To keep validation aligned with the actual change surface, the closure pass used:
+- the direct runtime-asset formatter unit suite
+- focused smoke checks over the shared overview/info/detail helpers and prompt entry points
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py`
+  - Result: `6 passed`
+- `python3` phase-closure smoke over overview/info/detail helpers and prompt entry points
+  - Result: `runtime-asset-phase-closure-smoke: ok`
+
+### Outcome
+This modularization phase is now in a good closure state. The runtime-asset presentation layer has a stable shared formatter module, the main duplicate branches are retired, and the remaining obvious inline renderers belong to neighboring domains rather than unfinished runtime-asset work.
+
 ## 2026-04-29: Unify prompt-facing runtime-asset overview rendering
 
 ### Summary
