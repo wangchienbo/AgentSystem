@@ -508,6 +508,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.services.system_catalog import SystemCatalog, CatalogEntry
     from app.services.asset_center import AssetCenter
     from app.services.runtime_center import RuntimeCenter
+    from app.system.self_iteration_asset_service import SelfIterationAssetService
     from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     system_catalog = SystemCatalog()
@@ -518,6 +519,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         data_dir=os.path.join(_project_root, "data"),
     )
     runtime_center = RuntimeCenter(data_file=os.path.join(_project_root, "data", "runtime_center.json"))
+    self_iteration_asset_service = SelfIterationAssetService(refinement_memory)
     asset_center.discover()
 
     def _register_core_runtime_assets() -> None:
@@ -561,6 +563,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 AssetCapability(name="install package", description="Install a built package", method="package_install", side_effect_level="write"),
                 AssetCapability(name="uninstall package", description="Uninstall an installed package", method="package_uninstall", side_effect_level="write"),
                 AssetCapability(name="rollback package", description="Rollback a package to a target version", method="package_rollback", side_effect_level="write"),
+            ]),
+            ("asset:self_iteration_center:v1", "self_iteration_center", "Self-iteration governance asset summaries", self_iteration_asset_service, [
+                AssetCapability(name="list self iteration assets", description="List self-iteration asset summaries", method="list_self_iteration_assets", side_effect_level="read"),
+                AssetCapability(name="query self iteration asset", description="Query one self-iteration asset summary", method="query_self_iteration_asset", side_effect_level="read"),
             ]),
         ]
         method_map_by_name = {
@@ -621,6 +627,17 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 "package_install": lambda asset_id, build_hash=None: package_manager_executor.execute("package_install", {"asset_id": asset_id, "build_hash": build_hash}).data,
                 "package_uninstall": lambda asset_id: package_manager_executor.execute("package_uninstall", {"asset_id": asset_id}).data,
                 "package_rollback": lambda asset_id, target_version: package_manager_executor.execute("package_rollback", {"asset_id": asset_id, "target_version": target_version}).data,
+            },
+            "self_iteration_center": {
+                "list_self_iteration_assets": lambda replay_session_id=None, comparison_limit=5: self_iteration_asset_service.list_self_iteration_assets(
+                    replay_session_id=replay_session_id,
+                    comparison_limit=comparison_limit,
+                ),
+                "query_self_iteration_asset": lambda asset_id, replay_session_id=None, comparison_limit=5: self_iteration_asset_service.query_self_iteration_asset(
+                    asset_id=asset_id,
+                    replay_session_id=replay_session_id,
+                    comparison_limit=comparison_limit,
+                ),
             },
             "light_brain_gateway": {
                 "list_assets": lambda filter="": asset_tool_executor.execute("list_assets", {"filter": filter}, "system").data,

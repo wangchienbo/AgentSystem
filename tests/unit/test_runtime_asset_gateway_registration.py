@@ -242,3 +242,47 @@ def test_runtime_asset_gateway_failure_flow_for_missing_method() -> None:
 
     assert response.type in {"text", "error"}
     assert "not exposed" in response.content.lower() or "未暴露" in response.content or "not wired" in response.content.lower()
+
+
+def test_bootstrap_runtime_registers_self_iteration_center_asset() -> None:
+    services = build_runtime()
+    runtime_center = services["runtime_center"]
+
+    detail = runtime_center.query_asset_info("asset:self_iteration_center:v1")
+    assert detail is not None
+    assert detail["name"] == "self_iteration_center"
+    methods = {cap["method"] for cap in detail["capabilities"]}
+    assert {"list_self_iteration_assets", "query_self_iteration_asset"}.issubset(methods)
+
+
+def test_bootstrap_runtime_self_iteration_center_method_mapping_works() -> None:
+    services = build_runtime()
+    runtime_center = services["runtime_center"]
+
+    result = runtime_center.call_asset_method(
+        "asset:self_iteration_center:v1",
+        "list_self_iteration_assets",
+        {},
+    )
+
+    assert result["ok"] is True
+    assert isinstance(result["result"], list)
+    asset_ids = {item["asset_id"] for item in result["result"]}
+    assert "self_iteration.regression_runs" in asset_ids
+    assert "self_iteration.live_observation_digest" in asset_ids
+
+
+def test_bootstrap_runtime_self_iteration_center_can_query_one_summary_asset() -> None:
+    services = build_runtime()
+    runtime_center = services["runtime_center"]
+
+    result = runtime_center.call_asset_method(
+        "asset:self_iteration_center:v1",
+        "query_self_iteration_asset",
+        {"asset_id": "self_iteration.live_observation_digest"},
+    )
+
+    assert result["ok"] is True
+    assert result["result"] is not None
+    assert result["result"]["asset_id"] == "self_iteration.live_observation_digest"
+    assert "detail" in result["result"]

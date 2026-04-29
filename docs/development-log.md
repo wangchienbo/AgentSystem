@@ -1,3 +1,32 @@
+## 2026-04-29: Expose self-iteration summaries through the runtime asset plane
+
+### Summary
+Closed the next gap after additive asset summaries by surfacing the self-iteration line through the existing runtime asset plane. Instead of inventing a new install/build chain, the system now registers a read-only runtime asset that lets model-facing callers discover and query self-iteration state through standard asset visibility and method-call flows.
+
+### What Was Done
+- Added `app/system/self_iteration_asset_service.py`
+  - wraps `build_self_iteration_asset_summaries(...)`
+  - exposes:
+    - `list_self_iteration_assets(...)`
+    - `query_self_iteration_asset(...)`
+- Updated `app/bootstrap/runtime.py`
+  - registers `asset:self_iteration_center:v1`
+  - exposes read-only runtime capabilities:
+    - `list_self_iteration_assets`
+    - `query_self_iteration_asset`
+  - wires method mappings into existing `runtime_center.call_asset_method(...)` flow
+- Expanded tests in `tests/unit/test_runtime_asset_gateway_registration.py`
+  - validated runtime registration of the new asset
+  - validated runtime method mapping can list self-iteration summary assets
+  - validated runtime method mapping can query one concrete self-iteration summary asset
+
+### Design Outcome
+This keeps the rollout compatibility-first. The five self-iteration summaries still remain additive derived views, but they are now reachable through the same runtime asset visibility/query surface already used by other model-facing system assets. That means self-iteration is no longer only “asset-shaped” internally, it is now actually exposed as an asset-plane citizen.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_gateway_registration.py -k 'self_iteration_center or light_brain_gateway_asset or core_method_mappings_work'`
+  - Result: `5 passed, 11 deselected`
+
 ## 2026-04-29: Formalize self-iteration asset summaries over governance state
 
 ### Summary
