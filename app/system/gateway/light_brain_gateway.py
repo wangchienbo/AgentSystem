@@ -37,7 +37,12 @@ from app.utils.context_upload import ContextUploadHelper
 from app.config.context_upload import ContextUploadConfig
 
 from app.services.contract_linter import ContractLinter
-from app.system.management_presenters import render_app_list, render_package_detail, render_package_list
+from app.system.management_presenters import (
+    render_app_list,
+    render_package_detail,
+    render_package_list,
+    render_package_operation_result,
+)
 from app.system.self_iteration_strategy_formatter import (
     render_self_iteration_asset_detail,
     render_self_iteration_asset_list,
@@ -1330,7 +1335,7 @@ class LightBrainGateway:
                 d = result.data
                 return ChatMessageResponse(
                     type="text",
-                    content=f"✅ 构建成功\n\n包: {d['asset_id']}\n版本: {d['version']}\nHash: {d['build_hash']}\n时间: {d['build_time']}",
+                    content=render_package_operation_result("build", d),
                     session_id=child_session_id,
                     requires_input=False,
                 )
@@ -1363,12 +1368,9 @@ class LightBrainGateway:
             result = self._package_manager_executor.execute("package_install", command.parameters)
             if result.success:
                 d = result.data
-                msg = f"✅ 安装成功\n\n包: {d['asset_id']}\n版本: {d['installed_version']}"
-                if d.get('build_hash'):
-                    msg += f"\nHash: {d['build_hash']}"
                 return ChatMessageResponse(
                     type="text",
-                    content=msg,
+                    content=render_package_operation_result("install", d),
                     session_id=child_session_id,
                     requires_input=False,
                 )
@@ -1437,7 +1439,7 @@ class LightBrainGateway:
                 d = result.data
                 return ChatMessageResponse(
                     type="text",
-                    content=f"✅ 回滚成功\n\n包: {d['asset_id']}\n回滚到: v{d['rolled_back_to']}",
+                    content=render_package_operation_result("rollback", d),
                     session_id=child_session_id,
                     requires_input=False,
                 )

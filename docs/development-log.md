@@ -1,3 +1,33 @@
+## 2026-04-29: Extract package operation result presenter
+
+### Summary
+Continued the package/app management presentation modularization by extracting the shared success-copy skeleton for package build/install/rollback operations.
+
+### What Was Done
+- Extended `app/system/management_presenters.py`
+  - added `render_package_operation_result(operation, package)`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `package_build` now delegates success rendering to the shared presenter
+  - `package_install` now delegates success rendering to the shared presenter
+  - `package_rollback` now delegates success rendering to the shared presenter
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added direct coverage for build/install/rollback success-copy rendering
+- Ran a focused smoke check for the new operation presenter
+
+### Design Outcome
+The management presentation shared layer now covers three distinct reuse shapes:
+- row-based package/app lists
+- package detail rendering
+- package operation success results
+
+This leaves uninstall and failure/error paths intentionally separate for now, which keeps the abstraction aligned with the most obviously repeated structures rather than forcing a premature universal response template.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'render_package_list or render_package_detail or render_package_operation_result or render_app_list'`
+  - Result: `2 passed, 5 deselected`
+- `python3` smoke for package operation result presenter
+  - Result: `package-operation-presenter-smoke: ok`
+
 ## 2026-04-29: Extract package detail presenter
 
 ### Summary

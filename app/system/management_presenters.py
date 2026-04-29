@@ -37,6 +37,26 @@ def render_package_detail(package: dict[str, Any]) -> str:
 
 
 
+def render_package_operation_result(operation: str, package: dict[str, Any]) -> str:
+    if operation == "build":
+        return (
+            f"✅ 构建成功\n\n"
+            f"包: {package['asset_id']}\n"
+            f"版本: {package['version']}\n"
+            f"Hash: {package['build_hash']}\n"
+            f"时间: {package['build_time']}"
+        )
+    if operation == "install":
+        lines = ["✅ 安装成功", "", f"包: {package['asset_id']}", f"版本: {package['installed_version']}"]
+        if package.get("build_hash"):
+            lines.append(f"Hash: {package['build_hash']}")
+        return "\n".join(lines)
+    if operation == "rollback":
+        return f"✅ 回滚成功\n\n包: {package['asset_id']}\n回滚到: v{package['rolled_back_to']}"
+    raise ValueError(f"unsupported package operation: {operation}")
+
+
+
 def render_app_list(apps: list[dict[str, Any]], *, header: str = "📱 你的 App 列表：\n") -> str:
     lines = [header]
     for app in apps:

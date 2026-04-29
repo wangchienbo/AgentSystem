@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from app.system.management_presenters import render_app_list, render_package_detail, render_package_list
+from app.system.management_presenters import (
+    render_app_list,
+    render_package_detail,
+    render_package_list,
+    render_package_operation_result,
+)
 from app.system.runtime_asset_formatter import (
     append_detail_fallback,
     extract_capability_methods,
@@ -48,31 +53,39 @@ def test_render_package_list_supports_installed_and_search_views() -> None:
     assert "[✅ 已安装]" in search_view
 
 
-def test_render_package_detail_includes_history_summary() -> None:
-    rendered = render_package_detail(
+def test_render_package_operation_result_supports_build_install_and_rollback() -> None:
+    build_view = render_package_operation_result(
+        "build",
         {
             "asset_id": "pkg.alpha",
-            "name": "Alpha",
-            "asset_type": "skill",
-            "source_version": "1.2.0",
-            "installed_version": "1.1.0",
-            "description": "alpha desc",
-            "build_history": [
-                {
-                    "version": "1.1.0",
-                    "build_hash": "abcdef123456",
-                    "build_time": "2026-04-29T19:00:00",
-                }
-            ],
-        }
+            "version": "1.2.0",
+            "build_hash": "abcdef123456",
+            "build_time": "2026-04-29T20:00:00",
+        },
+    )
+    install_view = render_package_operation_result(
+        "install",
+        {
+            "asset_id": "pkg.alpha",
+            "installed_version": "1.2.0",
+            "build_hash": "abcdef123456",
+        },
+    )
+    rollback_view = render_package_operation_result(
+        "rollback",
+        {
+            "asset_id": "pkg.alpha",
+            "rolled_back_to": "1.1.0",
+        },
     )
 
-    assert "📋 **Alpha**" in rendered
-    assert "源码版本: 1.2.0" in rendered
-    assert "已安装版本: 1.1.0" in rendered
-    assert "描述: alpha desc" in rendered
-    assert "构建历史 (1 次):" in rendered
-    assert "v1.1.0 hash=abcdef12 (2026-04-29T19:00)" in rendered
+    assert "✅ 构建成功" in build_view
+    assert "版本: 1.2.0" in build_view
+    assert "Hash: abcdef123456" in build_view
+    assert "✅ 安装成功" in install_view
+    assert "版本: 1.2.0" in install_view
+    assert "✅ 回滚成功" in rollback_view
+    assert "回滚到: v1.1.0" in rollback_view
 
 
     rendered = render_asset_detail_document(
