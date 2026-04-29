@@ -1,3 +1,33 @@
+## 2026-04-30: Move app-config authoritative implementation back to a tracked runtime module
+
+### Summary
+A repo-hygiene audit after the uninstall cleanup slice exposed a dangerous source-of-truth problem. The public `AppConfigService` import path eventually resolved into `app/skills/system_skills/app_config.py`, but `app/skills/` is ignored by the repository. That meant runtime behavior depended on an untracked implementation file, making config-service changes partially invisible to Git even when higher-level service modules looked stable.
+
+### What Was Done
+- Updated `app/system/runtime/app_config_service.py`
+  - restored it as the authoritative tracked implementation of `AppConfigError` and `AppConfigService`
+  - kept the newly added `delete_app_config()` cleanup behavior in the tracked runtime module
+- Updated `app/services/system_skills/app_config.py`
+  - simplified it to a clean re-export of the tracked runtime implementation
+- Left the ignored `app/skills/system_skills/app_config.py` path out of the authoritative import chain
+
+### Why This Matters
+This closes a serious auditability gap:
+- the public service import path now terminates in tracked code
+- config-service behavior no longer depends on an ignored implementation file
+- future config changes can be reviewed, committed, and traced correctly at the repository level
+
+The runtime behavior stays the same, but the source-of-truth location is now sane again.
+
+### Validation
+- `pytest -q tests/unit/test_registry_installer.py tests/unit/test_app_config_service.py tests/unit/test_system_app_config_skill.py -k 'cleanup or delete_app_config or app_config or registers_blueprint_before_real_install or uninstall_app_full'`
+  - Result: `4 passed, 5 deselected`
+- `python3` smoke for tracked app-config authoritative path
+  - Result: `app-config-authoritative-smoke: ok`
+
+### Remaining Boundary
+The ignored `app/skills/` tree still exists and may contain legacy or generated code paths. This slice only removed it from the authoritative app-config import chain. If other core runtime services also terminate inside ignored directories, they should be audited the same way rather than assuming this was an isolated case.
+
 ## 2026-04-30: Clean residual per-app state during uninstall
 
 ### Summary
