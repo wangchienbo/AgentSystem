@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 
+def render_management_availability(subject: str) -> str:
+    return f"⚠️ {subject}未加载。"
+
+
+
 def render_package_list(packages: list[dict[str, Any]], *, header: str, include_install_status: bool = False) -> str:
     lines = [header]
     for package in packages:

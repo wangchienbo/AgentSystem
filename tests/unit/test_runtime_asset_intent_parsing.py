@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.system.management_presenters import (
     render_app_list,
+    render_management_availability,
     render_management_status,
     render_package_detail,
     render_package_list,
@@ -54,10 +55,8 @@ def test_render_package_list_supports_installed_and_search_views() -> None:
     assert "[✅ 已安装]" in search_view
 
 
-def test_render_management_status_supports_failures_and_uninstall_success() -> None:
-    assert render_management_status("failure", "build", error="boom") == "❌ 构建失败: boom"
-    assert render_management_status("failure", "search", error="timeout") == "❌ 搜索失败: timeout"
-    assert render_management_status("success", "uninstall", subject="pkg.alpha") == "✅ 已卸载: pkg.alpha"
+def test_render_management_availability_outputs_module_guard_message() -> None:
+    assert render_management_availability("包管理模块") == "⚠️ 包管理模块未加载。"
 
 
     rendered = render_asset_detail_document(

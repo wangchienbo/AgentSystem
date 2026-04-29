@@ -39,6 +39,7 @@ from app.config.context_upload import ContextUploadConfig
 from app.services.contract_linter import ContractLinter
 from app.system.management_presenters import (
     render_app_list,
+    render_management_availability,
     render_management_status,
     render_package_detail,
     render_package_list,
@@ -1252,7 +1253,7 @@ class LightBrainGateway:
         self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
         
         if not self._package_manager_executor:
-            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
 
         def build_response(child_session_id: str) -> ChatMessageResponse:
             result = self._package_manager_executor.execute("package_list_installed", command.parameters)
@@ -1294,18 +1295,19 @@ class LightBrainGateway:
         self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
         
         if not self._package_manager_executor:
-            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
 
         def build_response(child_session_id: str) -> ChatMessageResponse:
             result = self._package_manager_executor.execute("package_show", command.parameters)
             if result.success:
+                d = result.data
                 return ChatMessageResponse(
                     type="text",
                     content=render_package_detail(d),
                     session_id=child_session_id,
                     requires_input=False,
                 )
-            return self._error_reply(child_session_id, f"❌ {result.error}")
+            return self._error_reply(child_session_id, render_management_status("failure", "query", error=result.error))
 
         return self._run_local_child_handler(
             parent_session_id=session_id,
@@ -1328,7 +1330,7 @@ class LightBrainGateway:
         self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
         
         if not self._package_manager_executor:
-            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
 
         def build_response(child_session_id: str) -> ChatMessageResponse:
             result = self._package_manager_executor.execute("package_build", command.parameters)
@@ -1363,7 +1365,7 @@ class LightBrainGateway:
         self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
         
         if not self._package_manager_executor:
-            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
 
         def build_response(child_session_id: str) -> ChatMessageResponse:
             result = self._package_manager_executor.execute("package_install", command.parameters)
@@ -1398,7 +1400,7 @@ class LightBrainGateway:
         self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
         
         if not self._package_manager_executor:
-            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
 
         def build_response(child_session_id: str) -> ChatMessageResponse:
             result = self._package_manager_executor.execute("package_uninstall", command.parameters)
@@ -1436,7 +1438,7 @@ class LightBrainGateway:
         self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
         
         if not self._package_manager_executor:
-            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
 
         def build_response(child_session_id: str) -> ChatMessageResponse:
             result = self._package_manager_executor.execute("package_rollback", command.parameters)
@@ -1471,7 +1473,7 @@ class LightBrainGateway:
         self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
         
         if not self._package_manager_executor:
-            return self._error_reply(session_id, "⚠️ 包管理模块未加载。")
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
 
         def build_response(child_session_id: str) -> ChatMessageResponse:
             result = self._package_manager_executor.execute("package_search", command.parameters)
