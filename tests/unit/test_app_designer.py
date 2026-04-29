@@ -23,6 +23,7 @@ from app.services.app_designer.orchestrator import (
     AppDesignOrchestrator,
     AppDesignOrchestratorError,
 )
+from app.services.design_blueprint_builder import DesignBlueprintBuilderService
 
 
 # ===========================================================================
@@ -569,20 +570,59 @@ def test_orchestrate_confirm_and_create_can_continue_to_blueprint_and_install(tm
     assert "install=installed" in result.message
 
 
-def test_orchestrate_without_skill_factory(tmp_path) -> None:
-    """Orchestrator should work without skill factory."""
+def test_orchestrate_confirm_and_create_acceptance_slice_with_real_builder(tmp_path) -> None:
     mock_analyzer = MagicMock()
     mock_architect = MagicMock()
-    orchestrator = AppDesignOrchestrator(mock_analyzer, mock_architect)
+    mock_skill_factory = MagicMock()
+    mock_skill_factory._skill_control.get_skill.side_effect = KeyError("not found")
+    mock_skill_factory.create_skill.return_value = None
+
+    class FakeInstallResult:
+        install_status = "installed"
+
+    class FakeInstaller:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        def install_app(self, blueprint_id: str, user_id: str):
+            self.calls.append((blueprint_id, user_id))
+            return FakeInstallResult()
+
+    installer = FakeInstaller()
+    orchestrator = AppDesignOrchestrator(
+        mock_analyzer,
+        mock_architect,
+        skill_factory=mock_skill_factory,
+        blueprint_builder=DesignBlueprintBuilderService(),
+        app_installer=installer,
+    )
 
     design = _make_design(
+        app_name="Monitor App",
+        app_slug="monitor-app",
+        control_skill_name="monitor.control",
+        control_skill_description="Control monitoring workflows",
         subordinate_skills=[
-            SubordinateSkillDesign(suggested_name="x", responsibility="y", scope="z"),
+            SubordinateSkillDesign(
+                suggested_name="monitor.collect",
+                responsibility="Collect metrics",
+                scope="metrics",
+                reuse_existing=None,
+            ),
         ],
+        reused_skills=["skill.existing"],
+        design_notes="Monitoring app design",
+        decomposition_plan=["collect", "report"],
     )
-    confirmation = DesignConfirmation(approved=True)
 
-    result = orchestrator.confirm_and_create(design, confirmation)
+    result = orchestrator.confirm_and_create(design, DesignConfirmation(approved=True))
 
     assert result.status == "success"
-    assert len(result.created_skill_ids) == 0  # No skill factory
+    assert result.created_skill_ids == ["skill.existing", "monitor.collect"]
+    assert result.blueprint_id == "bp.designed.monitor-app"
+    assert result.install_status == "installed"
+    assert installer.calls == [("bp.designed.monitor-app", "system")]
+    assert "blueprint=bp.designed.monitor-app" in result.message
+    assert "install=installed" in result.message
+
+

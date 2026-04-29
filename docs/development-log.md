@@ -1,3 +1,28 @@
+## 2026-04-29: Add focused app-generation acceptance slice
+
+### Summary
+Continued the app-generation closure work with a more convincing validation layer: a focused acceptance-style test that runs the confirm step with the real design-to-blueprint builder and a lightweight fake installer.
+
+### What Was Done
+- Expanded `tests/unit/test_app_designer.py`
+  - added `test_orchestrate_confirm_and_create_acceptance_slice_with_real_builder`
+- The new test exercises one fast but meaningful full chain:
+  - approved design confirmation
+  - skill creation/reuse bookkeeping
+  - real `DesignBlueprintBuilderService` materialization
+  - install handoff through a fake installer
+  - structured closure assertions on `AppCreationResult`
+- Kept the slice lightweight enough for fast feedback while still proving more than isolated mock-only interactions
+
+### Why This Matters
+Earlier validations proved the parts independently. This slice proves that the parts compose correctly in the intended order, which is much closer to the acceptance question behind “App generation does it really generate a plan and validate it?”
+
+### Validation
+- `pytest -q tests/unit/test_app_designer.py tests/unit/test_design_blueprint_builder.py -k 'acceptance_slice or confirm_and_create or design_blueprint_builder or design_app_architect_error'`
+  - Result: `7 passed, 15 deselected`
+- `python3` smoke for app-generation acceptance slice
+  - Result: `app-generation-acceptance-slice-smoke: ok`
+
 ## 2026-04-29: Structure blueprint/install state in AppCreationResult
 
 ### Summary
