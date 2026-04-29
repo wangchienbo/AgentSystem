@@ -1,3 +1,49 @@
+## 2026-04-29: Promote self_iteration_center from flat asset list to strategy entry surface
+
+### Summary
+Stepped back from isolated reply polishing and re-framed `self_iteration_center` as a whole-system strategy surface. Instead of only listing or detailing self-iteration assets, it can now expose an Observe / Summarize / Act navigation view plus a derived `recommended_next_asset`, giving model-facing callers and operators a compatible way to decide what to inspect next.
+
+### What Was Done
+- Updated `app/system/self_iteration_asset_service.py`
+  - added `get_self_iteration_strategy_overview(...)`
+  - derives a whole-system view from the existing additive assets rather than inventing a parallel data source
+  - groups the system into:
+    - `observe`: regression runs, live observation digest
+    - `summarize`: governance dashboard
+    - `act`: governance triggers, refinement backlog
+  - computes a compatibility-safe `recommended_next_asset` using current pressure ordering:
+    - governance dashboard first when risk flags exist
+    - governance triggers next when derived action signals exist
+    - refinement backlog next when queued/failed follow-up work exists
+    - live observation digest next when active user-facing evidence exists
+    - regression runs fallback when no more urgent pressure exists
+  - exposes a compact `pressure_snapshot` so downstream consumers can understand why the recommendation was made
+- Updated `app/bootstrap/runtime.py`
+  - registered new read-only runtime asset method:
+    - `get_self_iteration_strategy_overview`
+  - wired the method into `self_iteration_center` runtime method mappings
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - enriched self-iteration asset info/detail replies to describe the Observe → Summarize → Act system view
+  - added human-readable reply shaping for `get_self_iteration_strategy_overview`, including:
+    - recommended next asset
+    - recommendation reason
+    - system layer grouping
+    - compact pressure snapshot
+- Expanded tests in `tests/unit/test_runtime_asset_gateway_registration.py`
+  - validated runtime registration now includes the new strategy-overview method
+  - validated strategy overview returns `recommended_next_asset`, `system_view`, and `pressure_snapshot`
+  - validated gateway rendering emits a readable strategy summary instead of raw nested JSON
+
+### Design Outcome
+This changes the role of `self_iteration_center` from a passive asset shelf into a lightweight navigation plane for the self-iteration loop. It still does not mutate runtime state, and it does not break any existing asset schemas or existing list/query consumers. The strategy view is purely additive, but it gives the model and operator an explicit place to anchor whole-system triage decisions.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_alias or governance_asset_alias'`
+  - Result: `2 passed, 6 deselected`
+- `python3` runtime smoke for `get_self_iteration_strategy_overview` + gateway render
+  - Result: `strategy-overview-smoke: ok`
+- Note: broader bootstrap-heavy gateway registration pytest selection again encountered environment `SIGTERM`; retained the lighter direct runtime smoke to validate the new strategy method and render path without mislabeling environment kill as logic failure.
+
 ## 2026-04-29: Prioritize self-iteration asset list replies by operational urgency
 
 ### Summary

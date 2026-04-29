@@ -252,7 +252,7 @@ def test_bootstrap_runtime_registers_self_iteration_center_asset() -> None:
     assert detail is not None
     assert detail["name"] == "self_iteration_center"
     methods = {cap["method"] for cap in detail["capabilities"]}
-    assert {"list_self_iteration_assets", "query_self_iteration_asset"}.issubset(methods)
+    assert {"list_self_iteration_assets", "query_self_iteration_asset", "get_self_iteration_strategy_overview"}.issubset(methods)
 
 
 def test_bootstrap_runtime_self_iteration_center_method_mapping_works() -> None:
@@ -270,6 +270,24 @@ def test_bootstrap_runtime_self_iteration_center_method_mapping_works() -> None:
     asset_ids = {item["asset_id"] for item in result["result"]}
     assert "self_iteration.regression_runs" in asset_ids
     assert "self_iteration.live_observation_digest" in asset_ids
+
+
+def test_bootstrap_runtime_self_iteration_center_can_return_strategy_overview() -> None:
+    services = build_runtime()
+    runtime_center = services["runtime_center"]
+
+    result = runtime_center.call_asset_method(
+        "asset:self_iteration_center:v1",
+        "get_self_iteration_strategy_overview",
+        {},
+    )
+
+    assert result["ok"] is True
+    overview = result["result"]
+    assert overview["recommended_next_asset"]["asset_id"]
+    assert overview["recommended_next_asset"]["layer"] in {"observe", "summarize", "act"}
+    assert set(overview["system_view"].keys()) == {"observe", "summarize", "act"}
+    assert "pressure_snapshot" in overview
 
 
 def test_bootstrap_runtime_self_iteration_center_can_query_one_summary_asset() -> None:
@@ -300,6 +318,33 @@ def test_runtime_asset_gateway_self_iteration_info_reply_is_human_readable() -> 
     assert "self_iteration_center" in response.content
     assert "list_self_iteration_assets" in response.content
     assert "query_self_iteration_asset" in response.content
+
+
+def test_runtime_asset_gateway_self_iteration_strategy_overview_reply_is_human_readable() -> None:
+    services = build_runtime()
+    runtime_center = services["runtime_center"]
+
+    result = runtime_center.call_asset_method(
+        "asset:self_iteration_center:v1",
+        "get_self_iteration_strategy_overview",
+        {},
+    )
+    gateway = services["light_brain_gateway"]
+    rendered = gateway._render_self_iteration_asset_tool_reply(
+        type("Cmd", (), {"intent": "call_asset_method", "target_app": None})(),
+        {
+            "asset_id": "asset:self_iteration_center:v1",
+            "method": "get_self_iteration_strategy_overview",
+        },
+        result,
+    )
+
+    assert rendered is not None
+    assert "self_iteration 策略总览" in rendered
+    assert "recommended_next_asset" in rendered
+    assert "observe:" in rendered
+    assert "summarize:" in rendered
+    assert "act:" in rendered
 
 
 def test_runtime_asset_gateway_self_iteration_list_reply_is_human_readable() -> None:

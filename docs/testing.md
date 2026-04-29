@@ -96,9 +96,8 @@ Used to validate the new chat regression operator loop end to end through the HT
 - trigger hint coverage for additive `observation_topic` and `observation_lane_hint`, plus generic live-chat verification language classification that should not over-collapse into `validation`
 - refinement translation coverage ensuring observation hints reach hypothesis/novelty/verification text while existing `queue_note` shape remains unchanged
 - self-iteration asset summary coverage ensuring governance/observation/refinement state can be read through additive asset views without depending on raw file-path knowledge
-- runtime self-iteration asset exposure coverage ensuring `asset:self_iteration_center:v1` is registered and its read-only methods can list/query self-iteration summaries through the standard runtime asset plane
-- light-brain asset-intent alias coverage ensuring self-iteration/governance asset requests can resolve naturally to `asset:self_iteration_center:v1` without requiring users to spell the raw asset id
-- gateway reply-shaping coverage ensuring `self_iteration_center` queries can render operator-friendly summaries without changing the underlying runtime asset JSON contract
+- runtime self-iteration strategy-overview coverage ensuring `asset:self_iteration_center:v1` can expose a whole-system Observe/Summarize/Act navigation view plus `recommended_next_asset` without changing the existing summary asset schemas
+- gateway strategy-overview reply coverage ensuring the self-iteration strategy surface renders as operator-readable system guidance instead of raw nested payloads
 - asset-type-aware self-iteration summary coverage ensuring detail replies emphasize the right fields for observation, governance, trigger, regression, and backlog assets instead of one generic key/value dump
 - priority-ordered self-iteration list coverage ensuring governance and backlog pressure surfaces appear before lower-urgency historical views in chat-facing asset summaries
 

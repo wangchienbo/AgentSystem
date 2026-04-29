@@ -567,6 +567,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             ("asset:self_iteration_center:v1", "self_iteration_center", "Self-iteration governance asset summaries", self_iteration_asset_service, [
                 AssetCapability(name="list self iteration assets", description="List self-iteration asset summaries", method="list_self_iteration_assets", side_effect_level="read"),
                 AssetCapability(name="query self iteration asset", description="Query one self-iteration asset summary", method="query_self_iteration_asset", side_effect_level="read"),
+                AssetCapability(name="get self iteration strategy overview", description="Return the whole-system self-iteration view with recommended next asset", method="get_self_iteration_strategy_overview", side_effect_level="read"),
             ]),
         ]
         method_map_by_name = {
@@ -635,6 +636,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 ),
                 "query_self_iteration_asset": lambda asset_id, replay_session_id=None, comparison_limit=5: self_iteration_asset_service.query_self_iteration_asset(
                     asset_id=asset_id,
+                    replay_session_id=replay_session_id,
+                    comparison_limit=comparison_limit,
+                ),
+                "get_self_iteration_strategy_overview": lambda replay_session_id=None, comparison_limit=5: self_iteration_asset_service.get_self_iteration_strategy_overview(
                     replay_session_id=replay_session_id,
                     comparison_limit=comparison_limit,
                 ),

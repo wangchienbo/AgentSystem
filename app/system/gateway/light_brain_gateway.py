@@ -1047,12 +1047,27 @@ class LightBrainGateway:
             ]
             if methods:
                 lines.append(f"- methods: {', '.join(methods)}")
+            lines.append("- 系统视角: Observe(回归/在线观察) → Summarize(治理总览) → Act(trigger/backlog)")
             lines.append("- 用途: 汇总并查询 regression、observation、governance、refinement 这条自我迭代链的资产摘要")
             return "\n".join(lines)
 
         if command.intent == "call_asset_method" and isinstance(data, dict):
             method = data.get("method") or payload.get("method")
             result_payload = data.get("result")
+            if method == "get_self_iteration_strategy_overview" and isinstance(result_payload, dict):
+                recommended = result_payload.get("recommended_next_asset") if isinstance(result_payload.get("recommended_next_asset"), dict) else {}
+                pressure = result_payload.get("pressure_snapshot") if isinstance(result_payload.get("pressure_snapshot"), dict) else {}
+                system_view = result_payload.get("system_view") if isinstance(result_payload.get("system_view"), dict) else {}
+                lines = [
+                    "self_iteration 策略总览:",
+                    f"- recommended_next_asset: {recommended.get('asset_id')} ({recommended.get('layer')})",
+                    f"- reason: {recommended.get('reason')}",
+                    f"- observe: {', '.join(system_view.get('observe') or [])}",
+                    f"- summarize: {', '.join(system_view.get('summarize') or [])}",
+                    f"- act: {', '.join(system_view.get('act') or [])}",
+                    f"- pressure: risk_flags={pressure.get('risk_flag_count')}; triggers={pressure.get('trigger_count')}; queue={pressure.get('queue_count')}; failed_hypotheses={pressure.get('failed_hypothesis_count')}; observations={pressure.get('total_observations')}; runs={pressure.get('run_count')}",
+                ]
+                return "\n".join(lines)
             if method == "list_self_iteration_assets" and isinstance(result_payload, list):
                 def _priority(item: dict[str, Any]) -> tuple[int, int]:
                     detail = item.get("detail") if isinstance(item.get("detail"), dict) else {}
