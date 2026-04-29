@@ -1,3 +1,24 @@
+## 2026-04-29: Add natural-language routing aliases for self-iteration assets
+
+### Summary
+Closed the next usability gap after runtime registration by teaching the light-brain asset intent parser to naturally route self-iteration and governance asset requests into `asset:self_iteration_center:v1`. This keeps the runtime asset contract unchanged while making the new asset plane reachable through normal operator/model phrasing.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_interpreter.py`
+  - extended asset info/detail detection keywords to include self-iteration and governance asset language
+  - added default alias mapping from phrases such as `自我迭代` / `治理资产` / `self-iteration` / `governance asset` to `asset:self_iteration_center:v1`
+  - adjusted tool-aware runtime asset intent priority so detail/call requests are checked before generic asset-list requests, preventing broad `看看 + 资产` phrasing from swallowing more specific intents
+- Expanded `tests/unit/test_runtime_asset_intent_parsing.py`
+  - validated `查看自我迭代资产详情` resolves to `query_asset_info`
+  - validated `看看治理资产怎么用` resolves to `query_asset_detail`
+
+### Design Outcome
+This makes the self-iteration runtime asset practically consumable. The asset was already registered, but now natural-language model/operator turns can discover the right entry without memorizing the raw asset id. The change stays compatibility-safe because it only adds aliasing and intent-priority refinement above the existing runtime asset plane.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_alias or governance_asset_alias or tool_aware'`
+  - Result: `8 passed`
+
 ## 2026-04-29: Expose self-iteration summaries through the runtime asset plane
 
 ### Summary

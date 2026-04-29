@@ -74,3 +74,15 @@ class TestRuntimeAssetIntentParsing:
         assert cmd.parameters.get("method") == "resolve_model"
         assert cmd.requires_clarification
         assert "asset_id" in (cmd.clarification_question or "").lower() or "资产" in (cmd.clarification_question or "")
+
+    def test_self_iteration_alias_maps_to_runtime_asset_info(self):
+        cmd = self.interpreter.interpret("查看自我迭代资产详情")
+        assert cmd.intent == "query_asset_info"
+        assert cmd.parameters.get("asset_id") == "asset:self_iteration_center:v1"
+        assert not cmd.requires_clarification
+
+    def test_governance_asset_alias_maps_to_runtime_asset_detail(self):
+        cmd = self.interpreter.interpret("看看治理资产怎么用")
+        assert cmd.intent == "query_asset_detail"
+        assert cmd.parameters.get("asset_id") == "asset:self_iteration_center:v1"
+        assert not cmd.requires_clarification

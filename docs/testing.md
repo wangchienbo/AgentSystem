@@ -97,6 +97,7 @@ Used to validate the new chat regression operator loop end to end through the HT
 - refinement translation coverage ensuring observation hints reach hypothesis/novelty/verification text while existing `queue_note` shape remains unchanged
 - self-iteration asset summary coverage ensuring governance/observation/refinement state can be read through additive asset views without depending on raw file-path knowledge
 - runtime self-iteration asset exposure coverage ensuring `asset:self_iteration_center:v1` is registered and its read-only methods can list/query self-iteration summaries through the standard runtime asset plane
+- light-brain asset-intent alias coverage ensuring self-iteration/governance asset requests can resolve naturally to `asset:self_iteration_center:v1` without requiring users to spell the raw asset id
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:
