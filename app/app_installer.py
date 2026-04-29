@@ -29,6 +29,10 @@ DEFAULT_SYSTEM_SKILLS = [
 ]
 
 
+def _skill_id_to_asset_dependency(skill_id: str) -> str:
+    return skill_id if skill_id.startswith("skill.") else f"skill.{skill_id}"
+
+
 class AppInstallerService:
     def __init__(
         self,
@@ -241,7 +245,7 @@ class AppInstallerService:
             "entry": "blueprint.json",
             "owner": "system",
             "owner_role": "admin",
-            "dependencies": list(blueprint.required_skills),
+            "dependencies": [_skill_id_to_asset_dependency(skill_id) for skill_id in blueprint.required_skills],
             "source_path": f"source/{asset_id}",
             "description": blueprint.goal,
             "metadata": {

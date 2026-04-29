@@ -1,3 +1,35 @@
+## 2026-04-30: Normalize app-install skill dependencies into asset ids
+
+### Summary
+Continued the app-generation integration work by following the dependency warning that surfaced during the real registry/install slice. The root cause was a contract mismatch: app blueprints store `required_skills` as skill ids, but AssetCenter manifest dependencies are resolved as asset ids. The installer was copying raw skill ids into the asset manifest, which guaranteed false missing-dependency warnings for skills whose asset ids should be prefixed under the asset namespace.
+
+### What Was Done
+- Updated `app/app_installer.py`
+  - added a small normalization helper for manifest dependency ids
+  - app asset manifests now map blueprint `required_skills` into AssetCenter dependency ids when writing `manifest.json`
+  - examples:
+    - `monitor.control` -> `skill.monitor.control`
+    - `skill.monitor.collect` -> `skill.monitor.collect`
+- Repaired and expanded `tests/unit/test_registry_installer.py`
+  - added direct coverage that app install manifests normalize skill dependencies into asset ids
+  - preserved the existing registry/install integration coverage for app-design confirm flow
+
+### Why This Matters
+This separates two concerns cleanly:
+- blueprint/runtime contracts can continue using skill ids
+- asset installation contracts can use asset ids
+
+Without that normalization, the install path emits misleading dependency warnings even when the design output is semantically correct. The remaining warnings in isolated tests now reflect missing asset source material, not an identifier-space bug.
+
+### Validation
+- `pytest -q tests/unit/test_registry_installer.py tests/unit/test_app_designer.py -k 'skill_asset_ids or registers_blueprint_before_real_install or confirm_and_create or acceptance_slice or blueprint_failure or install_failure'`
+  - Result: `8 passed, 18 deselected`
+- `python3` smoke for manifest dependency normalization
+  - Result: `skill-dependency-manifest-smoke: ok`
+
+### Remaining Note
+If dependency warnings still appear after this change, the next thing to inspect is whether the referenced skill assets actually exist in AssetCenter source/discovery. That is a lower-layer asset availability issue, not the manifest id-mapping issue fixed here.
+
 ## 2026-04-30: Bridge app-design confirm flow into real registry-backed install
 
 ### Summary
