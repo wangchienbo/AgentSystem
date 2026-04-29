@@ -100,6 +100,7 @@ Used to validate the new chat regression operator loop end to end through the HT
 - light-brain asset-intent alias coverage ensuring self-iteration/governance asset requests can resolve naturally to `asset:self_iteration_center:v1` without requiring users to spell the raw asset id
 - gateway reply-shaping coverage ensuring `self_iteration_center` queries can render operator-friendly summaries without changing the underlying runtime asset JSON contract
 - asset-type-aware self-iteration summary coverage ensuring detail replies emphasize the right fields for observation, governance, trigger, regression, and backlog assets instead of one generic key/value dump
+- priority-ordered self-iteration list coverage ensuring governance and backlog pressure surfaces appear before lower-urgency historical views in chat-facing asset summaries
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

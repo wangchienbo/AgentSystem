@@ -311,9 +311,35 @@ def test_runtime_asset_gateway_self_iteration_list_reply_is_human_readable() -> 
     )
 
     assert response.type == "text"
-    assert "self_iteration 资产摘要列表" in response.content
+    assert "self_iteration 资产摘要列表 (按运营优先级排序)" in response.content
     assert "self_iteration.regression_runs" in response.content
     assert "self_iteration.live_observation_digest" in response.content
+
+
+def test_runtime_asset_gateway_self_iteration_list_reply_prioritizes_governance_assets() -> None:
+    services = build_runtime()
+    runtime_center = services["runtime_center"]
+    result = runtime_center.call_asset_method(
+        "asset:self_iteration_center:v1",
+        "list_self_iteration_assets",
+        {},
+    )
+    gateway = services["light_brain_gateway"]
+    rendered = gateway._render_self_iteration_asset_tool_reply(
+        type("Cmd", (), {"intent": "call_asset_method", "target_app": None})(),
+        {
+            "asset_id": "asset:self_iteration_center:v1",
+            "method": "list_self_iteration_assets",
+        },
+        result,
+    )
+
+    assert rendered is not None
+    lines = [line for line in rendered.splitlines() if line.startswith("- self_iteration.")]
+    assert lines
+    assert lines[0].startswith("- self_iteration.governance_dashboard")
+    assert any(line.startswith("- self_iteration.governance_triggers") for line in lines[:3])
+    assert any(line.startswith("- self_iteration.refinement_backlog") for line in lines[:4])
 
 
 def test_runtime_asset_gateway_self_iteration_detail_reply_uses_asset_specific_summary() -> None:

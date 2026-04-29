@@ -1054,10 +1054,28 @@ class LightBrainGateway:
             method = data.get("method") or payload.get("method")
             result_payload = data.get("result")
             if method == "list_self_iteration_assets" and isinstance(result_payload, list):
-                lines = ["self_iteration 资产摘要列表:"]
-                for item in result_payload:
-                    if not isinstance(item, dict):
-                        continue
+                def _priority(item: dict[str, Any]) -> tuple[int, int]:
+                    detail = item.get("detail") if isinstance(item.get("detail"), dict) else {}
+                    target_asset_id = item.get("asset_id")
+                    if target_asset_id == "self_iteration.governance_dashboard":
+                        return (0, -int(detail.get("risk_flag_count") or 0))
+                    if target_asset_id == "self_iteration.governance_triggers":
+                        return (1, -int(detail.get("trigger_count") or 0))
+                    if target_asset_id == "self_iteration.refinement_backlog":
+                        backlog_pressure = int(detail.get("queue_count") or 0) + int(detail.get("failed_hypothesis_count") or 0)
+                        return (2, -backlog_pressure)
+                    if target_asset_id == "self_iteration.live_observation_digest":
+                        return (3, -int(detail.get("total_observations") or 0))
+                    if target_asset_id == "self_iteration.regression_runs":
+                        return (4, -int(detail.get("run_count") or 0))
+                    return (9, 0)
+
+                ordered_assets = sorted(
+                    [item for item in result_payload if isinstance(item, dict)],
+                    key=_priority,
+                )
+                lines = ["self_iteration 资产摘要列表 (按运营优先级排序):"]
+                for item in ordered_assets:
                     lines.append(f"- {item.get('asset_id')}: {item.get('title', '')} | {item.get('summary', '')}")
                 return "\n".join(lines)
             if method == "query_self_iteration_asset" and isinstance(result_payload, dict):

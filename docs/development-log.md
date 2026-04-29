@@ -1,3 +1,32 @@
+## 2026-04-29: Prioritize self-iteration asset list replies by operational urgency
+
+### Summary
+Refined the self-iteration list view so it no longer presents summary assets in raw generation order. The gateway now derives a chat-facing priority order that surfaces governance pressure and refinement pressure before lower-urgency historical views, while preserving the underlying runtime asset payload unchanged.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - refined `list_self_iteration_assets` reply shaping inside `_render_self_iteration_asset_tool_reply(...)`
+  - added derived priority ordering for chat-facing rendering:
+    - `self_iteration.governance_dashboard`
+    - `self_iteration.governance_triggers`
+    - `self_iteration.refinement_backlog`
+    - `self_iteration.live_observation_digest`
+    - `self_iteration.regression_runs`
+  - within each tier, uses lightweight derived pressure metrics such as `risk_flag_count`, `trigger_count`, backlog pressure, observation volume, and run count
+  - leaves the underlying runtime asset method result untouched; only the rendered chat view is reordered
+- Expanded tests in `tests/unit/test_runtime_asset_gateway_registration.py`
+  - validated the rendered self-iteration list now places governance dashboard first
+  - validated governance triggers and refinement backlog appear ahead of lower-priority historical views
+
+### Design Outcome
+This pushes the self-iteration asset plane closer to an operator console mindset. Instead of merely exposing all summaries, the chat-facing list now answers a more practical question first: what deserves attention now? The compatibility boundary still holds because no schema or method contract changed, only reply-layer ordering.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_gateway_registration.py -k 'self_iteration_list_reply_prioritizes_governance_assets or self_iteration_detail_reply_uses_asset_specific_summary'`
+  - Result: `2 passed, 18 deselected`
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_alias or governance_asset_alias'`
+  - Result: `2 passed, 6 deselected`
+
 ## 2026-04-29: Add asset-type-aware operator summaries for self-iteration assets
 
 ### Summary
