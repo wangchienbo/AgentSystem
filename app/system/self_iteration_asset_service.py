@@ -4,6 +4,12 @@ from typing import Any
 
 from app.services.refinement_memory import RefinementMemoryStore
 from app.system.self_iteration_assets import build_self_iteration_asset_summaries
+from app.system.self_iteration_strategy import (
+    build_asset_query_action,
+    build_follow_up_actions,
+    build_strategy_route,
+    select_recommended_next_asset,
+)
 
 
 class SelfIterationAssetService:
@@ -49,105 +55,28 @@ class SelfIterationAssetService:
         observation_detail = observation_digest.get("detail") if isinstance(observation_digest.get("detail"), dict) else {}
         regression_detail = regression_runs.get("detail") if isinstance(regression_runs.get("detail"), dict) else {}
 
-        recommended_asset_id = "self_iteration.regression_runs"
-        recommendation_reason = "No immediate governance or backlog pressure detected, start from recent regression history."
-        recommended_layer = "observe"
-
-        if int(dashboard_detail.get("risk_flag_count") or 0) > 0:
-            recommended_asset_id = "self_iteration.governance_dashboard"
-            recommendation_reason = "Governance risk flags are active, inspect dashboard pressure before lower-priority history."
-            recommended_layer = "summarize"
-        elif int(trigger_detail.get("trigger_count") or 0) > 0:
-            recommended_asset_id = "self_iteration.governance_triggers"
-            recommendation_reason = "Derived governance triggers exist, inspect proposed act-stage work before browsing history."
-            recommended_layer = "act"
-        elif int(backlog_detail.get("queue_count") or 0) > 0 or int(backlog_detail.get("failed_hypothesis_count") or 0) > 0:
-            recommended_asset_id = "self_iteration.refinement_backlog"
-            recommendation_reason = "Refinement backlog pressure exists, inspect queued or failed follow-up work next."
-            recommended_layer = "act"
-        elif int(observation_detail.get("total_observations") or 0) > 0:
-            recommended_asset_id = "self_iteration.live_observation_digest"
-            recommendation_reason = "Live observations exist, inspect current user-facing evidence before historic regressions."
-            recommended_layer = "observe"
-
-        recommended_next_action = {
-            "asset_id": "asset:self_iteration_center:v1",
-            "method": "query_self_iteration_asset",
-            "params": {"asset_id": recommended_asset_id},
-            "reason": recommendation_reason,
+        pressure_snapshot = {
+            "risk_flag_count": int(dashboard_detail.get("risk_flag_count") or 0),
+            "trigger_count": int(trigger_detail.get("trigger_count") or 0),
+            "queue_count": int(backlog_detail.get("queue_count") or 0),
+            "failed_hypothesis_count": int(backlog_detail.get("failed_hypothesis_count") or 0),
+            "total_observations": int(observation_detail.get("total_observations") or 0),
+            "run_count": int(regression_detail.get("run_count") or 0),
         }
 
-        follow_up_actions = [
-            {
-                "asset_id": "asset:self_iteration_center:v1",
-                "method": "query_self_iteration_asset",
-                "params": {"asset_id": "self_iteration.governance_dashboard"},
-                "purpose": "Check summarized governance pressure and lane assignment.",
-            },
-            {
-                "asset_id": "asset:self_iteration_center:v1",
-                "method": "query_self_iteration_asset",
-                "params": {"asset_id": "self_iteration.governance_triggers"},
-                "purpose": "Inspect derived act-stage trigger candidates.",
-            },
-            {
-                "asset_id": "asset:self_iteration_center:v1",
-                "method": "query_self_iteration_asset",
-                "params": {"asset_id": "self_iteration.refinement_backlog"},
-                "purpose": "Review queued or failed follow-up refinement work.",
-            },
-        ]
-        follow_up_actions = [
-            action for action in follow_up_actions
-            if action["params"]["asset_id"] != recommended_asset_id
-        ]
-
-        route = [
-            {
-                "phase": recommended_layer,
-                "asset_id": recommended_asset_id,
-                "action": recommended_next_action,
-                "goal": recommendation_reason,
-            },
-        ]
-
-        if recommended_layer != "summarize":
-            route.append(
-                {
-                    "phase": "summarize",
-                    "asset_id": "self_iteration.governance_dashboard",
-                    "action": {
-                        "asset_id": "asset:self_iteration_center:v1",
-                        "method": "query_self_iteration_asset",
-                        "params": {"asset_id": "self_iteration.governance_dashboard"},
-                    },
-                    "goal": "Normalize current pressure into a governance-level summary before choosing rollout work.",
-                }
-            )
-        if recommended_layer != "act":
-            route.append(
-                {
-                    "phase": "act",
-                    "asset_id": "self_iteration.governance_triggers",
-                    "action": {
-                        "asset_id": "asset:self_iteration_center:v1",
-                        "method": "query_self_iteration_asset",
-                        "params": {"asset_id": "self_iteration.governance_triggers"},
-                    },
-                    "goal": "Inspect act-stage trigger candidates and decide what refinement work should move next.",
-                }
-            )
-        route.append(
-            {
-                "phase": "validate",
-                "asset_id": "self_iteration.live_observation_digest",
-                "action": {
-                    "asset_id": "asset:self_iteration_center:v1",
-                    "method": "query_self_iteration_asset",
-                    "params": {"asset_id": "self_iteration.live_observation_digest"},
-                },
-                "goal": "Return to live observations to validate whether the chosen action improved user-facing behavior.",
-            }
+        recommended_next_asset = select_recommended_next_asset(
+            pressure_snapshot=pressure_snapshot,
+        )
+        recommended_next_action = build_asset_query_action(
+            recommended_next_asset["asset_id"],
+            reason=recommended_next_asset["reason"],
+        )
+        follow_up_actions = build_follow_up_actions(
+            recommended_asset_id=recommended_next_asset["asset_id"],
+        )
+        route = build_strategy_route(
+            recommended_next_asset=recommended_next_asset,
+            recommended_next_action=recommended_next_action,
         )
 
         return {
@@ -164,21 +93,10 @@ class SelfIterationAssetService:
                     "self_iteration.refinement_backlog",
                 ],
             },
-            "recommended_next_asset": {
-                "asset_id": recommended_asset_id,
-                "layer": recommended_layer,
-                "reason": recommendation_reason,
-            },
+            "recommended_next_asset": recommended_next_asset,
             "recommended_next_action": recommended_next_action,
             "follow_up_actions": follow_up_actions,
             "route": route,
-            "pressure_snapshot": {
-                "risk_flag_count": int(dashboard_detail.get("risk_flag_count") or 0),
-                "trigger_count": int(trigger_detail.get("trigger_count") or 0),
-                "queue_count": int(backlog_detail.get("queue_count") or 0),
-                "failed_hypothesis_count": int(backlog_detail.get("failed_hypothesis_count") or 0),
-                "total_observations": int(observation_detail.get("total_observations") or 0),
-                "run_count": int(regression_detail.get("run_count") or 0),
-            },
+            "pressure_snapshot": pressure_snapshot,
             "assets": assets,
         }

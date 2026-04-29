@@ -1,5 +1,53 @@
 from __future__ import annotations
 
+from app.system.self_iteration_strategy import (
+    build_asset_query_action,
+    build_follow_up_actions,
+    build_strategy_route,
+    select_recommended_next_asset,
+)
+
+
+def test_select_recommended_next_asset_prefers_risk_flags() -> None:
+    recommendation = select_recommended_next_asset(
+        pressure_snapshot={
+            "risk_flag_count": 2,
+            "trigger_count": 1,
+            "queue_count": 3,
+            "failed_hypothesis_count": 1,
+            "total_observations": 4,
+            "run_count": 5,
+        }
+    )
+
+    assert recommendation["asset_id"] == "self_iteration.governance_dashboard"
+    assert recommendation["layer"] == "summarize"
+
+
+def test_build_follow_up_actions_excludes_recommended_asset() -> None:
+    actions = build_follow_up_actions(recommended_asset_id="self_iteration.governance_dashboard")
+
+    assert actions
+    assert all(action["params"]["asset_id"] != "self_iteration.governance_dashboard" for action in actions)
+
+
+def test_build_strategy_route_ends_with_validate() -> None:
+    recommended = {
+        "asset_id": "self_iteration.governance_triggers",
+        "layer": "act",
+        "reason": "trigger pressure",
+    }
+    next_action = build_asset_query_action("self_iteration.governance_triggers", reason="trigger pressure")
+
+    route = build_strategy_route(
+        recommended_next_asset=recommended,
+        recommended_next_action=next_action,
+    )
+
+    assert route[0]["phase"] == "act"
+    assert route[-1]["phase"] == "validate"
+    assert route[-1]["asset_id"] == "self_iteration.live_observation_digest"
+
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 

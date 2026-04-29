@@ -1,3 +1,37 @@
+## 2026-04-29: Refactor self-iteration strategy logic into shared builders
+
+### Summary
+Accepted the architectural correction that too much strategy logic was starting to accumulate directly inside `SelfIterationAssetService`. Extracted the common recommendation/action/route construction into a shared strategy module so the system keeps reusable policy assembly instead of growing more one-off branches.
+
+### What Was Done
+- Added `app/system/self_iteration_strategy.py`
+  - introduced shared helpers:
+    - `build_asset_query_action(...)`
+    - `select_recommended_next_asset(...)`
+    - `build_follow_up_actions(...)`
+    - `build_strategy_route(...)`
+- Updated `app/system/self_iteration_asset_service.py`
+  - reduced the service to:
+    - collect current self-iteration asset state
+    - derive one compact `pressure_snapshot`
+    - delegate recommendation/action/follow-up/route construction into the shared builder module
+  - preserved the same outward `get_self_iteration_strategy_overview(...)` contract while removing embedded ad hoc policy-building logic from the service body
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added lightweight direct coverage for the new shared strategy builders
+  - validated:
+    - risk-flag pressure prefers governance dashboard
+    - follow-up actions exclude the already-selected primary asset
+    - route construction ends in `validate`
+
+### Design Outcome
+This keeps the system modular and avoids turning `self_iteration_center` into a pile of personalized strategy branches. Shared policy builders now hold the reusable navigation logic, which makes it easier to reuse the same recommendation and route semantics in future strategy surfaces without copy-paste fragmentation.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_alias or governance_asset_alias or select_recommended_next_asset or build_follow_up_actions or build_strategy_route'`
+  - Result: `5 passed, 6 deselected`
+- `python3` runtime smoke after builder refactor
+  - Result: `strategy-builder-refactor-smoke: ok`
+
 ## 2026-04-29: Add phase-aware closed-loop route guidance to self_iteration strategy overview
 
 ### Summary
