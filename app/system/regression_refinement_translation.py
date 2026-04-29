@@ -18,30 +18,40 @@ def build_refinement_payload_from_trigger(trigger: dict[str, Any]) -> dict[str, 
     detail = trigger["detail"]
     level = trigger["level"]
     failure_stage = trigger.get("failure_stage") or "unclassified"
+    observation_topic = trigger.get("observation_topic") or ""
+    priority = trigger.get("governance_priority") or {}
+    observation_lane_hint = priority.get("observation_lane_hint") or ""
+
+    observation_suffix = ""
+    if observation_topic or observation_lane_hint:
+        parts = []
+        if observation_topic:
+            parts.append(f"observation_topic={observation_topic}")
+        if observation_lane_hint:
+            parts.append(f"observation_lane_hint={observation_lane_hint}")
+        observation_suffix = " " + "; ".join(parts) + "."
 
     if domain == "automation_control_plane":
-        priority = trigger.get("governance_priority") or {}
         priority_tier = priority.get("suggested_priority_tier") or "normal"
         priority_lane = priority.get("priority_lane") or ""
         return {
             "contradiction": f"automation_control_plane: {signal}",
-            "hypothesis": f"Stabilize automation control plane via {action}",
+            "hypothesis": f"Stabilize automation control plane via {action}" + (f" ({observation_topic})" if observation_topic else ""),
             "expected_change": f"Reduce nightly automation instability: {detail}",
-            "novelty_note": f"Automation control-plane risk should follow a recovery/stability path, not a prompt-quality path. family={family}. priority_tier={priority_tier}.",
+            "novelty_note": f"Automation control-plane risk should follow a recovery/stability path, not a prompt-quality path. family={family}. priority_tier={priority_tier}. lane={priority_lane}." + observation_suffix,
             "queue_note": f"automation_control_plane::{family}::{action}::{failure_stage}::priority={priority_tier}",
-            "verification_summary": f"Automation control-plane attention recorded for {signal}",
+            "verification_summary": f"Automation control-plane attention recorded for {signal}. {detail}" + observation_suffix,
             "verification_outcome": "failed" if level == "warning" else "inconclusive",
         }
-    priority = trigger.get("governance_priority") or {}
     priority_tier = priority.get("suggested_priority_tier") or "normal"
     priority_lane = priority.get("priority_lane") or ""
     return {
         "contradiction": f"regression_quality: {signal}",
-        "hypothesis": f"Address regression quality signal {signal} through {action}",
+        "hypothesis": f"Address regression quality signal {signal} through {action}" + (f" ({observation_topic})" if observation_topic else ""),
         "expected_change": detail,
-        "novelty_note": f"Regression-quality risk should remain in the model/tool/evidence refinement lane. family={family}. priority_tier={priority_tier}. lane={priority_lane}.",
+        "novelty_note": f"Regression-quality risk should remain in the model/tool/evidence refinement lane. family={family}. priority_tier={priority_tier}. lane={priority_lane}." + observation_suffix,
         "queue_note": f"regression_quality::{family}::{action}::{failure_stage}::priority={priority_tier}",
-        "verification_summary": detail,
+        "verification_summary": detail + observation_suffix,
         "verification_outcome": "failed" if level == "warning" else "inconclusive",
     }
 

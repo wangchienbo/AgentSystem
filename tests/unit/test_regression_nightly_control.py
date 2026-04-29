@@ -1607,3 +1607,63 @@ def test_regression_triggers_expose_observation_topic_and_lane_hint() -> None:
     assert trigger["observation_topic"] == "live_chat"
     assert trigger["governance_priority"]["observation_lane_hint"] == "answer_shaping::tighten_evidence_boundary_guard"
 
+
+
+
+def test_refinement_translation_embeds_observation_hints_without_changing_queue_note_shape() -> None:
+    from app.system.regression_refinement_translation import build_refinement_payload_from_trigger
+
+    trigger = {
+        "trigger_id": "regression-trigger-observation-1",
+        "signal": "elevated_overreach",
+        "level": "warning",
+        "domain": "model_behavior",
+        "family": "answer_shaping",
+        "subdomain_candidate": "overreach_boundary",
+        "recommended_action": "tighten_evidence_boundary_guard",
+        "detail": "live chat overreach visible on generic verification language",
+        "failure_stage": "evidence",
+        "observation_topic": "live_chat",
+        "governance_priority": {
+            "priority_lane": "answer_shaping::tighten_evidence_boundary_guard",
+            "suggested_priority_tier": "primary",
+            "observation_lane_hint": "answer_shaping::tighten_evidence_boundary_guard",
+        },
+    }
+
+    payload = build_refinement_payload_from_trigger(trigger)
+
+    assert payload["queue_note"] == "regression_quality::answer_shaping::tighten_evidence_boundary_guard::evidence::priority=primary"
+    assert "(live_chat)" in payload["hypothesis"]
+    assert "observation_topic=live_chat" in payload["novelty_note"]
+    assert "observation_lane_hint=answer_shaping::tighten_evidence_boundary_guard" in payload["novelty_note"]
+    assert "observation_topic=live_chat" in payload["verification_summary"]
+
+
+def test_persist_trigger_payloads_carries_observation_hints_into_hypothesis_text() -> None:
+    from app.services.refinement_memory import RefinementMemoryStore
+    from app.system.regression_refinement_translation import persist_trigger_payloads
+
+    memory = RefinementMemoryStore()
+    payload = persist_trigger_payloads(memory, [{
+        "trigger_id": "regression-trigger-observation-2",
+        "signal": "elevated_overreach",
+        "level": "warning",
+        "domain": "model_behavior",
+        "family": "answer_shaping",
+        "subdomain_candidate": "overreach_boundary",
+        "recommended_action": "tighten_evidence_boundary_guard",
+        "detail": "live chat overreach visible on generic verification language",
+        "failure_stage": "evidence",
+        "observation_topic": "live_chat",
+        "governance_priority": {
+            "priority_lane": "answer_shaping::tighten_evidence_boundary_guard",
+            "suggested_priority_tier": "primary",
+            "observation_lane_hint": "answer_shaping::tighten_evidence_boundary_guard",
+        },
+    }])
+
+    assert payload["created_queue_items"][0]["note"] == "regression_quality::answer_shaping::tighten_evidence_boundary_guard::evidence::priority=primary"
+    assert "observation_topic=live_chat" in payload["created_hypotheses"][0]["novelty_note"]
+    assert "(live_chat)" in payload["created_hypotheses"][0]["hypothesis"]
+

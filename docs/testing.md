@@ -94,6 +94,7 @@ Used to validate the new chat regression operator loop end to end through the HT
 - live `/api/chat` observation coverage, including post-response persistence, compatibility classification of `verification_mode=required`, and dashboard exposure of `live_chat_observation_digest`
 - trigger-side live observation consumption coverage, including merged observation digests and service-session propagation into nightly/manual governance execution
 - trigger hint coverage for additive `observation_topic` and `observation_lane_hint`, plus generic live-chat verification language classification that should not over-collapse into `validation`
+- refinement translation coverage ensuring observation hints reach hypothesis/novelty/verification text while existing `queue_note` shape remains unchanged
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

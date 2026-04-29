@@ -1,3 +1,26 @@
+## 2026-04-29: Propagate live observation hints into refinement translation text
+
+### Summary
+Closed the next real consumer on the live-observation line by propagating observation-derived hints from trigger metadata into refinement translation text surfaces. The refinement pipeline can now preserve live-chat context in hypothesis and review text without changing queue-note shape or rollout parsing assumptions.
+
+### What Was Done
+- Updated `app/system/regression_refinement_translation.py`
+  - added additive consumption of `observation_topic` and `observation_lane_hint`
+  - hypothesis text can now carry observation-topic context
+  - novelty notes and verification summaries now preserve observation-derived lane hints
+  - kept `queue_note` unchanged for compatibility with existing rollout/priority consumers
+- Expanded tests
+  - validated observation hints appear in refinement payload text
+  - validated persisted hypothesis text carries the same hints
+  - validated queue-note structural shape remains unchanged
+
+### Design Outcome
+This is the first downstream consumer beyond trigger metadata that actually preserves the live observation semantics. The system still keeps structural governance routing stable, but refinement artifacts now retain more of the evidence that caused the trigger in the first place.
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'embeds_observation_hints_without_changing_queue_note_shape or carries_observation_hints_into_hypothesis_text or expose_observation_topic_and_lane_hint'`
+  - Result: `3 passed, 54 deselected`
+
 ## 2026-04-29: Add live observation topic and lane hints to governance triggers
 
 ### Summary
