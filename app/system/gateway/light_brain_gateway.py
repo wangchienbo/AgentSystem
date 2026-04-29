@@ -42,7 +42,7 @@ from app.system.self_iteration_strategy_formatter import (
     render_self_iteration_asset_list,
     render_self_iteration_strategy_overview,
 )
-from app.system.runtime_asset_formatter import render_asset_info_summary
+from app.system.runtime_asset_formatter import render_asset_detail_document, render_asset_info_summary
 
 logger = logging.getLogger(__name__)
 
@@ -1213,39 +1213,12 @@ class LightBrainGateway:
         )
         if result.success:
             data = result.data
-            interfaces = data.get("interfaces") or data.get("methods") or {}
-            if isinstance(interfaces, list):
-                normalized_interfaces = {}
-                for item in interfaces:
-                    if isinstance(item, dict):
-                        key = item.get("name") or item.get("method") or "unknown"
-                        normalized_interfaces[key] = item
-                interfaces = normalized_interfaces
-            interface_lines = []
-            for key, info in interfaces.items():
-                info = info or {}
-                desc = info.get("description", "")
-                input_schema = info.get("input_schema") or info.get("input") or {}
-                output_schema = info.get("output_schema") or info.get("output") or {}
-                line = f"\n**{key}** - {desc}" if desc else f"\n**{key}**"
-                if input_schema:
-                    line += f"\n  输入: {json.dumps(input_schema, ensure_ascii=False)}"
-                if output_schema:
-                    line += f"\n  输出: {json.dumps(output_schema, ensure_ascii=False)}"
-                interface_lines.append(line)
-            if interface_lines:
-                content = (
-                    f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
-                    f"资产ID: {data.get('asset_id', asset_id)}\n"
-                    f"{data.get('description', '')}\n\n"
-                    f"**可用接口：**{''.join(interface_lines)}"
-                )
-            else:
-                content = (
-                    f"📋 **{data.get('name', asset_id)}** 详细使用说明\n\n"
-                    f"资产ID: {data.get('asset_id', asset_id)}\n"
-                    f"{data.get('description', '')}\n\n无可用接口"
-                )
+            content = render_asset_detail_document(
+                asset_id=str(data.get("asset_id", asset_id)),
+                asset_name=str(data.get("name", asset_id)),
+                description=str(data.get("description", "")),
+                interfaces=data.get("interfaces") or data.get("methods") or {},
+            )
             return ChatMessageResponse(
                 type="text",
                 content=content,

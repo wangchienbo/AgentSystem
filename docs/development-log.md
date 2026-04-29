@@ -1,3 +1,36 @@
+## 2026-04-29: Add shared runtime-asset detail document formatters
+
+### Summary
+Completed the next runtime-asset presentation slice by extracting the heavy `query_asset_detail` interface-document rendering out of the gateway. The repeated structure of interface name, description, input schema, and output schema is now centralized in shared formatter helpers.
+
+### What Was Done
+- Expanded `app/system/runtime_asset_formatter.py`
+  - added `render_asset_interface_details(...)`
+  - added `render_asset_detail_document(...)`
+  - restored and retained shared `render_asset_info_summary(...)` alongside the new detail-document helpers
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `_handle_query_asset_detail(...)` now delegates full asset detail text rendering into `render_asset_detail_document(...)`
+  - removed the largest remaining inline interface-document assembly block from the gateway
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added direct coverage for interface-detail rendering from list-shaped input
+  - added direct coverage for final asset detail document rendering
+- Ran a runtime smoke validation through the real `query_asset_detail` gateway path
+
+### Design Outcome
+The runtime-asset presentation layer now covers the four main repeated views with shared helpers:
+- asset method catalog
+- asset info summary
+- asset detail header / kv fallback
+- asset detail document
+
+That significantly reduces gateway-local text assembly and makes later reuse of runtime asset documentation rendering much cheaper.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'render_asset_interface_details or render_asset_detail_document or extract_capability_methods or render_asset_info_summary or render_asset_method_catalog or join_kv_pairs or render_runtime_asset_summary_list or render_runtime_asset_detail_header_and_fallback or select_recommended_next_asset or build_follow_up_actions or build_strategy_route or render_self_iteration_strategy_overview or render_self_iteration_asset_list or render_self_iteration_asset_detail'`
+  - Result: `7 passed`
+- `python3` runtime smoke for query-asset detail rendering
+  - Result: `runtime-asset-detail-document-smoke: ok`
+
 ## 2026-04-29: Add shared runtime-asset info summary helpers
 
 ### Summary

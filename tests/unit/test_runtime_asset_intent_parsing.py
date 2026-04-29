@@ -4,8 +4,10 @@ from app.system.runtime_asset_formatter import (
     append_detail_fallback,
     extract_capability_methods,
     join_kv_pairs,
+    render_asset_detail_document,
     render_asset_detail_header,
     render_asset_info_summary,
+    render_asset_interface_details,
     render_asset_method_catalog,
     render_asset_summary_list,
 )
@@ -24,30 +26,42 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
 
-def test_extract_capability_methods_respects_limit() -> None:
-    methods = extract_capability_methods(
+def test_render_asset_interface_details_supports_list_input() -> None:
+    rendered = render_asset_interface_details(
         [
-            {"method": "foo"},
-            {"method": "bar"},
-            {"method": "baz"},
-        ],
-        limit=2,
+            {
+                "method": "query_asset",
+                "description": "查询资产",
+                "input_schema": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
+                "output_schema": {"type": "object", "properties": {"ok": {"type": "boolean"}}},
+            }
+        ]
     )
 
-    assert methods == ["foo", "bar"]
+    assert rendered
+    assert "**query_asset** - 查询资产" in rendered[0]
+    assert "输入:" in rendered[0]
+    assert "输出:" in rendered[0]
 
 
-def test_render_asset_info_summary_outputs_methods_and_extra_lines() -> None:
-    rendered = render_asset_info_summary(
-        asset_id="asset:self_iteration_center:v1",
-        intro="self_iteration_center 是自我迭代资产入口。",
-        capabilities=[{"method": "list_self_iteration_assets"}, {"method": "query_self_iteration_asset"}],
-        extra_lines=["- 用途: 汇总并查询资产摘要"],
+def test_render_asset_detail_document_outputs_interface_section() -> None:
+    rendered = render_asset_detail_document(
+        asset_id="asset:test:v1",
+        asset_name="Test Asset",
+        description="用于测试",
+        interfaces={
+            "query_asset": {
+                "description": "查询资产",
+                "input_schema": {"type": "object"},
+                "output_schema": {"type": "object"},
+            }
+        },
     )
 
-    assert "asset:self_iteration_center:v1" in rendered
-    assert "methods: list_self_iteration_assets, query_self_iteration_asset" in rendered
-    assert "用途: 汇总并查询资产摘要" in rendered
+    assert "📋 **Test Asset** 详细使用说明" in rendered
+    assert "资产ID: asset:test:v1" in rendered
+    assert "**可用接口：**" in rendered
+    assert "**query_asset** - 查询资产" in rendered
 
 
 def test_render_runtime_asset_summary_list_outputs_header_and_items() -> None:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from typing import Any, Callable, Iterable
 
 
@@ -72,6 +74,13 @@ def render_asset_method_catalog(
     if max_items is not None and len(assets) > max_items and overflow_template:
         lines.append(overflow_template.format(extra=len(assets) - max_items))
 
+    if footer:
+        lines.append("")
+        lines.append(footer)
+
+    return "\n".join(lines)
+
+
 def render_asset_info_summary(
     *,
     asset_id: str,
@@ -88,3 +97,52 @@ def render_asset_info_summary(
         lines.append(f"- methods: {', '.join(methods)}")
     lines.extend(extra_lines or [])
     return "\n".join(lines)
+
+
+def render_asset_interface_details(
+    interfaces: dict[str, Any] | list[dict[str, Any]] | None,
+) -> list[str]:
+    normalized_interfaces: dict[str, Any] = {}
+    if isinstance(interfaces, list):
+        for item in interfaces:
+            if isinstance(item, dict):
+                key = item.get("name") or item.get("method") or "unknown"
+                normalized_interfaces[str(key)] = item
+    elif isinstance(interfaces, dict):
+        normalized_interfaces = interfaces
+
+    interface_lines = []
+    for key, info in normalized_interfaces.items():
+        info = info or {}
+        desc = info.get("description", "") if isinstance(info, dict) else ""
+        input_schema = info.get("input_schema") or info.get("input") or {} if isinstance(info, dict) else {}
+        output_schema = info.get("output_schema") or info.get("output") or {} if isinstance(info, dict) else {}
+        line = f"\n**{key}** - {desc}" if desc else f"\n**{key}**"
+        if input_schema:
+            line += f"\n  输入: {json.dumps(input_schema, ensure_ascii=False)}"
+        if output_schema:
+            line += f"\n  输出: {json.dumps(output_schema, ensure_ascii=False)}"
+        interface_lines.append(line)
+    return interface_lines
+
+
+def render_asset_detail_document(
+    *,
+    asset_id: str,
+    asset_name: str,
+    description: str,
+    interfaces: dict[str, Any] | list[dict[str, Any]] | None,
+) -> str:
+    interface_lines = render_asset_interface_details(interfaces)
+    if interface_lines:
+        return (
+            f"📋 **{asset_name}** 详细使用说明\n\n"
+            f"资产ID: {asset_id}\n"
+            f"{description}\n\n"
+            f"**可用接口：**{''.join(interface_lines)}"
+        )
+    return (
+        f"📋 **{asset_name}** 详细使用说明\n\n"
+        f"资产ID: {asset_id}\n"
+        f"{description}\n\n无可用接口"
+    )
