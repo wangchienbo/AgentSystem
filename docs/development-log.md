@@ -1,3 +1,28 @@
+## 2026-04-29: Formalize self-iteration asset summaries over governance state
+
+### Summary
+Shifted the self-iteration line from pure internal read models toward explicit asset semantics. This slice does not yet register the assets into a global visibility plane, but it establishes a compatibility-safe asset summary layer over regression history, live observation digest, governance dashboard/triggers, and refinement backlog.
+
+### What Was Done
+- Added `app/system/self_iteration_assets.py`
+  - introduced `build_self_iteration_asset_summaries(...)`
+  - emits additive asset summaries for:
+    - `self_iteration.regression_runs`
+    - `self_iteration.live_observation_digest`
+    - `self_iteration.governance_dashboard`
+    - `self_iteration.governance_triggers`
+    - `self_iteration.refinement_backlog`
+  - derives model-friendly summary fields such as observation `topic_counts` and top trigger signals so consumers do not need file-level reconstruction
+- Expanded tests
+  - validated the self-iteration asset layer exposes governance and live-observation views from real persisted observation input
+
+### Design Outcome
+This establishes the first explicit asset-side representation of the self-upgrade line. The persistence truth still lives in logs and refinement memory, but downstream consumers can now reason over self-iteration state as a compact asset set instead of coupling directly to internal files and builder functions.
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'self_iteration_asset_summaries_expose_governance_and_observation_views or embeds_observation_hints_without_changing_queue_note_shape'`
+  - Result: `2 passed, 56 deselected`
+
 ## 2026-04-29: Propagate live observation hints into refinement translation text
 
 ### Summary

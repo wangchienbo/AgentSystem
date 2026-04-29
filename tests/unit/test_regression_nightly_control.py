@@ -38,8 +38,9 @@ from app.system.regression_governance_observation import (
     build_observation_record,
     build_replay_observation_digest,
 )
-from app.system.chat_observation import build_chat_observation_digest, persist_chat_observation
+from app.system.chat_observation import build_chat_observation_digest, build_chat_observation_probe, persist_chat_observation
 from app.system.regression_refinement_translation import build_refinement_payload_from_trigger
+from app.system.self_iteration_assets import build_self_iteration_asset_summaries
 
 
 def build_service(tmp_path: Path) -> RegressionNightlyControlService:
@@ -1666,4 +1667,39 @@ def test_persist_trigger_payloads_carries_observation_hints_into_hypothesis_text
     assert payload["created_queue_items"][0]["note"] == "regression_quality::answer_shaping::tighten_evidence_boundary_guard::evidence::priority=primary"
     assert "observation_topic=live_chat" in payload["created_hypotheses"][0]["novelty_note"]
     assert "(live_chat)" in payload["created_hypotheses"][0]["hypothesis"]
+
+
+
+
+def test_self_iteration_asset_summaries_expose_governance_and_observation_views(tmp_path: Path) -> None:
+    memory = build_runtime(
+        runtime_store_base_dir=str(tmp_path / "runtime"),
+        app_data_base_dir=str(tmp_path / "namespaces"),
+    )["refinement_memory"]
+
+    persist_chat_observation(probe=build_chat_observation_probe(
+        request="这个事情需要再验证一下吗",
+        response="需要进一步验证后再判断",
+        success=True,
+        latency_ms=120,
+        session_id="svc-session-1",
+        structured_answer={"self_model": {"answer_mode": "verification_required", "verification_mode": "required"}},
+    ))
+
+    assets = build_self_iteration_asset_summaries(memory=memory, replay_session_id="svc-session-1")
+
+    asset_ids = {item["asset_id"] for item in assets}
+    assert "self_iteration.regression_runs" in asset_ids
+    assert "self_iteration.live_observation_digest" in asset_ids
+    assert "self_iteration.governance_dashboard" in asset_ids
+    assert "self_iteration.governance_triggers" in asset_ids
+    assert "self_iteration.refinement_backlog" in asset_ids
+
+    observation_asset = next(item for item in assets if item["asset_id"] == "self_iteration.live_observation_digest")
+    assert observation_asset["detail"]["total_observations"] >= 1
+    assert observation_asset["detail"]["topic_counts"]["live_chat"] >= 1
+
+    trigger_asset = next(item for item in assets if item["asset_id"] == "self_iteration.governance_triggers")
+    assert "trigger_count" in trigger_asset["detail"]
+    assert isinstance(trigger_asset["detail"]["top_signals"], list)
 

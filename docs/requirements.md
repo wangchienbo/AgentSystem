@@ -204,6 +204,7 @@ The chat regression subsystem must support:
 - allowing nightly/manual regression governance execution to consume service-session live chat observations as additive evidence input, so trigger failure-stage derivation can reflect both fixed regression probes and real user-path observation truth
 - exposing additive `observation_topic` and `observation_lane_hint` on trigger read models so real live-chat evidence can refine downstream priority-lane interpretation without changing the base signal-family schema
 - propagating those observation-derived hints into refinement translation text surfaces such as hypothesis, novelty note, and verification summary, while keeping queue-note shape stable for rollout compatibility
+- formalizing additive self-iteration asset summaries over regression runs, live observation digest, governance dashboard, governance triggers, and refinement backlog so the self-upgrade line is represented as model-consumable assets instead of only as internal files/functions
 
 The subsystem should treat regression as an operator loop with three layers:
 - **Observe**: run, latest, runs, run detail, compare, trends, evidence history
