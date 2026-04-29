@@ -57,6 +57,24 @@ def render_package_operation_result(operation: str, package: dict[str, Any]) -> 
 
 
 
+def render_management_status(kind: str, operation: str, subject: str | None = None, error: str | None = None) -> str:
+    if kind == "success" and operation == "uninstall":
+        return f"✅ 已卸载: {subject or 'unknown'}"
+    if kind == "failure":
+        label_map = {
+            "query": "查询",
+            "build": "构建",
+            "install": "安装",
+            "uninstall": "卸载",
+            "rollback": "回滚",
+            "search": "搜索",
+        }
+        label = label_map.get(operation, operation)
+        return f"❌ {label}失败: {error or 'unknown error'}"
+    raise ValueError(f"unsupported management status: kind={kind}, operation={operation}")
+
+
+
 def render_app_list(apps: list[dict[str, Any]], *, header: str = "📱 你的 App 列表：\n") -> str:
     lines = [header]
     for app in apps:

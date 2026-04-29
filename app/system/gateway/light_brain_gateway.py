@@ -39,6 +39,7 @@ from app.config.context_upload import ContextUploadConfig
 from app.services.contract_linter import ContractLinter
 from app.system.management_presenters import (
     render_app_list,
+    render_management_status,
     render_package_detail,
     render_package_list,
     render_package_operation_result,
@@ -1270,7 +1271,7 @@ class LightBrainGateway:
                     session_id=child_session_id,
                     requires_input=False,
                 )
-            return self._error_reply(child_session_id, f"❌ 查询失败: {result.error}")
+            return self._error_reply(child_session_id, render_management_status("failure", "query", error=result.error))
 
         return self._run_local_child_handler(
             parent_session_id=session_id,
@@ -1339,7 +1340,7 @@ class LightBrainGateway:
                     session_id=child_session_id,
                     requires_input=False,
                 )
-            return self._error_reply(child_session_id, f"❌ 构建失败: {result.error}")
+            return self._error_reply(child_session_id, render_management_status("failure", "build", error=result.error))
 
         return self._run_local_child_handler(
             parent_session_id=session_id,
@@ -1374,7 +1375,7 @@ class LightBrainGateway:
                     session_id=child_session_id,
                     requires_input=False,
                 )
-            return self._error_reply(child_session_id, f"❌ 安装失败: {result.error}")
+            return self._error_reply(child_session_id, render_management_status("failure", "install", error=result.error))
 
         return self._run_local_child_handler(
             parent_session_id=session_id,
@@ -1404,11 +1405,15 @@ class LightBrainGateway:
             if result.success:
                 return ChatMessageResponse(
                     type="text",
-                    content=f"✅ 已卸载: {command.parameters.get('asset_id', 'unknown')}",
+                    content=render_management_status(
+                        "success",
+                        "uninstall",
+                        subject=command.parameters.get("asset_id", "unknown"),
+                    ),
                     session_id=child_session_id,
                     requires_input=False,
                 )
-            return self._error_reply(child_session_id, f"❌ 卸载失败: {result.error}")
+            return self._error_reply(child_session_id, render_management_status("failure", "uninstall", error=result.error))
 
         return self._run_local_child_handler(
             parent_session_id=session_id,
@@ -1443,7 +1448,7 @@ class LightBrainGateway:
                     session_id=child_session_id,
                     requires_input=False,
                 )
-            return self._error_reply(child_session_id, f"❌ 回滚失败: {result.error}")
+            return self._error_reply(child_session_id, render_management_status("failure", "rollback", error=result.error))
 
         return self._run_local_child_handler(
             parent_session_id=session_id,
@@ -1489,7 +1494,7 @@ class LightBrainGateway:
                     session_id=child_session_id,
                     requires_input=False,
                 )
-            return self._error_reply(child_session_id, f"❌ 搜索失败: {result.error}")
+            return self._error_reply(child_session_id, render_management_status("failure", "search", error=result.error))
 
         return self._run_local_child_handler(
             parent_session_id=session_id,

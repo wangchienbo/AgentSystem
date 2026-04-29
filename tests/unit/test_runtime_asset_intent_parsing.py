@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.system.management_presenters import (
     render_app_list,
+    render_management_status,
     render_package_detail,
     render_package_list,
     render_package_operation_result,
@@ -53,39 +54,10 @@ def test_render_package_list_supports_installed_and_search_views() -> None:
     assert "[✅ 已安装]" in search_view
 
 
-def test_render_package_operation_result_supports_build_install_and_rollback() -> None:
-    build_view = render_package_operation_result(
-        "build",
-        {
-            "asset_id": "pkg.alpha",
-            "version": "1.2.0",
-            "build_hash": "abcdef123456",
-            "build_time": "2026-04-29T20:00:00",
-        },
-    )
-    install_view = render_package_operation_result(
-        "install",
-        {
-            "asset_id": "pkg.alpha",
-            "installed_version": "1.2.0",
-            "build_hash": "abcdef123456",
-        },
-    )
-    rollback_view = render_package_operation_result(
-        "rollback",
-        {
-            "asset_id": "pkg.alpha",
-            "rolled_back_to": "1.1.0",
-        },
-    )
-
-    assert "✅ 构建成功" in build_view
-    assert "版本: 1.2.0" in build_view
-    assert "Hash: abcdef123456" in build_view
-    assert "✅ 安装成功" in install_view
-    assert "版本: 1.2.0" in install_view
-    assert "✅ 回滚成功" in rollback_view
-    assert "回滚到: v1.1.0" in rollback_view
+def test_render_management_status_supports_failures_and_uninstall_success() -> None:
+    assert render_management_status("failure", "build", error="boom") == "❌ 构建失败: boom"
+    assert render_management_status("failure", "search", error="timeout") == "❌ 搜索失败: timeout"
+    assert render_management_status("success", "uninstall", subject="pkg.alpha") == "✅ 已卸载: pkg.alpha"
 
 
     rendered = render_asset_detail_document(

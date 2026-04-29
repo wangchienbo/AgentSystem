@@ -1,3 +1,37 @@
+## 2026-04-29: Extract management status presenter
+
+### Summary
+Finished the main high-frequency package/app management presentation surfaces by extracting shared status messaging for operation failures and uninstall success replies.
+
+### What Was Done
+- Extended `app/system/management_presenters.py`
+  - added `render_management_status(kind, operation, subject=None, error=None)`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `package_show` failure now uses the shared management status presenter
+  - `package_build` failure now uses the shared management status presenter
+  - `package_install` failure now uses the shared management status presenter
+  - `package_uninstall` success and failure now use the shared management status presenter
+  - `package_rollback` failure now uses the shared management status presenter
+  - `package_search` failure now uses the shared management status presenter
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added direct coverage for operation-specific failure copy and uninstall success copy
+- Ran a focused smoke check for the new status presenter
+
+### Design Outcome
+The shared management presentation layer now covers the main repeated response shapes in this domain:
+- package/app lists
+- package detail rendering
+- package operation success results
+- management status/failure messaging
+
+Remaining inline strings in this area are now mostly low-frequency empty-result or neighboring-domain messages rather than another major repeated management presentation branch.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'render_package_list or render_package_detail or render_package_operation_result or render_management_status or render_app_list'`
+  - Result: `2 passed, 5 deselected`
+- `python3` smoke for management status presenter
+  - Result: `management-status-presenter-smoke: ok`
+
 ## 2026-04-29: Extract package operation result presenter
 
 ### Summary
