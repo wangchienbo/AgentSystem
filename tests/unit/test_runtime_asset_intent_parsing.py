@@ -6,7 +6,11 @@ from app.system.self_iteration_strategy import (
     build_strategy_route,
     select_recommended_next_asset,
 )
-from app.system.self_iteration_strategy_formatter import render_self_iteration_strategy_overview
+from app.system.self_iteration_strategy_formatter import (
+    render_self_iteration_asset_detail,
+    render_self_iteration_asset_list,
+    render_self_iteration_strategy_overview,
+)
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
@@ -52,67 +56,46 @@ def test_build_strategy_route_ends_with_validate() -> None:
     assert route[-1]["asset_id"] == "self_iteration.live_observation_digest"
 
 
-def test_render_self_iteration_strategy_overview_outputs_route_and_follow_up() -> None:
-    rendered = render_self_iteration_strategy_overview(
-        {
-            "recommended_next_asset": {
+def test_render_self_iteration_asset_list_orders_governance_first() -> None:
+    rendered = render_self_iteration_asset_list(
+        [
+            {
+                "asset_id": "self_iteration.regression_runs",
+                "title": "Regression run history",
+                "summary": "5 saved runs",
+                "detail": {"run_count": 5},
+            },
+            {
                 "asset_id": "self_iteration.governance_dashboard",
-                "layer": "summarize",
-                "reason": "risk flags",
+                "title": "Governance dashboard",
+                "summary": "2 risk flags",
+                "detail": {"risk_flag_count": 2},
             },
-            "recommended_next_action": {
-                "asset_id": "asset:self_iteration_center:v1",
-                "method": "query_self_iteration_asset",
-                "params": {"asset_id": "self_iteration.governance_dashboard"},
-            },
-            "follow_up_actions": [
-                {
-                    "method": "query_self_iteration_asset",
-                    "params": {"asset_id": "self_iteration.governance_triggers"},
-                    "purpose": "inspect triggers",
-                }
-            ],
-            "route": [
-                {
-                    "phase": "summarize",
-                    "action": {
-                        "method": "query_self_iteration_asset",
-                        "params": {"asset_id": "self_iteration.governance_dashboard"},
-                    },
-                    "goal": "review governance",
-                },
-                {
-                    "phase": "validate",
-                    "action": {
-                        "method": "query_self_iteration_asset",
-                        "params": {"asset_id": "self_iteration.live_observation_digest"},
-                    },
-                    "goal": "validate outcome",
-                },
-            ],
-            "pressure_snapshot": {
-                "risk_flag_count": 2,
-                "trigger_count": 1,
-                "queue_count": 0,
-                "failed_hypothesis_count": 0,
+        ]
+    )
+
+    lines = [line for line in rendered.splitlines() if line.startswith("- self_iteration.")]
+    assert lines[0].startswith("- self_iteration.governance_dashboard")
+
+
+def test_render_self_iteration_asset_detail_outputs_asset_specific_summary() -> None:
+    rendered = render_self_iteration_asset_detail(
+        {
+            "asset_id": "self_iteration.live_observation_digest",
+            "title": "Live chat observation digest",
+            "summary": "5 observations",
+            "detail": {
                 "total_observations": 5,
-                "run_count": 3,
-            },
-            "system_view": {
-                "observe": ["self_iteration.live_observation_digest"],
-                "summarize": ["self_iteration.governance_dashboard"],
-                "act": ["self_iteration.governance_triggers"],
+                "topic_counts": {"hallucination": 2},
             },
         }
     )
 
-    assert "self_iteration 策略总览" in rendered
-    assert "route[summarize]" in rendered
-    assert "follow_up:" in rendered
-    assert "pressure:" in rendered
+    assert "self_iteration.live_observation_digest" in rendered
+    assert "total_observations=5" in rendered
+    assert "topic_counts" in rendered
 
 
-class TestRuntimeAssetIntentParsing:
     def setup_method(self):
         self.interpreter = LightBrainInterpreter()
         registry = ToolRegistry()

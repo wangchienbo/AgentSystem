@@ -1,3 +1,36 @@
+## 2026-04-29: Extract self-iteration asset list/detail formatting from gateway
+
+### Summary
+Completed the next formatter extraction pass by moving self-iteration asset list and asset detail reply shaping out of the gateway body. This finishes the main self-iteration reply surface split: overview, list, and detail now all render through shared formatter helpers.
+
+### What Was Done
+- Expanded `app/system/self_iteration_strategy_formatter.py`
+  - added `render_self_iteration_asset_list(...)`
+  - added `render_self_iteration_asset_detail(...)`
+  - moved asset summary priority ordering into the shared formatter module
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - replaced inline `list_self_iteration_assets` rendering with formatter delegation
+  - replaced inline `query_self_iteration_asset` rendering with formatter delegation
+  - kept gateway responsibility focused on method dispatch instead of self-iteration presentation branching
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - validated list rendering preserves governance-first ordering
+  - validated detail rendering preserves asset-specific summary output
+- Ran runtime smoke checks through the real runtime/gateway path for both list and detail rendering
+
+### Design Outcome
+The self-iteration rendering split is now much cleaner:
+- strategy builders assemble action policy
+- formatter helpers shape operator-facing text
+- gateway dispatches calls and selects the right formatter
+
+That materially reduces the chance that future self-iteration changes reintroduce gateway-local branching or duplicated presentation logic.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_alias or governance_asset_alias or select_recommended_next_asset or build_follow_up_actions or build_strategy_route or render_self_iteration_strategy_overview or render_self_iteration_asset_list or render_self_iteration_asset_detail'`
+  - Result: `5 passed`
+- `python3` runtime smoke for list/detail formatter delegation
+  - Result: `strategy-list-detail-formatter-smoke: ok`
+
 ## 2026-04-29: Extract self-iteration strategy reply formatting from gateway
 
 ### Summary

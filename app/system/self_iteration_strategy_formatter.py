@@ -35,3 +35,66 @@ def render_self_iteration_strategy_overview(result_payload: dict[str, Any]) -> s
             f"- follow_up: {action.get('method')} params={action.get('params')} | {action.get('purpose')}"
         )
     return "\n".join(lines)
+
+
+def _priority(item: dict[str, Any]) -> tuple[int, int]:
+    detail = item.get("detail") if isinstance(item.get("detail"), dict) else {}
+    target_asset_id = item.get("asset_id")
+    if target_asset_id == "self_iteration.governance_dashboard":
+        return (0, -int(detail.get("risk_flag_count") or 0))
+    if target_asset_id == "self_iteration.governance_triggers":
+        return (1, -int(detail.get("trigger_count") or 0))
+    if target_asset_id == "self_iteration.refinement_backlog":
+        backlog_pressure = int(detail.get("queue_count") or 0) + int(detail.get("failed_hypothesis_count") or 0)
+        return (2, -backlog_pressure)
+    if target_asset_id == "self_iteration.live_observation_digest":
+        return (3, -int(detail.get("total_observations") or 0))
+    if target_asset_id == "self_iteration.regression_runs":
+        return (4, -int(detail.get("run_count") or 0))
+    return (9, 0)
+
+
+def render_self_iteration_asset_list(result_payload: list[dict[str, Any]]) -> str:
+    ordered_assets = sorted(
+        [item for item in result_payload if isinstance(item, dict)],
+        key=_priority,
+    )
+    lines = ["self_iteration 资产摘要列表 (按运营优先级排序):"]
+    for item in ordered_assets:
+        lines.append(f"- {item.get('asset_id')}: {item.get('title', '')} | {item.get('summary', '')}")
+    return "\n".join(lines)
+
+
+def render_self_iteration_asset_detail(result_payload: dict[str, Any]) -> str:
+    detail = result_payload.get("detail") if isinstance(result_payload.get("detail"), dict) else {}
+    target_asset_id = result_payload.get("asset_id")
+    lines = [
+        f"self_iteration 资产: {target_asset_id}",
+        f"- title: {result_payload.get('title', '')}",
+        f"- summary: {result_payload.get('summary', '')}",
+    ]
+    if target_asset_id == "self_iteration.regression_runs":
+        lines.append(
+            f"- metrics: run_count={detail.get('run_count')}; latest_run_id={detail.get('latest_run_id')}; avg_latency_ms={detail.get('avg_latency_ms')}"
+        )
+    elif target_asset_id == "self_iteration.live_observation_digest":
+        lines.append(
+            f"- observation: total_observations={detail.get('total_observations')}; topic_counts={detail.get('topic_counts')}"
+        )
+    elif target_asset_id == "self_iteration.governance_dashboard":
+        lines.append(
+            f"- governance: risk_flag_count={detail.get('risk_flag_count')}; queue_count={detail.get('queue_count')}; priority_lane={detail.get('priority_lane')}"
+        )
+    elif target_asset_id == "self_iteration.governance_triggers":
+        lines.append(
+            f"- triggers: trigger_count={detail.get('trigger_count')}; top_signals={detail.get('top_signals')}; top_observation_topics={detail.get('top_observation_topics')}"
+        )
+    elif target_asset_id == "self_iteration.refinement_backlog":
+        lines.append(
+            f"- backlog: queue_count={detail.get('queue_count')}; failed_hypothesis_count={detail.get('failed_hypothesis_count')}; top_failed_hypotheses={detail.get('top_failed_hypotheses')}"
+        )
+    elif detail:
+        detail_pairs = [f"{key}={value}" for key, value in list(detail.items())[:5]]
+        if detail_pairs:
+            lines.append(f"- detail: {'; '.join(detail_pairs)}")
+    return "\n".join(lines)
