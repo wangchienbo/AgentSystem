@@ -862,6 +862,19 @@ def test_api_governance_regression_cycle_nightly_trigger_can_auto_apply_governan
     data = resp.json()
     assert data["success"] is True
     assert data["governance_rollout"]["applied"] is True
+    assert data["governance_rollout_summary"] == {
+        "decision": "auto_applied",
+        "action": "applied_selected_queue",
+        "queue_id": "q-primary",
+        "applied": True,
+        "reason": None,
+        "review_scope": None,
+        "review_reason": None,
+        "decision_code": None,
+        "decision_label": None,
+        "render_badge": None,
+        "render_operator_note": None,
+    }
     mocked.assert_called_once()
     assert mocked.call_args.kwargs["auto_apply_governance"] is True
 
@@ -904,6 +917,19 @@ def test_api_governance_regression_cycle_nightly_trigger_returns_preflight_block
     data = resp.json()
     assert data["governance_rollout"]["applied"] is False
     assert data["governance_rollout"]["preflight"]["hold_reason"] == "secondary_requires_review"
+    assert data["governance_rollout_summary"] == {
+        "decision": "held",
+        "action": "operator_review_required",
+        "queue_id": None,
+        "applied": False,
+        "reason": "secondary_requires_review",
+        "review_scope": "operator_review_required",
+        "review_reason": "priority_secondary",
+        "decision_code": None,
+        "decision_label": None,
+        "render_badge": None,
+        "render_operator_note": None,
+    }
 
 
 def test_governance_nightly_trigger_contract_keeps_cycle_and_rollout_fields_together() -> None:
@@ -939,10 +965,25 @@ def test_governance_nightly_trigger_contract_keeps_cycle_and_rollout_fields_toge
                 "matched_stage": "tier_gate",
                 "decision_code": "tier.primary_auto_apply",
                 "decision_label": "Primary tier auto-apply allowed",
+                "review_scope": "light_auto_apply_ok",
+                "review_reason": "primary_selection_healthy",
                 "render_badge": "AUTO | Primary tier auto-apply allowed",
                 "render_operator_note": "AUTO | Primary tier auto-apply allowed | code=tier.primary_auto_apply | stage=tier_gate | scope=light_auto_apply_ok | risk=medium | queue=q-primary",
             },
             "item": {"status": "applied"},
+        },
+        "governance_rollout_summary": {
+            "decision": "auto_applied",
+            "action": "applied_selected_queue",
+            "queue_id": "q-primary",
+            "applied": True,
+            "reason": None,
+            "review_scope": "light_auto_apply_ok",
+            "review_reason": "primary_selection_healthy",
+            "decision_code": "tier.primary_auto_apply",
+            "decision_label": "Primary tier auto-apply allowed",
+            "render_badge": "AUTO | Primary tier auto-apply allowed",
+            "render_operator_note": "AUTO | Primary tier auto-apply allowed | code=tier.primary_auto_apply | stage=tier_gate | scope=light_auto_apply_ok | risk=medium | queue=q-primary",
         },
     }
     with patch("app.system.http_test_server.regression_nightly_control.trigger_manual_cycle", return_value=fake_result):
@@ -955,6 +996,8 @@ def test_governance_nightly_trigger_contract_keeps_cycle_and_rollout_fields_toge
     assert data["cycle"]["run_id"] == "nightly-run-contract"
     assert data["cycle"]["trigger_application"]["trigger_count"] == 1
     assert data["governance_rollout"]["applied"] is True
+    assert data["governance_rollout_summary"]["decision"] == "auto_applied"
+    assert data["governance_rollout_summary"]["decision_code"] == "tier.primary_auto_apply"
     assert data["governance_rollout"]["preflight"]["can_apply"] is True
     assert data["governance_rollout"]["preflight"]["render_badge"] == "AUTO | Primary tier auto-apply allowed"
     assert "code=tier.primary_auto_apply" in data["governance_rollout"]["preflight"]["render_operator_note"]

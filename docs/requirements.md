@@ -199,6 +199,7 @@ The chat regression subsystem must support:
 - exposing a broader operator summary that embeds regression signals into refinement governance structures
 - generating automated refinement triggers from regression risk flags
 - deriving refinement metrics from regression comparison/trigger data rather than returning hardcoded placeholder values
+- exposing a compact `governance_rollout_summary` on real nightly/manual governance trigger results so callers can consume applied-vs-held operator context without reconstructing nested rollout/preflight details
 
 The subsystem should treat regression as an operator loop with three layers:
 - **Observe**: run, latest, runs, run detail, compare, trends, evidence history

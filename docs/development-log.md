@@ -1,3 +1,53 @@
+## 2026-04-29: Add Rollout Summary Contract to Nightly Governance Trigger Responses
+
+### Summary
+Extended the real nightly/manual governance trigger execution contract with a compact `governance_rollout_summary` field derived from the same execution-time preflight truth. This gives callers a stable operator-facing summary without forcing each consumer to rebuild decision/action text from nested rollout details.
+
+### What Was Done
+- Updated `app/system/regression_governance_policy.py`
+  - added `build_governance_rollout_operator_summary(rollout)`
+  - derives a compact execution-result summary from real rollout/preflight payloads
+- Updated `app/services/regression_nightly_control.py`
+  - nightly due-trigger responses now include `governance_rollout_summary`
+  - manual trigger responses now include `governance_rollout_summary`
+- Expanded tests
+  - validated applied and held summary derivation directly
+  - validated service manual-trigger auto-apply path returns the summary
+  - validated HTTP nightly trigger contract can carry the new summary field alongside `cycle` and `governance_rollout`
+
+### Design Outcome
+This keeps the semantic source of truth in the execution-time preflight/rollout payload while exposing a thinner, compatibility-safe read-side summary for operator clients. It continues the compatibility-first derived-view line without introducing a lower-layer schema break or another dashboard-only projection path.
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_rollout_operator_summary_builds_applied_and_hold_views or trigger_manual_cycle_can_auto_apply_governance_selection'`
+- `pytest -q tests/unit/test_http_test_server.py -k 'nightly_trigger_can_auto_apply_governance or nightly_trigger_returns_preflight_block or keeps_cycle_and_rollout_fields_together'`
+
+
+### Summary
+Connected governance preflight explainability to the real execution-facing payload surface instead of reusing it through dashboard projection. This keeps the semantic source of truth aligned with actual preflight decisions while still giving operator-facing consumers render-ready fields.
+
+### What Was Done
+- Updated `app/models/governance_preflight.py`
+  - enhanced `GovernancePreflightDecision.to_payload()` to append execution-safe render fields:
+    - `render_badge`
+    - `render_operator_note`
+- Kept the render fields derived from the actual decision payload itself, not from a dashboard-local adapter
+- Did **not** reintroduce dashboard/operator-summary pseudo-preflight projection
+- Updated focused tests:
+  - `tests/unit/test_regression_nightly_control.py`
+    - validates typed payload now includes render-ready explainability fields
+  - `tests/unit/test_http_test_server.py`
+    - validates the nightly-trigger execution contract can carry preflight explainability fields on the real `governance_rollout.preflight` surface
+
+### Design Outcome
+This preserves the useful render-helper work but reconnects it only where it belongs: real execution truth. The system now exposes operator-readable governance explanations on the main HTTP execution path without inflating the preflight contract into a dashboard projection model.
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'governance_preflight_decision_builder_returns_typed_payload or governance_preflight_render_helpers_return_shared_operator_strings'`
+  - Result: `2 passed`
+- `pytest -q tests/unit/test_http_test_server.py -k 'keeps_cycle_and_rollout_fields_together or nightly_trigger_can_auto_apply_governance or nightly_trigger_returns_preflight_block'`
+  - Result: `3 passed`
+
 ## 2026-04-29: Add Service-Up Self-Iteration E2E Acceptance Path
 
 ### Summary

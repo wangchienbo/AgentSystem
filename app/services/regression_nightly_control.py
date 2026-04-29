@@ -33,6 +33,7 @@ from app.system.regression_governance_policy import (
     PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED,
     PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_AUTOMATION,
     PREFLIGHT_REVIEW_SCOPE_OPERATOR_REVIEW_REQUIRED_DUE_TO_QUEUE_STATE,
+    build_governance_rollout_operator_summary,
     evaluate_governance_preflight,
 )
 from app.refinement.refinement_rollout import RefinementRolloutService
@@ -339,6 +340,7 @@ class RegressionNightlyControlService:
             "cycle": cycle_result,
             "nightly_status": refreshed,
             "governance_rollout": governance_rollout,
+            "governance_rollout_summary": build_governance_rollout_operator_summary(governance_rollout),
         }
 
     def trigger_manual_cycle(self, *, client: Any, auto_apply_governance: bool = False) -> dict[str, Any]:
@@ -356,4 +358,5 @@ class RegressionNightlyControlService:
             "schedule_results": [item.model_dump(mode="json") for item in trigger_results],
             "cycle": cycle_result,
             "governance_rollout": governance_rollout,
+            "governance_rollout_summary": build_governance_rollout_operator_summary(governance_rollout),
         }

@@ -38,6 +38,7 @@ from app.system.chat_regression import (
     read_run_details,
     run_regression_governance_cycle,
 )
+from app.system.regression_governance_policy import build_governance_rollout_operator_summary
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -771,6 +772,8 @@ async def api_governance_regression_cycle_nightly_trigger(auto_apply_governance:
     local_client = TestClient(app)
     local_client.cookies.set("session_id", user["session_id"])
     result = regression_nightly_control.trigger_manual_cycle(client=local_client, auto_apply_governance=auto_apply_governance)
+    if "governance_rollout_summary" not in result:
+        result = {**result, "governance_rollout_summary": build_governance_rollout_operator_summary(result.get("governance_rollout"))}
     return {"success": True, **result}
 
 @app.post("/api/governance/regression-cycle/nightly/tick")
@@ -784,6 +787,8 @@ async def api_governance_regression_cycle_nightly_tick(auto_apply_governance: bo
         driver_status=regression_nightly_driver.status(),
         auto_apply_governance=auto_apply_governance,
     )
+    if "governance_rollout_summary" not in result:
+        result = {**result, "governance_rollout_summary": build_governance_rollout_operator_summary(result.get("governance_rollout"))}
     return {"success": True, **result}
 
 

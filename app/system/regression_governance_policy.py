@@ -71,6 +71,31 @@ def format_governance_preflight_operator_note(decision: GovernancePreflightDecis
     return " | ".join(parts)
 
 
+def build_governance_rollout_operator_summary(rollout: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not rollout:
+        return None
+
+    preflight = rollout.get("preflight") or {}
+    queue_id = rollout.get("queue_id") or preflight.get("recommended_queue_id")
+    applied = bool(rollout.get("applied"))
+    decision = "auto_applied" if applied else "held"
+    action = "applied_selected_queue" if applied else "operator_review_required"
+
+    return {
+        "decision": decision,
+        "action": action,
+        "queue_id": queue_id,
+        "applied": applied,
+        "reason": rollout.get("reason") or preflight.get("hold_reason") or None,
+        "review_scope": preflight.get("review_scope"),
+        "review_reason": preflight.get("review_reason"),
+        "decision_code": preflight.get("decision_code"),
+        "decision_label": preflight.get("decision_label"),
+        "render_badge": preflight.get("render_badge"),
+        "render_operator_note": preflight.get("render_operator_note"),
+    }
+
+
 def build_governance_preflight_decision(
     *,
     base: dict[str, Any],

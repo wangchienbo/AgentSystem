@@ -160,7 +160,58 @@ def test_governance_preflight_render_helpers_return_shared_operator_strings() ->
     assert "queue=q1" in note
 
 
-def test_comparison_risk_flag_helper_builds_expected_flags() -> None:
+def test_governance_rollout_operator_summary_builds_applied_and_hold_views() -> None:
+    from app.system.regression_governance_policy import build_governance_rollout_operator_summary
+
+    applied = build_governance_rollout_operator_summary({
+        "applied": True,
+        "queue_id": "q-primary",
+        "preflight": {
+            "recommended_queue_id": "q-primary",
+            "hold_reason": "",
+            "review_scope": "light_auto_apply_ok",
+            "review_reason": "primary_selection_healthy",
+            "decision_code": "tier.primary_auto_apply",
+            "decision_label": "Primary tier auto-apply allowed",
+            "render_badge": "AUTO | Primary tier auto-apply allowed",
+            "render_operator_note": "AUTO | Primary tier auto-apply allowed | code=tier.primary_auto_apply",
+        },
+    })
+    held = build_governance_rollout_operator_summary({
+        "applied": False,
+        "reason": "secondary_requires_review",
+        "preflight": {
+            "recommended_queue_id": "q-secondary",
+            "hold_reason": "secondary_requires_review",
+            "review_scope": "operator_review_required",
+            "review_reason": "priority_secondary",
+            "decision_code": "tier.secondary_requires_review",
+            "decision_label": "Secondary tier review required",
+            "render_badge": "HOLD | Secondary tier review required",
+            "render_operator_note": "HOLD | Secondary tier review required | code=tier.secondary_requires_review",
+        },
+    })
+
+    assert applied == {
+        "decision": "auto_applied",
+        "action": "applied_selected_queue",
+        "queue_id": "q-primary",
+        "applied": True,
+        "reason": None,
+        "review_scope": "light_auto_apply_ok",
+        "review_reason": "primary_selection_healthy",
+        "decision_code": "tier.primary_auto_apply",
+        "decision_label": "Primary tier auto-apply allowed",
+        "render_badge": "AUTO | Primary tier auto-apply allowed",
+        "render_operator_note": "AUTO | Primary tier auto-apply allowed | code=tier.primary_auto_apply",
+    }
+    assert held["decision"] == "held"
+    assert held["action"] == "operator_review_required"
+    assert held["queue_id"] == "q-secondary"
+    assert held["reason"] == "secondary_requires_review"
+    assert held["decision_code"] == "tier.secondary_requires_review"
+
+
     flags = build_comparison_risk_flags({
         "run_count": 2,
         "avg_latency_ms": 6000,
@@ -1146,6 +1197,19 @@ def test_trigger_manual_cycle_can_auto_apply_governance_selection(tmp_path: Path
     assert result["governance_rollout"]["applied"] is True
     assert result["governance_rollout"]["queue_id"] == "q-primary"
     assert result["governance_rollout"]["item"]["status"] == "applied"
+    assert result["governance_rollout_summary"] == {
+        "decision": "auto_applied",
+        "action": "applied_selected_queue",
+        "queue_id": "q-primary",
+        "applied": True,
+        "reason": None,
+        "review_scope": "light_auto_apply_ok",
+        "review_reason": "primary_selection_healthy",
+        "decision_code": "tier.primary_auto_apply",
+        "decision_label": "Primary tier auto-apply allowed",
+        "render_badge": "AUTO | Primary tier auto-apply allowed",
+        "render_operator_note": result["governance_rollout"]["preflight"]["render_operator_note"],
+    }
 
 
 def test_governance_execution_preflight_blocks_secondary_selection(tmp_path: Path) -> None:
