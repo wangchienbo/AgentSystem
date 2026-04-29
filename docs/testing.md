@@ -98,6 +98,7 @@ Used to validate the new chat regression operator loop end to end through the HT
 - self-iteration asset summary coverage ensuring governance/observation/refinement state can be read through additive asset views without depending on raw file-path knowledge
 - runtime self-iteration strategy-overview coverage ensuring `asset:self_iteration_center:v1` can expose a whole-system Observe/Summarize/Act navigation view plus `recommended_next_asset` without changing the existing summary asset schemas
 - gateway strategy-overview reply coverage ensuring the self-iteration strategy surface renders as operator-readable system guidance instead of raw nested payloads
+- action-guidance coverage ensuring the strategy overview can also surface `recommended_next_action` and `follow_up_actions` that stay aligned with the chosen next asset and render as chat-usable next-step instructions
 - asset-type-aware self-iteration summary coverage ensuring detail replies emphasize the right fields for observation, governance, trigger, regression, and backlog assets instead of one generic key/value dump
 - priority-ordered self-iteration list coverage ensuring governance and backlog pressure surfaces appear before lower-urgency historical views in chat-facing asset summaries
 

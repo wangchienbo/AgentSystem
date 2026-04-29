@@ -70,6 +70,38 @@ class SelfIterationAssetService:
             recommendation_reason = "Live observations exist, inspect current user-facing evidence before historic regressions."
             recommended_layer = "observe"
 
+        recommended_next_action = {
+            "asset_id": "asset:self_iteration_center:v1",
+            "method": "query_self_iteration_asset",
+            "params": {"asset_id": recommended_asset_id},
+            "reason": recommendation_reason,
+        }
+
+        follow_up_actions = [
+            {
+                "asset_id": "asset:self_iteration_center:v1",
+                "method": "query_self_iteration_asset",
+                "params": {"asset_id": "self_iteration.governance_dashboard"},
+                "purpose": "Check summarized governance pressure and lane assignment.",
+            },
+            {
+                "asset_id": "asset:self_iteration_center:v1",
+                "method": "query_self_iteration_asset",
+                "params": {"asset_id": "self_iteration.governance_triggers"},
+                "purpose": "Inspect derived act-stage trigger candidates.",
+            },
+            {
+                "asset_id": "asset:self_iteration_center:v1",
+                "method": "query_self_iteration_asset",
+                "params": {"asset_id": "self_iteration.refinement_backlog"},
+                "purpose": "Review queued or failed follow-up refinement work.",
+            },
+        ]
+        follow_up_actions = [
+            action for action in follow_up_actions
+            if action["params"]["asset_id"] != recommended_asset_id
+        ]
+
         return {
             "system_view": {
                 "observe": [
@@ -89,6 +121,8 @@ class SelfIterationAssetService:
                 "layer": recommended_layer,
                 "reason": recommendation_reason,
             },
+            "recommended_next_action": recommended_next_action,
+            "follow_up_actions": follow_up_actions,
             "pressure_snapshot": {
                 "risk_flag_count": int(dashboard_detail.get("risk_flag_count") or 0),
                 "trigger_count": int(trigger_detail.get("trigger_count") or 0),

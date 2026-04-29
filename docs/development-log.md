@@ -1,3 +1,38 @@
+## 2026-04-29: Upgrade self_iteration_center strategy overview into actionable navigation
+
+### Summary
+Extended the new strategy overview one step further so it does not stop at asset recommendation. `self_iteration_center` can now tell the caller which asset method should be called next and which follow-up inspections usually come after it, turning the strategy surface into an action-oriented navigation layer.
+
+### What Was Done
+- Updated `app/system/self_iteration_asset_service.py`
+  - extended `get_self_iteration_strategy_overview(...)`
+  - added additive `recommended_next_action` with:
+    - `asset_id`
+    - `method`
+    - `params`
+    - `reason`
+  - added additive `follow_up_actions` list so the system can suggest adjacent next inspections after the primary recommendation
+  - kept the action guidance aligned to the selected `recommended_next_asset`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - strategy-overview rendering now includes:
+    - `next_action`
+    - `action_target`
+    - compact `follow_up` lines
+  - keeps the output operator-friendly and directly consumable from chat
+- Expanded tests in `tests/unit/test_runtime_asset_gateway_registration.py`
+  - validated the recommended action targets `query_self_iteration_asset`
+  - validated the recommended action asset id matches the chosen `recommended_next_asset`
+  - validated rendered output includes `next_action` and `follow_up`
+
+### Design Outcome
+The self-iteration strategy surface now helps with both triage and navigation. Callers no longer have to translate a recommendation into an explicit asset-method invocation on their own. This remains compatibility-safe because the underlying asset summaries and older list/query behavior are unchanged; the guidance is purely additive.
+
+### Validation
+- `python3` runtime smoke for strategy overview action guidance + gateway render
+  - Result: `strategy-actions-smoke: ok`
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_alias or governance_asset_alias'`
+  - Result: `2 passed, 6 deselected`
+
 ## 2026-04-29: Promote self_iteration_center from flat asset list to strategy entry surface
 
 ### Summary
