@@ -1,3 +1,32 @@
+## 2026-04-29: Close the app-design confirm step toward blueprint/install
+
+### Summary
+Started the app-generation/blueprint workstream by fixing a real closure gap in the app-design orchestrator. The code and comments described `confirm_and_create()` as a staged flow that should continue through blueprint construction and install, but the implementation previously stopped after skill creation.
+
+### What Was Done
+- Updated `app/orchestration/app_designer/orchestrator.py`
+  - added optional `blueprint_builder` dependency
+  - added optional `app_installer` dependency
+  - extended `confirm_and_create()` so that, after skill creation, it can:
+    - call `blueprint_builder.build_blueprint_from_design(...)`
+    - read the produced `blueprint.id`
+    - call `app_installer.install_app(blueprint_id, user_id="system")`
+    - reflect blueprint/install progress in the success message
+- Kept the enhancement soft-coupled and non-breaking
+  - if these collaborators are absent or fail, the flow still returns the existing success result instead of crashing the user path
+- Expanded `tests/unit/test_app_designer.py`
+  - added coverage for the confirm step continuing into blueprint materialization and install handoff
+- Ran focused unit validation and smoke verification for the updated closure behavior
+
+### Why This Matters
+This narrows the gap between the documented app-generation flow and the actual implementation. The system already had design generation and downstream blueprint/install components, but the confirm step did not yet bridge to them. After this change, the confirm stage can act as a real closure handoff instead of only a skill-stub checkpoint.
+
+### Validation
+- `pytest -q tests/unit/test_app_designer.py -k 'confirm_and_create or design_app_architect_error'`
+  - Result: `4 passed, 16 deselected`
+- `python3` smoke for confirm-step blueprint/install handoff
+  - Result: `app-design-confirm-closure-smoke: ok`
+
 ## 2026-04-29: Management presentation phase closure audit
 
 ### Summary

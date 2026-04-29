@@ -521,6 +521,52 @@ def test_orchestrate_confirm_and_create_success(tmp_path) -> None:
     assert len(result.created_skill_ids) >= 1
 
 
+def test_orchestrate_confirm_and_create_can_continue_to_blueprint_and_install(tmp_path) -> None:
+    mock_analyzer = MagicMock()
+    mock_architect = MagicMock()
+    mock_skill_factory = MagicMock()
+    mock_skill_factory._skill_control.get_skill.side_effect = KeyError("not found")
+    mock_skill_factory.create_skill.return_value = None
+
+    mock_blueprint = MagicMock()
+    mock_blueprint.id = "bp.designed.test"
+    mock_blueprint_builder = MagicMock()
+    mock_blueprint_builder.build_blueprint_from_design.return_value = mock_blueprint
+
+    mock_install_result = MagicMock()
+    mock_install_result.install_status = "installed"
+    mock_app_installer = MagicMock()
+    mock_app_installer.install_app.return_value = mock_install_result
+
+    orchestrator = AppDesignOrchestrator(
+        mock_analyzer,
+        mock_architect,
+        skill_factory=mock_skill_factory,
+        blueprint_builder=mock_blueprint_builder,
+        app_installer=mock_app_installer,
+    )
+
+    design = _make_design(
+        app_name="Test App", app_slug="test-app",
+        subordinate_skills=[
+            SubordinateSkillDesign(
+                suggested_name="new-skill",
+                responsibility="does things",
+                scope="scope",
+                reuse_existing=None,
+            ),
+        ],
+    )
+
+    result = orchestrator.confirm_and_create(design, DesignConfirmation(approved=True))
+
+    mock_blueprint_builder.build_blueprint_from_design.assert_called_once()
+    mock_app_installer.install_app.assert_called_once_with("bp.designed.test", user_id="system")
+    assert result.status == "success"
+    assert "blueprint=bp.designed.test" in result.message
+    assert "install=installed" in result.message
+
+
 def test_orchestrate_without_skill_factory(tmp_path) -> None:
     """Orchestrator should work without skill factory."""
     mock_analyzer = MagicMock()

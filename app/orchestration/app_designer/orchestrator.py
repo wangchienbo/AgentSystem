@@ -38,11 +38,15 @@ class AppDesignOrchestrator:
         architect: AppArchitect,
         skill_factory: Any = None,
         user_gateway: Any = None,
+        blueprint_builder: Any = None,
+        app_installer: Any = None,
     ) -> None:
         self._intent_analyzer = intent_analyzer
         self._architect = architect
         self._skill_factory = skill_factory
         self._user_gateway = user_gateway
+        self._blueprint_builder = blueprint_builder
+        self._app_installer = app_installer
 
     def analyze_intent(self, user_input: str, context: dict[str, Any] | None = None) -> AppCreationResult:
         """Step 1: Analyze user intent."""
@@ -143,12 +147,33 @@ class AppDesignOrchestrator:
                     self._create_skill_stub(skill_design, design.app_slug)
                 )
 
+        blueprint_id = None
+        install_status = None
+        if self._blueprint_builder is not None:
+            try:
+                blueprint = self._blueprint_builder.build_blueprint_from_design(
+                    design,
+                    created_skill_ids=created_skill_ids,
+                )
+                blueprint_id = getattr(blueprint, "id", None)
+                if blueprint_id and self._app_installer is not None:
+                    install_result = self._app_installer.install_app(blueprint_id, user_id="system")
+                    install_status = getattr(install_result, "install_status", None)
+            except Exception:
+                pass
+
+        message = f"✅ App '{design.app_name}' 创建成功！共 {len(created_skill_ids)} 个 skill"
+        if blueprint_id:
+            message += f"，blueprint={blueprint_id}"
+        if install_status:
+            message += f"，install={install_status}"
+
         return AppCreationResult(
             status="success",
             app_name=design.app_name,
             design=design,
             created_skill_ids=created_skill_ids,
-            message=f"✅ App '{design.app_name}' 创建成功！共 {len(created_skill_ids)} 个 skill",
+            message=message,
         )
 
     def _create_skill_stub(self, skill_design, app_slug: str) -> list[str]:
