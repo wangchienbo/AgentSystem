@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.system.runtime_asset_formatter import (
+    append_detail_fallback,
+    render_asset_detail_header,
+    render_asset_summary_list,
+)
+
 
 def render_self_iteration_strategy_overview(result_payload: dict[str, Any]) -> str:
     recommended = result_payload.get("recommended_next_asset") if isinstance(result_payload.get("recommended_next_asset"), dict) else {}
@@ -55,24 +61,17 @@ def _priority(item: dict[str, Any]) -> tuple[int, int]:
 
 
 def render_self_iteration_asset_list(result_payload: list[dict[str, Any]]) -> str:
-    ordered_assets = sorted(
-        [item for item in result_payload if isinstance(item, dict)],
-        key=_priority,
+    return render_asset_summary_list(
+        result_payload,
+        header="self_iteration 资产摘要列表 (按运营优先级排序):",
+        sort_key=_priority,
     )
-    lines = ["self_iteration 资产摘要列表 (按运营优先级排序):"]
-    for item in ordered_assets:
-        lines.append(f"- {item.get('asset_id')}: {item.get('title', '')} | {item.get('summary', '')}")
-    return "\n".join(lines)
 
 
 def render_self_iteration_asset_detail(result_payload: dict[str, Any]) -> str:
     detail = result_payload.get("detail") if isinstance(result_payload.get("detail"), dict) else {}
     target_asset_id = result_payload.get("asset_id")
-    lines = [
-        f"self_iteration 资产: {target_asset_id}",
-        f"- title: {result_payload.get('title', '')}",
-        f"- summary: {result_payload.get('summary', '')}",
-    ]
+    lines = render_asset_detail_header(result_payload, header="self_iteration 资产")
     if target_asset_id == "self_iteration.regression_runs":
         lines.append(
             f"- metrics: run_count={detail.get('run_count')}; latest_run_id={detail.get('latest_run_id')}; avg_latency_ms={detail.get('avg_latency_ms')}"
@@ -93,8 +92,6 @@ def render_self_iteration_asset_detail(result_payload: dict[str, Any]) -> str:
         lines.append(
             f"- backlog: queue_count={detail.get('queue_count')}; failed_hypothesis_count={detail.get('failed_hypothesis_count')}; top_failed_hypotheses={detail.get('top_failed_hypotheses')}"
         )
-    elif detail:
-        detail_pairs = [f"{key}={value}" for key, value in list(detail.items())[:5]]
-        if detail_pairs:
-            lines.append(f"- detail: {'; '.join(detail_pairs)}")
+    else:
+        append_detail_fallback(lines, detail)
     return "\n".join(lines)

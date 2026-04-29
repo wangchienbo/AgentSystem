@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from app.system.runtime_asset_formatter import (
+    append_detail_fallback,
+    join_kv_pairs,
+    render_asset_detail_header,
+    render_asset_summary_list,
+)
 from app.system.self_iteration_strategy import (
     build_asset_query_action,
     build_follow_up_actions,
@@ -15,20 +21,39 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
 
-def test_select_recommended_next_asset_prefers_risk_flags() -> None:
-    recommendation = select_recommended_next_asset(
-        pressure_snapshot={
-            "risk_flag_count": 2,
-            "trigger_count": 1,
-            "queue_count": 3,
-            "failed_hypothesis_count": 1,
-            "total_observations": 4,
-            "run_count": 5,
-        }
+def test_render_runtime_asset_summary_list_outputs_header_and_items() -> None:
+    rendered = render_asset_summary_list(
+        [
+            {"asset_id": "asset.a", "title": "Asset A", "summary": "summary a"},
+            {"asset_id": "asset.b", "title": "Asset B", "summary": "summary b"},
+        ],
+        header="runtime assets:",
     )
 
-    assert recommendation["asset_id"] == "self_iteration.governance_dashboard"
-    assert recommendation["layer"] == "summarize"
+    assert "runtime assets:" in rendered
+    assert "- asset.a: Asset A | summary a" in rendered
+    assert "- asset.b: Asset B | summary b" in rendered
+
+
+def test_render_runtime_asset_detail_header_and_fallback_outputs_kv_pairs() -> None:
+    payload = {
+        "asset_id": "asset.sample",
+        "title": "Sample",
+        "summary": "summary",
+    }
+    lines = render_asset_detail_header(payload, header="runtime asset")
+    append_detail_fallback(lines, {"alpha": 1, "beta": 2})
+    rendered = "\n".join(lines)
+
+    assert "runtime asset: asset.sample" in rendered
+    assert "- title: Sample" in rendered
+    assert "- detail: alpha=1; beta=2" in rendered
+
+
+def test_join_kv_pairs_uses_semicolon_separator() -> None:
+    rendered = join_kv_pairs([("alpha", 1), ("beta", 2)])
+
+    assert rendered == "alpha=1; beta=2"
 
 
 def test_build_follow_up_actions_excludes_recommended_asset() -> None:

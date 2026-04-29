@@ -1,3 +1,37 @@
+## 2026-04-29: Introduce reusable runtime-asset formatter primitives
+
+### Summary
+Started the next abstraction layer carefully, without forcing premature generalization. Instead of trying to genericize all self-iteration rendering at once, extracted the low-risk formatter primitives that are already obviously reusable across runtime assets.
+
+### What Was Done
+- Added `app/system/runtime_asset_formatter.py`
+  - `render_asset_summary_list(...)`
+  - `render_asset_detail_header(...)`
+  - `append_detail_fallback(...)`
+  - `join_kv_pairs(...)`
+- Updated `app/system/self_iteration_strategy_formatter.py`
+  - self-iteration list rendering now reuses shared summary-list assembly
+  - self-iteration detail rendering now reuses shared detail header and kv fallback assembly
+  - kept self-iteration-specific priority ordering and asset-specific detail branches local to the self-iteration formatter
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added direct coverage for shared runtime-asset formatter primitives
+  - preserved coverage for self-iteration-specific rendering behavior on top of the shared base
+- Ran runtime smoke validation through overview, list, and detail rendering paths after the extraction
+
+### Design Outcome
+This establishes a safer reuse boundary:
+- generic runtime-asset formatter primitives handle repeated structural text assembly
+- domain formatter modules still own domain-specific wording, ranking, and typed detail branches
+- gateway remains thin and does not regain inline rendering logic
+
+That gives us a real shared base without pretending the whole self-iteration presentation model is already generic.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'join_kv_pairs or render_runtime_asset_summary_list or render_runtime_asset_detail_header_and_fallback or select_recommended_next_asset or build_follow_up_actions or build_strategy_route or render_self_iteration_strategy_overview or render_self_iteration_asset_list or render_self_iteration_asset_detail'`
+  - Result: `7 passed`
+- `python3` runtime smoke after generic formatter extraction
+  - Result: `runtime-asset-generic-formatter-smoke: ok`
+
 ## 2026-04-29: Extract self-iteration asset list/detail formatting from gateway
 
 ### Summary
