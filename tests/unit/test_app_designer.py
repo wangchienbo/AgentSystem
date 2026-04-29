@@ -563,6 +563,8 @@ def test_orchestrate_confirm_and_create_can_continue_to_blueprint_and_install(tm
     mock_blueprint_builder.build_blueprint_from_design.assert_called_once()
     mock_app_installer.install_app.assert_called_once_with("bp.designed.test", user_id="system")
     assert result.status == "success"
+    assert result.blueprint_id == "bp.designed.test"
+    assert result.install_status == "installed"
     assert "blueprint=bp.designed.test" in result.message
     assert "install=installed" in result.message
 

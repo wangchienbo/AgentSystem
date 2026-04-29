@@ -77,5 +77,7 @@ class AppCreationResult(BaseModel):
     design: AppDesignResult | None = None
     clarification_questions: list[str] = Field(default_factory=list)
     created_skill_ids: list[str] = Field(default_factory=list)
+    blueprint_id: str = ""
+    install_status: str = ""
     error: str = ""
     message: str = ""

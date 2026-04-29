@@ -174,6 +174,8 @@ class AppDesignOrchestrator:
             app_name=design.app_name,
             design=design,
             created_skill_ids=created_skill_ids,
+            blueprint_id=blueprint_id or "",
+            install_status=install_status or "",
             message=message,
         )
 

@@ -184,9 +184,13 @@ def test_app_creation_result_success() -> None:
         status="success",
         app_name="test-app",
         created_skill_ids=["skill-1", "skill-2"],
+        blueprint_id="bp.test.app",
+        install_status="installed",
     )
     assert result.status == "success"
     assert len(result.created_skill_ids) == 2
+    assert result.blueprint_id == "bp.test.app"
+    assert result.install_status == "installed"
 
 
 def test_app_creation_result_rejected() -> None:

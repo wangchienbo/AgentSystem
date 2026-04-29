@@ -1,3 +1,31 @@
+## 2026-04-29: Structure blueprint/install state in AppCreationResult
+
+### Summary
+Continued the app-generation closure work by turning blueprint/install progress from informal success-message text into structured app-creation result fields.
+
+### What Was Done
+- Updated `app/models/app_design.py`
+  - extended `AppCreationResult` with:
+    - `blueprint_id`
+    - `install_status`
+- Updated `app/orchestration/app_designer/orchestrator.py`
+  - `confirm_and_create()` now returns structured blueprint/install metadata when the confirm step reaches those stages
+- Expanded tests:
+  - `tests/unit/test_app_design_models.py`
+    - verifies the new `AppCreationResult` fields
+  - `tests/unit/test_app_designer.py`
+    - verifies confirm-step blueprint/install handoff populates the structured fields
+- Ran focused validation and smoke verification for the structured result shape
+
+### Why This Matters
+This makes the app-generation closure state machine easier to compose and verify. Callers no longer need to infer blueprint/install progress only from human-readable message text; they can inspect explicit fields on the creation result.
+
+### Validation
+- `pytest -q tests/unit/test_app_design_models.py tests/unit/test_app_designer.py tests/unit/test_design_blueprint_builder.py -k 'app_creation_result_success or confirm_and_create or design_blueprint_builder or design_app_architect_error'`
+  - Result: `7 passed, 29 deselected`
+- `python3` smoke for structured app-creation result fields
+  - Result: `app-creation-structured-result-smoke: ok`
+
 ## 2026-04-29: Add deterministic design-to-blueprint builder
 
 ### Summary
