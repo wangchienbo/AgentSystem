@@ -566,8 +566,61 @@ def test_orchestrate_confirm_and_create_can_continue_to_blueprint_and_install(tm
     assert result.status == "success"
     assert result.blueprint_id == "bp.designed.test"
     assert result.install_status == "installed"
+    assert result.blueprint_error == ""
+    assert result.install_error == ""
     assert "blueprint=bp.designed.test" in result.message
     assert "install=installed" in result.message
+
+
+def test_orchestrate_confirm_and_create_surfaces_blueprint_failure(tmp_path) -> None:
+    orchestrator = AppDesignOrchestrator(
+        MagicMock(),
+        MagicMock(),
+        blueprint_builder=MagicMock(),
+        app_installer=MagicMock(),
+    )
+    orchestrator._blueprint_builder.build_blueprint_from_design.side_effect = RuntimeError("blueprint boom")
+
+    result = orchestrator.confirm_and_create(
+        _make_design(app_name="Broken", app_slug="broken"),
+        DesignConfirmation(approved=True),
+    )
+
+    assert result.status == "success"
+    assert result.blueprint_id == ""
+    assert result.install_status == ""
+    assert result.blueprint_error == "blueprint boom"
+    assert result.install_error == ""
+    assert "blueprint_error=blueprint boom" in result.message
+
+
+def test_orchestrate_confirm_and_create_surfaces_install_failure(tmp_path) -> None:
+    mock_blueprint = MagicMock()
+    mock_blueprint.id = "bp.designed.test"
+    mock_blueprint_builder = MagicMock()
+    mock_blueprint_builder.build_blueprint_from_design.return_value = mock_blueprint
+
+    mock_installer = MagicMock()
+    mock_installer.install_app.side_effect = RuntimeError("install boom")
+
+    orchestrator = AppDesignOrchestrator(
+        MagicMock(),
+        MagicMock(),
+        blueprint_builder=mock_blueprint_builder,
+        app_installer=mock_installer,
+    )
+
+    result = orchestrator.confirm_and_create(
+        _make_design(app_name="Broken", app_slug="broken"),
+        DesignConfirmation(approved=True),
+    )
+
+    assert result.status == "success"
+    assert result.blueprint_id == "bp.designed.test"
+    assert result.install_status == ""
+    assert result.blueprint_error == ""
+    assert result.install_error == "install boom"
+    assert "install_error=install boom" in result.message
 
 
 def test_orchestrate_confirm_and_create_acceptance_slice_with_real_builder(tmp_path) -> None:

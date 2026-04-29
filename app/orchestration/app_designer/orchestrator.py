@@ -150,6 +150,8 @@ class AppDesignOrchestrator:
 
         blueprint_id = None
         install_status = None
+        blueprint_error = ""
+        install_error = ""
         if self._blueprint_builder is not None:
             try:
                 blueprint = self._blueprint_builder.build_blueprint_from_design(
@@ -157,17 +159,25 @@ class AppDesignOrchestrator:
                     created_skill_ids=created_skill_ids,
                 )
                 blueprint_id = getattr(blueprint, "id", None)
-                if blueprint_id and self._app_installer is not None:
-                    install_result = self._app_installer.install_app(blueprint_id, user_id="system")
-                    install_status = getattr(install_result, "install_status", None)
-            except Exception:
-                pass
+            except Exception as exc:
+                blueprint_error = str(exc)
+
+        if blueprint_id and self._app_installer is not None:
+            try:
+                install_result = self._app_installer.install_app(blueprint_id, user_id="system")
+                install_status = getattr(install_result, "install_status", None)
+            except Exception as exc:
+                install_error = str(exc)
 
         message = f"✅ App '{design.app_name}' 创建成功！共 {len(created_skill_ids)} 个 skill"
         if blueprint_id:
             message += f"，blueprint={blueprint_id}"
         if install_status:
             message += f"，install={install_status}"
+        if blueprint_error:
+            message += f"，blueprint_error={blueprint_error}"
+        if install_error:
+            message += f"，install_error={install_error}"
 
         return AppCreationResult(
             status="success",
@@ -176,6 +186,8 @@ class AppDesignOrchestrator:
             created_skill_ids=created_skill_ids,
             blueprint_id=blueprint_id or "",
             install_status=install_status or "",
+            blueprint_error=blueprint_error,
+            install_error=install_error,
             message=message,
         )
 

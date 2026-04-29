@@ -79,5 +79,7 @@ class AppCreationResult(BaseModel):
     created_skill_ids: list[str] = Field(default_factory=list)
     blueprint_id: str = ""
     install_status: str = ""
+    blueprint_error: str = ""
+    install_error: str = ""
     error: str = ""
     message: str = ""

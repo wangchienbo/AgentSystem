@@ -1,3 +1,33 @@
+## 2026-04-29: Surface blueprint/install partial failures in app creation results
+
+### Summary
+During the app-generation closure audit, found a meaningful remaining gap: `confirm_and_create()` silently swallowed blueprint-build and install exceptions, which made partial closure failures indistinguishable from a clean success unless someone manually inferred it from missing fields.
+
+### What Was Done
+- Updated `app/models/app_design.py`
+  - extended `AppCreationResult` with:
+    - `blueprint_error`
+    - `install_error`
+- Updated `app/orchestration/app_designer/orchestrator.py`
+  - split blueprint materialization and install handoff into separately tracked stages
+  - removed the blanket swallow for the whole post-confirm closure tail
+  - now captures blueprint/install failures into structured result fields and mirrors them into the success message for human inspection
+- Expanded tests in `tests/unit/test_app_designer.py`
+  - success path now asserts empty error fields
+  - added explicit blueprint-failure coverage
+  - added explicit install-failure coverage
+- Expanded `tests/unit/test_app_design_models.py`
+  - asserts new error fields exist on successful structured results
+
+### Why This Matters
+The closure path can legitimately be partially successful, for example skill creation succeeds but blueprint materialization or installation fails. That state should be visible and composable, not silently flattened into an apparently normal success. This change makes the post-confirm state machine auditable.
+
+### Validation
+- `pytest -q tests/unit/test_app_design_models.py tests/unit/test_app_designer.py tests/unit/test_design_blueprint_builder.py -k 'blueprint_failure or install_failure or app_creation_result_success or confirm_and_create or acceptance_slice'`
+  - Result: `7 passed, 31 deselected`
+- `python3` smoke for app-generation blueprint failure visibility
+  - Result: `app-generation-error-visibility-smoke: ok`
+
 ## 2026-04-29: Add focused app-generation acceptance slice
 
 ### Summary
