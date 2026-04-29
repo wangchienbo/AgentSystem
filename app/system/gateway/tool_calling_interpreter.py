@@ -48,6 +48,7 @@ from app.models.telemetry import StepTelemetryRecord
 from app.services.tool_registry import ToolRegistry
 from app.services.tool_calling_engine import ToolCallingEngine, ToolDef
 from app.system.gateway.scan_profiles import derive_scan_profile
+from app.system.runtime_asset_formatter import render_asset_method_catalog
 from app.tools.internal_tools import exec_shell
 
 
@@ -129,30 +130,13 @@ def format_assets_for_prompt(assets: list[dict[str, Any]]) -> str:
     Assets are NOT tools. They are system components visible to LLM
     for discovery, but invoked via call_asset_method.
     """
-    if not assets:
-        return "【系统资产】暂无可用资产"
-
-    lines = ["【系统资产】"]
-    for asset in assets:
-        asset_id = asset.get("asset_id", asset.get("name", "unknown"))
-        desc = asset.get("description", "")
-        capabilities = asset.get("capabilities", [])
-
-        cap_list = []
-        for cap in (capabilities[:5] if capabilities else []):
-            method = cap.get("method", "unknown")
-            cap_list.append(method)
-
-        cap_str = ", ".join(cap_list) if cap_list else "多个方法"
-        lines.append(f"  • {asset_id}: {cap_str}")
-
-    if len(assets) > 5:
-        lines.append(f"  • ... 还有 {len(assets) - 5} 个资产")
-
-    lines.append("")
-    lines.append("调用资产方法: 使用 call_asset_method(asset_id, method, params)")
-
-    return "\n".join(lines)
+    return render_asset_method_catalog(
+        assets,
+        header="【系统资产】",
+        footer="调用资产方法: 使用 call_asset_method(asset_id, method, params)",
+        max_items=5,
+        overflow_template="  • ... 还有 {extra} 个资产",
+    )
 
 
 def build_session_context(

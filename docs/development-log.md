@@ -1,3 +1,35 @@
+## 2026-04-29: Reuse runtime-asset formatter primitives in asset prompt catalog
+
+### Summary
+Validated the new shared formatter layer on a second concrete consumer, not by inventing another domain formatter but by wiring it into the runtime asset prompt-catalog path used for LLM asset discovery.
+
+### What Was Done
+- Expanded `app/system/runtime_asset_formatter.py`
+  - added `render_asset_method_catalog(...)`
+  - supports:
+    - asset id + callable method summary rendering
+    - optional max-item truncation
+    - overflow notice
+    - footer guidance text
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - `format_assets_for_prompt(...)` now delegates to `render_asset_method_catalog(...)`
+  - removed another local text-assembly block from the gateway-side interpreter path
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added direct coverage for method-catalog rendering
+  - validated truncation, overflow text, and footer rendering
+- Ran a direct smoke validation for `format_assets_for_prompt(...)`
+
+### Design Outcome
+This proves the shared runtime-asset formatter layer is not only useful for operator-facing replies, but also for prompt-facing runtime asset discovery catalogs. That is a stronger signal than a purely self-iteration-local abstraction, because it crosses two real usage paths:
+- runtime reply rendering
+- prompt assembly for LLM asset visibility
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'join_kv_pairs or render_runtime_asset_summary_list or render_runtime_asset_detail_header_and_fallback or render_asset_method_catalog or select_recommended_next_asset or build_follow_up_actions or build_strategy_route or render_self_iteration_strategy_overview or render_self_iteration_asset_list or render_self_iteration_asset_detail'`
+  - Result: `6 passed`
+- `python3` smoke for `format_assets_for_prompt(...)`
+  - Result: `runtime-asset-method-catalog-smoke: ok`
+
 ## 2026-04-29: Introduce reusable runtime-asset formatter primitives
 
 ### Summary

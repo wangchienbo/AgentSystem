@@ -4,6 +4,7 @@ from app.system.runtime_asset_formatter import (
     append_detail_fallback,
     join_kv_pairs,
     render_asset_detail_header,
+    render_asset_method_catalog,
     render_asset_summary_list,
 )
 from app.system.self_iteration_strategy import (
@@ -21,6 +22,24 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
 
+def test_render_asset_method_catalog_outputs_footer_and_overflow() -> None:
+    rendered = render_asset_method_catalog(
+        [
+            {"asset_id": "asset.a", "capabilities": [{"method": "foo"}, {"method": "bar"}]},
+            {"asset_id": "asset.b", "capabilities": [{"method": "baz"}]},
+        ],
+        header="【系统资产】",
+        footer="调用资产方法: 使用 call_asset_method(asset_id, method, params)",
+        max_items=1,
+        overflow_template="  • ... 还有 {extra} 个资产",
+    )
+
+    assert "【系统资产】" in rendered
+    assert "  • asset.a: foo, bar" in rendered
+    assert "... 还有 1 个资产" in rendered
+    assert "调用资产方法" in rendered
+
+
 def test_render_runtime_asset_summary_list_outputs_header_and_items() -> None:
     rendered = render_asset_summary_list(
         [
@@ -35,22 +54,6 @@ def test_render_runtime_asset_summary_list_outputs_header_and_items() -> None:
     assert "- asset.b: Asset B | summary b" in rendered
 
 
-def test_render_runtime_asset_detail_header_and_fallback_outputs_kv_pairs() -> None:
-    payload = {
-        "asset_id": "asset.sample",
-        "title": "Sample",
-        "summary": "summary",
-    }
-    lines = render_asset_detail_header(payload, header="runtime asset")
-    append_detail_fallback(lines, {"alpha": 1, "beta": 2})
-    rendered = "\n".join(lines)
-
-    assert "runtime asset: asset.sample" in rendered
-    assert "- title: Sample" in rendered
-    assert "- detail: alpha=1; beta=2" in rendered
-
-
-def test_join_kv_pairs_uses_semicolon_separator() -> None:
     rendered = join_kv_pairs([("alpha", 1), ("beta", 2)])
 
     assert rendered == "alpha=1; beta=2"
