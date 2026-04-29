@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.system.management_presenters import render_app_list, render_package_list
+from app.system.management_presenters import render_app_list, render_package_detail, render_package_list
 from app.system.runtime_asset_formatter import (
     append_detail_fallback,
     extract_capability_methods,
@@ -48,16 +48,31 @@ def test_render_package_list_supports_installed_and_search_views() -> None:
     assert "[✅ 已安装]" in search_view
 
 
-def test_render_app_list_outputs_status_icons() -> None:
-    rendered = render_app_list(
-        [
-            {"display_name": "Watcher", "status": "running"},
-            {"name": "PausedApp", "status": "paused"},
-        ]
+def test_render_package_detail_includes_history_summary() -> None:
+    rendered = render_package_detail(
+        {
+            "asset_id": "pkg.alpha",
+            "name": "Alpha",
+            "asset_type": "skill",
+            "source_version": "1.2.0",
+            "installed_version": "1.1.0",
+            "description": "alpha desc",
+            "build_history": [
+                {
+                    "version": "1.1.0",
+                    "build_hash": "abcdef123456",
+                    "build_time": "2026-04-29T19:00:00",
+                }
+            ],
+        }
     )
 
-    assert "🟢 Watcher (running)" in rendered
-    assert "🟡 PausedApp (paused)" in rendered
+    assert "📋 **Alpha**" in rendered
+    assert "源码版本: 1.2.0" in rendered
+    assert "已安装版本: 1.1.0" in rendered
+    assert "描述: alpha desc" in rendered
+    assert "构建历史 (1 次):" in rendered
+    assert "v1.1.0 hash=abcdef12 (2026-04-29T19:00)" in rendered
 
 
     rendered = render_asset_detail_document(

@@ -17,6 +17,26 @@ def render_package_list(packages: list[dict[str, Any]], *, header: str, include_
     return "\n".join(lines)
 
 
+def render_package_detail(package: dict[str, Any]) -> str:
+    lines = [f"📋 **{package.get('name', package['asset_id'])}**\n"]
+    lines.append(f"类型: {package.get('asset_type', 'unknown')}")
+    if package.get("source_version"):
+        lines.append(f"源码版本: {package['source_version']}")
+    if package.get("installed_version"):
+        lines.append(f"已安装版本: {package['installed_version']}")
+    if package.get("description"):
+        lines.append(f"描述: {package['description']}")
+    history = package.get("build_history", [])
+    if history:
+        lines.append(f"\n构建历史 ({len(history)} 次):")
+        for item in history:
+            build_hash = str(item.get("build_hash", ""))[:8]
+            build_time = str(item.get("build_time", ""))[:16]
+            lines.append(f"  - v{item.get('version', 'unknown')} hash={build_hash} ({build_time})")
+    return "\n".join(lines)
+
+
+
 def render_app_list(apps: list[dict[str, Any]], *, header: str = "📱 你的 App 列表：\n") -> str:
     lines = [header]
     for app in apps:

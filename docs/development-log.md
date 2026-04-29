@@ -1,3 +1,30 @@
+## 2026-04-29: Extract package detail presenter
+
+### Summary
+Continued the package/app management presentation modularization with the next clean boundary after list renderers: `package_show` detail rendering.
+
+### What Was Done
+- Extended `app/system/management_presenters.py`
+  - added `render_package_detail(...)`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `package_show` now delegates its detail rendering to `render_package_detail(...)`
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added direct coverage for package metadata rendering
+  - added direct coverage for build-history summary rendering
+- Ran a focused smoke check for the new detail presenter
+
+### Design Outcome
+This keeps the management presentation modularization layered and controlled:
+- list-oriented package/app rendering lives in one small shared presenter module
+- the first detail-oriented package rendering is now also centralized
+- build/install/rollback success copy is still intentionally deferred until a clearer shared boundary is worth extracting
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'render_package_list or render_package_detail or render_app_list'`
+  - Result: `2 passed, 5 deselected`
+- `python3` smoke for package detail presenter
+  - Result: `package-detail-presenter-smoke: ok`
+
 ## 2026-04-29: Start package/app management presentation modularization
 
 ### Summary

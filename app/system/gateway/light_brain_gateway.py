@@ -37,7 +37,7 @@ from app.utils.context_upload import ContextUploadHelper
 from app.config.context_upload import ContextUploadConfig
 
 from app.services.contract_linter import ContractLinter
-from app.system.management_presenters import render_app_list, render_package_list
+from app.system.management_presenters import render_app_list, render_package_detail, render_package_list
 from app.system.self_iteration_strategy_formatter import (
     render_self_iteration_asset_detail,
     render_self_iteration_asset_list,
@@ -1293,23 +1293,9 @@ class LightBrainGateway:
         def build_response(child_session_id: str) -> ChatMessageResponse:
             result = self._package_manager_executor.execute("package_show", command.parameters)
             if result.success:
-                d = result.data
-                lines = [f"📋 **{d.get('name', d['asset_id'])}**\n"]
-                lines.append(f"类型: {d.get('asset_type', 'unknown')}")
-                if d.get('source_version'):
-                    lines.append(f"源码版本: {d['source_version']}")
-                if d.get('installed_version'):
-                    lines.append(f"已安装版本: {d['installed_version']}")
-                if d.get('description'):
-                    lines.append(f"描述: {d['description']}")
-                history = d.get('build_history', [])
-                if history:
-                    lines.append(f"\n构建历史 ({len(history)} 次):")
-                    for h in history:
-                        lines.append(f"  - v{h['version']} hash={h['build_hash'][:8]} ({h['build_time'][:16]})")
                 return ChatMessageResponse(
                     type="text",
-                    content="\n".join(lines),
+                    content=render_package_detail(d),
                     session_id=child_session_id,
                     requires_input=False,
                 )
