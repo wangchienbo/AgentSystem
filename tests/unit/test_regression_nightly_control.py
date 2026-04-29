@@ -38,6 +38,7 @@ from app.system.regression_governance_observation import (
     build_observation_record,
     build_replay_observation_digest,
 )
+from app.system.chat_observation import build_chat_observation_digest, persist_chat_observation
 from app.system.regression_refinement_translation import build_refinement_payload_from_trigger
 
 
@@ -1438,3 +1439,50 @@ def test_governance_execution_preflight_blocks_retry_pending_warning(tmp_path: P
     assert preflight["decision_code"] == "automation.retry_pending_requires_review"
     assert preflight["decision_label"] == "Automation retry pending, review required"
     assert preflight["automation_health"] == "warning"
+
+
+
+def test_chat_observation_digest_builds_from_live_chat_records(tmp_path) -> None:
+    persist_chat_observation(probe={
+        "topic": "api",
+        "prompt": "帮我确认这个接口行为",
+        "success": True,
+        "latency_ms": 12,
+        "response": "需要进一步验证后再判断",
+        "answer_mode": "verification_required",
+        "verification_mode": "required",
+        "fallback_like": True,
+        "overreach_risk": True,
+        "source": "live_chat_request",
+        "session_id": "session-live-1",
+        "error_type": None,
+    }, log_dir=tmp_path)
+
+    digest = build_chat_observation_digest(session_id="session-live-1", log_dir=tmp_path)
+
+    assert digest.total_observations == 1
+    assert digest.failure_stage_counts["evidence"] == 1
+    assert digest.observation_samples[0].run_id.startswith("live-chat-session-live-1")
+
+
+def test_regression_dashboard_exposes_live_chat_observation_digest() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_governance_dashboard
+    from app.models.governance_observation import GovernanceEvidenceDigest
+
+    comparison = {
+        "run_count": 1,
+        "avg_latency_ms": 1000,
+        "avg_fallback_count": 0,
+        "avg_overreach_risk_count": 0,
+        "answer_mode_totals": {"direct": 1},
+        "verification_mode_totals": {"none": 1},
+        "runs": [],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]),          patch("app.system.regression_dashboard.build_chat_observation_digest", return_value=GovernanceEvidenceDigest(total_observations=1, failure_stage_counts={"evidence": 1})):
+        dashboard = build_regression_governance_dashboard(replay_session_id="session-live-2")
+
+    assert dashboard["live_chat_observation_digest"]["total_observations"] == 1
+    assert dashboard["live_chat_observation_digest"]["failure_stage_counts"]["evidence"] == 1
+

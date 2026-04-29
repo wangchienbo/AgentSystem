@@ -26,6 +26,7 @@ from app.models.app_instance import AppInstance
 from app.models.chat import ChatMessageRequest
 from app.models.scheduling import ScheduleRecord
 from app.services.regression_nightly_control import RegressionNightlyControlService
+from app.system.chat_observation import build_chat_observation_probe, persist_chat_observation
 from app.system.chat_regression import (
     build_multi_run_comparison,
     build_run_summary,
@@ -474,6 +475,16 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
             "error_type": None,
             "latency_ms": latency_ms,
         })
+        persist_chat_observation(
+            probe=build_chat_observation_probe(
+                request=req.message,
+                response=response_text,
+                success=True,
+                latency_ms=latency_ms,
+                session_id=session_id,
+                structured_answer=structured_answer.model_dump() if structured_answer else None,
+            )
+        )
         return {"success": True, "response": response_text, "structured_answer": structured_answer.model_dump() if structured_answer else None, "session_id": session_id, "latency_ms": latency_ms}
     except Exception as e:
         finished_at = datetime.now()
@@ -497,6 +508,17 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
             "error_type": error_type,
             "latency_ms": latency_ms,
         })
+        persist_chat_observation(
+            probe=build_chat_observation_probe(
+                request=req.message,
+                response=error_text,
+                success=False,
+                latency_ms=latency_ms,
+                session_id=session_id,
+                structured_answer=None,
+                error_type=error_type,
+            )
+        )
         return {"success": False, "error": f"LLM request failed: {error_text}", "error_type": error_type, "session_id": session_id, "latency_ms": latency_ms}
 
 

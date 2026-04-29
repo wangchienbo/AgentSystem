@@ -1001,3 +1001,48 @@ def test_governance_nightly_trigger_contract_keeps_cycle_and_rollout_fields_toge
     assert data["governance_rollout"]["preflight"]["can_apply"] is True
     assert data["governance_rollout"]["preflight"]["render_badge"] == "AUTO | Primary tier auto-apply allowed"
     assert "code=tier.primary_auto_apply" in data["governance_rollout"]["preflight"]["render_operator_note"]
+
+
+
+def test_api_chat_persists_live_chat_observation() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import AsyncMock, patch
+    from app.models.chat import ChatMessageResponse
+    from app.models.cognition import SelfModel, StructuredAnswer, StructuredClaim
+
+    structured = StructuredAnswer(
+        self_model=SelfModel(
+            capability_state="tool_required",
+            tool_dependence_state="required",
+            confidence_state=0.4,
+            answer_mode="verification_required",
+            verification_mode="required",
+        ),
+        claim=StructuredClaim(text="当前只能初步判断", evidence_grade="none", confidence=0.4),
+        evidence=[],
+        unverified_points=["仍需补充更直接证据"],
+        text="当前只能初步判断",
+    )
+    fake_reply = ChatMessageResponse(type="text", content="当前只能初步判断", session_id="session_tester", structured_answer=structured)
+
+    with patch("app.system.http_test_server.gateway.receive_message", new=AsyncMock(return_value=fake_reply)),          patch("app.system.http_test_server.persist_chat_observation") as persist_mock:
+        response = client.post("/api/chat", json={"message": "帮我确认这个接口行为"})
+
+    assert response.status_code == 200
+    assert persist_mock.call_count == 1
+    probe = persist_mock.call_args.kwargs["probe"]
+    assert probe["source"] == "live_chat_request"
+    assert probe["topic"] == "api"
+    assert probe["answer_mode"] == "verification_required"
+    assert probe["fallback_like"] is True
+

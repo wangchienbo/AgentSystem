@@ -1,3 +1,31 @@
+## 2026-04-29: Real /api/chat observation ingestion for asynchronous governance
+
+### Summary
+Extended the compatibility-first governance line from nightly/manual trigger contracts into the real user request path by persisting post-response `/api/chat` observation probes and exposing a derived `live_chat_observation_digest` for downstream governance consumers. This keeps the synchronous chat path unblocked while letting real user traffic feed governance as execution truth instead of synthetic dashboard-only projections.
+
+### What Was Done
+- Added `app/system/chat_observation.py`
+  - builds compact live-chat probes from real `/api/chat` request/response contracts
+  - persists additive observation records under `data/chat_observation`
+  - exposes `build_chat_observation_digest()` for governance-side read models
+- Updated `app/system/http_test_server.py`
+  - success and failure branches of `/api/chat` now emit asynchronous live-chat observations after the response contract is formed
+- Updated `app/system/regression_dashboard.py`
+  - added additive `live_chat_observation_digest` exposure when a session id is supplied
+- Updated `app/system/regression_governance_observation.py`
+  - widened failure-stage compatibility so `verification_mode=required` maps into the same `evidence` governance bucket as existing regression probes
+- Expanded tests
+  - validated `/api/chat` persists a live observation probe
+  - validated stored live-chat records build a governance digest
+  - validated dashboard exposure of `live_chat_observation_digest`
+
+### Design Outcome
+This moves governance one step closer to the real user-request chain without turning `/api/chat` into a synchronous governance gate. The new live observation surface is additive, derived, and compatibility-safe, so downstream governance consumers can read real-user evidence while existing main-path contracts remain stable.
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py -k 'persists_live_chat_observation or response_prefixes_verification_required_mode' tests/unit/test_regression_nightly_control.py -k 'chat_observation_digest_builds_from_live_chat_records or regression_dashboard_exposes_live_chat_observation_digest or regression_dashboard_exposes_replay_observation_digest'`
+  - Result: `3 passed, 75 deselected`
+
 ## 2026-04-29: Add Rollout Summary Contract to Nightly Governance Trigger Responses
 
 ### Summary

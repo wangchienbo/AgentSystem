@@ -21,7 +21,7 @@ def classify_failure_stage(probe: dict[str, Any]) -> str | None:
 
     if answer_mode == "clarification_required":
         return "requirement_understanding"
-    if verification_mode in {"tool_required", "evidence_required"}:
+    if verification_mode in {"tool_required", "evidence_required", "required"}:
         return "evidence"
     if fallback_like:
         return "execution"
