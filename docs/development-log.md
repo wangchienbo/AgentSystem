@@ -1,3 +1,40 @@
+## 2026-04-30: Align app asset identity across install, upgrade, and uninstall
+
+### Summary
+After hardening install-time asset handling, the next audit found that the lifecycle tail still used mismatched identities. App install and catalog registration used blueprint-derived asset ids like `app.test.foo`, while uninstall still attempted to remove `app_instance_id` from AssetCenter. That meant the lifecycle looked closed from the runtime side but could leave the actual installed asset behind.
+
+### What Was Done
+- Updated `app/app_installer.py`
+  - introduced a shared helper for blueprint-derived app asset ids
+  - reused that helper for catalog registration and install-side asset materialization
+  - updated `upgrade_app()` to:
+    - report both old and new asset ids
+    - uninstall the previous installed app asset when the blueprint identity changes
+  - updated `uninstall_app_full()` to:
+    - resolve the blueprint-derived app asset id from lifecycle state before uninstalling from AssetCenter
+    - remove lifecycle state using the actual in-memory lifecycle store shape instead of calling a nonexistent `delete_app()` API
+- Expanded `tests/unit/test_registry_installer.py`
+  - added focused coverage for uninstall using blueprint-derived asset ids
+  - added focused coverage for upgrade removing the old installed app asset when the blueprint changes
+  - retained the existing real install integration coverage
+
+### Why This Matters
+This closes a real lifecycle consistency bug:
+- runtime identity (`app_instance_id`) remains the instance handle
+- installable asset identity stays blueprint-derived
+- AssetCenter lifecycle operations now act on the same identity install created in the first place
+
+Without this, installs could succeed and runtime cleanup could appear to succeed while the installable asset copy remained orphaned in AssetCenter.
+
+### Validation
+- `pytest -q tests/unit/test_registry_installer.py -k 'uninstall_app_full_uses_blueprint_asset_id or upgrade_app_uninstalls_old_asset_when_blueprint_changes or registers_blueprint_before_real_install'`
+  - Result: `3 passed, 4 deselected`
+- `python3` smoke for app lifecycle asset identity
+  - Result: `app-lifecycle-asset-identity-smoke: ok`
+
+### Remaining Boundary
+Lifecycle deletion is still performed from the installer against the lifecycle service's persisted in-memory structures, not through a first-class lifecycle deletion API. That is acceptable for this hardening slice but is still a cleanup candidate if lifecycle management becomes more formalized later.
+
 ## 2026-04-30: Prefer promoted core skill assets before registry fallback during app install
 
 ### Summary

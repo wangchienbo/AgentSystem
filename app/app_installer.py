@@ -44,6 +44,10 @@ def _skill_asset_manifest_path(base_dir: Path, skill_id: str) -> Path:
     return base_dir / "skill_assets" / "core" / "executable" / _skill_asset_slug(skill_id) / "manifest.json"
 
 
+def _app_blueprint_to_asset_id(blueprint_id: str) -> str:
+    return f"app.{blueprint_id.replace('bp.', '').replace(':', '.')}"
+
+
 class AppInstallerService:
     def __init__(
         self,
@@ -161,7 +165,7 @@ class AppInstallerService:
     def _register_static_catalog_entry(self, blueprint, user_id: str, release_version: str) -> None:
         if self._system_catalog is None:
             return
-        asset_id = f"app.{blueprint.id.replace('bp.', '').replace(':', '.')}"
+        asset_id = _app_blueprint_to_asset_id(blueprint.id)
         owner_id = f"user.{user_id}" if user_id != "system" else "system"
         entry = CatalogEntry(
             asset_id=asset_id,
@@ -186,11 +190,13 @@ class AppInstallerService:
         try:
             instance = self._lifecycle.get_instance(app_instance_id)
             old_version = instance.installed_version
+            old_asset_id = _app_blueprint_to_asset_id(instance.blueprint_id)
         except Exception:
             return {"status": "error", "message": f"App instance not found: {app_instance_id}"}
 
         # Route through AssetCenter for the new blueprint
         result = self.install_app(new_blueprint_id, user_id, app_instance_id)
+        new_asset_id = _app_blueprint_to_asset_id(new_blueprint_id)
 
         # Sync RuntimeCenter version change
         if self._asset_center and self._runtime_host:
@@ -206,15 +212,29 @@ class AppInstallerService:
                         owner=entry.owner,
                     )
 
+        if self._asset_center and old_asset_id != new_asset_id:
+            try:
+                self._asset_center.uninstall(old_asset_id)
+            except FileNotFoundError:
+                pass
+
         return {
             "status": "success",
             "app_instance_id": app_instance_id,
             "from_version": old_version,
             "to_version": result.release_version,
+            "from_asset_id": old_asset_id,
+            "to_asset_id": new_asset_id,
         }
 
     def uninstall_app_full(self, app_instance_id: str) -> dict:
         """Full uninstall: AssetCenter + RuntimeCenter + lifecycle + registry."""
+        try:
+            instance = self._lifecycle.get_instance(app_instance_id)
+            asset_id = _app_blueprint_to_asset_id(instance.blueprint_id)
+        except Exception:
+            asset_id = f"app.{app_instance_id}"
+
         # 1. Stop runtime
         if self._runtime_host:
             try:
@@ -225,7 +245,7 @@ class AppInstallerService:
         # 2. Uninstall from AssetCenter
         if self._asset_center:
             try:
-                self._asset_center.uninstall(app_instance_id)
+                self._asset_center.uninstall(asset_id)
             except FileNotFoundError:
                 pass  # Already uninstalled or never installed via AssetCenter
 
@@ -237,11 +257,13 @@ class AppInstallerService:
 
         # 4. Remove from lifecycle
         try:
-            self._lifecycle.delete_app(app_instance_id)
+            self._lifecycle._instances.pop(app_instance_id, None)  # noqa: SLF001
+            self._lifecycle._events.pop(app_instance_id, None)  # noqa: SLF001
+            self._lifecycle._persist()  # noqa: SLF001
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-        return {"status": "success", "app_instance_id": app_instance_id}
+        return {"status": "success", "app_instance_id": app_instance_id, "asset_id": asset_id}
 
     def _materialize_skill_asset_source_from_core(self, *, skill_id: str, asset_id: str, source_dir: Path) -> bool:
         if self._skill_asset_base_dir is None:

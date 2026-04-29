@@ -249,6 +249,67 @@ def test_app_install_prefers_core_skill_asset_source_when_available(tmp_path: Pa
     installer.install_app("bp.test.corepreferred", user_id="user.install")
 
     manifest = json.loads((tmp_path / "source" / "skill.monitor.control" / "manifest.json").read_text(encoding="utf-8"))
+def test_uninstall_app_full_uses_blueprint_asset_id(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    registry = AppRegistryService(store=store)
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "ns"), store=store)
+    asset_center = AssetCenter(
+        source_dir=str(tmp_path / "source"),
+        installed_dir=str(tmp_path / "installed"),
+        build_dir=str(tmp_path / "build"),
+        data_dir=str(tmp_path / "asset-data"),
+    )
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        asset_center=asset_center,
+    )
+    registry.register_blueprint(build_blueprint(blueprint_id="bp.test.uninstall"))
+    installer.install_app("bp.test.uninstall", user_id="user.install")
+
+    installed_asset_dir = tmp_path / "installed" / "app.test.uninstall"
+    assert installed_asset_dir.exists()
+
+    result = installer.uninstall_app_full("bp.test.uninstall:user.install")
+
+    assert result["status"] == "success"
+    assert result["asset_id"] == "app.test.uninstall"
+    assert not installed_asset_dir.exists()
+
+
+def test_upgrade_app_uninstalls_old_asset_when_blueprint_changes(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    registry = AppRegistryService(store=store)
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "ns"), store=store)
+    asset_center = AssetCenter(
+        source_dir=str(tmp_path / "source"),
+        installed_dir=str(tmp_path / "installed"),
+        build_dir=str(tmp_path / "build"),
+        data_dir=str(tmp_path / "asset-data"),
+    )
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        asset_center=asset_center,
+    )
+    registry.register_blueprint(build_blueprint(blueprint_id="bp.test.old", name="Old App"))
+    registry.register_blueprint(build_blueprint(blueprint_id="bp.test.new", name="New App"))
+    installer.install_app("bp.test.old", user_id="user.install", app_instance_id="app-instance-1")
+
+    old_asset_dir = tmp_path / "installed" / "app.test.old"
+    new_asset_dir = tmp_path / "installed" / "app.test.new"
+    assert old_asset_dir.exists()
+
+    result = installer.upgrade_app("app-instance-1", "bp.test.new", "user.install")
+
 def test_app_design_confirm_registers_blueprint_before_real_install(tmp_path: Path) -> None:
     store = RuntimeStateStore(base_dir=str(tmp_path / "designer-installer-store"))
     registry = AppRegistryService(store=store)
