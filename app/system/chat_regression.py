@@ -254,6 +254,7 @@ def run_regression_governance_cycle(
     promote_evidence_fn: Callable[..., dict[str, Any]] | None = None,
     apply_triggers_fn: Callable[..., dict[str, Any]] | None = None,
     memory: RefinementMemoryStore | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Execute a full one-shot regression governance cycle.
 
@@ -272,7 +273,13 @@ def run_regression_governance_cycle(
     evidence_result = promote_evidence_fn(comparison=build_multi_run_comparison(limit=5))
     trigger_result = {"trigger_count": 0, "created_hypotheses": [], "created_verifications": [], "created_queue_items": []}
     if memory is not None:
-        trigger_result = apply_triggers_fn(memory)
+        if session_id is not None:
+            try:
+                trigger_result = apply_triggers_fn(memory, replay_session_id=session_id)
+            except TypeError:
+                trigger_result = apply_triggers_fn(memory)
+        else:
+            trigger_result = apply_triggers_fn(memory)
 
     return {
         "run_id": summary.run_id,

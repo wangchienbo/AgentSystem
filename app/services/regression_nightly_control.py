@@ -223,8 +223,12 @@ class RegressionNightlyControlService:
         self.save_tick_state(state)
         return state
 
-    def run_cycle(self, client: Any) -> dict[str, Any]:
-        return run_regression_governance_cycle(make_testclient_poster(client), memory=self._refinement_memory)
+    def run_cycle(self, client: Any, *, session_id: str | None = None) -> dict[str, Any]:
+        return run_regression_governance_cycle(
+            make_testclient_poster(client),
+            memory=self._refinement_memory,
+            session_id=session_id,
+        )
 
     def build_governance_execution_preflight(self, *, nightly_status: dict[str, Any] | None = None) -> dict[str, Any]:
         summary = build_regression_operator_summary(
@@ -316,7 +320,7 @@ class RegressionNightlyControlService:
             return {"triggered": False, "nightly_status": refreshed, "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
 
         try:
-            cycle_result = self.run_cycle(client)
+            cycle_result = self.run_cycle(client, session_id=REGRESSION_NIGHTLY_SERVICE_SESSION_ID)
         except Exception as exc:
             snapshot = self.build_nightly_status(driver_status)
             state = self.record_tick(
@@ -348,7 +352,7 @@ class RegressionNightlyControlService:
         matched = [item.model_dump(mode="json") for item in trigger_results if item.task_name == REGRESSION_CYCLE_TASK_NAME and item.triggered]
         if not matched:
             return {"triggered": False, "schedule_results": [item.model_dump(mode="json") for item in trigger_results]}
-        cycle_result = self.run_cycle(client)
+        cycle_result = self.run_cycle(client, session_id=REGRESSION_NIGHTLY_SERVICE_SESSION_ID)
         self._runtime_host.consume_pending_tasks(APP_INSTANCE_ID, REGRESSION_CYCLE_TASK_NAME)
         governance_rollout = None
         if auto_apply_governance:

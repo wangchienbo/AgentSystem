@@ -92,6 +92,7 @@ Used to validate the new chat regression operator loop end to end through the HT
 - automated refinement trigger generation from regression risk flags (`regression-triggers`)
 - governance nightly/manual trigger contract coverage, including `cycle`, `governance_rollout`, and compact `governance_rollout_summary` alignment on applied and preflight-held paths
 - live `/api/chat` observation coverage, including post-response persistence, compatibility classification of `verification_mode=required`, and dashboard exposure of `live_chat_observation_digest`
+- trigger-side live observation consumption coverage, including merged observation digests and service-session propagation into nightly/manual governance execution
 
 ### 2.3 End-to-end milestone tests
 Used to validate full user/system flows:

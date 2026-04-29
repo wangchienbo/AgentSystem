@@ -201,6 +201,7 @@ The chat regression subsystem must support:
 - deriving refinement metrics from regression comparison/trigger data rather than returning hardcoded placeholder values
 - exposing a compact `governance_rollout_summary` on real nightly/manual governance trigger results so callers can consume applied-vs-held operator context without reconstructing nested rollout/preflight details
 - capturing post-response `/api/chat` live observations into a compatibility-safe derived governance digest so real user traffic can feed asynchronous governance without turning the synchronous chat path into a blocking gate
+- allowing nightly/manual regression governance execution to consume service-session live chat observations as additive evidence input, so trigger failure-stage derivation can reflect both fixed regression probes and real user-path observation truth
 
 The subsystem should treat regression as an operator loop with three layers:
 - **Observe**: run, latest, runs, run detail, compare, trends, evidence history

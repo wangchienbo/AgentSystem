@@ -1486,3 +1486,81 @@ def test_regression_dashboard_exposes_live_chat_observation_digest() -> None:
     assert dashboard["live_chat_observation_digest"]["total_observations"] == 1
     assert dashboard["live_chat_observation_digest"]["failure_stage_counts"]["evidence"] == 1
 
+
+
+
+def test_regression_dashboard_merges_live_chat_observation_into_observation_digest() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_governance_dashboard
+    from app.models.governance_observation import GovernanceEvidenceDigest
+
+    comparison = {
+        "run_count": 1,
+        "avg_latency_ms": 1000,
+        "avg_fallback_count": 0,
+        "avg_overreach_risk_count": 0,
+        "answer_mode_totals": {"direct": 1},
+        "verification_mode_totals": {"none": 1},
+        "runs": [{"summary": {"run_id": "run-merge-1"}}],
+    }
+    base_digest = GovernanceEvidenceDigest(total_observations=1, failure_stage_counts={"execution": 1})
+    live_digest = GovernanceEvidenceDigest(total_observations=2, failure_stage_counts={"evidence": 2})
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison),          patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}),          patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]),          patch("app.system.regression_dashboard.read_run_details", return_value={"summary": {"run_id": "run-merge-1"}, "probes": []}),          patch("app.system.regression_dashboard.build_governance_evidence_digest", return_value=base_digest),          patch("app.system.regression_dashboard.build_chat_observation_digest", return_value=live_digest):
+        dashboard = build_regression_governance_dashboard(replay_session_id="session-live-merge")
+
+    assert dashboard["observation_digest"]["total_observations"] == 3
+    assert dashboard["observation_digest"]["failure_stage_counts"]["execution"] == 1
+    assert dashboard["observation_digest"]["failure_stage_counts"]["evidence"] == 2
+
+
+def test_run_regression_governance_cycle_passes_session_id_into_trigger_application() -> None:
+    from app.system.chat_regression import RegressionProbeResult, run_regression_governance_cycle
+
+    captured = {}
+
+    def fake_post(_path: str, payload: dict[str, object]) -> dict[str, object]:
+        return {
+            "success": True,
+            "response": f"ok:{payload['message']}",
+            "latency_ms": 5,
+            "structured_answer": {"self_model": {"answer_mode": "direct", "verification_mode": "none"}},
+        }
+
+    def fake_apply(memory, **kwargs):
+        captured.update(kwargs)
+        return {"trigger_count": 0, "created_hypotheses": [], "created_verifications": [], "created_queue_items": []}
+
+    result = run_regression_governance_cycle(
+        fake_post,
+        promote_evidence_fn=lambda **kwargs: {"promoted_count": 0, "promoted_evidence": [], "comparison": kwargs.get("comparison")},
+        apply_triggers_fn=fake_apply,
+        memory=object(),
+        session_id="session-regression-nightly-service",
+    )
+
+    assert result["trigger_application"]["trigger_count"] == 0
+    assert captured["replay_session_id"] == "session-regression-nightly-service"
+
+
+def test_trigger_manual_cycle_uses_service_session_for_live_chat_governance(tmp_path: Path) -> None:
+    from unittest.mock import Mock, patch
+    from app.services.regression_nightly_control import RegressionNightlyControlService, REGRESSION_NIGHTLY_SERVICE_SESSION_ID
+
+    service = build_service(tmp_path)
+    service.register_nightly_schedule(interval_seconds=60)
+
+    fake_cycle = {
+        "run_id": "run-live-governance",
+        "summary": {},
+        "path": "/tmp/run-live-governance.jsonl",
+        "evidence": {"promoted_count": 0},
+        "trigger_application": {"trigger_count": 1},
+    }
+
+    with patch.object(service, "run_cycle", return_value=fake_cycle) as run_cycle_mock:
+        result = service.trigger_manual_cycle(client=Mock())
+
+    assert result["triggered"] is True
+    assert run_cycle_mock.call_args.kwargs["session_id"] == REGRESSION_NIGHTLY_SERVICE_SESSION_ID
+

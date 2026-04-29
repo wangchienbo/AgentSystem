@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.models.governance_observation import GovernanceEvidenceDigest
 from app.models.refinement_loop import RefinementFilter
 from app.services.refinement_memory import RefinementMemoryStore
 from app.system.chat_observation import build_chat_observation_digest
@@ -38,6 +39,33 @@ FAILURE_STAGE_SIGNAL_MAP = {
 }
 
 
+def _merge_observation_digests(*digests: dict[str, Any] | None) -> dict[str, Any]:
+    total_observations = 0
+    failure_stage_counts: dict[str, int] = {}
+    topic_failure_stage_counts: dict[str, dict[str, int]] = {}
+    observation_samples: list[dict[str, Any]] = []
+
+    for digest in digests:
+        if not digest:
+            continue
+        total_observations += int(digest.get("total_observations") or 0)
+        for stage, count in (digest.get("failure_stage_counts") or {}).items():
+            failure_stage_counts[stage] = failure_stage_counts.get(stage, 0) + int(count)
+        for topic, bucket in (digest.get("topic_failure_stage_counts") or {}).items():
+            topic_counts = topic_failure_stage_counts.setdefault(topic, {})
+            for stage, count in (bucket or {}).items():
+                topic_counts[stage] = topic_counts.get(stage, 0) + int(count)
+        observation_samples.extend(digest.get("observation_samples") or [])
+
+    merged = GovernanceEvidenceDigest(
+        total_observations=total_observations,
+        failure_stage_counts=failure_stage_counts,
+        topic_failure_stage_counts=topic_failure_stage_counts,
+        observation_samples=observation_samples,
+    )
+    return merged.model_dump(mode="json")
+
+
 def build_regression_governance_dashboard(
     *,
     comparison_limit: int = 5,
@@ -67,6 +95,10 @@ def build_regression_governance_dashboard(
     live_chat_observation_digest = None
     if replay_session_id:
         live_chat_observation_digest = build_chat_observation_digest(session_id=replay_session_id).model_dump(mode="json")
+    combined_observation_digest = _merge_observation_digests(
+        observation_digest.model_dump(mode="json"),
+        live_chat_observation_digest,
+    )
     replay_observation_digest = None
     if replay_session_id and replay_history is not None:
         replay_observation_digest = build_replay_observation_digest(replay_session_id, replay_history).model_dump(mode="json")
@@ -94,7 +126,7 @@ def build_regression_governance_dashboard(
         "comparison": comparison,
         "trends": trends,
         "evidence": evidence,
-        "observation_digest": observation_digest.model_dump(mode="json"),
+        "observation_digest": combined_observation_digest,
         "live_chat_observation_digest": live_chat_observation_digest,
         "replay_observation_digest": replay_observation_digest,
         "risk_flags": risk_flags,
@@ -584,6 +616,7 @@ def build_regression_triggers(
     comparison_limit: int = 5,
     threshold: str = "warning",
     nightly_status: dict[str, Any] | None = None,
+    replay_session_id: str | None = None,
 ) -> dict[str, Any]:
     """Generate actionable refinement triggers from regression risk flags.
 
@@ -602,6 +635,7 @@ def build_regression_triggers(
     dashboard = build_regression_governance_dashboard(
         comparison_limit=comparison_limit,
         nightly_status=nightly_status,
+        replay_session_id=replay_session_id,
     )
     risk_flags = dashboard.get("risk_flags", [])
     priority_family, priority_subdomain_candidate, priority_lane = _derive_governance_priority_hints(risk_flags)
@@ -661,6 +695,7 @@ def apply_regression_triggers_to_refinement(
     comparison_limit: int = 5,
     threshold: str = "warning",
     nightly_status: dict[str, Any] | None = None,
+    replay_session_id: str | None = None,
 ) -> dict[str, Any]:
     """Persist regression trigger outputs into refinement memory as hypotheses,
     verification records, and rollout queue items.
@@ -669,6 +704,7 @@ def apply_regression_triggers_to_refinement(
         comparison_limit=comparison_limit,
         threshold=threshold,
         nightly_status=nightly_status,
+        replay_session_id=replay_session_id,
     )
     persisted = persist_trigger_payloads(memory, trigger_payload["triggers"])
     persisted["generated_at"] = trigger_payload["generated_at"]

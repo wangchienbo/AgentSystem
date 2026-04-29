@@ -1,3 +1,33 @@
+## 2026-04-29: Nightly/manual governance now consumes live chat observation evidence
+
+### Summary
+Extended the previous `/api/chat` observation ingestion work so nightly/manual regression governance execution can actually consume the persisted live-chat evidence instead of only exposing it on dashboard read models. The trigger path now merges fixed regression observation truth with service-session live chat observations, keeping compatibility intact while moving governance one step closer to real user traffic.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - added a small digest merge helper for governance observation views
+  - `observation_digest` now merges fixed-regression observations with `live_chat_observation_digest` when a session id is supplied
+  - `build_regression_triggers()` and `apply_regression_triggers_to_refinement()` now accept additive `replay_session_id`
+- Updated `app/system/chat_regression.py`
+  - `run_regression_governance_cycle()` now accepts optional `session_id`
+  - passes service-session identity into trigger application when supported
+  - preserves compatibility by falling back to the legacy trigger-application signature when needed
+- Updated `app/services/regression_nightly_control.py`
+  - nightly/manual cycle execution now passes `REGRESSION_NIGHTLY_SERVICE_SESSION_ID` into governance-cycle trigger generation
+- Expanded tests
+  - validated merged observation digests contribute to trigger-side `observation_digest`
+  - validated governance cycle passes session identity into trigger application
+  - validated manual nightly control uses the service session for live-chat governance consumption
+
+### Design Outcome
+This keeps the main chat path non-blocking and the governance schema additive, but it closes an important semantic gap: real-user-path observations are now available to actual nightly/manual governance trigger derivation, not just to dashboards. The system still prefers derived read-side composition over lower-layer schema breakage.
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'merges_live_chat_observation_into_observation_digest or passes_session_id_into_trigger_application or uses_service_session_for_live_chat_governance'`
+  - Result: `3 passed, 50 deselected`
+- `pytest -q tests/unit/test_chat_regression.py -k 'run_regression_governance_cycle_returns_full_bundle'`
+  - Result: `1 passed, 70 deselected`
+
 ## 2026-04-29: Real /api/chat observation ingestion for asynchronous governance
 
 ### Summary
