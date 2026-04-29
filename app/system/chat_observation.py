@@ -17,8 +17,12 @@ def _classify_topic(message: str) -> str:
     text = message.lower()
     if any(token in message for token in ("接口", "api", "路由", "handler")):
         return "api"
-    if any(token in message for token in ("校验", "验证", "guard", "schema")):
+    if any(token in message for token in ("校验", "guard", "schema")):
         return "validation"
+    if "验证" in message:
+        if any(token in text for token in ("证据", "依据", "确认", "prove", "evidence")):
+            return "validation"
+        return "live_chat"
     if any(token in message for token in ("日志", "观测", "埋点", "telemetry")):
         return "telemetry"
     if any(token in message for token in ("存储", "数据库", "backend", "读写", "storage")):

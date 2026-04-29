@@ -599,6 +599,48 @@ def _derive_failure_stage_for_signal(signal: str, observation_digest: dict[str, 
     return mapped or "unclassified"
 
 
+def _derive_observation_topic_for_signal(signal: str, observation_digest: dict[str, Any]) -> str | None:
+    topic_failure_stage_counts = observation_digest.get("topic_failure_stage_counts") or {}
+    if not topic_failure_stage_counts:
+        return None
+
+    preferred_topics_by_signal = {
+        "elevated_latency": ["api", "storage", "telemetry", "validation", "live_chat"],
+        "elevated_fallback": ["validation", "api", "live_chat", "telemetry", "storage"],
+        "elevated_overreach": ["validation", "api", "live_chat", "telemetry", "storage"],
+        "conservative_mode_skew": ["validation", "live_chat", "api", "telemetry", "storage"],
+    }
+    preferred = preferred_topics_by_signal.get(signal, [])
+    for topic in preferred:
+        if topic in topic_failure_stage_counts:
+            return topic
+
+    ranked = sorted(
+        topic_failure_stage_counts.items(),
+        key=lambda item: sum((item[1] or {}).values()),
+        reverse=True,
+    )
+    return ranked[0][0] if ranked else None
+
+
+def _derive_observation_lane_hint(observation_topic: str | None, failure_stage: str) -> str | None:
+    if observation_topic == "api":
+        return "execution_semantics::profile_performance_bottlenecks" if failure_stage == "execution" else "execution_semantics::inspect_api_decision_path"
+    if observation_topic == "validation":
+        return "answer_shaping::tighten_evidence_boundary_guard" if failure_stage in {"evidence", "answer_shaping"} else "requirement_understanding::raise_clarification_threshold"
+    if observation_topic == "telemetry":
+        return "execution_semantics::improve_observability_signal_quality"
+    if observation_topic == "storage":
+        return "execution_semantics::inspect_storage_read_write_path"
+    if observation_topic == "live_chat":
+        if failure_stage == "requirement_understanding":
+            return "requirement_understanding::raise_clarification_threshold"
+        if failure_stage in {"evidence", "answer_shaping"}:
+            return "answer_shaping::tighten_evidence_boundary_guard"
+        return "execution_semantics::inspect_live_chat_request_path"
+    return None
+
+
 def _derive_governance_priority_hints(risk_flags: list[dict[str, Any]]) -> tuple[str | None, str | None, str | None]:
     if not risk_flags:
         return None, None, None
@@ -660,6 +702,9 @@ def build_regression_triggers(
             "secondary" if flag.get("level", "") == "warning" else
             "normal"
         )
+        failure_stage = _derive_failure_stage_for_signal(signal, observation_digest)
+        observation_topic = _derive_observation_topic_for_signal(signal, observation_digest)
+        observation_lane_hint = _derive_observation_lane_hint(observation_topic, failure_stage)
         triggers.append({
             "trigger_id": f"regression-trigger-{uuid4().hex[:12]}",
             "signal": signal,
@@ -669,12 +714,14 @@ def build_regression_triggers(
             "subdomain_candidate": subdomain_candidate,
             "recommended_action": action,
             "detail": flag.get("detail", ""),
-            "failure_stage": _derive_failure_stage_for_signal(signal, observation_digest),
+            "failure_stage": failure_stage,
+            "observation_topic": observation_topic,
             "governance_priority": {
                 "is_priority_family": family == priority_family,
                 "is_priority_subdomain_candidate": subdomain_candidate == priority_subdomain_candidate,
                 "priority_lane": priority_lane,
                 "suggested_priority_tier": suggested_priority_tier,
+                "observation_lane_hint": observation_lane_hint,
             },
             "generated_at": ts,
         })

@@ -1,3 +1,26 @@
+## 2026-04-29: Add live observation topic and lane hints to governance triggers
+
+### Summary
+Refined the live-chat observation line one step further by letting trigger read models expose additive `observation_topic` and `observation_lane_hint` fields. This gives downstream governance and refinement consumers a more precise interpretation of real-user evidence without changing the existing signal-family, subdomain, or priority-lane contract.
+
+### What Was Done
+- Updated `app/system/chat_observation.py`
+  - narrowed generic `验证` language classification so only explicit evidence/confirmation wording collapses into `validation`
+  - generic verification language can now remain in `live_chat`, which is a better fit for real user-path ambiguity signals
+- Updated `app/system/regression_dashboard.py`
+  - added derived helpers for `observation_topic` and `observation_lane_hint`
+  - trigger payloads now expose these additive hint fields next to the existing failure-stage and governance-priority metadata
+- Expanded tests
+  - validated generic live-chat verification wording stays in `live_chat`
+  - validated trigger payloads expose `observation_topic` and an evidence-boundary lane hint on live-chat overreach paths
+
+### Design Outcome
+This preserves the compatibility-first trigger contract while making real observation input more actionable. The base trigger lane still comes from the signal family and recommended action, but downstream consumers now get a finer observation-derived hint that can distinguish generic live-chat ambiguity from stricter validation-domain failures.
+
+### Validation
+- `pytest -q tests/unit/test_regression_nightly_control.py -k 'generic_verification_language or expose_observation_topic_and_lane_hint or propagate_failure_stage_from_observation_digest'`
+  - Result: `3 passed, 52 deselected`
+
 ## 2026-04-29: Nightly/manual governance now consumes live chat observation evidence
 
 ### Summary

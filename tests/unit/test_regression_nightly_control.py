@@ -1564,3 +1564,46 @@ def test_trigger_manual_cycle_uses_service_session_for_live_chat_governance(tmp_
     assert result["triggered"] is True
     assert run_cycle_mock.call_args.kwargs["session_id"] == REGRESSION_NIGHTLY_SERVICE_SESSION_ID
 
+
+
+
+def test_live_chat_observation_topic_prefers_live_chat_for_generic_verification_language() -> None:
+    from app.system.chat_observation import build_chat_observation_probe
+
+    probe = build_chat_observation_probe(
+        request="这个事情需要再验证一下吗",
+        response="需要进一步验证后再判断",
+        success=True,
+        latency_ms=10,
+        session_id="session-live-topic-1",
+        structured_answer={"self_model": {"answer_mode": "verification_required", "verification_mode": "required"}},
+    )
+
+    assert probe["topic"] == "live_chat"
+
+
+def test_regression_triggers_expose_observation_topic_and_lane_hint() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_triggers
+
+    dashboard = {
+        "comparison": {"run_count": 1},
+        "risk_flags": [
+            {"signal": "elevated_overreach", "level": "warning", "detail": "overreach visible on live chat"},
+        ],
+        "observation_digest": {
+            "total_observations": 2,
+            "failure_stage_counts": {"evidence": 2},
+            "topic_failure_stage_counts": {"live_chat": {"evidence": 2}},
+            "observation_samples": [],
+        },
+    }
+
+    with patch("app.system.regression_dashboard.build_regression_governance_dashboard", return_value=dashboard):
+        payload = build_regression_triggers()
+
+    trigger = payload["triggers"][0]
+    assert trigger["failure_stage"] == "evidence"
+    assert trigger["observation_topic"] == "live_chat"
+    assert trigger["governance_priority"]["observation_lane_hint"] == "answer_shaping::tighten_evidence_boundary_guard"
+
