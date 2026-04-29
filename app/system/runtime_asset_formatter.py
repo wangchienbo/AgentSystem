@@ -7,6 +7,16 @@ def join_kv_pairs(pairs: Iterable[tuple[str, Any]]) -> str:
     return "; ".join(f"{key}={value}" for key, value in pairs)
 
 
+def extract_capability_methods(capabilities: list[dict[str, Any]] | None, *, limit: int | None = None) -> list[str]:
+    items = capabilities or []
+    visible_items = items[:limit] if limit is not None else items
+    methods = []
+    for cap in visible_items:
+        if isinstance(cap, dict) and cap.get("method"):
+            methods.append(str(cap.get("method")))
+    return methods
+
+
 def render_asset_summary_list(
     items: list[dict[str, Any]],
     *,
@@ -55,18 +65,26 @@ def render_asset_method_catalog(
     for asset in visible_assets:
         asset_id = asset.get("asset_id", asset.get("name", "unknown"))
         capabilities = asset.get("capabilities", [])
-        methods = []
-        for cap in (capabilities[:5] if capabilities else []):
-            if isinstance(cap, dict) and cap.get("method"):
-                methods.append(cap.get("method"))
+        methods = extract_capability_methods(capabilities, limit=5)
         method_text = ", ".join(methods) if methods else "多个方法"
         lines.append(f"  • {asset_id}: {method_text}")
 
     if max_items is not None and len(assets) > max_items and overflow_template:
         lines.append(overflow_template.format(extra=len(assets) - max_items))
 
-    if footer:
-        lines.append("")
-        lines.append(footer)
-
+def render_asset_info_summary(
+    *,
+    asset_id: str,
+    intro: str,
+    capabilities: list[dict[str, Any]] | None = None,
+    extra_lines: list[str] | None = None,
+) -> str:
+    lines = [
+        intro,
+        f"- asset_id: {asset_id}",
+    ]
+    methods = extract_capability_methods(capabilities)
+    if methods:
+        lines.append(f"- methods: {', '.join(methods)}")
+    lines.extend(extra_lines or [])
     return "\n".join(lines)

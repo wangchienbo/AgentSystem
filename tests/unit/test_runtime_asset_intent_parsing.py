@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from app.system.runtime_asset_formatter import (
     append_detail_fallback,
+    extract_capability_methods,
     join_kv_pairs,
     render_asset_detail_header,
+    render_asset_info_summary,
     render_asset_method_catalog,
     render_asset_summary_list,
 )
@@ -22,22 +24,30 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
 
-def test_render_asset_method_catalog_outputs_footer_and_overflow() -> None:
-    rendered = render_asset_method_catalog(
+def test_extract_capability_methods_respects_limit() -> None:
+    methods = extract_capability_methods(
         [
-            {"asset_id": "asset.a", "capabilities": [{"method": "foo"}, {"method": "bar"}]},
-            {"asset_id": "asset.b", "capabilities": [{"method": "baz"}]},
+            {"method": "foo"},
+            {"method": "bar"},
+            {"method": "baz"},
         ],
-        header="【系统资产】",
-        footer="调用资产方法: 使用 call_asset_method(asset_id, method, params)",
-        max_items=1,
-        overflow_template="  • ... 还有 {extra} 个资产",
+        limit=2,
     )
 
-    assert "【系统资产】" in rendered
-    assert "  • asset.a: foo, bar" in rendered
-    assert "... 还有 1 个资产" in rendered
-    assert "调用资产方法" in rendered
+    assert methods == ["foo", "bar"]
+
+
+def test_render_asset_info_summary_outputs_methods_and_extra_lines() -> None:
+    rendered = render_asset_info_summary(
+        asset_id="asset:self_iteration_center:v1",
+        intro="self_iteration_center 是自我迭代资产入口。",
+        capabilities=[{"method": "list_self_iteration_assets"}, {"method": "query_self_iteration_asset"}],
+        extra_lines=["- 用途: 汇总并查询资产摘要"],
+    )
+
+    assert "asset:self_iteration_center:v1" in rendered
+    assert "methods: list_self_iteration_assets, query_self_iteration_asset" in rendered
+    assert "用途: 汇总并查询资产摘要" in rendered
 
 
 def test_render_runtime_asset_summary_list_outputs_header_and_items() -> None:

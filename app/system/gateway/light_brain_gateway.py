@@ -42,6 +42,7 @@ from app.system.self_iteration_strategy_formatter import (
     render_self_iteration_asset_list,
     render_self_iteration_strategy_overview,
 )
+from app.system.runtime_asset_formatter import render_asset_info_summary
 
 logger = logging.getLogger(__name__)
 
@@ -1040,21 +1041,15 @@ class LightBrainGateway:
             return None
 
         if command.intent in {"query_asset_info", "query_asset_detail"} and isinstance(data, dict):
-            capabilities = data.get("capabilities") or []
-            methods = [
-                cap.get("method")
-                for cap in capabilities
-                if isinstance(cap, dict) and cap.get("method")
-            ]
-            lines = [
-                "self_iteration_center 是自我迭代资产入口。",
-                f"- asset_id: {asset_id}",
-            ]
-            if methods:
-                lines.append(f"- methods: {', '.join(methods)}")
-            lines.append("- 系统视角: Observe(回归/在线观察) → Summarize(治理总览) → Act(trigger/backlog)")
-            lines.append("- 用途: 汇总并查询 regression、observation、governance、refinement 这条自我迭代链的资产摘要")
-            return "\n".join(lines)
+            return render_asset_info_summary(
+                asset_id=str(asset_id),
+                intro="self_iteration_center 是自我迭代资产入口。",
+                capabilities=data.get("capabilities") if isinstance(data.get("capabilities"), list) else [],
+                extra_lines=[
+                    "- 系统视角: Observe(回归/在线观察) → Summarize(治理总览) → Act(trigger/backlog)",
+                    "- 用途: 汇总并查询 regression、observation、governance、refinement 这条自我迭代链的资产摘要",
+                ],
+            )
 
         if command.intent == "call_asset_method" and isinstance(data, dict):
             method = data.get("method") or payload.get("method")

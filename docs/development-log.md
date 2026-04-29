@@ -1,3 +1,35 @@
+## 2026-04-29: Add shared runtime-asset info summary helpers
+
+### Summary
+Extended the shared runtime-asset formatter layer into generic asset info/detail presentation. Instead of keeping method extraction and info-summary assembly local to one gateway branch, introduced shared helpers for the repeated shape: intro, asset id, method list, and extra lines.
+
+### What Was Done
+- Expanded `app/system/runtime_asset_formatter.py`
+  - added `extract_capability_methods(...)`
+  - added `render_asset_info_summary(...)`
+  - updated method-catalog rendering to reuse shared capability extraction
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - self-iteration `query_asset_info` / `query_asset_detail` entry reply now delegates its common summary shape to `render_asset_info_summary(...)`
+  - removed another local method-list assembly block from the gateway
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added direct coverage for capability extraction limit behavior
+  - added direct coverage for shared asset info summary rendering
+- Ran runtime smoke validation through the real `query_asset_info` rendering path
+
+### Design Outcome
+The runtime-asset presentation layer now has shared helpers for three increasingly common structures:
+- asset method catalog
+- asset info summary
+- asset detail header / kv fallback
+
+This is a better reuse boundary than pushing strategy-specific semantics upward, because it standardizes repeated runtime-asset presentation shapes while preserving domain ownership of asset-family-specific meaning.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'extract_capability_methods or render_asset_info_summary or render_asset_method_catalog or join_kv_pairs or render_runtime_asset_summary_list or render_runtime_asset_detail_header_and_fallback or select_recommended_next_asset or build_follow_up_actions or build_strategy_route or render_self_iteration_strategy_overview or render_self_iteration_asset_list or render_self_iteration_asset_detail'`
+  - Result: `7 passed`
+- `python3` runtime smoke for query-asset info summary rendering
+  - Result: `runtime-asset-info-summary-smoke: ok`
+
 ## 2026-04-29: Reuse runtime-asset formatter primitives in asset prompt catalog
 
 ### Summary
