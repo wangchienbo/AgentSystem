@@ -195,6 +195,14 @@ class AppLifecycleService:
             recorded_events=len(self._events[app_instance_id]),
         )
 
+    def delete_app(self, app_instance_id: str) -> bool:
+        if app_instance_id not in self._instances:
+            raise LifecycleError(f"App instance not found: {app_instance_id}")
+        self._instances.pop(app_instance_id, None)
+        self._events.pop(app_instance_id, None)
+        self._persist()
+        return True
+
     # ------------------------------------------------------------------
     # Snapshot helpers
     # ------------------------------------------------------------------

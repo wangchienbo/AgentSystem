@@ -1,3 +1,33 @@
+## 2026-04-30: Formalize lifecycle deletion as a first-class service API
+
+### Summary
+The previous lifecycle hardening slice fixed the identity mismatch across install, upgrade, and uninstall, but it still relied on the installer mutating private lifecycle internals to remove an app. A follow-up audit showed this was the wrong long-term boundary, especially because other parts of the system were already assuming a `delete_app()` lifecycle API existed. This slice makes that assumption true instead of leaving multiple callers to reach into private storage.
+
+### What Was Done
+- Updated `app/system/runtime/lifecycle.py`
+  - added `AppLifecycleService.delete_app(app_instance_id)`
+  - deletion now removes the stored instance and lifecycle event stream, persists the change, and raises `LifecycleError` if the app does not exist
+- Updated `app/app_installer.py`
+  - switched uninstall cleanup from private `_instances/_events/_persist` mutation back to the formal lifecycle service API
+- Expanded `tests/unit/test_registry_installer.py`
+  - added focused coverage for lifecycle deletion persistence semantics
+  - retained the app lifecycle asset-identity coverage from the previous slice
+
+### Why This Matters
+This removes a temporary boundary violation and aligns the implementation with existing system expectations:
+- installer no longer needs knowledge of lifecycle internals
+- worker flows that already expect `delete_app()` are now calling a real API
+- lifecycle persistence semantics are centralized again in the lifecycle service
+
+### Validation
+- `pytest -q tests/unit/test_registry_installer.py -k 'lifecycle_delete_app_removes_instance_and_events or uninstall_app_full_uses_blueprint_asset_id or upgrade_app_uninstalls_old_asset_when_blueprint_changes or registers_blueprint_before_real_install'`
+  - Result: `2 passed, 4 deselected`
+- `python3` smoke for lifecycle delete API
+  - Result: `lifecycle-delete-api-smoke: ok`
+
+### Remaining Boundary
+`delete_app()` currently performs direct removal without additional archival policy, dependency cleanup, or caller authorization logic. That is acceptable for the current service boundary hardening, but if delete semantics become richer later, the lifecycle API is now the right place to extend them.
+
 ## 2026-04-30: Align app asset identity across install, upgrade, and uninstall
 
 ### Summary

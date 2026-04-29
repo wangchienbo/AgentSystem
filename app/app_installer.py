@@ -257,9 +257,7 @@ class AppInstallerService:
 
         # 4. Remove from lifecycle
         try:
-            self._lifecycle._instances.pop(app_instance_id, None)  # noqa: SLF001
-            self._lifecycle._events.pop(app_instance_id, None)  # noqa: SLF001
-            self._lifecycle._persist()  # noqa: SLF001
+            self._lifecycle.delete_app(app_instance_id)
         except Exception as e:
             return {"status": "error", "message": str(e)}
 

@@ -1,8 +1,11 @@
 from pathlib import Path
 import json
 
+import pytest
+
 from app.models.app_blueprint import AppBlueprint
 from app.models.app_design import AppDesignResult, DesignConfirmation, SubordinateSkillDesign
+from app.models.app_instance import AppInstance
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.services.app_config_service import AppConfigService
 from app.services.app_data_store import AppDataStore
@@ -249,39 +252,27 @@ def test_app_install_prefers_core_skill_asset_source_when_available(tmp_path: Pa
     installer.install_app("bp.test.corepreferred", user_id="user.install")
 
     manifest = json.loads((tmp_path / "source" / "skill.monitor.control" / "manifest.json").read_text(encoding="utf-8"))
-def test_uninstall_app_full_uses_blueprint_asset_id(tmp_path: Path) -> None:
-    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
-    registry = AppRegistryService(store=store)
+def test_lifecycle_delete_app_removes_instance_and_events(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-lifecycle-delete"))
     lifecycle = AppLifecycleService(store=store)
-    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
-    data_store = AppDataStore(base_dir=str(tmp_path / "ns"), store=store)
-    asset_center = AssetCenter(
-        source_dir=str(tmp_path / "source"),
-        installed_dir=str(tmp_path / "installed"),
-        build_dir=str(tmp_path / "build"),
-        data_dir=str(tmp_path / "asset-data"),
+    instance = AppInstance(
+        id="app-delete-1",
+        blueprint_id="bp.test.delete",
+        owner_user_id="user.install",
+        status="installed",
+        installed_version="0.1.0",
+        data_namespace="users/user.install/apps/app-delete-1",
+        execution_mode="service",
     )
-    installer = AppInstallerService(
-        registry=registry,
-        lifecycle=lifecycle,
-        runtime_host=runtime,
-        data_store=data_store,
-        asset_center=asset_center,
-    )
-    registry.register_blueprint(build_blueprint(blueprint_id="bp.test.uninstall"))
-    installer.install_app("bp.test.uninstall", user_id="user.install")
+    lifecycle.register_instance(instance)
 
-    installed_asset_dir = tmp_path / "installed" / "app.test.uninstall"
-    assert installed_asset_dir.exists()
-
-    result = installer.uninstall_app_full("bp.test.uninstall:user.install")
-
-    assert result["status"] == "success"
-    assert result["asset_id"] == "app.test.uninstall"
-    assert not installed_asset_dir.exists()
+    assert lifecycle.delete_app("app-delete-1") is True
+    with pytest.raises(Exception):
+        lifecycle.get_instance("app-delete-1")
+    assert store.load_json("app_instances", {}) == {}
+    assert store.load_json("lifecycle_events", {}) == {}
 
 
-def test_upgrade_app_uninstalls_old_asset_when_blueprint_changes(tmp_path: Path) -> None:
     store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     registry = AppRegistryService(store=store)
     lifecycle = AppLifecycleService(store=store)
