@@ -16,6 +16,7 @@ from typing import Any
 from app.models.asset import Asset, AssetFunction
 from app.models.asset_contract import AssetDescriptor
 from app.services.asset_registry import AssetRegistry
+from app.system.runtime_asset_formatter import render_asset_overview_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -450,33 +451,4 @@ def assemble_asset_overview_prompt(registry: Any, caller_name: str) -> str:
     Compatible with both AssetRegistry (Asset model) and SystemCatalog (CatalogEntry).
     """
     assets = registry.get_visible_assets(caller_name)
-    if not assets:
-        return "当前没有可用的资产。"
-
-    lines = [
-        "## 你可用的资产",
-        "",
-        "以下是你可以调用的资产列表。每个资产包含：",
-        "- asset_id: 资产唯一标识",
-        "- 名称: 人类可读名称",
-        "- 接口: 该资产提供的所有可调用的功能",
-        "",
-        "**重要：如需了解某个资产的详细使用说明（输入参数格式、输出格式、注意事项），",
-        "请调用 query_asset_detail(asset_id) 工具。**",
-        "",
-    ]
-    for a in assets:
-        # Support both Asset model (has .functions) and CatalogEntry (has .interfaces)
-        if hasattr(a, 'interfaces'):
-            # CatalogEntry
-            fn_names = ", ".join(f"{k}({v.get('description', '')})" for k, v in a.interfaces.items()) if a.interfaces else "无"
-        elif hasattr(a, 'functions'):
-            # Asset model
-            fn_names = ", ".join(f"{f.key}({f.name})" for f in a.functions)
-        else:
-            fn_names = "无"
-        lines.append(f"### {a.asset_id} ({a.name})")
-        lines.append(f"描述: {a.description}")
-        lines.append(f"可用接口: {fn_names if fn_names else '无'}")
-        lines.append("")
-    return "\n".join(lines)
+    return render_asset_overview_prompt(assets, header="## 你可用的资产")

@@ -9,6 +9,7 @@ from app.system.runtime_asset_formatter import (
     render_asset_info_summary,
     render_asset_interface_details,
     render_asset_method_catalog,
+    render_asset_overview_prompt,
     render_asset_summary_list,
 )
 from app.system.self_iteration_strategy import (
@@ -26,25 +27,36 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
 
-def test_render_asset_interface_details_supports_list_input() -> None:
-    rendered = render_asset_interface_details(
-        [
-            {
-                "method": "query_asset",
-                "description": "查询资产",
-                "input_schema": {"type": "object", "properties": {"asset_id": {"type": "string"}}},
-                "output_schema": {"type": "object", "properties": {"ok": {"type": "boolean"}}},
-            }
-        ]
+def test_render_asset_overview_prompt_supports_interfaces_and_functions() -> None:
+    class InterfaceAsset:
+        asset_id = "asset.catalog"
+        name = "Catalog Asset"
+        description = "catalog desc"
+        interfaces = {"query": {"description": "query desc"}}
+
+    class FunctionDef:
+        def __init__(self, key: str, name: str) -> None:
+            self.key = key
+            self.name = name
+
+    class FunctionAsset:
+        asset_id = "asset.function"
+        name = "Function Asset"
+        description = "function desc"
+        functions = [FunctionDef("run", "Run")]
+
+    rendered = render_asset_overview_prompt(
+        [InterfaceAsset(), FunctionAsset()],
+        header="## 你可用的资产",
     )
 
-    assert rendered
-    assert "**query_asset** - 查询资产" in rendered[0]
-    assert "输入:" in rendered[0]
-    assert "输出:" in rendered[0]
+    assert "## 你可用的资产" in rendered
+    assert "### asset.catalog (Catalog Asset)" in rendered
+    assert "可用接口: query(query desc)" in rendered
+    assert "### asset.function (Function Asset)" in rendered
+    assert "可用接口: run(Run)" in rendered
 
 
-def test_render_asset_detail_document_outputs_interface_section() -> None:
     rendered = render_asset_detail_document(
         asset_id="asset:test:v1",
         asset_name="Test Asset",

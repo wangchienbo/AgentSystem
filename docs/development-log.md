@@ -1,3 +1,35 @@
+## 2026-04-29: Unify prompt-facing runtime-asset overview rendering
+
+### Summary
+Closed the runtime-asset presentation audit by unifying the remaining duplicated prompt-facing asset overview builders. Both `SystemCatalog.build_llm_prompt(...)` and `asset_tools.assemble_asset_overview_prompt(...)` now delegate into the same shared runtime-asset overview renderer.
+
+### What Was Done
+- Expanded `app/system/runtime_asset_formatter.py`
+  - stabilized the shared formatter module as the central home for runtime-asset presentation primitives
+  - added `render_asset_overview_prompt(...)`
+  - preserved the full set of previously extracted helpers in one stable formatter module
+- Updated `app/system/catalog/system_catalog.py`
+  - `build_llm_prompt(...)` now delegates to `render_asset_overview_prompt(...)`
+- Updated `app/system/catalog/asset_tools.py`
+  - `assemble_asset_overview_prompt(...)` now delegates to `render_asset_overview_prompt(...)`
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added direct coverage for overview rendering across both interface-backed and function-backed asset models
+- Ran smoke validation for both overview prompt entry points
+
+### Design Outcome
+This closes one of the last obvious duplicated runtime-asset presentation branches outside the gateway. The shared runtime-asset formatter layer now spans:
+- operator-facing replies
+- prompt-facing method catalogs
+- prompt-facing asset overview documents
+
+That makes the presentation contract more coherent across the runtime asset stack and reduces drift between catalog implementations.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'render_asset_overview_prompt or render_asset_interface_details or render_asset_detail_document or extract_capability_methods or render_asset_info_summary or render_asset_method_catalog or join_kv_pairs or render_runtime_asset_summary_list or render_runtime_asset_detail_header_and_fallback or select_recommended_next_asset or build_follow_up_actions or build_strategy_route or render_self_iteration_strategy_overview or render_self_iteration_asset_list or render_self_iteration_asset_detail'`
+  - Result: `6 passed`
+- `python3` smoke for both overview prompt entry points
+  - Result: `runtime-asset-overview-prompt-smoke: ok`
+
 ## 2026-04-29: Add shared runtime-asset detail document formatters
 
 ### Summary

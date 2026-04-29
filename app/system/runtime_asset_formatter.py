@@ -146,3 +146,39 @@ def render_asset_detail_document(
         f"资产ID: {asset_id}\n"
         f"{description}\n\n无可用接口"
     )
+
+
+def render_asset_overview_prompt(
+    assets: list[Any],
+    *,
+    header: str,
+) -> str:
+    if not assets:
+        return "当前没有可用的资产。"
+
+    lines = [
+        header,
+        "",
+        "以下是你可以调用的资产列表。每个资产包含：",
+        "- asset_id: 资产唯一标识",
+        "- 名称: 人类可读名称",
+        "- 接口: 该资产提供的所有可调用的功能",
+        "",
+        "**重要：如需了解某个资产的详细使用说明（输入参数格式、输出格式、注意事项），",
+        "请调用 query_asset_detail(asset_id) 工具。**",
+        "",
+    ]
+    for asset in assets:
+        if hasattr(asset, "interfaces"):
+            interfaces = getattr(asset, "interfaces", {}) or {}
+            fn_names = ", ".join(f"{k}({v.get('description', '')})" for k, v in interfaces.items()) if interfaces else "无"
+        elif hasattr(asset, "functions"):
+            functions = getattr(asset, "functions", []) or []
+            fn_names = ", ".join(f"{f.key}({f.name})" for f in functions) if functions else "无"
+        else:
+            fn_names = "无"
+        lines.append(f"### {getattr(asset, 'asset_id', 'unknown')} ({getattr(asset, 'name', 'unknown')})")
+        lines.append(f"描述: {getattr(asset, 'description', '')}")
+        lines.append(f"可用接口: {fn_names if fn_names else '无'}")
+        lines.append("")
+    return "\n".join(lines)

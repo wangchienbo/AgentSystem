@@ -23,6 +23,9 @@ class CatalogError(ValueError):
     pass
 
 
+from app.system.runtime_asset_formatter import render_asset_overview_prompt
+
+
 class CatalogEntry:
     """One asset entry in the system catalog."""
 
@@ -212,28 +215,7 @@ class SystemCatalog:
     def build_llm_prompt(self, caller_id: str) -> str:
         """Build a concise asset overview for LLM prompt injection."""
         assets = self.get_visible_assets(caller_id)
-        if not assets:
-            return "当前没有可用的资产。"
-
-        lines = [
-            "## 可用资产概览",
-            "",
-            "以下是你可以调用的资产列表。每个资产包含：",
-            "- asset_id: 资产唯一标识",
-            "- 名称: 人类可读名称",
-            "- 接口: 该资产提供的所有可调用的功能",
-            "",
-            "**重要：如需了解某个资产的详细使用说明（输入参数格式、输出格式、注意事项），",
-            "请调用 query_asset_detail(asset_id) 工具。**",
-            "",
-        ]
-        for entry in assets:
-            fn_names = ", ".join(f"{k}({v.get('description', '')})" for k, v in entry.interfaces.items()) if entry.interfaces else "无"
-            lines.append(f"### {entry.asset_id} ({entry.name})")
-            lines.append(f"描述: {entry.description}")
-            lines.append(f"可用接口: {fn_names}")
-            lines.append("")
-        return "\n".join(lines)
+        return render_asset_overview_prompt(assets, header="## 可用资产概览")
 
     # -- Utility --
 
