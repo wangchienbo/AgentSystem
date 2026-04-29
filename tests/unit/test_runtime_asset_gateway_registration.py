@@ -290,6 +290,10 @@ def test_bootstrap_runtime_self_iteration_center_can_return_strategy_overview() 
     assert overview["recommended_next_action"]["method"] == "query_self_iteration_asset"
     assert overview["recommended_next_action"]["params"]["asset_id"] == overview["recommended_next_asset"]["asset_id"]
     assert isinstance(overview["follow_up_actions"], list)
+    assert isinstance(overview["route"], list)
+    assert overview["route"]
+    assert overview["route"][0]["phase"] in {"observe", "summarize", "act"}
+    assert overview["route"][-1]["phase"] == "validate"
     assert "pressure_snapshot" in overview
 
 
@@ -346,6 +350,7 @@ def test_runtime_asset_gateway_self_iteration_strategy_overview_reply_is_human_r
     assert "self_iteration 策略总览" in rendered
     assert "recommended_next_asset" in rendered
     assert "next_action:" in rendered
+    assert "route[" in rendered
     assert "follow_up:" in rendered
     assert "observe:" in rendered
     assert "summarize:" in rendered

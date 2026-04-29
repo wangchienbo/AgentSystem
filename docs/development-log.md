@@ -1,3 +1,37 @@
+## 2026-04-29: Add phase-aware closed-loop route guidance to self_iteration strategy overview
+
+### Summary
+Extended the self-iteration strategy surface again so it no longer stops at recommended actions. The strategy overview now exposes a compact phase-aware `route` that walks the caller through a closed-loop sequence: current pressure inspection, governance summarization, act-stage review, and validation back into live observations.
+
+### What Was Done
+- Updated `app/system/self_iteration_asset_service.py`
+  - extended `get_self_iteration_strategy_overview(...)`
+  - added additive `route` entries with:
+    - `phase`
+    - `asset_id`
+    - `action`
+    - `goal`
+  - the route starts from the currently recommended layer/asset
+  - it then fills in missing summarize/act stages when the primary recommendation started elsewhere
+  - it always ends with a `validate` step that returns to `self_iteration.live_observation_digest`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - strategy overview rendering now emits compact `route[...]` lines
+  - keeps the route human-readable and chat-usable without altering the underlying payload shape
+- Expanded tests in `tests/unit/test_runtime_asset_gateway_registration.py`
+  - validated `route` exists and is non-empty
+  - validated the first route step is a real working layer (`observe | summarize | act`)
+  - validated the final route step is `validate`
+  - validated the rendered strategy reply surfaces `route[...]`
+
+### Design Outcome
+This turns `self_iteration_center` from a recommendation surface into a lightweight closed-loop navigation plane. The caller can now follow an explicit short path instead of independently reconstructing how to move from observation to governance to action and back to validation. The addition remains compatibility-safe because it is purely additive to the existing strategy overview payload.
+
+### Validation
+- `python3` runtime smoke for strategy overview route + gateway render
+  - Result: `strategy-route-smoke: ok`
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_alias or governance_asset_alias'`
+  - Result: `2 passed, 6 deselected`
+
 ## 2026-04-29: Upgrade self_iteration_center strategy overview into actionable navigation
 
 ### Summary

@@ -102,6 +102,54 @@ class SelfIterationAssetService:
             if action["params"]["asset_id"] != recommended_asset_id
         ]
 
+        route = [
+            {
+                "phase": recommended_layer,
+                "asset_id": recommended_asset_id,
+                "action": recommended_next_action,
+                "goal": recommendation_reason,
+            },
+        ]
+
+        if recommended_layer != "summarize":
+            route.append(
+                {
+                    "phase": "summarize",
+                    "asset_id": "self_iteration.governance_dashboard",
+                    "action": {
+                        "asset_id": "asset:self_iteration_center:v1",
+                        "method": "query_self_iteration_asset",
+                        "params": {"asset_id": "self_iteration.governance_dashboard"},
+                    },
+                    "goal": "Normalize current pressure into a governance-level summary before choosing rollout work.",
+                }
+            )
+        if recommended_layer != "act":
+            route.append(
+                {
+                    "phase": "act",
+                    "asset_id": "self_iteration.governance_triggers",
+                    "action": {
+                        "asset_id": "asset:self_iteration_center:v1",
+                        "method": "query_self_iteration_asset",
+                        "params": {"asset_id": "self_iteration.governance_triggers"},
+                    },
+                    "goal": "Inspect act-stage trigger candidates and decide what refinement work should move next.",
+                }
+            )
+        route.append(
+            {
+                "phase": "validate",
+                "asset_id": "self_iteration.live_observation_digest",
+                "action": {
+                    "asset_id": "asset:self_iteration_center:v1",
+                    "method": "query_self_iteration_asset",
+                    "params": {"asset_id": "self_iteration.live_observation_digest"},
+                },
+                "goal": "Return to live observations to validate whether the chosen action improved user-facing behavior.",
+            }
+        )
+
         return {
             "system_view": {
                 "observe": [
@@ -123,6 +171,7 @@ class SelfIterationAssetService:
             },
             "recommended_next_action": recommended_next_action,
             "follow_up_actions": follow_up_actions,
+            "route": route,
             "pressure_snapshot": {
                 "risk_flag_count": int(dashboard_detail.get("risk_flag_count") or 0),
                 "trigger_count": int(trigger_detail.get("trigger_count") or 0),
