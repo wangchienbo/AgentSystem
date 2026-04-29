@@ -1,3 +1,37 @@
+## 2026-04-30: Materialize missing skill assets on demand during app install
+
+### Summary
+After normalizing skill dependency ids into AssetCenter asset ids, the next integration failure turned out to be source availability. Required skills could exist in `SkillControlService` and still be invisible to AssetCenter because no corresponding `source/skill.*` asset had been materialized. That meant dependency identifiers were now correct, but dependency discovery could still fail one layer later.
+
+### What Was Done
+- Updated `app/app_installer.py`
+  - added a minimal bridge from `SkillControlService` into AssetCenter `source/`
+  - before app asset build/install, the installer now checks required skills and emits discoverable skill asset source manifests on demand when only registry metadata exists
+  - generated source payload includes:
+    - `manifest.json`
+    - `skill.json`
+  - then triggers AssetCenter rediscovery so dependency resolution can proceed against real asset entries
+- Expanded `tests/unit/test_registry_installer.py`
+  - added focused coverage for on-demand skill asset materialization
+  - retained the existing registry/install integration slice and runtime-policy coverage
+
+### Why This Matters
+This closes the next real contract gap in the chain:
+- skill registry presence alone no longer leaves AssetCenter blind
+- app install can now bridge from runtime skill metadata into installable asset source metadata without requiring pre-seeded source assets
+
+In other words, the path is now stronger end to end:
+- design -> blueprint -> register -> install -> dependency id normalization -> skill asset source materialization
+
+### Validation
+- `pytest -q tests/unit/test_registry_installer.py -k 'materializes_missing_skill_asset_sources or skill_asset_ids or registers_blueprint_before_real_install or creates_instance_with_runtime_policy or registry_registers_blueprint'`
+  - Result: `4 passed`
+- `python3` smoke for on-demand skill asset source materialization
+  - Result: `skill-asset-materialization-smoke: ok`
+
+### Remaining Boundary
+This bridge is intentionally minimal. It materializes enough metadata for AssetCenter discovery/install continuity, but it is not yet a full unification of the separate SkillAssetService asset lifecycle and the AssetCenter source lifecycle. If deeper governance is needed later, that should become its own explicit integration phase.
+
 ## 2026-04-30: Normalize app-install skill dependencies into asset ids
 
 ### Summary

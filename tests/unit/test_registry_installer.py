@@ -221,6 +221,7 @@ def test_app_design_confirm_registers_blueprint_before_real_install(tmp_path: Pa
         app_config_service=app_config,
         app_profile_resolver=resolver,
         asset_center=asset_center,
+        skill_control=skill_control,
     )
 
     orchestrator = AppDesignOrchestrator(
@@ -261,3 +262,5 @@ def test_app_design_confirm_registers_blueprint_before_real_install(tmp_path: Pa
     assert instance.status == "installed"
     snapshot = app_config.get_snapshot("bp.designed.monitor-app:system")
     assert snapshot.values["app"]["blueprint_id"] == "bp.designed.monitor-app"
+
+

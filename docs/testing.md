@@ -101,7 +101,8 @@ Used to validate the new chat regression operator loop end to end through the HT
 - action-guidance coverage ensuring the strategy overview can also surface `recommended_next_action` and `follow_up_actions` that stay aligned with the chosen next asset and render as chat-usable next-step instructions
 - route-guidance coverage ensuring the strategy overview can expose a short phase-aware closed-loop path ending in validation, and that the rendered reply surfaces this route as an explicit execution sequence
 - shared strategy-builder coverage ensuring reusable recommendation/action/route helpers can be validated independently of the asset service wrapper, reducing fragmentation and making later strategy consumers cheaper to add
-- asset-manifest dependency-mapping coverage for app installs, asserting blueprint `required_skills` are normalized into AssetCenter dependency ids so registry/install validation does not confuse skill ids with asset ids
+- on-demand skill-asset materialization coverage during app install, asserting required skills present in `SkillControlService` are bridged into AssetCenter-discoverable `source/skill.*` assets before dependency resolution continues
+- registry/install integration coverage for app generation remains in place, now with a real skill-control-backed asset bridge instead of relying on pre-existing skill asset sources
 - asset-type-aware self-iteration summary coverage ensuring detail replies emphasize the right fields for observation, governance, trigger, regression, and backlog assets instead of one generic key/value dump
 - priority-ordered self-iteration list coverage ensuring governance and backlog pressure surfaces appear before lower-urgency historical views in chat-facing asset summaries
 

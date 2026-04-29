@@ -15,6 +15,7 @@ from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.blueprint_validation import BlueprintValidationError, BlueprintValidationService
 from app.services.asset_center import AssetCenter
 from app.services.system_catalog import CatalogEntry, SystemCatalog
+from app.services.skill_control import SkillControlService
 
 
 class AppInstallerError(ValueError):
@@ -48,6 +49,7 @@ class AppInstallerService:
         asset_center: AssetCenter | None = None,
         runtime_center: Any = None,
         system_catalog: SystemCatalog | None = None,
+        skill_control: SkillControlService | None = None,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
@@ -61,6 +63,7 @@ class AppInstallerService:
         self._asset_center = asset_center
         self._runtime_center = runtime_center
         self._system_catalog = system_catalog
+        self._skill_control = skill_control
 
     def install_app(self, blueprint_id: str, user_id: str, app_instance_id: str | None = None) -> AppInstallResult:
         blueprint = self._registry.get_blueprint(blueprint_id)
@@ -227,11 +230,48 @@ class AppInstallerService:
 
         return {"status": "success", "app_instance_id": app_instance_id}
 
+    def _ensure_skill_asset_sources(self, skill_ids: list[str]) -> None:
+        if self._asset_center is None or self._skill_control is None:
+            return
+        for skill_id in skill_ids:
+            asset_id = _skill_id_to_asset_dependency(skill_id)
+            if self._asset_center.get_asset(asset_id) is not None:
+                continue
+            try:
+                entry = self._skill_control.get_skill(skill_id)
+            except Exception:
+                continue
+            source_dir = self._asset_center._source_dir / asset_id  # noqa: SLF001
+            source_dir.mkdir(parents=True, exist_ok=True)
+            manifest = {
+                "asset_id": asset_id,
+                "asset_type": "skill",
+                "name": entry.name,
+                "version": entry.active_version or "0.1.0",
+                "entry": "skill.json",
+                "owner": "system",
+                "owner_role": "admin",
+                "dependencies": [],
+                "source_path": f"source/{asset_id}",
+                "description": entry.manifest.description if entry.manifest is not None else entry.name,
+                "metadata": {
+                    "skill_id": entry.skill_id,
+                    "runtime_adapter": entry.runtime_adapter,
+                    "tags": [] if entry.manifest is None else list(entry.manifest.tags),
+                },
+            }
+            skill_payload = entry.model_dump(mode="json")
+            (source_dir / "manifest.json").write_text(__import__("json").dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+            (source_dir / "skill.json").write_text(__import__("json").dumps(skill_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._asset_center.discover()
+
     def _ensure_asset_installed(self, blueprint) -> str:
         entry = self._registry.get_entry(blueprint.id)
         release_version = entry.version
         if self._asset_center is None:
             return release_version
+
+        self._ensure_skill_asset_sources(list(blueprint.required_skills))
 
         asset_id = f"app.{blueprint.id.replace('bp.', '').replace(':', '.')}"
         source_dir = self._asset_center._source_dir / asset_id  # noqa: SLF001
