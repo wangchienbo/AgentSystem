@@ -14,6 +14,7 @@ from app.models.app_design import (
 )
 from app.services.app_designer.architect import AppArchitect, AppArchitectError
 from app.services.app_designer.intent_analyzer import AppIntentAnalyzer, AppIntentAnalyzerError
+from app.services.design_blueprint_builder import DesignBlueprintBuilderService
 
 
 class AppDesignOrchestratorError(ValueError):
@@ -45,7 +46,7 @@ class AppDesignOrchestrator:
         self._architect = architect
         self._skill_factory = skill_factory
         self._user_gateway = user_gateway
-        self._blueprint_builder = blueprint_builder
+        self._blueprint_builder = blueprint_builder or DesignBlueprintBuilderService()
         self._app_installer = app_installer
 
     def analyze_intent(self, user_input: str, context: dict[str, Any] | None = None) -> AppCreationResult:

@@ -1,3 +1,40 @@
+## 2026-04-29: Add deterministic design-to-blueprint builder
+
+### Summary
+Continued the app-generation closure work by formalizing the handoff from app design output into blueprint materialization. The previous step added a hook for blueprint/install continuation, but the contract behind that hook was still implicit. This slice introduces a dedicated builder service for `AppDesignResult -> AppBlueprint`.
+
+### What Was Done
+- Added `app/refinement/design_blueprint_builder.py`
+  - new `DesignBlueprintBuilderService`
+  - deterministic `build_blueprint_from_design(design, created_skill_ids=...)`
+- Added service re-export:
+  - `app/services/design_blueprint_builder.py`
+- Updated `app/orchestration/app_designer/orchestrator.py`
+  - now defaults `blueprint_builder` to `DesignBlueprintBuilderService()` when none is injected
+  - confirm-step blueprint handoff is now backed by a real first-class builder contract rather than an ad hoc optional collaborator expectation
+- Added focused unit coverage:
+  - `tests/unit/test_design_blueprint_builder.py`
+  - verifies single-skill service-style materialization
+  - verifies multi-skill pipeline-style materialization
+- Revalidated the app-design confirm path against the new builder-backed contract
+
+### Design Outcome
+The app-generation chain now has a clearer staged architecture:
+- intent analysis
+- architecture/design generation
+- user confirmation
+- skill creation/reuse
+- deterministic design-to-blueprint materialization
+- optional install handoff
+
+This is a better fit than routing app-designer output through requirement-draft builders, because the design stage already knows about control skill, subordinate skills, decomposition plan, and governance notes.
+
+### Validation
+- `pytest -q tests/unit/test_design_blueprint_builder.py tests/unit/test_app_designer.py -k 'design_blueprint_builder or confirm_and_create or design_app_architect_error'`
+  - Result: `6 passed, 16 deselected`
+- `python3` smoke for design blueprint builder
+  - Result: `design-blueprint-builder-smoke: ok`
+
 ## 2026-04-29: Close the app-design confirm step toward blueprint/install
 
 ### Summary
