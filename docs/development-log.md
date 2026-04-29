@@ -1,3 +1,43 @@
+## 2026-04-30: Clean residual per-app state during uninstall
+
+### Summary
+After formalizing lifecycle deletion, the next audit showed uninstall still stopped short of full per-app cleanup. AssetCenter and lifecycle state were removed, but several adjacent stores could retain durable leftovers: shared context, config snapshots/history, namespaces/records, and the static catalog entry. That meant the lifecycle looked complete while the surrounding state graph still contained orphaned app traces.
+
+### What Was Done
+- Updated `app/system/runtime/app_context_store.py`
+  - added `delete_context(app_instance_id)`
+- Updated `app/skills/system_skills/app_config.py`
+  - added `delete_app_config(app_instance_id)` to remove in-memory snapshot/history and persist the deletion
+- Updated `app/system/runtime/app_data_store.py`
+  - added `delete_app_namespaces(app_instance_id)` to remove all namespaces and records owned by the app
+- Updated `app/app_installer.py`
+  - extended `uninstall_app_full()` to remove:
+    - `SystemCatalog` entry for the app asset
+    - shared app context
+    - app config snapshot/history
+    - app namespaces and records
+  - lifecycle deletion remains the final step through the formal lifecycle API
+- Expanded `tests/unit/test_registry_installer.py`
+  - added focused uninstall cleanup coverage across adjacent stores
+
+### Why This Matters
+This turns uninstall into a broader state cleanup operation instead of a narrow runtime/asset stop:
+- per-app durable metadata is removed together
+- later reinstall or re-creation starts from a cleaner baseline
+- the system is less likely to accumulate ghost context/config/catalog state from deleted apps
+
+### Validation
+- `pytest -q tests/unit/test_registry_installer.py -k 'uninstall_app_full_cleans_residual_state or lifecycle_delete_app_removes_instance_and_events or uninstall_app_full_uses_blueprint_asset_id or upgrade_app_uninstalls_old_asset_when_blueprint_changes or registers_blueprint_before_real_install'`
+  - Result: `3 passed, 4 deselected`
+- `python3` smoke for uninstall cleanup
+  - Result: `uninstall-cleanup-smoke: ok`
+
+### Remaining Boundary
+This slice focuses on the main durable stores used directly by app install/uninstall. If later audits surface rollback snapshots, upgrade logs, or other derived records that should also be pruned on deletion, they should be handled as follow-up cleanup policy rather than folded implicitly into unrelated runtime operations.
+
+### Repository Note
+During this slice, `app/skills/system_skills/app_config.py` was found to be excluded by repository ignore rules and not tracked by Git, even though runtime behavior currently depends on that implementation path. The working-tree validation for uninstall cleanup passed, but the file-path ownership/ignore mismatch should be corrected in a follow-up repo hygiene slice so config-service cleanup logic lives in a tracked authoritative source file.
+
 ## 2026-04-30: Formalize lifecycle deletion as a first-class service API
 
 ### Summary

@@ -19,6 +19,8 @@ from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.skill_control import SkillControlService
+from app.services.app_context_store import AppContextStore
+from app.services.system_catalog import SystemCatalog
 
 
 def _make_design(**overrides) -> AppDesignResult:
@@ -252,6 +254,50 @@ def test_app_install_prefers_core_skill_asset_source_when_available(tmp_path: Pa
     installer.install_app("bp.test.corepreferred", user_id="user.install")
 
     manifest = json.loads((tmp_path / "source" / "skill.monitor.control" / "manifest.json").read_text(encoding="utf-8"))
+def test_uninstall_app_full_cleans_residual_state(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-cleanup"))
+    registry = AppRegistryService(store=store)
+    lifecycle = AppLifecycleService(store=store)
+    runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "ns-cleanup"), store=store)
+    app_config = AppConfigService(data_store=data_store, store=store)
+    context_store = AppContextStore(lifecycle=lifecycle, store=store, runtime_host=runtime)
+    system_catalog = SystemCatalog(data_dir=str(tmp_path / "catalog-cleanup"))
+    asset_center = AssetCenter(
+        source_dir=str(tmp_path / "source-cleanup"),
+        installed_dir=str(tmp_path / "installed-cleanup"),
+        build_dir=str(tmp_path / "build-cleanup"),
+        data_dir=str(tmp_path / "asset-data-cleanup"),
+    )
+    installer = AppInstallerService(
+        registry=registry,
+        lifecycle=lifecycle,
+        runtime_host=runtime,
+        data_store=data_store,
+        context_store=context_store,
+        app_config_service=app_config,
+        asset_center=asset_center,
+        system_catalog=system_catalog,
+    )
+    registry.register_blueprint(build_blueprint(blueprint_id="bp.test.cleanup"))
+    installer.install_app("bp.test.cleanup", user_id="user.install")
+    app_instance_id = "bp.test.cleanup:user.install"
+
+    assert context_store.get_context(app_instance_id).app_instance_id == app_instance_id
+    assert app_config.get_snapshot(app_instance_id).app_instance_id == app_instance_id
+    assert data_store.list_namespaces(app_instance_id)
+    assert system_catalog.get_entry("app.test.cleanup") is not None
+
+    result = installer.uninstall_app_full(app_instance_id)
+
+    assert result["status"] == "success"
+    assert context_store.delete_context(app_instance_id) is False
+    with pytest.raises(Exception):
+        app_config.get_snapshot(app_instance_id)
+    assert data_store.list_namespaces(app_instance_id) == []
+    assert system_catalog.get_entry("app.test.cleanup") is None
+
+
 def test_lifecycle_delete_app_removes_instance_and_events(tmp_path: Path) -> None:
     store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-lifecycle-delete"))
     lifecycle = AppLifecycleService(store=store)

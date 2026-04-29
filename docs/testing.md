@@ -101,6 +101,7 @@ Used to validate the new chat regression operator loop end to end through the HT
 - action-guidance coverage ensuring the strategy overview can also surface `recommended_next_action` and `follow_up_actions` that stay aligned with the chosen next asset and render as chat-usable next-step instructions
 - route-guidance coverage ensuring the strategy overview can expose a short phase-aware closed-loop path ending in validation, and that the rendered reply surfaces this route as an explicit execution sequence
 - shared strategy-builder coverage ensuring reusable recommendation/action/route helpers can be validated independently of the asset service wrapper, reducing fragmentation and making later strategy consumers cheaper to add
+- uninstall residual-state cleanup coverage, asserting uninstall removes shared context, app config snapshot/history access, app namespaces, and the system catalog entry in addition to asset/lifecycle cleanup
 - lifecycle delete API coverage, asserting `AppLifecycleService.delete_app()` removes stored instances/events and persists the removal
 - lifecycle asset-identity coverage for app install/upgrade/uninstall, asserting AssetCenter uninstall uses the blueprint-derived app asset id and upgrade removes the previously installed app asset when blueprint identity changes
 - core-skill-asset precedence coverage during app install, asserting a promoted `skill_assets/core` artifact is adapted into AssetCenter `source/skill.*` before the installer falls back to registry-derived materialization

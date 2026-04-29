@@ -94,6 +94,15 @@ class AppDataStore:
             return namespaces
         return [item for item in namespaces if item.app_instance_id == app_instance_id]
 
+    def delete_app_namespaces(self, app_instance_id: str) -> int:
+        targets = [item.namespace_id for item in self._namespaces.values() if item.app_instance_id == app_instance_id]
+        for namespace_id in targets:
+            self._namespaces.pop(namespace_id, None)
+            self._records.pop(namespace_id, None)
+        if targets:
+            self._persist()
+        return len(targets)
+
     def _ensure_namespace(
         self,
         namespace_id: str,

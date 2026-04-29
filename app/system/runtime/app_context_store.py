@@ -107,6 +107,13 @@ class AppContextStore:
             "runtime": runtime,
         }
 
+    def delete_context(self, app_instance_id: str) -> bool:
+        if app_instance_id not in self._contexts:
+            return False
+        del self._contexts[app_instance_id]
+        self._save()
+        return True
+
     def _save(self) -> None:
         if self._store is None:
             return

@@ -255,7 +255,16 @@ class AppInstallerService:
             runtime_center.mark_stopped(app_instance_id)
             runtime_center.unregister(app_instance_id)
 
-        # 4. Remove from lifecycle
+        # 4. Remove adjacent persisted state
+        if self._system_catalog is not None:
+            self._system_catalog.unregister(asset_id)
+        if self._context_store is not None:
+            self._context_store.delete_context(app_instance_id)
+        if self._app_config_service is not None:
+            self._app_config_service.delete_app_config(app_instance_id)
+        self._data_store.delete_app_namespaces(app_instance_id)
+
+        # 5. Remove from lifecycle
         try:
             self._lifecycle.delete_app(app_instance_id)
         except Exception as e:
