@@ -2,24 +2,33 @@ from pathlib import Path
 
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
+from app.models.app_design import AppDesignResult, DesignConfirmation, SubordinateSkillDesign
 from app.services.app_config_service import AppConfigService
 from app.services.app_data_store import AppDataStore
+from app.services.app_designer.orchestrator import AppDesignOrchestrator
 from app.services.app_installer import AppInstallerService
 from app.services.app_profile_resolver import AppProfileResolverService
 from app.services.app_registry import AppRegistryService
 from app.services.asset_center import AssetCenter
+from app.services.design_blueprint_builder import DesignBlueprintBuilderService
 from app.services.lifecycle import AppLifecycleService
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
 from app.services.skill_control import SkillControlService
 
 
-def build_blueprint(
-    execution_mode: str = "service",
-    *,
-    blueprint_id: str = "bp.test.registry",
-    name: str = "Registry Test App",
-) -> AppBlueprint:
+def _make_design(**overrides) -> AppDesignResult:
+    return AppDesignResult(
+        app_name=overrides.get("app_name", "Test App"),
+        app_slug=overrides.get("app_slug", "test-app"),
+        control_skill_name=overrides.get("control_skill_name", "Test Control"),
+        control_skill_description=overrides.get("control_skill_description", "Controls test"),
+        **{k: v for k, v in overrides.items() if k not in (
+            "app_name", "app_slug", "control_skill_name", "control_skill_description"
+        )},
+    )
+
+
     return AppBlueprint(
         id=blueprint_id,
         name=name,
@@ -52,15 +61,22 @@ def test_registry_registers_blueprint(tmp_path: Path) -> None:
     assert registry.get_blueprint("bp.test.registry").runtime_policy.execution_mode == "service"
 
 
-def test_installer_creates_instance_with_runtime_policy(tmp_path: Path) -> None:
-    store = RuntimeStateStore(base_dir=str(tmp_path / "installer-store"))
+def test_app_design_confirm_registers_blueprint_before_real_install(tmp_path: Path) -> None:
+    store = RuntimeStateStore(base_dir=str(tmp_path / "designer-installer-store"))
     registry = AppRegistryService(store=store)
     lifecycle = AppLifecycleService(store=store)
     runtime = AppRuntimeHostService(lifecycle=lifecycle, store=store)
-    data_store = AppDataStore(base_dir=str(tmp_path / "installer-ns"), store=store)
+    data_store = AppDataStore(base_dir=str(tmp_path / "designer-installer-ns"), store=store)
     app_config = AppConfigService(data_store=data_store, store=store)
     skill_control = SkillControlService()
-    for skill_id in ["system.app_config", "system.context", "system.state", "system.audit"]:
+    for skill_id in [
+        "system.app_config",
+        "system.context",
+        "system.state",
+        "system.audit",
+        "monitor.collect",
+        "monitor.control",
+    ]:
         skill_control.register(
             SkillRegistryEntry(
                 skill_id=skill_id,
@@ -96,27 +112,44 @@ def test_installer_creates_instance_with_runtime_policy(tmp_path: Path) -> None:
         app_profile_resolver=resolver,
         asset_center=asset_center,
     )
-    registry.register_blueprint(build_blueprint(execution_mode="pipeline"))
 
-    result = installer.install_app("bp.test.registry", user_id="user.install")
-    instance = lifecycle.get_instance(result.app_instance_id)
+    orchestrator = AppDesignOrchestrator(
+        intent_analyzer=None,
+        architect=None,
+        blueprint_builder=DesignBlueprintBuilderService(),
+        app_registry=registry,
+        app_installer=installer,
+    )
 
-    assert result.status == "installed"
-    assert result.app_shape == "generic"
-    assert result.runtime_profile.runtime_intelligence_level == "L0_deterministic"
-    assert result.runtime_profile.offline_capable is True
-    assert instance.execution_mode == "pipeline"
-    assert instance.runtime_policy.execution_mode == "pipeline"
-    assert "system.app_config" in instance.system_skills
-    assert "system.app_config" in instance.resolved_skills
-    assert instance.runtime_profile.runtime_intelligence_level == "L0_deterministic"
-    assert instance.runtime_profile.offline_capable is True
-    snapshot = app_config.get_snapshot(result.app_instance_id)
-    assert snapshot.values["app"]["blueprint_id"] == "bp.test.registry"
-    assert snapshot.values["runtime"]["runtime_profile"]["offline_capable"] is True
+    design = _make_design(
+        app_name="Monitor App",
+        app_slug="monitor-app",
+        control_skill_name="monitor.control",
+        control_skill_description="Control monitoring workflows",
+        subordinate_skills=[
+            SubordinateSkillDesign(
+                suggested_name="monitor.collect",
+                responsibility="Collect metrics",
+                scope="metrics",
+                reuse_existing=None,
+            ),
+        ],
+        reused_skills=["monitor.control"],
+        design_notes="Monitoring app design",
+    )
 
-    asset_id = "app.test.registry"
-    assert asset_center.get_asset(asset_id) is not None
-    assert asset_center.get_installed_version(asset_id) == "0.1.0"
-    assert (tmp_path / "source" / asset_id / "manifest.json").exists()
-    assert (tmp_path / "installed" / asset_id / "installed.json").exists()
+    result = orchestrator.confirm_and_create(design, DesignConfirmation(approved=True))
+
+    assert result.status == "success"
+    assert result.blueprint_id == "bp.designed.monitor-app"
+    assert result.install_status == "installed"
+    assert result.blueprint_error == ""
+    assert result.install_error == ""
+    assert registry.get_blueprint("bp.designed.monitor-app").name == "Monitor App"
+    instance = lifecycle.get_instance("bp.designed.monitor-app:system")
+    assert instance.blueprint_id == "bp.designed.monitor-app"
+    assert instance.status == "installed"
+    snapshot = app_config.get_snapshot("bp.designed.monitor-app:system")
+    assert snapshot.values["app"]["blueprint_id"] == "bp.designed.monitor-app"
+
+

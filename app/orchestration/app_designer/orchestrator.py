@@ -41,6 +41,7 @@ class AppDesignOrchestrator:
         user_gateway: Any = None,
         blueprint_builder: Any = None,
         app_installer: Any = None,
+        app_registry: Any = None,
     ) -> None:
         self._intent_analyzer = intent_analyzer
         self._architect = architect
@@ -48,6 +49,7 @@ class AppDesignOrchestrator:
         self._user_gateway = user_gateway
         self._blueprint_builder = blueprint_builder or DesignBlueprintBuilderService()
         self._app_installer = app_installer
+        self._app_registry = app_registry
 
     def analyze_intent(self, user_input: str, context: dict[str, Any] | None = None) -> AppCreationResult:
         """Step 1: Analyze user intent."""
@@ -159,6 +161,14 @@ class AppDesignOrchestrator:
                     created_skill_ids=created_skill_ids,
                 )
                 blueprint_id = getattr(blueprint, "id", None)
+                if blueprint_id and self._app_registry is not None:
+                    try:
+                        self._app_registry.get_blueprint(blueprint_id)
+                    except Exception:
+                        self._app_registry.register_blueprint(
+                            blueprint,
+                            description=f"Auto-created: {design.app_name}",
+                        )
             except Exception as exc:
                 blueprint_error = str(exc)
 

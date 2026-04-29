@@ -1,3 +1,34 @@
+## 2026-04-30: Bridge app-design confirm flow into real registry-backed install
+
+### Summary
+Started the next app-generation phase by testing the confirm flow against the real registry/install stack instead of only mock collaborators. This surfaced a real chain break: the app-design orchestrator could materialize a blueprint and call the installer, but it did not register that blueprint into `AppRegistryService`, so the real installer path would fail to resolve it.
+
+### What Was Done
+- Updated `app/orchestration/app_designer/orchestrator.py`
+  - added optional `app_registry` dependency
+  - after building a blueprint in `confirm_and_create()`, the orchestrator now ensures the blueprint is registered before invoking the installer
+  - registration is idempotent for already-known blueprints by first checking `get_blueprint(...)`
+- Expanded `tests/unit/test_registry_installer.py`
+  - added a focused integration-style test covering:
+    - app-design confirm
+    - real `DesignBlueprintBuilderService`
+    - real `AppRegistryService`
+    - real `AppInstallerService`
+    - lifecycle/config snapshot evidence after install
+- Revalidated existing app-designer confirm coverage alongside the new real-path slice
+
+### Why This Matters
+Before this fix, the confirm-step blueprint/install continuation was only convincingly true in mock-backed tests. The real registry-backed installer contract requires the blueprint to exist in `AppRegistryService`. This change closes that handoff gap and makes the app-design path materially closer to production reality.
+
+### Validation
+- `pytest -q tests/unit/test_registry_installer.py tests/unit/test_app_designer.py -k 'registers_blueprint_before_real_install or confirm_and_create or acceptance_slice or blueprint_failure or install_failure'`
+  - Result: `7 passed, 17 deselected`
+- `python3` smoke for app-design registry/install bridge
+  - Result: `app-design-registry-install-smoke: ok`
+
+### Remaining Note
+The smoke output still reports a dependency-discovery warning for `monitor.control` during asset installation. That appears to be a lower-layer asset/dependency resolution concern rather than a blocker for the newly repaired app-design -> registry -> installer chain, and should be evaluated in a subsequent integration slice.
+
 ## 2026-04-29: App-generation phase closure summary
 
 ### Summary
