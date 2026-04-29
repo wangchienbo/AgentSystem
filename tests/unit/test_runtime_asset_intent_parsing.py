@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.system.management_presenters import render_app_list, render_package_list
 from app.system.runtime_asset_formatter import (
     append_detail_fallback,
     extract_capability_methods,
@@ -27,34 +28,36 @@ from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
 
-def test_render_asset_overview_prompt_supports_interfaces_and_functions() -> None:
-    class InterfaceAsset:
-        asset_id = "asset.catalog"
-        name = "Catalog Asset"
-        description = "catalog desc"
-        interfaces = {"query": {"description": "query desc"}}
+def test_render_package_list_supports_installed_and_search_views() -> None:
+    packages = [
+        {
+            "asset_id": "pkg.alpha",
+            "asset_type": "skill",
+            "installed_version": "1.0.0",
+            "version": "1.0.0",
+            "installed": True,
+            "description": "alpha desc",
+        }
+    ]
 
-    class FunctionDef:
-        def __init__(self, key: str, name: str) -> None:
-            self.key = key
-            self.name = name
+    installed_view = render_package_list(packages, header="📦 **已安装的包：**\n")
+    search_view = render_package_list(packages, header="🔍 搜索结果（1 个）:\n", include_install_status=True)
 
-    class FunctionAsset:
-        asset_id = "asset.function"
-        name = "Function Asset"
-        description = "function desc"
-        functions = [FunctionDef("run", "Run")]
+    assert "pkg.alpha (skill) v1.0.0" in installed_view
+    assert "alpha desc" in installed_view
+    assert "[✅ 已安装]" in search_view
 
-    rendered = render_asset_overview_prompt(
-        [InterfaceAsset(), FunctionAsset()],
-        header="## 你可用的资产",
+
+def test_render_app_list_outputs_status_icons() -> None:
+    rendered = render_app_list(
+        [
+            {"display_name": "Watcher", "status": "running"},
+            {"name": "PausedApp", "status": "paused"},
+        ]
     )
 
-    assert "## 你可用的资产" in rendered
-    assert "### asset.catalog (Catalog Asset)" in rendered
-    assert "可用接口: query(query desc)" in rendered
-    assert "### asset.function (Function Asset)" in rendered
-    assert "可用接口: run(Run)" in rendered
+    assert "🟢 Watcher (running)" in rendered
+    assert "🟡 PausedApp (paused)" in rendered
 
 
     rendered = render_asset_detail_document(

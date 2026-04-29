@@ -37,6 +37,7 @@ from app.utils.context_upload import ContextUploadHelper
 from app.config.context_upload import ContextUploadConfig
 
 from app.services.contract_linter import ContractLinter
+from app.system.management_presenters import render_app_list, render_package_list
 from app.system.self_iteration_strategy_formatter import (
     render_self_iteration_asset_detail,
     render_self_iteration_asset_list,
@@ -1258,14 +1259,9 @@ class LightBrainGateway:
                         session_id=child_session_id,
                         requires_input=False,
                     )
-                lines = ["📦 **已安装的包：**\n"]
-                for p in packages:
-                    lines.append(f"- {p['asset_id']} ({p['asset_type']}) v{p['installed_version']}")
-                    if p.get('description'):
-                        lines.append(f"  {p['description']}")
                 return ChatMessageResponse(
                     type="text",
-                    content="\n".join(lines),
+                    content=render_package_list(packages, header="📦 **已安装的包：**\n"),
                     session_id=child_session_id,
                     requires_input=False,
                 )
@@ -1495,15 +1491,13 @@ class LightBrainGateway:
                         session_id=child_session_id,
                         requires_input=False,
                     )
-                lines = [f"🔍 搜索结果（{len(packages)} 个）:\n"]
-                for p in packages:
-                    status = "✅ 已安装" if p.get("installed") else "❌ 未安装"
-                    lines.append(f"- {p['asset_id']} ({p['asset_type']}) v{p['version']} [{status}]")
-                    if p.get('description'):
-                        lines.append(f"  {p['description']}")
                 return ChatMessageResponse(
                     type="text",
-                    content="\n".join(lines),
+                    content=render_package_list(
+                        packages,
+                        header=f"🔍 搜索结果（{len(packages)} 个）:\n",
+                        include_install_status=True,
+                    ),
                     session_id=child_session_id,
                     requires_input=False,
                 )
@@ -1636,13 +1630,7 @@ class LightBrainGateway:
                     ActionSuggestion(id="create_app", label="➕ 创建 App", action_type="navigate", payload={"intent": "create_app"}, style="primary"),
                 ],
             )
-        lines = ["📱 你的 App 列表：\n"]
-        for app in apps:
-            status = app.get("status", "unknown")
-            name = app.get("display_name") or app.get("name") or app.get("id", "未知")
-            icon = {"running": "🟢", "paused": "🟡", "stopped": "🔴"}.get(status, "⚪")
-            lines.append(f"{icon} {name} ({status})")
-        content = "\n".join(lines)
+        content = render_app_list(apps)
         self._append_context_record(session_id=list_session_id, role="assistant", content=content, kind="message")
         return ChatMessageResponse(
             type="list",

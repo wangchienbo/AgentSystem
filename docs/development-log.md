@@ -1,3 +1,30 @@
+## 2026-04-29: Start package/app management presentation modularization
+
+### Summary
+Opened the next presentation modularization phase in the adjacent package/app management domain. Instead of trying to abstract every package operation at once, started with the stable list-oriented surfaces that clearly repeat today: installed package lists, package search results, and app status lists.
+
+### What Was Done
+- Added `app/system/management_presenters.py`
+  - `render_package_list(...)`
+  - `render_app_list(...)`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `package_list_installed` now delegates row rendering to `render_package_list(...)`
+  - `package_search` now delegates row rendering to `render_package_list(...)` with install status enabled
+  - `list_apps` now delegates list rendering to `render_app_list(...)`
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added direct coverage for installed-package and package-search list rendering
+  - added direct coverage for app status icon rendering
+- Ran focused smoke validation for the new management presenters
+
+### Design Outcome
+This starts the adjacent domain with the same principle that worked well for runtime assets: extract the repeated, low-risk presentation skeleton first. The stable reuse boundary here is the row-based list renderer, not the more heterogeneous package detail/build/install responses.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'render_package_list or render_app_list or render_asset_overview_prompt or render_asset_interface_details or render_asset_detail_document or render_asset_info_summary or render_asset_method_catalog'`
+  - Result: `2 passed, 5 deselected`
+- `python3` smoke for management presenters
+  - Result: `management-presenters-smoke: ok`
+
 ## 2026-04-29: Runtime-asset presentation phase closure audit
 
 ### Summary
