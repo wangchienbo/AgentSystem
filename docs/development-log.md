@@ -1,3 +1,29 @@
+## 2026-04-29: Add asset-type-aware operator summaries for self-iteration assets
+
+### Summary
+Refined the self-iteration reply-shaping layer one step further by making detail rendering asset-type-aware. Instead of dumping the first few raw detail keys for every summary asset, the gateway now foregrounds the most useful operator fields for each self-iteration asset class.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - refined `_render_self_iteration_asset_tool_reply(...)`
+  - `self_iteration.regression_runs` now highlights run count, latest run id, and average latency
+  - `self_iteration.live_observation_digest` now highlights `total_observations` and `topic_counts`
+  - `self_iteration.governance_dashboard` now highlights risk-flag count, queue count, and priority lane
+  - `self_iteration.governance_triggers` now highlights trigger count, top signals, and top observation topics
+  - `self_iteration.refinement_backlog` now highlights queue count, failed hypothesis count, and top failed hypotheses
+  - preserved generic fallback for any future summary asset type that does not yet have a dedicated template
+- Expanded tests in `tests/unit/test_runtime_asset_gateway_registration.py`
+  - added focused coverage validating the live-observation detail reply now surfaces asset-specific fields such as `topic_counts` and `total_observations`
+
+### Design Outcome
+This turns the self-iteration asset plane into a more operationally useful read surface. The underlying asset contract still stays generic and machine-friendly, but chat-facing consumers now get summaries that better match the meaning of each asset instead of one uniform key dump.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_gateway_registration.py -k 'self_iteration_detail_reply_uses_asset_specific_summary'`
+  - Result: `1 passed, 18 deselected`
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_alias or governance_asset_alias'`
+  - Result: `2 passed, 6 deselected`
+
 ## 2026-04-29: Add operator-readable reply shaping for self-iteration asset queries
 
 ### Summary

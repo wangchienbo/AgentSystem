@@ -314,3 +314,28 @@ def test_runtime_asset_gateway_self_iteration_list_reply_is_human_readable() -> 
     assert "self_iteration 资产摘要列表" in response.content
     assert "self_iteration.regression_runs" in response.content
     assert "self_iteration.live_observation_digest" in response.content
+
+
+def test_runtime_asset_gateway_self_iteration_detail_reply_uses_asset_specific_summary() -> None:
+    services = build_runtime()
+    runtime_center = services["runtime_center"]
+
+    result = runtime_center.call_asset_method(
+        "asset:self_iteration_center:v1",
+        "query_self_iteration_asset",
+        {"asset_id": "self_iteration.live_observation_digest"},
+    )
+    gateway = services["light_brain_gateway"]
+    rendered = gateway._render_self_iteration_asset_tool_reply(
+        type("Cmd", (), {"intent": "call_asset_method", "target_app": None})(),
+        {
+            "asset_id": "asset:self_iteration_center:v1",
+            "method": "query_self_iteration_asset",
+        },
+        result,
+    )
+
+    assert rendered is not None
+    assert "self_iteration.live_observation_digest" in rendered
+    assert "topic_counts" in rendered
+    assert "total_observations" in rendered

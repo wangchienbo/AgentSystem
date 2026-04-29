@@ -1062,12 +1062,33 @@ class LightBrainGateway:
                 return "\n".join(lines)
             if method == "query_self_iteration_asset" and isinstance(result_payload, dict):
                 detail = result_payload.get("detail") if isinstance(result_payload.get("detail"), dict) else {}
+                target_asset_id = result_payload.get("asset_id")
                 lines = [
-                    f"self_iteration 资产: {result_payload.get('asset_id')}",
+                    f"self_iteration 资产: {target_asset_id}",
                     f"- title: {result_payload.get('title', '')}",
                     f"- summary: {result_payload.get('summary', '')}",
                 ]
-                if detail:
+                if target_asset_id == "self_iteration.regression_runs":
+                    lines.append(
+                        f"- metrics: run_count={detail.get('run_count')}; latest_run_id={detail.get('latest_run_id')}; avg_latency_ms={detail.get('avg_latency_ms')}"
+                    )
+                elif target_asset_id == "self_iteration.live_observation_digest":
+                    lines.append(
+                        f"- observation: total_observations={detail.get('total_observations')}; topic_counts={detail.get('topic_counts')}"
+                    )
+                elif target_asset_id == "self_iteration.governance_dashboard":
+                    lines.append(
+                        f"- governance: risk_flag_count={detail.get('risk_flag_count')}; queue_count={detail.get('queue_count')}; priority_lane={detail.get('priority_lane')}"
+                    )
+                elif target_asset_id == "self_iteration.governance_triggers":
+                    lines.append(
+                        f"- triggers: trigger_count={detail.get('trigger_count')}; top_signals={detail.get('top_signals')}; top_observation_topics={detail.get('top_observation_topics')}"
+                    )
+                elif target_asset_id == "self_iteration.refinement_backlog":
+                    lines.append(
+                        f"- backlog: queue_count={detail.get('queue_count')}; failed_hypothesis_count={detail.get('failed_hypothesis_count')}; top_failed_hypotheses={detail.get('top_failed_hypotheses')}"
+                    )
+                elif detail:
                     detail_pairs = [f"{key}={value}" for key, value in list(detail.items())[:5]]
                     if detail_pairs:
                         lines.append(f"- detail: {'; '.join(detail_pairs)}")
