@@ -1024,6 +1024,56 @@ class LightBrainGateway:
             requires_input=False,
         )
 
+    def _render_self_iteration_asset_tool_reply(
+        self,
+        command: InterpretedCommand,
+        payload: dict[str, Any],
+        data: Any,
+    ) -> str | None:
+        asset_id = payload.get("asset_id") or command.target_app
+        if asset_id != "asset:self_iteration_center:v1":
+            return None
+
+        if command.intent in {"query_asset_info", "query_asset_detail"} and isinstance(data, dict):
+            capabilities = data.get("capabilities") or []
+            methods = [
+                cap.get("method")
+                for cap in capabilities
+                if isinstance(cap, dict) and cap.get("method")
+            ]
+            lines = [
+                "self_iteration_center 是自我迭代资产入口。",
+                f"- asset_id: {asset_id}",
+            ]
+            if methods:
+                lines.append(f"- methods: {', '.join(methods)}")
+            lines.append("- 用途: 汇总并查询 regression、observation、governance、refinement 这条自我迭代链的资产摘要")
+            return "\n".join(lines)
+
+        if command.intent == "call_asset_method" and isinstance(data, dict):
+            method = data.get("method") or payload.get("method")
+            result_payload = data.get("result")
+            if method == "list_self_iteration_assets" and isinstance(result_payload, list):
+                lines = ["self_iteration 资产摘要列表:"]
+                for item in result_payload:
+                    if not isinstance(item, dict):
+                        continue
+                    lines.append(f"- {item.get('asset_id')}: {item.get('title', '')} | {item.get('summary', '')}")
+                return "\n".join(lines)
+            if method == "query_self_iteration_asset" and isinstance(result_payload, dict):
+                detail = result_payload.get("detail") if isinstance(result_payload.get("detail"), dict) else {}
+                lines = [
+                    f"self_iteration 资产: {result_payload.get('asset_id')}",
+                    f"- title: {result_payload.get('title', '')}",
+                    f"- summary: {result_payload.get('summary', '')}",
+                ]
+                if detail:
+                    detail_pairs = [f"{key}={value}" for key, value in list(detail.items())[:5]]
+                    if detail_pairs:
+                        lines.append(f"- detail: {'; '.join(detail_pairs)}")
+                return "\n".join(lines)
+        return None
+
     async def _handle_permission(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
@@ -1141,9 +1191,10 @@ class LightBrainGateway:
         )
         if not result.success:
             return self._error_reply(session_id, f"❌ {result.error}")
+        rendered_content = self._render_self_iteration_asset_tool_reply(command, payload, result.data)
         return ChatMessageResponse(
             type="text",
-            content=json.dumps(result.data, ensure_ascii=False, indent=2),
+            content=rendered_content or json.dumps(result.data, ensure_ascii=False, indent=2),
             session_id=session_id,
             requires_input=False,
         )

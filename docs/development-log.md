@@ -1,3 +1,26 @@
+## 2026-04-29: Add operator-readable reply shaping for self-iteration asset queries
+
+### Summary
+Closed the next consumption gap by teaching the gateway to render `self_iteration_center` replies as operator-readable summaries instead of only raw JSON. The underlying runtime asset contract remains unchanged; the improvement lives only at the final chat-response layer.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - added `_render_self_iteration_asset_tool_reply(...)`
+  - for `query_asset_info` / `query_asset_detail` on `asset:self_iteration_center:v1`, renders a concise description of the asset purpose and exposed methods
+  - for `call_asset_method(list_self_iteration_assets)`, renders a readable summary list of self-iteration assets
+  - for `call_asset_method(query_self_iteration_asset)`, renders the selected asset's title, summary, and compact detail highlights
+  - preserved fallback to raw JSON for all other assets and methods
+- Expanded `tests/unit/test_runtime_asset_gateway_registration.py`
+  - added human-readable self-iteration info reply coverage
+  - added human-readable self-iteration list reply coverage
+
+### Design Outcome
+This keeps the compatibility-first layering intact. Machine-facing callers still receive the same runtime asset structures, while direct gateway conversations now get an operator-friendly summary view for the self-iteration asset line. In other words, the asset is now not only discoverable and queryable, but also directly readable in chat.
+
+### Validation
+- Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
+- The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
+
 ## 2026-04-29: Add natural-language routing aliases for self-iteration assets
 
 ### Summary

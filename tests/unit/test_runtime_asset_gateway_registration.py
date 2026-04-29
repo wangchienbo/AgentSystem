@@ -286,3 +286,31 @@ def test_bootstrap_runtime_self_iteration_center_can_query_one_summary_asset() -
     assert result["result"] is not None
     assert result["result"]["asset_id"] == "self_iteration.live_observation_digest"
     assert "detail" in result["result"]
+
+
+def test_runtime_asset_gateway_self_iteration_info_reply_is_human_readable() -> None:
+    services = build_runtime()
+    response = _run_gateway_message(
+        services,
+        "查看自我迭代资产详情",
+        "runtime-self-iteration-info",
+    )
+
+    assert response.type == "text"
+    assert "self_iteration_center" in response.content
+    assert "list_self_iteration_assets" in response.content
+    assert "query_self_iteration_asset" in response.content
+
+
+def test_runtime_asset_gateway_self_iteration_list_reply_is_human_readable() -> None:
+    services = build_runtime()
+    response = _run_gateway_message(
+        services,
+        "调用资产 asset:self_iteration_center:v1 的方法 list_self_iteration_assets",
+        "runtime-self-iteration-list",
+    )
+
+    assert response.type == "text"
+    assert "self_iteration 资产摘要列表" in response.content
+    assert "self_iteration.regression_runs" in response.content
+    assert "self_iteration.live_observation_digest" in response.content
