@@ -1,3 +1,39 @@
+## 2026-04-29: Extract self-iteration strategy reply formatting from gateway
+
+### Summary
+Continued the anti-fragmentation pass by moving self-iteration strategy text rendering out of the gateway body. The gateway now delegates strategy overview formatting into a shared formatter helper instead of assembling multi-line reply text inline.
+
+### What Was Done
+- Added `app/system/self_iteration_strategy_formatter.py`
+  - introduced `render_self_iteration_strategy_overview(...)`
+  - centralizes operator-readable formatting for:
+    - recommended next asset
+    - next action
+    - system view
+    - pressure snapshot
+    - route steps
+    - follow-up actions
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - replaced inline `get_self_iteration_strategy_overview` string assembly with a call into the shared formatter
+  - kept gateway responsibility focused on routing and reply dispatch instead of strategy-specific presentation assembly
+- Expanded tests in `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added lightweight direct coverage for the shared formatter
+  - validated rendered strategy text includes route and follow-up sections
+
+### Design Outcome
+This removes another fragmentation hotspot. The strategy surface is now separated across three clearer layers:
+- strategy data/builders
+- strategy formatter
+- gateway transport/dispatch
+
+That keeps the transport layer thinner and makes later reuse of self-iteration strategy presentation much cheaper than copying gateway-specific string logic into additional entry points.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_alias or governance_asset_alias or select_recommended_next_asset or build_follow_up_actions or build_strategy_route or render_self_iteration_strategy_overview'`
+  - Result: `6 passed, 6 deselected`
+- `python3` runtime smoke after formatter extraction
+  - Result: `strategy-formatter-refactor-smoke: ok`
+
 ## 2026-04-29: Refactor self-iteration strategy logic into shared builders
 
 ### Summary

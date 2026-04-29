@@ -6,6 +6,9 @@ from app.system.self_iteration_strategy import (
     build_strategy_route,
     select_recommended_next_asset,
 )
+from app.system.self_iteration_strategy_formatter import render_self_iteration_strategy_overview
+from app.services.light_brain_interpreter import LightBrainInterpreter
+from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
 
 def test_select_recommended_next_asset_prefers_risk_flags() -> None:
@@ -48,8 +51,65 @@ def test_build_strategy_route_ends_with_validate() -> None:
     assert route[-1]["phase"] == "validate"
     assert route[-1]["asset_id"] == "self_iteration.live_observation_digest"
 
-from app.services.light_brain_interpreter import LightBrainInterpreter
-from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
+
+def test_render_self_iteration_strategy_overview_outputs_route_and_follow_up() -> None:
+    rendered = render_self_iteration_strategy_overview(
+        {
+            "recommended_next_asset": {
+                "asset_id": "self_iteration.governance_dashboard",
+                "layer": "summarize",
+                "reason": "risk flags",
+            },
+            "recommended_next_action": {
+                "asset_id": "asset:self_iteration_center:v1",
+                "method": "query_self_iteration_asset",
+                "params": {"asset_id": "self_iteration.governance_dashboard"},
+            },
+            "follow_up_actions": [
+                {
+                    "method": "query_self_iteration_asset",
+                    "params": {"asset_id": "self_iteration.governance_triggers"},
+                    "purpose": "inspect triggers",
+                }
+            ],
+            "route": [
+                {
+                    "phase": "summarize",
+                    "action": {
+                        "method": "query_self_iteration_asset",
+                        "params": {"asset_id": "self_iteration.governance_dashboard"},
+                    },
+                    "goal": "review governance",
+                },
+                {
+                    "phase": "validate",
+                    "action": {
+                        "method": "query_self_iteration_asset",
+                        "params": {"asset_id": "self_iteration.live_observation_digest"},
+                    },
+                    "goal": "validate outcome",
+                },
+            ],
+            "pressure_snapshot": {
+                "risk_flag_count": 2,
+                "trigger_count": 1,
+                "queue_count": 0,
+                "failed_hypothesis_count": 0,
+                "total_observations": 5,
+                "run_count": 3,
+            },
+            "system_view": {
+                "observe": ["self_iteration.live_observation_digest"],
+                "summarize": ["self_iteration.governance_dashboard"],
+                "act": ["self_iteration.governance_triggers"],
+            },
+        }
+    )
+
+    assert "self_iteration 策略总览" in rendered
+    assert "route[summarize]" in rendered
+    assert "follow_up:" in rendered
+    assert "pressure:" in rendered
 
 
 class TestRuntimeAssetIntentParsing:
