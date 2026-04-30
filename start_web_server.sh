@@ -40,29 +40,36 @@ if [ ! -f "$CONFIG_FILE" ]; then
     echo "   将尝试从环境变量读取配置"
 else
     echo "✅ 配置文件: $CONFIG_FILE"
-    # 从配置文件读取并设置环境变量（供 http_test_server 使用）
-    # 使用 Python 解析 YAML 并导出环境变量
-    python3 << 'PYEOF'
-import yaml, os, sys
+    # 从配置文件读取并设置环境变量（供依赖 env fallback 的模块使用）
+    # 使用 shell-safe 的 export 行并在当前 shell 中 eval
+    CONFIG_EXPORTS=$(python3 << 'PYEOF'
+import shlex
 from pathlib import Path
+
+import yaml
 
 config_path = Path.home() / ".config" / "agentsystem" / "config.yaml"
 if config_path.exists():
-    with open(config_path) as f:
-        cfg = yaml.safe_load(f)
-    
-    # 提取 OpenAI 配置
-    model_cfg = cfg.get("model", {})
-    if model_cfg.get("api_key"):
-        os.environ["OPENAI_API_KEY"] = model_cfg["api_key"]
-        print(f"export OPENAI_API_KEY={model_cfg['api_key'][:20]}...")
-    if model_cfg.get("base_url"):
-        os.environ["OPENAI_BASE_URL"] = model_cfg["base_url"]
-        print(f"export OPENAI_BASE_URL={model_cfg['base_url']}")
-    if model_cfg.get("model"):
-        os.environ["OPENAI_MODEL"] = model_cfg["model"]
-        print(f"export OPENAI_MODEL={model_cfg['model']}")
+    with open(config_path, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f) or {}
+
+    model_cfg = cfg.get("model", {}) or {}
+    mapping = {
+        "OPENAI_API_KEY": model_cfg.get("api_key"),
+        "OPENAI_BASE_URL": model_cfg.get("base_url"),
+        "OPENAI_MODEL": model_cfg.get("model"),
+    }
+    for key, value in mapping.items():
+        if value:
+            print(f"export {key}={shlex.quote(str(value))}")
 PYEOF
+)
+    if [ -n "$CONFIG_EXPORTS" ]; then
+        eval "$CONFIG_EXPORTS"
+        echo "✅ 已从 config.yaml 导出 OPENAI_* 环境变量"
+    else
+        echo "⚠️  未在 config.yaml 中找到可导出的 OPENAI_* 配置"
+    fi
 fi
 
 # 4. 清理旧进程
