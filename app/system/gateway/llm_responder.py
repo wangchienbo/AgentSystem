@@ -216,6 +216,12 @@ class LLMResponder:
                 f"{tool_list}"
                 f"{app_info}"
                 f"{asset_info}\n\n"
+                "决策顺序要求：\n"
+                "1. 先理解用户想解决的问题是什么，而不是先套固定关键词。\n"
+                "2. 如果问题涉及运行态资产，先参考上面的可见资产概览，根据资产描述选择最合适的候选资产。\n"
+                "3. 只有在已经明确知道目标资产和动作时，才选择 query_asset_info / query_asset_detail / call_asset_method / list_assets 这类资产工具。\n"
+                "4. 如果用户只是泛泛提到治理、演化、回归、待优化项，不要把词面直接硬映射成某个资产ID，而是基于资产概览做判断。\n"
+                "5. 若资产还不明确，优先返回 requires_clarification=true，而不是猜一个 asset_id。\n\n"
                 "分析用户消息，返回 JSON 对象：\n"
                 '- "intent": 最匹配的工具名称（从上面的列表中选择），如果不确定用 "unclear"\n'
                 '- "target_app": 如果涉及具体 App，填写 App 名称，否则 null\n'

@@ -1101,6 +1101,27 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Align LLM intent parsing with asset-first selection semantics
+
+### Summary
+Closed the next prompt-layer gap in the real tool-call chain. The interpreter was already passing asset context into LLM intent parsing, but the parsing prompt still framed the job as mainly “pick a tool”. It now explicitly tells the model to understand the problem first, inspect visible asset candidates, avoid word-to-asset hard mapping, and clarify when the target asset is still ambiguous.
+
+### What Was Done
+- Updated `app/system/gateway/llm_responder.py`
+  - expanded the `parse_intent_with_tools(...)` system prompt with an explicit decision order
+  - added asset-first guidance: understand the problem, inspect visible assets, then choose the appropriate asset tool only after the target asset is clear
+  - added explicit anti-pattern guidance against mapping governance/evolution keywords directly to a fixed `asset_id`
+  - reinforced clarification behavior when the asset target is still uncertain
+- Updated `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added a lightweight source-based assertion that the LLM intent prompt now contains the intended asset-first guidance text
+
+### Design Outcome
+The runtime now has better alignment across three layers: visible asset summaries, asset overview prompt, and LLM parsing prompt. This keeps semantic choice with the model while preserving code ownership over visibility, contract, and execution boundaries.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'llm_responder_prompt_includes_asset_first_decision_guidance or selection_guidance or tool_aware'`
+  - Result: `8 passed`
+
 ## 2026-04-30: Strengthen model-side asset selection guidance for self_iteration_center
 
 ### Summary

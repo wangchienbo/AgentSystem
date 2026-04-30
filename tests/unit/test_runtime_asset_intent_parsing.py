@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from app.system.management_presenters import (
     render_app_list,
     render_management_availability,
@@ -33,6 +35,17 @@ from app.system.self_iteration_strategy_formatter import (
 )
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
+
+
+def read_text_from_llm_responder_prompt_source() -> str:
+    return Path("app/system/gateway/llm_responder.py").read_text(encoding="utf-8")
+
+
+def test_llm_responder_prompt_includes_asset_first_decision_guidance() -> None:
+    content = read_text_from_llm_responder_prompt_source()
+    assert "先参考上面的可见资产概览，根据资产描述选择最合适的候选资产" in content
+    assert "不要把词面直接硬映射成某个资产ID" in content
+    assert "优先返回 requires_clarification=true" in content
 
 
 def test_render_package_list_supports_installed_and_search_views() -> None:
