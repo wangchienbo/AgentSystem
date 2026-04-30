@@ -97,6 +97,29 @@ def test_render_runtime_asset_summary_list_outputs_header_and_items() -> None:
     assert rendered == "alpha=1; beta=2"
 
 
+def test_render_asset_overview_prompt_includes_selection_guidance() -> None:
+    class DummyAsset:
+        def __init__(self, asset_id: str, name: str, description: str, functions: list | None = None):
+            self.asset_id = asset_id
+            self.name = name
+            self.description = description
+            self.functions = functions or []
+
+    rendered = render_asset_overview_prompt(
+        [
+            DummyAsset(
+                "asset:self_iteration_center:v1",
+                "self_iteration_center",
+                "Self-iteration governance and system-evolution navigation surface",
+            )
+        ],
+        header="## 你可用的资产",
+    )
+
+    assert "先根据资产描述判断哪个资产最贴近当前问题" in rendered
+    assert "不要因为提问里出现某些关键词就假设必须命中某个固定资产" in rendered
+    assert "系统最近的演化状态、治理风险、回归观察或待优化项" in rendered
+    assert "asset:self_iteration_center:v1" in rendered
 def test_build_follow_up_actions_excludes_recommended_asset() -> None:
     actions = build_follow_up_actions(recommended_asset_id="self_iteration.governance_dashboard")
 

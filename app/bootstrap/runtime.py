@@ -564,7 +564,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 AssetCapability(name="uninstall package", description="Uninstall an installed package", method="package_uninstall", side_effect_level="write"),
                 AssetCapability(name="rollback package", description="Rollback a package to a target version", method="package_rollback", side_effect_level="write"),
             ]),
-            ("asset:self_iteration_center:v1", "self_iteration_center", "Self-iteration governance asset summaries", self_iteration_asset_service, [
+            ("asset:self_iteration_center:v1", "self_iteration_center", "Self-iteration governance and system-evolution navigation surface for regression history, live observations, governance pressure, and refinement backlog", self_iteration_asset_service, [
                 AssetCapability(name="list self iteration assets", description="List self-iteration asset summaries", method="list_self_iteration_assets", side_effect_level="read"),
                 AssetCapability(name="query self iteration asset", description="Query one self-iteration asset summary", method="query_self_iteration_asset", side_effect_level="read"),
                 AssetCapability(name="get self iteration strategy overview", description="Return the whole-system self-iteration view with recommended next asset", method="get_self_iteration_strategy_overview", side_effect_level="read"),

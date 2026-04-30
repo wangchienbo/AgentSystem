@@ -1101,6 +1101,28 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Strengthen model-side asset selection guidance for self_iteration_center
+
+### Summary
+Improved the model-facing asset selection layer without reintroducing hard routing. Instead of mapping self-iteration phrases directly to one asset, the system now gives the model clearer guidance in the visible-asset overview and makes `self_iteration_center` describe itself in more decision-useful language.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - expanded the runtime description of `asset:self_iteration_center:v1` from a terse summary label into a clearer navigation-oriented description covering regression history, live observations, governance pressure, and refinement backlog
+- Updated `app/system/runtime_asset_formatter.py`
+  - added explicit asset-selection guidance to the overview prompt shown to the model
+  - clarified that the model should choose assets from the visible candidate list first, rather than assuming a keyword must map to a fixed asset
+  - added a soft hint that evolution/governance/regression/refinement questions may be answered by assets whose descriptions mention those concerns
+- Expanded `tests/unit/test_runtime_asset_intent_parsing.py`
+  - validated that the rendered overview prompt now contains the intended selection guidance and still includes the self-iteration asset entry
+
+### Design Outcome
+This keeps responsibility boundaries clean. Code still governs visibility and execution safety, but the model gets better context for semantic choice. `self_iteration_center` becomes easier to select through the normal candidate-evaluation flow, without turning the interpreter into an asset-specific intent router.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py`
+  - Result: `8 passed`
+
 ## 2026-04-30: Remove hard alias routing for self-iteration asset discovery
 
 ### Summary
