@@ -1403,6 +1403,75 @@ This keeps responsibility boundaries clean. Code still governs visibility and ex
 - `pytest -q tests/unit/test_runtime_asset_intent_parsing.py`
   - Result: `8 passed`
 
+## 2026-04-30: Reduce self-iteration asset rediscovery by removing `list_assets` from narrowed default exposure
+
+### Summary
+Refined the self-iteration asset-routing policy after repeated HTTP-layer complex-case validation showed the model was still looping inside the asset lane via redundant rediscovery. The key correction was to align runtime behavior with the intended asset/RPC contract: assets remain visible in prompt context, while the narrowed self-iteration execution toolset no longer exposes `list_assets` by default.
+
+### Why this change
+Complex `/api/chat` validation had shown that even after clarifying prompt guidance, the model still tended to alternate between `list_assets` and `query_asset_detail`, for example:
+- `list_assets`
+- `query_asset_detail`
+- `list_assets`
+- `query_asset_detail`
+
+This produced `[Reached max turns (4)]` on complex prompts even though the model had already stayed within the asset lane and no longer escaped to file tools or replay-400 failure paths.
+
+The user's architecture clarification was:
+- asset is not tool
+- the system should expose asset overviews plus RPC tools
+- the model should freely choose an asset and decide whether to inspect detail
+- repeated asset rediscovery is unnecessary when prompt context already contains the relevant asset overview
+
+### Runtime policy change
+Updated `narrow_tools_for_self_iteration_route(...)` so the narrowed default tool exposure now keeps:
+- `call_asset_method`
+- `query_asset_detail`
+- `query_asset_info`
+- `ask_clarification`
+- `unclear`
+
+and removes:
+- `list_assets`
+
+This preserves model freedom within the asset/RPC pattern while removing the most problematic rediscovery shortcut in self-iteration-heavy scenarios where asset context is already available.
+
+### Guidance alignment
+Also rewrote `SELF_ITERATION_BRANCH_GUIDANCE` to match the broader asset-first contract:
+- prefer visible asset overviews already present in prompt context
+- treat asset as distinct from tool
+- use `query_asset_detail(asset_id=...)` to inspect interface/schema/usage
+- use `call_asset_method(...)` only after detail provides enough calling information
+- only fall back to `list_assets` / `query_asset_info` when candidate asset selection is genuinely unclear
+
+### Validation
+#### Unit tests
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py`
+- Result: `11 passed`
+
+#### HTTP complex-case regression
+Re-ran `/login` + `/api/chat` against `http://localhost:18080` with build marker `2026-04-30-observe-1`.
+
+Validated complex prompts including:
+1. `请你从系统自我迭代角度，先总结当前总体状态，再指出最值得优先处理的治理风险，最后给出一个按先后顺序执行的三步动作计划。`
+2. `结合当前回归情况、治理风险和待优化项，帮我判断现在应该先做验证、先做修复，还是先做治理收口，并说明依据。`
+
+Observed outcome after removing `list_assets` from narrowed default exposure:
+- no `[Reached max turns (4)]`
+- successful full natural-language answers returned for both complex prompts
+- complex self-iteration tasks now reached complete responses instead of stalling in asset rediscovery loops
+
+### Files Modified
+- `app/system/gateway/tool_calling_interpreter.py`
+- `tests/unit/test_runtime_asset_intent_parsing.py`
+
+### Next Steps
+1. Re-run with a freshly restarted clean server process to capture cleaner logs without older mixed-process traces
+2. Commit the narrowed self-iteration tool exposure change
+3. Continue expanding complex HTTP-level self-iteration regression cases
+
+---
+
 ## 2026-04-30: Remove hard alias routing for self-iteration asset discovery
 
 ### Summary
