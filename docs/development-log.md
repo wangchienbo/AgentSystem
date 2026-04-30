@@ -1101,6 +1101,56 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Activate self-iteration runtime flow and run multi-case operator interaction checks
+
+### Summary
+After stabilizing the self-iteration asset lane, I exercised the feature as a live operator would, using the HTTP test server and multiple governance-style prompts. The goal was to verify not just one happy-path question, but whether the self-iteration runtime surface could sustain several adjacent queries and still produce meaningful answers.
+
+### What Was Done
+- Confirmed the self-iteration entry surface is already activated by the main runtime bootstrap and does not require a separate process
+  - `asset:self_iteration_center:v1`
+  - methods inspected:
+    - `get_self_iteration_strategy_overview`
+    - `query_self_iteration_asset`
+    - `list_self_iteration_assets`
+- Started the marker-confirmed HTTP test runtime and interacted with it through live `/login` + `/api/chat` calls
+- Ran the following focused cases:
+  1. `最近系统自我迭代情况怎么样`
+  2. `当前有哪些治理风险`
+  3. `最近有哪些待优化项`
+  4. `回归情况怎么样`
+  5. `如果我要继续推进自我迭代，下一步先看什么`
+
+### Case Results
+- **Case 1, self-iteration overview**
+  - Success
+  - Routed through self-iteration asset lane
+  - Final tool sequence observed in logs: `call_asset_method -> query_asset_detail -> stop`
+  - Returned a natural-language overview covering Observe / Summarize / Act plus recommended next inspection target
+- **Case 2, governance risks**
+  - Partial gap remains
+  - Response fell back to `[Reached max turns (4)]`
+  - This is now the clearest remaining convergence hole in the neighboring governance-question family
+- **Case 3, optimization backlog**
+  - Success
+  - Returned concrete optimization candidates such as runtime performance jitter, automated test coverage, and log archival pressure
+- **Case 4, regression status**
+  - Success
+  - Returned a compact regression assessment plus actionable risk summary
+- **Case 5, next step for self-iteration**
+  - Success
+  - Correctly recommended `self_iteration.governance_dashboard` as the next inspection target and explained the Observe / Summarize / Act route
+
+### Validation Outcome
+The self-iteration runtime flow is now demonstrably usable in live operator interaction, not just in a single synthetic prompt:
+- activation path confirmed inside normal runtime bootstrap
+- no separate service launch required
+- multiple adjacent prompts can return meaningful self-iteration answers
+- the original routing failure is fixed for the tested overview / backlog / regression / next-step cases
+
+### Remaining Gap
+The question `当前有哪些治理风险` still did not converge within the 4-turn budget. So the feature is working, but the governance-risk branch still needs one more focused convergence pass.
+
 ## 2026-04-30: Add asset-lane convergence guidance for self-iteration prompts
 
 ### Summary
