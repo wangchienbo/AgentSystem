@@ -259,18 +259,28 @@ def is_script_like_request(message: str) -> bool:
     return any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取", "汇总"))
 
 
+def is_self_iteration_like_request(message: str) -> bool:
+    text = (message or "").lower()
+    return any(keyword in text for keyword in ("自我迭代", "治理", "回归", "待优化", "evolution", "governance", "regression", "backlog"))
+
+
 def choose_turn_budget(message: str) -> int:
     text = (message or "").lower()
     if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
         return 8
     if is_script_like_request(message):
         return 10
-    if any(keyword in text for keyword in ("自我迭代", "治理", "回归", "待优化", "evolution", "governance", "regression", "backlog")):
+    if is_self_iteration_like_request(message):
         return 4
     return 6
 
 
-def narrow_tools_for_script_route(tools: list[ToolDef]) -> list[ToolDef]:
+def narrow_tools_for_self_iteration_route(tools: list[ToolDef]) -> list[ToolDef]:
+    allowed = {"call_asset_method", "query_asset_detail", "list_assets", "query_asset_info", "ask_clarification", "unclear"}
+    narrowed = [tool for tool in tools if tool.name in allowed]
+    return narrowed or tools
+
+
     allowed = {"exec_shell", "read_file", "write_file", "edit_file", "ask_clarification", "unclear"}
     narrowed = [tool for tool in tools if tool.name in allowed]
     return narrowed or tools
@@ -774,6 +784,8 @@ PY"""
         all_tools = registry_tools + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
         if is_script_like_request(message):
             all_tools = narrow_tools_for_script_route(all_tools)
+        elif is_self_iteration_like_request(message):
+            all_tools = narrow_tools_for_self_iteration_route(all_tools)
 
         # Execute - 恢复多轮工具调用,但避免回灌 provider 不兼容的 tool_call 历史 shape
         try:

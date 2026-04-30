@@ -1101,6 +1101,36 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Narrow self-iteration prompts toward runtime asset tools
+
+### Summary
+After restoring the tool-call transcript shape, clean no-reload E2E showed partial improvement: the self-iteration prompt now returns within the bounded turn budget, but it still does not stay inside the intended runtime-asset lane. The model continued to reach file-oriented tools, so I added an interpreter-side narrowing rule for self-iteration/governance/regression/backlog prompts.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - extracted `is_self_iteration_like_request(...)`
+  - added `narrow_tools_for_self_iteration_route(...)`
+  - for self-iteration-like prompts, narrowed the tool set to:
+    - `list_assets`
+    - `query_asset_info`
+    - `query_asset_detail`
+    - `call_asset_method`
+    - `ask_clarification`
+    - `unclear`
+  - explicitly excludes file/system exploration tools from this route at the interpreter layer
+- Updated `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added regression coverage for self-iteration route narrowing
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_route_narrows_to_asset_tools or choose_turn_budget_limits_self_iteration_queries'`
+  - Result: `2 passed`
+- Clean no-reload E2E log result:
+  - request now returns `200 OK` instead of hanging indefinitely
+  - but runtime log still showed tool sequence `['list_assets', 'list_files', 'search_files', 'read_file']`
+
+### Current Diagnosis
+This means convergence improved, but there is still a lower-level tool exposure leak between the interpreter-side narrowed tool list and the actual executable tool set seen by the model/engine. The next repair point is now clearly in the tool exposure boundary, not in startup, registration, or turn budgeting.
+
 ## 2026-04-30: Restore assistant tool-call transcript shape in ToolCallingEngine
 
 ### Summary

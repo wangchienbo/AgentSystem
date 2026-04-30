@@ -33,7 +33,11 @@ from app.system.self_iteration_strategy_formatter import (
     render_self_iteration_asset_list,
     render_self_iteration_strategy_overview,
 )
-from app.system.gateway.tool_calling_interpreter import choose_turn_budget
+from app.system.gateway.tool_calling_interpreter import (
+    choose_turn_budget,
+    is_self_iteration_like_request,
+    narrow_tools_for_self_iteration_route,
+)
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
@@ -54,6 +58,27 @@ def test_choose_turn_budget_limits_self_iteration_queries() -> None:
     assert choose_turn_budget("当前有哪些治理风险") == 4
     assert choose_turn_budget("最近有哪些待优化项") == 4
     assert choose_turn_budget("帮我看看现在有什么 app") == 6
+
+
+def test_self_iteration_route_narrows_to_asset_tools() -> None:
+    assert is_self_iteration_like_request("最近系统自我迭代情况怎么样") is True
+
+    tools = [
+        ToolDefinition(name="search_files", description="search", parameters=[]),
+        ToolDefinition(name="read_file", description="read", parameters=[]),
+        ToolDefinition(name="list_assets", description="assets", parameters=[]),
+        ToolDefinition(name="query_asset_info", description="asset info", parameters=[]),
+        ToolDefinition(name="query_asset_detail", description="asset detail", parameters=[]),
+        ToolDefinition(name="call_asset_method", description="asset call", parameters=[]),
+    ]
+    defs = []
+    for tool in tools:
+        defs.append(type("TD", (), {"name": tool.name})())
+
+    narrowed = narrow_tools_for_self_iteration_route(defs)
+    narrowed_names = {tool.name for tool in narrowed}
+
+    assert narrowed_names == {"list_assets", "query_asset_info", "query_asset_detail", "call_asset_method"}
 
 
     packages = [
