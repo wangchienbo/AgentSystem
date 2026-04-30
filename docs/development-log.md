@@ -1101,6 +1101,40 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Add asset-lane convergence guidance for self-iteration prompts
+
+### Summary
+After fixing route drift and malformed replay compatibility, the remaining issue was repeated `call_asset_method` loops inside the correct self-iteration asset lane. I tightened the branch guidance so that once the self-iteration asset returns enough detail, the model should summarize and stop instead of repeatedly invoking the same method.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - extended `SELF_ITERATION_BRANCH_GUIDANCE` with convergence rules
+  - explicitly instruct the model to:
+    - summarize after a successful `query_asset_detail`
+    - summarize after one successful `call_asset_method`
+    - avoid repeating the same `call_asset_method` more than once unless the previous call clearly failed / lacked params / returned empty
+    - for overview questions like “最近系统自我迭代情况怎么样”, allow at most one detail query and one method call before natural-language convergence
+- Updated `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added assertions for the new self-iteration convergence rules
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_branch_guidance_prefers_runtime_asset_first'`
+  - Result: `1 passed`
+- Marker-confirmed real E2E against `http://localhost:18080`
+  - build marker confirmed: `2026-04-30-observe-1`
+  - request: `最近系统自我迭代情况怎么样`
+  - returned a natural-language answer instead of truncating at `[Reached max turns (4)]`
+  - no fallback into `search_files` / `read_file`
+  - no provider 400 replay failure
+
+### Current State
+The main self-iteration routing problem is now effectively closed for the tested path:
+- correct asset-lane routing
+- provider-compatible tool replay
+- natural-language convergence within the asset lane
+
+Further refinement is still possible on evidence grading / summarization quality, but the original “hang / wrong route / replay failure / repeated loop without answer” chain is now resolved for the target E2E case.
+
 ## 2026-04-30: Sanitize malformed provider tool_calls before replay
 
 ### Summary

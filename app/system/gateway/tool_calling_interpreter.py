@@ -69,8 +69,15 @@ SELF_ITERATION_BRANCH_GUIDANCE = """你正在处理系统自我迭代 / 治理 /
 5. 不要把这类问题默认降级成文件搜索、仓库搜索或 bash 历史检索
 6. 如果用户问的是最近状态、治理风险、回归观察、待优化项,优先从 strategy overview 或 self-iteration asset summary 直接回答
 
+收敛规则:
+1. 如果已经成功拿到 `query_asset_detail` 的结果,下一轮优先总结回答,不要再次调用 `query_asset_detail`
+2. 如果已经成功拿到一次 `call_asset_method` 的结果,默认认为证据已经足够,下一轮优先直接回答
+3. 不要重复调用同一个 `call_asset_method` 超过 1 次,除非上一次明确返回缺参、未实现或空结果
+4. 对“最近系统自我迭代情况怎么样”这类概览问题,最多允许一次 detail 查询和一次 method 调用,随后立即收敛成自然语言回答
+
 停止条件:
 - 一旦 self_iteration_center 已给出足够的摘要或下一步建议,立即停止继续找文件,直接组织回答
+- 一旦已获得足够的资产摘要/方法结果,不要继续循环调用工具
 """
 
 

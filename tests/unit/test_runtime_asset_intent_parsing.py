@@ -60,6 +60,8 @@ def test_self_iteration_branch_guidance_prefers_runtime_asset_first() -> None:
     assert "query_asset_detail" in SELF_ITERATION_BRANCH_GUIDANCE
     assert "get_self_iteration_strategy_overview" in SELF_ITERATION_BRANCH_GUIDANCE
     assert "不要把这类问题默认降级成文件搜索" in SELF_ITERATION_BRANCH_GUIDANCE
+    assert "不要重复调用同一个 `call_asset_method` 超过 1 次" in SELF_ITERATION_BRANCH_GUIDANCE
+    assert "最多允许一次 detail 查询和一次 method 调用" in SELF_ITERATION_BRANCH_GUIDANCE
 
 
 def test_choose_turn_budget_limits_self_iteration_queries() -> None:
