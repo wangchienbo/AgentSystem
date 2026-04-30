@@ -281,15 +281,15 @@ class ToolCallingEngine:
                     usage=total_usage,
                 )
 
-            # Build trace of what we have done so far so LLM can decide when to stop
-            tool_trace = []
-            for rec in call_records[-3:]:
-                status = "ok" if not rec.error else f"err:{rec.error[:40]}"
-                tool_trace.append(f"{rec.tool_name}({json.dumps(rec.args, ensure_ascii=False)[:60]})->{status}")
-            done_hint = f"[已完成工具] {', '.join(tool_trace)}。若信息足够，请直接回复内容，不再调用工具。"
-
-            # Removed explicit assistant hint; let model decide based on tool result
-
+            assistant_message = {"role": "assistant"}
+            assistant_content = message.get("content")
+            if assistant_content is not None:
+                assistant_message["content"] = assistant_content
+            else:
+                assistant_message["content"] = None
+            if tool_calls:
+                assistant_message["tool_calls"] = tool_calls
+            messages.append(assistant_message)
 
             for tc in tool_calls[:1]:
                 tool_name = tc.get("function", {}).get("name", "")
@@ -359,6 +359,7 @@ class ToolCallingEngine:
 
                 messages.append({
                     "role": "tool",
+                    "tool_call_id": tool_call_id,
                     "content": result_str,
                 })
 

@@ -1101,6 +1101,32 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Restore assistant tool-call transcript shape in ToolCallingEngine
+
+### Summary
+Followed the self-iteration timeout trail into the native multi-turn tool-calling loop. The engine was replaying only `tool` messages after each tool execution, but not the assistant tool-call decision that caused them. That transcript shape is weaker than the normal OpenAI-style function-calling exchange and can push some providers/models into repeated re-planning instead of clean termination.
+
+### What Was Done
+- Updated `app/ai/tool_calling_engine.py`
+  - after each model turn with `tool_calls`, the engine now appends an assistant message containing the original `tool_calls`
+  - tool result messages now also include `tool_call_id`
+  - preserved the single-tool-per-turn execution policy, but restored a more complete multi-turn transcript shape for the next model turn
+- Updated `tests/unit/test_tool_calling_engine.py`
+  - added a regression test verifying that the second LLM turn receives:
+    - the assistant tool-call message
+    - the matching `tool_call_id` on the tool result message
+  - revalidated existing multi-turn and truncation behavior
+
+### Design Outcome
+This is the first root-cause-level repair for the non-converging self-iteration chat path. The earlier turn-budget cap reduced blast radius; this change improves the semantic continuity of the loop itself so the model can more reliably understand what it already decided and what tool result it is reacting to.
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_engine.py -k 'replays_assistant_tool_call_and_tool_call_id or multi_turn or truncates_at_max_turns'`
+  - Result: `3 passed`
+
+### Follow-up
+The next clean verification step is a no-reload endpoint E2E run for the self-iteration prompt family, so we can confirm whether this transcript repair plus the reduced turn budget is enough to make `/api/chat` converge in practice.
+
 ## 2026-04-30: Tighten tool-calling turn budget for self-iteration chat prompts
 
 ### Summary

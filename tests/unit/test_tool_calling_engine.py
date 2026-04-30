@@ -165,6 +165,64 @@ def test_execute_turns_single_turn_no_tools(tmp_path) -> None:
 # ===========================================================================
 
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+def test_execute_turns_replays_assistant_tool_call_and_tool_call_id(tmp_path) -> None:
+    router = build_router(tmp_path)
+    engine = ToolCallingEngine(router)
+    engine.register_tool("query_metrics", lambda metric: {"metric": metric, "value": 42})
+
+    captured_second_turn_messages = []
+    call_count = [0]
+
+    def mock_chat_with_tools(messages, tools, **kwargs):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return (
+                {
+                    "message": {"role": "assistant", "content": None},
+                    "tool_calls": [
+                        {
+                            "id": "call_1",
+                            "function": {
+                                "name": "query_metrics",
+                                "arguments": '{"metric": "cpu"}',
+                            },
+                        }
+                    ],
+                    "text": "",
+                },
+                {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            )
+        captured_second_turn_messages.extend(messages)
+        return (
+            {
+                "message": {"role": "assistant", "content": "CPU is at 42%"},
+                "tool_calls": [],
+                "text": "CPU is at 42%",
+            },
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        )
+
+    mock_client = MagicMock()
+    mock_client._config.model = "gpt-4o-mini"
+    mock_client.chat_with_tools = mock_chat_with_tools
+
+    with patch.object(router, "get_client", return_value=mock_client):
+        result = engine.execute_turns(
+            skill_id="test-skill",
+            system_prompt="You are a metrics analyst",
+            user_message="Check CPU",
+            tools=[ToolDef(name="query_metrics", description="Query system metrics", parameters={})],
+        )
+
+    assert result.final_text == "CPU is at 42%"
+    assert len(captured_second_turn_messages) == 4
+    assert captured_second_turn_messages[2]["role"] == "assistant"
+    assert captured_second_turn_messages[2]["tool_calls"][0]["id"] == "call_1"
+    assert captured_second_turn_messages[3]["role"] == "tool"
+    assert captured_second_turn_messages[3]["tool_call_id"] == "call_1"
+
+
+@patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
 def test_execute_turns_multi_turn(tmp_path) -> None:
     """Engine should loop until LLM stops calling tools."""
     router = build_router(tmp_path)
