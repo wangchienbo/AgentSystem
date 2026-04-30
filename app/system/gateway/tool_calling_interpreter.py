@@ -761,9 +761,18 @@ PY"""
         # Phase E.2: Use hot tools instead of full registry
         if self._hot_tool_manager and session_id:
             hot_tools = self._hot_tool_manager.get_tools_for_session(session_id)
-            tools_desc = format_tools_for_prompt(hot_tools)
+            prompt_tool_defs = self._build_tool_defs_from_hot(hot_tools)
         else:
-            tools_desc = format_tools_for_prompt(self._registry.list_all())
+            prompt_tool_defs = self._build_tool_defs()
+
+        if is_script_like_request(message):
+            prompt_tool_defs = narrow_tools_for_script_route(prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
+        elif is_self_iteration_like_request(message):
+            prompt_tool_defs = narrow_tools_for_self_iteration_route(prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
+        else:
+            prompt_tool_defs = prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
+
+        tools_desc = format_tools_for_prompt(prompt_tool_defs)
 
         branch_guidance = self._select_branch_guidance(message)
         turn_state_board = build_turn_state_board(message, history)

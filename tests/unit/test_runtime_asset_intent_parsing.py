@@ -63,22 +63,34 @@ def test_choose_turn_budget_limits_self_iteration_queries() -> None:
 def test_self_iteration_route_narrows_to_asset_tools() -> None:
     assert is_self_iteration_like_request("最近系统自我迭代情况怎么样") is True
 
-    tools = [
-        ToolDefinition(name="search_files", description="search", parameters=[]),
-        ToolDefinition(name="read_file", description="read", parameters=[]),
-        ToolDefinition(name="list_assets", description="assets", parameters=[]),
-        ToolDefinition(name="query_asset_info", description="asset info", parameters=[]),
-        ToolDefinition(name="query_asset_detail", description="asset detail", parameters=[]),
-        ToolDefinition(name="call_asset_method", description="asset call", parameters=[]),
+    class DummyToolDef:
+        def __init__(self, name: str):
+            self.name = name
+            self.description = name
+            self.parameters = {"type": "object", "properties": {}, "required": []}
+
+    defs = [
+        DummyToolDef("search_files"),
+        DummyToolDef("read_file"),
+        DummyToolDef("list_assets"),
+        DummyToolDef("query_asset_info"),
+        DummyToolDef("query_asset_detail"),
+        DummyToolDef("call_asset_method"),
+        DummyToolDef("ask_clarification"),
+        DummyToolDef("unclear"),
     ]
-    defs = []
-    for tool in tools:
-        defs.append(type("TD", (), {"name": tool.name})())
 
     narrowed = narrow_tools_for_self_iteration_route(defs)
     narrowed_names = {tool.name for tool in narrowed}
 
-    assert narrowed_names == {"list_assets", "query_asset_info", "query_asset_detail", "call_asset_method"}
+    assert narrowed_names == {
+        "list_assets",
+        "query_asset_info",
+        "query_asset_detail",
+        "call_asset_method",
+        "ask_clarification",
+        "unclear",
+    }
 
 
     packages = [

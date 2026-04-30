@@ -1101,6 +1101,29 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Align self-iteration prompt tool display with narrowed execution set
+
+### Summary
+Traced the remaining “tool escape” gap one layer deeper. The interpreter was already narrowing the executable tool list for self-iteration prompts, but the system prompt still described the broader hot-tool set, including file-oriented tools. That prompt/execution mismatch can steer the model toward tools that are conceptually visible in the prompt even when the intended route should remain asset-only.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - changed tool-description assembly so the prompt-facing tool list is built from the same narrowed `ToolDef` set used for execution
+  - for self-iteration prompts, both the prompt and the execution path now align on the asset-only subset plus clarification/unclear tools
+  - for script-first prompts, the prompt and execution path now also stay aligned on the script-first subset
+- Updated `tests/unit/test_runtime_asset_intent_parsing.py`
+  - expanded the self-iteration narrowing test to cover clarification/unclear tools as part of the narrowed route contract
+
+### Design Outcome
+This reduces one more source of non-convergence and route drift: the model should no longer be told in the prompt that `search_files` / `read_file` are available during self-iteration routing if the runtime intends that request to stay inside the asset interaction lane.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_route_narrows_to_asset_tools'`
+  - Result: `1 passed`
+
+### Follow-up
+If logs still show file-oriented tools under self-iteration prompts after this alignment, the next leak is likely below the interpreter boundary, most likely in how the upstream provider or client handles tool selection persistence versus prior session/tool state.
+
 ## 2026-04-30: Narrow self-iteration prompts toward runtime asset tools
 
 ### Summary
