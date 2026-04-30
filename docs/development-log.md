@@ -1101,6 +1101,33 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Add asset-first branch guidance for self-iteration prompts
+
+### Summary
+The earlier fixes improved convergence and aligned prompt-visible tools with executable tools, but real E2E still showed self-iteration prompts drifting into file-oriented tools. The next refinement was not to block those tools outright, but to strengthen the branch guidance so self-iteration questions are framed as runtime-asset navigation problems first.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - added `SELF_ITERATION_BRANCH_GUIDANCE`
+  - for self-iteration / governance / regression / backlog style prompts, branch guidance now explicitly instructs the model to:
+    - treat the request as a runtime asset navigation problem first
+    - prioritize `asset:self_iteration_center:v1`
+    - prefer first-hop actions such as:
+      - `query_asset_info(asset_id="asset:self_iteration_center:v1")`
+      - `query_asset_detail(asset_id="asset:self_iteration_center:v1")`
+      - `call_asset_method(asset_id="asset:self_iteration_center:v1", method="get_self_iteration_strategy_overview", params={})`
+    - avoid defaulting to file search / repository search / bash history lookup for this class of request
+- Updated `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added guidance assertions for the self-iteration asset-first route
+  - restored the separated turn-budget regression test after test layout drift during editing
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'self_iteration_branch_guidance_prefers_runtime_asset_first or self_iteration_route_narrows_to_asset_tools or choose_turn_budget_limits_self_iteration_queries'`
+  - Result: `3 passed`
+
+### Design Intent
+This keeps the system flexible, instead of hard-blocking legitimate tools. File tools remain valid capabilities, but self-iteration prompts should now be much more strongly biased toward the dedicated runtime asset path before any fallback search behavior.
+
 ## 2026-04-30: Align self-iteration prompt tool display with narrowed execution set
 
 ### Summary

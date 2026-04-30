@@ -56,6 +56,23 @@ TOOL_LOOP_GOVERNOR_PATH = "docs/tool-loop-governor.md"
 REPO_INTROSPECTION_BRANCH_PATH = "docs/tool-loop-governor-branches/repo-introspection.md"
 SCRIPT_FIRST_BRANCH_PATH = "docs/tool-loop-governor-branches/script-first-strategy.md"
 
+SELF_ITERATION_BRANCH_GUIDANCE = """你正在处理系统自我迭代 / 治理 / 回归 / 待优化相关问题。
+
+优先策略:
+1. 先把这类问题视为运行时资产导航问题,不是仓库代码检索问题
+2. 默认优先关注 `asset:self_iteration_center:v1`
+3. 第一跳优先选择以下动作之一:
+   - `query_asset_info(asset_id=\"asset:self_iteration_center:v1\")`
+   - `query_asset_detail(asset_id=\"asset:self_iteration_center:v1\")`
+   - `call_asset_method(asset_id=\"asset:self_iteration_center:v1\", method=\"get_self_iteration_strategy_overview\", params={})`
+4. 只有当 self_iteration_center 返回的信息仍不足以回答问题时,才考虑扩展到其他资产
+5. 不要把这类问题默认降级成文件搜索、仓库搜索或 bash 历史检索
+6. 如果用户问的是最近状态、治理风险、回归观察、待优化项,优先从 strategy overview 或 self-iteration asset summary 直接回答
+
+停止条件:
+- 一旦 self_iteration_center 已给出足够的摘要或下一步建议,立即停止继续找文件,直接组织回答
+"""
+
 
 INTROSPECTION_KEYWORDS = (
     "代码", "源码", "仓库", "持久化", "sqlite", "mysql", "json", "字段", "表结构", "默认值", "文件里"
@@ -493,6 +510,8 @@ class ToolCallingInterpreter:
             return self._load_governor_text(REPO_INTROSPECTION_BRANCH_PATH)
         if any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取")):
             return self._load_governor_text(SCRIPT_FIRST_BRANCH_PATH)
+        if is_self_iteration_like_request(message):
+            return SELF_ITERATION_BRANCH_GUIDANCE
         return ""
 
 

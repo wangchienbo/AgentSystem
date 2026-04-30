@@ -34,6 +34,7 @@ from app.system.self_iteration_strategy_formatter import (
     render_self_iteration_strategy_overview,
 )
 from app.system.gateway.tool_calling_interpreter import (
+    SELF_ITERATION_BRANCH_GUIDANCE,
     choose_turn_budget,
     is_self_iteration_like_request,
     narrow_tools_for_self_iteration_route,
@@ -51,6 +52,14 @@ def test_llm_responder_prompt_includes_asset_first_decision_guidance() -> None:
     assert "先参考上面的可见资产概览，根据资产描述选择最合适的候选资产" in content
     assert "不要把词面直接硬映射成某个资产ID" in content
     assert "优先返回 requires_clarification=true" in content
+
+
+def test_self_iteration_branch_guidance_prefers_runtime_asset_first() -> None:
+    assert "asset:self_iteration_center:v1" in SELF_ITERATION_BRANCH_GUIDANCE
+    assert "query_asset_info" in SELF_ITERATION_BRANCH_GUIDANCE
+    assert "query_asset_detail" in SELF_ITERATION_BRANCH_GUIDANCE
+    assert "get_self_iteration_strategy_overview" in SELF_ITERATION_BRANCH_GUIDANCE
+    assert "不要把这类问题默认降级成文件搜索" in SELF_ITERATION_BRANCH_GUIDANCE
 
 
 def test_choose_turn_budget_limits_self_iteration_queries() -> None:
