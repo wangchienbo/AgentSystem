@@ -1101,6 +1101,26 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Remove hard alias routing for self-iteration asset discovery
+
+### Summary
+Corrected the integration boundary for `self_iteration_center`. The asset itself remains valid and useful, but the interpreter should not hard-map natural-language governance phrases directly to that asset id. Discovery now stays inside the unified visible-asset selection flow, which lets the model choose `self_iteration_center` as a candidate asset instead of being forced through a bespoke intent alias.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_interpreter.py`
+  - removed the special-case phrase alias that auto-filled `asset:self_iteration_center:v1` for `自我迭代` / `治理资产` / `self-iteration` style requests
+  - narrowed tool-aware asset info/detail heuristics back to generic asset/service wording instead of self-iteration-specific shortcut triggers
+- Updated `tests/unit/test_runtime_asset_intent_parsing.py`
+  - replaced alias-resolution assertions with clarification assertions, ensuring these phrases no longer bypass explicit asset selection
+- Updated `docs/requirements.md`
+  - recorded the architectural boundary that self-iteration asset discovery must remain part of the unified visible-asset selection flow
+
+### Design Outcome
+This keeps the additive value of `self_iteration_center` intact while preventing the gateway/interpreter layer from fragmenting into asset-specific intent types and prompt branches. The model can still select `self_iteration_center`, but it should do so from visible asset context rather than from a hardcoded natural-language shortcut.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'tool_aware or asset_info_request_without_explicit_asset_id or asset_detail_request_without_explicit_asset_id'`
+
 ## 2026-04-29: Add natural-language routing aliases for self-iteration assets
 
 ### Summary

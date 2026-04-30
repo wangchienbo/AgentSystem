@@ -317,7 +317,7 @@ class LightBrainInterpreter:
         )
 
     def _looks_like_asset_info_request(self, lowered: str) -> bool:
-        return any(k in lowered for k in ["资产", "服务", "自我迭代", "治理资产", "governance asset", "self-iteration"]) and any(
+        return any(k in lowered for k in ["资产", "服务"]) and any(
             k in lowered for k in ["详情", "信息", "能力", "配置", "契约"]
         )
 
@@ -329,7 +329,7 @@ class LightBrainInterpreter:
         )
 
     def _looks_like_asset_detail_request(self, lowered: str) -> bool:
-        return any(k in lowered for k in ["资产", "服务", "自我迭代", "治理资产", "governance asset", "self-iteration"]) and any(
+        return any(k in lowered for k in ["资产", "服务"]) and any(
             k in lowered for k in ["使用说明", "怎么用", "详细", "契约", "查看", "详情"]
         )
 
@@ -437,8 +437,6 @@ class LightBrainInterpreter:
             asset_match = re.search(r"asset[:：][^\s，,。]+", message, re.IGNORECASE)
             if asset_match:
                 params["asset_id"] = asset_match.group(0).replace("：", ":")
-            elif any(keyword in message.lower() for keyword in ["self-iteration", "governance asset"]) or any(keyword in message for keyword in ["自我迭代", "治理资产", "回归治理资产"]):
-                params["asset_id"] = "asset:self_iteration_center:v1"
 
         return params
 

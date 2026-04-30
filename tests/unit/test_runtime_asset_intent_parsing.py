@@ -232,14 +232,14 @@ def test_render_self_iteration_asset_detail_outputs_asset_specific_summary() -> 
         assert cmd.requires_clarification
         assert "asset_id" in (cmd.clarification_question or "").lower() or "资产" in (cmd.clarification_question or "")
 
-    def test_self_iteration_alias_maps_to_runtime_asset_info(self):
+    def test_asset_info_request_without_explicit_asset_id_requires_clarification(self):
         cmd = self.interpreter.interpret("查看自我迭代资产详情")
         assert cmd.intent == "query_asset_info"
-        assert cmd.parameters.get("asset_id") == "asset:self_iteration_center:v1"
-        assert not cmd.requires_clarification
+        assert not cmd.parameters.get("asset_id")
+        assert cmd.requires_clarification
 
-    def test_governance_asset_alias_maps_to_runtime_asset_detail(self):
+    def test_asset_detail_request_without_explicit_asset_id_requires_clarification(self):
         cmd = self.interpreter.interpret("看看治理资产怎么用")
         assert cmd.intent == "query_asset_detail"
-        assert cmd.parameters.get("asset_id") == "asset:self_iteration_center:v1"
-        assert not cmd.requires_clarification
+        assert not cmd.parameters.get("asset_id")
+        assert cmd.requires_clarification

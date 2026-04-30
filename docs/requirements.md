@@ -206,6 +206,7 @@ The chat regression subsystem must support:
 - propagating those observation-derived hints into refinement translation text surfaces such as hypothesis, novelty note, and verification summary, while keeping queue-note shape stable for rollout compatibility
 - formalizing additive self-iteration asset summaries over regression runs, live observation digest, governance dashboard, governance triggers, and refinement backlog so the self-upgrade line is represented as model-consumable assets instead of only as internal files/functions
 - exposing those self-iteration asset summaries through the runtime asset plane as a read-only `self_iteration_center` asset, so model-facing callers can discover and query self-iteration state through standard asset visibility/query flows rather than bespoke file-aware helpers
+- keeping self-iteration and governance asset discovery inside the unified visible-asset selection flow, so the model may choose `self_iteration_center` as a candidate asset without the interpreter hard-routing natural-language phrases to that asset id
 
 The subsystem should treat regression as an operator loop with three layers:
 - **Observe**: run, latest, runs, run detail, compare, trends, evidence history
