@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import yaml
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from typing import Any
 import httpx
 
 from app.models.model_config import ModelConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ModelClientError(ValueError):
@@ -280,6 +283,13 @@ class OpenAIResponsesClient:
             "Content-Type": "application/json",
         }
         with httpx.Client(timeout=_build_timeout(self._config.timeout_seconds)) as client:
+            tool_names = [tool.get("function", {}).get("name") for tool in tools]
+            logger.info(
+                "ModelClient.chat_with_tools model=%s tool_names=%s message_count=%s",
+                model_name,
+                tool_names,
+                len(messages),
+            )
             response = client.post(url, json=payload, headers=headers)
         if response.status_code >= 400:
             debug_path = Path('/tmp/agentsystem_chat_with_tools_payload.json')
@@ -298,6 +308,12 @@ class OpenAIResponsesClient:
         usage = data.get("usage", {})
         text = message.get("content", "") or ""
         tool_calls = message.get("tool_calls", [])
+        logger.info(
+            "ModelClient.chat_with_tools response model=%s returned_tool_calls=%s finish_reason=%s",
+            model_name,
+            [tc.get("function", {}).get("name") for tc in tool_calls],
+            choice.get("finish_reason", ""),
+        )
 
         return {
             "message": message,

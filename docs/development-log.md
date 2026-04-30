@@ -1101,6 +1101,30 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Sanitize malformed provider tool_calls before replay
+
+### Summary
+Once the new code path was verified with a build marker, the real blocker moved from routing into provider compatibility. Self-iteration prompts were already choosing the runtime asset path correctly, but the second tool-calling turn failed with HTTP 400 because the provider sometimes returned malformed trailing tool call entries such as `[valid, None, None]`.
+
+### What Was Done
+- Updated `app/ai/tool_calling_engine.py`
+  - sanitize `response["tool_calls"]` before replay
+  - keep only entries that are dicts and contain both a valid `function.name` and `id`
+  - log filtered malformed tool call names for traceability
+  - continue executing only the first valid tool call in each turn
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_engine.py`
+  - Result: `13 passed`
+- Marker-confirmed real E2E against `http://localhost:18080`
+  - build marker confirmed: `2026-04-30-observe-1`
+  - self-iteration route used only asset-lane tools
+  - provider malformed sequence observed and filtered: `raw=['call_asset_method', None, None] filtered=['call_asset_method']`
+  - second-turn HTTP 400 was eliminated
+
+### Current State
+This repair removed the provider compatibility failure. The remaining issue is no longer file-tool escape or malformed replay payloads. The remaining convergence issue is now inside the asset lane itself: the model keeps repeating `call_asset_method` instead of summarizing and terminating within the 4-turn budget.
+
 ## 2026-04-30: Add asset-first branch guidance for self-iteration prompts
 
 ### Summary

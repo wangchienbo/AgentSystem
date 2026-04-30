@@ -815,6 +815,14 @@ PY"""
         elif is_self_iteration_like_request(message):
             all_tools = narrow_tools_for_self_iteration_route(all_tools)
 
+        logger.info(
+            "Gateway tool exposure for session=%s message=%r prompt_tools=%s exec_tools=%s",
+            session_id,
+            message[:80],
+            [tool.name for tool in prompt_tool_defs],
+            [tool.name for tool in all_tools],
+        )
+
         # Execute - 恢复多轮工具调用,但避免回灌 provider 不兼容的 tool_call 历史 shape
         try:
             interaction_id = f"lightbrain:{session_id}:{abs(hash(message))}"

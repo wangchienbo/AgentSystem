@@ -44,6 +44,9 @@ from app.system.regression_governance_policy import build_governance_rollout_ope
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+RUNTIME_TRACE_BUILD = "2026-04-30-observe-1"
+logger.info("AgentSystem HTTP test server build marker=%s", RUNTIME_TRACE_BUILD)
+
 
 class RegressionNightlyTickDriver:
     def __init__(self) -> None:
@@ -630,6 +633,7 @@ async def api_status():
         "status": "ok",
         "timestamp": datetime.now().isoformat(),
         "active_sessions": len(user_sessions),
+        "build_marker": RUNTIME_TRACE_BUILD,
     }
 
 

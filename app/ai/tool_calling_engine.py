@@ -214,6 +214,15 @@ class ToolCallingEngine:
             if t.name in self._tools:
                 handlers[t.name] = self._tools[t.name]
 
+        logger.info(
+            "ToolCallingEngine input skill=%s asset=%s session=%s tools=%s handlers=%s",
+            skill_id,
+            asset_id,
+            session_id,
+            [t.name for t in tools],
+            sorted(handlers.keys()),
+        )
+
         # Execute multi-turn loop
         # NOTE: Some upstream chat_with_tools providers reject replaying prior
         # assistant/tool call history in OpenAI tool-call shape. To maximize
@@ -237,6 +246,12 @@ class ToolCallingEngine:
             max_turns = 8
 
         for turn in range(max_turns):
+            logger.info(
+                "ToolCallingEngine turn=%s session=%s payload_tools=%s",
+                turn + 1,
+                session_id,
+                [tool.get("function", {}).get("name") for tool in tool_defs],
+            )
             response, usage = client.chat_with_tools(
                 messages=messages,
                 tools=tool_defs,
@@ -249,7 +264,20 @@ class ToolCallingEngine:
             total_usage["total_tokens"] += usage.get("total_tokens", 0)
 
             message = response["message"]
-            tool_calls = response.get("tool_calls", [])
+            raw_tool_calls = response.get("tool_calls", [])
+            tool_calls = [
+                tc for tc in raw_tool_calls
+                if isinstance(tc, dict)
+                and tc.get("function", {}).get("name")
+                and tc.get("id")
+            ]
+            if raw_tool_calls and len(tool_calls) != len(raw_tool_calls):
+                logger.warning(
+                    "ToolCallingEngine filtered malformed tool calls: raw=%s filtered=%s session=%s",
+                    [tc.get("function", {}).get("name") if isinstance(tc, dict) else None for tc in raw_tool_calls],
+                    [tc.get("function", {}).get("name") for tc in tool_calls],
+                    session_id,
+                )
 
             if not tool_calls:
                 if self._telemetry_service is not None:
