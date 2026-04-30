@@ -265,7 +265,9 @@ def choose_turn_budget(message: str) -> int:
         return 8
     if is_script_like_request(message):
         return 10
-    return 20
+    if any(keyword in text for keyword in ("自我迭代", "治理", "回归", "待优化", "evolution", "governance", "regression", "backlog")):
+        return 4
+    return 6
 
 
 def narrow_tools_for_script_route(tools: list[ToolDef]) -> list[ToolDef]:

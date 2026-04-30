@@ -1101,6 +1101,29 @@ This keeps the compatibility-first layering intact. Machine-facing callers still
 - Targeted gateway-registration reply-shaping tests were added, but in the current environment the bootstrap-heavy pytest invocations for this file were repeatedly terminated with `SIGTERM` before producing an assertion failure, so code-level verification for this slice remains partially environment-blocked.
 - The change was kept narrow to `self_iteration_center` reply shaping only, with JSON fallback preserved for all non-target assets.
 
+## 2026-04-30: Tighten tool-calling turn budget for self-iteration chat prompts
+
+### Summary
+After runtime and startup were confirmed healthy, end-to-end chat verification showed a different failure mode: self-iteration prompts such as “最近系统自我迭代情况怎么样” triggered many repeated LLM calls and did not return within the expected time budget. As a first containment step, I tightened the generic tool-calling turn budget and added a specific lower cap for self-iteration / governance / regression / backlog style prompts.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - changed the default turn budget for ordinary chat requests from `20` to `6`
+  - added a dedicated budget of `4` turns for prompts containing self-iteration / governance / regression / backlog semantics
+  - kept introspection and script-first paths unchanged
+- Updated `tests/unit/test_runtime_asset_intent_parsing.py`
+  - added assertions covering the reduced turn budget for self-iteration/governance prompts and the new default budget for ordinary chat queries
+
+### Design Outcome
+This is a containment change, not a full root-cause fix. It narrows the blast radius of non-converging self-iteration tool loops and makes it easier to observe the real stopping behavior instead of letting the gateway spend up to 20 turns on one natural-language query.
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_intent_parsing.py -k 'choose_turn_budget_limits_self_iteration_queries or selection_guidance or llm_responder_prompt_includes_asset_first_decision_guidance'`
+  - Result: `3 passed`
+
+### Follow-up
+The deeper issue likely lives in the multi-turn tool-call transcript shape, because the engine currently appends tool outputs but does not replay an assistant decision message between turns. That can cause some providers/models to keep re-planning instead of terminating cleanly. This should be the next repair point after the turn-budget containment.
+
 ## 2026-04-30: Harden start_web_server.sh config export behavior
 
 ### Summary

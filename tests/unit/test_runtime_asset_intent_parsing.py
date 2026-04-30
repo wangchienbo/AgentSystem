@@ -33,6 +33,7 @@ from app.system.self_iteration_strategy_formatter import (
     render_self_iteration_asset_list,
     render_self_iteration_strategy_overview,
 )
+from app.system.gateway.tool_calling_interpreter import choose_turn_budget
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
 
@@ -48,7 +49,13 @@ def test_llm_responder_prompt_includes_asset_first_decision_guidance() -> None:
     assert "优先返回 requires_clarification=true" in content
 
 
-def test_render_package_list_supports_installed_and_search_views() -> None:
+def test_choose_turn_budget_limits_self_iteration_queries() -> None:
+    assert choose_turn_budget("最近系统自我迭代情况怎么样") == 4
+    assert choose_turn_budget("当前有哪些治理风险") == 4
+    assert choose_turn_budget("最近有哪些待优化项") == 4
+    assert choose_turn_budget("帮我看看现在有什么 app") == 6
+
+
     packages = [
         {
             "asset_id": "pkg.alpha",
