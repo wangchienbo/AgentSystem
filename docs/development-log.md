@@ -1,3 +1,34 @@
+## 2026-05-01: Expand the master runtime-rewrite tasklist into a single-file execution plan
+
+### Summary
+The first rewrite tasklist captured the architecture phases, but it was still too outline-like for direct execution and left phase detail implicit. The follow-up decision was to keep everything in one master task list instead of splitting per-phase task files, so the tasklist was expanded into a concrete single-file execution plan with per-phase work items, boundaries, acceptance points, cleanup rules, and global guardrails.
+
+### What Was Done
+- Expanded `tasklist_asset_centered_runtime.md`
+  - kept all rewrite work in one master task list
+  - added:
+    - global completion criteria and hard constraints
+    - per-phase file/module work items
+    - acceptance points for each phase
+    - cleanup rules for old tool-surface and test removal
+    - local-recovery / re-registration / debug-visibility tasks
+    - final acceptance checklist for the full rewrite
+- Preserved the tasklist as the single execution source instead of creating separate phase task files
+
+### Why This Matters
+This removes the ambiguity between "architecture doc" and "execution queue". The repository now has:
+- one architecture target document
+- one single-file master task list detailed enough to implement from directly
+
+That matches the execution preference for keeping the whole rewrite in one visible sequence instead of scattering planning across multiple phase-local task documents.
+
+### Validation
+- Verified the updated master task list is present in the tracked repository
+- No code-path validation was run for this slice because it refines execution planning only
+
+### Remaining Boundary
+The tasklist is now detailed enough to start implementation directly, but no runtime modules were created in this slice. The next implementation turn should begin with Phase 1 actual code creation rather than more planning expansion.
+
 ## 2026-05-01: Define the Asset-Centered Operating Runtime rewrite plan
 
 ### Summary
