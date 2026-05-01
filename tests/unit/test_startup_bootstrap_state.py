@@ -28,3 +28,14 @@ def test_build_runtime_exposes_startup_state_with_ordered_stages() -> None:
     by_name = {item["name"]: item for item in startup_state["results"]}
     assert by_name["system_assets"]["detail"]["fully_ready"] is True
     assert by_name["interaction_runtime"]["detail"]["fully_ready"] is True
+
+
+def test_build_runtime_exposes_startup_rerun_entry() -> None:
+    services = build_runtime()
+    rerun = services["rerun_startup_stage"]
+
+    refreshed = rerun("interaction_runtime")
+    by_name = {item["name"]: item for item in refreshed["results"]}
+
+    assert "interaction_runtime" in refreshed["ready_stages"]
+    assert by_name["interaction_runtime"]["detail"]["recovered"] is True

@@ -27,48 +27,72 @@ class StartupStageResult:
 class StartupOrchestrator:
     def __init__(self) -> None:
         self._stages: list[StartupStage] = []
+        self._stage_index: dict[str, StartupStage] = {}
         self._results: list[StartupStageResult] = []
         self._ready: set[str] = set()
 
     def add_stage(self, stage: StartupStage) -> None:
         self._stages.append(stage)
+        self._stage_index[stage.name] = stage
+
+    def _run_stage(self, stage: StartupStage, *, recovered: bool = False) -> StartupStageResult:
+        missing = [dep for dep in stage.depends_on if dep not in self._ready]
+        if missing:
+            raise StartupOrchestratorError(
+                f"Stage {stage.name} blocked, missing dependencies: {', '.join(missing)}"
+            )
+        try:
+            value = stage.action()
+            detail = value if isinstance(value, dict) else {"value": value}
+            if stage.ready_check is not None:
+                ok, ready_detail = stage.ready_check(detail)
+                detail = {**detail, **ready_detail}
+                if not ok:
+                    raise StartupOrchestratorError(
+                        f"Stage {stage.name} not ready: {ready_detail.get('reason', 'ready_check_failed')}"
+                    )
+            if recovered:
+                detail = {**detail, "recovered": True}
+            result = StartupStageResult(name=stage.name, status="ready", detail=detail)
+            self._ready.add(stage.name)
+            return result
+        except Exception as exc:
+            return StartupStageResult(
+                name=stage.name,
+                status="failed",
+                detail={"error": str(exc), "error_type": type(exc).__name__, "recovered": recovered},
+            )
 
     def execute(self) -> list[StartupStageResult]:
         self._results = []
         self._ready = set()
         for stage in self._stages:
-            missing = [dep for dep in stage.depends_on if dep not in self._ready]
-            if missing:
+            result = self._run_stage(stage)
+            self._results.append(result)
+            if result.status != "ready" and stage.required:
                 raise StartupOrchestratorError(
-                    f"Stage {stage.name} blocked, missing dependencies: {', '.join(missing)}"
+                    f"Stage {stage.name} failed: {result.detail.get('error', 'unknown error')}"
                 )
-            try:
-                value = stage.action()
-                detail = value if isinstance(value, dict) else {"value": value}
-                if stage.ready_check is not None:
-                    ok, ready_detail = stage.ready_check(detail)
-                    detail = {**detail, **ready_detail}
-                    if not ok:
-                        raise StartupOrchestratorError(
-                            f"Stage {stage.name} not ready: {ready_detail.get('reason', 'ready_check_failed')}"
-                        )
-                self._results.append(
-                    StartupStageResult(name=stage.name, status="ready", detail=detail)
-                )
-                self._ready.add(stage.name)
-            except Exception as exc:
-                self._results.append(
-                    StartupStageResult(
-                        name=stage.name,
-                        status="failed",
-                        detail={"error": str(exc), "error_type": type(exc).__name__},
-                    )
-                )
-                if stage.required:
-                    raise StartupOrchestratorError(
-                        f"Stage {stage.name} failed: {exc}"
-                    ) from exc
         return list(self._results)
+
+    def rerun_stage(self, stage_name: str) -> StartupStageResult:
+        stage = self._stage_index.get(stage_name)
+        if stage is None:
+            raise StartupOrchestratorError(f"Unknown stage: {stage_name}")
+        result = self._run_stage(stage, recovered=True)
+        replaced = False
+        for idx, existing in enumerate(self._results):
+            if existing.name == stage_name:
+                self._results[idx] = result
+                replaced = True
+                break
+        if not replaced:
+            self._results.append(result)
+        if result.status != "ready" and stage.required:
+            raise StartupOrchestratorError(
+                f"Stage {stage.name} failed during recovery: {result.detail.get('error', 'unknown error')}"
+            )
+        return result
 
     def results(self) -> list[StartupStageResult]:
         return list(self._results)

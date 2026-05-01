@@ -214,14 +214,14 @@
 - [x] 实现最小 readiness barrier
 
 ### 6.4 局部恢复
-- [ ] 设计 model runtime 局部重启后的再注册
-- [ ] 设计单资产崩溃后的重注册与状态替换
+- [x] 设计 model runtime 局部重启后的再注册
+- [x] 设计单资产崩溃后的重注册与状态替换
 - [ ] 设计 interaction runtime 是否需要感知 descriptor 更新
 
 ### 6.5 验收点
 - [x] 冷启动顺序可重复复现
 - [x] required asset 缺失时系统能明确失败
-- [ ] 局部重启至少有最小恢复路径定义
+- [x] 局部重启至少有最小恢复路径定义
 
 ---
 

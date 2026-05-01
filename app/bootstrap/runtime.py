@@ -1233,12 +1233,20 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     ))
     startup_results = startup_orchestrator.execute()
 
+    def _refresh_startup_state() -> dict[str, object]:
+        return {
+            "ready_stages": sorted(startup_orchestrator.ready_stages()),
+            "results": [
+                {"name": item.name, "status": item.status, "detail": item.detail}
+                for item in startup_orchestrator.results()
+            ],
+        }
+
+    def rerun_startup_stage(stage_name: str) -> dict[str, object]:
+        startup_orchestrator.rerun_stage(stage_name)
+        return _refresh_startup_state()
+
     services = locals()
-    services["startup_state"] = {
-        "ready_stages": sorted(startup_orchestrator.ready_stages()),
-        "results": [
-            {"name": item.name, "status": item.status, "detail": item.detail}
-            for item in startup_results
-        ],
-    }
+    services["rerun_startup_stage"] = rerun_startup_stage
+    services["startup_state"] = _refresh_startup_state()
     return services
