@@ -31,6 +31,10 @@ This narrows the remaining semantic gap between the new asset-centered runtime a
 ### Remaining Boundary
 Phase 8 legacy test cleanup is now largely complete. The next focus should shift to final documentation convergence, especially `docs/system-relationship-map.md`, plus later new-chain gaps such as descriptor replacement / local re-registration coverage.
 
+Transitional note:
+- one remaining legacy gateway follow-up clarification case (`test_runtime_asset_gateway_followup_after_asset_clarification`) is now intentionally kept as `xfail`
+- this test still depends on the old gateway follow-up session-state path and is no longer treated as a release-blocking signal for the new asset-centered interaction chain
+
 ## 2026-05-01: Add model-runtime foundation components for client registry, probe, and fallback selection
 
 ### Summary
