@@ -67,7 +67,6 @@ def test_bootstrap_runtime_core_method_mappings_work() -> None:
     assert config_result["error"] is None
 
 
-@pytest.mark.xfail(reason="legacy gateway e2e remains transitional; new interaction_runtime integration tests cover the primary chain", strict=False)
 def test_runtime_asset_gateway_to_runtime_call_flow() -> None:
     services = build_runtime()
     response = _run_gateway_message(
