@@ -1074,15 +1074,94 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             detail = asset_center.get_asset_detail(asset_id)
             if isinstance(detail, dict):
                 return detail
+        if asset_id in {"asset:config_center:v1", "asset:self_iteration_center:v1"}:
+            runtime_detail = runtime_center.query_asset_info(asset_id)
+            if isinstance(runtime_detail, dict):
+                descriptor_methods = []
+                if asset_id == "asset:config_center:v1":
+                    descriptor_methods = [{
+                        "name": "get_config",
+                        "description": "Read config center values for a skill or app binding scope",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "skill_id": {"type": "string"},
+                                "app_id": {"type": "string"},
+                            },
+                        },
+                    }]
+                elif asset_id == "asset:self_iteration_center:v1":
+                    descriptor_methods = [{
+                        "name": "list_self_iteration_assets",
+                        "description": "List self-iteration asset summaries",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "replay_session_id": {"type": "string"},
+                                "comparison_limit": {"type": "integer", "default": 5},
+                            },
+                        },
+                    }, {
+                        "name": "query_self_iteration_asset",
+                        "description": "Query one self-iteration asset summary",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "asset_id": {"type": "string"},
+                                "replay_session_id": {"type": "string"},
+                                "comparison_limit": {"type": "integer", "default": 5},
+                            },
+                            "required": ["asset_id"],
+                        },
+                    }, {
+                        "name": "get_self_iteration_strategy_overview",
+                        "description": "Return the whole-system self-iteration view with recommended next asset",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "replay_session_id": {"type": "string"},
+                                "comparison_limit": {"type": "integer", "default": 5},
+                            },
+                        },
+                    }]
+                return {
+                    "descriptor_version": 1,
+                    "asset_id": asset_id,
+                    "kind": "system_asset",
+                    "summary": runtime_detail.get("description") or runtime_detail.get("name") or asset_id,
+                    "detail": runtime_detail.get("description") or asset_id,
+                    "methods": descriptor_methods,
+                    "model_requirement": {
+                        "preferred_model": None,
+                        "fallback_model": None,
+                        "minimum_requirements": {},
+                    },
+                    "metadata": runtime_detail.get("metadata") or {},
+                }
         if hasattr(runtime_center, "query_asset_info"):
             info = runtime_center.query_asset_info(asset_id)
             if isinstance(info, dict):
                 return info
         return None
 
+    interaction_asset_summaries = [
+        {
+            "asset_id": "asset:config_center:v1",
+            "kind": "system_asset",
+            "summary": "Bootstrap configuration source",
+            "descriptor_version": 1,
+        },
+        {
+            "asset_id": "asset:self_iteration_center:v1",
+            "kind": "system_asset",
+            "summary": "Self-iteration governance and system-evolution navigation surface",
+            "descriptor_version": 1,
+        },
+    ]
+
     interaction_context_snapshot = build_initial_interaction_context(
-        asset_summaries=asset_center.list_assets(),
-        preload_detail_ids=["asset:self_iteration_center:v1"],
+        asset_summaries=interaction_asset_summaries,
+        preload_detail_ids=["asset:self_iteration_center:v1", "asset:config_center:v1"],
         detail_provider=_interaction_detail_provider,
     )
     interaction_decision_protocol = DecisionProtocol()
@@ -1095,6 +1174,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         asset_center=asset_center,
         runtime_center=runtime_center,
         model_selector=ModelSelector(),
+        descriptor_provider=_interaction_detail_provider,
     )
 
     light_brain_gateway = LightBrainGateway(

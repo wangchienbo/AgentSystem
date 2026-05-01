@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
-from app.system.asset_center.models import InteractionDecisionEnvelope
+from app.system.asset_center.models import AssetDescriptorRecord, AssetMethodSpec, InteractionDecisionEnvelope
 from app.system.asset_center.service import AssetCenterService
 from app.system.catalog.runtime_center import RuntimeCenter
 from app.system.invocation.model_resolved_call import ModelResolvedCall
@@ -19,16 +19,18 @@ class InvocationDispatcher:
     def __init__(
         self,
         *,
-        asset_center: AssetCenterService,
+        asset_center: Any,
         runtime_center: RuntimeCenter,
         model_selector: ModelSelector | None = None,
+        descriptor_provider: Callable[[str], dict[str, Any] | None] | None = None,
     ) -> None:
         self._asset_center = asset_center
         self._runtime_center = runtime_center
         self._model_selector = model_selector or ModelSelector()
+        self._descriptor_provider = descriptor_provider
 
     def prepare_call(self, *, asset_id: str, method: str, params: dict[str, Any] | None = None) -> ModelResolvedCall:
-        descriptor = self._asset_center.registry.require_asset(asset_id)
+        descriptor = self._require_descriptor(asset_id)
         method_spec = next((item for item in descriptor.methods if item.name == method), None)
         if method_spec is None:
             raise InvocationDispatchError(
@@ -44,7 +46,7 @@ class InvocationDispatcher:
         if requirement.preferred_model or requirement.fallback_model:
             try:
                 resolved_model = self._model_selector.resolve(
-                    model_records=self._asset_center.registry.list_models(),
+                    model_records=self._list_model_records(),
                     preferred_model=requirement.preferred_model,
                     fallback_model=requirement.fallback_model,
                     minimum_requirements=requirement.minimum_requirements,
@@ -103,6 +105,59 @@ class InvocationDispatcher:
                 "error": str(exc),
                 "error_type": type(exc).__name__,
             }
+
+    def _require_descriptor(self, asset_id: str) -> AssetDescriptorRecord:
+        if self._descriptor_provider is not None:
+            detail = self._descriptor_provider(asset_id)
+            if isinstance(detail, dict) and detail.get("methods"):
+                return self._descriptor_from_detail(detail)
+        if isinstance(self._asset_center, AssetCenterService):
+            return self._asset_center.registry.require_asset(asset_id)
+        if hasattr(self._asset_center, "get_asset_detail"):
+            detail = self._asset_center.get_asset_detail(asset_id)
+            if isinstance(detail, dict):
+                return self._descriptor_from_detail(detail)
+        registry = getattr(self._asset_center, "_registry", None)
+        if registry is not None and hasattr(registry, "require_asset"):
+            return registry.require_asset(asset_id)
+        raise InvocationDispatchError(f"descriptor for {asset_id} unavailable", error_type="descriptor_unavailable")
+
+    def _list_model_records(self) -> list[Any]:
+        if isinstance(self._asset_center, AssetCenterService):
+            return self._asset_center.registry.list_models()
+        registry = getattr(self._asset_center, "_registry", None)
+        if registry is not None and hasattr(registry, "list_models"):
+            return registry.list_models()
+        return []
+
+    def _descriptor_from_detail(self, detail: dict[str, Any]) -> AssetDescriptorRecord:
+        methods = tuple(
+            AssetMethodSpec(
+                name=str(item.get("name") or ""),
+                description=str(item.get("description") or ""),
+                input_schema=item.get("input_schema") or {"type": "object", "properties": {}},
+                output_schema=item.get("output_schema") or {},
+            )
+            for item in (detail.get("methods") or [])
+            if isinstance(item, dict)
+        )
+        requirement_payload = detail.get("model_requirement") or {}
+        from app.system.asset_center.models import AssetModelRequirement
+
+        return AssetDescriptorRecord(
+            descriptor_version=int(detail.get("descriptor_version") or 1),
+            asset_id=str(detail.get("asset_id") or ""),
+            kind=str(detail.get("kind") or "system_asset"),
+            summary=str(detail.get("summary") or ""),
+            detail=str(detail.get("detail") or ""),
+            methods=methods,
+            model_requirement=AssetModelRequirement(
+                preferred_model=requirement_payload.get("preferred_model"),
+                fallback_model=requirement_payload.get("fallback_model"),
+                minimum_requirements=requirement_payload.get("minimum_requirements") or {},
+            ),
+            metadata=detail.get("metadata") or {},
+        )
 
     def _validate_params(self, schema: dict[str, Any], params: dict[str, Any]) -> None:
         if schema.get("type") != "object":

@@ -39,3 +39,15 @@ def test_build_runtime_exposes_startup_rerun_entry() -> None:
 
     assert "interaction_runtime" in refreshed["ready_stages"]
     assert by_name["interaction_runtime"]["detail"]["recovered"] is True
+
+
+def test_build_runtime_exposes_new_interaction_and_invocation_services() -> None:
+    services = build_runtime()
+
+    assert services["interaction_context_snapshot"] is not None
+    assert services["interaction_decision_protocol"] is not None
+    assert services["interaction_orchestrator"] is not None
+    assert callable(services["interaction_debug_view"])
+    assert services["invocation_dispatcher"] is not None
+    assert callable(services["invoke_asset_envelope"])
+    assert callable(services["safe_invoke_asset"])

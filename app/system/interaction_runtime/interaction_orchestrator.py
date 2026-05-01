@@ -43,7 +43,7 @@ class InteractionOrchestrator:
         result: DecisionProtocolResult,
     ) -> dict[str, object]:
         return {
-            "loaded_summaries": [item.get("asset_id") for item in context.summaries],
+            "loaded_summaries": context.list_summary_asset_ids(),
             "loaded_details": sorted(context.details.keys()),
             "decision": result.envelope.to_dict(),
             "resolved_action": result.resolved_action,
