@@ -1,3 +1,36 @@
+## 2026-05-01: Shrink remaining legacy bounded-route and hot-tool compatibility assertions
+
+### Summary
+Continued Phase 8 cleanup by removing another batch of tests that were still encoding the old model-visible asset-tool surface. The goal of this slice was not to drop coverage, but to stop treating `query_asset_info/query_asset_detail/list_assets` exposure as a required model-facing contract while preserving the real route-boundary and runtime-asset invocation regressions.
+
+### What Was Done
+- Updated `tests/unit/services/test_hot_tool_manager.py`
+  - removed fixed-tool expectations that required legacy asset query tools to remain permanently exposed
+  - kept `call_asset_method` as the only still-required core runtime asset interaction tool in the fixed set
+- Updated `tests/unit/test_runtime_asset_intent_parsing.py`
+  - removed a malformed trailing block of old `LightBrainInterpreter` asset-intent tests
+  - kept the modern self-iteration route, formatter, and fast-path coverage
+- Updated `tests/unit/test_runtime_asset_gateway_registration.py`
+  - further weakened legacy gateway-asset assertions so they no longer require the old query/list tool surface as a primary contract
+  - preserved transitional gateway/runtime call-flow smoke checks where still useful
+- Updated `docs/testing.md` and `docs/design.md`
+  - aligned test/document wording with the new minimal runtime-asset interaction surface direction
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked the remaining hot-tool compatibility cleanup item complete
+
+### Why This Matters
+This narrows the remaining semantic gap between the new asset-centered runtime and the old gateway patch layer:
+- hot-tool tests no longer force the system to keep legacy model-visible asset query tools alive just to satisfy historical prompt-surface assumptions
+- interpreter intent coverage is less coupled to the retired LightBrain-era asset query semantics
+- the remaining gateway tests are now closer to transitional bootstrap smoke coverage instead of dictating the future interaction contract
+
+### Validation
+- `pytest -q tests/unit/services/test_hot_tool_manager.py tests/unit/test_runtime_asset_intent_parsing.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_interaction_runtime_integration.py`
+  - Result: `44 passed`
+
+### Remaining Boundary
+Phase 8 legacy test cleanup is now largely complete. The next focus should shift to final documentation convergence, especially `docs/system-relationship-map.md`, plus later new-chain gaps such as descriptor replacement / local re-registration coverage.
+
 ## 2026-05-01: Add model-runtime foundation components for client registry, probe, and fallback selection
 
 ### Summary

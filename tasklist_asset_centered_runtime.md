@@ -312,7 +312,7 @@
 - [x] 删除旧模型可见资产查询工具回归（已收缩 `tests/unit/test_runtime_asset_intent_parsing.py`、`tests/unit/test_tool_calling_interpreter.py`、`tests/unit/test_runtime_asset_gateway_registration.py` 中旧 query_asset_* 主路径断言）
 - [x] 删除旧 bounded-route 兼容测试（已清理一批仅服务旧资产工具语义的解释器/意图断言）
 - [x] 删除只服务旧 prompt tool exposure 修补逻辑的测试（已收缩 `tests/unit/services/test_hot_tool_manager.py` 与相关 hot-tool 断言）
-- [ ] 删除旧 hot-tool 资产工具面对齐修补测试（在新链完全接管后）
+- [x] 删除旧 hot-tool 资产工具面对齐修补测试（已收缩为最小 route-boundary 对齐断言，不再要求旧 query/list 资产工具面对齐）
 
 ### 9.3 测试迁移原则
 - [ ] 只保留与新主链直接相关的测试
@@ -341,10 +341,10 @@
 - [x] 新增 `tasklist_asset_centered_runtime.md`
 
 ### 10.2 继续更新
-- [ ] 更新 `docs/design.md`
+- [x] 更新 `docs/design.md`
 - [ ] 更新 `docs/system-relationship-map.md`
-- [ ] 更新 `docs/testing.md`
-- [ ] 更新 `docs/development-log.md`
+- [x] 更新 `docs/testing.md`
+- [x] 更新 `docs/development-log.md`
 
 ### 10.3 收口动作
 - [ ] 将最终模块关系同步进 relationship map
