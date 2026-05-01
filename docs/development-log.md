@@ -1,3 +1,38 @@
+## 2026-05-01: Define the Asset-Centered Operating Runtime rewrite plan
+
+### Summary
+Started the next architecture phase as a deliberate framework rewrite instead of continuing bounded gateway patchwork. The new target runtime is an Asset-Centered Operating Runtime: asset center as the only metadata truth entry, model resources as governed runtime resources, assets as self-describing/self-registering units, controlled three-branch interaction protocol, and startup order as a hard runtime contract.
+
+### What Was Done
+- Added `tasklist_asset_centered_runtime.md`
+  - turned the rewrite into an execution-oriented task list instead of leaving it as floating chat design
+  - defined phased work across asset center, model runtime, startup orchestration, asset protocol, interaction runtime, invocation layer, test replacement, and docs
+- Added `docs/asset-centered-runtime-redesign.md`
+  - consolidated the final rewrite architecture
+  - formalized:
+    - minimal bootstrap config boundary
+    - asset descriptor v1 shape
+    - model runtime registration + preferred/minimum/fallback policy
+    - controlled interaction protocol (`text / need_asset_detail_id / invoke`)
+    - startup order (`asset_center -> model_runtime -> system_assets -> interaction_runtime -> entrypoints`)
+    - major architectural risks and hard guardrails
+    - phase-by-phase implementation plan and acceptance chain
+
+### Why This Matters
+This closes the design drift that had been spreading across several exploratory discussion threads. Instead of leaving the next rewrite as a mix of remembered chat intent and partial gateway heuristics, the repository now has:
+- one named target architecture
+- one concrete task list
+- one explicit set of boundary rules and first-version constraints
+
+That makes the upcoming framework rewrite auditable and executable, rather than dependent on re-deriving the architecture from scattered conversations.
+
+### Validation
+- Document/tasklist placement verified in the tracked repository
+- No code-path validation was run for this slice because it is a design-definition checkpoint, not an implementation change
+
+### Remaining Boundary
+This slice intentionally defines the rewrite but does not yet implement the new runtime modules or remove the old gateway/tool-surface code. The next real module boundary should begin with asset center + model runtime + startup orchestrator skeletons, then move into self-iteration assetization and interaction runtime replacement.
+
 ## 2026-05-01: Align hot-tool prompt and execution surfaces on bounded gateway routes
 
 ### Summary
