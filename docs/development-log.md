@@ -1,3 +1,27 @@
+## 2026-05-01: Add final acceptance requirement for 50+ multi-turn natural-language user scenarios
+
+### Summary
+The master runtime-rewrite tasklist was tightened again to make the final validation target explicit: the rewrite cannot close only on unit/integration coverage. Final acceptance now requires simulated real-user natural-language validation across at least 50 scenarios, with each scenario spanning 1 to 10 turns of continuous conversation.
+
+### What Was Done
+- Updated `tasklist_asset_centered_runtime.md`
+  - added a dedicated final validation subsection under Phase 8
+  - required:
+    - at least 50 realistic user-language scenarios
+    - 1-10 turns per scenario
+    - coverage across query, asset navigation, detail request, invoke, fallback, failure recovery, clarification, topic shift, follow-up, and complex mixed tasks
+    - user-side end-to-end chain validation instead of narrow internal-module success criteria
+    - final outputs including pass rate, failure attribution, blocking points, and design feedback conclusions
+
+### Why This Matters
+This makes the acceptance bar match the actual architecture goal. The rewrite is not done when isolated modules pass, but when the new runtime survives realistic multi-turn user requests with enough coverage to expose routing flaws, detail-loading gaps, fallback mistakes, and conversation-state drift.
+
+### Validation
+- Tasklist update only
+
+### Remaining Boundary
+This requirement is now fixed in the master tasklist, but the scenario corpus and execution harness still need to be built later in the testing/acceptance phase.
+
 ## 2026-05-01: Land the runtime rewrite foundation slice (bootstrap config + runtime asset center skeleton)
 
 ### Summary
