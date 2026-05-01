@@ -1,4 +1,31 @@
-## 2026-04-30: Move app-config authoritative implementation back to a tracked runtime module
+## 2026-05-01: Restore script-first tool narrowing helper in gateway interpreter
+
+### Summary
+While continuing the self-iteration gateway convergence work, a follow-up audit of `app/system/gateway/tool_calling_interpreter.py` found that the earlier route-splitting edit had left the script-first narrowing logic in a broken half-state. The file still contained the intended allowlist body for script-first routing, but it was stranded as unreachable top-level lines under `narrow_tools_for_self_iteration_route(...)` instead of being defined as its own helper.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - kept `narrow_tools_for_self_iteration_route(...)` focused on asset-first self-iteration access
+  - restored a proper `narrow_tools_for_script_route(...)` helper for script-first execution paths
+  - removed the orphaned unreachable allowlist block that would never be called as written
+
+### Why This Matters
+This was a real runtime correctness issue, not just cleanup:
+- `_run_script_first_route(...)` already calls `narrow_tools_for_script_route(...)`
+- `_llm_interpret(...)` also switches into the same helper when script-like requests are detected
+- without the helper being actually defined, script-first requests would fail at runtime with `NameError` as soon as the branch executed
+
+So the file could still import and even pass basic syntax checks, while a real script-first request path remained broken.
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+  - Result: passed
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_runtime_asset_intent_parsing.py tests/unit/test_chat_regression.py`
+  - Result: `49 passed`
+
+### Remaining Boundary
+This fix restores the helper contract and removes the immediate branch break, but it does not yet add a focused regression test that explicitly proves script-like requests traverse the script-first narrowing path without fallback breakage. If this routing family continues evolving, a narrow behavioral test for the helper selection boundary would be a worthwhile follow-up.
+
 
 ### Summary
 A repo-hygiene audit after the uninstall cleanup slice exposed a dangerous source-of-truth problem. The public `AppConfigService` import path eventually resolved into `app/skills/system_skills/app_config.py`, but `app/skills/` is ignored by the repository. That meant runtime behavior depended on an untracked implementation file, making config-service changes partially invisible to Git even when higher-level service modules looked stable.

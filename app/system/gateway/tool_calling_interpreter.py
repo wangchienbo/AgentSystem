@@ -304,6 +304,8 @@ def narrow_tools_for_self_iteration_route(tools: list[ToolDef]) -> list[ToolDef]
     return narrowed or tools
 
 
+
+def narrow_tools_for_script_route(tools: list[ToolDef]) -> list[ToolDef]:
     allowed = {"exec_shell", "read_file", "write_file", "edit_file", "ask_clarification", "unclear"}
     narrowed = [tool for tool in tools if tool.name in allowed]
     return narrowed or tools
@@ -843,7 +845,12 @@ PY"""
                 user_id=user_id,
                 interaction_id=interaction_id,
             )
-            logger.info(f"ToolCallingEngine result: final_text={result.final_text[:100] if result.final_text else 'empty'}, tool_calls={[t.tool_name for t in result.tool_calls] if result.tool_calls else 'none'}")
+            logger.info(
+                "ToolCallingEngine result: final_text=%s, tool_calls=%s, tool_args=%s",
+                result.final_text[:100] if result.final_text else "empty",
+                [t.tool_name for t in result.tool_calls] if result.tool_calls else "none",
+                [t.args for t in result.tool_calls] if result.tool_calls else "none",
+            )
         except Exception as e:
             logger.exception("ToolCallingEngine execution failed")
             raise
