@@ -1285,5 +1285,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     services["interaction_orchestrator"] = interaction_orchestrator
     services["interaction_debug_view"] = interaction_debug_view
     services["invocation_dispatcher"] = invocation_dispatcher
+    services["invoke_asset_envelope"] = invocation_dispatcher.dispatch_from_envelope
+    services["safe_invoke_asset"] = invocation_dispatcher.safe_dispatch
     services["startup_state"] = _refresh_startup_state()
     return services

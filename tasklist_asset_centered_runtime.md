@@ -280,10 +280,10 @@
 - [x] resolved model 注入实际执行上下文
 
 ### 8.3 失败策略
-- [ ] 首选失败时按 fallback 降级
-- [ ] fallback 不满足最低语义能力时明确失败
-- [ ] method 不存在时明确失败
-- [ ] params schema mismatch 时明确失败
+- [x] 首选失败时按 fallback 降级
+- [x] fallback 不满足最低语义能力时明确失败
+- [x] method 不存在时明确失败
+- [x] params schema mismatch 时明确失败
 
 ### 8.4 边界控制
 - [ ] invocation layer 不负责资产元信息 discover
@@ -291,9 +291,9 @@
 - [ ] invocation layer 不将 asset center 变成执行层代理
 
 ### 8.5 验收点
-- [ ] self-iteration invoke 可在新调用层成功执行
-- [ ] fallback 行为可被独立验证
-- [ ] method/schema 错误路径有明确输出
+- [x] self-iteration invoke 可在新调用层成功执行
+- [x] fallback 行为可被独立验证
+- [x] method/schema 错误路径有明确输出
 
 ---
 
