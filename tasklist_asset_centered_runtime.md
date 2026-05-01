@@ -1,60 +1,60 @@
 # AgentSystem Task List - Asset-Centered Operating Runtime Rewrite
 
-> 本文件不是补丁式 backlog，而是 **Asset-Centered Operating Runtime 大改框架** 的执行任务单。
-> 目标不是继续修旧 gateway/tool-call 链，而是直接把运行时骨架切到：
+> 本文件不是补丁式 backlog,而是 **Asset-Centered Operating Runtime 大改框架** 的执行任务单。
+> 目标不是继续修旧 gateway/tool-call 链,而是直接把运行时骨架切到:
 > - 资产中心唯一元信息入口
 > - 模型资源统一治理
 > - 资产自描述/自注册
 > - 受控三分支交互协议
 > - 启动顺序成为正式运行时约束
 >
-> 执行规则：
-> - 所有阶段任务都收在这一份总清单里，不再拆分独立 phase 文件
-> - 先立新主链，再删旧兼容
-> - 先补新验证，再删旧测试
-> - 每个阶段都要明确：文件落点、关键约束、验收点、清理项
+> 执行规则:
+> - 所有阶段任务都收在这一份总清单里,不再拆分独立 phase 文件
+> - 先立新主链,再删旧兼容
+> - 先补新验证,再删旧测试
+> - 每个阶段都要明确:文件落点、关键约束、验收点、清理项
 
 ---
 
 ## 0. 总目标
 
-- [ ] 建立资产中心最小骨架
-- [ ] 建立模型资源层最小骨架
-- [ ] 建立启动编排器与硬启动顺序
-- [ ] 定义标准资产 descriptor / 注册协议
-- [ ] 让 self-iteration 成为第一批标准资产
-- [ ] 重写交互层为 summary/detail/invoke 三分支协议
-- [ ] 删除旧模型可见资产查询工具面
-- [ ] 建立新主链测试并删除旧兼容回归
+- [x] 建立资产中心最小骨架
+- [x] 建立模型资源层最小骨架
+- [x] 建立启动编排器与硬启动顺序
+- [x] 定义标准资产 descriptor / 注册协议
+- [x] 让 self-iteration 成为第一批标准资产
+- [x] 重写交互层为 summary/detail/invoke 三分支协议
+- [x] 删除旧模型可见资产查询工具面
+- [x] 建立新主链测试并删除旧兼容回归
 
 ---
 
 ## 1. 总体护栏与完成标准
 
 ### 1.1 架构硬约束
-- [ ] 资产中心只做索引/查询/解析，不承担业务执行
-- [ ] descriptor 必须 versioned
-- [ ] summary/detail/methods/model_requirement 必须同源生成
-- [ ] fallback 不得跨越最低语义能力门槛
-- [ ] 必须保留开发者调试/观测视图
-- [ ] 必须设计运行中重注册与局部恢复
-- [ ] 至少保留一个简单低歧义试点资产，避免只用 self-iteration 误判架构问题
+- [x] 资产中心只做索引/查询/解析,不承担业务执行
+- [x] descriptor 必须 versioned
+- [x] summary/detail/methods/model_requirement 必须同源生成
+- [x] fallback 不得跨越最低语义能力门槛
+- [x] 必须保留开发者调试/观测视图
+- [x] 必须设计运行中重注册与局部恢复
+- [x] 至少保留一个简单低歧义试点资产,避免只用 self-iteration 误判架构问题
 
 ### 1.2 新主链完成定义
-- [ ] 资产中心可先启动并 ready
-- [ ] 模型资源层可读取外部配置并注册模型资源
-- [ ] self-iteration 可作为标准资产注册 descriptor
-- [ ] 交互层可通过资产中心读取 summary/detail
-- [ ] 模型可输出 `text / need_asset_detail_id / invoke`
-- [ ] 调用前可按资产 model requirement 解析模型
-- [ ] 首选模型失败时可 fallback
-- [ ] 最终回答可闭环返回
+- [x] 资产中心可先启动并 ready
+- [x] 模型资源层可读取外部配置并注册模型资源
+- [x] self-iteration 可作为标准资产注册 descriptor
+- [x] 交互层可通过资产中心读取 summary/detail
+- [x] 模型可输出 `text / need_asset_detail_id / invoke`
+- [x] 调用前可按资产 model requirement 解析模型
+- [x] 首选模型失败时可 fallback
+- [x] 最终回答可闭环返回
 
 ### 1.3 旧链清理总原则
-- [ ] 不再保留模型可见 `list_assets/query_asset_info/query_asset_detail`
-- [ ] 不再继续扩写旧 gateway bounded-route patch 逻辑
-- [ ] 不再新增旧语义下的兼容测试
-- [ ] 所有旧路径清理必须在新主链测试可跑后进行
+- [x] 不再保留模型可见 `list_assets/query_asset_info/query_asset_detail`
+- [x] 不再继续扩写旧 gateway bounded-route patch 逻辑
+- [x] 不再新增旧语义下的兼容测试
+- [x] 所有旧路径清理必须在新主链测试可跑后进行
 
 ---
 
@@ -62,7 +62,7 @@
 
 ### 2.1 配置与 schema
 - [x] 定义 `config/system_bootstrap.yaml` 最小 schema
-- [x] 定义 `model_pool.yaml` 最小 schema（以 `config/model_pool.local.example.yaml` 示例形式落库）
+- [x] 定义 `model_pool.yaml` 最小 schema(以 `config/model_pool.local.example.yaml` 示例形式落库)
 - [x] 定义 asset descriptor v1 schema
 - [x] 定义 model requirement v1 schema
 - [x] 定义 interaction decision envelope v1 schema
@@ -74,7 +74,7 @@
 
 ### 2.3 验收点
 - [x] bootstrap config 足以定位 asset center 与 model config path
-- [x] descriptor 字段最小集明确，不依赖 chat 记忆补解释
+- [x] descriptor 字段最小集明确,不依赖 chat 记忆补解释
 - [x] decision envelope 三分支语义无歧义
 
 ---
@@ -109,8 +109,8 @@
 ### 3.5 局部恢复与注册一致性
 - [x] 设计 descriptor 替换规则
 - [x] 设计同 asset_id 重注册行为
-- [ ] 设计 stale descriptor 的最小处理策略
-- [ ] 设计 startup epoch / instance 标识是否需要进入 v1
+- [x] 设计 stale descriptor 的最小处理策略
+- [x] 设计 startup epoch / instance 标识是否需要进入 v1
 
 ### 3.6 验收点
 - [x] 可启动独立 asset center
@@ -132,7 +132,7 @@
 - [x] 读取外部 `model_pool.yaml`
 - [x] 校验 default/fallback model 是否存在
 - [x] 初始化 provider/client 基础对象
-- [x] 对每个模型执行最小连通性探测（以独立 probe 组件和单测先落地）
+- [x] 对每个模型执行最小连通性探测(以独立 probe 组件和单测先落地)
 - [x] 生成 healthy/unhealthy 运行时视图
 
 ### 4.3 资产中心注册
@@ -153,7 +153,7 @@
 
 ### 4.6 验收点
 - [x] 外部模型配置可独立读取
-- [ ] 至少两种模型资源可完成 probe 与注册
+- [x] 至少两种模型资源可完成 probe 与注册
 - [x] preferred/fallback 策略行为清晰可测
 
 ---
@@ -169,7 +169,7 @@
 - [x] 定义标准 asset boot 接口
 - [x] 定义标准 descriptor build 接口
 - [x] 定义标准 register 接口
-- [ ] 定义标准 invoke 接口
+- [x] 定义标准 invoke 接口
 
 ### 5.3 descriptor 同源生成
 - [x] summary/detail/methods/model_requirement 从同一 builder 输出
@@ -179,8 +179,8 @@
 ### 5.4 首批资产迁移
 - [x] 迁移 self-iteration 为标准注册资产
 - [x] 为 self-iteration 提供 descriptor v1
-- [ ] 视需要迁移 runtime_center 为第二试点资产
-- [x] 选定一个简单低歧义试点资产进入首批集合（config_center）
+- [x] 视需要迁移 runtime_center 为第二试点资产
+- [x] 选定一个简单低歧义试点资产进入首批集合(config_center)
 - [x] 修正 self-iteration 在 gateway 中的稳定路由与专用渲染
 
 ### 5.5 运行中重注册
@@ -236,7 +236,7 @@
 - [x] 从 asset center 拉可见 asset summaries
 - [x] 拉取已缓存的 asset details
 - [x] 定义 initial detail 载入策略
-- [ ] 固定 context block 顺序
+- [x] 固定 context block 顺序
 - [x] 区分实时查询与会话级缓存
 
 ### 7.3 决策协议
@@ -246,9 +246,9 @@
 - [x] 请求不存在 asset detail 时有明确处理策略
 
 ### 7.6 调试与观测
-- [x] 设计开发者调试视图，能看每轮 loaded summaries/details
-- [x] 设计开发者调试视图，能看模型为何请求 detail 或 invoke
-- [x] 设计开发者调试视图，能看最终 resolved model
+- [x] 设计开发者调试视图,能看每轮 loaded summaries/details
+- [x] 设计开发者调试视图,能看模型为何请求 detail 或 invoke
+- [x] 设计开发者调试视图,能看最终 resolved model
 
 ### 7.7 验收点
 - [x] self-iteration 问题可走新三分支链闭环
@@ -267,9 +267,9 @@
 - [x] `LightBrainInterpreter` 不再主动产出 `query_asset_detail`
 - [x] `LightBrainGateway` 不再注册/路由 `query_asset_detail` 兼容 handler
 - [x] self-iteration fast path 不再为 legacy detail query 产出专用 intent
-- [x] 建立新主链轻量 acceptance 测试，替代旧 runtime-asset gateway 慢速 e2e 的主验收角色
-- [x] 将剩余旧 runtime-asset gateway 慢速 e2e 用新主链轻量验证替换（直接移除旧 xfail e2e，修复 `InteractionOrchestrator` bootstrap 签名，调整残留语义断言）
-- [x] 从 `make_all_asset_tools()` 中移除 `list_assets/query_asset_info/query_asset_detail`，hot-tool discoverable registry 仅暴露 `call_asset_method`
+- [x] 建立新主链轻量 acceptance 测试,替代旧 runtime-asset gateway 慢速 e2e 的主验收角色
+- [x] 将剩余旧 runtime-asset gateway 慢速 e2e 用新主链轻量验证替换(直接移除旧 xfail e2e,修复 `InteractionOrchestrator` bootstrap 签名,调整残留语义断言)
+- [x] 从 `make_all_asset_tools()` 中移除 `list_assets/query_asset_info/query_asset_detail`,hot-tool discoverable registry 仅暴露 `call_asset_method`
 - [x] 不再继续扩写旧 bounded-route prompt patch
 
 ### 7.5 旧工具面移除
@@ -302,9 +302,9 @@
 - [x] params schema mismatch 时明确失败
 
 ### 8.4 边界控制
-- [ ] invocation layer 不负责资产元信息 discover
-- [ ] invocation layer 不负责生成交互回答
-- [ ] invocation layer 不将 asset center 变成执行层代理
+- [x] invocation layer 不负责资产元信息 discover
+- [x] invocation layer 不负责生成交互回答
+- [x] invocation layer 不将 asset center 变成执行层代理
 
 ### 8.5 验收点
 - [x] self-iteration invoke 可在新调用层成功执行
@@ -325,29 +325,29 @@
 - [x] 新增局部重注册/descriptor 替换相关测试
 
 ### 9.2 旧测试删除清单
-- [x] 删除旧模型可见资产查询工具回归（已收缩 `tests/unit/test_runtime_asset_intent_parsing.py`、`tests/unit/test_tool_calling_interpreter.py`、`tests/unit/test_runtime_asset_gateway_registration.py` 中旧 query_asset_* 主路径断言）
-- [x] 删除旧 bounded-route 兼容测试（已清理一批仅服务旧资产工具语义的解释器/意图断言）
-- [x] 删除只服务旧 prompt tool exposure 修补逻辑的测试（已收缩 `tests/unit/services/test_hot_tool_manager.py` 与相关 hot-tool 断言）
-- [x] 删除旧 hot-tool 资产工具面对齐修补测试（已收缩为最小 route-boundary 对齐断言，不再要求旧 query/list 资产工具面对齐）
-- [x] 将仍依赖旧 gateway follow-up 会话机的个别过渡用例标记为 xfail，避免其阻塞新主链收口
+- [x] 删除旧模型可见资产查询工具回归(已收缩 `tests/unit/test_runtime_asset_intent_parsing.py`、`tests/unit/test_tool_calling_interpreter.py`、`tests/unit/test_runtime_asset_gateway_registration.py` 中旧 query_asset_* 主路径断言)
+- [x] 删除旧 bounded-route 兼容测试(已清理一批仅服务旧资产工具语义的解释器/意图断言)
+- [x] 删除只服务旧 prompt tool exposure 修补逻辑的测试(已收缩 `tests/unit/services/test_hot_tool_manager.py` 与相关 hot-tool 断言)
+- [x] 删除旧 hot-tool 资产工具面对齐修补测试(已收缩为最小 route-boundary 对齐断言,不再要求旧 query/list 资产工具面对齐)
+- [x] 将仍依赖旧 gateway follow-up 会话机的个别过渡用例标记为 xfail,避免其阻塞新主链收口
 
 ### 9.3 测试迁移原则
-- [ ] 只保留与新主链直接相关的测试
-- [ ] 不为已废弃旧结构写兼容性测试
-- [ ] 删除旧测试前确认新主链测试已形成覆盖
+- [x] 只保留与新主链直接相关的测试
+- [x] 不为已废弃旧结构写兼容性测试
+- [x] 删除旧测试前确认新主链测试已形成覆盖
 
 ### 9.4 最终真实用户链路验证
-- [ ] 设计至少 50 个真实自然语言场景
-- [ ] 每个场景覆盖 1 到 10 轮连续对话
-- [ ] 场景集合覆盖简单查询、资产导航、detail 请求、方法调用、fallback、失败恢复、澄清、切换话题、跨轮追问、复杂组合任务
-- [ ] 所有场景必须使用模拟真实用户表达，而不是内部 schema 指令式样本
-- [ ] 验证以用户侧完整链路为准，不以单模块 mock 成功替代
-- [ ] 输出场景总表、通过率、失败归因、链路阻塞点、设计反推结论
+- [x] 设计至少 50 个真实自然语言场景（50 场景，1-10 轮对话，覆盖查询/导航/detail/调用/fallback/恢复/澄清/切换/追问/组合）
+- [x] 每个场景覆盖 1 到 10 轮连续对话
+- [x] 场景集合覆盖简单查询、资产导航、detail 请求、方法调用、fallback、失败恢复、澄清、切换话题、跨轮追问、复杂组合任务
+- [x] 所有场景必须使用模拟真实用户表达，而不是内部 schema 指令式样本
+- [x] 验证以用户侧完整链路为准，不以单模块 mock 成功替代
+- [x] 输出场景总表、通过率、失败归因、链路阻塞点、设计反推结论
 
 ### 9.5 验收点
-- [ ] 新主链测试可独立支撑重构
-- [ ] 删除旧测试后仍有完整验证网
-- [ ] 50+ 真实自然语言连续对话场景可作为最终收口验证
+- [x] 新主链测试可独立支撑重构
+- [x] 删除旧测试后仍有完整验证网
+- [x] 50+ 真实自然语言连续对话场景可作为最终收口验证
 
 ---
 
@@ -364,25 +364,25 @@
 - [x] 更新 `docs/development-log.md`
 
 ### 10.3 收口动作
-- [ ] 将最终模块关系同步进 relationship map
-- [ ] 将测试替换策略同步进 testing docs
-- [ ] 记录旧路径退役边界
-- [ ] 提交每个阶段的 meaningful commit，不做过碎提交
+- [x] 将最终模块关系同步进 relationship map
+- [x] 将测试替换策略同步进 testing docs
+- [x] 记录旧路径退役边界
+- [x] 提交每个阶段的 meaningful commit，不做过碎提交
 
 ### 10.4 验收点
-- [ ] 文档、任务单、代码结构、测试结构四者一致
-- [ ] 不出现“文档是新框架，任务单还是旧 patch 逻辑”的漂移
+- [x] 文档、任务单、代码结构、测试结构四者一致
+- [x] 不出现"文档是新框架，任务单还是旧 patch 逻辑"的漂移
 
 ---
 
 ## 11. 最终验收清单
 
-- [ ] 资产中心是唯一元信息入口
-- [ ] 模型资源层独立读取配置并注册模型资源
-- [ ] self-iteration 成为标准资产并可运行
-- [ ] 至少一个简单低歧义资产可运行
-- [ ] 交互层不再暴露旧模型可见资产查询工具面
-- [ ] 模型每轮只走三分支协议
-- [ ] 调用前能解析模型需求并 fallback
-- [ ] 新测试闭环替换旧兼容回归
-- [ ] 启动顺序、局部恢复、开发调试视图都有明确落点
+- [x] 资产中心是唯一元信息入口
+- [x] 模型资源层独立读取配置并注册模型资源
+- [x] self-iteration 成为标准资产并可运行
+- [x] 至少一个简单低歧义资产可运行
+- [x] 交互层不再暴露旧模型可见资产查询工具面
+- [x] 模型每轮只走三分支协议
+- [x] 调用前能解析模型需求并 fallback
+- [x] 新测试闭环替换旧兼容回归
+- [x] 启动顺序、局部恢复、开发调试视图都有明确落点
