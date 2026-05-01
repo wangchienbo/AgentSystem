@@ -309,7 +309,7 @@
 - [ ] 新增局部重注册/descriptor 替换相关测试
 
 ### 9.2 旧测试删除清单
-- [ ] 删除旧模型可见资产查询工具回归（候选：`tests/unit/test_runtime_asset_intent_parsing.py`、`tests/unit/test_tool_calling_interpreter.py`、`tests/unit/test_runtime_asset_gateway_registration.py` 的旧 query_asset_* 断言）
+- [x] 删除旧模型可见资产查询工具回归（已收缩 `tests/unit/test_runtime_asset_intent_parsing.py`、`tests/unit/test_tool_calling_interpreter.py`、`tests/unit/test_runtime_asset_gateway_registration.py` 中旧 query_asset_* 主路径断言）
 - [ ] 删除旧 bounded-route 兼容测试
 - [ ] 删除只服务旧 prompt tool exposure 修补逻辑的测试
 - [ ] 删除旧 hot-tool 资产工具面对齐修补测试（在新链完全接管后）

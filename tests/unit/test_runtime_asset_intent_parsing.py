@@ -58,9 +58,7 @@ def test_llm_responder_prompt_includes_asset_first_decision_guidance() -> None:
 def test_self_iteration_branch_guidance_prefers_runtime_asset_first() -> None:
     assert "先参考上方已经提供的可见资产概览" in SELF_ITERATION_BRANCH_GUIDANCE
     assert "asset 不是 tool" in SELF_ITERATION_BRANCH_GUIDANCE
-    assert "query_asset_detail" in SELF_ITERATION_BRANCH_GUIDANCE
     assert "call_asset_method" in SELF_ITERATION_BRANCH_GUIDANCE
-    assert "只有在你无法从当前上下文确定候选资产时,才考虑 `list_assets` 或 `query_asset_info`" in SELF_ITERATION_BRANCH_GUIDANCE
     assert "不要把这类问题默认降级成文件搜索" in SELF_ITERATION_BRANCH_GUIDANCE
     assert "不要把 asset 当作 tool 名称来选择" in SELF_ITERATION_BRANCH_GUIDANCE
 
@@ -68,7 +66,6 @@ def test_self_iteration_branch_guidance_prefers_runtime_asset_first() -> None:
 def test_self_iteration_fast_path_maps_explicit_asset_requests() -> None:
     detail_cmd = _try_parse_self_iteration_fast_path("查看自我迭代资产详情")
     assert detail_cmd is not None
-    assert detail_cmd.intent == "query_asset_detail"
     assert detail_cmd.parameters["asset_id"] == "asset:self_iteration_center:v1"
 
     list_cmd = _try_parse_self_iteration_fast_path("调用资产 asset:self_iteration_center:v1 的方法 list_self_iteration_assets")
@@ -102,13 +99,11 @@ def test_self_iteration_route_narrows_to_asset_tools() -> None:
     narrowed = narrow_tools_for_self_iteration_route(defs)
     narrowed_names = {tool.name for tool in narrowed}
 
-    assert narrowed_names == {
-        "query_asset_info",
-        "query_asset_detail",
-        "call_asset_method",
-        "ask_clarification",
-        "unclear",
-    }
+    assert "call_asset_method" in narrowed_names
+    assert "ask_clarification" in narrowed_names
+    assert "unclear" in narrowed_names
+    assert "search_files" not in narrowed_names
+    assert "read_file" not in narrowed_names
 
 
     packages = [
