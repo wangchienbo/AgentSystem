@@ -1085,6 +1085,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     )
     interaction_decision_protocol = DecisionProtocol()
     interaction_orchestrator = InteractionOrchestrator(protocol=interaction_decision_protocol)
+    interaction_debug_view = lambda result: interaction_orchestrator.debug_view(
+        context=interaction_context_snapshot,
+        result=result,
+    )
 
     light_brain_gateway = LightBrainGateway(
         memory=light_brain_memory,

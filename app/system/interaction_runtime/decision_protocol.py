@@ -99,3 +99,43 @@ class DecisionProtocol:
             ),
             context,
         )
+
+    def propose_for_config_center(
+        self,
+        *,
+        user_message: str,
+        context: InteractionContextSnapshot,
+    ) -> DecisionProtocolResult:
+        text = (user_message or "").lower()
+        asset_id = "asset:config_center:v1"
+
+        if any(keyword in text for keyword in ("详情", "detail")) and not context.has_detail(asset_id):
+            return self.resolve_against_context(
+                InteractionDecisionEnvelope(
+                    decision="need_asset_detail_id",
+                    need_asset_detail_id=asset_id,
+                    metadata={"route": "config_center"},
+                ),
+                context,
+            )
+        if any(keyword in text for keyword in ("配置", "config", "skill")):
+            return self.resolve_against_context(
+                InteractionDecisionEnvelope(
+                    decision="invoke",
+                    invoke={
+                        "asset_id": asset_id,
+                        "method": "get_config",
+                        "params": {"skill_id": "maoxuan_skill"},
+                    },
+                    metadata={"route": "config_center"},
+                ),
+                context,
+            )
+        return self.resolve_against_context(
+            InteractionDecisionEnvelope(
+                decision="need_asset_detail_id",
+                need_asset_detail_id=asset_id,
+                metadata={"route": "config_center", "fallback": True},
+            ),
+            context,
+        )

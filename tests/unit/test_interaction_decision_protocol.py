@@ -120,3 +120,31 @@ def test_self_iteration_route_can_invoke_list_when_context_known() -> None:
 
     assert result.resolved_action == "invoke_method"
     assert result.envelope.invoke["method"] == "list_self_iteration_assets"
+
+
+def test_config_center_route_can_invoke_simple_pilot_asset() -> None:
+    orchestrator = InteractionOrchestrator()
+    context = InteractionContextSnapshot(
+        summaries=[{"asset_id": "asset:config_center:v1", "summary": "Config center"}],
+        details={"asset:config_center:v1": {"asset_id": "asset:config_center:v1"}},
+    )
+
+    result = orchestrator.evaluate_config_center("查看 maoxuan skill 配置", context)
+
+    assert result.resolved_action == "invoke_method"
+    assert result.envelope.invoke["asset_id"] == "asset:config_center:v1"
+    assert result.envelope.invoke["method"] == "get_config"
+
+
+def test_interaction_orchestrator_debug_view_exposes_loaded_state() -> None:
+    orchestrator = InteractionOrchestrator()
+    context = InteractionContextSnapshot(
+        summaries=[{"asset_id": "asset:config_center:v1"}, {"asset_id": "asset:self_iteration_center:v1"}],
+        details={"asset:config_center:v1": {"asset_id": "asset:config_center:v1"}},
+    )
+    result = orchestrator.evaluate_config_center("查看 maoxuan skill 配置", context)
+    debug_view = orchestrator.debug_view(context=context, result=result)
+
+    assert "asset:config_center:v1" in debug_view["loaded_summaries"]
+    assert "asset:config_center:v1" in debug_view["loaded_details"]
+    assert debug_view["resolved_action"] == "invoke_method"

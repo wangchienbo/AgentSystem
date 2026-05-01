@@ -245,10 +245,15 @@
 - [x] 重复请求已存在 detail 时有明确处理策略
 - [x] 请求不存在 asset detail 时有明确处理策略
 
+### 7.6 调试与观测
+- [x] 设计开发者调试视图，能看每轮 loaded summaries/details
+- [x] 设计开发者调试视图，能看模型为何请求 detail 或 invoke
+- [ ] 设计开发者调试视图，能看最终 resolved model
+
 ### 7.7 验收点
 - [x] self-iteration 问题可走新三分支链闭环
-- [ ] 简单试点资产可走低歧义闭环
-- [ ] 开发者仍可观测 decision/detail/invoke 过程
+- [x] 简单试点资产可走低歧义闭环
+- [x] 开发者仍可观测 decision/detail/invoke 过程
 
 ### 7.4 主入口重构
 - [ ] 重写 `tool_calling_interpreter.py` 为兼容壳或直接退役
@@ -259,16 +264,6 @@
 - [ ] 移除模型可见 `list_assets/query_asset_info/query_asset_detail`
 - [ ] 清理旧 asset-first prompt 暴露与 route patch 逻辑
 - [ ] 清理旧 hot-tool bounded route 的兼容残留
-
-### 7.6 调试与观测
-- [ ] 设计开发者调试视图，能看每轮 loaded summaries/details
-- [ ] 设计开发者调试视图，能看模型为何请求 detail 或 invoke
-- [ ] 设计开发者调试视图，能看最终 resolved model
-
-### 7.7 验收点
-- [x] self-iteration 问题可走新三分支链闭环
-- [ ] 简单试点资产可走低歧义闭环
-- [ ] 开发者仍可观测 decision/detail/invoke 过程
 
 ---
 

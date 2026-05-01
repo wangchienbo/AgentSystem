@@ -25,3 +25,26 @@ class InteractionOrchestrator:
             user_message=user_message,
             context=context,
         )
+
+    def evaluate_config_center(
+        self,
+        user_message: str,
+        context: InteractionContextSnapshot,
+    ) -> DecisionProtocolResult:
+        return self._protocol.propose_for_config_center(
+            user_message=user_message,
+            context=context,
+        )
+
+    def debug_view(
+        self,
+        *,
+        context: InteractionContextSnapshot,
+        result: DecisionProtocolResult,
+    ) -> dict[str, object]:
+        return {
+            "loaded_summaries": [item.get("asset_id") for item in context.summaries],
+            "loaded_details": sorted(context.details.keys()),
+            "decision": result.envelope.to_dict(),
+            "resolved_action": result.resolved_action,
+        }
