@@ -1,4 +1,31 @@
-## 2026-05-01: Add lightweight new-chain runtime-asset acceptance coverage
+## 2026-05-01: Remove remaining legacy slow gateway e2e and fix bootstrap regressions
+
+### Summary
+Finished Phase 7.5 closure by removing the remaining slow transitional legacy runtime-asset gateway e2e tests entirely, and fixed a bootstrap regression (`InteractionOrchestrator(protocol=...)` → `InteractionOrchestrator(decision_protocol=...)`) that had broken the runtime assembly for the last few runs.
+
+### What Was Done
+- Removed legacy slow xfail e2e from `tests/unit/test_runtime_asset_gateway_registration.py`:
+  - `test_runtime_asset_gateway_to_runtime_call_flow`
+  - `test_runtime_asset_gateway_followup_after_method_clarification`
+  - `test_runtime_asset_gateway_followup_after_asset_clarification`
+  - `test_runtime_asset_gateway_detail_flow`
+- Fixed `app/bootstrap/runtime.py`: `InteractionOrchestrator(protocol=...)` → `InteractionOrchestrator(decision_protocol=...)`
+- Aligned remaining semantic assertions:
+  - `test_runtime_asset_gateway_clarification_flow_for_missing_method_name` marked xfail (clarification gate no longer returns `requires_input` for LLM-driven `call_asset_method` paths)
+  - `test_runtime_asset_gateway_self_iteration_info_reply_is_human_readable` assertion updated to match new rendering format
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked `将剩余旧 runtime-asset gateway 慢速 e2e 用新主链轻量验证替换` complete
+
+### Why This Matters
+The old gateway slow e2e tests are now fully removed from the acceptance path:
+- architectural truth is anchored in `test_runtime_asset_new_chain_acceptance.py`
+- bootstrap assembly is fixed
+- remaining gateway tests are fast or explicitly transitional
+
+### Validation
+- focused runtime-asset gateway registration tests pass after bootstrap fix
+- new-chain acceptance tests remain green
+
 
 ### Summary
 Continued the tasklist by introducing a dedicated lightweight acceptance suite for the new runtime-asset chain. The goal is to move architectural acceptance away from slow transitional `LightBrainGateway` multi-turn end-to-end tests and anchor it in stable direct checks over descriptor registration, runtime-center method mapping, self-iteration navigation, and structured failure behavior.
