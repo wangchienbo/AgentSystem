@@ -88,10 +88,9 @@ def test_self_iteration_route_tool_narrowing_keeps_call_asset_method_and_exclude
         ToolDef(name="unclear", description="", parameters={}),
     ])
     names = [t.name for t in narrowed]
-    assert "call_asset_method" in names
+    assert names == ["call_asset_method", "unclear"]
     assert "search_files" not in names
     assert "exec_shell" not in names
-    assert names[-1] == "unclear"
 
 
 
@@ -263,9 +262,11 @@ def test_self_iteration_like_request_keeps_prompt_and_exec_tools_aligned_under_h
     system_prompt = kwargs["system_prompt"]
     assert kwargs["skill_id"] == "gateway_intent_parser"
     assert kwargs["max_turns"] == 4
-    assert "call_asset_method" in exec_tool_names
-    assert "search_files" not in exec_tool_names
-    assert "exec_shell" not in exec_tool_names
+    assert exec_tool_names == ["call_asset_method", "ask_clarification", "unclear"]
+    assert "  • query_asset_detail:" not in system_prompt
+    assert "  • query_asset_info:" not in system_prompt
+    assert "  • search_files:" not in system_prompt
+    assert "  • exec_shell:" not in system_prompt
     for tool_name in exec_tool_names:
         assert f"  • {tool_name}:" in system_prompt
 def test_explicit_file_path_introspection_uses_fast_read_path() -> None:

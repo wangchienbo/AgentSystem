@@ -62,15 +62,14 @@ SELF_ITERATION_BRANCH_GUIDANCE = """你正在处理系统自我迭代 / 治理 /
 1. 先把这类问题视为运行时资产导航问题,不是仓库代码检索问题
 2. 优先参考上方已经提供的可见资产概览,先理解哪个资产最匹配当前问题
 3. asset 不是 tool, tool 只是访问 asset 的 RPC 入口
-4. 如需了解目标 asset 的接口、参数或使用说明,优先使用 `query_asset_detail(asset_id=...)`
-5. 当 detail 已提供足够接口说明时,再使用 `call_asset_method(asset_id=..., method=..., params=...)`
-6. 只有在你无法从当前上下文确定候选资产时,才考虑 `list_assets` 或 `query_asset_info`
-7. 不要把这类问题默认降级成文件搜索、仓库搜索或 bash 历史检索
-8. 如果用户问的是最近状态、治理风险、回归观察、待优化项,优先从最相关的 runtime asset 出发组织回答
+4. 优先通过 `call_asset_method(asset_id=..., method=..., params=...)` 访问 self-iteration 运行时资产能力
+5. 当上下文里已经给出足够摘要时,不要再回到旧 query/list 工具面
+6. 不要把这类问题默认降级成文件搜索、仓库搜索或 bash 历史检索
+7. 如果用户问的是最近状态、治理风险、回归观察、待优化项,优先从最相关的 runtime asset 出发组织回答
 
 收敛规则:
 1. 已经知道候选 asset 时,不要重复做资产再发现
-2. 已经拿到 detail 且接口足够时,优先决定 method 调用或直接回答
+2. 已经拿到足够摘要、接口说明或方法结果时,优先决定 method 调用或直接回答
 3. 不要把 asset 当作 tool 名称来选择,而要先选 asset,再决定用哪个 RPC tool 访问它
 4. 证据足够时立刻停止工具调用并回答
 
@@ -351,7 +350,7 @@ def choose_turn_budget(message: str) -> int:
 
 
 def narrow_tools_for_self_iteration_route(tools: list[ToolDef]) -> list[ToolDef]:
-    allowed = {"call_asset_method", "query_asset_detail", "query_asset_info", "ask_clarification", "unclear"}
+    allowed = {"call_asset_method", "ask_clarification", "unclear"}
     narrowed = [tool for tool in tools if tool.name in allowed]
     return narrowed or tools
 

@@ -257,13 +257,13 @@
 
 ### 7.4 主入口重构
 - [ ] 重写 `tool_calling_interpreter.py` 为兼容壳或直接退役
-- [ ] 将旧 gateway 资产知识迁出
-- [ ] 不再继续扩写旧 bounded-route prompt patch
+- [x] 将旧 gateway 资产知识迁出
+- [x] 不再继续扩写旧 bounded-route prompt patch
 
 ### 7.5 旧工具面移除
 - [ ] 移除模型可见 `list_assets/query_asset_info/query_asset_detail`
-- [ ] 清理旧 asset-first prompt 暴露与 route patch 逻辑
-- [ ] 清理旧 hot-tool bounded route 的兼容残留
+- [x] 清理旧 asset-first prompt 暴露与 route patch 逻辑
+- [x] 清理旧 hot-tool bounded route 的兼容残留
 
 ---
 
