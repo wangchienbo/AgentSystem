@@ -13,6 +13,27 @@ class InteractionContextSnapshot:
     def has_detail(self, asset_id: str) -> bool:
         return asset_id in self.details
 
+    def detail_epoch(self, asset_id: str) -> int | None:
+        detail = self.details.get(asset_id)
+        if not isinstance(detail, dict):
+            return None
+        epoch = detail.get("registration_epoch")
+        return epoch if isinstance(epoch, int) else None
+
+    def summary_epoch(self, asset_id: str) -> int | None:
+        summary = self.get_summary(asset_id)
+        if not isinstance(summary, dict):
+            return None
+        epoch = summary.get("registration_epoch")
+        return epoch if isinstance(epoch, int) else None
+
+    def is_detail_stale(self, asset_id: str) -> bool:
+        detail_epoch = self.detail_epoch(asset_id)
+        summary_epoch = self.summary_epoch(asset_id)
+        if detail_epoch is None or summary_epoch is None:
+            return False
+        return detail_epoch < summary_epoch
+
     def has_summary(self, asset_id: str) -> bool:
         return any(self._summary_asset_id(item) == asset_id for item in self.summaries)
 

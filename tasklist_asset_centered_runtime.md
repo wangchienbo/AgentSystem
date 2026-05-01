@@ -185,8 +185,8 @@
 
 ### 5.5 运行中重注册
 - [ ] 设计资产重启后的重新注册流程
-- [ ] 设计 descriptor 更新后旧缓存如何失效
-- [ ] 设计 interaction 侧 detail cache 失效策略的输入信号
+- [x] 设计 descriptor 更新后旧缓存如何失效
+- [x] 设计 interaction 侧 detail cache 失效策略的输入信号
 
 ### 5.6 验收点
 - [x] self-iteration 可通过标准协议注册
@@ -237,7 +237,7 @@
 - [x] 拉取已缓存的 asset details
 - [x] 定义 initial detail 载入策略
 - [ ] 固定 context block 顺序
-- [ ] 区分实时查询与会话级缓存
+- [x] 区分实时查询与会话级缓存
 
 ### 7.3 决策协议
 - [x] 固定三分支输出: text / need_asset_detail_id / invoke
@@ -248,7 +248,7 @@
 ### 7.6 调试与观测
 - [x] 设计开发者调试视图，能看每轮 loaded summaries/details
 - [x] 设计开发者调试视图，能看模型为何请求 detail 或 invoke
-- [ ] 设计开发者调试视图，能看最终 resolved model
+- [x] 设计开发者调试视图，能看最终 resolved model
 
 ### 7.7 验收点
 - [x] self-iteration 问题可走新三分支链闭环

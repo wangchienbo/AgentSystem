@@ -36,7 +36,7 @@ class DecisionProtocol:
         result = self.normalize(envelope)
         if envelope.decision == "need_asset_detail_id":
             asset_id = envelope.need_asset_detail_id or ""
-            if context.has_detail(asset_id):
+            if context.has_detail(asset_id) and not context.is_detail_stale(asset_id):
                 return DecisionProtocolResult(
                     envelope=InteractionDecisionEnvelope(
                         decision="text",
@@ -44,6 +44,20 @@ class DecisionProtocol:
                         metadata={"detail_cache_hit": True, "asset_id": asset_id},
                     ),
                     resolved_action="reply_text",
+                )
+            if context.has_detail(asset_id) and context.is_detail_stale(asset_id):
+                return DecisionProtocolResult(
+                    envelope=InteractionDecisionEnvelope(
+                        decision="need_asset_detail_id",
+                        need_asset_detail_id=asset_id,
+                        metadata={
+                            "detail_cache_stale": True,
+                            "asset_id": asset_id,
+                            "detail_epoch": context.detail_epoch(asset_id),
+                            "summary_epoch": context.summary_epoch(asset_id),
+                        },
+                    ),
+                    resolved_action="load_detail",
                 )
             if not context.has_summary(asset_id):
                 return DecisionProtocolResult(

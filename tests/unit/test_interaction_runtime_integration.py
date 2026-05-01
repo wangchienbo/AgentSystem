@@ -53,3 +53,5 @@ def test_interaction_debug_view_matches_runtime_invoke_result() -> None:
     assert snapshot["decision"]["decision"] == "invoke"
     assert snapshot["decision"]["invoke"]["asset_id"] == "asset:config_center:v1"
     assert snapshot["resolved_action"] == "invoke_method"
+    assert "detail_epochs" in snapshot
+    assert "summary_epochs" in snapshot

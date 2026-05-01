@@ -60,6 +60,26 @@ def test_decision_protocol_handles_detail_cache_hit() -> None:
     assert result.envelope.metadata["detail_cache_hit"] is True
 
 
+def test_decision_protocol_handles_stale_detail_request_by_reloading() -> None:
+    protocol = DecisionProtocol()
+    context = InteractionContextSnapshot(
+        summaries=[{"asset_id": "asset:self_iteration_center:v1", "registration_epoch": 3}],
+        details={
+            "asset:self_iteration_center:v1": {"asset_id": "asset:self_iteration_center:v1", "registration_epoch": 2}
+        },
+    )
+
+    result = protocol.resolve_against_context(
+        InteractionDecisionEnvelope(decision="need_asset_detail_id", need_asset_detail_id="asset:self_iteration_center:v1"),
+        context,
+    )
+
+    assert result.resolved_action == "load_detail"
+    assert result.envelope.metadata["detail_cache_stale"] is True
+    assert result.envelope.metadata["detail_epoch"] == 2
+    assert result.envelope.metadata["summary_epoch"] == 3
+
+
 def test_decision_protocol_handles_missing_asset_detail_request() -> None:
     protocol = DecisionProtocol()
     context = InteractionContextSnapshot(summaries=[])
@@ -139,8 +159,11 @@ def test_config_center_route_can_invoke_simple_pilot_asset() -> None:
 def test_interaction_orchestrator_debug_view_exposes_loaded_state() -> None:
     orchestrator = InteractionOrchestrator()
     context = InteractionContextSnapshot(
-        summaries=[{"asset_id": "asset:config_center:v1"}, {"asset_id": "asset:self_iteration_center:v1"}],
-        details={"asset:config_center:v1": {"asset_id": "asset:config_center:v1"}},
+        summaries=[
+            {"asset_id": "asset:config_center:v1", "registration_epoch": 2},
+            {"asset_id": "asset:self_iteration_center:v1", "registration_epoch": 1},
+        ],
+        details={"asset:config_center:v1": {"asset_id": "asset:config_center:v1", "registration_epoch": 1}},
     )
     result = orchestrator.evaluate_config_center("查看 maoxuan skill 配置", context)
     debug_view = orchestrator.debug_view(context=context, result=result)
@@ -148,3 +171,5 @@ def test_interaction_orchestrator_debug_view_exposes_loaded_state() -> None:
     assert "asset:config_center:v1" in debug_view["loaded_summaries"]
     assert "asset:config_center:v1" in debug_view["loaded_details"]
     assert debug_view["resolved_action"] == "invoke_method"
+    assert debug_view["summary_epochs"]["asset:config_center:v1"] == 2
+    assert debug_view["detail_epochs"]["asset:config_center:v1"] == 1

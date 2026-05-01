@@ -42,9 +42,12 @@ class InteractionOrchestrator:
         context: InteractionContextSnapshot,
         result: DecisionProtocolResult,
     ) -> dict[str, object]:
+        summary_ids = context.list_summary_asset_ids()
         return {
-            "loaded_summaries": context.list_summary_asset_ids(),
+            "loaded_summaries": summary_ids,
             "loaded_details": sorted(context.details.keys()),
+            "summary_epochs": {asset_id: context.summary_epoch(asset_id) for asset_id in summary_ids},
+            "detail_epochs": {asset_id: context.detail_epoch(asset_id) for asset_id in sorted(context.details.keys())},
             "decision": result.envelope.to_dict(),
             "resolved_action": result.resolved_action,
         }
