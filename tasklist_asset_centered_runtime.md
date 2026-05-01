@@ -228,21 +228,21 @@
 ## 7. Phase 6 - 重写交互运行时
 
 ### 7.1 新增模块
-- [ ] 新增 `app/system/interaction_runtime/context_assembly.py`
-- [ ] 新增 `app/system/interaction_runtime/decision_protocol.py`
-- [ ] 新增 `app/system/interaction_runtime/interaction_orchestrator.py`
+- [x] 新增 `app/system/interaction_runtime/context_assembly.py`
+- [x] 新增 `app/system/interaction_runtime/decision_protocol.py`
+- [x] 新增 `app/system/interaction_runtime/interaction_orchestrator.py`
 
 ### 7.2 上下文装配
-- [ ] 从 asset center 拉可见 asset summaries
+- [x] 从 asset center 拉可见 asset summaries
 - [ ] 拉取已缓存的 asset details
 - [ ] 定义 initial detail 载入策略
 - [ ] 固定 context block 顺序
 - [ ] 区分实时查询与会话级缓存
 
 ### 7.3 决策协议
-- [ ] 固定三分支输出: text / need_asset_detail_id / invoke
-- [ ] 非法 envelope 输出有明确错误处理
-- [ ] 重复请求已存在 detail 时有明确处理策略
+- [x] 固定三分支输出: text / need_asset_detail_id / invoke
+- [x] 非法 envelope 输出有明确错误处理
+- [x] 重复请求已存在 detail 时有明确处理策略
 - [ ] 请求不存在 asset detail 时有明确处理策略
 
 ### 7.4 主入口重构
