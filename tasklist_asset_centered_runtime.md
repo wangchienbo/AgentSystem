@@ -317,8 +317,8 @@
 
 ### 9.1 新测试必须先补
 - [x] 新增资产中心 registry 单测
-- [ ] 新增 descriptor/schema 单测
-- [ ] 新增模型选择/fallback 单测
+- [x] 新增 descriptor/schema 单测
+- [x] 新增模型选择/fallback 单测
 - [x] 新增启动顺序/required assets 单测
 - [x] 新增 self-iteration 新主链集成测试
 - [x] 新增简单低歧义试点资产测试
