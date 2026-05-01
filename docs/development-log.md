@@ -1,4 +1,26 @@
-## 2026-05-01: Remove legacy asset tool definitions from make_all_asset_tools and bootstrap engine registration
+## 2026-05-01: Add descriptor/schema and model selector unit tests (Phase 9.1)
+
+### Summary
+Completed the remaining Phase 9.1 test items by adding dedicated unit tests for asset descriptor/schema validation and model selection/fallback logic.
+
+### What Was Done
+- Added `tests/unit/test_asset_descriptor_schema.py`
+  - tests `AssetModelRequirement` default, to_dict, and edge cases
+  - tests `AssetMethodSpec` minimal and full spec shapes
+  - tests `AssetDescriptorRecord` minimal, with methods, to_dict field coverage, idempotency, and metadata defaults
+- Added `tests/unit/test_model_selector.py`
+  - tests preferred model selection with and without requirements
+  - tests fallback behavior (preferred unhealthy/missing)
+  - tests fallback when preferred fails minimum requirements
+  - tests failure paths (no healthy models, requirements not met, disabled models, empty records, no preferred/fallback)
+  - tests edge cases (same model as preferred+fallback, no requirements check)
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked Phase 9.1 `新增 descriptor/schema 单测` and `新增模型选择/fallback 单测` complete
+
+### Validation
+- `pytest -q tests/unit/test_asset_descriptor_schema.py tests/unit/test_model_selector.py` → `25 passed`
+- Full runtime-asset regression → `153 passed, 4 xfailed`
+
 
 ### Summary
 Finished the hot-tool discoverable registry cleanup by removing `list_assets`, `query_asset_info`, and `query_asset_detail` from `make_all_asset_tools()`, the bootstrap `tool_calling_engine.register_tool` calls, and their legacy handler definitions. After this change, the discoverable asset tool registry only contains `call_asset_method`.
