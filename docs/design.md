@@ -15,8 +15,9 @@ The system's fundamental identity is a **stateful operating system for apps**, n
 - **User Commands → Workflows → App Operations**: Users never directly manipulate app internals. Every user command is translated into a workflow, and workflows are the control mechanism that starts, stops, pauses, modifies, queries, and composes apps. This is the primary interaction model.
 - **Functional Modules = Persistable Apps**: Every functional capability in the system is an app. Apps are installable, persistable, and governable units. Skills are reusable capabilities that apps depend on.
 
-- the interaction layer is being rewritten toward a bounded `text / need_asset_detail_id / invoke` protocol, so historical model-visible asset query tools should be treated as transitional compatibility surfaces rather than long-term architecture requirements
-- route-local narrowing rules on the old gateway side should remain temporary compatibility shells only, and new coverage should prefer the asset-centered interaction runtime contract whenever equivalent coverage exists
+- the old model-visible `list_assets / query_asset_info / query_asset_detail` surface is now being actively removed from default hot-tool exposure; transitional compatibility handlers may still exist internally, but they should no longer be treated as part of the preferred model-facing contract
+- the preferred runtime-asset interaction primitive on the compatibility side is now `call_asset_method`, with richer asset navigation expected to migrate into the bounded interaction runtime rather than remain in the old global tool surface
+
 
 The current design direction is:
 - user interacts with the system through a control plane and unified gateway

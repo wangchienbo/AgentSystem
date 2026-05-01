@@ -1,4 +1,34 @@
-## 2026-05-01: Shrink remaining legacy bounded-route and hot-tool compatibility assertions
+## 2026-05-01: Remove legacy model-visible asset query tools from hot-tool fixed exposure
+
+### Summary
+Continued Phase 7.5 cleanup by removing `list_assets`, `query_asset_info`, and `query_asset_detail` from the hot-tool fixed exposure surface. This does not delete the old compatibility handlers yet, but it stops treating those legacy asset-query tools as always-visible model-facing tools in normal hot-tool sessions.
+
+### What Was Done
+- Updated `app/services/hot_tool_manager.py`
+  - kept `call_asset_method` as the only fixed runtime-asset system tool
+  - removed fixed exposure entries for:
+    - `list_assets`
+    - `query_asset_info`
+    - `query_asset_detail`
+- Updated `tests/unit/services/test_hot_tool_manager.py`
+  - asserted the fixed tool set still contains `call_asset_method`
+  - asserted the retired legacy asset query tools are no longer in the fixed/discoverable hot-tool surface
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked Phase 7.5 item `移除模型可见 list_assets/query_asset_info/query_asset_detail` complete
+
+### Why This Matters
+This is the first real exposure-layer cut, not just route-local prompt thinning:
+- the model-visible default hot-tool surface no longer treats old asset query tools as standard entrypoints
+- `call_asset_method` becomes the single preserved runtime-asset interaction primitive on the hot-tool side
+- the old gateway compatibility shell can still exist temporarily, but it is no longer reinforced by the default hot-tool contract
+
+### Validation
+- `pytest -q tests/unit/services/test_hot_tool_manager.py tests/unit/test_tool_calling_interpreter.py`
+  - Result: `30 passed`
+
+### Remaining Boundary
+This slice intentionally does not yet remove the old compatibility handlers from `LightBrainGateway`, `LightBrainInterpreter`, or the old asset tool executor modules. Those should be reduced in later slices after the remaining transitional gateway/runtime tests are narrowed or replaced.
+
 
 ### Summary
 Continued Phase 8 cleanup by removing another batch of tests that were still encoding the old model-visible asset-tool surface. The goal of this slice was not to drop coverage, but to stop treating `query_asset_info/query_asset_detail/list_assets` exposure as a required model-facing contract while preserving the real route-boundary and runtime-asset invocation regressions.

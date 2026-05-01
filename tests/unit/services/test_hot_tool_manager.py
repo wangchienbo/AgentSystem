@@ -16,11 +16,16 @@ class TestHotToolManager:
             "call_asset_method",
         ]:
             assert name in names
+        for retired in ["list_assets", "query_asset_info", "query_asset_detail"]:
+            assert retired not in names
 
     def test_fixed_tools_are_discoverable(self):
         found = find_dynamic_tools("asset")
         names = {tool["name"] for tool in found}
         assert "call_asset_method" in names
+        assert "list_assets" not in names
+        assert "query_asset_info" not in names
+        assert "query_asset_detail" not in names
 
     def test_session_hot_only_adds_registered_non_fixed_tools(self):
         manager = HotToolManager()

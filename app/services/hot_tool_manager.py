@@ -127,39 +127,6 @@ SYSTEM_TOOLS: list[dict[str, Any]] = [
             "required": ["asset_id", "method"],
         },
     },
-    {
-        "name": "query_asset_detail",
-        "description": "查看资产的详细使用说明、接口契约和方法签名。用于获取资产的能力详情、输入输出参数定义等。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "asset_id": {"type": "string", "description": "资产ID，如 asset:runtime_center:v1"},
-            },
-            "required": ["asset_id"],
-        },
-    },
-    {
-        "name": "list_assets",
-        "description": "列出系统中所有可用的运行时资产。用于发现系统提供的能力和服务。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "filter": {"type": "string", "description": "过滤条件（可选）"},
-            },
-            "required": [],
-        },
-    },
-    {
-        "name": "query_asset_info",
-        "description": "查询资产的基本信息，如名称、描述、状态等元数据。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "asset_id": {"type": "string", "description": "资产ID，如 asset:runtime_center:v1"},
-            },
-            "required": ["asset_id"],
-        },
-    },
 ]
 
 
