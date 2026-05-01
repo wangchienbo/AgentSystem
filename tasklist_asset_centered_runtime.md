@@ -256,7 +256,7 @@
 - [x] 开发者仍可观测 decision/detail/invoke 过程
 
 ### 7.4 主入口重构
-- [ ] 重写 `tool_calling_interpreter.py` 为兼容壳或直接退役
+- [x] 重写 `tool_calling_interpreter.py` 为兼容壳或直接退役
 - [x] 将旧 gateway 资产知识迁出
 
 ### 7.5 旧工具面移除
