@@ -92,6 +92,9 @@ class LightBrainGateway:
         self._persistence = persistence or persistence_service  # legacy alias
         self._context_center = context_center
         self._runtime_center = runtime_center
+        # Phase 7.4: new interaction runtime injection
+        self._interaction_orchestrator: Any | None = extra_deps.get("interaction_orchestrator")
+        self._invocation_dispatcher: Any | None = extra_deps.get("invocation_dispatcher")
         self._permission_skill = permission_skill
         self._permission_validator = permission_validator
         self._package_manager_executor = package_manager_executor
@@ -216,7 +219,12 @@ class LightBrainGateway:
         # Phase H+: Tool loop guard - reset at command start
         self._tool_loop_guard.reset_command()
 
-        # Phase 7.1: interpret intent using interpreter
+        # Phase 7.4: try new interaction runtime first for asset-centered routes
+        interaction_result = self._try_new_interaction_chain(request.message)
+        if interaction_result is not None:
+            return self._build_interaction_response(session_id, request.message, interaction_result, _cmd_start_time)
+
+        # Phase 7.1: interpret intent using interpreter (legacy fallback)
         if hasattr(self._interpreter, "set_tool_registry"):
             self._interpreter.set_tool_registry(self._tool_registry)
         command = self._interpreter.interpret(
@@ -486,6 +494,106 @@ class LightBrainGateway:
                 content=reply.content,
                 kind="message",
             )
+
+    # Phase 7.4: new interaction runtime bridge
+    def _try_new_interaction_chain(self, message: str) -> dict[str, Any] | None:
+        """Try the new asset-centered interaction runtime. Returns None if fallback needed."""
+        if self._interaction_orchestrator is None:
+            return None
+        try:
+            result = self._interaction_orchestrator.process_message(message)
+        except Exception as exc:
+            logger.warning("Interaction orchestrator error, falling back: %s", exc)
+            return None
+        action = result.get("resolved_action")
+        metadata = result.get("metadata", {})
+        if action == "invoke_method":
+            invoke = result.get("invoke")
+            if invoke and self._invocation_dispatcher is not None:
+                try:
+                    execution = self._invocation_dispatcher.dispatch(
+                        asset_id=invoke["asset_id"],
+                        method=invoke["method"],
+                        params=invoke.get("params") or {},
+                    )
+                    return {
+                        "action": "invoke_executed",
+                        "invoke": invoke,
+                        "execution": execution,
+                        "metadata": metadata,
+                    }
+                except Exception as exc:
+                    logger.warning("Invocation dispatch error: %s", exc)
+                    return {"action": "invoke_error", "error": str(exc), "metadata": metadata}
+        if action == "reply_text":
+            # Only claim the new-chain reply for specific recognized routes;
+            # generic fallback text means "no route matched" → let legacy handle it.
+            if metadata.get("route"):
+                text = result.get("text") or "请告诉我你想做什么，例如查看状态、了解某个资产、或者执行某个操作。"
+                return {"action": "reply_text", "text": text, "metadata": metadata}
+            return None
+        if action == "load_detail":
+            detail_id = result.get("need_asset_detail_id")
+            return {"action": "load_detail", "need_asset_detail_id": detail_id, "metadata": metadata}
+        # Unknown action — fallback to legacy interpreter
+        return None
+
+    def _build_interaction_response(
+        self,
+        session_id: str,
+        raw_message: str,
+        interaction_result: dict[str, Any],
+        cmd_start_time: float,
+    ) -> ChatMessageResponse:
+        """Convert new interaction runtime result to ChatMessageResponse."""
+        action = interaction_result["action"]
+        if action == "invoke_executed":
+            invoke = interaction_result.get("invoke", {})
+            execution = interaction_result["execution"]
+            if execution.get("ok"):
+                result_data = execution.get("execution", {}).get("result", "")
+                # Phase 7.4: use specialized renderers for self-iteration assets
+                asset_id = invoke.get("asset_id", "")
+                method = invoke.get("method", "")
+                if asset_id == "asset:self_iteration_center:v1":
+                    rendered = self._render_self_iteration_invoke_result(method, result_data)
+                    if rendered:
+                        return ChatMessageResponse(type="text", content=rendered, session_id=session_id)
+                if isinstance(result_data, dict):
+                    content = json.dumps(result_data, ensure_ascii=False, indent=2)
+                elif isinstance(result_data, list):
+                    content = json.dumps(result_data, ensure_ascii=False, indent=2)
+                else:
+                    content = str(result_data)
+            else:
+                content = f"调用失败: {execution.get('error', '未知错误')}"
+            return ChatMessageResponse(type="text", content=content, session_id=session_id)
+        if action == "invoke_error":
+            return ChatMessageResponse(
+                type="text",
+                content=f"执行出错: {interaction_result.get('error', '未知错误')}",
+                session_id=session_id,
+            )
+        if action == "load_detail":
+            detail_id = interaction_result.get("need_asset_detail_id", "")
+            return ChatMessageResponse(
+                type="text",
+                content=f"需要加载资产详情: {detail_id}",
+                session_id=session_id,
+            )
+        # reply_text or fallback
+        text = interaction_result.get("text", "请告诉我你想做什么。")
+        return ChatMessageResponse(type="text", content=text, session_id=session_id)
+
+    def _render_self_iteration_invoke_result(self, method: str, result_data: Any) -> str | None:
+        """Render self-iteration invoke result using specialized formatters."""
+        if method in ("get_self_iteration_strategy_overview", "strategy_overview") and isinstance(result_data, dict):
+            return render_self_iteration_strategy_overview(result_data)
+        if method == "list_self_iteration_assets" and isinstance(result_data, list):
+            return render_self_iteration_asset_list(result_data)
+        if method == "query_self_iteration_asset" and isinstance(result_data, dict):
+            return render_self_iteration_asset_detail(result_data)
+        return None
 
     def _append_context_record(self, session_id: str, role: str, content: str, kind: str = "message") -> None:
         """Append context record with whitelist validation (Phase H+ risk guard)."""

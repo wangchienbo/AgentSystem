@@ -50,6 +50,17 @@ class SelfIterationCenterAsset(BaseAsset):
                     },
                 },
             ),
+            AssetMethodSpec(
+                name="strategy_overview",
+                description="Alias for get_self_iteration_strategy_overview",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "replay_session_id": {"type": "string"},
+                        "comparison_limit": {"type": "integer", "default": 5},
+                    },
+                },
+            ),
         ]
         return build_asset_descriptor(
             descriptor_version=1,
@@ -76,6 +87,10 @@ class SelfIterationCenterAsset(BaseAsset):
                 comparison_limit=comparison_limit,
             ),
             "get_self_iteration_strategy_overview": lambda replay_session_id=None, comparison_limit=5: self._service.get_self_iteration_strategy_overview(
+                replay_session_id=replay_session_id,
+                comparison_limit=comparison_limit,
+            ),
+            "strategy_overview": lambda replay_session_id=None, comparison_limit=5: self._service.get_self_iteration_strategy_overview(
                 replay_session_id=replay_session_id,
                 comparison_limit=comparison_limit,
             ),

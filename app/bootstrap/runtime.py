@@ -1187,6 +1187,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         config_center=config_center,  # Pass ConfigCenter for default app-skill binding
         master_control=master_control,  # Pass MasterControl for centralized execution
         telemetry_service=telemetry_service,
+        # Phase 7.4: new interaction runtime injection
+        interaction_orchestrator=interaction_orchestrator,
+        invocation_dispatcher=invocation_dispatcher,
     )
 
     runtime_center.register_asset(
