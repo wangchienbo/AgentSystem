@@ -14,11 +14,14 @@ class AssetCenterRegistry:
     def __init__(self) -> None:
         self._descriptors: dict[str, AssetDescriptorRecord] = {}
         self._models: dict[str, ModelRuntimeRecord] = {}
+        self._registration_epoch = 0
 
     def register_asset(self, descriptor: AssetDescriptorRecord) -> AssetDescriptorRecord:
         self._validate_descriptor(descriptor)
-        self._descriptors[descriptor.asset_id] = replace(descriptor)
-        return self._descriptors[descriptor.asset_id]
+        self._registration_epoch += 1
+        stored = replace(descriptor, registration_epoch=self._registration_epoch)
+        self._descriptors[descriptor.asset_id] = stored
+        return stored
 
     def register_model(self, record: ModelRuntimeRecord) -> ModelRuntimeRecord:
         self._models[record.model_id] = replace(record)

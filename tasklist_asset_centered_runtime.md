@@ -107,15 +107,15 @@
 - [x] 明确禁止把交互 prompt 组装逻辑塞进 asset center
 
 ### 3.5 局部恢复与注册一致性
-- [ ] 设计 descriptor 替换规则
-- [ ] 设计同 asset_id 重注册行为
+- [x] 设计 descriptor 替换规则
+- [x] 设计同 asset_id 重注册行为
 - [ ] 设计 stale descriptor 的最小处理策略
 - [ ] 设计 startup epoch / instance 标识是否需要进入 v1
 
 ### 3.6 验收点
 - [x] 可启动独立 asset center
 - [x] descriptor 可注册和查询
-- [ ] 重复注册行为可预测
+- [x] 重复注册行为可预测
 - [x] asset center 仍保持轻中心边界
 
 ---
@@ -300,7 +300,7 @@
 ## 9. Phase 8 - 新测试与旧测试清理
 
 ### 9.1 新测试必须先补
-- [ ] 新增资产中心 registry 单测
+- [x] 新增资产中心 registry 单测
 - [ ] 新增 descriptor/schema 单测
 - [ ] 新增模型选择/fallback 单测
 - [x] 新增启动顺序/required assets 单测

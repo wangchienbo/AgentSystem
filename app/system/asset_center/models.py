@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 
@@ -65,6 +65,7 @@ class AssetDescriptorRecord:
     methods: tuple[AssetMethodSpec, ...] = field(default_factory=tuple)
     model_requirement: AssetModelRequirement = field(default_factory=AssetModelRequirement)
     metadata: dict[str, Any] = field(default_factory=dict)
+    registration_epoch: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -84,4 +85,5 @@ class AssetDescriptorRecord:
             ],
             "model_requirement": self.model_requirement.to_dict(),
             "metadata": self.metadata,
+            "registration_epoch": self.registration_epoch,
         }

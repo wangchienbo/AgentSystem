@@ -57,6 +57,34 @@ def test_asset_center_registry_registers_descriptor_and_reads_model_requirement(
     assert requirement.fallback_model == "gpt-4.1"
 
 
+def test_asset_center_registry_replaces_descriptor_for_same_asset_id_with_new_epoch() -> None:
+    registry = AssetCenterRegistry()
+    first = AssetDescriptorRecord(
+        descriptor_version=1,
+        asset_id="asset:demo:v1",
+        kind="demo_asset",
+        summary="Demo asset v1",
+        detail="Detail v1",
+    )
+    second = AssetDescriptorRecord(
+        descriptor_version=1,
+        asset_id="asset:demo:v1",
+        kind="demo_asset",
+        summary="Demo asset v2",
+        detail="Detail v2",
+    )
+
+    stored_first = registry.register_asset(first)
+    stored_second = registry.register_asset(second)
+
+    assert stored_second.asset_id == "asset:demo:v1"
+    assert stored_second.summary == "Demo asset v2"
+    assert stored_second.detail == "Detail v2"
+    assert stored_second.registration_epoch > stored_first.registration_epoch
+    assert len(registry.list_assets()) == 1
+    assert registry.require_asset("asset:demo:v1").summary == "Demo asset v2"
+
+
 def test_asset_center_registry_rejects_invalid_descriptor() -> None:
     registry = AssetCenterRegistry()
     descriptor = AssetDescriptorRecord(
@@ -87,3 +115,4 @@ def test_asset_center_service_returns_detail_payload() -> None:
     assert detail["asset_id"] == "asset:demo:v1"
     assert detail["summary"] == "Demo asset"
     assert detail["detail"] == "Detailed demo description"
+    assert detail["registration_epoch"] >= 1
