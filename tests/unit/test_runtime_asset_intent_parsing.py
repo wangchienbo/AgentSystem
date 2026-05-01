@@ -34,11 +34,7 @@ from app.system.self_iteration_strategy_formatter import (
     render_self_iteration_strategy_overview,
 )
 from app.system.gateway.tool_calling_interpreter import (
-    SELF_ITERATION_BRANCH_GUIDANCE,
-    _try_parse_self_iteration_fast_path,
     choose_turn_budget,
-    is_self_iteration_like_request,
-    narrow_tools_for_self_iteration_route,
 )
 
 
@@ -53,54 +49,17 @@ def test_light_brain_runtime_asset_intent_set_no_longer_requires_legacy_list_or_
     assert '"list_assets", "query_asset_info", "call_asset_method", "query_asset_detail"' not in content
 
 
-def test_self_iteration_branch_guidance_prefers_runtime_asset_first() -> None:
-    assert "先参考上方已经提供的可见资产概览" in SELF_ITERATION_BRANCH_GUIDANCE
-    assert "asset 不是 tool" in SELF_ITERATION_BRANCH_GUIDANCE
-    assert "call_asset_method" in SELF_ITERATION_BRANCH_GUIDANCE
-    assert "不要把这类问题默认降级成文件搜索" in SELF_ITERATION_BRANCH_GUIDANCE
-    assert "不要把 asset 当作 tool 名称来选择" in SELF_ITERATION_BRANCH_GUIDANCE
+def test_choose_turn_budget_returns_default_for_general_messages() -> None:
+    assert choose_turn_budget("你好") == 6
+    assert choose_turn_budget("帮我创建一个app") == 6
 
 
-def test_self_iteration_fast_path_no_longer_maps_legacy_detail_request() -> None:
-    detail_cmd = _try_parse_self_iteration_fast_path("查看自我迭代资产详情")
-    assert detail_cmd is None
-
-    list_cmd = _try_parse_self_iteration_fast_path("调用资产 asset:self_iteration_center:v1 的方法 list_self_iteration_assets")
-    assert list_cmd is not None
-    assert list_cmd.intent == "call_asset_method"
-    assert list_cmd.parameters["method"] == "list_self_iteration_assets"
+def test_choose_turn_budget_returns_higher_for_introspection() -> None:
+    assert choose_turn_budget("请扫描数据库表结构") == 8  # introspection keywords
 
 
-
-
-def test_self_iteration_route_narrows_to_asset_tools() -> None:
-    assert is_self_iteration_like_request("最近系统自我迭代情况怎么样") is True
-
-    class DummyToolDef:
-        def __init__(self, name: str):
-            self.name = name
-            self.description = name
-            self.parameters = {"type": "object", "properties": {}, "required": []}
-
-    defs = [
-        DummyToolDef("search_files"),
-        DummyToolDef("read_file"),
-        DummyToolDef("list_assets"),
-        DummyToolDef("query_asset_info"),
-        DummyToolDef("query_asset_detail"),
-        DummyToolDef("call_asset_method"),
-        DummyToolDef("ask_clarification"),
-        DummyToolDef("unclear"),
-    ]
-
-    narrowed = narrow_tools_for_self_iteration_route(defs)
-    narrowed_names = {tool.name for tool in narrowed}
-
-    assert narrowed_names == {"call_asset_method", "ask_clarification", "unclear"}
-    assert "search_files" not in narrowed_names
-    assert "read_file" not in narrowed_names
-
-
+def test_render_package_list() -> None:
+    from app.system.management_presenters import render_package_list
     packages = [
         {
             "asset_id": "pkg.alpha",

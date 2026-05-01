@@ -16,9 +16,7 @@ from app.system.gateway.tool_calling_interpreter import (
     build_turn_state_board,
     choose_turn_budget,
     is_script_like_request,
-    is_self_iteration_like_request,
     narrow_tools_for_script_route,
-    narrow_tools_for_self_iteration_route,
 )
 
 
@@ -76,21 +74,6 @@ def test_script_route_tool_narrowing_keeps_exec_shell_and_core_file_tools() -> N
     assert "read_file" in names
     assert "search_files" not in names
 
-
-
-def test_self_iteration_route_tool_narrowing_keeps_call_asset_method_and_excludes_file_tools() -> None:
-    narrowed = narrow_tools_for_self_iteration_route([
-        ToolDef(name="call_asset_method", description="", parameters={}),
-        ToolDef(name="query_asset_detail", description="", parameters={}),
-        ToolDef(name="query_asset_info", description="", parameters={}),
-        ToolDef(name="search_files", description="", parameters={}),
-        ToolDef(name="exec_shell", description="", parameters={}),
-        ToolDef(name="unclear", description="", parameters={}),
-    ])
-    names = [t.name for t in narrowed]
-    assert names == ["call_asset_method", "unclear"]
-    assert "search_files" not in names
-    assert "exec_shell" not in names
 
 
 
@@ -237,38 +220,6 @@ def test_script_like_request_keeps_prompt_and_exec_tools_aligned_under_hot_tool_
 
 
 
-def test_self_iteration_like_request_keeps_prompt_and_exec_tools_aligned_under_hot_tool_mode() -> None:
-    interpreter, execute_turns = _build_interpreter()
-    hot_tool_manager = MagicMock()
-    hot_tool_manager.get_tools_for_session.return_value = [
-        {"name": "call_asset_method", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
-        {"name": "query_asset_detail", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
-        {"name": "query_asset_info", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
-        {"name": "search_files", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
-        {"name": "exec_shell", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
-    ]
-    interpreter._hot_tool_manager = hot_tool_manager
-    execute_turns.return_value = ToolCallingResult(final_text="已返回治理概览", tool_calls=[])
-
-    interpreter.interpret(
-        message="最近系统自我迭代情况怎么样，当前有哪些治理风险",
-        user_id="u1",
-        session_id="sess-hot-self-iteration-tools",
-        available_apps=[],
-    )
-
-    kwargs = execute_turns.call_args.kwargs
-    exec_tool_names = [tool.name for tool in kwargs["tools"]]
-    system_prompt = kwargs["system_prompt"]
-    assert kwargs["skill_id"] == "gateway_intent_parser"
-    assert kwargs["max_turns"] == 4
-    assert exec_tool_names == ["call_asset_method", "ask_clarification", "unclear"]
-    assert "  • query_asset_detail:" not in system_prompt
-    assert "  • query_asset_info:" not in system_prompt
-    assert "  • search_files:" not in system_prompt
-    assert "  • exec_shell:" not in system_prompt
-    for tool_name in exec_tool_names:
-        assert f"  • {tool_name}:" in system_prompt
 def test_explicit_file_path_introspection_uses_fast_read_path() -> None:
     interpreter, execute_turns = _build_interpreter()
     execute_turns.return_value = ToolCallingResult(

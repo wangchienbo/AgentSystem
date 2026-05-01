@@ -56,29 +56,6 @@ TOOL_LOOP_GOVERNOR_PATH = "docs/tool-loop-governor.md"
 REPO_INTROSPECTION_BRANCH_PATH = "docs/tool-loop-governor-branches/repo-introspection.md"
 SCRIPT_FIRST_BRANCH_PATH = "docs/tool-loop-governor-branches/script-first-strategy.md"
 
-SELF_ITERATION_BRANCH_GUIDANCE = """你正在处理系统自我迭代 / 治理 / 回归 / 待优化相关问题。
-
-优先策略:
-1. 先把这类问题视为运行时资产导航问题,不是仓库代码检索问题
-2. 优先参考上方已经提供的可见资产概览,先理解哪个资产最匹配当前问题
-3. asset 不是 tool, tool 只是访问 asset 的 RPC 入口
-4. 优先通过 `call_asset_method(asset_id=..., method=..., params=...)` 访问 self-iteration 运行时资产能力
-5. 当上下文里已经给出足够摘要时,不要再回到旧 query/list 工具面
-6. 不要把这类问题默认降级成文件搜索、仓库搜索或 bash 历史检索
-7. 如果用户问的是最近状态、治理风险、回归观察、待优化项,优先从最相关的 runtime asset 出发组织回答
-
-收敛规则:
-1. 已经知道候选 asset 时,不要重复做资产再发现
-2. 已经拿到足够摘要、接口说明或方法结果时,优先决定 method 调用或直接回答
-3. 不要把 asset 当作 tool 名称来选择,而要先选 asset,再决定用哪个 RPC tool 访问它
-4. 证据足够时立刻停止工具调用并回答
-
-停止条件:
-- 一旦相关 asset 已给出足够的摘要、接口说明或方法结果,立即停止继续探索并组织回答
-"""
-
-
-
 INTROSPECTION_KEYWORDS = (
     "代码", "源码", "仓库", "持久化", "sqlite", "mysql", "json", "字段", "表结构", "默认值", "文件里"
 )
@@ -281,69 +258,13 @@ def is_script_like_request(message: str) -> bool:
     return any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取", "汇总"))
 
 
-def is_self_iteration_like_request(message: str) -> bool:
-    text = (message or "").lower()
-    return any(keyword in text for keyword in (
-        "自我迭代", "治理", "回归", "待优化", "evolution", "governance", "regression", "backlog",
-        "self_iteration", "self-iteration",
-    ))
-
-
-def _try_parse_self_iteration_fast_path(message: str) -> InterpretedCommand | None:
-    text = (message or "").strip()
-    lowered = text.lower()
-    asset_id = "asset:self_iteration_center:v1"
-
-    if "list_self_iteration_assets" in lowered and asset_id in lowered:
-        return InterpretedCommand(
-            intent="call_asset_method",
-            raw_input=message,
-            confidence=0.98,
-            parameters={"asset_id": asset_id, "method": "list_self_iteration_assets", "params": {}},
-            target_app=asset_id,
-            source="self_iteration_fast_path",
-        )
-
-    if "get_self_iteration_strategy_overview" in lowered and asset_id in lowered:
-        return InterpretedCommand(
-            intent="call_asset_method",
-            raw_input=message,
-            confidence=0.98,
-            parameters={"asset_id": asset_id, "method": "get_self_iteration_strategy_overview", "params": {}},
-            target_app=asset_id,
-            source="self_iteration_fast_path",
-        )
-
-    query_match = re.search(r"query_self_iteration_asset.*?(self_iteration\.[a-z_]+)", lowered)
-    if query_match and asset_id in lowered:
-        return InterpretedCommand(
-            intent="call_asset_method",
-            raw_input=message,
-            confidence=0.98,
-            parameters={"asset_id": asset_id, "method": "query_self_iteration_asset", "params": {"asset_id": query_match.group(1)}},
-            target_app=asset_id,
-            source="self_iteration_fast_path",
-        )
-
-    return None
-
-
 def choose_turn_budget(message: str) -> int:
     text = (message or "").lower()
     if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
         return 8
     if is_script_like_request(message):
         return 10
-    if is_self_iteration_like_request(message):
-        return 4
     return 6
-
-
-def narrow_tools_for_self_iteration_route(tools: list[ToolDef]) -> list[ToolDef]:
-    allowed = {"call_asset_method", "ask_clarification", "unclear"}
-    narrowed = [tool for tool in tools if tool.name in allowed]
-    return narrowed or tools
-
 
 
 def narrow_tools_for_script_route(tools: list[ToolDef]) -> list[ToolDef]:
@@ -463,11 +384,6 @@ class ToolCallingInterpreter:
         if fast_path:
             return fast_path
 
-        # Tier 2.6: explicit self-iteration runtime asset fast path
-        self_iteration_fast_path = _try_parse_self_iteration_fast_path(message)
-        if self_iteration_fast_path:
-            return self_iteration_fast_path
-
         if is_script_like_request(message):
             return self._run_script_first_route(message, user_id, session_id, available_apps)
 
@@ -564,8 +480,6 @@ class ToolCallingInterpreter:
             return self._load_governor_text(REPO_INTROSPECTION_BRANCH_PATH)
         if any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取")):
             return self._load_governor_text(SCRIPT_FIRST_BRANCH_PATH)
-        if is_self_iteration_like_request(message):
-            return SELF_ITERATION_BRANCH_GUIDANCE
         return ""
 
 
@@ -848,8 +762,6 @@ PY"""
 
         if is_script_like_request(message):
             prompt_tool_defs = narrow_tools_for_script_route(prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
-        elif is_self_iteration_like_request(message):
-            prompt_tool_defs = narrow_tools_for_self_iteration_route(prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
         else:
             prompt_tool_defs = prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
 
@@ -874,8 +786,8 @@ PY"""
         all_tools = registry_tools + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
         if is_script_like_request(message):
             all_tools = narrow_tools_for_script_route(all_tools)
-        elif is_self_iteration_like_request(message):
-            all_tools = narrow_tools_for_self_iteration_route(all_tools)
+        else:
+            pass  # No narrowing for general routes
 
         logger.info(
             "Gateway tool exposure for session=%s message=%r prompt_tools=%s exec_tools=%s",
