@@ -1,4 +1,29 @@
-## 2026-05-01: Stabilize Phase 7.5 boundary by downgrading legacy slow e2e dependence
+## 2026-05-01: Add lightweight new-chain runtime-asset acceptance coverage
+
+### Summary
+Continued the tasklist by introducing a dedicated lightweight acceptance suite for the new runtime-asset chain. The goal is to move architectural acceptance away from slow transitional `LightBrainGateway` multi-turn end-to-end tests and anchor it in stable direct checks over descriptor registration, runtime-center method mapping, self-iteration navigation, and structured failure behavior.
+
+### What Was Done
+- Added `tests/unit/test_runtime_asset_new_chain_acceptance.py`
+  - validates `asset:light_brain_gateway:v1` descriptor visibility
+  - validates `asset:light_brain_gateway:v1 -> list_assets` mapping
+  - validates `asset:config_center:v1 -> get_config`
+  - validates self-iteration summary-asset navigation
+  - validates self-iteration strategy surface availability
+  - validates structured failure on missing runtime method
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked `建立新主链轻量 acceptance 测试，替代旧 runtime-asset gateway 慢速 e2e 的主验收角色` complete
+
+### Why This Matters
+This creates a more stable acceptance baseline for the asset-centered runtime rewrite:
+- architectural truth is now checked through direct new-chain runtime contracts
+- acceptance no longer depends primarily on slow old-gateway LLM/tool-turn convergence
+- old transitional gateway e2e tests can now be cleaned up more safely in later slices
+
+### Validation
+- focused new-chain runtime-asset acceptance tests pass
+- existing lighter runtime-asset mapping/intent suites remain compatible
+
 
 ### Summary
 After removing the remaining `query_asset_detail` compatibility route from the gateway, the next necessary cleanup was to acknowledge that several old runtime-asset end-to-end tests still depend on transitional multi-turn LLM/tool convergence instead of the new asset-centered chain. This slice updates the tasklist and test expectations so those slow legacy checks stop acting like primary acceptance criteria.

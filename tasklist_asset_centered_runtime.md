@@ -267,6 +267,7 @@
 - [x] `LightBrainInterpreter` 不再主动产出 `query_asset_detail`
 - [x] `LightBrainGateway` 不再注册/路由 `query_asset_detail` 兼容 handler
 - [x] self-iteration fast path 不再为 legacy detail query 产出专用 intent
+- [x] 建立新主链轻量 acceptance 测试，替代旧 runtime-asset gateway 慢速 e2e 的主验收角色
 - [ ] 将剩余旧 runtime-asset gateway 慢速 e2e 用新主链轻量验证替换
 - [x] 不再继续扩写旧 bounded-route prompt patch
 
