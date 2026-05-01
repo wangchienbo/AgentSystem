@@ -1,3 +1,38 @@
+## 2026-05-01: Add model-runtime foundation components for client registry, probe, and fallback selection
+
+### Summary
+Continued Phase 3 of the asset-centered runtime rewrite by landing the first operational model-runtime components after the config-loader foundation. This slice establishes model client registration, health probing, and preferred/fallback selection behavior as concrete runtime modules with focused tests.
+
+### What Was Done
+- Added model-runtime modules
+  - `app/system/model_runtime/model_client_registry.py`
+  - `app/system/model_runtime/model_probe.py`
+  - `app/system/model_runtime/model_selector.py`
+  - updated `app/system/model_runtime/__init__.py`
+- Added focused tests
+  - `tests/unit/test_model_runtime_foundation.py`
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked Phase 3 foundation items complete for client init, minimal probe component, preferred/fallback resolution, and first boundary constraints
+
+### Why This Matters
+This moves the rewrite from config shape definition into actual model-runtime behavior:
+- model clients can now be instantiated and indexed by model id
+- runtime health can be represented via a dedicated probe step
+- asset-level model requirements can now resolve through explicit preferred/fallback logic instead of ad hoc selection
+
+Just as importantly, this keeps the new runtime path bounded:
+- no complex ranking engine yet
+- no cost/latency optimizer yet
+- no capability ontology explosion yet
+- only the minimum contract needed for governed model selection
+
+### Validation
+- `pytest -q tests/unit/test_model_runtime_foundation.py tests/unit/test_asset_centered_runtime_foundation.py tests/unit/test_runtime_asset_center_registry.py tests/unit/test_model_config.py`
+  - Result: `17 passed`
+
+### Remaining Boundary
+This slice does not yet register model runtime records into the asset center, expose a model list view there, or orchestrate startup sequencing. The next slice should connect model-runtime records to the asset center and then land startup orchestration.
+
 ## 2026-05-01: Add final acceptance requirement for 50+ multi-turn natural-language user scenarios
 
 ### Summary

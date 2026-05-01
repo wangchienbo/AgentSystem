@@ -124,15 +124,15 @@
 
 ### 4.1 新增模块
 - [x] 新增 `app/system/model_runtime/model_pool_loader.py`
-- [ ] 新增 `app/system/model_runtime/model_client_registry.py`
-- [ ] 新增 `app/system/model_runtime/model_probe.py`
-- [ ] 新增 `app/system/model_runtime/model_selector.py`
+- [x] 新增 `app/system/model_runtime/model_client_registry.py`
+- [x] 新增 `app/system/model_runtime/model_probe.py`
+- [x] 新增 `app/system/model_runtime/model_selector.py`
 
 ### 4.2 配置读取与初始化
-- [ ] 读取外部 `model_pool.yaml`
-- [ ] 校验 default/fallback model 是否存在
-- [ ] 初始化 provider/client 基础对象
-- [ ] 对每个模型执行最小连通性探测
+- [x] 读取外部 `model_pool.yaml`
+- [x] 校验 default/fallback model 是否存在
+- [x] 初始化 provider/client 基础对象
+- [x] 对每个模型执行最小连通性探测（以独立 probe 组件和单测先落地）
 - [ ] 生成 healthy/unhealthy 运行时视图
 
 ### 4.3 资产中心注册
@@ -141,20 +141,20 @@
 - [ ] 为 asset center 提供模型列表视图
 
 ### 4.4 模型解析逻辑
-- [ ] 实现 preferred model 命中逻辑
-- [ ] 实现 minimum requirements 检查
-- [ ] 实现 fallback model 选择逻辑
-- [ ] fallback 不满足最低要求时显式失败
+- [x] 实现 preferred model 命中逻辑
+- [x] 实现 minimum requirements 检查
+- [x] 实现 fallback model 选择逻辑
+- [x] fallback 不满足最低要求时显式失败
 
 ### 4.5 边界控制
-- [ ] 第一版不做复杂 capability ontology
-- [ ] 第一版不做多维 latency/cost 评分
-- [ ] 第一版不做跨多个备选模型的深度排序系统
+- [x] 第一版不做复杂 capability ontology
+- [x] 第一版不做多维 latency/cost 评分
+- [x] 第一版不做跨多个备选模型的深度排序系统
 
 ### 4.6 验收点
-- [ ] 外部模型配置可独立读取
+- [x] 外部模型配置可独立读取
 - [ ] 至少两种模型资源可完成 probe 与注册
-- [ ] preferred/fallback 策略行为清晰可测
+- [x] preferred/fallback 策略行为清晰可测
 
 ---
 
