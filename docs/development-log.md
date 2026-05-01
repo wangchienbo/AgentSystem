@@ -1,4 +1,21 @@
-## 2026-05-01: Remove remaining legacy slow gateway e2e and fix bootstrap regressions
+## 2026-05-01: Remove legacy asset tool definitions from make_all_asset_tools and bootstrap engine registration
+
+### Summary
+Finished the hot-tool discoverable registry cleanup by removing `list_assets`, `query_asset_info`, and `query_asset_detail` from `make_all_asset_tools()`, the bootstrap `tool_calling_engine.register_tool` calls, and their legacy handler definitions. After this change, the discoverable asset tool registry only contains `call_asset_method`.
+
+### What Was Done
+- Updated `app/services/asset_tools.py`
+  - `make_all_asset_tools()` now only returns `make_call_asset_method_tool()`
+- Updated `app/bootstrap/runtime.py`
+  - removed explicit `tool_calling_engine.register_tool` for the three retired tools
+  - removed legacy handler definitions `_query_asset_detail_handler`, `_list_assets_handler`, `_query_asset_info_handler`
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked `从 make_all_asset_tools() 中移除 list_assets/query_asset_info/query_asset_detail` complete
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_new_chain_acceptance.py tests/unit/test_runtime_asset_intent_parsing.py tests/unit/test_tool_calling_interpreter.py tests/unit/services/test_hot_tool_manager.py tests/unit/test_runtime_asset_center_registry.py tests/unit/test_skill_asset_api.py`
+- `53 passed`
+
 
 ### Summary
 Finished Phase 7.5 closure by removing the remaining slow transitional legacy runtime-asset gateway e2e tests entirely, and fixed a bootstrap regression (`InteractionOrchestrator(protocol=...)` → `InteractionOrchestrator(decision_protocol=...)`) that had broken the runtime assembly for the last few runs.
