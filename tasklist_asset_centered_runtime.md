@@ -270,14 +270,14 @@
 ## 8. Phase 7 - 建立统一调用层
 
 ### 8.1 新增模块
-- [ ] 新增 `app/system/invocation/invocation_dispatcher.py`
-- [ ] 新增 `app/system/invocation/model_resolved_call.py`
+- [x] 新增 `app/system/invocation/invocation_dispatcher.py`
+- [x] 新增 `app/system/invocation/model_resolved_call.py`
 
 ### 8.2 执行前解析
-- [ ] 校验 asset_id/method/params
-- [ ] 执行前统一读取 asset model requirement
-- [ ] 交给 model selector 解析 preferred/fallback
-- [ ] resolved model 注入实际执行上下文
+- [x] 校验 asset_id/method/params
+- [x] 执行前统一读取 asset model requirement
+- [x] 交给 model selector 解析 preferred/fallback
+- [x] resolved model 注入实际执行上下文
 
 ### 8.3 失败策略
 - [ ] 首选失败时按 fallback 降级

@@ -91,6 +91,8 @@ from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
 from app.system.interaction_runtime.context_assembly import InteractionContextSnapshot, build_initial_interaction_context
 from app.system.interaction_runtime.decision_protocol import DecisionProtocol
 from app.system.interaction_runtime.interaction_orchestrator import InteractionOrchestrator
+from app.system.invocation.invocation_dispatcher import InvocationDispatcher
+from app.system.model_runtime.model_selector import ModelSelector
 from app.system.startup.startup_orchestrator import StartupOrchestrator, StartupStage
 from app.services.hot_tool_manager import HotToolManager, FIXED_TOOLS
 from app.tools.internal_tools import AGENTSYSTEM_INTERNAL_TOOL_HANDLERS
@@ -1089,6 +1091,11 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         context=interaction_context_snapshot,
         result=result,
     )
+    invocation_dispatcher = InvocationDispatcher(
+        asset_center=asset_center,
+        runtime_center=runtime_center,
+        model_selector=ModelSelector(),
+    )
 
     light_brain_gateway = LightBrainGateway(
         memory=light_brain_memory,
@@ -1273,5 +1280,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
 
     services = locals()
     services["rerun_startup_stage"] = rerun_startup_stage
+    services["interaction_context_snapshot"] = interaction_context_snapshot
+    services["interaction_decision_protocol"] = interaction_decision_protocol
+    services["interaction_orchestrator"] = interaction_orchestrator
+    services["interaction_debug_view"] = interaction_debug_view
+    services["invocation_dispatcher"] = invocation_dispatcher
     services["startup_state"] = _refresh_startup_state()
     return services
