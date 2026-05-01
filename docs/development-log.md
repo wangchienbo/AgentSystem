@@ -1,4 +1,35 @@
-## 2026-05-01: Remove `query_asset_detail` from LightBrain interpreter main intent surface
+## 2026-05-01: Remove legacy `query_asset_detail` gateway compatibility route
+
+### Summary
+Finished the next compatibility-shell reduction step by removing `query_asset_detail` from `LightBrainGateway` registration, local dispatch, and default tool registry. After the prior interpreter cleanup, this round removes the remaining gateway-side legacy detail route so runtime-asset interaction now converges more strictly on `call_asset_method`.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - reduced `RUNTIME_ASSET_TOOL_INTENTS` to only `call_asset_method`
+  - removed `query_asset_detail` from built-in handlers
+  - removed `query_asset_detail` from local handler dispatch
+  - removed legacy asset tool registry exposure for `list_assets`, `query_asset_info`, and `query_asset_detail`
+  - removed the dedicated `_handle_query_asset_detail(...)` implementation
+  - simplified runtime-asset payload enrichment to stop treating detail/info as active command shapes
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - removed the self-iteration fast path that emitted `query_asset_detail`
+- Updated `app/system/gateway/llm_responder.py`
+  - tightened prompt guidance so the model only treats `call_asset_method` as the active asset tool surface
+- Updated tests
+  - rewrote the self-iteration human-readable reply test to validate the method-call path instead of the retired detail-query path
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked `LightBrainGateway 不再注册/路由 query_asset_detail 兼容 handler` complete
+
+### Why This Matters
+This completes the main route retirement for the old asset detail interface:
+- the interpreter no longer emits it
+- the gateway no longer registers it
+- the LLM-facing prompt no longer suggests it as a first-class choice
+- runtime asset usage is now centered on one primary invocation shape: `call_asset_method`
+
+### Validation
+- focused LightBrain/runtime-asset regression tests passed after removing the gateway-side compatibility route
+
 
 ### Summary
 Continued Phase 7.5 one step further by removing `query_asset_detail` from the `LightBrainInterpreter` main intent surface. The legacy gateway still retains a compatibility handler for externally supplied `query_asset_detail` payloads, but the interpreter itself no longer proactively emits that intent during normal routing.

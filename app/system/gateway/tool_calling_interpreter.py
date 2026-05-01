@@ -294,16 +294,6 @@ def _try_parse_self_iteration_fast_path(message: str) -> InterpretedCommand | No
     lowered = text.lower()
     asset_id = "asset:self_iteration_center:v1"
 
-    if ("查看自我迭代资产详情" in text) or ("查看self_iteration资产详情" in lowered) or ("查看 self_iteration 资产详情" in lowered):
-        return InterpretedCommand(
-            intent="query_asset_detail",
-            raw_input=message,
-            confidence=0.98,
-            parameters={"asset_id": asset_id},
-            target_app=asset_id,
-            source="self_iteration_fast_path",
-        )
-
     if "list_self_iteration_assets" in lowered and asset_id in lowered:
         return InterpretedCommand(
             intent="call_asset_method",

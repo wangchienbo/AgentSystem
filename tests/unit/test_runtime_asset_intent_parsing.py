@@ -61,10 +61,9 @@ def test_self_iteration_branch_guidance_prefers_runtime_asset_first() -> None:
     assert "不要把 asset 当作 tool 名称来选择" in SELF_ITERATION_BRANCH_GUIDANCE
 
 
-def test_self_iteration_fast_path_maps_explicit_asset_requests() -> None:
+def test_self_iteration_fast_path_no_longer_maps_legacy_detail_request() -> None:
     detail_cmd = _try_parse_self_iteration_fast_path("查看自我迭代资产详情")
-    assert detail_cmd is not None
-    assert detail_cmd.parameters["asset_id"] == "asset:self_iteration_center:v1"
+    assert detail_cmd is None
 
     list_cmd = _try_parse_self_iteration_fast_path("调用资产 asset:self_iteration_center:v1 的方法 list_self_iteration_assets")
     assert list_cmd is not None

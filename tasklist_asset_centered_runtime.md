@@ -266,6 +266,8 @@
 - [x] 清理旧 hot-tool bounded route 的兼容残留
 - [x] 清理 `LightBrainInterpreter/LightBrainGateway` 对 `list_assets/query_asset_info` 的主路由依赖
 - [x] `LightBrainInterpreter` 不再主动产出 `query_asset_detail`
+- [x] `LightBrainGateway` 不再注册/路由 `query_asset_detail` 兼容 handler
+- [x] self-iteration fast path 不再为 legacy detail query 产出专用 intent
 
 ---
 

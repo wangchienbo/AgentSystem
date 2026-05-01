@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 class LightBrainGateway:
     """Unified entry point: message → intent → execution → reply."""
 
-    RUNTIME_ASSET_TOOL_INTENTS = {"call_asset_method", "query_asset_detail"}
+    RUNTIME_ASSET_TOOL_INTENTS = {"call_asset_method"}
 
     def __init__(
         self,
@@ -141,7 +141,6 @@ class LightBrainGateway:
             "list_users": self._handle_permission,
             "show_self": self._handle_permission,
             "call_asset_method": self._handle_runtime_asset_tool,
-            "query_asset_detail": self._handle_query_asset_detail,
         }
 
     def set_app_registry(self, app_registry: Any) -> None:
@@ -602,10 +601,7 @@ class LightBrainGateway:
             "show_permissions": self._handle_permission,
             "list_users": self._handle_permission,
             "show_self": self._handle_permission,
-            "list_assets": self._handle_runtime_asset_tool,
-            "query_asset_info": self._handle_runtime_asset_tool,
             "call_asset_method": self._handle_runtime_asset_tool,
-            "query_asset_detail": self._handle_query_asset_detail,
             "modify_interactive_app": self._handle_modify_interactive_app,
             "self_modify": self._handle_modify_interactive_app,
             "grant_admin": self._handle_permission,
@@ -616,7 +612,6 @@ class LightBrainGateway:
             "show_self": self._handle_permission,
             "list_apps": self._handle_list_apps,
             "cancel": self._handle_cancel,
-            "query_asset_detail": self._handle_query_asset_detail,
             "package_list_installed": self._handle_package_list_installed,
             "package_show": self._handle_package_show,
             "package_build": self._handle_package_build,
@@ -668,18 +663,6 @@ class LightBrainGateway:
         registry = ToolRegistry()
 
         registry.register(ToolDefinition(
-            name="list_assets",
-            description="列出当前运行态可发现资产。用户说‘现在有什么资产’、‘你能操作什么’时使用。",
-            parameters=[ToolParameter("filter", "string", "可选过滤词", required=False)],
-            category="asset", priority=9,
-        ))
-        registry.register(ToolDefinition(
-            name="query_asset_info",
-            description="查询某个运行态资产的详细描述、状态和能力。",
-            parameters=[ToolParameter("asset_id", "string", "资产ID", required=True)],
-            category="asset", priority=9,
-        ))
-        registry.register(ToolDefinition(
             name="call_asset_method",
             description="通过安全映射入口调用某个运行态资产方法。",
             parameters=[
@@ -688,12 +671,6 @@ class LightBrainGateway:
                 ToolParameter("params", "object", "调用参数", required=False),
             ],
             category="asset", priority=8,
-        ))
-        registry.register(ToolDefinition(
-            name="query_asset_detail",
-            description="查询资产详细使用说明或详细契约。",
-            parameters=[ToolParameter("asset_id", "string", "资产ID", required=True)],
-            category="asset", priority=7,
         ))
 
         registry.register(ToolDefinition(
@@ -1176,10 +1153,6 @@ class LightBrainGateway:
             return self._error_reply(session_id, "⚠️ 运行态资产工具模块未加载。")
         caller_id = f"user.{command.user_id}" if command.user_id else "system"
         payload = dict(command.parameters or {})
-        if command.intent in {"query_asset_info", "query_asset_detail"} and not payload.get("asset_id") and command.target_app:
-            payload["asset_id"] = command.target_app
-        
-        # Check for missing method when calling asset method
         if command.intent == "call_asset_method" and not payload.get("method"):
             return ChatMessageResponse(
                 type="text",
@@ -1201,63 +1174,6 @@ class LightBrainGateway:
             requires_input=False,
         )
 
-    async def _handle_query_asset_detail(
-        self, command: InterpretedCommand, session_id: str, apps: list[dict],
-    ) -> ChatMessageResponse:
-        caller_id = f"user.{command.user_id}" if command.user_id else "system"
-        asset_id = command.parameters.get("asset_id") or command.target_app
-        if not asset_id:
-            return ChatMessageResponse(
-                type="text",
-                content="请告诉我你想了解哪个资产的详细使用说明？",
-                session_id=session_id,
-                requires_input=True,
-            )
-        if not self._asset_tool_executor:
-            return ChatMessageResponse(
-                type="text",
-                content="⚠️ 资产查询模块未加载。",
-                session_id=session_id,
-                requires_input=False,
-            )
-        result = self._asset_tool_executor.execute(
-            "query_asset_detail",
-            {"asset_id": asset_id},
-            caller_id,
-        )
-        if result.success:
-            data = result.data
-            rendered = self._render_self_iteration_asset_tool_reply(
-                command,
-                {"asset_id": asset_id},
-                data,
-            )
-            if rendered:
-                return ChatMessageResponse(
-                    type="text",
-                    content=rendered,
-                    session_id=session_id,
-                    requires_input=False,
-                )
-            content = render_asset_detail_document(
-                asset_id=str(data.get("asset_id", asset_id)),
-                asset_name=str(data.get("name", asset_id)),
-                description=str(data.get("description", "")),
-                interfaces=data.get("interfaces") or data.get("methods") or {},
-            )
-            return ChatMessageResponse(
-                type="text",
-                content=content,
-                session_id=session_id,
-                requires_input=False,
-            )
-        else:
-            return ChatMessageResponse(
-                type="text",
-                content=f"❌ 未找到资产「{asset_id}」或你没有权限查看。",
-                session_id=session_id,
-                requires_input=False,
-            )
 
     def _handle_package_list_installed(self, command, session_id, apps):
         # Phase H+: Tool loop guard check
