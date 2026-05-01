@@ -342,7 +342,7 @@
 
 ### 10.2 继续更新
 - [x] 更新 `docs/design.md`
-- [ ] 更新 `docs/system-relationship-map.md`
+- [x] 更新 `docs/system-relationship-map.md`
 - [x] 更新 `docs/testing.md`
 - [x] 更新 `docs/development-log.md`
 

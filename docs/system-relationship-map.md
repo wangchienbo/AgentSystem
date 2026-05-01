@@ -252,7 +252,53 @@ graph TD
 
 > Regression note: the chat regression surface is now a real operator loop, not just a harness. Changes in persistence shape, comparison aggregation, evidence promotion, or governance summary fields should be treated as coupled changes across `chat_regression.py`, `regression_evidence_bridge.py`, `regression_dashboard.py`, `http_test_server.py`, and HTTP regression tests.
 
-### 3.8 External Model / Config
+### 3.8 Asset-Centered Runtime Rewrite (in progress)
+
+```mermaid
+graph TD
+    BR2[app/bootstrap/runtime.py] --> SO[app/system/startup/startup_orchestrator.py]
+    SO --> ACB[app/system/asset_center/bootstrap.py]
+    SO --> ACR[app/system/asset_center/registry.py]
+    SO --> ACS[app/system/asset_center/service.py]
+    SO --> MPL[app/system/model_runtime/model_pool_loader.py]
+    SO --> MCR[app/system/model_runtime/model_client_registry.py]
+    SO --> MPB[app/system/model_runtime/model_probe.py]
+    SO --> MSEL[app/system/model_runtime/model_selector.py]
+    SO --> REGP[app/system/assets/registration_protocol.py]
+    SO --> DESC[app/system/assets/descriptor_builder.py]
+    SO --> SIA[app/system/assets/self_iteration_center_asset.py]
+    SO --> CCA[app/system/assets/config_center_asset.py]
+    SO --> CACTX[app/system/interaction_runtime/context_assembly.py]
+    SO --> IDP[app/system/interaction_runtime/decision_protocol.py]
+    SO --> IORCH[app/system/interaction_runtime/interaction_orchestrator.py]
+    IORCH --> INVD[app/system/invocation/invocation_dispatcher.py]
+    INVD --> MRC[app/system/invocation/model_resolved_call.py]
+    INVD --> MSEL
+    ACS --> ACON[app/models/asset_contract.py]
+    DESC --> ACON
+    SIA --> ACS
+    CCA --> ACS
+```
+
+**Current dependency intent**
+- `asset_center` is the only metadata truth entry for runtime-visible assets and model resources.
+- `model_runtime` owns external model config loading, probing, health view, and preferred/fallback selection. It must not be folded back into asset metadata indexing.
+- `startup_orchestrator` owns the hard startup order: `asset_center -> model_runtime -> system_assets -> interaction_runtime -> entrypoints`.
+- `interaction_runtime` is the new bounded interaction chain. It should converge on `text / need_asset_detail_id / invoke` instead of expanding the old gateway patch surface.
+- `invocation_dispatcher` resolves model requirements before execution, but does not own asset discovery or user-facing response shaping.
+- old gateway bounded-route logic and model-visible `query_asset_* / list_assets` exposure should be treated as transitional shells until the new interaction runtime fully takes over.
+
+**Primary tests to rerun when editing this slice**
+- `tests/unit/test_asset_centered_runtime_foundation.py`
+- `tests/unit/test_runtime_asset_center_registry.py`
+- `tests/unit/test_model_runtime_foundation.py`
+- `tests/unit/test_runtime_asset_management_worker.py`
+- `tests/unit/test_interaction_decision_protocol.py`
+- `tests/unit/test_interaction_runtime_integration.py`
+- `tests/unit/test_invocation_dispatcher.py`
+- `tests/unit/test_runtime_asset_gateway_registration.py` (transitional coverage only)
+
+### 3.9 External Model / Config
 
 ```mermaid
 graph TD
