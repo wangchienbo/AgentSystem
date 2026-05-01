@@ -84,6 +84,8 @@ from app.services.user_service import UserService
 from app.services.auth_service import AuthService
 from app.services.session_router import SessionRouter
 from app.services.pipeline_service import PipelineService
+from app.system.assets.registration_protocol import AssetRegistrationProtocol
+from app.system.assets.self_iteration_center_asset import SelfIterationCenterAsset
 from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
 from app.services.hot_tool_manager import HotToolManager, FIXED_TOOLS
 from app.tools.internal_tools import AGENTSYSTEM_INTERNAL_TOOL_HANDLERS
@@ -520,6 +522,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     )
     runtime_center = RuntimeCenter(data_file=os.path.join(_project_root, "data", "runtime_center.json"))
     self_iteration_asset_service = SelfIterationAssetService(refinement_memory)
+    self_iteration_asset_protocol = AssetRegistrationProtocol()
     asset_center.discover()
 
     def _register_core_runtime_assets() -> None:
@@ -563,11 +566,6 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 AssetCapability(name="install package", description="Install a built package", method="package_install", side_effect_level="write"),
                 AssetCapability(name="uninstall package", description="Uninstall an installed package", method="package_uninstall", side_effect_level="write"),
                 AssetCapability(name="rollback package", description="Rollback a package to a target version", method="package_rollback", side_effect_level="write"),
-            ]),
-            ("asset:self_iteration_center:v1", "self_iteration_center", "Self-iteration governance and system-evolution navigation surface for regression history, live observations, governance pressure, and refinement backlog", self_iteration_asset_service, [
-                AssetCapability(name="list self iteration assets", description="List self-iteration asset summaries", method="list_self_iteration_assets", side_effect_level="read"),
-                AssetCapability(name="query self iteration asset", description="Query one self-iteration asset summary", method="query_self_iteration_asset", side_effect_level="read"),
-                AssetCapability(name="get self iteration strategy overview", description="Return the whole-system self-iteration view with recommended next asset", method="get_self_iteration_strategy_overview", side_effect_level="read"),
             ]),
         ]
         method_map_by_name = {
@@ -629,49 +627,40 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 "package_uninstall": lambda asset_id: package_manager_executor.execute("package_uninstall", {"asset_id": asset_id}).data,
                 "package_rollback": lambda asset_id, target_version: package_manager_executor.execute("package_rollback", {"asset_id": asset_id, "target_version": target_version}).data,
             },
-            "self_iteration_center": {
-                "list_self_iteration_assets": lambda replay_session_id=None, comparison_limit=5: self_iteration_asset_service.list_self_iteration_assets(
-                    replay_session_id=replay_session_id,
-                    comparison_limit=comparison_limit,
-                ),
-                "query_self_iteration_asset": lambda asset_id, replay_session_id=None, comparison_limit=5: self_iteration_asset_service.query_self_iteration_asset(
-                    asset_id=asset_id,
-                    replay_session_id=replay_session_id,
-                    comparison_limit=comparison_limit,
-                ),
-                "get_self_iteration_strategy_overview": lambda replay_session_id=None, comparison_limit=5: self_iteration_asset_service.get_self_iteration_strategy_overview(
-                    replay_session_id=replay_session_id,
-                    comparison_limit=comparison_limit,
-                ),
-            },
             "light_brain_gateway": {
                 "list_assets": lambda filter="": asset_tool_executor.execute("list_assets", {"filter": filter}, "system").data,
                 "query_asset_info": lambda asset_id: asset_tool_executor.execute("query_asset_info", {"asset_id": asset_id}, "system").data,
                 "call_asset_method": lambda asset_id, method, params=None: asset_tool_executor.execute("call_asset_method", {"asset_id": asset_id, "method": method, "params": params or {}}, "system").data,
             },
         }
-        for asset_id, name, description, service, capabilities in core_assets:
-            runtime_center.register_asset(
-                AssetDescriptor(
-                    asset_id=asset_id,
-                    asset_type=AssetType.SERVICE,
-                    asset_kind=AssetKind.CORE_RUNTIME,
-                    version="1.0.0",
-                    owner_type="system",
-                    owner_id="system",
-                    source_of_truth="runtime",
-                    status=AssetState.ACTIVE,
-                    capabilities=capabilities,
-                    invoke_contract={"kind": "service", "service_name": name},
-                    health_contract={"heartbeat": False},
-                    name=name,
-                    description=description,
-                    tags=["phase-h", "core-runtime"],
-                    metadata={"python_type": type(service).__name__},
-                ),
-                service_ref=service,
-                method_mappings=method_map_by_name.get(name, {}),
-            )
+        self_iteration_registered = self_iteration_asset_protocol.materialize(
+            SelfIterationCenterAsset(self_iteration_asset_service)
+        )
+        runtime_center.register_asset(
+            AssetDescriptor(
+                asset_id=self_iteration_registered.descriptor.asset_id,
+                asset_type=AssetType.SERVICE,
+                asset_kind=AssetKind.CORE_RUNTIME,
+                version="1.0.0",
+                owner_type="system",
+                owner_id="system",
+                source_of_truth="runtime",
+                status=AssetState.ACTIVE,
+                capabilities=[
+                    AssetCapability(name=method.name.replace("_", " "), description=method.description, method=method.name, side_effect_level="read")
+                    for method in self_iteration_registered.descriptor.methods
+                ],
+                invoke_contract={"kind": "service", "service_name": "self_iteration_center"},
+                health_contract={"heartbeat": False},
+                name="self_iteration_center",
+                description=self_iteration_registered.descriptor.summary,
+                tags=["phase-h", "core-runtime", "standard-asset-protocol"],
+                metadata={"python_type": type(self_iteration_registered.service_ref).__name__, "descriptor_version": self_iteration_registered.descriptor.descriptor_version},
+            ),
+            service_ref=self_iteration_registered.service_ref,
+            method_mappings=self_iteration_registered.method_mappings,
+        )
+
 
 
     # Wire Phase N assets into services created earlier (couldn't reference these at creation time)

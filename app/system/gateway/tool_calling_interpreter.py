@@ -284,7 +284,59 @@ def is_script_like_request(message: str) -> bool:
 
 def is_self_iteration_like_request(message: str) -> bool:
     text = (message or "").lower()
-    return any(keyword in text for keyword in ("自我迭代", "治理", "回归", "待优化", "evolution", "governance", "regression", "backlog"))
+    return any(keyword in text for keyword in (
+        "自我迭代", "治理", "回归", "待优化", "evolution", "governance", "regression", "backlog",
+        "self_iteration", "self-iteration",
+    ))
+
+
+def _try_parse_self_iteration_fast_path(message: str) -> InterpretedCommand | None:
+    text = (message or "").strip()
+    lowered = text.lower()
+    asset_id = "asset:self_iteration_center:v1"
+
+    if ("查看自我迭代资产详情" in text) or ("查看self_iteration资产详情" in lowered) or ("查看 self_iteration 资产详情" in lowered):
+        return InterpretedCommand(
+            intent="query_asset_detail",
+            raw_input=message,
+            confidence=0.98,
+            parameters={"asset_id": asset_id},
+            target_app=asset_id,
+            source="self_iteration_fast_path",
+        )
+
+    if "list_self_iteration_assets" in lowered and asset_id in lowered:
+        return InterpretedCommand(
+            intent="call_asset_method",
+            raw_input=message,
+            confidence=0.98,
+            parameters={"asset_id": asset_id, "method": "list_self_iteration_assets", "params": {}},
+            target_app=asset_id,
+            source="self_iteration_fast_path",
+        )
+
+    if "get_self_iteration_strategy_overview" in lowered and asset_id in lowered:
+        return InterpretedCommand(
+            intent="call_asset_method",
+            raw_input=message,
+            confidence=0.98,
+            parameters={"asset_id": asset_id, "method": "get_self_iteration_strategy_overview", "params": {}},
+            target_app=asset_id,
+            source="self_iteration_fast_path",
+        )
+
+    query_match = re.search(r"query_self_iteration_asset.*?(self_iteration\.[a-z_]+)", lowered)
+    if query_match and asset_id in lowered:
+        return InterpretedCommand(
+            intent="call_asset_method",
+            raw_input=message,
+            confidence=0.98,
+            parameters={"asset_id": asset_id, "method": "query_self_iteration_asset", "params": {"asset_id": query_match.group(1)}},
+            target_app=asset_id,
+            source="self_iteration_fast_path",
+        )
+
+    return None
 
 
 def choose_turn_budget(message: str) -> int:
@@ -421,6 +473,11 @@ class ToolCallingInterpreter:
         )
         if fast_path:
             return fast_path
+
+        # Tier 2.6: explicit self-iteration runtime asset fast path
+        self_iteration_fast_path = _try_parse_self_iteration_fast_path(message)
+        if self_iteration_fast_path:
+            return self_iteration_fast_path
 
         if is_script_like_request(message):
             return self._run_script_first_route(message, user_id, session_id, available_apps)

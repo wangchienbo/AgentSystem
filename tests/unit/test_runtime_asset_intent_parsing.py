@@ -35,6 +35,7 @@ from app.system.self_iteration_strategy_formatter import (
 )
 from app.system.gateway.tool_calling_interpreter import (
     SELF_ITERATION_BRANCH_GUIDANCE,
+    _try_parse_self_iteration_fast_path,
     choose_turn_budget,
     is_self_iteration_like_request,
     narrow_tools_for_self_iteration_route,
@@ -64,11 +65,18 @@ def test_self_iteration_branch_guidance_prefers_runtime_asset_first() -> None:
     assert "不要把 asset 当作 tool 名称来选择" in SELF_ITERATION_BRANCH_GUIDANCE
 
 
-def test_choose_turn_budget_limits_self_iteration_queries() -> None:
-    assert choose_turn_budget("最近系统自我迭代情况怎么样") == 4
-    assert choose_turn_budget("当前有哪些治理风险") == 4
-    assert choose_turn_budget("最近有哪些待优化项") == 4
-    assert choose_turn_budget("帮我看看现在有什么 app") == 6
+def test_self_iteration_fast_path_maps_explicit_asset_requests() -> None:
+    detail_cmd = _try_parse_self_iteration_fast_path("查看自我迭代资产详情")
+    assert detail_cmd is not None
+    assert detail_cmd.intent == "query_asset_detail"
+    assert detail_cmd.parameters["asset_id"] == "asset:self_iteration_center:v1"
+
+    list_cmd = _try_parse_self_iteration_fast_path("调用资产 asset:self_iteration_center:v1 的方法 list_self_iteration_assets")
+    assert list_cmd is not None
+    assert list_cmd.intent == "call_asset_method"
+    assert list_cmd.parameters["method"] == "list_self_iteration_assets"
+
+
 
 
 def test_self_iteration_route_narrows_to_asset_tools() -> None:

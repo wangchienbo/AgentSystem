@@ -161,26 +161,27 @@
 ## 5. Phase 4 - 建立资产协议与首批资产
 
 ### 5.1 新增模块
-- [ ] 新增 `app/system/assets/base_asset.py`
-- [ ] 新增 `app/system/assets/descriptor_builder.py`
-- [ ] 新增 `app/system/assets/registration_protocol.py`
+- [x] 新增 `app/system/assets/base_asset.py`
+- [x] 新增 `app/system/assets/descriptor_builder.py`
+- [x] 新增 `app/system/assets/registration_protocol.py`
 
 ### 5.2 统一资产协议
-- [ ] 定义标准 asset boot 接口
-- [ ] 定义标准 descriptor build 接口
-- [ ] 定义标准 register 接口
+- [x] 定义标准 asset boot 接口
+- [x] 定义标准 descriptor build 接口
+- [x] 定义标准 register 接口
 - [ ] 定义标准 invoke 接口
 
 ### 5.3 descriptor 同源生成
-- [ ] summary/detail/methods/model_requirement 从同一 builder 输出
-- [ ] 禁止四处分散定义 summary/detail/methods/model_requirement
-- [ ] 约束 method naming、summary/detail 最小语义格式
+- [x] summary/detail/methods/model_requirement 从同一 builder 输出
+- [x] 禁止四处分散定义 summary/detail/methods/model_requirement
+- [x] 约束 method naming、summary/detail 最小语义格式
 
 ### 5.4 首批资产迁移
-- [ ] 迁移 self-iteration 为标准注册资产
-- [ ] 为 self-iteration 提供 descriptor v1
+- [x] 迁移 self-iteration 为标准注册资产
+- [x] 为 self-iteration 提供 descriptor v1
 - [ ] 视需要迁移 runtime_center 为第二试点资产
 - [ ] 选定一个简单低歧义试点资产进入首批集合
+- [x] 修正 self-iteration 在 gateway 中的稳定路由与专用渲染
 
 ### 5.5 运行中重注册
 - [ ] 设计资产重启后的重新注册流程
@@ -188,8 +189,9 @@
 - [ ] 设计 interaction 侧 detail cache 失效策略的输入信号
 
 ### 5.6 验收点
-- [ ] self-iteration 可通过标准协议注册
-- [ ] descriptor 构造无分散真相源
+- [x] self-iteration 可通过标准协议注册
+- [x] descriptor 构造无分散真相源
+- [x] self-iteration 详情/列表请求可稳定命中 runtime asset 渲染链路
 - [ ] 至少一个简单资产可作为辅助试点运行
 
 ---

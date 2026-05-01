@@ -1049,10 +1049,18 @@ class LightBrainGateway:
             return None
 
         if command.intent in {"query_asset_info", "query_asset_detail"} and isinstance(data, dict):
+            capabilities = data.get("capabilities") if isinstance(data.get("capabilities"), list) else []
+            if not capabilities and getattr(self, "_runtime_center", None):
+                try:
+                    runtime_info = self._runtime_center.query_asset_info("asset:self_iteration_center:v1")
+                    if isinstance(runtime_info, dict) and isinstance(runtime_info.get("capabilities"), list):
+                        capabilities = runtime_info.get("capabilities")
+                except Exception:
+                    capabilities = capabilities or []
             return render_asset_info_summary(
                 asset_id=str(asset_id),
                 intro="self_iteration_center 是自我迭代资产入口。",
-                capabilities=data.get("capabilities") if isinstance(data.get("capabilities"), list) else [],
+                capabilities=capabilities,
                 extra_lines=[
                     "- 系统视角: Observe(回归/在线观察) → Summarize(治理总览) → Act(trigger/backlog)",
                     "- 用途: 汇总并查询 regression、observation、governance、refinement 这条自我迭代链的资产摘要",
@@ -1221,6 +1229,18 @@ class LightBrainGateway:
         )
         if result.success:
             data = result.data
+            rendered = self._render_self_iteration_asset_tool_reply(
+                command,
+                {"asset_id": asset_id},
+                data,
+            )
+            if rendered:
+                return ChatMessageResponse(
+                    type="text",
+                    content=rendered,
+                    session_id=session_id,
+                    requires_input=False,
+                )
             content = render_asset_detail_document(
                 asset_id=str(data.get("asset_id", asset_id)),
                 asset_name=str(data.get("name", asset_id)),
