@@ -36,8 +36,23 @@ def test_config_center_asset_can_register_through_protocol() -> None:
     detail = asset_center.get_asset_detail("asset:config_center:v1")
 
     assert registered.descriptor.asset_id == "asset:config_center:v1"
+    assert registered.descriptor.registration_epoch >= 1
     assert detail["asset_id"] == "asset:config_center:v1"
     assert len(detail["methods"]) == 1
     assert detail["methods"][0]["name"] == "get_config"
+
+
+def test_registration_protocol_reregister_advances_descriptor_epoch() -> None:
+    asset = ConfigCenterAsset(ConfigCenterService())
+    asset_center = AssetCenterService()
+    protocol = AssetRegistrationProtocol()
+
+    first = protocol.register(asset, asset_center)
+    second = protocol.reregister(asset, asset_center)
+
+    assert second.descriptor.asset_id == first.descriptor.asset_id
+    assert second.descriptor.registration_epoch > first.descriptor.registration_epoch
+    detail = asset_center.get_asset_detail("asset:config_center:v1")
+    assert detail["registration_epoch"] == second.descriptor.registration_epoch
 
 

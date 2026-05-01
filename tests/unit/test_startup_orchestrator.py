@@ -75,3 +75,29 @@ def test_startup_orchestrator_can_rerun_failed_stage_after_fix() -> None:
     assert "system_assets" in orchestrator.ready_stages()
 
 
+def test_startup_orchestrator_rerun_stage_can_record_reregistration_reason() -> None:
+    orchestrator = StartupOrchestrator()
+    attempts = {"count": 0}
+
+    orchestrator.add_stage(StartupStage(name="asset_center", action=lambda: {"ok": True}))
+    orchestrator.add_stage(
+        StartupStage(
+            name="system_assets",
+            depends_on=("asset_center",),
+            action=lambda: {"registered_assets": 0} if attempts.update(count=attempts["count"] + 1) is None and attempts["count"] == 1 else {"registered_assets": 2},
+            ready_check=lambda detail: (
+                detail["registered_assets"] >= 2,
+                {"reason": "re-register required" if detail["registered_assets"] < 2 else "ok", "fully_ready": detail["registered_assets"] >= 2},
+            ),
+        )
+    )
+
+    with pytest.raises(StartupOrchestratorError):
+        orchestrator.execute()
+
+    recovered = orchestrator.rerun_stage("system_assets")
+    assert recovered.status == "ready"
+    assert recovered.detail["recovered"] is True
+    assert recovered.detail["registered_assets"] == 2
+
+

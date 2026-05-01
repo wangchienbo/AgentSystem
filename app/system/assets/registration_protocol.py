@@ -17,5 +17,12 @@ class AssetRegistrationProtocol:
 
     def register(self, asset: BaseAsset, asset_center: AssetCenterService) -> RegisteredAsset:
         registered = self.materialize(asset)
-        asset_center.register_asset(registered.descriptor)
-        return registered
+        stored_descriptor = asset_center.register_asset(registered.descriptor)
+        return RegisteredAsset(
+            descriptor=stored_descriptor,
+            service_ref=registered.service_ref,
+            method_mappings=registered.method_mappings,
+        )
+
+    def reregister(self, asset: BaseAsset, asset_center: AssetCenterService) -> RegisteredAsset:
+        return self.register(asset, asset_center)

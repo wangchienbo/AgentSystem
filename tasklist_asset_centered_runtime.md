@@ -184,7 +184,7 @@
 - [x] 修正 self-iteration 在 gateway 中的稳定路由与专用渲染
 
 ### 5.5 运行中重注册
-- [ ] 设计资产重启后的重新注册流程
+- [x] 设计资产重启后的重新注册流程
 - [x] 设计 descriptor 更新后旧缓存如何失效
 - [x] 设计 interaction 侧 detail cache 失效策略的输入信号
 
@@ -216,7 +216,7 @@
 ### 6.4 局部恢复
 - [x] 设计 model runtime 局部重启后的再注册
 - [x] 设计单资产崩溃后的重注册与状态替换
-- [ ] 设计 interaction runtime 是否需要感知 descriptor 更新
+- [x] 设计 interaction runtime 是否需要感知 descriptor 更新
 
 ### 6.5 验收点
 - [x] 冷启动顺序可重复复现
@@ -306,7 +306,7 @@
 - [x] 新增启动顺序/required assets 单测
 - [x] 新增 self-iteration 新主链集成测试
 - [x] 新增简单低歧义试点资产测试
-- [ ] 新增局部重注册/descriptor 替换相关测试
+- [x] 新增局部重注册/descriptor 替换相关测试
 
 ### 9.2 旧测试删除清单
 - [x] 删除旧模型可见资产查询工具回归（已收缩 `tests/unit/test_runtime_asset_intent_parsing.py`、`tests/unit/test_tool_calling_interpreter.py`、`tests/unit/test_runtime_asset_gateway_registration.py` 中旧 query_asset_* 主路径断言）
