@@ -403,22 +403,88 @@ Covered behavior:
 - generate runtime experience record
 - review API flow
 
-## 3.11 Skill suggestion
+## 3.12 Asset-centered runtime (new main chain)
 Covered behavior:
-- generate candidate skill blueprint from experience
-- self-refinement can incorporate app shared context into proposal evidence
-- optional persistence into store
-- review -> experience -> skill suggestion API flow
+- asset center bootstrap, registration, descriptor versioning, and same-asset-id re-registration
+- asset descriptor schema validation (`AssetDescriptorRecord`, `AssetMethodSpec`, `AssetModelRequirement`, to_dict roundtrip)
+- asset center service boundaries (metadata-only, no business execution, no model client init, no interaction prompt assembly)
+- model runtime: external model_pool.yaml loading, probe, healthy/unhealthy view, registration into asset center
+- model selector: preferred model resolution, minimum requirements check, fallback selection, explicit failure when neither meets requirements
+- startup orchestrator: hardened startup order, required-asset checks, fail-fast
+- interaction runtime: three-branch protocol (text / need_asset_detail_id / invoke), context assembly from asset center, decision protocol error handling
+- invocation dispatcher: pre-invocation model requirement resolution, preferred/fallback via model selector, method/schema error paths
+- self-iteration as standard registered asset with descriptor v1
+- config_center as simple low-ambiguity pilot asset
+- hot-tool manager converged to `call_asset_method` only (legacy `list_assets/query_asset_info/query_asset_detail` removed)
+- legacy gateway bounded-route patches retired: `LightBrainInterpreter` no longer produces `query_asset_detail`, `LightBrainGateway` no longer registers legacy handlers
+- lightweight new-chain acceptance tests replace old slow runtime-asset gateway e2e
+
+### Retired paths (boundary record)
+- `list_assets` / `query_asset_info` / `query_asset_detail` as model-visible tools: removed from `make_all_asset_tools()`, bootstrap engine, and gateway routes
+- Old gateway bounded-route prompt patch logic: removed
+- Old hot-tool asset tool-face alignment tests: contracted to minimal route-boundary assertions
+- Old runtime-asset gateway slow e2e: replaced by `test_runtime_asset_new_chain_acceptance.py`
+
+### Remaining compat shells
+- `tool_calling_interpreter.py`: still active in `LightBrainGateway` but not the primary path for asset-centered flows (Phase 7.4 pending full retirement)
+
+## 3.12 Asset-centered runtime (new main chain)
+Covered behavior:
+- asset center bootstrap, registration, descriptor versioning, and same-asset-id re-registration
+- asset descriptor schema validation (`AssetDescriptorRecord`, `AssetMethodSpec`, `AssetModelRequirement`, to_dict roundtrip)
+- asset center service boundaries (metadata-only, no business execution, no model client init, no interaction prompt assembly)
+- model runtime: external model_pool.yaml loading, probe, healthy/unhealthy view, registration into asset center
+- model selector: preferred model resolution, minimum requirements check, fallback selection, explicit failure when neither meets requirements
+- startup orchestrator: hardened startup order, required-asset checks, fail-fast
+- interaction runtime: three-branch protocol (text / need_asset_detail_id / invoke), context assembly from asset center, decision protocol error handling
+- invocation dispatcher: pre-invocation model requirement resolution, preferred/fallback via model selector, method/schema error paths
+- self-iteration as standard registered asset with descriptor v1
+- config_center as simple low-ambiguity pilot asset
+- hot-tool manager converged to `call_asset_method` only (legacy `list_assets/query_asset_info/query_asset_detail` removed)
+- legacy gateway bounded-route patches retired: `LightBrainInterpreter` no longer produces `query_asset_detail`, `LightBrainGateway` no longer registers legacy handlers
+- lightweight new-chain acceptance tests replace old slow runtime-asset gateway e2e
+
+### Retired paths (boundary record)
+- `list_assets` / `query_asset_info` / `query_asset_detail` as model-visible tools: removed from `make_all_asset_tools()`, bootstrap engine, and gateway routes
+- Old gateway bounded-route prompt patch logic: removed
+- Old hot-tool asset tool-face alignment tests: contracted to minimal route-boundary assertions
+- Old runtime-asset gateway slow e2e: replaced by `test_runtime_asset_new_chain_acceptance.py`
+
+### Remaining compat shells
+- `tool_calling_interpreter.py`: still active in `LightBrainGateway` but not the primary path for asset-centered flows (Phase 7.4 pending full retirement)
 
 ---
 
 ## 5. Test Suite Status
 
-At the time of this document update:
-- automated local test suite passes
-- current result: `31 passed` for the latest focused validation/runtime regression slice, with additional focused green runs covering context compaction and file-backed test isolation work
+As of 2026-05-01:
+- Asset-centered runtime regression: **153 passed, 4 xfailed** (4 known xfailed are legacy deeper/worker mapping transitions)
+- Full focused slice (asset-centered + legacy compat): green at **153 passed**
+- New tests added this cycle: `test_asset_descriptor_schema.py` (13 tests), `test_model_selector.py` (12 tests)
 
-This indicates the implemented milestone is internally consistent at the current level of scope.
+Key test groups for the new main chain:
+| Group | File | Focus |
+|-------|------|-------|
+| Foundation | `test_asset_centered_runtime_foundation.py` | Asset center + model runtime + startup wiring |
+| Registry | `test_runtime_asset_center_registry.py` | Asset registration, descriptor replacement, epoch tracking |
+| New chain | `test_runtime_asset_new_chain_acceptance.py` | Lightweight acceptance replacing old slow e2e |
+| Intent | `test_runtime_asset_intent_parsing.py` | Intent parsing on new chain |
+| Deeper | `test_runtime_asset_deeper_mappings.py` | Deeper worker mappings (4 xfailed) |
+| Worker | `test_runtime_asset_worker_mappings.py` | Worker mapping contracts |
+| Gateway | `test_runtime_asset_gateway_registration.py` | Transitional gateway coverage |
+| Management | `test_runtime_asset_management_worker.py` | Asset management worker |
+| Model runtime | `test_model_runtime_foundation.py` | Model pool, probe, registry |
+| Model selector | `test_model_selector.py` | Preferred/fallback/requirements resolution |
+| Descriptor | `test_asset_descriptor_schema.py` | AssetDescriptorRecord validation, to_dict roundtrip |
+| Manifest | `test_asset_center_manifest_validation.py` | Asset center manifest validation |
+| Interaction | `test_interaction_decision_protocol.py` | Decision protocol (text/detail/invoke) |
+| Runtime | `test_interaction_runtime_integration.py` | Interaction orchestrator integration |
+| Invocation | `test_invocation_dispatcher.py` | Pre-invocation model resolution |
+| Skill asset | `test_skill_asset_api.py` | Skill asset API surface |
+| Hot tools | `services/test_hot_tool_manager.py` | Hot tool manager (converged to call_asset_method only) |
+| Legacy shell | `test_tool_calling_interpreter.py` | Old interpreter retained for backward compat |
+
+This indicates the implemented milestone is internally consistent. The 4 xfailed items are tracked legacy deeper/worker mapping transitions that are no longer on the critical path.
 
 ---
 

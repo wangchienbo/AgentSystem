@@ -291,12 +291,22 @@ graph TD
 **Primary tests to rerun when editing this slice**
 - `tests/unit/test_asset_centered_runtime_foundation.py`
 - `tests/unit/test_runtime_asset_center_registry.py`
-- `tests/unit/test_model_runtime_foundation.py`
+- `tests/unit/test_runtime_asset_new_chain_acceptance.py`
+- `tests/unit/test_runtime_asset_intent_parsing.py`
+- `tests/unit/test_runtime_asset_deeper_mappings.py`
+- `tests/unit/test_runtime_asset_worker_mappings.py`
 - `tests/unit/test_runtime_asset_management_worker.py`
+- `tests/unit/test_runtime_asset_gateway_registration.py` (transitional; new-chain lightweight acceptance replaces old slow e2e)
+- `tests/unit/test_model_runtime_foundation.py`
+- `tests/unit/test_model_selector.py` (Phase 9.1)
+- `tests/unit/test_asset_descriptor_schema.py` (Phase 9.1)
+- `tests/unit/test_asset_center_manifest_validation.py`
 - `tests/unit/test_interaction_decision_protocol.py`
 - `tests/unit/test_interaction_runtime_integration.py`
 - `tests/unit/test_invocation_dispatcher.py`
-- `tests/unit/test_runtime_asset_gateway_registration.py` (transitional coverage only)
+- `tests/unit/test_skill_asset_api.py`
+- `tests/unit/test_tool_calling_interpreter.py` (legacy shell; retained for backward compat)
+- `tests/unit/services/test_hot_tool_manager.py` (asset tool discovery; converged to call_asset_method only)
 
 ### 3.9 External Model / Config
 

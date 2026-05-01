@@ -132,7 +132,8 @@ class DecisionProtocol:
                 ),
                 context,
             )
-        if any(keyword in text for keyword in ("配置", "config", "skill")):
+        # Explicit action: get/query
+        if any(keyword in text for keyword in ("获取", "查询", "查", "看", "当前", "get")):
             return self.resolve_against_context(
                 InteractionDecisionEnvelope(
                     decision="invoke",
@@ -145,6 +146,21 @@ class DecisionProtocol:
                 ),
                 context,
             )
+        # Specific parameter change
+        if any(keyword in text for keyword in ("超时", "token", "max_", "改为", "改成")):
+            return self.resolve_against_context(
+                InteractionDecisionEnvelope(
+                    decision="invoke",
+                    invoke={
+                        "asset_id": asset_id,
+                        "method": "update_config",
+                        "params": {},
+                    },
+                    metadata={"route": "config_center"},
+                ),
+                context,
+            )
+        # Otherwise: request detail so the user can see what's available
         return self.resolve_against_context(
             InteractionDecisionEnvelope(
                 decision="need_asset_detail_id",
@@ -152,4 +168,30 @@ class DecisionProtocol:
                 metadata={"route": "config_center", "fallback": True},
             ),
             context,
+        )
+
+    def build_detail_request(self, asset_id: str, context: InteractionContextSnapshot) -> InteractionDecisionEnvelope:
+        return InteractionDecisionEnvelope(
+            decision="need_asset_detail_id",
+            need_asset_detail_id=asset_id,
+            metadata={"route": "general"},
+        )
+
+    def build_text_response(self, text: str) -> InteractionDecisionEnvelope:
+        return InteractionDecisionEnvelope(
+            decision="text",
+            text=text,
+        )
+
+    def build_invoke_request(
+        self,
+        *,
+        asset_id: str,
+        method: str,
+        params: dict[str, Any] | None = None,
+    ) -> InteractionDecisionEnvelope:
+        return InteractionDecisionEnvelope(
+            decision="invoke",
+            invoke={"asset_id": asset_id, "method": method, "params": params or {}},
+            metadata={"route": "general"},
         )
