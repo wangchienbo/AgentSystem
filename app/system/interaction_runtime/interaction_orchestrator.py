@@ -26,12 +26,22 @@ class InteractionOrchestrator:
         self._executor = executor or _DefaultExecutor()
         self._snapshot = InteractionContextSnapshot()
         self._last_asset_id: str | None = None
+        self._recent_detail_requests: set[str] = set()
 
     def process_message(self, user_message: str) -> dict[str, Any]:
         lower = (user_message or "").lower()
         asset_from_msg = self._extract_asset_id(user_message)
         if asset_from_msg:
             self._last_asset_id = asset_from_msg
+
+        # Repeat detail request detection: "再说一次...详情" / "重复...详情" → text if already loaded
+        if ("再说一次" in lower or "再说一遍" in lower or "重复" in lower) and "详情" in lower and asset_from_msg:
+            if asset_from_msg in self._recent_detail_requests:
+                result = self._decision_protocol.resolve_against_context(
+                    self._decision_protocol.build_text_response("详情已加载，无需重复请求。"),
+                    self._snapshot,
+                )
+                return self._make_result(result)
 
         # Pronoun resolution: "它的..." / "它..." / "再看看" / "再看" → resolve to last asset
         pronoun_prefix = lower.startswith("它的") or lower.startswith("它") or lower.startswith("再看看") or lower.startswith("再看") or lower.startswith("再看下")
@@ -109,13 +119,30 @@ class InteractionOrchestrator:
                 params={},
             )
             result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
+        elif "治理" in lower and ("展开" in lower or "展开吗" in lower or "细节" in lower):
+            # Follow-up: expand governance details after strategy overview
+            asset_id = self._last_asset_id or "asset:self_iteration_center:v1"
+            envelope = self._decision_protocol.build_invoke_request(
+                asset_id=asset_id,
+                method="governance_summary",
+                params={},
+            )
+            result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
         elif "治理" in lower:
             result = self._decision_protocol.propose_for_self_iteration(
                 user_message=user_message,
                 context=self._snapshot,
             )
         # Self-iteration: explicit mention of strategy/policy overview
-        elif "策略概览" in lower or "策略总览" in lower or ("策略" in lower and "自我迭代" in lower):
+        elif "策略概览" in lower or "策略总览" in lower or "概览" in lower and ("self" in lower or "自我迭代" in lower or "self-iteration" in lower):
+            asset_id = "asset:self_iteration_center:v1"
+            envelope = self._decision_protocol.build_invoke_request(
+                asset_id=asset_id,
+                method="strategy_overview",
+                params={},
+            )
+            result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
+        elif "策略" in lower and "自我迭代" in lower:
             asset_id = "asset:self_iteration_center:v1"
             envelope = self._decision_protocol.build_invoke_request(
                 asset_id=asset_id,
@@ -131,8 +158,8 @@ class InteractionOrchestrator:
                     self._decision_protocol.build_text_response("该资产没有你请求的方法。请查看资产详情了解可用方法列表。"),
                     self._snapshot,
                 )
-            # If "跑一下" / "执行" / "运行" → invoke strategy_overview
-            elif "跑一下" in lower or "执行" in lower or "运行" in lower:
+            # If "跑" (alone or compound like 跑一下) / "执行" / "运行" → invoke strategy_overview
+            elif "跑" in lower or "执行" in lower or "运行" in lower:
                 asset_id = "asset:self_iteration_center:v1"
                 envelope = self._decision_protocol.build_invoke_request(
                     asset_id=asset_id,
@@ -151,7 +178,9 @@ class InteractionOrchestrator:
                 result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
             # If "详细" / "能力" / "详情" → detail request
             elif "详细" in lower or "能力" in lower or "详情" in lower:
-                envelope = self._decision_protocol.build_detail_request("asset:self_iteration_center:v1", self._snapshot)
+                asset_id = "asset:self_iteration_center:v1"
+                self._recent_detail_requests.add(asset_id)
+                envelope = self._decision_protocol.build_detail_request(asset_id, self._snapshot)
                 result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
             # Otherwise → propose (governance/general)
             else:
@@ -189,6 +218,24 @@ class InteractionOrchestrator:
                 self._decision_protocol.build_text_response("你想改哪个配置？请告诉我具体要修改的参数，比如超时时间或最大token数。"),
                 self._snapshot,
             )
+        # Config history/timing query: "什么时候改配置" / "上次改配置" → invoke get_config (MUST come before "改...配置" to avoid premature match)
+        elif "配置" in lower and ("什么时候" in lower or "上次" in lower or "历史" in lower or "记录" in lower):
+            asset_id = "asset:config_center:v1"
+            envelope = self._decision_protocol.build_invoke_request(
+                asset_id=asset_id,
+                method="get_config",
+                params={},
+            )
+            result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
+        # "当前配置" / "查配置" → invoke get_config
+        elif "当前配置" in lower or lower.startswith("查配置") or lower.startswith("查看配置"):
+            asset_id = "asset:config_center:v1"
+            envelope = self._decision_protocol.build_invoke_request(
+                asset_id=asset_id,
+                method="get_config",
+                params={},
+            )
+            result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
         # Config action: "改...配置" / "把...改成" → config center invoke
         elif "改" in lower and "配置" in lower or "把" in lower and ("改成" in lower or "改为" in lower):
             result = self._decision_protocol.propose_for_config_center(
