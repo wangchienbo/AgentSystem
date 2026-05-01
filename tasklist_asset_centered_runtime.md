@@ -180,7 +180,7 @@
 - [x] 迁移 self-iteration 为标准注册资产
 - [x] 为 self-iteration 提供 descriptor v1
 - [ ] 视需要迁移 runtime_center 为第二试点资产
-- [ ] 选定一个简单低歧义试点资产进入首批集合
+- [x] 选定一个简单低歧义试点资产进入首批集合（config_center）
 - [x] 修正 self-iteration 在 gateway 中的稳定路由与专用渲染
 
 ### 5.5 运行中重注册
@@ -192,7 +192,7 @@
 - [x] self-iteration 可通过标准协议注册
 - [x] descriptor 构造无分散真相源
 - [x] self-iteration 详情/列表请求可稳定命中 runtime asset 渲染链路
-- [ ] 至少一个简单资产可作为辅助试点运行
+- [x] 至少一个简单资产可作为辅助试点运行
 
 ---
 

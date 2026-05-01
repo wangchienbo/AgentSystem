@@ -84,6 +84,7 @@ from app.services.user_service import UserService
 from app.services.auth_service import AuthService
 from app.services.session_router import SessionRouter
 from app.services.pipeline_service import PipelineService
+from app.system.assets.config_center_asset import ConfigCenterAsset
 from app.system.assets.registration_protocol import AssetRegistrationProtocol
 from app.system.assets.self_iteration_center_asset import SelfIterationCenterAsset
 from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
@@ -530,9 +531,6 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             ("asset:master_control:v1", "master_control", "Central execution and worker governance", master_control, [
                 AssetCapability(name="dispatch worker action", description="Dispatch a worker action through master control", method="dispatch", side_effect_level="admin", permission_hint="admin"),
             ]),
-            ("asset:config_center:v1", "config_center", "Bootstrap configuration source", config_center, [
-                AssetCapability(name="get config", description="Read config center values", method="get_config", side_effect_level="read"),
-            ]),
             ("asset:runtime_center:v1", "runtime_center", "Runtime source of truth for live assets", runtime_center, [
                 AssetCapability(name="list assets", description="List runtime assets", method="list_assets", side_effect_level="read"),
                 AssetCapability(name="query asset info", description="Query one runtime asset", method="query_asset_info", side_effect_level="read"),
@@ -633,6 +631,34 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 "call_asset_method": lambda asset_id, method, params=None: asset_tool_executor.execute("call_asset_method", {"asset_id": asset_id, "method": method, "params": params or {}}, "system").data,
             },
         }
+        config_center_registered = self_iteration_asset_protocol.materialize(
+            ConfigCenterAsset(config_center)
+        )
+        runtime_center.register_asset(
+            AssetDescriptor(
+                asset_id=config_center_registered.descriptor.asset_id,
+                asset_type=AssetType.SERVICE,
+                asset_kind=AssetKind.CORE_RUNTIME,
+                version="1.0.0",
+                owner_type="system",
+                owner_id="system",
+                source_of_truth="runtime",
+                status=AssetState.ACTIVE,
+                capabilities=[
+                    AssetCapability(name=method.name.replace("_", " "), description=method.description, method=method.name, side_effect_level="read")
+                    for method in config_center_registered.descriptor.methods
+                ],
+                invoke_contract={"kind": "service", "service_name": "config_center"},
+                health_contract={"heartbeat": False},
+                name="config_center",
+                description=config_center_registered.descriptor.summary,
+                tags=["phase-h", "core-runtime", "standard-asset-protocol"],
+                metadata={"python_type": type(config_center_registered.service_ref).__name__, "descriptor_version": config_center_registered.descriptor.descriptor_version},
+            ),
+            service_ref=config_center_registered.service_ref,
+            method_mappings=config_center_registered.method_mappings,
+        )
+
         self_iteration_registered = self_iteration_asset_protocol.materialize(
             SelfIterationCenterAsset(self_iteration_asset_service)
         )
