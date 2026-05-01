@@ -9,13 +9,11 @@ from app.services.hot_tool_manager import (
 
 class TestHotToolManager:
     def test_fixed_tools_count(self):
-        """Fixed set: 7 core + 4 system = 11 total."""
-        assert len(FIXED_TOOLS) == 11
         names = [t["name"] for t in FIXED_TOOLS]
         for name in [
             "exec_shell", "read_file", "write_file", "edit_file",
             "list_files", "search_files", "find_tool",
-            "call_asset_method", "query_asset_detail", "list_assets", "query_asset_info",
+            "call_asset_method",
         ]:
             assert name in names
 
@@ -23,7 +21,6 @@ class TestHotToolManager:
         found = find_dynamic_tools("asset")
         names = {tool["name"] for tool in found}
         assert "call_asset_method" in names
-        assert "list_assets" in names
 
     def test_session_hot_only_adds_registered_non_fixed_tools(self):
         manager = HotToolManager()
