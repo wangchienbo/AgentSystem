@@ -15,3 +15,13 @@ class InteractionOrchestrator:
         context: InteractionContextSnapshot,
     ) -> DecisionProtocolResult:
         return self._protocol.resolve_against_context(envelope, context)
+
+    def evaluate_self_iteration(
+        self,
+        user_message: str,
+        context: InteractionContextSnapshot,
+    ) -> DecisionProtocolResult:
+        return self._protocol.propose_for_self_iteration(
+            user_message=user_message,
+            context=context,
+        )

@@ -45,8 +45,57 @@ class DecisionProtocol:
                     ),
                     resolved_action="reply_text",
                 )
+            if not context.has_summary(asset_id):
+                return DecisionProtocolResult(
+                    envelope=InteractionDecisionEnvelope(
+                        decision="text",
+                        text=f"asset detail unavailable: {asset_id}",
+                        metadata={"missing_asset_detail": True, "asset_id": asset_id},
+                    ),
+                    resolved_action="reply_text",
+                )
         if envelope.decision == "invoke":
             invoke = envelope.invoke or {}
             if not invoke.get("asset_id") or not invoke.get("method"):
                 raise InteractionDecisionProtocolError("invoke payload requires asset_id and method")
         return result
+
+    def propose_for_self_iteration(
+        self,
+        *,
+        user_message: str,
+        context: InteractionContextSnapshot,
+    ) -> DecisionProtocolResult:
+        text = (user_message or "").lower()
+        asset_id = "asset:self_iteration_center:v1"
+
+        if any(keyword in text for keyword in ("详情", "detail")) and not context.has_detail(asset_id):
+            return self.resolve_against_context(
+                InteractionDecisionEnvelope(
+                    decision="need_asset_detail_id",
+                    need_asset_detail_id=asset_id,
+                    metadata={"route": "self_iteration"},
+                ),
+                context,
+            )
+        if any(keyword in text for keyword in ("列表", "list", "摘要")):
+            return self.resolve_against_context(
+                InteractionDecisionEnvelope(
+                    decision="invoke",
+                    invoke={
+                        "asset_id": asset_id,
+                        "method": "list_self_iteration_assets",
+                        "params": {},
+                    },
+                    metadata={"route": "self_iteration"},
+                ),
+                context,
+            )
+        return self.resolve_against_context(
+            InteractionDecisionEnvelope(
+                decision="need_asset_detail_id",
+                need_asset_detail_id=asset_id,
+                metadata={"route": "self_iteration", "fallback": True},
+            ),
+            context,
+        )

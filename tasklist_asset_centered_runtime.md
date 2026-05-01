@@ -234,8 +234,8 @@
 
 ### 7.2 上下文装配
 - [x] 从 asset center 拉可见 asset summaries
-- [ ] 拉取已缓存的 asset details
-- [ ] 定义 initial detail 载入策略
+- [x] 拉取已缓存的 asset details
+- [x] 定义 initial detail 载入策略
 - [ ] 固定 context block 顺序
 - [ ] 区分实时查询与会话级缓存
 
@@ -243,7 +243,12 @@
 - [x] 固定三分支输出: text / need_asset_detail_id / invoke
 - [x] 非法 envelope 输出有明确错误处理
 - [x] 重复请求已存在 detail 时有明确处理策略
-- [ ] 请求不存在 asset detail 时有明确处理策略
+- [x] 请求不存在 asset detail 时有明确处理策略
+
+### 7.7 验收点
+- [x] self-iteration 问题可走新三分支链闭环
+- [ ] 简单试点资产可走低歧义闭环
+- [ ] 开发者仍可观测 decision/detail/invoke 过程
 
 ### 7.4 主入口重构
 - [ ] 重写 `tool_calling_interpreter.py` 为兼容壳或直接退役
@@ -261,7 +266,7 @@
 - [ ] 设计开发者调试视图，能看最终 resolved model
 
 ### 7.7 验收点
-- [ ] self-iteration 问题可走新三分支链闭环
+- [x] self-iteration 问题可走新三分支链闭环
 - [ ] 简单试点资产可走低歧义闭环
 - [ ] 开发者仍可观测 decision/detail/invoke 过程
 
