@@ -48,7 +48,8 @@ def read_text_from_llm_responder_prompt_source() -> str:
 
 def test_light_brain_runtime_asset_intent_set_no_longer_requires_legacy_list_or_info_surface() -> None:
     content = Path("app/system/gateway/light_brain_interpreter.py").read_text(encoding="utf-8")
-    assert '"call_asset_method", "query_asset_detail"' in content
+    assert '"call_asset_method"' in content
+    assert '"call_asset_method", "query_asset_detail"' not in content
     assert '"list_assets", "query_asset_info", "call_asset_method", "query_asset_detail"' not in content
 
 

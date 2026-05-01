@@ -797,7 +797,7 @@ class TestLLMFallback:
         assert "greet" in interpreter.VALID_INTENTS
         assert "unclear" in interpreter.VALID_INTENTS
         assert "call_asset_method" in interpreter.VALID_INTENTS
-        assert "query_asset_detail" in interpreter.VALID_INTENTS
+        assert "query_asset_detail" not in interpreter.VALID_INTENTS
         assert "list_assets" not in interpreter.VALID_INTENTS
         assert "query_asset_info" not in interpreter.VALID_INTENTS
 

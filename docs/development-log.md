@@ -1,4 +1,32 @@
-## 2026-05-01: Remove legacy list/info runtime-asset intents from LightBrain main routing
+## 2026-05-01: Remove `query_asset_detail` from LightBrain interpreter main intent surface
+
+### Summary
+Continued Phase 7.5 one step further by removing `query_asset_detail` from the `LightBrainInterpreter` main intent surface. The legacy gateway still retains a compatibility handler for externally supplied `query_asset_detail` payloads, but the interpreter itself no longer proactively emits that intent during normal routing.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_interpreter.py`
+  - removed `query_asset_detail` from `VALID_INTENTS`
+  - removed tool-aware detail intent emission
+  - removed detail-specific clarification generation from the interpreter main route
+  - kept `call_asset_method` as the only remaining runtime-asset interaction intent produced by the interpreter
+- Updated tests
+  - aligned runtime-asset intent parsing assertions
+  - aligned LightBrain valid-intent expectations
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked `LightBrainInterpreter 不再主动产出 query_asset_detail` complete
+
+### Why This Matters
+This further tightens the compatibility shell:
+- the interpreter no longer treats detail query as a first-class semantic route
+- the remaining legacy gateway detail path becomes a passive compatibility adapter instead of an actively suggested interaction mode
+- runtime-asset interaction continues converging on one main command shape: `call_asset_method`
+
+### Validation
+- focused LightBrain/runtime-asset tests passed after removing the interpreter-side detail intent surface
+
+### Remaining Boundary
+The legacy gateway still contains a `query_asset_detail` compatibility handler for externally supplied old-style actions or payloads. That handler can be removed later once no remaining callers depend on it.
+
 
 ### Summary
 Continued Phase 7.5 by shrinking the old `LightBrain` compatibility shell itself. The main interpreter/gateway route no longer treats `list_assets` and `query_asset_info` as first-class runtime-asset intents. `call_asset_method` remains the primary runtime-asset interaction intent, while `query_asset_detail` is temporarily retained as a narrower compatibility helper.

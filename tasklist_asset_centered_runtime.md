@@ -265,6 +265,7 @@
 - [x] 清理旧 asset-first prompt 暴露与 route patch 逻辑
 - [x] 清理旧 hot-tool bounded route 的兼容残留
 - [x] 清理 `LightBrainInterpreter/LightBrainGateway` 对 `list_assets/query_asset_info` 的主路由依赖
+- [x] `LightBrainInterpreter` 不再主动产出 `query_asset_detail`
 
 ---
 
