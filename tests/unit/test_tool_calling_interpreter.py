@@ -16,7 +16,9 @@ from app.system.gateway.tool_calling_interpreter import (
     build_turn_state_board,
     choose_turn_budget,
     is_script_like_request,
+    is_self_iteration_like_request,
     narrow_tools_for_script_route,
+    narrow_tools_for_self_iteration_route,
 )
 
 
@@ -73,6 +75,20 @@ def test_script_route_tool_narrowing_keeps_exec_shell_and_core_file_tools() -> N
     assert "exec_shell" in names
     assert "read_file" in names
     assert "search_files" not in names
+
+
+
+def test_self_iteration_route_tool_narrowing_keeps_asset_first_tools_only() -> None:
+    narrowed = narrow_tools_for_self_iteration_route([
+        ToolDef(name="call_asset_method", description="", parameters={}),
+        ToolDef(name="query_asset_detail", description="", parameters={}),
+        ToolDef(name="query_asset_info", description="", parameters={}),
+        ToolDef(name="search_files", description="", parameters={}),
+        ToolDef(name="exec_shell", description="", parameters={}),
+        ToolDef(name="unclear", description="", parameters={}),
+    ])
+    names = [t.name for t in narrowed]
+    assert names == ["call_asset_method", "query_asset_detail", "query_asset_info", "unclear"]
 
 
 
@@ -180,6 +196,35 @@ def test_script_like_request_exposes_only_script_first_tools_after_prestep_fallb
     tool_names = [tool.name for tool in kwargs["tools"]]
     assert kwargs["skill_id"] == "gateway_script_first_route"
     assert tool_names == ["exec_shell", "read_file", "write_file", "edit_file", "ask_clarification", "unclear"]
+
+
+
+def test_self_iteration_like_request_uses_limited_turn_budget_and_asset_route_tools() -> None:
+    interpreter, execute_turns = _build_interpreter()
+    registry = ToolRegistry()
+    registry._tools = {}
+    registry.register(ToolDefinition(name="call_asset_method", description="", parameters=[]))
+    registry.register(ToolDefinition(name="query_asset_detail", description="", parameters=[]))
+    registry.register(ToolDefinition(name="query_asset_info", description="", parameters=[]))
+    registry.register(ToolDefinition(name="search_files", description="", parameters=[]))
+    registry.register(ToolDefinition(name="exec_shell", description="", parameters=[]))
+    interpreter._registry = registry
+    execute_turns.return_value = ToolCallingResult(final_text="已返回治理概览", tool_calls=[])
+
+    command = interpreter.interpret(
+        message="最近系统自我迭代情况怎么样，当前有哪些治理风险",
+        user_id="u1",
+        session_id="sess-self-iteration-tools",
+        available_apps=[],
+    )
+
+    kwargs = execute_turns.call_args.kwargs
+    tool_names = [tool.name for tool in kwargs["tools"]]
+    assert is_self_iteration_like_request("最近系统自我迭代情况怎么样，当前有哪些治理风险") is True
+    assert kwargs["skill_id"] == "gateway_intent_parser"
+    assert kwargs["max_turns"] == 4
+    assert tool_names == ["call_asset_method", "query_asset_detail", "query_asset_info", "ask_clarification", "unclear"]
+    assert command.intent == "direct_response"
 
 
 def test_explicit_file_path_introspection_uses_fast_read_path() -> None:

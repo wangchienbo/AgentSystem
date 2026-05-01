@@ -77,6 +77,7 @@ Used for lightweight client-level validation such as:
 - generated executable skill end-to-end coverage through normal app workflow skill steps
 - blueprint materialization safety-default / adapter-governance coverage, including executable materialization selection and suggested-skill executable closure paths
 - manifest validation separation coverage so script adapters are not rejected by executable-entrypoint rules while executable adapters still require concrete entry metadata
+- interpreter/gateway self-iteration asset-first coverage should explicitly validate that self-iteration-like requests stay on the bounded asset-navigation route with limited turn budget, exposing only `call_asset_method`, `query_asset_detail`, `query_asset_info`, and clarification helpers instead of leaking repo-search or script-execution tools
 - interpreter/gateway script-first route coverage should explicitly validate the post-prestep fallback boundary, ensuring script-like requests expose only the narrowed script execution tool set (`exec_shell`, core file tools, clarification helpers) instead of leaking generic search or asset-navigation tools into the dedicated script-first branch
 - interpreter/gateway regression coverage should explicitly validate code-introspection uncertainty discipline, including cases where the system must say "未证实" or "尚未读取文件内容，不能确认" instead of inventing concrete storage engines or implementation details
 

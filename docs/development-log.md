@@ -1,3 +1,37 @@
+## 2026-05-01: Lock self-iteration asset-first route exposure at interpreter level
+
+### Summary
+After hardening the script-first branch, the analogous remaining risk sat on the self-iteration side: helper-level tests already confirmed the asset-route allowlist, but the interpreter-level execution path still lacked a focused regression that proved real self-iteration-like requests actually inherit that bounded tool surface and reduced turn budget when entering the live gateway intent parser.
+
+### What Was Done
+- Updated `tests/unit/test_tool_calling_interpreter.py`
+  - added direct coverage for `narrow_tools_for_self_iteration_route(...)` at the interpreter test layer
+  - added a focused regression asserting that a real self-iteration-like request:
+    - stays on `gateway_intent_parser`
+    - uses the reduced self-iteration turn budget (`max_turns == 4`)
+    - exposes only the bounded asset-first tool set:
+      - `call_asset_method`
+      - `query_asset_detail`
+      - `query_asset_info`
+      - `ask_clarification`
+      - `unclear`
+  - explicitly verified that repo-search or script-execution tools do not leak into this route
+- Updated `docs/testing.md`
+  - recorded interpreter-level self-iteration asset-first route coverage as an explicit regression expectation
+
+### Why This Matters
+This closes the same class of gap that previously existed on the script-first side:
+- helper tests alone do not prove the real interpreter branch wiring still respects the route contract
+- self-iteration requests are supposed to converge through runtime asset navigation, not fall back into broad repository search or shell execution
+- keeping the turn budget small is part of that contract, because the branch is meant to stay asset-first and converge quickly once the right runtime surface is selected
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_runtime_asset_intent_parsing.py`
+  - Result: `34 passed`
+
+### Remaining Boundary
+This regression covers the default interpreter path, but it does not yet assert prompt/execution tool alignment when `hot_tool_manager` is active for self-iteration sessions. If hot-tool exposure becomes a source of drift, that should get a dedicated narrow regression rather than being inferred from the default registry path.
+
 ## 2026-05-01: Lock script-first fallback tool exposure with focused gateway regression
 
 ### Summary
