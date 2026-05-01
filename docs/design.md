@@ -16,6 +16,7 @@ The system's fundamental identity is a **stateful operating system for apps**, n
 - **Functional Modules = Persistable Apps**: Every functional capability in the system is an app. Apps are installable, persistable, and governable units. Skills are reusable capabilities that apps depend on.
 
 - the old model-visible `list_assets / query_asset_info / query_asset_detail` surface is now being actively removed from default hot-tool exposure; transitional compatibility handlers may still exist internally, but they should no longer be treated as part of the preferred model-facing contract
+- current cleanup status: the `LightBrainInterpreter`, `LightBrainGateway`, self-iteration fast path, and default gateway tool registry have all been reduced to `call_asset_method` as the only preferred runtime-asset invocation surface; remaining legacy end-to-end tests should be treated as transitional until they are replaced by lighter new-chain coverage
 - legacy `LightBrainGateway` interaction tests should not force old confirmation-surface behavior for create-app flows unless the reply is explicitly emitted as a confirmation response; transitional text/error replies remain acceptable while the old gateway is being retired
 
 

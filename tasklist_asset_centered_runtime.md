@@ -258,6 +258,16 @@
 ### 7.4 主入口重构
 - [ ] 重写 `tool_calling_interpreter.py` 为兼容壳或直接退役
 - [x] 将旧 gateway 资产知识迁出
+
+### 7.5 旧工具面移除
+- [x] 移除模型可见 `list_assets/query_asset_info/query_asset_detail`
+- [x] 清理旧 asset-first prompt 暴露与 route patch 逻辑
+- [x] 清理旧 hot-tool bounded route 的兼容残留
+- [x] 清理 `LightBrainInterpreter/LightBrainGateway` 对 `list_assets/query_asset_info` 的主路由依赖
+- [x] `LightBrainInterpreter` 不再主动产出 `query_asset_detail`
+- [x] `LightBrainGateway` 不再注册/路由 `query_asset_detail` 兼容 handler
+- [x] self-iteration fast path 不再为 legacy detail query 产出专用 intent
+- [ ] 将剩余旧 runtime-asset gateway 慢速 e2e 用新主链轻量验证替换
 - [x] 不再继续扩写旧 bounded-route prompt patch
 
 ### 7.5 旧工具面移除
