@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 class LightBrainGateway:
     """Unified entry point: message → intent → execution → reply."""
 
-    RUNTIME_ASSET_TOOL_INTENTS = {"list_assets", "query_asset_info", "call_asset_method", "query_asset_detail"}
+    RUNTIME_ASSET_TOOL_INTENTS = {"call_asset_method", "query_asset_detail"}
 
     def __init__(
         self,
@@ -140,8 +140,6 @@ class LightBrainGateway:
             "show_permissions": self._handle_permission,
             "list_users": self._handle_permission,
             "show_self": self._handle_permission,
-            "list_assets": self._handle_runtime_asset_tool,
-            "query_asset_info": self._handle_runtime_asset_tool,
             "call_asset_method": self._handle_runtime_asset_tool,
             "query_asset_detail": self._handle_query_asset_detail,
         }

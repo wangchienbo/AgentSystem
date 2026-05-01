@@ -1,4 +1,4 @@
-"""Phase 8.1: LightBrain Gateway — basic conversation loop tests."""
+"""Phase 8.1: LightBrain Gateway - basic conversation loop tests."""
 
 from __future__ import annotations
 
@@ -720,7 +720,7 @@ class TestLightBrainGateway:
 
 class MockLLMResponder:
     """Mock LLM responder that returns predefined parse results."""
-    
+
     def __init__(self, available=True, parse_result=None):
         self.available = available
         self._parse_result = parse_result or {
@@ -732,11 +732,11 @@ class MockLLMResponder:
             "clarification_question": None,
         }
         self._call_count = 0
-    
+
     def parse_intent(self, message, available_apps=None):
         self._call_count += 1
         return self._parse_result, None
-    
+
     def generate_reply(self, system_context, user_message, **kwargs):
         self._call_count += 1
         return "我是通过 LLM 生成的回复。", None
@@ -744,24 +744,24 @@ class MockLLMResponder:
 
 class TestLLMFallback:
     """Test that LLM fallback is used when rule-based parser is unclear."""
-    
+
     def test_llm_fallback_when_unclear(self):
         """When rule-based returns unclear, LLM should be consulted."""
         from app.services.light_brain_interpreter import LightBrainInterpreter
         interpreter = LightBrainInterpreter()
         mock_llm = MockLLMResponder()
         interpreter.set_llm_responder(mock_llm)
-        
+
         # Clear cache
         interpreter.clear_llm_cache()
-        
+
         # Rule-based can't parse this gibberish, so LLM fallback kicks in
         result = interpreter.interpret("asdkjh234")
-        
+
         # LLM should have been called and returned our mock result
         assert result.intent == "create_app"  # From mock
         assert mock_llm._call_count == 1  # LLM was called once
-    
+
     def test_llm_cache_prevents_duplicate_calls(self):
         """Same message should only trigger one LLM call."""
         from app.services.light_brain_interpreter import LightBrainInterpreter
@@ -769,34 +769,37 @@ class TestLLMFallback:
         mock_llm = MockLLMResponder()
         interpreter.set_llm_responder(mock_llm)
         interpreter.clear_llm_cache()
-        
+
         # First call - might trigger LLM
         interpreter.interpret("asdkjh234")
         first_count = mock_llm._call_count
-        
+
         # Second identical call - should use cache
         interpreter.interpret("asdkjh234")
         assert mock_llm._call_count == first_count, "Cache should prevent duplicate LLM calls"
-    
+
     def test_llm_responder_available_flag(self):
         """LLM responder should report availability correctly."""
         available = MockLLMResponder(available=True)
         assert available.available is True
-        
+
         unavailable = MockLLMResponder(available=False)
         assert unavailable.available is False
-    
+
     def test_llm_intent_validation(self):
         """LLM should return valid intent values."""
         from app.services.light_brain_interpreter import LightBrainInterpreter
         interpreter = LightBrainInterpreter()
-        
+
         # All valid intents
         assert "create_app" in interpreter.VALID_INTENTS
         assert "start_app" in interpreter.VALID_INTENTS
         assert "greet" in interpreter.VALID_INTENTS
         assert "unclear" in interpreter.VALID_INTENTS
-        assert len(interpreter.VALID_INTENTS) >= 27
+        assert "call_asset_method" in interpreter.VALID_INTENTS
+        assert "query_asset_detail" in interpreter.VALID_INTENTS
+        assert "list_assets" not in interpreter.VALID_INTENTS
+        assert "query_asset_info" not in interpreter.VALID_INTENTS
 
 
 # ===========================================================================
@@ -890,7 +893,7 @@ class TestPersistenceService:
         assert path.name == "agent_state.json"
 
     def test_restore_roundtrip(self):
-        """Save state, then restore into fresh services — all data should match."""
+        """Save state, then restore into fresh services - all data should match."""
         lifecycle, runtime_host, registry, catalog, memory = self._build_services()
 
         # Save
@@ -1056,7 +1059,7 @@ class TestPersistenceService:
             persistence_service=persistence,
         )
 
-        # Process a message — should trigger auto-save
+        # Process a message - should trigger auto-save
         import asyncio
         request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
         asyncio.run(gateway.process_message(request))

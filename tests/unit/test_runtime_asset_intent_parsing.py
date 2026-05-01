@@ -46,11 +46,10 @@ def read_text_from_llm_responder_prompt_source() -> str:
     return Path("app/system/gateway/llm_responder.py").read_text(encoding="utf-8")
 
 
-def test_llm_responder_prompt_includes_asset_first_decision_guidance() -> None:
-    content = read_text_from_llm_responder_prompt_source()
-    assert "先参考上面的可见资产概览，根据资产描述选择最合适的候选资产" in content
-    assert "不要把词面直接硬映射成某个资产ID" in content
-    assert "优先返回 requires_clarification=true" in content
+def test_light_brain_runtime_asset_intent_set_no_longer_requires_legacy_list_or_info_surface() -> None:
+    content = Path("app/system/gateway/light_brain_interpreter.py").read_text(encoding="utf-8")
+    assert '"call_asset_method", "query_asset_detail"' in content
+    assert '"list_assets", "query_asset_info", "call_asset_method", "query_asset_detail"' not in content
 
 
 def test_self_iteration_branch_guidance_prefers_runtime_asset_first() -> None:
@@ -97,9 +96,7 @@ def test_self_iteration_route_narrows_to_asset_tools() -> None:
     narrowed = narrow_tools_for_self_iteration_route(defs)
     narrowed_names = {tool.name for tool in narrowed}
 
-    assert "call_asset_method" in narrowed_names
-    assert "ask_clarification" in narrowed_names
-    assert "unclear" in narrowed_names
+    assert narrowed_names == {"call_asset_method", "ask_clarification", "unclear"}
     assert "search_files" not in narrowed_names
     assert "read_file" not in narrowed_names
 

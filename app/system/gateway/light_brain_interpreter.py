@@ -81,8 +81,6 @@ class LightBrainInterpreter:
         ("list_users", re.compile(r"(列出|查看|显示|查询)\s*(所有|全部)?\s*(用户|成员|账号)"), "List users"),
         ("list_users", re.compile(r"(list|show|get)\s*(all\s*)?(user|member)"), "List users (EN)"),
         ("show_self", re.compile(r"(我[^的]*什么|我的|查看我的)\s*(权限|角色|级别|身份)"), "Show own permissions"),
-        ("list_assets", re.compile(r"(有哪些|有什么|列出|看看).*(资产|服务|能力|runtime|运行态)", re.IGNORECASE), "List runtime assets"),
-        ("query_asset_info", re.compile(r"(查看|查询|看看).*(资产|服务).*(详情|信息|能力)", re.IGNORECASE), "Query runtime asset info"),
         ("call_asset_method", re.compile(r"(调用|执行|运行).*(资产|服务).*(方法|能力)", re.IGNORECASE), "Call runtime asset method"),
         ("call_asset_method", re.compile(r"调用\s*资产[^\n]*方法\s*$", re.IGNORECASE), "Call runtime asset method missing method name"),
         ("call_asset_method", re.compile(r"调用\s*资产[^\n]*的方法\s*[a-zA-Z_][a-zA-Z0-9_]*", re.IGNORECASE), "Call runtime asset method missing asset id or partial call"),
@@ -103,7 +101,7 @@ class LightBrainInterpreter:
         "query_status", "query_help", "unclear",
         "modify_interactive_app", "self_modify", "query_user", "register_user",
         "grant_admin", "grant_root", "revoke_role", "show_permissions", "list_users", "show_self",
-        "list_assets", "query_asset_info", "call_asset_method", "query_asset_detail",
+        "call_asset_method", "query_asset_detail",
     }
 
     # LLM intent parsing result cache: key -> InterpretedCommand
@@ -302,14 +300,10 @@ class LightBrainInterpreter:
         if not asset_tools:
             return None
 
-        if self._looks_like_asset_info_request(lowered) and "query_asset_info" in asset_tools:
-            return "query_asset_info", 0.84, "tool-aware asset info"
         if self._looks_like_asset_detail_request(lowered) and "query_asset_detail" in asset_tools:
             return "query_asset_detail", 0.8, "tool-aware asset detail"
         if self._looks_like_asset_call_request(lowered) and "call_asset_method" in asset_tools:
             return "call_asset_method", 0.82, "tool-aware asset call"
-        if self._looks_like_asset_list_request(lowered) and "list_assets" in asset_tools:
-            return "list_assets", 0.88, "tool-aware asset discovery"
         return None
 
     def _looks_like_asset_list_request(self, lowered: str) -> bool:
@@ -434,7 +428,7 @@ class LightBrainInterpreter:
             if asset_match:
                 params["asset_id"] = asset_match.group(0).replace("：", ":")
 
-        elif intent in ("query_asset_info", "query_asset_detail"):
+        elif intent in ("query_asset_detail",):
             asset_match = re.search(r"asset[:：][^\s，,。]+", message, re.IGNORECASE)
             if asset_match:
                 params["asset_id"] = asset_match.group(0).replace("：", ":")
@@ -527,7 +521,7 @@ class LightBrainInterpreter:
         if intent in ("start_app", "stop_app", "pause_app", "resume_app", "delete_app", "modify_app") and not target_app:
             return True, "你想操作哪个 App？请告诉我 App 的名称。"
 
-        if intent in ("query_asset_info", "query_asset_detail") and not parameters.get("asset_id"):
+        if intent in ("query_asset_detail",) and not parameters.get("asset_id"):
             return True, "你想查看哪个运行态资产？请给我 asset_id，例如 asset:runtime_center:v1。"
 
         if intent == "call_asset_method":
@@ -673,7 +667,7 @@ class LightBrainInterpreter:
             intent = "call_asset_method"
         elif intent == "unclear" and (parameters.get("asset_id") or parameters.get("method")) and looks_like_asset_call:
             intent = "call_asset_method"
-        elif looks_like_asset_call and intent not in ("call_asset_method", "query_asset_info", "query_asset_detail"):
+        elif looks_like_asset_call and intent not in ("call_asset_method", "query_asset_detail"):
             # Override other intents to call_asset_method if message clearly indicates asset call
             intent = "call_asset_method"
         requires_clarification, clarification_question = self._needs_clarification(

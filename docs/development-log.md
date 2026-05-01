@@ -1,4 +1,41 @@
-## 2026-05-01: Restore LightBrain interpreter signature compatibility for gateway session-aware calls
+## 2026-05-01: Remove legacy list/info runtime-asset intents from LightBrain main routing
+
+### Summary
+Continued Phase 7.5 by shrinking the old `LightBrain` compatibility shell itself. The main interpreter/gateway route no longer treats `list_assets` and `query_asset_info` as first-class runtime-asset intents. `call_asset_method` remains the primary runtime-asset interaction intent, while `query_asset_detail` is temporarily retained as a narrower compatibility helper.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_interpreter.py`
+  - removed fuzzy intent patterns for:
+    - `list_assets`
+    - `query_asset_info`
+  - removed those two intents from `VALID_INTENTS`
+  - removed tool-aware routing to those two intents
+  - kept:
+    - `call_asset_method`
+    - `query_asset_detail`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - reduced `RUNTIME_ASSET_TOOL_INTENTS` to:
+    - `call_asset_method`
+    - `query_asset_detail`
+  - removed main handler registration for:
+    - `list_assets`
+    - `query_asset_info`
+- Updated tests
+  - aligned runtime-asset intent parsing assertions with the thinner compatibility surface
+  - removed old intent-count coupling in `test_light_brain.py`
+
+### Why This Matters
+This is a deeper cut than hot-tool exposure cleanup alone:
+- the old compatibility shell itself now stops advertising list/info runtime-asset operations as default semantic intents
+- runtime-asset interaction is further concentrated around `call_asset_method`
+- `query_asset_detail` remains only as a transitional helper rather than a broad asset-query contract
+
+### Validation
+- focused LightBrain + runtime-asset parsing + tool-calling + hot-tool tests passed after the route shrink
+
+### Remaining Boundary
+`query_asset_detail` still exists as a transitional helper in the legacy gateway. A later slice can remove it from the main route as well once bounded interaction-runtime detail loading fully replaces that compatibility path.
+
 
 ### Summary
 While checking old gateway/runtime regression surfaces, a real compatibility regression surfaced in the legacy `LightBrainGateway` path: the gateway now passes `session_id` into `LightBrainInterpreter.interpret(...)`, but the interpreter signature no longer accepted that kwarg. This was breaking a broad set of legacy gateway tests unrelated to the hot-tool exposure cleanup itself. The fix is intentionally minimal: restore signature compatibility without changing the current interpretation behavior.
