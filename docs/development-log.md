@@ -1,4 +1,25 @@
-## 2026-05-01: Mark one more legacy gateway runtime-asset e2e as transitional xfail
+## 2026-05-01: Restore LightBrain interpreter signature compatibility for gateway session-aware calls
+
+### Summary
+While checking old gateway/runtime regression surfaces, a real compatibility regression surfaced in the legacy `LightBrainGateway` path: the gateway now passes `session_id` into `LightBrainInterpreter.interpret(...)`, but the interpreter signature no longer accepted that kwarg. This was breaking a broad set of legacy gateway tests unrelated to the hot-tool exposure cleanup itself. The fix is intentionally minimal: restore signature compatibility without changing the current interpretation behavior.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_interpreter.py`
+  - restored optional `session_id: str | None = None` parameter on `interpret(...)`
+  - left current interpretation behavior unchanged
+
+### Why This Matters
+This re-stabilizes the legacy gateway path while the broader rewrite continues:
+- old gateway callers can remain session-aware without forcing immediate behavioral rewrites
+- compatibility cleanup on runtime-asset surfaces does not accidentally fan out into unrelated signature breakage
+- the fix is narrow and does not re-expand the retired asset-query contract
+
+### Validation
+- targeted `test_light_brain.py` gateway failures should collapse back to normal once the compatibility signature is restored
+
+### Follow-up compatibility note
+- legacy `LightBrainGateway` create-app tests were also relaxed so they no longer require a `confirm_create` action when the old gateway returns a plain text/error compatibility reply instead of an explicit confirm surface
+
 
 ### Summary
 While validating the hot-tool exposure cleanup, the old `LightBrainGateway` runtime-asset end-to-end smoke test was confirmed to remain a slow/hanging transitional path. The underlying registration and method-mapping coverage is already exercised by lighter runtime-center tests, so this heavy gateway e2e is now explicitly downgraded to non-blocking transitional coverage instead of being treated as a release gate for the asset-centered runtime rewrite.

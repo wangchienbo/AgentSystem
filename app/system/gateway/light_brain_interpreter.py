@@ -161,6 +161,7 @@ class LightBrainInterpreter:
         message: str,
         available_apps: list[dict[str, Any]] | None = None,
         user_id: str = "system",
+        session_id: str | None = None,
     ) -> InterpretedCommand:
         """Parse a user message into a structured command.
 

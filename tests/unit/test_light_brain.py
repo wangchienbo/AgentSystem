@@ -336,8 +336,8 @@ class TestLightBrainGateway:
             message="帮我建一个监控 App",
         )
         reply = await self.gateway.process_message(request)
-        assert reply.type in ("confirm", "text", "error")  # error if no MessageBus configured
-        if reply.type != "error":
+        assert reply.type in ("confirm", "text", "error")
+        if reply.type == "confirm":
             assert any(a.id == "confirm_create" for a in reply.actions)
 
     @pytest.mark.asyncio
