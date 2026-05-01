@@ -61,8 +61,8 @@
 ## 2. Phase 1 - 定义系统底座
 
 ### 2.1 配置与 schema
-- [ ] 定义 `config/system_bootstrap.yaml` 最小 schema
-- [ ] 定义 `model_pool.yaml` 最小 schema
+- [x] 定义 `config/system_bootstrap.yaml` 最小 schema
+- [x] 定义 `model_pool.yaml` 最小 schema（以 `config/model_pool.local.example.yaml` 示例形式落库）
 - [ ] 定义 asset descriptor v1 schema
 - [ ] 定义 model requirement v1 schema
 - [ ] 定义 interaction decision envelope v1 schema
@@ -73,7 +73,7 @@
 - [ ] 为 descriptor version / additive extension 规则留出章节
 
 ### 2.3 验收点
-- [ ] bootstrap config 足以定位 asset center 与 model config path
+- [x] bootstrap config 足以定位 asset center 与 model config path
 - [ ] descriptor 字段最小集明确，不依赖 chat 记忆补解释
 - [ ] decision envelope 三分支语义无歧义
 
@@ -82,29 +82,29 @@
 ## 3. Phase 2 - 建立资产中心
 
 ### 3.1 新增模块
-- [ ] 新增 `app/system/asset_center/models.py`
-- [ ] 新增 `app/system/asset_center/registry.py`
-- [ ] 新增 `app/system/asset_center/service.py`
-- [ ] 新增 `app/system/asset_center/bootstrap.py`
+- [x] 新增 `app/system/asset_center/models.py`
+- [x] 新增 `app/system/asset_center/registry.py`
+- [x] 新增 `app/system/asset_center/service.py`
+- [x] 新增 `app/system/asset_center/bootstrap.py`
 
 ### 3.2 数据结构
-- [ ] 定义 `AssetDescriptorRecord`
-- [ ] 定义 `AssetMethodSpec`
-- [ ] 定义 `AssetModelRequirement`
-- [ ] 定义 registry 存储结构
-- [ ] 定义 descriptor version 字段与最低必填校验
+- [x] 定义 `AssetDescriptorRecord`
+- [x] 定义 `AssetMethodSpec`
+- [x] 定义 `AssetModelRequirement`
+- [x] 定义 registry 存储结构
+- [x] 定义 descriptor version 字段与最低必填校验
 
 ### 3.3 最小能力
-- [ ] 实现 `register_asset()`
-- [ ] 实现 `list_assets()`
-- [ ] 实现 `get_asset_detail(asset_id)`
-- [ ] 实现 `get_asset_model_requirement(asset_id)`
+- [x] 实现 `register_asset()`
+- [x] 实现 `list_assets()`
+- [x] 实现 `get_asset_detail(asset_id)`
+- [x] 实现 `get_asset_model_requirement(asset_id)`
 - [ ] 为后续模型资源注册预留 `list_models()` 接口或视图
 
 ### 3.4 边界控制
-- [ ] 明确禁止 asset center 直接执行业务方法
-- [ ] 明确禁止把模型 client 初始化逻辑塞进 asset center
-- [ ] 明确禁止把交互 prompt 组装逻辑塞进 asset center
+- [x] 明确禁止 asset center 直接执行业务方法
+- [x] 明确禁止把模型 client 初始化逻辑塞进 asset center
+- [x] 明确禁止把交互 prompt 组装逻辑塞进 asset center
 
 ### 3.5 局部恢复与注册一致性
 - [ ] 设计 descriptor 替换规则
@@ -113,17 +113,17 @@
 - [ ] 设计 startup epoch / instance 标识是否需要进入 v1
 
 ### 3.6 验收点
-- [ ] 可启动独立 asset center
-- [ ] descriptor 可注册和查询
+- [x] 可启动独立 asset center
+- [x] descriptor 可注册和查询
 - [ ] 重复注册行为可预测
-- [ ] asset center 仍保持轻中心边界
+- [x] asset center 仍保持轻中心边界
 
 ---
 
 ## 4. Phase 3 - 建立模型资源层
 
 ### 4.1 新增模块
-- [ ] 新增 `app/system/model_runtime/model_pool_loader.py`
+- [x] 新增 `app/system/model_runtime/model_pool_loader.py`
 - [ ] 新增 `app/system/model_runtime/model_client_registry.py`
 - [ ] 新增 `app/system/model_runtime/model_probe.py`
 - [ ] 新增 `app/system/model_runtime/model_selector.py`

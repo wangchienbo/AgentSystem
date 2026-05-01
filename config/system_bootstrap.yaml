@@ -1,0 +1,20 @@
+version: 1
+
+asset_center:
+  asset_id: "asset:asset_center:v1"
+  bootstrap_module: "app.system.asset_center.bootstrap"
+
+model_runtime:
+  config_path: "/root/.config/agentsystem/model_pool.yaml"
+
+startup:
+  order:
+    - asset_center
+    - model_runtime
+    - system_assets
+    - interaction_runtime
+    - external_entrypoints
+
+  required_assets:
+    - asset:asset_center:v1
+    - asset:self_iteration_center:v1

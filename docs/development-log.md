@@ -1,3 +1,46 @@
+## 2026-05-01: Land the runtime rewrite foundation slice (bootstrap config + runtime asset center skeleton)
+
+### Summary
+Started real implementation work from `tasklist_asset_centered_runtime.md` instead of continuing at the planning layer. This first code slice establishes the new rewrite foundation with minimal bootstrap configuration loaders, model-pool config validation, and a new runtime-oriented asset-center skeleton that is explicitly separate from the existing static catalog asset center.
+
+### What Was Done
+- Added bootstrap/model-pool config artifacts
+  - `config/system_bootstrap.yaml`
+  - `config/model_pool.local.example.yaml`
+- Added runtime asset-center foundation modules
+  - `app/system/asset_center/models.py`
+  - `app/system/asset_center/registry.py`
+  - `app/system/asset_center/service.py`
+  - `app/system/asset_center/bootstrap.py`
+  - `app/system/asset_center/__init__.py`
+- Added Phase 1/3 foundation loaders
+  - `app/system/startup/system_bootstrap_loader.py`
+  - `app/system/model_runtime/model_pool_loader.py`
+  - `app/system/model_runtime/__init__.py`
+- Added focused tests
+  - `tests/unit/test_runtime_asset_center_registry.py`
+  - `tests/unit/test_asset_centered_runtime_foundation.py`
+- Updated `tasklist_asset_centered_runtime.md`
+  - marked completed foundation items for bootstrap config, runtime asset-center skeleton, descriptor primitives, and first model-pool loader step
+
+### Why This Matters
+This is the first real break from the old gateway-patch path into the new runtime rewrite path:
+- the new runtime asset center now has its own descriptor model and registry API
+- the new bootstrap config and model-pool config are formalized in code, not only in design docs
+- the rewrite now has executable tests anchoring the new foundation before wider migration work begins
+
+It also keeps boundaries clear:
+- this runtime asset center is not the old static source/build/install `catalog.AssetCenter`
+- bootstrap and model-pool loading stay outside the old gateway flow
+- no attempt was made to drag old business execution into the new asset center
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_center_registry.py tests/unit/test_asset_centered_runtime_foundation.py tests/unit/test_model_config.py tests/unit/test_bootstrap_smoke.py`
+  - Result: `13 passed`
+
+### Remaining Boundary
+This slice does not yet add model client registry, model probing, model selection, startup orchestration, or self-iteration assetization. The next concrete module boundary should continue with Phase 3 model-runtime components and then Phase 5 startup orchestration.
+
 ## 2026-05-01: Expand the master runtime-rewrite tasklist into a single-file execution plan
 
 ### Summary
