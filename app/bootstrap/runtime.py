@@ -993,6 +993,41 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             "service": "runtime_center",
             "registered_assets": len(runtime_center.list_assets()),
         },
+        ready_check=lambda detail: (
+            all(
+                runtime_center.query_asset_info(asset_id) is not None
+                for asset_id in (
+                    "asset:runtime_center:v1",
+                    "asset:config_center:v1",
+                    "asset:self_iteration_center:v1",
+                )
+            ),
+            {
+                "required_assets": [
+                    "asset:runtime_center:v1",
+                    "asset:config_center:v1",
+                    "asset:self_iteration_center:v1",
+                ],
+                "reason": "missing required system asset"
+                if not all(
+                    runtime_center.query_asset_info(asset_id) is not None
+                    for asset_id in (
+                        "asset:runtime_center:v1",
+                        "asset:config_center:v1",
+                        "asset:self_iteration_center:v1",
+                    )
+                )
+                else "ok",
+                "fully_ready": all(
+                    runtime_center.query_asset_info(asset_id) is not None
+                    for asset_id in (
+                        "asset:runtime_center:v1",
+                        "asset:config_center:v1",
+                        "asset:self_iteration_center:v1",
+                    )
+                ),
+            },
+        ),
     ))
 
     # Initialize HotToolManager and register discoverable tool metadata
@@ -1096,6 +1131,13 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             "service": "light_brain_gateway",
             "gateway_asset_registered": runtime_center.query_asset_info("asset:light_brain_gateway:v1") is not None,
         },
+        ready_check=lambda detail: (
+            detail.get("gateway_asset_registered") is True,
+            {
+                "reason": "light_brain_gateway asset missing" if detail.get("gateway_asset_registered") is not True else "ok",
+                "fully_ready": detail.get("gateway_asset_registered") is True,
+            },
+        ),
     ))
 
     # -- Phase I: Register system services as MessageBus Workers ----------------

@@ -44,3 +44,21 @@ def test_startup_orchestrator_fails_fast_on_required_stage_error() -> None:
     assert results[-1].name == "model_runtime"
     assert results[-1].status == "failed"
     assert results[-1].detail["error_type"] == "ValueError"
+
+
+def test_startup_orchestrator_fails_fast_when_ready_check_fails() -> None:
+    orchestrator = StartupOrchestrator()
+    orchestrator.add_stage(
+        StartupStage(
+            name="system_assets",
+            action=lambda: {"registered_assets": 1},
+            ready_check=lambda detail: (False, {"reason": "missing required asset: asset:runtime_center:v1"}),
+        )
+    )
+
+    with pytest.raises(StartupOrchestratorError):
+        orchestrator.execute()
+
+    results = orchestrator.results()
+    assert results[-1].name == "system_assets"
+    assert results[-1].status == "failed"

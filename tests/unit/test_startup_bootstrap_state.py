@@ -24,3 +24,7 @@ def test_build_runtime_exposes_startup_state_with_ordered_stages() -> None:
         "entrypoints",
     ]
     assert all(item["status"] == "ready" for item in startup_state["results"])
+
+    by_name = {item["name"]: item for item in startup_state["results"]}
+    assert by_name["system_assets"]["detail"]["fully_ready"] is True
+    assert by_name["interaction_runtime"]["detail"]["fully_ready"] is True

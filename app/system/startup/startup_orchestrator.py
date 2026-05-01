@@ -14,6 +14,7 @@ class StartupStage:
     action: Callable[[], Any]
     required: bool = True
     depends_on: tuple[str, ...] = ()
+    ready_check: Callable[[dict[str, Any]], tuple[bool, dict[str, Any]]] | None = None
 
 
 @dataclass
@@ -44,6 +45,13 @@ class StartupOrchestrator:
             try:
                 value = stage.action()
                 detail = value if isinstance(value, dict) else {"value": value}
+                if stage.ready_check is not None:
+                    ok, ready_detail = stage.ready_check(detail)
+                    detail = {**detail, **ready_detail}
+                    if not ok:
+                        raise StartupOrchestratorError(
+                            f"Stage {stage.name} not ready: {ready_detail.get('reason', 'ready_check_failed')}"
+                        )
                 self._results.append(
                     StartupStageResult(name=stage.name, status="ready", detail=detail)
                 )

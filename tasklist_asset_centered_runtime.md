@@ -204,11 +204,11 @@
 ### 6.2 固化顺序
 - [x] 固化启动顺序: env -> asset_center -> model_runtime -> system_assets -> interaction_runtime -> entrypoints
 - [x] 明确 asset center ready 之后才允许 model runtime 注册
-- [ ] 明确模型资源 ready 之后才允许系统资产宣告 fully ready
+- [x] 明确模型资源 ready 之后才允许系统资产宣告 fully ready
 - [x] 明确 interaction runtime 只能在 required assets ready 后启动
 
 ### 6.3 启动控制
-- [ ] 实现 required asset 检查
+- [x] 实现 required asset 检查
 - [x] 实现 fail-fast 启动失败路径
 - [x] 实现阶段日志输出
 - [x] 实现最小 readiness barrier
@@ -220,7 +220,7 @@
 
 ### 6.5 验收点
 - [x] 冷启动顺序可重复复现
-- [ ] required asset 缺失时系统能明确失败
+- [x] required asset 缺失时系统能明确失败
 - [ ] 局部重启至少有最小恢复路径定义
 
 ---
