@@ -728,11 +728,19 @@ PY"""
             available_apps=available_apps,
             available_assets=None,
         )
-        script_tools = narrow_tools_for_script_route(self._build_tool_defs() + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
+        if self._hot_tool_manager and session_id:
+            hot_tools = self._hot_tool_manager.get_tools_for_session(session_id)
+            base_tool_defs = self._build_tool_defs_from_hot(hot_tools)
+        else:
+            base_tool_defs = self._build_tool_defs()
+        script_tools = narrow_tools_for_script_route(base_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
+        tools_desc = format_tools_for_prompt(script_tools)
         system_prompt = (
             SCRIPT_FIRST_EXECUTION_PROMPT
             + "\n\n## 当前会话状态\n"
             + session_ctx
+            + "\n\n## 可用工具\n"
+            + tools_desc
             + "\n\n## 当前任务\n"
             + message
         )
@@ -863,19 +871,38 @@ PY"""
     ) -> list[ToolDef]:
         """Build ToolDef objects from hot tools list (Phase E.2)."""
         tool_defs = []
+        def _normalize_hot_schema(raw: Any) -> dict[str, Any]:
+            if isinstance(raw, dict):
+                if raw.get("type") == "object":
+                    return {
+                        "type": "object",
+                        "properties": raw.get("properties", {}) or {},
+                        "required": raw.get("required", []) or [],
+                    }
+                if "properties" in raw:
+                    return {
+                        "type": "object",
+                        "properties": raw.get("properties", {}) or {},
+                        "required": raw.get("required", []) or [],
+                    }
+            return {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            }
+
         for tool in hot_tools:
             # Skip special tools (ask_clarification, unclear) - added separately
             if tool.get("name") in ("ask_clarification", "unclear"):
                 continue
+            params = tool.get("parameters", {})
             schema = {
                 "type": "object",
                 "properties": {},
                 "required": [],
             }
-            params = tool.get("parameters", {})
-            if isinstance(params, dict) and "properties" in params:
-                # Already structured
-                schema = params
+            if isinstance(params, dict):
+                schema = _normalize_hot_schema(params)
             elif isinstance(params, list):
                 # Legacy list format
                 for p in params:

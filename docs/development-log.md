@@ -1,3 +1,37 @@
+## 2026-05-01: Align hot-tool prompt and execution surfaces on bounded gateway routes
+
+### Summary
+After locking the default-registry route boundaries, the next audit targeted hot-tool sessions. That exposed two real drift bugs in the gateway:
+1. hot-tool schemas with object-style empty parameter definitions were being dropped by `_build_tool_defs_from_hot(...)`, causing narrowed execution sets to collapse incorrectly
+2. the dedicated `script-first` route did not actually honor hot-tool mode end to end, because it still built execution tools from the full registry and did not render an explicit tool list in its route-local prompt
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - hardened `_build_tool_defs_from_hot(...)` so object-style hot-tool schemas like `{type: object, properties: {}, required: []}` are preserved instead of silently degrading
+  - updated `_run_script_first_route(...)` to prefer hot-tool session tools when `hot_tool_manager` is active, matching the main interpreter path instead of falling back to the full registry
+  - added explicit `## 可用工具` rendering inside the script-first route prompt so the model-facing prompt surface matches the actually executable narrowed tool set
+- Expanded `tests/unit/test_tool_calling_interpreter.py`
+  - added hot-tool regressions for script-first fallback and self-iteration asset-first routing
+  - asserted bounded execution tool surfaces under hot-tool mode
+  - asserted prompt-level visible tool lists stay aligned with those bounded execution sets instead of silently drifting
+- Updated `docs/testing.md`
+  - recorded hot-tool prompt/execution alignment as an explicit interpreter/gateway regression expectation
+
+### Why This Matters
+This closes a subtle but important contract gap:
+- bounded route design is not only about executor allowlists
+- the model must also see the same bounded tool surface the executor will actually honor
+- otherwise hot-tool sessions can reintroduce route drift even when the default registry path is already hardened
+
+In practice, this slice fixed both a silent hot-schema ingestion bug and a real script-first branch inconsistency that only appears when hot-tool mode is enabled.
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_runtime_asset_intent_parsing.py tests/unit/test_chat_regression.py`
+  - Result: `53 passed`
+
+### Remaining Boundary
+This slice locks route-local prompt/execution alignment for the tested bounded branches, but it does not yet assert logger-side exposure summaries or other future specialized branches beyond script-first and self-iteration. If additional route families are introduced, they should inherit the same narrow prompt/executor alignment discipline explicitly.
+
 ## 2026-05-01: Lock self-iteration asset-first route exposure at interpreter level
 
 ### Summary

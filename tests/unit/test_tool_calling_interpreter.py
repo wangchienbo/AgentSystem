@@ -199,34 +199,72 @@ def test_script_like_request_exposes_only_script_first_tools_after_prestep_fallb
 
 
 
-def test_self_iteration_like_request_uses_limited_turn_budget_and_asset_route_tools() -> None:
+
+
+def test_script_like_request_keeps_prompt_and_exec_tools_aligned_under_hot_tool_mode() -> None:
     interpreter, execute_turns = _build_interpreter()
-    registry = ToolRegistry()
-    registry._tools = {}
-    registry.register(ToolDefinition(name="call_asset_method", description="", parameters=[]))
-    registry.register(ToolDefinition(name="query_asset_detail", description="", parameters=[]))
-    registry.register(ToolDefinition(name="query_asset_info", description="", parameters=[]))
-    registry.register(ToolDefinition(name="search_files", description="", parameters=[]))
-    registry.register(ToolDefinition(name="exec_shell", description="", parameters=[]))
-    interpreter._registry = registry
+    hot_tool_manager = MagicMock()
+    hot_tool_manager.get_tools_for_session.return_value = [
+        {"name": "exec_shell", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+        {"name": "read_file", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+        {"name": "write_file", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+        {"name": "edit_file", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+        {"name": "search_files", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+        {"name": "query_asset_detail", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+    ]
+    interpreter._hot_tool_manager = hot_tool_manager
+    execute_turns.return_value = ToolCallingResult(final_text="脚本已执行并完成汇总", tool_calls=[])
+
+    with patch("app.system.gateway.tool_calling_interpreter.exec_shell", return_value={"success": False}):
+        interpreter.interpret(
+            message="请遍历 app 目录并批量提取 persistence 定义，再汇总结果",
+            user_id="u1",
+            session_id="sess-hot-script-tools",
+            available_apps=[],
+        )
+
+    kwargs = execute_turns.call_args.kwargs
+    exec_tool_names = [tool.name for tool in kwargs["tools"]]
+    system_prompt = kwargs["system_prompt"]
+    assert kwargs["skill_id"] == "gateway_script_first_route"
+    assert exec_tool_names == ["exec_shell", "read_file", "write_file", "edit_file", "ask_clarification", "unclear"]
+    assert "  • search_files:" not in system_prompt
+    assert "  • query_asset_detail:" not in system_prompt
+    for tool_name in exec_tool_names:
+        assert f"  • {tool_name}:" in system_prompt
+
+
+
+def test_self_iteration_like_request_keeps_prompt_and_exec_tools_aligned_under_hot_tool_mode() -> None:
+    interpreter, execute_turns = _build_interpreter()
+    hot_tool_manager = MagicMock()
+    hot_tool_manager.get_tools_for_session.return_value = [
+        {"name": "call_asset_method", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+        {"name": "query_asset_detail", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+        {"name": "query_asset_info", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+        {"name": "search_files", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+        {"name": "exec_shell", "description": "", "parameters": {"type": "object", "properties": {}, "required": []}},
+    ]
+    interpreter._hot_tool_manager = hot_tool_manager
     execute_turns.return_value = ToolCallingResult(final_text="已返回治理概览", tool_calls=[])
 
-    command = interpreter.interpret(
+    interpreter.interpret(
         message="最近系统自我迭代情况怎么样，当前有哪些治理风险",
         user_id="u1",
-        session_id="sess-self-iteration-tools",
+        session_id="sess-hot-self-iteration-tools",
         available_apps=[],
     )
 
     kwargs = execute_turns.call_args.kwargs
-    tool_names = [tool.name for tool in kwargs["tools"]]
-    assert is_self_iteration_like_request("最近系统自我迭代情况怎么样，当前有哪些治理风险") is True
+    exec_tool_names = [tool.name for tool in kwargs["tools"]]
+    system_prompt = kwargs["system_prompt"]
     assert kwargs["skill_id"] == "gateway_intent_parser"
     assert kwargs["max_turns"] == 4
-    assert tool_names == ["call_asset_method", "query_asset_detail", "query_asset_info", "ask_clarification", "unclear"]
-    assert command.intent == "direct_response"
-
-
+    assert exec_tool_names == ["call_asset_method", "query_asset_detail", "query_asset_info", "ask_clarification", "unclear"]
+    assert "  • search_files:" not in system_prompt
+    assert "  • exec_shell:" not in system_prompt
+    for tool_name in exec_tool_names:
+        assert f"  • {tool_name}:" in system_prompt
 def test_explicit_file_path_introspection_uses_fast_read_path() -> None:
     interpreter, execute_turns = _build_interpreter()
     execute_turns.return_value = ToolCallingResult(
