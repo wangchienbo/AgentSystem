@@ -199,19 +199,19 @@
 ## 6. Phase 5 - 建立启动编排器
 
 ### 6.1 新增模块
-- [ ] 新增 `app/system/startup/startup_orchestrator.py`
+- [x] 新增 `app/system/startup/startup_orchestrator.py`
 
 ### 6.2 固化顺序
-- [ ] 固化启动顺序: env -> asset_center -> model_runtime -> system_assets -> interaction_runtime -> entrypoints
-- [ ] 明确 asset center ready 之后才允许 model runtime 注册
+- [x] 固化启动顺序: env -> asset_center -> model_runtime -> system_assets -> interaction_runtime -> entrypoints
+- [x] 明确 asset center ready 之后才允许 model runtime 注册
 - [ ] 明确模型资源 ready 之后才允许系统资产宣告 fully ready
-- [ ] 明确 interaction runtime 只能在 required assets ready 后启动
+- [x] 明确 interaction runtime 只能在 required assets ready 后启动
 
 ### 6.3 启动控制
 - [ ] 实现 required asset 检查
-- [ ] 实现 fail-fast 启动失败路径
-- [ ] 实现阶段日志输出
-- [ ] 实现最小 readiness barrier
+- [x] 实现 fail-fast 启动失败路径
+- [x] 实现阶段日志输出
+- [x] 实现最小 readiness barrier
 
 ### 6.4 局部恢复
 - [ ] 设计 model runtime 局部重启后的再注册
@@ -219,7 +219,7 @@
 - [ ] 设计 interaction runtime 是否需要感知 descriptor 更新
 
 ### 6.5 验收点
-- [ ] 冷启动顺序可重复复现
+- [x] 冷启动顺序可重复复现
 - [ ] required asset 缺失时系统能明确失败
 - [ ] 局部重启至少有最小恢复路径定义
 

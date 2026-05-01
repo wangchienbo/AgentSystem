@@ -88,6 +88,7 @@ from app.system.assets.config_center_asset import ConfigCenterAsset
 from app.system.assets.registration_protocol import AssetRegistrationProtocol
 from app.system.assets.self_iteration_center_asset import SelfIterationCenterAsset
 from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
+from app.system.startup.startup_orchestrator import StartupOrchestrator, StartupStage
 from app.services.hot_tool_manager import HotToolManager, FIXED_TOOLS
 from app.tools.internal_tools import AGENTSYSTEM_INTERNAL_TOOL_HANDLERS
 
@@ -524,7 +525,23 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     runtime_center = RuntimeCenter(data_file=os.path.join(_project_root, "data", "runtime_center.json"))
     self_iteration_asset_service = SelfIterationAssetService(refinement_memory)
     self_iteration_asset_protocol = AssetRegistrationProtocol()
+    startup_orchestrator = StartupOrchestrator()
     asset_center.discover()
+    startup_orchestrator.add_stage(StartupStage(
+        name="asset_center",
+        action=lambda: {
+            "service": "asset_center",
+            "registered_assets": len(asset_center.list_assets()),
+        },
+    ))
+    startup_orchestrator.add_stage(StartupStage(
+        name="model_runtime",
+        depends_on=("asset_center",),
+        action=lambda: {
+            "service": "model_router",
+            "default_model": getattr(getattr(model_router, "_default_model", None), "model_name", None),
+        },
+    ))
 
     def _register_core_runtime_assets() -> None:
         core_assets = [
@@ -969,6 +986,14 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     external_model_review = ExternalModelReviewService(model_router=model_router)
     # Register core runtime assets after core services exist
     _register_core_runtime_assets()
+    startup_orchestrator.add_stage(StartupStage(
+        name="system_assets",
+        depends_on=("model_runtime",),
+        action=lambda: {
+            "service": "runtime_center",
+            "registered_assets": len(runtime_center.list_assets()),
+        },
+    ))
 
     # Initialize HotToolManager and register discoverable tool metadata
     hot_tool_manager = HotToolManager()
@@ -1064,6 +1089,14 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             "call_asset_method": lambda asset_id, method, params=None: asset_tool_executor.execute("call_asset_method", {"asset_id": asset_id, "method": method, "params": params or {}}, "system").data,
         },
     )
+    startup_orchestrator.add_stage(StartupStage(
+        name="interaction_runtime",
+        depends_on=("system_assets",),
+        action=lambda: {
+            "service": "light_brain_gateway",
+            "gateway_asset_registered": runtime_center.query_asset_info("asset:light_brain_gateway:v1") is not None,
+        },
+    ))
 
     # -- Phase I: Register system services as MessageBus Workers ----------------
     from app.services.system_lifecycle_worker import SystemLifecycleWorker
@@ -1148,4 +1181,22 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         # Best-effort: don't crash on restore failure
         logging.getLogger(__name__).warning("State restore failed, starting fresh: %s", e)
 
-    return locals()
+    startup_orchestrator.add_stage(StartupStage(
+        name="entrypoints",
+        depends_on=("interaction_runtime",),
+        action=lambda: {
+            "service": "http_entrypoints",
+            "restore_state": "ready",
+        },
+    ))
+    startup_results = startup_orchestrator.execute()
+
+    services = locals()
+    services["startup_state"] = {
+        "ready_stages": sorted(startup_orchestrator.ready_stages()),
+        "results": [
+            {"name": item.name, "status": item.status, "detail": item.detail}
+            for item in startup_results
+        ],
+    }
+    return services
