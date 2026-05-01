@@ -891,21 +891,6 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         ))
 
     # Register asset tool handlers with ToolCallingEngine
-    def _query_asset_detail_handler(asset_id: str) -> dict:
-        """Handler for query_asset_detail tool."""
-        result = asset_tool_executor.execute("query_asset_detail", {"asset_id": asset_id}, "system")
-        return {"success": result.success, "data": result.data, "error": result.error}
-
-    def _list_assets_handler(filter: str | None = None) -> dict:
-        """Handler for list_assets tool."""
-        result = asset_tool_executor.execute("list_assets", {"filter": filter or ""}, "system")
-        return {"success": result.success, "data": result.data, "error": result.error}
-
-    def _query_asset_info_handler(asset_id: str) -> dict:
-        """Handler for query_asset_info tool."""
-        result = asset_tool_executor.execute("query_asset_info", {"asset_id": asset_id}, "system")
-        return {"success": result.success, "data": result.data, "error": result.error}
-
     def _call_asset_method_handler(asset_id: str, method: str, params: dict | None = None) -> dict:
         """Handler for call_asset_method tool."""
         result = asset_tool_executor.execute(
@@ -915,9 +900,6 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         )
         return {"success": result.success, "data": result.data, "error": result.error}
 
-    tool_calling_engine.register_tool("query_asset_detail", _query_asset_detail_handler)
-    tool_calling_engine.register_tool("list_assets", _list_assets_handler)
-    tool_calling_engine.register_tool("query_asset_info", _query_asset_info_handler)
     tool_calling_engine.register_tool("call_asset_method", _call_asset_method_handler)
 
     # Register package management tools (source/ installed/ separation)

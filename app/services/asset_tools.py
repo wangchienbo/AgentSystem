@@ -103,10 +103,7 @@ def make_call_asset_method_tool() -> AssetToolDefinition:
 
 def make_all_asset_tools() -> list[AssetToolDefinition]:
     return [
-        make_list_assets_tool(),
-        make_query_asset_info_tool(),
         make_call_asset_method_tool(),
-        make_query_asset_detail_tool(),
     ]
 
 
