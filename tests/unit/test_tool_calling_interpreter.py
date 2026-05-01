@@ -8,6 +8,7 @@ from app.models.chat import InterpretedCommand
 from app.services.light_brain_memory import LightBrainMemory
 from app.services.tool_registry import ToolRegistry
 from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord, ToolDef
+from app.system.master.tool_registry import ToolDefinition
 from app.services.model_router import ModelRouter
 from app.system.gateway.scan_profiles import SCAN_PROFILES, derive_scan_profile
 from app.system.gateway.tool_calling_interpreter import (
@@ -151,6 +152,34 @@ def test_script_like_request_uses_dedicated_script_first_route() -> None:
     assert kwargs["skill_id"] == "gateway_script_first_route"
     assert kwargs["max_turns"] == 4
     assert command.intent == "direct_response"
+
+
+
+def test_script_like_request_exposes_only_script_first_tools_after_prestep_fallback() -> None:
+    interpreter, execute_turns = _build_interpreter()
+    registry = ToolRegistry()
+    registry._tools = {}
+    registry.register(ToolDefinition(name="exec_shell", description="", parameters=[]))
+    registry.register(ToolDefinition(name="read_file", description="", parameters=[]))
+    registry.register(ToolDefinition(name="write_file", description="", parameters=[]))
+    registry.register(ToolDefinition(name="edit_file", description="", parameters=[]))
+    registry.register(ToolDefinition(name="search_files", description="", parameters=[]))
+    registry.register(ToolDefinition(name="query_asset_detail", description="", parameters=[]))
+    interpreter._registry = registry
+    execute_turns.return_value = ToolCallingResult(final_text="脚本已执行并完成汇总", tool_calls=[])
+
+    with patch("app.system.gateway.tool_calling_interpreter.exec_shell", return_value={"success": False}):
+        interpreter.interpret(
+            message="请遍历 app 目录并批量提取 persistence 定义，再汇总结果",
+            user_id="u1",
+            session_id="sess-script-tools",
+            available_apps=[],
+        )
+
+    kwargs = execute_turns.call_args.kwargs
+    tool_names = [tool.name for tool in kwargs["tools"]]
+    assert kwargs["skill_id"] == "gateway_script_first_route"
+    assert tool_names == ["exec_shell", "read_file", "write_file", "edit_file", "ask_clarification", "unclear"]
 
 
 def test_explicit_file_path_introspection_uses_fast_read_path() -> None:

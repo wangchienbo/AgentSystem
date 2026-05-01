@@ -1,3 +1,35 @@
+## 2026-05-01: Lock script-first fallback tool exposure with focused gateway regression
+
+### Summary
+After restoring the missing `narrow_tools_for_script_route(...)` helper, the next risk was not syntax but regression drift: the script-first branch could quietly start exposing broad search or asset-navigation tools again during future gateway edits, even though the route is supposed to stay tightly bounded once deterministic prestep falls back into the dedicated script-first LLM path.
+
+### What Was Done
+- Updated `tests/unit/test_tool_calling_interpreter.py`
+  - added a focused regression test proving that, after deterministic prestep fallback, a script-like request enters `gateway_script_first_route`
+  - asserted the exposed tool list is strictly narrowed to:
+    - `exec_shell`
+    - `read_file`
+    - `write_file`
+    - `edit_file`
+    - `ask_clarification`
+    - `unclear`
+  - explicitly verified that unrelated tools such as generic search or asset-detail navigation do not leak into this branch
+- Updated `docs/testing.md`
+  - recorded script-first fallback tool-exposure coverage as an explicit interpreter/gateway regression expectation
+
+### Why This Matters
+This closes the real behavioral gap behind the helper restore:
+- the previous fix restored the missing function so the branch no longer crashes with `NameError`
+- this slice now locks the intended branch contract so later refactors cannot silently widen the tool surface again
+- bounded tool exposure is important here because script-first is meant to converge by executing one auditable local script path, not by falling back into broad multi-tool exploration
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py tests/unit/test_runtime_asset_intent_parsing.py tests/unit/test_chat_regression.py`
+  - Result: `50 passed`
+
+### Remaining Boundary
+This regression covers tool exposure after deterministic prestep fallback, but it does not yet assert prompt text details for the script-first branch under hot-tool mode. If prompt/execution tool lists later diverge again in hot-tool sessions, a dedicated hot-tool script-first regression may be worth adding.
+
 ## 2026-05-01: Restore script-first tool narrowing helper in gateway interpreter
 
 ### Summary
