@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from app.system.asset_center.models import AssetDescriptorRecord
+from app.system.model_runtime.model_client_registry import ModelRuntimeRecord
 
 
 class AssetDescriptorValidationError(ValueError):
@@ -12,14 +13,22 @@ class AssetDescriptorValidationError(ValueError):
 class AssetCenterRegistry:
     def __init__(self) -> None:
         self._descriptors: dict[str, AssetDescriptorRecord] = {}
+        self._models: dict[str, ModelRuntimeRecord] = {}
 
     def register_asset(self, descriptor: AssetDescriptorRecord) -> AssetDescriptorRecord:
         self._validate_descriptor(descriptor)
         self._descriptors[descriptor.asset_id] = replace(descriptor)
         return self._descriptors[descriptor.asset_id]
 
+    def register_model(self, record: ModelRuntimeRecord) -> ModelRuntimeRecord:
+        self._models[record.model_id] = replace(record)
+        return self._models[record.model_id]
+
     def list_assets(self) -> list[AssetDescriptorRecord]:
         return list(self._descriptors.values())
+
+    def list_models(self) -> list[ModelRuntimeRecord]:
+        return list(self._models.values())
 
     def get_asset_detail(self, asset_id: str) -> str:
         descriptor = self.require_asset(asset_id)

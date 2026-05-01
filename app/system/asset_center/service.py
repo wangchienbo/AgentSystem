@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.system.asset_center.models import AssetDescriptorRecord, AssetModelRequirement
 from app.system.asset_center.registry import AssetCenterRegistry
+from app.system.model_runtime.model_client_registry import ModelRuntimeRecord
 
 
 class AssetCenterService:
@@ -15,6 +16,9 @@ class AssetCenterService:
     def register_asset(self, descriptor: AssetDescriptorRecord) -> AssetDescriptorRecord:
         return self._registry.register_asset(descriptor)
 
+    def register_model(self, record: ModelRuntimeRecord) -> ModelRuntimeRecord:
+        return self._registry.register_model(record)
+
     def list_assets(self) -> list[dict[str, object]]:
         return [
             {
@@ -24,6 +28,18 @@ class AssetCenterService:
                 "descriptor_version": descriptor.descriptor_version,
             }
             for descriptor in self._registry.list_assets()
+        ]
+
+    def list_models(self) -> list[dict[str, object]]:
+        return [
+            {
+                "model_id": record.model_id,
+                "provider": record.provider,
+                "healthy": record.healthy,
+                "role": record.role,
+                "wire_api": record.wire_api,
+            }
+            for record in self._registry.list_models()
         ]
 
     def get_asset_detail(self, asset_id: str) -> dict[str, object]:

@@ -1,88 +1,78 @@
 from __future__ import annotations
 
-from pathlib import Path
+from app.ai.model_client import ModelClientError
+from app.models.model_config import ModelConfig
+from app.system.asset_center.service import AssetCenterService
+from app.system.asset_center.models import InteractionDecisionEnvelope
+from app.system.model_runtime.model_client_registry import ModelClientRegistry
+from app.system.model_runtime.runtime_view import ModelRuntimeRegistrar
 
-import pytest
 
-from app.system.model_runtime.model_pool_loader import ModelPoolConfigError, ModelPoolLoader
-from app.system.startup.system_bootstrap_loader import SystemBootstrapConfigError, SystemBootstrapConfigLoader
+class _HealthyProbeClient:
+    def probe(self, prompt: str = "ping") -> dict:
+        return {"ok": True}
 
 
-def test_system_bootstrap_loader_reads_minimal_config(tmp_path: Path) -> None:
-    config_path = tmp_path / "system_bootstrap.yaml"
-    config_path.write_text(
-        """
-version: 1
-asset_center:
-  asset_id: asset:asset_center:v1
-  bootstrap_module: app.system.asset_center.bootstrap
-model_runtime:
-  config_path: /root/.config/agentsystem/model_pool.yaml
-startup:
-  order: [asset_center, model_runtime, system_assets, interaction_runtime, external_entrypoints]
-  required_assets: [asset:asset_center:v1, asset:self_iteration_center:v1]
-""".strip(),
-        encoding="utf-8",
+class _UnhealthyProbeClient:
+    def probe(self, prompt: str = "ping") -> dict:
+        raise ModelClientError("down")
+
+
+def test_asset_center_can_list_registered_models() -> None:
+    asset_center = AssetCenterService()
+    registry = ModelClientRegistry()
+    registrar = ModelRuntimeRegistrar(registry=registry, asset_center=asset_center)
+
+    config = ModelConfig(base_url="https://example.invalid/v1", model="gpt-5.4", api_key_env="OPENAI_API_KEY", wire_api="responses")
+    registrar.register_model(
+        model_id="gpt-5.4",
+        provider="OpenAICompatible",
+        config=config,
+        api_key="sk-test",
+        role="primary",
+        probe_client=_HealthyProbeClient(),
     )
 
-    payload = SystemBootstrapConfigLoader(config_path).load()
-
-    assert payload["asset_center"]["asset_id"] == "asset:asset_center:v1"
-    assert payload["startup"]["order"][0] == "asset_center"
-
-
-def test_system_bootstrap_loader_rejects_missing_sections(tmp_path: Path) -> None:
-    config_path = tmp_path / "system_bootstrap.yaml"
-    config_path.write_text("version: 1\n", encoding="utf-8")
-
-    with pytest.raises(SystemBootstrapConfigError):
-        SystemBootstrapConfigLoader(config_path).load()
+    models = asset_center.list_models()
+    assert models == [
+        {
+            "model_id": "gpt-5.4",
+            "provider": "OpenAICompatible",
+            "healthy": True,
+            "role": "primary",
+            "wire_api": "responses",
+        }
+    ]
 
 
-def test_model_pool_loader_reads_minimal_model_pool(tmp_path: Path) -> None:
-    config_path = tmp_path / "model_pool.yaml"
-    config_path.write_text(
-        """
-version: 1
-default_model: gpt-5.4
-fallback_model: gpt-4.1
-models:
-  - model_id: gpt-5.4
-    provider: OpenAICompatible
-    base_url: https://example.invalid/v1
-    api_key_env: OPENAI_API_KEY
-    enabled: true
-  - model_id: gpt-4.1
-    provider: OpenAICompatible
-    base_url: https://example.invalid/v1
-    api_key_env: OPENAI_API_KEY
-    enabled: true
-""".strip(),
-        encoding="utf-8",
+def test_model_runtime_view_separates_healthy_and_unhealthy_records() -> None:
+    registry = ModelClientRegistry()
+    registrar = ModelRuntimeRegistrar(registry=registry)
+
+    healthy_config = ModelConfig(base_url="https://example.invalid/v1", model="gpt-5.4", api_key_env="OPENAI_API_KEY", wire_api="responses")
+    unhealthy_config = ModelConfig(base_url="https://example.invalid/v1", model="gpt-4.1", api_key_env="OPENAI_API_KEY", wire_api="responses")
+
+    registrar.register_model(
+        model_id="gpt-5.4",
+        provider="OpenAICompatible",
+        config=healthy_config,
+        api_key="sk-test",
+        probe_client=_HealthyProbeClient(),
+    )
+    registrar.register_model(
+        model_id="gpt-4.1",
+        provider="OpenAICompatible",
+        config=unhealthy_config,
+        api_key="sk-test",
+        probe_client=_UnhealthyProbeClient(),
     )
 
-    payload = ModelPoolLoader(config_path).load()
+    view = registrar.runtime_view()
+    assert [record.model_id for record in view.healthy] == ["gpt-5.4"]
+    assert [record.model_id for record in view.unhealthy] == ["gpt-4.1"]
 
-    assert payload["default_model"] == "gpt-5.4"
-    assert len(payload["models"]) == 2
 
-
-def test_model_pool_loader_rejects_unknown_fallback(tmp_path: Path) -> None:
-    config_path = tmp_path / "model_pool.yaml"
-    config_path.write_text(
-        """
-version: 1
-default_model: gpt-5.4
-fallback_model: gpt-4.1
-models:
-  - model_id: gpt-5.4
-    provider: OpenAICompatible
-    base_url: https://example.invalid/v1
-    api_key_env: OPENAI_API_KEY
-    enabled: true
-""".strip(),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ModelPoolConfigError):
-        ModelPoolLoader(config_path).load()
+def test_interaction_decision_envelope_v1_validation() -> None:
+    InteractionDecisionEnvelope(decision="text", text="ok").validate()
+    InteractionDecisionEnvelope(decision="need_asset_detail_id", need_asset_detail_id="asset:self-iteration:v1").validate()
+    InteractionDecisionEnvelope(decision="invoke", invoke={"asset_id": "asset:self-iteration:v1", "method": "run", "params": {}}).validate()

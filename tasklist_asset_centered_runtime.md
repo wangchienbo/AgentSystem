@@ -63,19 +63,19 @@
 ### 2.1 配置与 schema
 - [x] 定义 `config/system_bootstrap.yaml` 最小 schema
 - [x] 定义 `model_pool.yaml` 最小 schema（以 `config/model_pool.local.example.yaml` 示例形式落库）
-- [ ] 定义 asset descriptor v1 schema
-- [ ] 定义 model requirement v1 schema
-- [ ] 定义 interaction decision envelope v1 schema
+- [x] 定义 asset descriptor v1 schema
+- [x] 定义 model requirement v1 schema
+- [x] 定义 interaction decision envelope v1 schema
 
 ### 2.2 文件与文档落点
-- [ ] 在 `docs/asset-centered-runtime-redesign.md` 中固定 schema 字段清单
-- [ ] 在总任务单中固定 required fields 与 optional fields
-- [ ] 为 descriptor version / additive extension 规则留出章节
+- [x] 在 `docs/asset-centered-runtime-redesign.md` 中固定 schema 字段清单
+- [x] 在总任务单中固定 required fields 与 optional fields
+- [x] 为 descriptor version / additive extension 规则留出章节
 
 ### 2.3 验收点
 - [x] bootstrap config 足以定位 asset center 与 model config path
-- [ ] descriptor 字段最小集明确，不依赖 chat 记忆补解释
-- [ ] decision envelope 三分支语义无歧义
+- [x] descriptor 字段最小集明确，不依赖 chat 记忆补解释
+- [x] decision envelope 三分支语义无歧义
 
 ---
 
@@ -99,7 +99,7 @@
 - [x] 实现 `list_assets()`
 - [x] 实现 `get_asset_detail(asset_id)`
 - [x] 实现 `get_asset_model_requirement(asset_id)`
-- [ ] 为后续模型资源注册预留 `list_models()` 接口或视图
+- [x] 为后续模型资源注册预留 `list_models()` 接口或视图
 
 ### 3.4 边界控制
 - [x] 明确禁止 asset center 直接执行业务方法
@@ -133,12 +133,12 @@
 - [x] 校验 default/fallback model 是否存在
 - [x] 初始化 provider/client 基础对象
 - [x] 对每个模型执行最小连通性探测（以独立 probe 组件和单测先落地）
-- [ ] 生成 healthy/unhealthy 运行时视图
+- [x] 生成 healthy/unhealthy 运行时视图
 
 ### 4.3 资产中心注册
-- [ ] 将可用模型注册为模型资源记录
-- [ ] 模型资源记录包含 model_id/provider/healthy/fallback role
-- [ ] 为 asset center 提供模型列表视图
+- [x] 将可用模型注册为模型资源记录
+- [x] 模型资源记录包含 model_id/provider/healthy/fallback role
+- [x] 为 asset center 提供模型列表视图
 
 ### 4.4 模型解析逻辑
 - [x] 实现 preferred model 命中逻辑
