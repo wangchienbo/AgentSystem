@@ -254,7 +254,7 @@ graph TD
 
 > Regression note: the chat regression surface is now a real operator loop, not just a harness. Changes in persistence shape, comparison aggregation, evidence promotion, or governance summary fields should be treated as coupled changes across `chat_regression.py`, `regression_evidence_bridge.py`, `regression_dashboard.py`, `http_test_server.py`, and HTTP regression tests.
 
-### 3.8 Asset-Centered Runtime Rewrite (in progress)
+### 3.8 Asset-Centered Runtime Rewrite (Phase P baseline landed)
 
 ```mermaid
 graph TD
@@ -276,6 +276,14 @@ graph TD
     IORCH --> INVD[app/system/invocation/invocation_dispatcher.py]
     INVD --> MRC[app/system/invocation/model_resolved_call.py]
     INVD --> MSEL
+    INVD --> RLAY[app/system/invocation/runtime_layer.py]
+    RLAY --> TAX[app/system/invocation/error_taxonomy.py]
+    RLAY --> TOPO[app/system/invocation/runtime_topology.py]
+    RLAY --> AUD[app/system/invocation/invocation_audit.py]
+    RLAY --> VHAR[app/system/invocation/validation_harness.py]
+    RLAY --> RREG[app/system/invocation/routing_registry.py]
+    RLAY --> RGOV[app/system/invocation/routing_governance_service.py]
+    RLAY --> CTX[app/services/context_center.py]
     ACS --> ACON[app/models/asset_contract.py]
     DESC --> ACON
     SIA --> ACS
@@ -283,11 +291,13 @@ graph TD
 ```
 
 **Current dependency intent**
-- `asset_center` is the only metadata truth entry for runtime-visible assets and model resources.
+- `asset_center` is the only metadata truth entry for runtime-visible assets, model resources, and persisted asset-session bindings.
 - `model_runtime` owns external model config loading, probing, health view, and preferred/fallback selection. It must not be folded back into asset metadata indexing.
 - `startup_orchestrator` owns the hard startup order: `asset_center -> model_runtime -> system_assets -> interaction_runtime -> entrypoints`.
 - `interaction_runtime` is the new bounded interaction chain. It should converge on `text / need_asset_detail_id / invoke` instead of expanding the old gateway patch surface.
-- `invocation_dispatcher` resolves model requirements before execution, but does not own asset discovery or user-facing response shaping.
+- `invocation_dispatcher` resolves model requirements before execution and now projects structured error taxonomy into envelope/runtime responses, but it does not own asset discovery or user-facing response shaping.
+- `runtime_layer` is the shared inbound governance seam for binding recovery/reuse, routing-governance linkage, and context-narrowed invocation handoff.
+- `runtime_topology`, `invocation_audit`, and `validation_harness` are read-side and verification-side adjuncts over the same invocation substrate, not separate execution paths.
 - old gateway bounded-route logic and model-visible `query_asset_* / list_assets` exposure should be treated as transitional shells until the new interaction runtime fully takes over.
 
 **Primary tests to rerun when editing this slice**
@@ -306,6 +316,18 @@ graph TD
 - `tests/unit/test_interaction_decision_protocol.py`
 - `tests/unit/test_interaction_runtime_integration.py`
 - `tests/unit/test_invocation_dispatcher.py`
+- `tests/unit/test_runtime_center_invocation_runtime_integration.py`
+- `tests/unit/test_invocation_envelope_and_session_binding.py`
+- `tests/unit/test_asset_invocation_runtime_layer.py`
+- `tests/unit/test_tool_context_contract_and_context_center.py`
+- `tests/unit/test_context_bundle_assembly_and_tool_runtime.py`
+- `tests/unit/test_routing_registry_and_governance.py`
+- `tests/unit/test_invocation_compliance_installer.py`
+- `tests/unit/test_standard_asset_protocol.py`
+- `tests/unit/test_skill_asset_service.py`
+- `tests/unit/test_runtime_topology_and_validation_harness.py`
+- `tests/unit/test_error_taxonomy_and_recovery.py`
+- `tests/unit/test_phase_p_remaining_regressions.py`
 - `tests/unit/test_skill_asset_api.py`
 - `tests/unit/test_tool_calling_interpreter.py` (legacy shell; retained for backward compat)
 - `tests/unit/services/test_hot_tool_manager.py` (asset tool discovery; converged to call_asset_method only)

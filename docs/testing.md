@@ -413,6 +413,13 @@ Covered behavior:
 - startup orchestrator: hardened startup order, required-asset checks, fail-fast
 - interaction runtime: three-branch protocol (text / need_asset_detail_id / invoke), context assembly from asset center, decision protocol error handling
 - invocation dispatcher: pre-invocation model requirement resolution, preferred/fallback via model selector, method/schema error paths
+- invocation envelope/session binding truth: persisted binding registration, deterministic reuse, restart recovery, and cache reload reuse
+- shared runtime layer: local-session resolution and envelope handoff into runtime-center with structured binding metadata
+- tool/vLLM context contract: context bundle query/assembly and narrowed runtime payload shape
+- routing governance: route registry lookups and governance-service decisions
+- runtime topology/audit/replay: topology snapshot, downstream edge visibility, and replay-oriented audit retrieval
+- error taxonomy propagation: dispatcher/runtime-center structured error mapping and retryability metadata
+- representative regression chains: deterministic, LLM-assisted, mixed multi-hop, and legacy caller compatibility
 - self-iteration as standard registered asset with descriptor v1
 - config_center as simple low-ambiguity pilot asset
 - hot-tool manager converged to `call_asset_method` only (legacy `list_assets/query_asset_info/query_asset_detail` removed)
@@ -457,10 +464,11 @@ Covered behavior:
 
 ## 5. Test Suite Status
 
-As of 2026-05-01:
-- Asset-centered runtime regression: **153 passed, 4 xfailed** (4 known xfailed are legacy deeper/worker mapping transitions)
-- Full focused slice (asset-centered + legacy compat): green at **153 passed**
-- New tests added this cycle: `test_asset_descriptor_schema.py` (13 tests), `test_model_selector.py` (12 tests)
+As of 2026-05-02:
+- Phase P focused invocation-runtime slice: **69 passed**
+- Latest broader local regression run: **full `pytest -q` in progress during documentation update; focused Phase P slices are green**
+- Historical asset-centered runtime regression baseline remains previously green at **153 passed, 4 xfailed** (4 known xfailed are legacy deeper/worker mapping transitions)
+- New tests added this cycle: `test_runtime_topology_and_validation_harness.py`, `test_error_taxonomy_and_recovery.py`, `test_phase_p_remaining_regressions.py`
 
 Key test groups for the new main chain:
 | Group | File | Focus |
@@ -480,6 +488,15 @@ Key test groups for the new main chain:
 | Interaction | `test_interaction_decision_protocol.py` | Decision protocol (text/detail/invoke) |
 | Runtime | `test_interaction_runtime_integration.py` | Interaction orchestrator integration |
 | Invocation | `test_invocation_dispatcher.py` | Pre-invocation model resolution |
+| Runtime layer | `test_asset_invocation_runtime_layer.py` | Binding recovery/reuse + local session resolution |
+| Envelope/binding | `test_invocation_envelope_and_session_binding.py` | Envelope/session binding contracts |
+| Runtime center | `test_runtime_center_invocation_runtime_integration.py` | Runtime-center envelope integration |
+| Context/tool runtime | `test_tool_context_contract_and_context_center.py` / `test_context_bundle_assembly_and_tool_runtime.py` | Context query + narrowed tool/vLLM payloads |
+| Routing governance | `test_routing_registry_and_governance.py` | Route registry + governance checks |
+| Compliance/install | `test_invocation_compliance_installer.py` / `test_standard_asset_protocol.py` / `test_skill_asset_service.py` | Manifest/scaffold/runtime metadata compliance |
+| Topology/audit | `test_runtime_topology_and_validation_harness.py` | Read model + deterministic harness |
+| Recovery/taxonomy | `test_error_taxonomy_and_recovery.py` | Structured error + multi-hop/recovery validation |
+| Regression closeout | `test_phase_p_remaining_regressions.py` | Cache reload, LLM-assisted, mixed multi-hop |
 | Skill asset | `test_skill_asset_api.py` | Skill asset API surface |
 | Hot tools | `services/test_hot_tool_manager.py` | Hot tool manager (converged to call_asset_method only) |
 | Legacy shell | `test_tool_calling_interpreter.py` | Old interpreter retained for backward compat |

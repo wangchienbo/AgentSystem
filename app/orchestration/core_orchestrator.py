@@ -18,6 +18,7 @@ from app.services.unified_tool_registry import UnifiedToolRegistry
 from app.services.contract_linter import ContractLinter
 from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
 from app.services.command_queue import CommandQueue
+from app.services.tool_call_executor import ToolCallExecutor
 from app.services.internal_model_router import InternalModelRouter
 from app.services.resource_budget_manager import ResourceBudgetManager, ResourceBudgetConfig
 

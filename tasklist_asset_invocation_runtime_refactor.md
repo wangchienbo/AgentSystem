@@ -225,8 +225,8 @@ This tasklist is the implementation driver for the full refactor. It is structur
 ---
 
 ## Cross-cutting documentation and delivery
-- [ ] Update `docs/design.md` after each completed phase boundary
-- [ ] Update `docs/system-relationship-map.md` after structural code changes
-- [ ] Add development log entry for each completed phase slice
-- [ ] Commit at stable phase boundaries
+- [x] Update `docs/design.md` after each completed phase boundary
+- [x] Update `docs/system-relationship-map.md` after structural code changes
+- [x] Add development log entry for each completed phase slice
+- [x] Commit at stable phase boundaries
 - [ ] Push at stable phase boundaries

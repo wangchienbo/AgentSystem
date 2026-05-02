@@ -34,7 +34,7 @@ The current design direction is:
 - apps can react to events and schedules
 - runtime behavior can be reviewed into experience
 - experience can be turned into candidate skills
-- governed cross-layer invocation should converge on a shared asset invocation runtime layer, unified session-aware invocation envelope, asset-center session-binding truth, and context-center content assembly as described by Phase P
+- governed cross-layer invocation now converges on a shared asset invocation runtime layer, unified session-aware invocation envelope, asset-center session-binding truth, context-center content assembly, routing governance registry/service, topology read model, audit/replay path, and recovery/error-taxonomy validation as implemented by Phase P
 
 ---
 
@@ -112,6 +112,22 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 ### 2.5.6 Governance evolution roadmap (next-stage design)
 The recently completed chat-regression governance loop, nightly automation control plane, and domain-aware refinement persistence establish a usable first-generation self-governance substrate.
 The next design task is not to blindly add more signals, but to evolve that substrate into a disciplined, layered governance pipeline that can absorb more reality while remaining auditable and structurally stable.
+
+### Phase P completion snapshot
+The Phase P asset invocation runtime and session-binding redesign is now functionally landed in the codebase.
+
+Implemented outcome:
+- unified `InvocationRequestEnvelope` / `InvocationResponseEnvelope` with session-aware propagation fields
+- persisted asset-session binding truth in AssetCenter with deterministic replacement/reuse behavior
+- shared `AssetInvocationRuntimeLayer` wired into runtime-center envelope execution
+- tool/vLLM context narrowing through context-center and tool-context contracts
+- routing-governance registry/service for endpoint and runtime invocation path decisions
+- generated/scaffolded asset compliance checks so Phase P metadata is present by default
+- runtime topology read model plus invocation audit/replay scaffolding
+- structured error taxonomy propagation and restart/cache-reload recovery validation
+- representative deterministic, LLM-assisted, and mixed multi-hop regression chains
+
+This closes the governed invocation baseline. Subsequent work can treat Phase P as the stable substrate rather than an in-progress redesign.
 
 The preferred next-stage roadmap is five phased layers.
 

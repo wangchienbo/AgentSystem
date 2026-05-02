@@ -26,6 +26,11 @@ from app.services.model_client import OpenAIResponsesClient, ModelClientError
 
 
 DEFAULT_CONFIG_PATH = Path("/root/.config/agentsystem/config.yaml")
+DEFAULT_PREFERENCE_ALIASES = {
+    "cheap": "gpt-4o-mini",
+    "balanced": "gpt-4.1",
+    "strong": "gpt-5.4",
+}
 
 
 @dataclass
@@ -215,9 +220,11 @@ class ModelRouter:
 
     def _resolve_by_preference(self, preference: str, source: str = "") -> ModelRoute:
         """Resolve a preference string (model name or cost tier alias) to a ModelRoute."""
-        # Direct model name match in pool
-        if preference in self._model_pool:
-            cfg = self._model_pool[preference]
+        resolved_preference = DEFAULT_PREFERENCE_ALIASES.get(preference, preference)
+
+        # Direct model name/alias match in pool.
+        if resolved_preference in self._model_pool:
+            cfg = self._model_pool[resolved_preference]
             return ModelRoute(
                 model_name=cfg["model"],
                 base_url=cfg["base_url"],
@@ -228,12 +235,25 @@ class ModelRouter:
                 source=source,
             )
 
+        # Match by declared model name in the pool.
+        for cfg in self._model_pool.values():
+            if cfg.get("model") == resolved_preference:
+                return ModelRoute(
+                    model_name=cfg["model"],
+                    base_url=cfg["base_url"],
+                    api_key_env=cfg["api_key_env"],
+                    temperature=cfg["temperature"],
+                    max_tokens=cfg["max_tokens"],
+                    timeout_seconds=cfg.get("timeout_seconds", 30.0),
+                    source=source,
+                )
+
         # Check if preference is a direct model name not in pool
         # (use first available base_url as fallback)
         if self._model_pool:
             first = next(iter(self._model_pool.values()))
             return ModelRoute(
-                model_name=preference,
+                model_name=resolved_preference,
                 base_url=first.get("base_url", "https://crs.ruinique.com/v1"),
                 api_key_env=first.get("api_key_env", "OPENAI_API_KEY"),
                 temperature=0.7,

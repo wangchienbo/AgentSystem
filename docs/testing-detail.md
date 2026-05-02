@@ -39,6 +39,37 @@
 ### 3.4 回归测试
 目标：验证版本升级、回滚、诊断、持久化兼容性。
 
+
+### 3.12.1 Phase P 调用运行时闭环
+目标：验证统一调用信封、session binding 真值层、运行时治理层、上下文收窄、错误分类与恢复链路已经闭环。
+
+覆盖文件：
+- `tests/unit/test_invocation_envelope_and_session_binding.py`
+- `tests/unit/test_asset_invocation_runtime_layer.py`
+- `tests/unit/test_runtime_center_invocation_runtime_integration.py`
+- `tests/unit/test_tool_context_contract_and_context_center.py`
+- `tests/unit/test_context_bundle_assembly_and_tool_runtime.py`
+- `tests/unit/test_routing_registry_and_governance.py`
+- `tests/unit/test_invocation_compliance_installer.py`
+- `tests/unit/test_standard_asset_protocol.py`
+- `tests/unit/test_skill_asset_service.py`
+- `tests/unit/test_runtime_topology_and_validation_harness.py`
+- `tests/unit/test_error_taxonomy_and_recovery.py`
+- `tests/unit/test_phase_p_remaining_regressions.py`
+
+覆盖要点：
+- asset session binding 的注册、唯一性、持久化重载、冷启动恢复
+- envelope 中 root / parent / upstream / local session 关系传递
+- runtime layer 对 local session 的解析与 envelope 注入
+- context center 与 tool-context contract 的查询/收窄行为
+- routing registry 与 governance service 的路径治理判定
+- topology / audit / replay 的读侧与验证侧基线
+- dispatcher/runtime-center 的结构化 error taxonomy
+- deterministic / LLM-assisted / mixed multi-hop representative chains
+
+结果：
+- Focused Phase P slice：69/69 通过
+
 ### 3.5 Iteration 10 ~ 12 v2 端到端回归
 目标：验证 Phase H 主路径在复杂创建、修改 refinement、execute_action 回流、权限审批、持久化一致性上的稳定性。
 
