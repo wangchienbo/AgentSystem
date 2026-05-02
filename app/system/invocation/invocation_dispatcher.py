@@ -9,6 +9,7 @@ from app.system.invocation.error_taxonomy import build_error_taxonomy
 from app.system.invocation.invocation_envelope import InvocationRequestEnvelope, InvocationResponseEnvelope
 from app.system.invocation.runtime_layer import AssetInvocationRuntimeLayer
 from app.system.invocation.model_resolved_call import ModelResolvedCall
+from app.system.invocation.model_invocation_store import ModelInvocationStore
 from app.system.model_runtime.model_selector import ModelSelectionError, ModelSelector
 
 
@@ -27,12 +28,14 @@ class InvocationDispatcher:
         model_selector: ModelSelector | None = None,
         descriptor_provider: Callable[[str], dict[str, Any] | None] | None = None,
         runtime_layer: AssetInvocationRuntimeLayer | None = None,
+        invocation_store: ModelInvocationStore | None = None,
     ) -> None:
         self._asset_center = asset_center
         self._runtime_center = runtime_center
         self._model_selector = model_selector or ModelSelector()
         self._descriptor_provider = descriptor_provider
         self._runtime_layer = runtime_layer
+        self._invocation_store = invocation_store
 
     def prepare_call(self, *, asset_id: str, method: str, params: dict[str, Any] | None = None) -> ModelResolvedCall:
         envelope = InvocationRequestEnvelope.from_legacy(asset_id=asset_id, method=method, params=params)
@@ -123,6 +126,7 @@ class InvocationDispatcher:
                 metadata={"execution": result},
             )
             response_payload = response.to_dict()
+        self._record_invocation(prepared, response_payload, result)
         return {
             "ok": response_payload["ok"],
             "resolved_call": prepared.to_dict(),
@@ -210,6 +214,27 @@ class InvocationDispatcher:
             ),
             metadata=detail.get("metadata") or {},
         )
+
+    def _record_invocation(self, prepared: ModelResolvedCall, response_payload: dict, result: dict) -> None:
+        if self._invocation_store is None:
+            return
+        from app.system.invocation.tool_context_contract import ModelInvocationRecord
+
+        session = prepared.session or {}
+        local_session_id = response_payload.get("resolved_local_session_id") or session.get("local_session_id", "")
+        if not local_session_id:
+            return
+        record = ModelInvocationRecord(
+            request_id=prepared.request_id,
+            asset_id=prepared.asset_id,
+            local_session_id=local_session_id,
+            model_id=(prepared.resolved_model.model_id if prepared.resolved_model else ""),
+            context_refs=[],
+            token_usage=result.get("token_usage") if isinstance(result, dict) else {},
+            output_summary=result.get("summary", "") if isinstance(result, dict) else "",
+            trace_metadata={"source": "dispatcher"},
+        )
+        self._invocation_store.record(record)
 
     def _validate_params(self, schema: dict[str, Any], params: dict[str, Any]) -> None:
         if schema.get("type") != "object":
