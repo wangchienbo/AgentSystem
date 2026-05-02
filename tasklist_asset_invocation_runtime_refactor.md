@@ -141,15 +141,15 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [x] Add tests for runtime lookup
 
 ### 4.3 Port allocator and endpoint conflict handling
-- [ ] Add port allocation model and service
-- [ ] Add endpoint uniqueness checks
-- [ ] Add conflict detection behavior
-- [ ] Add install-time allocation path
-- [ ] Add tests for port conflict cases
+- [x] Add port allocation model and service
+- [x] Add endpoint uniqueness checks
+- [x] Add conflict detection behavior
+- [x] Add install-time allocation path
+- [x] Add tests for port conflict cases
 
 ### 4.4 Invocation routing integration
-- [ ] Update invocation path to separate asset identity resolution from endpoint resolution
-- [ ] Add integration tests for name -> target id -> endpoint -> invoke flow
+- [x] Update invocation path to separate asset identity resolution from endpoint resolution
+- [x] Add integration tests for name -> target id -> endpoint -> invoke flow
 
 ---
 

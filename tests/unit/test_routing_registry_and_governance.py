@@ -6,11 +6,13 @@ from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKin
 from app.system.asset_center.models import AssetDescriptorRecord, AssetMethodSpec
 from app.system.asset_center.service import AssetCenterService
 from app.system.catalog.runtime_center import RuntimeCenter
+from app.system.invocation.invocation_dispatcher import InvocationDispatcher
 from app.system.invocation.routing_governance_service import RoutingGovernanceService
 from app.system.invocation.routing_registry import (
     AssetAliasRecord,
     AssetCapabilityTagRecord,
     AssetIdentityResolutionError,
+    EndpointConflictError,
     EndpointRegistryRecord,
     InvocationRoutingRegistry,
     RuntimeRegistryRecord,
@@ -73,7 +75,19 @@ def test_runtime_and_endpoint_registry_lookup() -> None:
     assert registry.get_endpoint("asset:config_center:v1").endpoint.endswith(":8001")
 
 
-def test_routing_governance_service_resolves_route(tmp_path) -> None:
+def test_port_allocation_and_endpoint_conflict_detection() -> None:
+    registry = InvocationRoutingRegistry()
+    first = registry.allocate_port("asset:config_center:v1", preferred_port=25001)
+    second = registry.allocate_port("asset:novel_app:v1", port_range=range(25001, 25005))
+    registry.register_endpoint(EndpointRegistryRecord(target_id="asset:config_center:v1", endpoint="http://127.0.0.1:25001"))
+
+    assert first.port == 25001
+    assert second.port != 25001
+    with pytest.raises(EndpointConflictError):
+        registry.register_endpoint(EndpointRegistryRecord(target_id="asset:novel_app:v1", endpoint="http://127.0.0.1:25001"))
+
+
+def test_routing_governance_service_resolves_route_and_dispatches(tmp_path) -> None:
     asset_center = AssetCenterService()
     _register_demo_assets(asset_center)
     runtime_center = RuntimeCenter(data_file=str(tmp_path / "runtime-center.json"))
@@ -92,17 +106,23 @@ def test_routing_governance_service_resolves_route(tmp_path) -> None:
             health_contract={"heartbeat": False},
             name="config_center",
             description="Config center",
-        )
+        ),
+        method_mappings={"get_config": lambda: {"ok": True}},
     )
 
-    service = RoutingGovernanceService(asset_center=asset_center, runtime_center=runtime_center)
+    dispatcher = InvocationDispatcher(asset_center=asset_center, runtime_center=runtime_center)
+    service = RoutingGovernanceService(asset_center=asset_center, runtime_center=runtime_center, dispatcher=dispatcher)
     service.register_alias("config", "asset:config_center:v1")
     service.register_runtime_target("asset:config_center:v1", "runtime-1", health="healthy")
-    service.register_endpoint_target("asset:config_center:v1", "http://127.0.0.1:8001", health="healthy")
+    service.allocate_port("asset:config_center:v1", preferred_port=26001)
+    service.register_endpoint_target("asset:config_center:v1", "http://127.0.0.1:26001", health="healthy")
 
     route = service.resolve_route("config")
+    dispatched = service.dispatch_via_route("config", method="get_config")
 
     assert route["target_id"] == "asset:config_center:v1"
     assert route["runtime"]["runtime_id"] == "runtime-1"
-    assert route["endpoint"]["endpoint"].endswith(":8001")
-    assert route["runtime_asset"]["asset_id"] == "asset:config_center:v1"
+    assert route["endpoint"]["endpoint"].endswith(":26001")
+    assert route["port"]["port"] == 26001
+    assert dispatched["dispatch"]["ok"] is True
+    assert dispatched["route"]["target_id"] == "asset:config_center:v1"

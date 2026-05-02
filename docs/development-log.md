@@ -1,3 +1,30 @@
+## 2026-05-02: Phase P Phase 4 port allocation and invocation routing integration
+
+### Summary
+Completed the remaining Phase 4 routing-governance baseline by adding port allocation, endpoint conflict detection, and route-aware invocation integration that resolves user-facing names before dispatch.
+
+### What Was Done
+- Extended `app/system/invocation/routing_registry.py`
+  - `PortAllocationRecord`
+  - port allocation tracking
+  - endpoint uniqueness enforcement
+  - conflict error handling
+- Extended `app/system/invocation/routing_governance_service.py`
+  - `allocate_port(...)`
+  - route payload now includes resolved port allocation
+  - `dispatch_via_route(...)` for name -> target id -> invoke flow
+- Expanded `tests/unit/test_routing_registry_and_governance.py`
+  - port allocation tests
+  - endpoint conflict tests
+  - integrated route-dispatch test
+
+### Validation
+- `pytest tests/unit/test_routing_registry_and_governance.py -q`
+
+### Notes
+Phase 4 is now complete at the baseline level. The next front is Phase 5 installer/manifest/registration enforcement.
+
+
 ## 2026-05-02: Phase P Phase 4 identity resolution and routing registry baseline
 
 ### Summary

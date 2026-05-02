@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 from app.system.asset_center.models import AssetDescriptorRecord
 
@@ -63,7 +64,27 @@ class EndpointRegistryRecord:
             raise ValueError("endpoint is required")
 
 
+@dataclass(frozen=True)
+class PortAllocationRecord:
+    target_id: str
+    port: int
+    host: str = "127.0.0.1"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        if not self.target_id.strip():
+            raise ValueError("target_id is required")
+        if self.port < 1 or self.port > 65535:
+            raise ValueError("port must be between 1 and 65535")
+        if not self.host.strip():
+            raise ValueError("host is required")
+
+
 class AssetIdentityResolutionError(ValueError):
+    pass
+
+
+class EndpointConflictError(ValueError):
     pass
 
 
@@ -73,6 +94,7 @@ class InvocationRoutingRegistry:
         self._capability_tags: list[AssetCapabilityTagRecord] = []
         self._runtime_registry: dict[str, RuntimeRegistryRecord] = {}
         self._endpoint_registry: dict[str, EndpointRegistryRecord] = {}
+        self._port_allocations: dict[str, PortAllocationRecord] = {}
 
     def register_alias(self, record: AssetAliasRecord) -> AssetAliasRecord:
         record.validate()
@@ -92,8 +114,40 @@ class InvocationRoutingRegistry:
 
     def register_endpoint(self, record: EndpointRegistryRecord) -> EndpointRegistryRecord:
         record.validate()
+        self.ensure_endpoint_available(record.target_id, record.endpoint)
         self._endpoint_registry[record.target_id] = record
+        parsed = urlparse(record.endpoint)
+        if parsed.port is not None:
+            self._port_allocations[record.target_id] = PortAllocationRecord(
+                target_id=record.target_id,
+                port=int(parsed.port),
+                host=parsed.hostname or "127.0.0.1",
+            )
         return record
+
+    def allocate_port(self, target_id: str, *, host: str = "127.0.0.1", preferred_port: int | None = None, port_range: range | None = None) -> PortAllocationRecord:
+        used = {item.port for item in self._port_allocations.values() if item.host == host}
+        candidates = [preferred_port] if preferred_port is not None else []
+        if port_range is not None:
+            candidates.extend(list(port_range))
+        if not candidates:
+            candidates.extend(range(20000, 21000))
+        for port in candidates:
+            if port is None or port in used:
+                continue
+            record = PortAllocationRecord(target_id=target_id, port=int(port), host=host)
+            record.validate()
+            self._port_allocations[target_id] = record
+            return record
+        raise EndpointConflictError(f"no available port for target_id={target_id}")
+
+    def get_port_allocation(self, target_id: str) -> PortAllocationRecord | None:
+        return self._port_allocations.get(target_id)
+
+    def ensure_endpoint_available(self, target_id: str, endpoint: str) -> None:
+        for existing_target, record in self._endpoint_registry.items():
+            if existing_target != target_id and record.endpoint == endpoint:
+                raise EndpointConflictError(f"endpoint already assigned: {endpoint}")
 
     def get_runtime(self, target_id: str) -> RuntimeRegistryRecord | None:
         return self._runtime_registry.get(target_id)
