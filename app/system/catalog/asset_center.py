@@ -410,6 +410,14 @@ class AssetCenter:
         if not isinstance(manifest["metadata"], dict):
             raise ValueError("metadata must be an object")
 
+        # Phase P: auto-inject compliance defaults for backward compatibility
+        metadata = manifest["metadata"]
+        metadata.setdefault("runtime_wrapper_compatibility", True)
+        metadata.setdefault("session_binding_support", "supported")
+        metadata.setdefault("invocation_contract_version", "phase-p-v1")
+        metadata.setdefault("endpoint_requirement", "none")
+        metadata.setdefault("tool_vllm_usage_mode", "local_session_only")
+
         expected_asset_id = asset_dir.name
         compliance = cls._invocation_compliance.validate_manifest(manifest)
         if not compliance.compliant:

@@ -92,7 +92,7 @@ class ContextBundleAssemblyService:
             local_session_id=request.local_session_id,
             summary=selected["summary"],
             recent=selected["recent"],
-            snapshot=selected["snapshot"][-1] if selected["snapshot"] else None,
+            snapshot=selected["snapshot"][0] if selected["snapshot"] else None,
             evidence_refs=selected["evidence_refs"],
             token_budget=token_budget,
             token_estimate=token_estimate,

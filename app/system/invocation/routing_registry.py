@@ -98,6 +98,11 @@ class InvocationRoutingRegistry:
 
     def register_alias(self, record: AssetAliasRecord) -> AssetAliasRecord:
         record.validate()
+        # Remove any existing alias for the same alias+asset_id before adding
+        self._aliases = [
+            item for item in self._aliases
+            if not (item.alias == record.alias and item.asset_id == record.asset_id)
+        ]
         self._aliases.append(record)
         self._aliases.sort(key=lambda item: item.priority)
         return record
@@ -146,8 +151,8 @@ class InvocationRoutingRegistry:
 
     def ensure_endpoint_available(self, target_id: str, endpoint: str) -> None:
         for existing_target, record in self._endpoint_registry.items():
-            if existing_target != target_id and record.endpoint == endpoint:
-                raise EndpointConflictError(f"endpoint already assigned: {endpoint}")
+            if record.endpoint == endpoint:
+                raise EndpointConflictError(f"endpoint already assigned to {existing_target}: {endpoint}")
 
     def get_runtime(self, target_id: str) -> RuntimeRegistryRecord | None:
         return self._runtime_registry.get(target_id)

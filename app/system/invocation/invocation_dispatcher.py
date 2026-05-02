@@ -157,16 +157,18 @@ class InvocationDispatcher:
             }
 
     def _require_descriptor(self, asset_id: str) -> AssetDescriptorRecord:
+        # Primary path: go through asset center service
+        if isinstance(self._asset_center, AssetCenterService):
+            try:
+                return self._asset_center.registry.require_asset(asset_id)
+            except KeyError:
+                pass
+        # Fallback: descriptor provider (for runtime-registered assets like self_iteration_center)
         if self._descriptor_provider is not None:
             detail = self._descriptor_provider(asset_id)
             if isinstance(detail, dict) and detail.get("methods"):
                 return self._descriptor_from_detail(detail)
-        if isinstance(self._asset_center, AssetCenterService):
-            return self._asset_center.registry.require_asset(asset_id)
-        if hasattr(self._asset_center, "get_asset_detail"):
-            detail = self._asset_center.get_asset_detail(asset_id)
-            if isinstance(detail, dict):
-                return self._descriptor_from_detail(detail)
+        # Last resort: raw registry access
         registry = getattr(self._asset_center, "_registry", None)
         if registry is not None and hasattr(registry, "require_asset"):
             return registry.require_asset(asset_id)

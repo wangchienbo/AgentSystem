@@ -75,6 +75,16 @@ class ContextCenter:
     def get_session_node(self, session_id: str) -> SessionNode | None:
         return self._nodes.get(session_id)
 
+    def list_sessions(self) -> list[SessionNode]:
+        return list(self._nodes.values())
+
+    def list_asset_local_sessions_for_session(self, session_id: str) -> list[dict[str, str]]:
+        return [
+            {"asset_id": asset_id, "local_session_id": local_session_id}
+            for (asset_id, local_session_id), resolved in self._asset_local_sessions.items()
+            if resolved == session_id
+        ]
+
     def append_context(self, record: SessionContextRecord) -> SessionContextRecord:
         self._records.setdefault(record.session_id, []).append(record)
         node = self._nodes.get(record.session_id)

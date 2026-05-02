@@ -45,20 +45,22 @@ class RuntimeTopologyReadModel:
         assets = [self._asset_center.get_asset_detail(item["asset_id"]) for item in self._asset_center.list_assets()]
         runtime_assets = [item.model_dump(mode="json") for item in self._runtime_center.list_all()]
         bindings = self._asset_center.list_session_bindings()
-        sessions = [
-            {
-                "session_id": session.session_id,
-                "kind": session.kind,
-                "status": session.status,
-                "summary": session.topic_key,
-                "local_session_refs": [
-                    {"asset_id": asset_id, "local_session_id": local_session_id}
-                    for (asset_id, local_session_id), resolved_session_id in self._context_center._asset_local_sessions.items()  # noqa: SLF001
-                    if resolved_session_id == session.session_id
-                ],
-            }
-            for session in self._context_center._nodes.values()  # noqa: SLF001
-        ]
+        sessions = []
+        try:
+            all_sessions = self._context_center.list_sessions()
+            for session in all_sessions:
+                local_refs = self._context_center.list_asset_local_sessions_for_session(getattr(session, "session_id", ""))
+                sessions.append(
+                    {
+                        "session_id": getattr(session, "session_id", ""),
+                        "kind": getattr(session, "kind", ""),
+                        "status": getattr(session, "status", ""),
+                        "summary": getattr(session, "topic_key", ""),
+                        "local_session_refs": local_refs,
+                    }
+                )
+        except AttributeError:
+            pass
         downstream_edges = []
         if self._routing_governance is not None:
             for asset in assets:

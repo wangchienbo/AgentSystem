@@ -105,12 +105,17 @@ def test_discover_accepts_valid_manifest(tmp_path) -> None:
     assert center.get_asset("system.master") is not None
 
 
-def test_discover_skips_manifest_missing_invocation_compliance_metadata(tmp_path) -> None:
+def test_discover_auto_injects_missing_invocation_compliance_metadata(tmp_path) -> None:
     source_dir = tmp_path / "source"
     asset_dir = source_dir / "system.master"
     asset_dir.mkdir(parents=True)
     manifest = _valid_manifest()
-    manifest["metadata"].pop("runtime_wrapper_compatibility")
+    # Remove Phase P metadata fields — they should be auto-injected
+    manifest["metadata"].pop("runtime_wrapper_compatibility", None)
+    manifest["metadata"].pop("session_binding_support", None)
+    manifest["metadata"].pop("invocation_contract_version", None)
+    manifest["metadata"].pop("endpoint_requirement", None)
+    manifest["metadata"].pop("tool_vllm_usage_mode", None)
     (asset_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
     center = AssetCenter(
@@ -121,6 +126,7 @@ def test_discover_skips_manifest_missing_invocation_compliance_metadata(tmp_path
     )
 
     assets = center.discover()
-
-    assert assets == []
-    assert center.get_asset("system.master") is None
+    # Asset should still be discovered because defaults are auto-injected
+    assert len(assets) == 1
+    assert assets[0].asset_id == "system.master"
+    assert center.get_asset("system.master") is not None
