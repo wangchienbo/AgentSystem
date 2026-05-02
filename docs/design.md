@@ -4,6 +4,8 @@
 
 Detailed companion reference: `docs/telemetry-and-upgrade-logging.md`.
 
+Detailed next-stage governed invocation reference: `docs/phase-p-asset-invocation-runtime-and-session-binding.md`.
+
 AgentSystem is designed as a **stateful, persistent App OS** rather than a single assistant runtime.
 Its core job is to manage apps as long-lived, isolated system objects — each app is a persistent functional module with its own data, context, and lifecycle — while allowing the system to learn from runtime practice and gradually improve its reusable capability layer.
 
@@ -32,6 +34,7 @@ The current design direction is:
 - apps can react to events and schedules
 - runtime behavior can be reviewed into experience
 - experience can be turned into candidate skills
+- governed cross-layer invocation should converge on a shared asset invocation runtime layer, unified session-aware invocation envelope, asset-center session-binding truth, and context-center content assembly as described by Phase P
 
 ---
 

@@ -21,6 +21,8 @@
 
 ## 2. 顶层能力关系图
 
+> Phase P note: the governed invocation redesign adds a shared inbound `AssetInvocationRuntimeLayer`, asset-center session-binding truth, context-center content assembly for tool/vllm, and runtime-registry/endpoint-governance responsibilities that cross-cut Interaction, RegistryInstall, LifecycleRuntime, WorkflowOps, and SkillsSystem.
+
 ```mermaid
 graph TD
     API[API Surface\napp/api/main.py] --> RuntimeBootstrap[Runtime Bootstrap\napp/bootstrap/runtime.py]
