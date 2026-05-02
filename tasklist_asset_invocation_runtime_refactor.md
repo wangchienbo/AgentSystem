@@ -105,16 +105,16 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [x] Add tests for each query surface
 
 ### 3.3 Context bundle assembly
-- [ ] Add budget-aware context assembly service or extend existing one
-- [ ] Add summary-first assembly strategy
-- [ ] Add snapshot inclusion rules
-- [ ] Add evidence-ref inclusion rules
-- [ ] Add token-budget tests
+- [x] Add budget-aware context assembly service or extend existing one
+- [x] Add summary-first assembly strategy
+- [x] Add snapshot inclusion rules
+- [x] Add evidence-ref inclusion rules
+- [x] Add token-budget tests
 
 ### 3.4 Tool / vLLM responsibility narrowing
-- [ ] Remove or isolate any binding-truth assumptions from tool/vllm path
-- [ ] Ensure tool/vllm only consumes resolved local session id
-- [ ] Add tests proving local-session-based assembly behavior
+- [x] Remove or isolate any binding-truth assumptions from tool/vllm path
+- [x] Ensure tool/vllm only consumes resolved local session id
+- [x] Add tests proving local-session-based assembly behavior
 
 ### 3.5 Model invocation recording
 - [x] Record context refs used by model invocation

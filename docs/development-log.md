@@ -1,3 +1,28 @@
+## 2026-05-02: Phase P Phase 3 context bundle assembly and tool-runtime narrowing
+
+### Summary
+Continued Phase 3 by adding a budget-aware context bundle assembly service and a tool/vLLM-side runtime facade that only accepts resolved local session identifiers, keeping session-binding truth out of the model-context path.
+
+### What Was Done
+- Added `app/system/invocation/context_bundle_assembly.py`
+  - `ContextBundle`
+  - `ContextBundleAssemblyService`
+  - budget-aware section selection
+  - summary-first vs recent-first assembly
+  - snapshot and evidence-ref inclusion rules
+- Added `app/system/invocation/tool_context_runtime.py`
+  - `ToolContextRuntime`
+  - local-session-only context assembly API
+  - model-result recording API
+- Added `tests/unit/test_context_bundle_assembly_and_tool_runtime.py`
+
+### Validation
+- `pytest tests/unit/test_context_bundle_assembly_and_tool_runtime.py -q`
+
+### Notes
+Phase 3 now has the core contract, query, assembly, and local-session narrowing baseline in place. The next major front is Phase 4 identity resolution and runtime/endpoint governance.
+
+
 ## 2026-05-02: Phase P Phase 3 tool-context contract and context query baseline
 
 ### Summary
