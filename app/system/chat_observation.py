@@ -7,7 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.models.governance_observation import GovernanceEvidenceDigest
-from app.system.regression_governance_observation import build_governance_evidence_digest
+from app.system.regression_governance_observation import build_governance_evidence_digest, classify_failure_stage, classify_signal
 
 
 CHAT_OBSERVATION_LOG_DIR = Path("/root/project/AgentSystem/data/chat_observation")
@@ -35,6 +35,10 @@ def build_chat_observation_probe(*, request: str, response: str | None, success:
     self_model = structured_answer.get("self_model") or {}
     answer_mode = str(self_model.get("answer_mode") or ("direct" if success else "verification_required"))
     verification_mode = str(self_model.get("verification_mode") or ("none" if success else "evidence_required"))
+    route_selected = self_model.get("route_selected") or structured_answer.get("route_selected")
+    tool_name = self_model.get("tool_name") or structured_answer.get("tool_name")
+    tool_result = structured_answer.get("tool_result")
+    user_feedback = structured_answer.get("user_feedback")
     response_text = str(response or error_type or "")
     fallback_markers = (
         "需要进一步验证",
@@ -45,10 +49,13 @@ def build_chat_observation_probe(*, request: str, response: str | None, success:
     )
     fallback_like = (not success) or any(marker in response_text for marker in fallback_markers) or answer_mode in {"verification_required", "clarification_required"}
     overreach_risk = answer_mode in {"verification_required", "clarification_required"}
+    routing_error = bool(self_model.get("routing_error"))
+    tool_error = bool(error_type) or bool(self_model.get("tool_error"))
 
-    return {
+    probe = {
         "topic": _classify_topic(request),
         "prompt": request[:240],
+        "request": request[:240],
         "success": success,
         "latency_ms": latency_ms,
         "response": response_text[:240],
@@ -57,9 +64,19 @@ def build_chat_observation_probe(*, request: str, response: str | None, success:
         "fallback_like": fallback_like,
         "overreach_risk": overreach_risk,
         "source": "live_chat_request",
+        "scope": "live_chat",
         "session_id": session_id,
         "error_type": error_type,
+        "route_selected": route_selected,
+        "routing_error": routing_error,
+        "tool_name": tool_name,
+        "tool_result": tool_result,
+        "tool_error": tool_error,
+        "user_feedback": user_feedback,
     }
+    probe["failure_stage"] = classify_failure_stage(probe)
+    probe["signal"] = classify_signal(probe, probe["failure_stage"])
+    return probe
 
 
 def persist_chat_observation(*, probe: dict[str, Any], log_dir: Path | None = None, run_id: str | None = None) -> dict[str, Any]:

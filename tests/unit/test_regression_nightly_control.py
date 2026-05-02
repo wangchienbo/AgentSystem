@@ -1460,6 +1460,7 @@ def test_chat_observation_digest_builds_from_live_chat_records(tmp_path) -> None
     persist_chat_observation(probe={
         "topic": "api",
         "prompt": "帮我确认这个接口行为",
+        "request": "帮我确认这个接口行为",
         "success": True,
         "latency_ms": 12,
         "response": "需要进一步验证后再判断",
@@ -1468,15 +1469,52 @@ def test_chat_observation_digest_builds_from_live_chat_records(tmp_path) -> None
         "fallback_like": True,
         "overreach_risk": True,
         "source": "live_chat_request",
+        "scope": "live_chat",
         "session_id": "session-live-1",
         "error_type": None,
+        "failure_stage": "evidence",
+        "signal": "missing_evidence",
+        "route_selected": "api.inspect",
+        "tool_name": "read_file",
+        "tool_result": "need more evidence",
+        "tool_error": False,
     }, log_dir=tmp_path)
 
     digest = build_chat_observation_digest(session_id="session-live-1", log_dir=tmp_path)
 
     assert digest.total_observations == 1
     assert digest.failure_stage_counts["evidence"] == 1
+    assert digest.evidence_kind_counts["routing"] == 1
+    assert digest.evidence_kind_counts["tool_selection"] == 1
     assert digest.observation_samples[0].run_id.startswith("live-chat-session-live-1")
+
+
+def test_live_chat_observation_probe_emits_additive_layer_fields() -> None:
+    probe = build_chat_observation_probe(
+        request="帮我检查这个接口是不是走错路由",
+        response="需要进一步验证后再判断",
+        success=True,
+        latency_ms=23,
+        session_id="session-live-probe-1",
+        structured_answer={
+            "self_model": {
+                "answer_mode": "verification_required",
+                "verification_mode": "evidence_required",
+                "route_selected": "api.inspect",
+                "routing_error": True,
+                "tool_name": "read_file",
+            },
+            "tool_result": "insufficient evidence",
+            "user_feedback": "先别下结论",
+        },
+    )
+
+    assert probe["scope"] == "live_chat"
+    assert probe["request"] == "帮我检查这个接口是不是走错路由"
+    assert probe["route_selected"] == "api.inspect"
+    assert probe["tool_name"] == "read_file"
+    assert probe["signal"] == "routing_error"
+    assert probe["failure_stage"] == "routing"
 
 
 def test_regression_dashboard_exposes_live_chat_observation_digest() -> None:

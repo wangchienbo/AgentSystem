@@ -1,3 +1,26 @@
+## 2026-05-02: Phase G1 live-chat observation compatibility landed
+
+### Summary
+Extended live chat observation persistence so it emits layer-aware governance probes while staying compatible with the existing digest read path.
+
+### What Was Done
+- Updated `app/system/chat_observation.py`
+  - live chat probes now persist additive routing, tool-selection, tool-result, feedback, scope, signal, and failure-stage fields
+  - probe builder now derives classification using the shared governance attribution helpers
+  - retained compatibility with existing digest readers by keeping the persisted payload probe-shaped
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - expanded live chat observation coverage for additive fields
+  - verified digest compatibility and dashboard exposure remain intact
+- Updated `tasklist_phase_g1_evidence_refinement.md`
+  - marked Phase 3.2 complete
+
+### Validation
+- `pytest tests/unit/test_regression_nightly_control.py -q`
+
+### Notes
+With fixed and live observation paths both carrying layer-aware probes, the next clean slice is dedicated failure-attribution tightening rather than more compatibility plumbing.
+
+
 ## 2026-05-02: Phase G1 fixed-regression evidence layering landed
 
 ### Summary

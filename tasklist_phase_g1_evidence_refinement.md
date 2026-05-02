@@ -60,9 +60,9 @@ Implement the next-stage governance observation substrate described in `docs/des
 - [x] Add tests for enriched artifact structure
 
 ### 3.2 Live observation compatibility path
-- [ ] Extend live chat observation persistence to emit layer-aware evidence envelopes
-- [ ] Keep existing read-side digests compatibility-safe
-- [ ] Add tests for additive compatibility behavior
+- [x] Extend live chat observation persistence to emit layer-aware evidence envelopes
+- [x] Keep existing read-side digests compatibility-safe
+- [x] Add tests for additive compatibility behavior
 
 ### 3.3 Failure attribution
 - [ ] Add attribution rules for:
