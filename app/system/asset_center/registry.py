@@ -87,6 +87,11 @@ class AssetCenterRegistry:
             records = [item for item in records if item.asset_id == asset_id]
         return [replace(item) for item in records]
 
+    def list_recent_session_bindings(self, asset_id: str | None = None, limit: int = 20) -> list[AssetSessionBindingRecord]:
+        records = self.list_session_bindings(asset_id)
+        records.sort(key=lambda item: (item.last_active_at or item.created_at or ""), reverse=True)
+        return records[:limit]
+
     def _validate_descriptor(self, descriptor: AssetDescriptorRecord) -> None:
         if descriptor.descriptor_version < 1:
             raise AssetDescriptorValidationError("descriptor_version must be >= 1")

@@ -1,7 +1,57 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
+
+
+@dataclass(frozen=True)
+class InvocationErrorTaxonomy:
+    code: str
+    category: Literal[
+        "validation",
+        "routing",
+        "binding",
+        "execution",
+        "model",
+        "transport",
+        "unknown",
+    ] = "unknown"
+    message: str = ""
+    retryable: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        if not self.code or not self.code.strip():
+            raise ValueError("error taxonomy code is required")
+        if self.category not in {
+            "validation",
+            "routing",
+            "binding",
+            "execution",
+            "model",
+            "transport",
+            "unknown",
+        }:
+            raise ValueError("invalid error taxonomy category")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "category": self.category,
+            "message": self.message,
+            "retryable": self.retryable,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "InvocationErrorTaxonomy":
+        return cls(
+            code=str(data.get("code", "")),
+            category=data.get("category", "unknown"),
+            message=str(data.get("message", "")),
+            retryable=bool(data.get("retryable", False)),
+            metadata=dict(data.get("metadata", {})),
+        )
 
 
 @dataclass(frozen=True)
@@ -82,6 +132,22 @@ class InvocationRequestEnvelope:
         }
 
     @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "InvocationRequestEnvelope":
+        session = data.get("session")
+        caller = data.get("caller")
+        return cls(
+            request_id=str(data.get("request_id", "")),
+            target_id=str(data.get("target_id", "")),
+            target_type=str(data.get("target_type", "")),
+            method=str(data.get("method", "")),
+            args=dict(data.get("args", {})),
+            session=None if session is None else InvocationSessionRef(**session),
+            caller=None if caller is None else InvocationCallerRef(**caller),
+            trace_context=dict(data.get("trace_context", {})),
+            metadata=dict(data.get("metadata", {})),
+        )
+
+    @classmethod
     def from_legacy(
         cls,
         *,
@@ -99,6 +165,16 @@ class InvocationRequestEnvelope:
             args=params or {},
         )
 
+    @classmethod
+    def normalize_legacy(cls, payload: dict[str, Any]) -> "InvocationRequestEnvelope":
+        return cls.from_legacy(
+            asset_id=str(payload.get("asset_id", "")),
+            method=str(payload.get("method", "")),
+            params=dict(payload.get("params", {}) or {}),
+            request_id=str(payload.get("request_id", "legacy-request")),
+            target_type=str(payload.get("target_type", "system_asset")),
+        )
+
 
 @dataclass(frozen=True)
 class InvocationResponseEnvelope:
@@ -107,6 +183,7 @@ class InvocationResponseEnvelope:
     data: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     error_type: str | None = None
+    error_taxonomy: InvocationErrorTaxonomy | None = None
     resolved_local_session_id: str | None = None
     trace_context: dict[str, Any] = field(default_factory=dict)
     state_updates: dict[str, Any] = field(default_factory=dict)
@@ -121,6 +198,8 @@ class InvocationResponseEnvelope:
             raise ValueError("data must be an object")
         if self.error_type is not None and not self.error_type.strip():
             raise ValueError("error_type must not be empty when provided")
+        if self.error_taxonomy is not None:
+            self.error_taxonomy.validate()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -129,8 +208,25 @@ class InvocationResponseEnvelope:
             "data": self.data,
             "error": self.error,
             "error_type": self.error_type,
+            "error_taxonomy": None if self.error_taxonomy is None else self.error_taxonomy.to_dict(),
             "resolved_local_session_id": self.resolved_local_session_id,
             "trace_context": self.trace_context,
             "state_updates": self.state_updates,
             "metadata": self.metadata,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "InvocationResponseEnvelope":
+        taxonomy = data.get("error_taxonomy")
+        return cls(
+            ok=bool(data.get("ok", False)),
+            request_id=str(data.get("request_id", "")),
+            data=dict(data.get("data", {})),
+            error=data.get("error"),
+            error_type=data.get("error_type"),
+            error_taxonomy=None if taxonomy is None else InvocationErrorTaxonomy.from_dict(taxonomy),
+            resolved_local_session_id=data.get("resolved_local_session_id"),
+            trace_context=dict(data.get("trace_context", {})),
+            state_updates=dict(data.get("state_updates", {})),
+            metadata=dict(data.get("metadata", {})),
+        )

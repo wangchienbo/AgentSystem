@@ -11,63 +11,63 @@ This tasklist is the implementation driver for the full refactor. It is structur
 ## Phase 1. Protocol and Truth Layer
 
 ### 1.1 Invocation envelope and response contract
-- [ ] Add invocation request envelope model
-- [ ] Add invocation response envelope model
-- [ ] Add compatibility adapter from legacy `asset_id + method + params`
-- [ ] Add structured error taxonomy model
-- [ ] Add unit tests for request envelope validation
-- [ ] Add unit tests for response envelope validation
-- [ ] Add unit tests for legacy normalization path
+- [x] Add invocation request envelope model
+- [x] Add invocation response envelope model
+- [x] Add compatibility adapter from legacy `asset_id + method + params`
+- [x] Add structured error taxonomy model
+- [x] Add unit tests for request envelope validation
+- [x] Add unit tests for response envelope validation
+- [x] Add unit tests for legacy normalization path
 
 ### 1.2 Session binding data model
-- [ ] Add asset session binding record model
-- [ ] Define required fields:
-  - [ ] `asset_id`
-  - [ ] `upstream_session_id`
-  - [ ] `local_session_id`
-  - [ ] `root_session_id`
-  - [ ] `parent_session_id`
-  - [ ] `status`
-  - [ ] `created_at`
-  - [ ] `last_active_at`
-  - [ ] `metadata`
-- [ ] Add uniqueness rule documentation for `(asset_id, upstream_session_id)`
-- [ ] Add model serialization tests
+- [x] Add asset session binding record model
+- [x] Define required fields:
+  - [x] `asset_id`
+  - [x] `upstream_session_id`
+  - [x] `local_session_id`
+  - [x] `root_session_id`
+  - [x] `parent_session_id`
+  - [x] `status`
+  - [x] `created_at`
+  - [x] `last_active_at`
+  - [x] `metadata`
+- [x] Add uniqueness rule documentation for `(asset_id, upstream_session_id)`
+- [x] Add model serialization tests
 
 ### 1.3 Asset center persistence extensions
-- [ ] Add session binding persistence API to asset center service
-- [ ] Add read-by-asset-and-upstream-session API
-- [ ] Add upsert binding API
-- [ ] Add list/recent binding API for warmup/recovery support
-- [ ] Add persistence-level uniqueness enforcement
-- [ ] Add unit tests for uniqueness behavior
-- [ ] Add unit tests for read / upsert behavior
+- [x] Add session binding persistence API to asset center service
+- [x] Add read-by-asset-and-upstream-session API
+- [x] Add upsert binding API
+- [x] Add list/recent binding API for warmup/recovery support
+- [x] Add persistence-level uniqueness enforcement
+- [x] Add unit tests for uniqueness behavior
+- [x] Add unit tests for read / upsert behavior
 
 ### 1.4 Documentation sync for Phase 1
-- [ ] Update `docs/design.md` to reference Phase P invocation contract
-- [ ] Update `docs/system-relationship-map.md` for envelope + binding truth layer
+- [x] Update `docs/design.md` to reference Phase P invocation contract
+- [x] Update `docs/system-relationship-map.md` for envelope + binding truth layer
 
 ---
 
 ## Phase 2. Inbound Runtime Layer Integration
 
 ### 2.1 Runtime wrapper core
-- [ ] Add `AssetInvocationRuntimeLayer`
-- [ ] Add `before_invoke(...)`
-- [ ] Add `resolve_local_session(...)`
-- [ ] Add `persist_binding(...)`
-- [ ] Add `after_invoke(...)`
-- [ ] Add structured binding-hit metadata (`memory`, `persisted`, `new`, `recovered_by_history`)
+- [x] Add `AssetInvocationRuntimeLayer`
+- [x] Add `before_invoke(...)`
+- [x] Add `resolve_local_session(...)`
+- [x] Add `persist_binding(...)`
+- [x] Add `after_invoke(...)`
+- [x] Add structured binding-hit metadata (`memory`, `persisted`, `new`, `recovered_by_history`)
 
 ### 2.2 Binding resolver and cache
-- [ ] Add in-memory binding cache
-- [ ] Add binding cache lookup path
-- [ ] Add persisted binding lookup path
-- [ ] Add fallback historical-session judgment hook interface
-- [ ] Add binding write-through behavior to cache and persistence
-- [ ] Add unit tests for cache hit
-- [ ] Add unit tests for persisted hit
-- [ ] Add unit tests for fallback path
+- [x] Add in-memory binding cache
+- [x] Add binding cache lookup path
+- [x] Add persisted binding lookup path
+- [x] Add fallback historical-session judgment hook interface
+- [x] Add binding write-through behavior to cache and persistence
+- [x] Add unit tests for cache hit
+- [x] Add unit tests for persisted hit
+- [x] Add unit tests for fallback path
 
 ### 2.3 Runtime center integration
 - [ ] Integrate `AssetInvocationRuntimeLayer` into runtime center asset call path
@@ -76,11 +76,11 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [ ] Add integration tests for runtime-center wrapped invocation
 
 ### 2.4 Invocation dispatcher upgrade
-- [ ] Upgrade dispatcher to accept unified invocation envelope
-- [ ] Preserve current explicit dispatch API as compatibility shim
-- [ ] Normalize old dispatches into new envelope internally
-- [ ] Add tests for envelope-based dispatch
-- [ ] Add tests for old-path normalization compatibility
+- [x] Upgrade dispatcher to accept unified invocation envelope
+- [x] Preserve current explicit dispatch API as compatibility shim
+- [x] Normalize old dispatches into new envelope internally
+- [x] Add tests for envelope-based dispatch
+- [x] Add tests for old-path normalization compatibility
 
 ### 2.5 Registration protocol wrapper injection
 - [ ] Extend `AssetRegistrationProtocol` to register wrapped invocation behavior

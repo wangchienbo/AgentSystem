@@ -1,3 +1,40 @@
+## 2026-05-02: Phase P Phase 2 runtime wrapper and envelope dispatch baseline
+
+### Summary
+Continued Phase P by landing the first governed runtime-wrapper slice: a shared `AssetInvocationRuntimeLayer`, binding cache and persisted recovery behavior, and dispatcher integration that routes unified invocation envelopes through the runtime layer before runtime-center execution.
+
+### What Was Done
+- Added `app/system/invocation/runtime_layer.py`
+  - `AssetInvocationRuntimeLayer`
+  - `BindingResolution`
+  - `before_invoke(...)`
+  - `resolve_local_session(...)`
+  - `persist_binding(...)`
+  - `after_invoke(...)`
+- Updated `app/system/invocation/invocation_dispatcher.py`
+  - dispatcher now accepts optional runtime wrapper injection
+  - envelope dispatch path now flows through runtime wrapper when configured
+  - legacy `dispatch(asset_id, method, params)` remains as a compatibility shim
+  - response now includes `response_envelope` with resolved local session and binding metadata
+- Extended Phase 1 truth layer details
+  - `InvocationRequestEnvelope.from_dict(...)`
+  - `InvocationRequestEnvelope.normalize_legacy(...)`
+  - `InvocationResponseEnvelope.from_dict(...)`
+  - `InvocationErrorTaxonomy`
+  - `AssetSessionBindingRecord.from_dict(...)`
+  - asset-center recent-binding listing
+- Added tests
+  - `tests/unit/test_asset_invocation_runtime_layer.py`
+  - expanded `tests/unit/test_invocation_envelope_and_session_binding.py`
+  - expanded `tests/unit/test_invocation_dispatcher.py`
+
+### Validation
+- `pytest tests/unit/test_asset_invocation_runtime_layer.py tests/unit/test_invocation_envelope_and_session_binding.py tests/unit/test_invocation_dispatcher.py -q`
+
+### Notes
+This slice establishes the runtime wrapper, cache, and persisted recovery baseline. Runtime-center global entry wiring and registration auto-wrapping are still pending in the next Phase 2 slices.
+
+
 ## 2026-05-02: Phase P Phase 1 protocol and truth layer baseline
 
 ### Summary

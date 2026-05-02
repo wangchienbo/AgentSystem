@@ -7,13 +7,16 @@ from app.system.asset_center.models import AssetDescriptorRecord, AssetMethodSpe
 from app.system.asset_center.service import AssetCenterService
 from app.system.catalog.runtime_center import RuntimeCenter
 from app.system.invocation.invocation_dispatcher import InvocationDispatchError, InvocationDispatcher
+from app.system.invocation.invocation_envelope import InvocationRequestEnvelope, InvocationSessionRef
+from app.system.invocation.runtime_layer import AssetInvocationRuntimeLayer
 from app.system.model_runtime.model_client_registry import ModelRuntimeRecord
 
 
-def _build_dispatcher(tmp_path) -> tuple[AssetCenterService, RuntimeCenter, InvocationDispatcher]:
+def _build_dispatcher(tmp_path, *, with_runtime_layer: bool = False) -> tuple[AssetCenterService, RuntimeCenter, InvocationDispatcher]:
     asset_center = AssetCenterService()
     runtime_center = RuntimeCenter(data_file=str(tmp_path / "runtime_center.json"))
-    dispatcher = InvocationDispatcher(asset_center=asset_center, runtime_center=runtime_center)
+    runtime_layer = AssetInvocationRuntimeLayer(asset_center=asset_center) if with_runtime_layer else None
+    dispatcher = InvocationDispatcher(asset_center=asset_center, runtime_center=runtime_center, runtime_layer=runtime_layer)
     return asset_center, runtime_center, dispatcher
 
 
@@ -275,3 +278,63 @@ def test_invocation_dispatcher_dispatches_from_self_iteration_envelope(tmp_path)
     assert result["ok"] is True
     assert result["resolved_call"]["asset_id"] == "asset:self_iteration_center:v1"
     assert result["execution"]["result"][0]["comparison_limit"] == 3
+
+
+def test_invocation_dispatcher_dispatches_envelope_through_runtime_layer(tmp_path) -> None:
+    asset_center, runtime_center, dispatcher = _build_dispatcher(tmp_path, with_runtime_layer=True)
+    asset_center.register_asset(
+        AssetDescriptorRecord(
+            descriptor_version=1,
+            asset_id="asset:config_center:v1",
+            kind="system_asset",
+            summary="Config center",
+            detail="Read config",
+            methods=(
+                AssetMethodSpec(
+                    name="get_config",
+                    description="Read config",
+                    input_schema={
+                        "type": "object",
+                        "properties": {"skill_id": {"type": "string"}},
+                        "required": ["skill_id"],
+                    },
+                ),
+            ),
+        )
+    )
+    runtime_center.register_asset(
+        AssetDescriptor(
+            asset_id="asset:config_center:v1",
+            asset_type=AssetType.SERVICE,
+            asset_kind=AssetKind.CORE_RUNTIME,
+            version="1.0.0",
+            owner_type="system",
+            owner_id="system",
+            source_of_truth="runtime",
+            status=AssetState.ACTIVE,
+            capabilities=[
+                AssetCapability(name="get config", description="Read config", method="get_config", side_effect_level="read")
+            ],
+            invoke_contract={"kind": "service"},
+            health_contract={"heartbeat": False},
+            name="config_center",
+            description="Config center",
+        ),
+        method_mappings={"get_config": lambda skill_id=None, local_session_id=None: {"skill_id": skill_id, "local_session_id": local_session_id}},
+    )
+
+    envelope = InvocationRequestEnvelope(
+        request_id="req-1",
+        target_id="asset:config_center:v1",
+        target_type="system_asset",
+        method="get_config",
+        args={"skill_id": "maoxuan_skill"},
+        session=InvocationSessionRef(upstream_session_id="up-1", root_session_id="root-1"),
+    )
+
+    result = dispatcher.dispatch_from_envelope(envelope)
+
+    assert result["ok"] is True
+    assert result["response_envelope"]["resolved_local_session_id"] is not None
+    assert result["execution"]["result"]["local_session_id"] == result["response_envelope"]["resolved_local_session_id"]
+    assert result["response_envelope"]["metadata"]["binding"]["mode"] == "new"

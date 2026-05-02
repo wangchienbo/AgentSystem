@@ -5,7 +5,8 @@ from typing import Any, Callable
 from app.system.asset_center.models import AssetDescriptorRecord, AssetMethodSpec, InteractionDecisionEnvelope
 from app.system.asset_center.service import AssetCenterService
 from app.system.catalog.runtime_center import RuntimeCenter
-from app.system.invocation.invocation_envelope import InvocationRequestEnvelope
+from app.system.invocation.invocation_envelope import InvocationRequestEnvelope, InvocationResponseEnvelope
+from app.system.invocation.runtime_layer import AssetInvocationRuntimeLayer
 from app.system.invocation.model_resolved_call import ModelResolvedCall
 from app.system.model_runtime.model_selector import ModelSelectionError, ModelSelector
 
@@ -24,11 +25,13 @@ class InvocationDispatcher:
         runtime_center: RuntimeCenter,
         model_selector: ModelSelector | None = None,
         descriptor_provider: Callable[[str], dict[str, Any] | None] | None = None,
+        runtime_layer: AssetInvocationRuntimeLayer | None = None,
     ) -> None:
         self._asset_center = asset_center
         self._runtime_center = runtime_center
         self._model_selector = model_selector or ModelSelector()
         self._descriptor_provider = descriptor_provider
+        self._runtime_layer = runtime_layer
 
     def prepare_call(self, *, asset_id: str, method: str, params: dict[str, Any] | None = None) -> ModelResolvedCall:
         envelope = InvocationRequestEnvelope.from_legacy(asset_id=asset_id, method=method, params=params)
@@ -77,27 +80,12 @@ class InvocationDispatcher:
         )
 
     def dispatch(self, *, asset_id: str, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        prepared = self.prepare_call(asset_id=asset_id, method=method, params=params)
-        result = self._runtime_center.call_asset_method(prepared.asset_id, prepared.method, prepared.params)
-        return {
-            "ok": bool(result.get("ok")),
-            "resolved_call": prepared.to_dict(),
-            "execution": result,
-            "error": result.get("error"),
-            "error_type": result.get("error_type"),
-        }
+        envelope = InvocationRequestEnvelope.from_legacy(asset_id=asset_id, method=method, params=params)
+        return self._dispatch_invocation_envelope(envelope)
 
     def dispatch_from_envelope(self, envelope: InteractionDecisionEnvelope | InvocationRequestEnvelope) -> dict[str, Any]:
         if isinstance(envelope, InvocationRequestEnvelope):
-            prepared = self.prepare_envelope(envelope)
-            result = self._runtime_center.call_asset_method(prepared.asset_id, prepared.method, prepared.params)
-            return {
-                "ok": bool(result.get("ok")),
-                "resolved_call": prepared.to_dict(),
-                "execution": result,
-                "error": result.get("error"),
-                "error_type": result.get("error_type"),
-            }
+            return self._dispatch_invocation_envelope(envelope)
         envelope.validate()
         if envelope.decision != "invoke" or not envelope.invoke:
             raise InvocationDispatchError("envelope must carry invoke payload", error_type="invalid_envelope")
@@ -107,6 +95,34 @@ class InvocationDispatcher:
             method=str(invoke.get("method") or ""),
             params=invoke.get("params") if isinstance(invoke.get("params"), dict) else {},
         )
+
+    def _dispatch_invocation_envelope(self, envelope: InvocationRequestEnvelope) -> dict[str, Any]:
+        prepared = self.prepare_envelope(envelope)
+        binding_resolution = self._runtime_layer.before_invoke(envelope) if self._runtime_layer is not None else None
+        runtime_params = dict(prepared.params)
+        if binding_resolution is not None:
+            runtime_params.setdefault("local_session_id", binding_resolution.local_session_id)
+        result = self._runtime_center.call_asset_method(prepared.asset_id, prepared.method, runtime_params)
+        response = InvocationResponseEnvelope(
+            ok=bool(result.get("ok")),
+            request_id=prepared.request_id,
+            data=result.get("result") if isinstance(result.get("result"), dict) else {"result": result.get("result")},
+            error=result.get("error"),
+            error_type=result.get("error_type"),
+            trace_context=prepared.trace_context,
+            metadata={"execution": result},
+        )
+        if binding_resolution is not None:
+            response = self._runtime_layer.after_invoke(envelope, response, binding_resolution)
+        response_payload = response.to_dict()
+        return {
+            "ok": response_payload["ok"],
+            "resolved_call": prepared.to_dict(),
+            "execution": result,
+            "error": response_payload["error"],
+            "error_type": response_payload["error_type"],
+            "response_envelope": response_payload,
+        }
 
     def safe_dispatch(self, *, asset_id: str, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         try:

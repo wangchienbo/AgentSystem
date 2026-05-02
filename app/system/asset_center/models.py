@@ -99,6 +99,20 @@ class AssetSessionBindingRecord:
             "metadata": self.metadata,
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "AssetSessionBindingRecord":
+        return cls(
+            asset_id=str(data.get("asset_id", "")),
+            upstream_session_id=str(data.get("upstream_session_id", "")),
+            local_session_id=str(data.get("local_session_id", "")),
+            root_session_id=data.get("root_session_id"),
+            parent_session_id=data.get("parent_session_id"),
+            status=str(data.get("status", "active")),
+            created_at=str(data.get("created_at", "")),
+            last_active_at=str(data.get("last_active_at", "")),
+            metadata=dict(data.get("metadata", {})),
+        )
+
 
 @dataclass(frozen=True)
 class AssetDescriptorRecord:

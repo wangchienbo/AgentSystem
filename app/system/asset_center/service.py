@@ -57,3 +57,6 @@ class AssetCenterService:
 
     def list_session_bindings(self, asset_id: str | None = None) -> list[dict[str, object]]:
         return [item.to_dict() for item in self._registry.list_session_bindings(asset_id)]
+
+    def list_recent_session_bindings(self, asset_id: str | None = None, limit: int = 20) -> list[dict[str, object]]:
+        return [item.to_dict() for item in self._registry.list_recent_session_bindings(asset_id, limit)]
