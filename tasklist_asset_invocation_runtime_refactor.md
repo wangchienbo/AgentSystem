@@ -229,4 +229,4 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [x] Update `docs/system-relationship-map.md` after structural code changes
 - [x] Add development log entry for each completed phase slice
 - [x] Commit at stable phase boundaries
-- [ ] Push at stable phase boundaries
+- [ ] Push at stable phase boundaries (blocked pending explicit approval for outbound remote action)
