@@ -8,37 +8,37 @@ Implement the next-stage governance observation substrate described in `docs/des
 ## Phase 1. Observation and evidence contracts
 
 ### 1.1 Observation record model
-- [ ] Add `ObservationRecord` model
-- [ ] Include observation identity, source, scope, timestamps, and trace linkage
-- [ ] Include contradiction-family-ready `domain / subdomain / signal` fields
-- [ ] Add serialization and validation tests
+- [x] Add `ObservationRecord` model
+- [x] Include observation identity, source, scope, timestamps, and trace linkage
+- [x] Include contradiction-family-ready `domain / subdomain / signal` fields
+- [x] Add serialization and validation tests
 
 ### 1.2 Evidence envelope model
-- [ ] Add `EvidenceEnvelope` model
-- [ ] Support evidence layers:
-  - [ ] input evidence
-  - [ ] routing evidence
-  - [ ] tool-selection evidence
-  - [ ] execution evidence
-  - [ ] output evidence
-  - [ ] user-feedback evidence
-- [ ] Add evidence grade / confidence / refs fields
-- [ ] Add validation tests
+- [x] Add `EvidenceEnvelope` model
+- [x] Support evidence layers:
+  - [x] input evidence
+  - [x] routing evidence
+  - [x] tool-selection evidence
+  - [x] execution evidence
+  - [x] output evidence
+  - [x] user-feedback evidence
+- [x] Add evidence grade / confidence / refs fields
+- [x] Add validation tests
 
 ### 1.3 Governance digest contract
-- [ ] Add `GovernanceEvidenceDigest` model
-- [ ] Add summary reducers for evidence-layer counts and dominant failure layer
-- [ ] Add unit tests
+- [x] Add `GovernanceEvidenceDigest` model
+- [x] Add summary reducers for evidence-layer counts and dominant failure layer
+- [x] Add unit tests
 
 ---
 
 ## Phase 2. Replay-grade sample ingestion
 
 ### 2.1 Replay regression sample model
-- [ ] Add `ReplayRegressionSample` model
-- [ ] Support fixed prompt seed linkage and historical replay provenance
-- [ ] Add bounded payload / excerpt rules
-- [ ] Add validation tests
+- [x] Add `ReplayRegressionSample` model
+- [x] Support fixed prompt seed linkage and historical replay provenance
+- [x] Add bounded payload / excerpt rules
+- [x] Add validation tests
 
 ### 2.2 Curated replay ingestion path
 - [ ] Add ingestion service for curated replay-backed samples

@@ -1,3 +1,26 @@
+## 2026-05-02: Phase G1 observation contract baseline landed
+
+### Summary
+Started the first implementation slice of Phase G1 by expanding governance-observation contracts into a more complete observation/evidence/replay baseline.
+
+### What Was Done
+- Expanded `app/models/governance_observation.py`
+  - `ObservationRecord` now carries observation identity, scope, source, session/trace linkage, contradiction-family-ready `domain / subdomain / signal`, tags, metadata, and success/failure-stage consistency validation
+  - `EvidenceEnvelope` now carries grade, confidence, refs, and normalized evidence refs
+  - `GovernanceEvidenceDigest` now supports dominant failure/evidence fields and evidence-kind counts
+  - added `ReplayRegressionSample` with bounded excerpts and replay provenance fields
+- Added `tests/unit/test_governance_observation_models.py`
+  - validation and serialization coverage for the above contracts
+- Updated `tasklist_phase_g1_evidence_refinement.md`
+  - marked Phase 1 and Phase 2.1 baseline items complete
+
+### Validation
+- `pytest tests/unit/test_governance_observation_models.py -q`
+
+### Notes
+This lands the schema baseline first, so the next slice can wire persistence/ingestion and layered observation production without reopening contract shape.
+
+
 ## 2026-05-02: Next-stage Phase G1 tasklist established
 
 ### Summary
