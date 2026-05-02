@@ -26,10 +26,13 @@ from app.services.model_client import OpenAIResponsesClient, ModelClientError
 
 
 DEFAULT_CONFIG_PATH = Path("/root/.config/agentsystem/config.yaml")
-DEFAULT_PREFERENCE_ALIASES = {
-    "cheap": "gpt-4o-mini",
-    "balanced": "gpt-4.1",
-    "strong": "gpt-5.4",
+DEFAULT_PREFERENCE_ALIASES: dict[str, str] = {
+    # Cost-tier aliases — resolved against config.yaml model pool.
+    # These are FALLBACK defaults when the config doesn't define the alias
+    # in its `models` section. Config overrides always win.
+    "cheap": "cheap",
+    "balanced": "balanced",
+    "strong": "strong",
 }
 
 
