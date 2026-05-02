@@ -1,3 +1,29 @@
+## 2026-05-02: Phase P Phase 4 identity resolution and routing registry baseline
+
+### Summary
+Started Phase 4 by introducing governed asset identity resolution, plus dedicated runtime and endpoint registry models for target-based routing lookup.
+
+### What Was Done
+- Added `app/system/invocation/routing_registry.py`
+  - `AssetAliasRecord`
+  - `AssetCapabilityTagRecord`
+  - `RuntimeRegistryRecord`
+  - `EndpointRegistryRecord`
+  - `InvocationRoutingRegistry`
+  - ambiguity/error handling for alias and capability resolution
+- Added `app/system/invocation/routing_governance_service.py`
+  - higher-level route resolution over asset center + runtime center
+  - `resolve_target_id(...)`
+  - `resolve_route(...)`
+- Added `tests/unit/test_routing_registry_and_governance.py`
+
+### Validation
+- `pytest tests/unit/test_routing_registry_and_governance.py -q`
+
+### Notes
+This slice establishes the identity and lookup baseline. Port allocation, endpoint conflict handling, and full invocation-route integration remain the next Phase 4 work.
+
+
 ## 2026-05-02: Phase P Phase 3 context bundle assembly and tool-runtime narrowing
 
 ### Summary

@@ -128,17 +128,17 @@ This tasklist is the implementation driver for the full refactor. It is structur
 ## Phase 4. Identity Resolution, Runtime Routing, and Endpoint Governance
 
 ### 4.1 Asset identity resolution
-- [ ] Add asset alias model
-- [ ] Add capability tag model
-- [ ] Add name/alias/capability resolution API in asset center
-- [ ] Add tests for identity resolution priority and ambiguity handling
+- [x] Add asset alias model
+- [x] Add capability tag model
+- [x] Add name/alias/capability resolution API in asset center
+- [x] Add tests for identity resolution priority and ambiguity handling
 
 ### 4.2 Runtime registry and endpoint registry
-- [ ] Add runtime registry model
-- [ ] Add endpoint registry model
-- [ ] Add lookup by `target_id`
-- [ ] Add health/status fields
-- [ ] Add tests for runtime lookup
+- [x] Add runtime registry model
+- [x] Add endpoint registry model
+- [x] Add lookup by `target_id`
+- [x] Add health/status fields
+- [x] Add tests for runtime lookup
 
 ### 4.3 Port allocator and endpoint conflict handling
 - [ ] Add port allocation model and service
