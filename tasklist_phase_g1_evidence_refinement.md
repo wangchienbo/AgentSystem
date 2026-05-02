@@ -55,9 +55,9 @@ Implement the next-stage governance observation substrate described in `docs/des
 ## Phase 3. Regression evidence layering
 
 ### 3.1 Fixed regression enrichment
-- [ ] Extend fixed regression run artifacts with evidence envelopes
-- [ ] Record layer-specific evidence for routing, execution, and output shaping
-- [ ] Add tests for enriched artifact structure
+- [x] Extend fixed regression run artifacts with evidence envelopes
+- [x] Record layer-specific evidence for routing, execution, and output shaping
+- [x] Add tests for enriched artifact structure
 
 ### 3.2 Live observation compatibility path
 - [ ] Extend live chat observation persistence to emit layer-aware evidence envelopes

@@ -1,3 +1,27 @@
+## 2026-05-02: Phase G1 fixed-regression evidence layering landed
+
+### Summary
+Advanced Phase G1 into the active governance path by enriching fixed regression observations with layered evidence and stronger attribution semantics.
+
+### What Was Done
+- Updated `app/system/regression_governance_observation.py`
+  - fixed/live/replay observations now emit additive routing and tool-selection evidence layers when available
+  - observation records now derive stable signal values such as `routing_error`, `missing_evidence`, `bad_tool_execution`, and `weak_final_answer_shaping`
+  - digest builders now compute `evidence_kind_counts` and dominant failure/evidence kinds
+  - live/replay compatibility paths keep older probe payloads working by accepting `request` fallback and explicit `failure_stage`
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - expanded observation/digest assertions for layered evidence kinds and attribution fields
+  - verified dashboards, replay digests, live-chat digests, and self-iteration views still hold after the richer contract
+- Updated `tasklist_phase_g1_evidence_refinement.md`
+  - marked Phase 3.1 complete
+
+### Validation
+- `pytest tests/unit/test_regression_nightly_control.py -q`
+
+### Notes
+This puts the new evidence contract into the existing governance observation chain without breaking live/replay compatibility, which clears the way for the next slice on live observation enrichment.
+
+
 ## 2026-05-02: Phase G1 replay ingestion and persistence baseline landed
 
 ### Summary

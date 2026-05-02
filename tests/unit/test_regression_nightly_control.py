@@ -232,18 +232,20 @@ def test_governance_observation_digest_classifies_failure_stages() -> None:
             {
                 "topic": "api",
                 "prompt": "check api",
-                "success": True,
+                "success": False,
                 "latency_ms": 1200,
                 "response": "需要进一步验证后再下结论",
                 "answer_mode": "verification_required",
                 "verification_mode": "evidence_required",
                 "fallback_like": True,
                 "overreach_risk": True,
+                "route_selected": "api.inspect",
+                "tool_name": "read_file",
             },
             {
                 "topic": "storage",
                 "prompt": "check storage",
-                "success": True,
+                "success": False,
                 "latency_ms": 800,
                 "response": "请先澄清目标",
                 "answer_mode": "clarification_required",
@@ -259,24 +261,35 @@ def test_governance_observation_digest_classifies_failure_stages() -> None:
     assert digest.failure_stage_counts["requirement_understanding"] == 1
     assert digest.topic_failure_stage_counts["api"]["evidence"] == 1
     assert digest.observation_samples[0].evidence[0].kind == "input"
+    assert digest.evidence_kind_counts["routing"] == 1
+    assert digest.evidence_kind_counts["tool_selection"] == 1
+    assert digest.dominant_failure_stage in {"evidence", "requirement_understanding"}
+    assert digest.dominant_evidence_kind in {"input", "output", "execution"}
 
 
 def test_build_observation_record_emits_structured_evidence() -> None:
     record = build_observation_record("chat-regression-2", {
         "topic": "telemetry",
         "prompt": "check telemetry",
-        "success": True,
+        "success": False,
         "latency_ms": 900,
         "response": "这里还不能直接下结论",
         "answer_mode": "verification_required",
         "verification_mode": "none",
         "fallback_like": False,
         "overreach_risk": True,
+        "route_selected": "telemetry.review",
+        "tool_name": "grep_logs",
+        "tool_result": "no direct evidence",
+        "user_feedback": "需要更直接的证据",
     })
 
     assert record.run_id == "chat-regression-2"
     assert record.failure_stage == "answer_shaping"
-    assert [item.kind for item in record.evidence] == ["input", "output", "execution"]
+    assert record.scope == "fixed_regression"
+    assert record.signal == "weak_final_answer_shaping"
+    assert [item.kind for item in record.evidence] == ["input", "routing", "tool_selection", "output", "execution", "user_feedback"]
+    assert record.tags[:2] == ["telemetry", "fixed_regression"]
 
 
 def test_refinement_translation_helper_builds_domain_specific_payloads() -> None:
