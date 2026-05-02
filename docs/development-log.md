@@ -1,3 +1,31 @@
+## 2026-05-02: Phase P Phase 3 tool-context contract and context query baseline
+
+### Summary
+Started Phase 3 convergence by defining the tool/vLLM-side context request contract around `asset_id + local_session_id`, extending `ContextCenter` with asset-local-session query surfaces, and adding model-invocation recording for traceable context usage.
+
+### What Was Done
+- Added `app/system/invocation/tool_context_contract.py`
+  - `ToolContextQueryRequest`
+  - `ToolContextQueryResponse`
+  - `ModelInvocationRecord`
+- Extended `app/services/context_center.py`
+  - asset-local-session registration / resolution
+  - query by `asset_id + local_session_id`
+  - recent window query
+  - summary query
+  - snapshot query
+  - evidence refs query
+  - assembled tool-context bundle output
+  - model-invocation recording and listing
+- Added `tests/unit/test_tool_context_contract_and_context_center.py`
+
+### Validation
+- `pytest tests/unit/test_tool_context_contract_and_context_center.py -q`
+
+### Notes
+This slice establishes the contract and query substrate. Budget-aware assembly and tighter tool/vLLM responsibility narrowing remain the next Phase 3 work.
+
+
 ## 2026-05-02: Phase P Phase 2 runtime wrapper and envelope dispatch baseline
 
 ### Summary

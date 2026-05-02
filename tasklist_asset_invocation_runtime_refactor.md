@@ -92,17 +92,17 @@ This tasklist is the implementation driver for the full refactor. It is structur
 ## Phase 3. Tool / vLLM and Context Assembly Convergence
 
 ### 3.1 Tool / vLLM request contract
-- [ ] Define tool/vllm invocation request shape using `asset_id + local_session_id`
-- [ ] Define tool/vllm response shape with traceable metadata
-- [ ] Add contract tests
+- [x] Define tool/vllm invocation request shape using `asset_id + local_session_id`
+- [x] Define tool/vllm response shape with traceable metadata
+- [x] Add contract tests
 
 ### 3.2 Context center query extensions
-- [ ] Add query by `asset_id + local_session_id`
-- [ ] Add recent window query
-- [ ] Add summary query
-- [ ] Add snapshot query
-- [ ] Add evidence refs query
-- [ ] Add tests for each query surface
+- [x] Add query by `asset_id + local_session_id`
+- [x] Add recent window query
+- [x] Add summary query
+- [x] Add snapshot query
+- [x] Add evidence refs query
+- [x] Add tests for each query surface
 
 ### 3.3 Context bundle assembly
 - [ ] Add budget-aware context assembly service or extend existing one
@@ -117,11 +117,11 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [ ] Add tests proving local-session-based assembly behavior
 
 ### 3.5 Model invocation recording
-- [ ] Record context refs used by model invocation
-- [ ] Record token usage
-- [ ] Record output summary
-- [ ] Record trace linkage back to invocation request
-- [ ] Add tests for model invocation logging structure
+- [x] Record context refs used by model invocation
+- [x] Record token usage
+- [x] Record output summary
+- [x] Record trace linkage back to invocation request
+- [x] Add tests for model invocation logging structure
 
 ---
 
