@@ -563,6 +563,47 @@ def test_operator_summary_prioritizes_automation_degraded_over_other_warning_sig
     assert summary["refinement"]["recommended_action"] == "stabilize_nightly_automation_control_plane"
 
 
+def test_operator_summary_exposes_observation_digest_summary() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_operator_summary
+
+    comparison = {
+        "run_count": 1,
+        "avg_latency_ms": 1000,
+        "avg_fallback_count": 1,
+        "avg_overreach_risk_count": 0,
+        "answer_mode_totals": {"verification_required": 1},
+        "verification_mode_totals": {"evidence_required": 1},
+        "runs": [{"summary": {"run_id": "run-summary-1"}}],
+    }
+    run_detail = {
+        "summary": {"run_id": "run-summary-1"},
+        "probes": [{
+            "topic": "api",
+            "prompt": "check api",
+            "success": False,
+            "latency_ms": 1000,
+            "response": "需要进一步验证",
+            "answer_mode": "verification_required",
+            "verification_mode": "evidence_required",
+            "fallback_like": True,
+            "overreach_risk": False,
+            "route_selected": "api.inspect",
+        }],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison), \
+         patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}), \
+         patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]), \
+         patch("app.system.regression_dashboard.read_run_details", return_value=run_detail):
+        summary = build_regression_operator_summary()
+
+    digest_summary = summary["refinement"]["governance"]["observation_digest_summary"]
+    assert digest_summary["dominant_failure_stage"] == "evidence"
+    assert digest_summary["dominant_evidence_kind"] in {"input", "output", "execution"}
+    assert digest_summary["failure_stage_counts"]["evidence"] == 1
+
+
 def test_governance_dashboard_aggregates_regression_and_automation_signals() -> None:
     from unittest.mock import patch
     from app.system.regression_dashboard import build_regression_governance_dashboard
@@ -1515,6 +1556,49 @@ def test_live_chat_observation_probe_emits_additive_layer_fields() -> None:
     assert probe["tool_name"] == "read_file"
     assert probe["signal"] == "routing_error"
     assert probe["failure_stage"] == "routing"
+
+
+def test_regression_dashboard_exposes_observation_digest_summary() -> None:
+    from unittest.mock import patch
+    from app.system.regression_dashboard import build_regression_governance_dashboard
+
+    comparison = {
+        "run_count": 1,
+        "avg_latency_ms": 1000,
+        "avg_fallback_count": 1,
+        "avg_overreach_risk_count": 1,
+        "answer_mode_totals": {"verification_required": 1},
+        "verification_mode_totals": {"evidence_required": 1},
+        "runs": [{"summary": {"run_id": "chat-regression-obs-2"}}],
+    }
+    run_detail = {
+        "summary": {"run_id": "chat-regression-obs-2"},
+        "probes": [{
+            "topic": "api",
+            "prompt": "check api",
+            "success": False,
+            "latency_ms": 1000,
+            "response": "需要进一步验证",
+            "answer_mode": "verification_required",
+            "verification_mode": "evidence_required",
+            "fallback_like": True,
+            "overreach_risk": True,
+            "route_selected": "api.inspect",
+            "tool_name": "read_file",
+        }],
+    }
+
+    with patch("app.system.regression_dashboard.build_multi_run_comparison", return_value=comparison), \
+         patch("app.system.regression_dashboard.build_topic_trends", return_value={"topics": {}, "run_count": 1}), \
+         patch("app.system.regression_dashboard.list_regression_evidence_history", return_value=[]), \
+         patch("app.system.regression_dashboard.read_run_details", return_value=run_detail):
+        dashboard = build_regression_governance_dashboard()
+
+    summary = dashboard["observation_digest_summary"]
+    assert summary["total_observations"] == 1
+    assert summary["dominant_failure_stage"] == "evidence"
+    assert summary["evidence_kind_counts"]["routing"] == 1
+    assert summary["evidence_kind_counts"]["tool_selection"] == 1
 
 
 def test_regression_dashboard_exposes_live_chat_observation_digest() -> None:

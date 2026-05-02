@@ -43,6 +43,7 @@ def _merge_observation_digests(*digests: dict[str, Any] | None) -> dict[str, Any
     total_observations = 0
     failure_stage_counts: dict[str, int] = {}
     topic_failure_stage_counts: dict[str, dict[str, int]] = {}
+    evidence_kind_counts: dict[str, int] = {}
     observation_samples: list[dict[str, Any]] = []
 
     for digest in digests:
@@ -51,19 +52,37 @@ def _merge_observation_digests(*digests: dict[str, Any] | None) -> dict[str, Any
         total_observations += int(digest.get("total_observations") or 0)
         for stage, count in (digest.get("failure_stage_counts") or {}).items():
             failure_stage_counts[stage] = failure_stage_counts.get(stage, 0) + int(count)
+        for kind, count in (digest.get("evidence_kind_counts") or {}).items():
+            evidence_kind_counts[kind] = evidence_kind_counts.get(kind, 0) + int(count)
         for topic, bucket in (digest.get("topic_failure_stage_counts") or {}).items():
             topic_counts = topic_failure_stage_counts.setdefault(topic, {})
             for stage, count in (bucket or {}).items():
                 topic_counts[stage] = topic_counts.get(stage, 0) + int(count)
         observation_samples.extend(digest.get("observation_samples") or [])
 
+    dominant_failure_stage = max(failure_stage_counts.items(), key=lambda item: item[1])[0] if failure_stage_counts else None
+    dominant_evidence_kind = max(evidence_kind_counts.items(), key=lambda item: item[1])[0] if evidence_kind_counts else None
     merged = GovernanceEvidenceDigest(
         total_observations=total_observations,
+        dominant_failure_stage=dominant_failure_stage,
+        dominant_evidence_kind=dominant_evidence_kind,
         failure_stage_counts=failure_stage_counts,
+        evidence_kind_counts=evidence_kind_counts,
         topic_failure_stage_counts=topic_failure_stage_counts,
         observation_samples=observation_samples,
     )
     return merged.model_dump(mode="json")
+
+
+def _build_observation_digest_summary(observation_digest: dict[str, Any] | None) -> dict[str, Any]:
+    observation_digest = observation_digest or {}
+    return {
+        "total_observations": int(observation_digest.get("total_observations") or 0),
+        "dominant_failure_stage": observation_digest.get("dominant_failure_stage"),
+        "dominant_evidence_kind": observation_digest.get("dominant_evidence_kind"),
+        "failure_stage_counts": observation_digest.get("failure_stage_counts") or {},
+        "evidence_kind_counts": observation_digest.get("evidence_kind_counts") or {},
+    }
 
 
 def build_regression_governance_dashboard(
@@ -127,6 +146,7 @@ def build_regression_governance_dashboard(
         "trends": trends,
         "evidence": evidence,
         "observation_digest": combined_observation_digest,
+        "observation_digest_summary": _build_observation_digest_summary(combined_observation_digest),
         "live_chat_observation_digest": live_chat_observation_digest,
         "replay_observation_digest": replay_observation_digest,
         "risk_flags": risk_flags,
@@ -269,6 +289,7 @@ def build_regression_operator_summary(
                 "recent_failed_hypotheses": recent_failed_hypotheses,
                 "nightly_automation": nightly_status,
                 "automation_attention": dashboard.get("automation_attention"),
+                "observation_digest_summary": dashboard.get("observation_digest_summary"),
             },
         },
         "regression": dashboard,

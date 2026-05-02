@@ -78,8 +78,8 @@ Implement the next-stage governance observation substrate described in `docs/des
 ## Phase 4. Governance operator surfaces
 
 ### 4.1 Evidence-layer digests
-- [ ] Update governance summary builders to include dominant evidence layer and counts
-- [ ] Add tests for operator summary payloads
+- [x] Update governance summary builders to include dominant evidence layer and counts
+- [x] Add tests for operator summary payloads
 
 ### 4.2 Nightly/manual regression compatibility
 - [ ] Include bounded replay-backed slice in nightly/manual governance cycle inputs

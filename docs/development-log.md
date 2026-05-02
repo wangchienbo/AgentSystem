@@ -1,3 +1,26 @@
+## 2026-05-02: Phase G1 operator evidence-layer digest summaries landed
+
+### Summary
+Extended the governance dashboard and operator summary surfaces so they expose compact evidence-layer digest summaries, not just raw observation payloads.
+
+### What Was Done
+- Updated `app/system/regression_dashboard.py`
+  - merged observation digests now carry `evidence_kind_counts`, `dominant_failure_stage`, and `dominant_evidence_kind`
+  - added `observation_digest_summary` to the governance dashboard
+  - exposed the same summary under operator-facing `refinement.governance`
+- Updated `tests/unit/test_regression_nightly_control.py`
+  - added coverage for dashboard-level digest summary exposure
+  - added coverage for operator summary payload exposure
+- Updated `tasklist_phase_g1_evidence_refinement.md`
+  - marked Phase 4.1 complete
+
+### Validation
+- `pytest tests/unit/test_regression_nightly_control.py -q`
+
+### Notes
+This gives operators a compact read model for governance observation state, which is the right substrate before replay-backed nightly/manual inputs are added in the next slice.
+
+
 ## 2026-05-02: Phase G1 failure attribution rules extracted and stabilized
 
 ### Summary
