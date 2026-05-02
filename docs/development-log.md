@@ -1,3 +1,36 @@
+## 2026-05-02: Phase P Phase 5 installer, manifest, and registration enforcement baseline
+
+### Summary
+Completed the first Phase 5 enforcement slice by formalizing invocation-compliance metadata, validating it at install/discovery time, and hardening registration against assets that bypass runtime-wrapper participation.
+
+### What Was Done
+- Added `app/system/invocation/invocation_compliance.py`
+  - shared compliance validator for manifest and registration descriptor checks
+- Updated `app/system/catalog/asset_center.py`
+  - manifest discovery now enforces Phase P invocation metadata compliance
+- Updated `app/app_installer.py`
+  - installer-side manifest compliance validation
+  - generated app and skill manifests now include:
+    - `invocation_contract_version`
+    - `runtime_wrapper_compatibility`
+    - `session_binding_support`
+    - `endpoint_requirement`
+    - `tool_vllm_usage_mode`
+- Updated `app/system/assets/registration_protocol.py`
+  - descriptor metadata normalization for compliant wrapped registration
+  - rejection path for non-compliant non-wrapped registration
+- Added tests:
+  - `tests/unit/test_asset_center_manifest_validation.py`
+  - `tests/unit/test_standard_asset_protocol.py`
+  - `tests/unit/test_invocation_compliance_installer.py`
+
+### Validation
+- `pytest tests/unit/test_asset_center_manifest_validation.py tests/unit/test_standard_asset_protocol.py tests/unit/test_invocation_compliance_installer.py -q`
+
+### Notes
+This completes Phase 5.1 through 5.3 baseline enforcement. Phase 5.4 and 5.5 remain for scaffolding and generated-asset default compliance.
+
+
 ## 2026-05-02: Phase P Phase 4 port allocation and invocation routing integration
 
 ### Summary

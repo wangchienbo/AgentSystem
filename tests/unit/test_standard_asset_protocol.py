@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from app.services.config_center import ConfigCenterService
 from app.services.refinement_memory import RefinementMemoryStore
 from app.system.asset_center.service import AssetCenterService
@@ -63,6 +65,14 @@ def test_registration_protocol_auto_wraps_method_mappings() -> None:
     assert result["metadata"]["runtime_wrapper"] is True
     assert result["metadata"]["local_session_id"] == "local-1"
     assert result["metadata"]["request_id"] == "req-1"
+
+
+def test_registration_protocol_rejects_non_compliant_descriptor_without_wrapper_defaults() -> None:
+    asset = ConfigCenterAsset(ConfigCenterService())
+    protocol = AssetRegistrationProtocol(auto_wrap_runtime_invocation=False)
+
+    with pytest.raises(ValueError, match="registration compliance validation failed"):
+        protocol.materialize(asset)
 
 
 def test_registration_protocol_reregister_advances_descriptor_epoch() -> None:

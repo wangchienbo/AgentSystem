@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from app.system.invocation.invocation_compliance import InvocationComplianceValidator
+
 logger = logging.getLogger(__name__)
 
 
@@ -81,6 +83,7 @@ class AssetCenter:
         "description",
         "metadata",
     }
+    _invocation_compliance = InvocationComplianceValidator()
 
     def __init__(
         self,
@@ -408,6 +411,9 @@ class AssetCenter:
             raise ValueError("metadata must be an object")
 
         expected_asset_id = asset_dir.name
+        compliance = cls._invocation_compliance.validate_manifest(manifest)
+        if not compliance.compliant:
+            raise ValueError("invocation compliance validation failed: " + "; ".join(compliance.reasons))
         if manifest["asset_id"] != expected_asset_id:
             raise ValueError(
                 f"asset_id must match source directory name: expected {expected_asset_id}, got {manifest['asset_id']}"

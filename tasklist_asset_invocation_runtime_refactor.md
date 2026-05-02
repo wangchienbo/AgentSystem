@@ -156,23 +156,23 @@ This tasklist is the implementation driver for the full refactor. It is structur
 ## Phase 5. Registration, Installation, Packaging, and Generation Enforcement
 
 ### 5.1 Installer enforcement
-- [ ] Extend installer to validate invocation-envelope compatibility
-- [ ] Extend installer to validate runtime-wrapper compatibility
-- [ ] Extend installer to validate session-binding participation declaration
-- [ ] Add structured install failure reasons
-- [ ] Add installer tests for compliant/non-compliant assets
+- [x] Extend installer to validate invocation-envelope compatibility
+- [x] Extend installer to validate runtime-wrapper compatibility
+- [x] Extend installer to validate session-binding participation declaration
+- [x] Add structured install failure reasons
+- [x] Add installer tests for compliant/non-compliant assets
 
 ### 5.2 Manifest expansion
-- [ ] Add invocation contract version field
-- [ ] Add runtime wrapper compatibility field
-- [ ] Add session binding support field
-- [ ] Add endpoint requirement field
-- [ ] Add tool/vllm usage mode field
-- [ ] Add manifest validation tests
+- [x] Add invocation contract version field
+- [x] Add runtime wrapper compatibility field
+- [x] Add session binding support field
+- [x] Add endpoint requirement field
+- [x] Add tool/vllm usage mode field
+- [x] Add manifest validation tests
 
 ### 5.3 Registration hardening
-- [ ] Prevent registration of assets that bypass wrapper participation
-- [ ] Add tests for rejection of non-compliant registration
+- [x] Prevent registration of assets that bypass wrapper participation
+- [x] Add tests for rejection of non-compliant registration
 
 ### 5.4 New asset scaffolding
 - [ ] Update asset scaffolding/templates to include runtime layer hooks

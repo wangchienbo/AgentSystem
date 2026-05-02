@@ -18,6 +18,7 @@ from app.services.blueprint_validation import BlueprintValidationError, Blueprin
 from app.services.asset_center import AssetCenter
 from app.services.system_catalog import CatalogEntry, SystemCatalog
 from app.services.skill_control import SkillControlService
+from app.system.invocation.invocation_compliance import InvocationComplianceValidator
 
 
 class AppInstallerError(ValueError):
@@ -81,6 +82,7 @@ class AppInstallerService:
         self._skill_control = skill_control
         store_base = getattr(getattr(data_store, "_store", None), "base_path", None)
         self._skill_asset_base_dir = Path(skill_asset_base_dir) if skill_asset_base_dir is not None else (Path(store_base).parent if store_base is not None else None)
+        self._invocation_compliance = InvocationComplianceValidator()
 
     def install_app(self, blueprint_id: str, user_id: str, app_instance_id: str | None = None) -> AppInstallResult:
         blueprint = self._registry.get_blueprint(blueprint_id)
@@ -161,6 +163,11 @@ class AppInstallerService:
             runtime_profile=instance.runtime_profile,
         )
 
+
+    def _validate_manifest_compliance(self, manifest: dict[str, Any]) -> None:
+        compliance = self._invocation_compliance.validate_manifest(manifest)
+        if not compliance.compliant:
+            raise AppInstallerError("invocation compliance validation failed: " + "; ".join(compliance.reasons))
 
     def _register_static_catalog_entry(self, blueprint, user_id: str, release_version: str) -> None:
         if self._system_catalog is None:
@@ -297,8 +304,14 @@ class AppInstallerService:
                 "skill_id": skill_id,
                 "runtime_adapter": skill_manifest.get("runtime_adapter", "executable"),
                 "source": "skill_assets_core",
+                "invocation_contract_version": "phase-p-v1",
+                "runtime_wrapper_compatibility": True,
+                "session_binding_support": "supported",
+                "endpoint_requirement": "none",
+                "tool_vllm_usage_mode": "local_session_only",
             },
         }
+        self._validate_manifest_compliance(manifest)
         (source_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         for name in ["main.py", "input.schema.json", "output.schema.json", "error.schema.json", "README.md"]:
             path = core_dir / name
@@ -340,8 +353,14 @@ class AppInstallerService:
                     "runtime_adapter": entry.runtime_adapter,
                     "tags": [] if entry.manifest is None else list(entry.manifest.tags),
                     "source": "skill_control_registry",
+                    "invocation_contract_version": "phase-p-v1",
+                    "runtime_wrapper_compatibility": True,
+                    "session_binding_support": "supported",
+                    "endpoint_requirement": "none",
+                    "tool_vllm_usage_mode": "local_session_only",
                 },
             }
+            self._validate_manifest_compliance(manifest)
             skill_payload = entry.model_dump(mode="json")
             (source_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
             (source_dir / "skill.json").write_text(json.dumps(skill_payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -375,8 +394,14 @@ class AppInstallerService:
                 "app_shape": blueprint.app_shape,
                 "required_modules": list(blueprint.required_modules),
                 "required_skills": list(blueprint.required_skills),
+                "invocation_contract_version": "phase-p-v1",
+                "runtime_wrapper_compatibility": True,
+                "session_binding_support": "required",
+                "endpoint_requirement": "optional",
+                "tool_vllm_usage_mode": "session_binding_resolved",
             },
         }
+        self._validate_manifest_compliance(manifest)
         (source_dir / "manifest.json").write_text(__import__("json").dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         (source_dir / "blueprint.json").write_text(blueprint.model_dump_json(indent=2), encoding="utf-8")
 

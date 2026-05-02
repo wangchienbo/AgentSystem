@@ -4,15 +4,21 @@ from typing import Any
 
 from app.system.asset_center.service import AssetCenterService
 from app.system.assets.base_asset import AssetMethodHandler, BaseAsset, RegisteredAsset
+from app.system.invocation.invocation_compliance import InvocationComplianceValidator
 from app.system.invocation.invocation_envelope import InvocationRequestEnvelope
 
 
 class AssetRegistrationProtocol:
-    def __init__(self, *, auto_wrap_runtime_invocation: bool = True) -> None:
+    def __init__(self, *, auto_wrap_runtime_invocation: bool = True, compliance_validator: InvocationComplianceValidator | None = None) -> None:
         self._auto_wrap_runtime_invocation = auto_wrap_runtime_invocation
+        self._compliance_validator = compliance_validator or InvocationComplianceValidator()
 
     def materialize(self, asset: BaseAsset) -> RegisteredAsset:
         descriptor = asset.build_descriptor()
+        descriptor = self._normalize_descriptor_metadata(descriptor)
+        compliance = self._compliance_validator.validate_registration_descriptor(descriptor)
+        if not compliance.compliant:
+            raise ValueError("registration compliance validation failed: " + "; ".join(compliance.reasons))
         method_mappings = asset.build_method_mappings()
         service_ref = asset.get_service_ref()
         if self._auto_wrap_runtime_invocation:
@@ -34,6 +40,14 @@ class AssetRegistrationProtocol:
 
     def reregister(self, asset: BaseAsset, asset_center: AssetCenterService) -> RegisteredAsset:
         return self.register(asset, asset_center)
+
+    def _normalize_descriptor_metadata(self, descriptor):
+        metadata = dict(descriptor.metadata or {})
+        if self._auto_wrap_runtime_invocation:
+            metadata.setdefault("runtime_wrapper_compatibility", True)
+        metadata.setdefault("session_binding_support", "supported")
+        metadata.setdefault("invocation_contract_version", "phase-p-v1")
+        return type(descriptor)(**{**descriptor.__dict__, "metadata": metadata})
 
     def _wrap_method_mappings(self, *, asset_id: str, method_mappings: dict[str, AssetMethodHandler]) -> dict[str, AssetMethodHandler]:
         wrapped: dict[str, AssetMethodHandler] = {}
