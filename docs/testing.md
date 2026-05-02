@@ -466,7 +466,7 @@ Covered behavior:
 
 As of 2026-05-02:
 - Phase P focused invocation-runtime slice: **69 passed**
-- Latest broader local regression run: **full `pytest -q` in progress during documentation update; focused Phase P slices are green**
+- Latest broader local regression run: **full `pytest -q` green at 1033 passed, 15 skipped, 5 xfailed**
 - Historical asset-centered runtime regression baseline remains previously green at **153 passed, 4 xfailed** (4 known xfailed are legacy deeper/worker mapping transitions)
 - New tests added this cycle: `test_runtime_topology_and_validation_harness.py`, `test_error_taxonomy_and_recovery.py`, `test_phase_p_remaining_regressions.py`
 

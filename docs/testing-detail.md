@@ -69,6 +69,7 @@
 
 结果：
 - Focused Phase P slice：69/69 通过
+- 全量本地回归：`pytest -q` → 1033 passed, 15 skipped, 5 xfailed
 
 ### 3.5 Iteration 10 ~ 12 v2 端到端回归
 目标：验证 Phase H 主路径在复杂创建、修改 refinement、execute_action 回流、权限审批、持久化一致性上的稳定性。
