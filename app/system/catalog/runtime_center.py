@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from app.system.invocation.invocation_envelope import InvocationRequestEnvelope, InvocationResponseEnvelope
+
 from app.models.asset_contract import AssetDescriptor, AssetKind, AssetState, AssetType, is_valid_asset_state_transition
 from app.models.context import SessionNode
 
@@ -20,6 +22,7 @@ class RuntimeCenter:
         self._service_refs: dict[str, Any] = {}
         self._method_mappings: dict[tuple[str, str], Callable[..., Any]] = {}
         self._sessions: dict[str, SessionNode] = {}
+        self._invocation_runtime_layer: Any | None = None
         self._load()
 
     def register_asset(
@@ -225,6 +228,33 @@ class RuntimeCenter:
             return None
         return asset.model_dump(mode="json")
 
+    def register_invocation_runtime_layer(self, layer: Any) -> None:
+        self._invocation_runtime_layer = layer
+
+    def invoke_asset_envelope(self, envelope: InvocationRequestEnvelope) -> InvocationResponseEnvelope:
+        envelope.validate()
+        resolution = self._invocation_runtime_layer.before_invoke(envelope) if self._invocation_runtime_layer is not None else None
+        runtime_params = dict(envelope.args)
+        if resolution is not None:
+            runtime_params.setdefault("local_session_id", resolution.local_session_id)
+        result = self.call_asset_method(
+            envelope.target_id,
+            envelope.method,
+            {**runtime_params, "__invocation_envelope__": envelope},
+        )
+        response = InvocationResponseEnvelope(
+            ok=bool(result.get("ok")),
+            request_id=envelope.request_id,
+            data=result.get("result") if isinstance(result.get("result"), dict) else {"result": result.get("result")},
+            error=result.get("error"),
+            error_type=result.get("error_type"),
+            trace_context=envelope.trace_context,
+            metadata={"execution": result},
+        )
+        if self._invocation_runtime_layer is not None and resolution is not None:
+            return self._invocation_runtime_layer.after_invoke(envelope, response, resolution)
+        return response
+
     def call_asset_method(self, asset_id: str, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         asset = self.get(asset_id)
         if asset is None:
@@ -237,11 +267,22 @@ class RuntimeCenter:
             return self._call_error(asset_id, method, params, f"method mapping for {asset_id}.{method} is not wired yet", error_type="method_not_wired")
         try:
             result = handler(**(params or {})) if isinstance(params, dict) else handler(params)
-        except TypeError:
-            try:
-                result = handler(params or {})
-            except Exception as exc:
-                return self._call_error(asset_id, method, params, str(exc), error_type=type(exc).__name__)
+        except TypeError as exc:
+            if isinstance(params, dict) and "__invocation_envelope__" in params:
+                retry_params = dict(params)
+                retry_params.pop("__invocation_envelope__", None)
+                try:
+                    result = handler(**retry_params)
+                except Exception:
+                    try:
+                        result = handler(retry_params)
+                    except Exception:
+                        return self._call_error(asset_id, method, params, str(exc), error_type=type(exc).__name__)
+            else:
+                try:
+                    result = handler(params or {})
+                except Exception:
+                    return self._call_error(asset_id, method, params, str(exc), error_type=type(exc).__name__)
         except Exception as exc:
             return self._call_error(asset_id, method, params, str(exc), error_type=type(exc).__name__)
         return self._normalize_call_result(asset_id, method, params or {}, result)

@@ -16,6 +16,8 @@ def _build_dispatcher(tmp_path, *, with_runtime_layer: bool = False) -> tuple[As
     asset_center = AssetCenterService()
     runtime_center = RuntimeCenter(data_file=str(tmp_path / "runtime_center.json"))
     runtime_layer = AssetInvocationRuntimeLayer(asset_center=asset_center) if with_runtime_layer else None
+    if runtime_layer is not None:
+        runtime_center.register_invocation_runtime_layer(runtime_layer)
     dispatcher = InvocationDispatcher(asset_center=asset_center, runtime_center=runtime_center, runtime_layer=runtime_layer)
     return asset_center, runtime_center, dispatcher
 

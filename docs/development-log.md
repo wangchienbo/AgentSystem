@@ -32,7 +32,7 @@ Continued Phase P by landing the first governed runtime-wrapper slice: a shared 
 - `pytest tests/unit/test_asset_invocation_runtime_layer.py tests/unit/test_invocation_envelope_and_session_binding.py tests/unit/test_invocation_dispatcher.py -q`
 
 ### Notes
-This slice establishes the runtime wrapper, cache, and persisted recovery baseline. Runtime-center global entry wiring and registration auto-wrapping are still pending in the next Phase 2 slices.
+This slice now includes runtime-center envelope entry wiring and registration auto-wrapping. The next primary work is Phase 3 convergence for tool/vLLM context assembly and Phase 6 error propagation depth.
 
 
 ## 2026-05-02: Phase P Phase 1 protocol and truth layer baseline

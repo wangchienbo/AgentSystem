@@ -70,10 +70,10 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [x] Add unit tests for fallback path
 
 ### 2.3 Runtime center integration
-- [ ] Integrate `AssetInvocationRuntimeLayer` into runtime center asset call path
-- [ ] Ensure all inbound asset calls pass through runtime layer before business logic
-- [ ] Preserve compatibility for existing runtime-center callers
-- [ ] Add integration tests for runtime-center wrapped invocation
+- [x] Integrate `AssetInvocationRuntimeLayer` into runtime center asset call path
+- [x] Ensure all inbound asset calls pass through runtime layer before business logic
+- [x] Preserve compatibility for existing runtime-center callers
+- [x] Add integration tests for runtime-center wrapped invocation
 
 ### 2.4 Invocation dispatcher upgrade
 - [x] Upgrade dispatcher to accept unified invocation envelope
@@ -83,9 +83,9 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [x] Add tests for old-path normalization compatibility
 
 ### 2.5 Registration protocol wrapper injection
-- [ ] Extend `AssetRegistrationProtocol` to register wrapped invocation behavior
-- [ ] Ensure bare method mappings are not exposed without runtime wrapper participation
-- [ ] Add tests proving registered assets are auto-wrapped
+- [x] Extend `AssetRegistrationProtocol` to register wrapped invocation behavior
+- [x] Ensure bare method mappings are not exposed without runtime wrapper participation
+- [x] Add tests proving registered assets are auto-wrapped
 
 ---
 
