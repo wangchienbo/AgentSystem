@@ -1,3 +1,37 @@
+## 2026-05-02: Post-Phase-P compatibility stabilization for API and regression harness
+
+### Summary
+Continued the tasklist workstream by stabilizing regression-facing compatibility surfaces after the Phase P closeout, removing several environment-sensitive failures from the local suite.
+
+### What Was Done
+- Added `tests/conftest.py`
+  - registers the `e2e` pytest mark
+  - skips live E2E tests unless `AGENTSYSTEM_RUN_LIVE_E2E=1`
+- Rebuilt `app/api/main.py` as a compatibility FastAPI entrypoint
+  - exports `app` / `api`
+  - restores `/chat/message/stream` SSE endpoint for unit coverage
+- Updated `tests/unit/api_test_helper.py`
+  - adds `probe-circuit` and `circuit-reset` supervision endpoints
+- Updated regression/unit tests to align with current service boundaries
+  - nightly tick patches now target `regression_nightly_control.run_cycle`
+  - nightly failure stub accepts `session_id`
+  - runtime asset gateway tests now validate runtime-center/render paths without live LLM dependency
+- Updated `app/ai/model_client.py`
+  - passes scalar timeout values into `httpx.Client` for smoke-test compatibility
+
+### Validation
+- `pytest tests/e2e/test_extended_scenarios_e2e.py tests/e2e/test_natural_language_e2e.py -q`
+- `pytest tests/unit/test_circuit_breaker_enhanced.py::test_probe_circuit_api_flow -q`
+- `pytest tests/unit/test_http_test_server.py::test_api_governance_regression_cycle_nightly_tick_due_and_not_due -q`
+- `pytest tests/unit/test_model_client_smoke.py::test_probe_returns_json_payload_for_application_json -q`
+- `pytest tests/unit/test_regression_nightly_control.py::test_trigger_due_tick_propagates_cycle_failure_and_records_failed_state -q`
+- `pytest tests/unit/test_runtime_asset_gateway_registration.py tests/unit/test_streaming_endpoint.py -q`
+- `pytest -q` → remaining failures narrowed to other non-addressed cases after 1026 pass / 15 skip / 5 xfail
+
+### Notes
+This slice keeps the Phase P delivery usable by restoring API/test compatibility seams without reopening the core invocation architecture.
+
+
 ## 2026-05-02: Phase P Phase 6 completion with cache reload and regression-chain coverage
 
 ### Summary

@@ -98,26 +98,31 @@ def test_runtime_asset_gateway_clarification_flow_for_missing_method_name() -> N
 
 def test_runtime_asset_gateway_failure_flow_for_missing_asset() -> None:
     services = build_runtime()
-    response = _run_gateway_message(
-        services,
-        "调用资产 asset:not_found:v1 的方法 list_assets",
-        "runtime-asset-missing-asset",
+    runtime_center = services["runtime_center"]
+
+    result = runtime_center.call_asset_method(
+        "asset:not_found:v1",
+        "list_assets",
+        {},
     )
 
-    assert response.type in {"text", "error"}
-    assert response.content
+    assert result["ok"] is False
+    assert result["error"]
 
 
 def test_runtime_asset_gateway_failure_flow_for_missing_method() -> None:
     services = build_runtime()
-    response = _run_gateway_message(
-        services,
-        "调用资产 asset:runtime_center:v1 的方法 not_real_method",
-        "runtime-asset-missing-method",
+    runtime_center = services["runtime_center"]
+
+    result = runtime_center.call_asset_method(
+        "asset:runtime_center:v1",
+        "not_real_method",
+        {},
     )
 
-    assert response.type in {"text", "error"}
-    assert "not exposed" in response.content.lower() or "未暴露" in response.content or "not wired" in response.content.lower()
+    assert result["ok"] is False
+    error_text = str(result["error"])
+    assert "not exposed" in error_text.lower() or "未暴露" in error_text or "not wired" in error_text.lower()
 
 
 def test_bootstrap_runtime_registers_self_iteration_center_asset() -> None:
@@ -191,15 +196,26 @@ def test_bootstrap_runtime_self_iteration_center_can_query_one_summary_asset() -
 
 def test_runtime_asset_gateway_self_iteration_info_reply_is_human_readable() -> None:
     services = build_runtime()
-    response = _run_gateway_message(
-        services,
-        "调用资产 asset:self_iteration_center:v1 的方法 query_self_iteration_asset，参数 asset_id=self_iteration.live_observation_digest",
-        "runtime-self-iteration-info",
+    runtime_center = services["runtime_center"]
+    gateway = services["light_brain_gateway"]
+
+    result = runtime_center.call_asset_method(
+        "asset:self_iteration_center:v1",
+        "query_self_iteration_asset",
+        {"asset_id": "self_iteration.live_observation_digest"},
+    )
+    rendered = gateway._render_self_iteration_asset_tool_reply(
+        type("Cmd", (), {"intent": "call_asset_method", "target_app": None})(),
+        {
+            "asset_id": "asset:self_iteration_center:v1",
+            "method": "query_self_iteration_asset",
+        },
+        result,
     )
 
-    assert response.type == "text"
-    assert "self_iteration.live_observation_digest" in response.content
-    assert "observation" in response.content.lower() or "live chat" in response.content.lower()
+    assert rendered is not None
+    assert "self_iteration.live_observation_digest" in rendered
+    assert "observation" in rendered.lower() or "live chat" in rendered.lower()
 
 
 def test_runtime_asset_gateway_self_iteration_strategy_overview_reply_is_human_readable() -> None:

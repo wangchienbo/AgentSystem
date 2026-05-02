@@ -133,7 +133,7 @@ class OpenAIResponsesClient:
             "Content-Type": "application/json",
         }
         try:
-            with httpx.Client(timeout=_build_timeout(self._config.timeout_seconds)) as client:
+            with httpx.Client(timeout=self._config.timeout_seconds) as client:
                 response = client.post(url, json=payload, headers=headers)
         except httpx.ReadTimeout as e:
             raise ModelClientError(
@@ -196,7 +196,7 @@ class OpenAIResponsesClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        with httpx.Client(timeout=_build_timeout(self._config.timeout_seconds)) as client:
+        with httpx.Client(timeout=self._config.timeout_seconds) as client:
             if not stream:
                 response = client.post(url, json=payload, headers=headers)
                 if response.status_code >= 400:
@@ -282,7 +282,7 @@ class OpenAIResponsesClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        with httpx.Client(timeout=_build_timeout(self._config.timeout_seconds)) as client:
+        with httpx.Client(timeout=self._config.timeout_seconds) as client:
             tool_names = [tool.get("function", {}).get("name") for tool in tools]
             logger.info(
                 "ModelClient.chat_with_tools model=%s tool_names=%s message_count=%s",

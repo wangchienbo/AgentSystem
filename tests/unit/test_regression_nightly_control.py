@@ -392,7 +392,7 @@ def test_trigger_due_tick_propagates_cycle_failure_and_records_failed_state(tmp_
     record = service.register_nightly_schedule(interval_seconds=3600)
     record.last_triggered_at = datetime.now(UTC) - timedelta(seconds=7200)
 
-    def _boom(client):
+    def _boom(client, *, session_id=None):
         raise RuntimeError("cycle failed")
 
     service.run_cycle = _boom

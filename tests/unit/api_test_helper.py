@@ -1172,4 +1172,18 @@ def create_isolated_test_client(tmp_path: Path) -> TestClient:
     def attempt_restart(app_instance_id: str) -> dict:
         return services["supervisor"].attempt_restart(app_instance_id).model_dump(mode="json")
 
+    @_register("post", "/supervision/{app_instance_id}/probe-circuit")
+    def probe_circuit(app_instance_id: str) -> dict:
+        try:
+            return services["supervisor"].probe_circuit(app_instance_id).model_dump(mode="json")
+        except Exception as error:
+            raise map_domain_error(error) from error
+
+    @_register("post", "/supervision/{app_instance_id}/circuit-reset")
+    def circuit_reset(app_instance_id: str) -> dict:
+        try:
+            return services["supervisor"].circuit_reset(app_instance_id).model_dump(mode="json")
+        except Exception as error:
+            raise map_domain_error(error) from error
+
     return TestClient(app)

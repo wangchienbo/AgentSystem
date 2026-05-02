@@ -719,7 +719,7 @@ def test_api_governance_regression_cycle_nightly_tick_due_and_not_due() -> None:
         "evidence": {"promoted_count": 1},
         "trigger_application": {"trigger_count": 1},
     }
-    with patch("app.system.http_test_server.run_regression_governance_cycle", return_value=fake_cycle):
+    with patch("app.system.http_test_server.regression_nightly_control.run_cycle", return_value=fake_cycle):
         due_resp = client.post("/api/governance/regression-cycle/nightly/tick")
 
     assert due_resp.status_code == 200
