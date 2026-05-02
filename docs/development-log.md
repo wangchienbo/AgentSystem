@@ -1,3 +1,28 @@
+## 2026-05-02: Phase G1 failure attribution rules extracted and stabilized
+
+### Summary
+Pulled failure attribution into an explicit reusable classifier so Phase G1 observation paths share one stable rule table for stage and signal decisions.
+
+### What Was Done
+- Added `app/system/governance_failure_attribution.py`
+  - introduced `GovernanceFailureAttribution`
+  - introduced `classify_governance_failure(...)`
+  - made requirement misunderstanding, routing error, missing evidence, bad tool execution, and weak final answer shaping explicit and testable
+  - preserved explicit upstream `failure_stage` override behavior
+- Updated `app/system/regression_governance_observation.py`
+  - routing existing stage/signal derivation through the shared attribution classifier
+- Added `tests/unit/test_governance_failure_attribution.py`
+  - direct unit coverage for each attribution family and healthy default behavior
+- Updated `tasklist_phase_g1_evidence_refinement.md`
+  - marked Phase 3.3 complete
+
+### Validation
+- `pytest tests/unit/test_governance_failure_attribution.py tests/unit/test_regression_nightly_control.py -q`
+
+### Notes
+This closes the Phase 3 attribution slice cleanly and reduces the risk of fixed/live/replay observation paths drifting on failure semantics.
+
+
 ## 2026-05-02: Phase G1 live-chat observation compatibility landed
 
 ### Summary

@@ -7,49 +7,19 @@ from app.models.governance_observation import (
     GovernanceEvidenceDigest,
     ObservationRecord,
 )
+from app.system.governance_failure_attribution import classify_governance_failure
 
 
 REPLAY_SAMPLE_LIMIT = 3
 
 
 def classify_failure_stage(probe: dict[str, Any]) -> str | None:
-    explicit = probe.get("failure_stage")
-    if explicit:
-        return str(explicit)
-
-    answer_mode = str(probe.get("answer_mode") or "")
-    verification_mode = str(probe.get("verification_mode") or "")
-    response = str(probe.get("response") or "")
-    fallback_like = bool(probe.get("fallback_like"))
-    overreach_risk = bool(probe.get("overreach_risk"))
-    tool_error = bool(probe.get("tool_error"))
-    routing_error = bool(probe.get("routing_error"))
-
-    if answer_mode == "clarification_required":
-        return "requirement_understanding"
-    if routing_error:
-        return "routing"
-    if verification_mode in {"tool_required", "evidence_required", "required"}:
-        return "evidence"
-    if tool_error or fallback_like:
-        return "execution"
-    if overreach_risk or "不能直接下结论" in response:
-        return "answer_shaping"
-    return None
+    return classify_governance_failure(probe).failure_stage
 
 
 def classify_signal(probe: dict[str, Any], failure_stage: str | None) -> str:
-    if failure_stage == "requirement_understanding":
-        return "requirement_misunderstanding"
-    if failure_stage == "routing":
-        return "routing_error"
-    if failure_stage == "evidence":
-        return "missing_evidence"
-    if failure_stage == "execution":
-        return "bad_tool_execution"
-    if failure_stage == "answer_shaping":
-        return "weak_final_answer_shaping"
-    return "healthy_observation"
+    attribution = classify_governance_failure({**probe, "failure_stage": failure_stage} if failure_stage else probe)
+    return attribution.signal
 
 
 def _normalize_source(probe: dict[str, Any]) -> str:

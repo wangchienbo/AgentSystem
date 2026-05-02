@@ -65,13 +65,13 @@ Implement the next-stage governance observation substrate described in `docs/des
 - [x] Add tests for additive compatibility behavior
 
 ### 3.3 Failure attribution
-- [ ] Add attribution rules for:
-  - [ ] requirement misunderstanding
-  - [ ] routing error
-  - [ ] missing evidence
-  - [ ] bad tool execution
-  - [ ] weak final answer shaping
-- [ ] Add unit tests for attribution classification
+- [x] Add attribution rules for:
+  - [x] requirement misunderstanding
+  - [x] routing error
+  - [x] missing evidence
+  - [x] bad tool execution
+  - [x] weak final answer shaping
+- [x] Add unit tests for attribution classification
 
 ---
 
