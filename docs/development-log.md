@@ -1,3 +1,21 @@
+## 2026-05-02: Next-stage Phase G1 tasklist established
+
+### Summary
+With Phase P fully delivered and pushed, opened the next execution track by materializing the Phase G1 governance-evidence roadmap into a concrete implementation tasklist.
+
+### What Was Done
+- Added `tasklist_phase_g1_evidence_refinement.md`
+  - turns the design-roadmap Phase G1 section into an execution-oriented checklist
+  - scopes observation contracts, evidence envelopes, replay-grade sample ingestion, attribution rules, and operator-surface updates
+  - preserves the same commit/push delivery discipline used in Phase P
+
+### Validation
+- roadmap source reconciled against `docs/design.md` next-stage Phase G1 section
+
+### Notes
+This creates the next concrete delivery lane so development can continue without ambiguity now that `tasklist_asset_invocation_runtime_refactor.md` is closed.
+
+
 ## 2026-05-02: Phase P delivery boundary marked push-blocked
 
 ### Summary
