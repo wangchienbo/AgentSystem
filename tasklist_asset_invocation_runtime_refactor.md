@@ -214,12 +214,12 @@ This tasklist is the implementation driver for the full refactor. It is structur
 ### 6.5 Restart recovery tests
 - [x] Add asset restart binding recovery test
 - [x] Add cold-start fallback session judgment test
-- [ ] Add cache reload behavior test
+- [x] Add cache reload behavior test
 
 ### 6.6 End-to-end regression validation
 - [x] Add representative deterministic chain test
-- [ ] Add representative LLM-assisted chain test
-- [ ] Add mixed multi-hop chain test
+- [x] Add representative LLM-assisted chain test
+- [x] Add mixed multi-hop chain test
 - [x] Add compatibility regression for legacy caller path
 
 ---
