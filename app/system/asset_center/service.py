@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.system.asset_center.models import AssetDescriptorRecord, AssetModelRequirement
+from app.system.asset_center.models import AssetDescriptorRecord, AssetModelRequirement, AssetSessionBindingRecord
 from app.system.asset_center.registry import AssetCenterRegistry
 from app.system.model_runtime.model_client_registry import ModelRuntimeRecord
 
@@ -48,3 +48,12 @@ class AssetCenterService:
 
     def get_asset_model_requirement(self, asset_id: str) -> AssetModelRequirement:
         return self._registry.get_asset_model_requirement(asset_id)
+
+    def upsert_session_binding(self, record: AssetSessionBindingRecord) -> AssetSessionBindingRecord:
+        return self._registry.upsert_session_binding(record)
+
+    def get_session_binding(self, asset_id: str, upstream_session_id: str) -> AssetSessionBindingRecord | None:
+        return self._registry.get_session_binding(asset_id, upstream_session_id)
+
+    def list_session_bindings(self, asset_id: str | None = None) -> list[dict[str, object]]:
+        return [item.to_dict() for item in self._registry.list_session_bindings(asset_id)]

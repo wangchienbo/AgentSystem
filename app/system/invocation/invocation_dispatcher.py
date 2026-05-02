@@ -5,6 +5,7 @@ from typing import Any, Callable
 from app.system.asset_center.models import AssetDescriptorRecord, AssetMethodSpec, InteractionDecisionEnvelope
 from app.system.asset_center.service import AssetCenterService
 from app.system.catalog.runtime_center import RuntimeCenter
+from app.system.invocation.invocation_envelope import InvocationRequestEnvelope
 from app.system.invocation.model_resolved_call import ModelResolvedCall
 from app.system.model_runtime.model_selector import ModelSelectionError, ModelSelector
 
@@ -30,15 +31,20 @@ class InvocationDispatcher:
         self._descriptor_provider = descriptor_provider
 
     def prepare_call(self, *, asset_id: str, method: str, params: dict[str, Any] | None = None) -> ModelResolvedCall:
-        descriptor = self._require_descriptor(asset_id)
-        method_spec = next((item for item in descriptor.methods if item.name == method), None)
+        envelope = InvocationRequestEnvelope.from_legacy(asset_id=asset_id, method=method, params=params)
+        return self.prepare_envelope(envelope)
+
+    def prepare_envelope(self, envelope: InvocationRequestEnvelope) -> ModelResolvedCall:
+        envelope.validate()
+        descriptor = self._require_descriptor(envelope.target_id)
+        method_spec = next((item for item in descriptor.methods if item.name == envelope.method), None)
         if method_spec is None:
             raise InvocationDispatchError(
-                f"method {method} not declared by {asset_id}",
+                f"method {envelope.method} not declared by {envelope.target_id}",
                 error_type="method_not_declared",
             )
 
-        normalized_params = params or {}
+        normalized_params = envelope.args or {}
         self._validate_params(method_spec.input_schema, normalized_params)
 
         requirement = descriptor.model_requirement
@@ -58,10 +64,16 @@ class InvocationDispatcher:
                 ) from exc
 
         return ModelResolvedCall(
-            asset_id=asset_id,
-            method=method,
+            asset_id=envelope.target_id,
+            method=envelope.method,
             params=normalized_params,
             resolved_model=resolved_model,
+            request_id=envelope.request_id,
+            target_type=envelope.target_type,
+            session=envelope.session.to_dict() if envelope.session is not None else None,
+            caller=envelope.caller.to_dict() if envelope.caller is not None else None,
+            trace_context=envelope.trace_context,
+            metadata=envelope.metadata,
         )
 
     def dispatch(self, *, asset_id: str, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -75,7 +87,17 @@ class InvocationDispatcher:
             "error_type": result.get("error_type"),
         }
 
-    def dispatch_from_envelope(self, envelope: InteractionDecisionEnvelope) -> dict[str, Any]:
+    def dispatch_from_envelope(self, envelope: InteractionDecisionEnvelope | InvocationRequestEnvelope) -> dict[str, Any]:
+        if isinstance(envelope, InvocationRequestEnvelope):
+            prepared = self.prepare_envelope(envelope)
+            result = self._runtime_center.call_asset_method(prepared.asset_id, prepared.method, prepared.params)
+            return {
+                "ok": bool(result.get("ok")),
+                "resolved_call": prepared.to_dict(),
+                "execution": result,
+                "error": result.get("error"),
+                "error_type": result.get("error_type"),
+            }
         envelope.validate()
         if envelope.decision != "invoke" or not envelope.invoke:
             raise InvocationDispatchError("envelope must carry invoke payload", error_type="invalid_envelope")

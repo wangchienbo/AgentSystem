@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime, timezone
 
-from app.system.asset_center.models import AssetDescriptorRecord
+from app.system.asset_center.models import AssetDescriptorRecord, AssetSessionBindingRecord
 from app.system.model_runtime.model_client_registry import ModelRuntimeRecord
 
 
@@ -14,6 +15,7 @@ class AssetCenterRegistry:
     def __init__(self) -> None:
         self._descriptors: dict[str, AssetDescriptorRecord] = {}
         self._models: dict[str, ModelRuntimeRecord] = {}
+        self._session_bindings: dict[tuple[str, str], AssetSessionBindingRecord] = {}
         self._registration_epoch = 0
 
     def register_asset(self, descriptor: AssetDescriptorRecord) -> AssetDescriptorRecord:
@@ -46,6 +48,44 @@ class AssetCenterRegistry:
             return self._descriptors[asset_id]
         except KeyError as exc:
             raise KeyError(f"Asset descriptor not found: {asset_id}") from exc
+
+    def upsert_session_binding(self, record: AssetSessionBindingRecord) -> AssetSessionBindingRecord:
+        record.validate()
+        now = datetime.now(timezone.utc).isoformat()
+        key = (record.asset_id, record.upstream_session_id)
+        existing = self._session_bindings.get(key)
+        if existing is None:
+            stored = replace(
+                record,
+                created_at=record.created_at or now,
+                last_active_at=record.last_active_at or now,
+            )
+        else:
+            if existing.local_session_id != record.local_session_id:
+                raise ValueError(
+                    "session binding uniqueness violated for "
+                    f"{record.asset_id}:{record.upstream_session_id}"
+                )
+            stored = replace(
+                existing,
+                root_session_id=record.root_session_id or existing.root_session_id,
+                parent_session_id=record.parent_session_id or existing.parent_session_id,
+                status=record.status or existing.status,
+                last_active_at=record.last_active_at or now,
+                metadata=record.metadata or existing.metadata,
+            )
+        self._session_bindings[key] = stored
+        return stored
+
+    def get_session_binding(self, asset_id: str, upstream_session_id: str) -> AssetSessionBindingRecord | None:
+        record = self._session_bindings.get((asset_id, upstream_session_id))
+        return replace(record) if record is not None else None
+
+    def list_session_bindings(self, asset_id: str | None = None) -> list[AssetSessionBindingRecord]:
+        records = list(self._session_bindings.values())
+        if asset_id is not None:
+            records = [item for item in records if item.asset_id == asset_id]
+        return [replace(item) for item in records]
 
     def _validate_descriptor(self, descriptor: AssetDescriptorRecord) -> None:
         if descriptor.descriptor_version < 1:

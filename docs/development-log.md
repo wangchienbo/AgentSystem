@@ -1,4 +1,45 @@
-## 2026-05-01: Add descriptor/schema and model selector unit tests (Phase 9.1)
+## 2026-05-02: Phase P Phase 1 protocol and truth layer baseline
+
+### Summary
+Started Phase P implementation by landing the protocol/truth-layer baseline: unified invocation envelope models, asset session binding record model, asset-center binding persistence APIs with uniqueness enforcement, and initial focused tests.
+
+### What Was Done
+- Added `app/system/invocation/invocation_envelope.py`
+  - `InvocationSessionRef`
+  - `InvocationCallerRef`
+  - `InvocationRequestEnvelope`
+  - `InvocationResponseEnvelope`
+  - legacy normalization helper from `asset_id + method + params`
+- Extended `app/system/asset_center/models.py`
+  - added `INVOCATION_ERROR_TYPES`
+  - added `AssetSessionBindingRecord`
+- Extended `app/system/asset_center/registry.py`
+  - added in-memory persisted-style binding store
+  - added `upsert_session_binding(...)`
+  - added `get_session_binding(...)`
+  - added `list_session_bindings(...)`
+  - enforced uniqueness for `(asset_id, upstream_session_id)`
+- Extended `app/system/asset_center/service.py`
+  - exposed binding persistence APIs through `AssetCenterService`
+- Extended `app/system/invocation/model_resolved_call.py`
+  - added envelope-related fields (`request_id`, `target_type`, `session`, `caller`, `trace_context`, `metadata`)
+- Extended `app/system/invocation/invocation_dispatcher.py`
+  - added envelope-aware `prepare_envelope(...)`
+  - added direct `InvocationRequestEnvelope` dispatch support
+  - preserved legacy dispatch compatibility by normalizing old calls into the new envelope shape
+- Added `tests/unit/test_invocation_envelope_and_session_binding.py`
+  - envelope validation
+  - legacy normalization
+  - binding upsert/get/list behavior
+  - uniqueness violation path
+
+### Validation
+- `pytest -q tests/unit/test_asset_descriptor_schema.py tests/unit/test_invocation_envelope_and_session_binding.py` → `23 passed`
+
+### Notes
+This slice establishes the Phase P truth/protocol baseline but does not yet wire the mandatory `AssetInvocationRuntimeLayer` into runtime execution. That remains the next primary implementation step.
+
+
 
 ### Summary
 Completed the remaining Phase 9.1 test items by adding dedicated unit tests for asset descriptor/schema validation and model selection/fallback logic.

@@ -4,6 +4,17 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 
+INVOCATION_ERROR_TYPES = {
+    "routing_error",
+    "binding_error",
+    "context_error",
+    "invocation_error",
+    "runtime_error",
+    "model_error",
+    "persistence_error",
+}
+
+
 @dataclass(frozen=True)
 class AssetMethodSpec:
     name: str
@@ -51,6 +62,40 @@ class InteractionDecisionEnvelope:
             "text": self.text,
             "need_asset_detail_id": self.need_asset_detail_id,
             "invoke": self.invoke,
+            "metadata": self.metadata,
+        }
+
+
+@dataclass(frozen=True)
+class AssetSessionBindingRecord:
+    asset_id: str
+    upstream_session_id: str
+    local_session_id: str
+    root_session_id: str | None = None
+    parent_session_id: str | None = None
+    status: str = "active"
+    created_at: str = ""
+    last_active_at: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        if not self.asset_id.strip():
+            raise ValueError("asset_id is required")
+        if not self.upstream_session_id.strip():
+            raise ValueError("upstream_session_id is required")
+        if not self.local_session_id.strip():
+            raise ValueError("local_session_id is required")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "asset_id": self.asset_id,
+            "upstream_session_id": self.upstream_session_id,
+            "local_session_id": self.local_session_id,
+            "root_session_id": self.root_session_id,
+            "parent_session_id": self.parent_session_id,
+            "status": self.status,
+            "created_at": self.created_at,
+            "last_active_at": self.last_active_at,
             "metadata": self.metadata,
         }
 
