@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from app.system.invocation.error_taxonomy import build_error_taxonomy
 from app.system.invocation.invocation_envelope import InvocationRequestEnvelope, InvocationResponseEnvelope
 
 from app.models.asset_contract import AssetDescriptor, AssetKind, AssetState, AssetType, is_valid_asset_state_transition
@@ -248,6 +249,7 @@ class RuntimeCenter:
             data=result.get("result") if isinstance(result.get("result"), dict) else {"result": result.get("result")},
             error=result.get("error"),
             error_type=result.get("error_type"),
+            error_taxonomy=build_error_taxonomy(result.get("error_type"), str(result.get("error") or ""), source="runtime_center"),
             trace_context=envelope.trace_context,
             metadata={"execution": result},
         )

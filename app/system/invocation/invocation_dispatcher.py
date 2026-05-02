@@ -5,6 +5,7 @@ from typing import Any, Callable
 from app.system.asset_center.models import AssetDescriptorRecord, AssetMethodSpec, InteractionDecisionEnvelope
 from app.system.asset_center.service import AssetCenterService
 from app.system.catalog.runtime_center import RuntimeCenter
+from app.system.invocation.error_taxonomy import build_error_taxonomy
 from app.system.invocation.invocation_envelope import InvocationRequestEnvelope, InvocationResponseEnvelope
 from app.system.invocation.runtime_layer import AssetInvocationRuntimeLayer
 from app.system.invocation.model_resolved_call import ModelResolvedCall
@@ -98,23 +99,30 @@ class InvocationDispatcher:
 
     def _dispatch_invocation_envelope(self, envelope: InvocationRequestEnvelope) -> dict[str, Any]:
         prepared = self.prepare_envelope(envelope)
-        binding_resolution = self._runtime_layer.before_invoke(envelope) if self._runtime_layer is not None else None
-        runtime_params = dict(prepared.params)
-        if binding_resolution is not None:
-            runtime_params.setdefault("local_session_id", binding_resolution.local_session_id)
-        result = self._runtime_center.call_asset_method(prepared.asset_id, prepared.method, runtime_params)
-        response = InvocationResponseEnvelope(
-            ok=bool(result.get("ok")),
-            request_id=prepared.request_id,
-            data=result.get("result") if isinstance(result.get("result"), dict) else {"result": result.get("result")},
-            error=result.get("error"),
-            error_type=result.get("error_type"),
-            trace_context=prepared.trace_context,
-            metadata={"execution": result},
-        )
-        if binding_resolution is not None:
-            response = self._runtime_layer.after_invoke(envelope, response, binding_resolution)
-        response_payload = response.to_dict()
+        if self._runtime_layer is not None and hasattr(self._runtime_center, "invoke_asset_envelope"):
+            response = self._runtime_center.invoke_asset_envelope(envelope)
+            response_payload = response.to_dict()
+            result = response.metadata.get("execution") if isinstance(response.metadata, dict) else None
+            if not isinstance(result, dict):
+                result = {
+                    "ok": response.ok,
+                    "result": response.data,
+                    "error": response.error,
+                    "error_type": response.error_type,
+                }
+        else:
+            result = self._runtime_center.call_asset_method(prepared.asset_id, prepared.method, prepared.params)
+            response = InvocationResponseEnvelope(
+                ok=bool(result.get("ok")),
+                request_id=prepared.request_id,
+                data=result.get("result") if isinstance(result.get("result"), dict) else {"result": result.get("result")},
+                error=result.get("error"),
+                error_type=result.get("error_type"),
+                error_taxonomy=build_error_taxonomy(result.get("error_type"), str(result.get("error") or ""), source="runtime_center"),
+                trace_context=prepared.trace_context,
+                metadata={"execution": result},
+            )
+            response_payload = response.to_dict()
         return {
             "ok": response_payload["ok"],
             "resolved_call": prepared.to_dict(),
@@ -128,20 +136,24 @@ class InvocationDispatcher:
         try:
             return self.dispatch(asset_id=asset_id, method=method, params=params)
         except InvocationDispatchError as exc:
+            taxonomy = build_error_taxonomy(exc.error_type, str(exc), source="dispatcher")
             return {
                 "ok": False,
                 "resolved_call": None,
                 "execution": None,
                 "error": str(exc),
                 "error_type": exc.error_type,
+                "error_taxonomy": None if taxonomy is None else taxonomy.to_dict(),
             }
         except Exception as exc:
+            taxonomy = build_error_taxonomy(type(exc).__name__, str(exc), source="dispatcher")
             return {
                 "ok": False,
                 "resolved_call": None,
                 "execution": None,
                 "error": str(exc),
                 "error_type": type(exc).__name__,
+                "error_taxonomy": None if taxonomy is None else taxonomy.to_dict(),
             }
 
     def _require_descriptor(self, asset_id: str) -> AssetDescriptorRecord:

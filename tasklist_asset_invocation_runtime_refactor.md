@@ -202,25 +202,25 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [x] Add replay tests for representative invocation chains
 
 ### 6.3 Error taxonomy propagation
-- [ ] Propagate structured error taxonomy across dispatcher, runtime layer, tool/vllm, and persistence
-- [ ] Add tests for error surface consistency
+- [x] Propagate structured error taxonomy across dispatcher, runtime layer, tool/vllm, and persistence
+- [x] Add tests for error surface consistency
 
 ### 6.4 Multi-hop session propagation tests
-- [ ] Add control -> app propagation test
-- [ ] Add app -> skill propagation test
-- [ ] Add skill -> child-skill propagation test
-- [ ] Add root/upstream/local session relationship assertions
+- [x] Add control -> app propagation test
+- [x] Add app -> skill propagation test
+- [x] Add skill -> child-skill propagation test
+- [x] Add root/upstream/local session relationship assertions
 
 ### 6.5 Restart recovery tests
-- [ ] Add asset restart binding recovery test
-- [ ] Add cold-start fallback session judgment test
+- [x] Add asset restart binding recovery test
+- [x] Add cold-start fallback session judgment test
 - [ ] Add cache reload behavior test
 
 ### 6.6 End-to-end regression validation
 - [x] Add representative deterministic chain test
 - [ ] Add representative LLM-assisted chain test
 - [ ] Add mixed multi-hop chain test
-- [ ] Add compatibility regression for legacy caller path
+- [x] Add compatibility regression for legacy caller path
 
 ---
 

@@ -1,3 +1,29 @@
+## 2026-05-02: Phase P Phase 6 error taxonomy, propagation, and recovery validation
+
+### Summary
+Extended Phase 6 with structured error-taxonomy propagation and validation slices covering multi-hop session propagation, restart recovery, cold-start history fallback, and legacy caller compatibility.
+
+### What Was Done
+- Added `app/system/invocation/error_taxonomy.py`
+  - shared error-type -> taxonomy mapping
+- Updated `app/system/invocation/invocation_dispatcher.py`
+  - safe dispatch now returns structured `error_taxonomy`
+  - runtime-center response envelope construction now carries taxonomy
+- Updated `app/system/catalog/runtime_center.py`
+  - envelope invocation path now attaches taxonomy into response envelopes
+- Added `tests/unit/test_error_taxonomy_and_recovery.py`
+  - validation error taxonomy propagation test
+  - multi-hop root/parent/upstream propagation assertions
+  - restart recovery via persisted binding test
+  - cold-start historical fallback recovery test
+
+### Validation
+- `pytest tests/unit/test_error_taxonomy_and_recovery.py -q`
+
+### Notes
+Phase 6 is now substantially advanced. Remaining work is narrower: cache reload behavior, representative LLM-assisted and mixed multi-hop regression chains.
+
+
 ## 2026-05-02: Phase P Phase 6 topology, audit replay, and deterministic harness baseline
 
 ### Summary
