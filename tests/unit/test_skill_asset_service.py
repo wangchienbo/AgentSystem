@@ -19,16 +19,41 @@ def test_skill_asset_service_creates_candidate_asset_and_index(tmp_path: Path) -
         status="candidate",
     )
 
+    manifest = json.loads(Path(asset.manifest_path).read_text())
+
     assert metadata.asset_status == "candidate"
     assert Path(asset.asset_dir).exists()
     assert (Path(asset.asset_dir) / "metadata.json").exists()
+    assert manifest["phase_p_invocation"]["invocation_contract_version"] == "phase-p-v1"
+    assert manifest["phase_p_invocation"]["runtime_wrapper_compatibility"] is True
     index = json.loads((tmp_path / "data" / "skill_assets" / "index.json").read_text())
     assert index["assets"]
     assert index["assets"][0]["skill_id"] == "skill.test.asset"
     assert index["assets"][0]["asset_status"] == "candidate"
 
 
-def test_skill_asset_service_promotes_candidate_to_core(tmp_path: Path) -> None:
+
+
+def test_skill_asset_service_scaffold_entrypoint_and_readme_include_phase_p_hooks(tmp_path: Path) -> None:
+    service = SkillAssetService(str(tmp_path / "data"))
+    asset, _metadata = service.create_asset_scaffold(
+        GeneratedSkillRequest(
+            skill_id="skill.test.phasep",
+            name="Phase P Asset",
+            description="phase p candidate",
+            template_type="slugify",
+        ),
+        status="candidate",
+    )
+
+    entrypoint = Path(asset.entrypoint_path).read_text()
+    readme = Path(asset.readme_path).read_text()
+    smoke = Path(asset.asset_dir) / "tests" / "test_smoke.py"
+
+    assert "__invocation_envelope__" in entrypoint
+    assert "local_session_id" in entrypoint
+    assert "Phase P runtime hook" in readme
+    assert "runtime_wrapper_compatible" in smoke.read_text()
     service = SkillAssetService(str(tmp_path / "data"))
     service.create_asset_scaffold(
         GeneratedSkillRequest(

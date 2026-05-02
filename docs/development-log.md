@@ -1,3 +1,26 @@
+## 2026-05-02: Phase P Phase 5 scaffolding and generated-asset compliance completion
+
+### Summary
+Completed Phase 5 by making scaffolded/generated skill assets Phase P-aware by default, including invocation metadata in generated manifests and runtime hook guidance in entrypoints, docs, and smoke tests.
+
+### What Was Done
+- Updated `app/skills/skill_asset_service.py`
+  - added `phase_p_invocation` defaults into generated skill manifests
+  - scaffolded entrypoints now read `__invocation_envelope__` and `local_session_id`
+  - scaffolded outputs now emit runtime-wrapper-compatible metadata
+  - README template now documents Phase P runtime hook expectations
+  - smoke test template now validates Phase P invocation metadata behavior
+- Expanded `tests/unit/test_skill_asset_service.py`
+  - verifies generated manifest compliance defaults
+  - verifies scaffold entrypoint/readme/smoke test include Phase P hooks
+
+### Validation
+- `pytest tests/unit/test_skill_asset_service.py -q`
+
+### Notes
+Phase 5 is now fully complete. The next stage is Phase 6 governance views, audit replay, and end-to-end validation.
+
+
 ## 2026-05-02: Phase P Phase 5 installer, manifest, and registration enforcement baseline
 
 ### Summary

@@ -7,6 +7,14 @@ from pathlib import Path
 from app.models.skill_asset import SkillAssetConsistencyIssue, SkillAssetConsistencyResult, SkillAssetIndex, SkillAssetIndexEntry, SkillAssetMetadata
 from app.models.generated_skill import GeneratedSkillAsset, GeneratedSkillRequest
 
+PHASE_P_INVOCATION_DEFAULTS = {
+    "invocation_contract_version": "phase-p-v1",
+    "runtime_wrapper_compatibility": True,
+    "session_binding_support": "supported",
+    "endpoint_requirement": "none",
+    "tool_vllm_usage_mode": "local_session_only",
+}
+
 
 class SkillAssetService:
     def __init__(self, base_dir: str) -> None:
@@ -93,6 +101,7 @@ class SkillAssetService:
                 "allow_filesystem_write": True,
                 "allow_shell": False,
             },
+            "phase_p_invocation": dict(PHASE_P_INVOCATION_DEFAULTS),
         }
         metadata = SkillAssetMetadata(
             skill_id=request.skill_id,
@@ -114,22 +123,27 @@ class SkillAssetService:
             f"- template: `{request.template_type}`\n"
             f"- runtime: `python3` + `json_stdio`\n"
             f"- entrypoint: `{entrypoint_name}`\n"
-            f"- asset status: `{status}`\n\n"
+            f"- asset status: `{status}`\n"
+            "- phase-p invocation: runtime wrapper compatible, local-session aware\n\n"
             "## Input\n"
             f"See `input.schema.json`. Example payload: `{json.dumps(sample_input, ensure_ascii=False)}`\n\n"
             "## Output\n"
             f"See `output.schema.json`. Expected primary field: `{expected_field}`\n\n"
+            "## Phase P runtime hook\n"
+            "The scaffold expects invocation envelope metadata under `__invocation_envelope__` and preserves `local_session_id` when present.\n\n"
             "## Smoke test\n"
             "Run `pytest tests/test_smoke.py -q` inside this skill directory.\n"
         )
         smoke_test = (
             "import json, subprocess\n\n"
             f"def test_smoke():\n"
-            f"    proc = subprocess.run(['python3', '{entrypoint_path}'], input=json.dumps({{'skill_id': '{request.skill_id}', 'inputs': {json.dumps(sample_input, ensure_ascii=False)}}}), text=True, capture_output=True, check=False)\n"
+            f"    proc = subprocess.run(['python3', '{entrypoint_path}'], input=json.dumps({{'skill_id': '{request.skill_id}', 'inputs': {json.dumps(sample_input, ensure_ascii=False)}, '__invocation_envelope__': {{'request_id': 'req-1'}}, 'local_session_id': 'local-1'}}), text=True, capture_output=True, check=False)\n"
             f"    assert proc.returncode == 0\n"
             f"    payload = json.loads(proc.stdout)\n"
             f"    assert payload['skill_id'] == '{request.skill_id}'\n"
             f"    assert '{expected_field}' in payload['output']\n"
+            f"    assert payload['metadata']['runtime_wrapper_compatible'] is True\n"
+            f"    assert payload['metadata']['local_session_id'] == 'local-1'\n"
         )
 
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
@@ -438,6 +452,8 @@ class SkillAssetService:
             "import json, sys\n"
             "payload = json.loads(sys.stdin.read() or '{}')\n"
             "inputs = payload.get('inputs', {})\n"
+            "runtime_envelope = payload.get('__invocation_envelope__') or {}\n"
+            "local_session_id = payload.get('local_session_id')\n"
             f"{body}\n"
-            "json.dump({'skill_id': payload.get('skill_id', ''), 'status': 'completed', 'output': output}, sys.stdout)\n"
+            "json.dump({'skill_id': payload.get('skill_id', ''), 'status': 'completed', 'output': output, 'metadata': {'runtime_wrapper_compatible': True, 'local_session_id': local_session_id, 'request_id': runtime_envelope.get('request_id')}}, sys.stdout)\n"
         )

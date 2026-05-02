@@ -175,13 +175,13 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [x] Add tests for rejection of non-compliant registration
 
 ### 5.4 New asset scaffolding
-- [ ] Update asset scaffolding/templates to include runtime layer hooks
-- [ ] Update generated asset defaults to include invocation envelope support
-- [ ] Add tests or sample generation verification
+- [x] Update asset scaffolding/templates to include runtime layer hooks
+- [x] Update generated asset defaults to include invocation envelope support
+- [x] Add tests or sample generation verification
 
 ### 5.5 Generated asset compliance
-- [ ] Ensure generated assets default to compliant manifest + runtime wrapper structure
-- [ ] Add validation coverage for generated assets
+- [x] Ensure generated assets default to compliant manifest + runtime wrapper structure
+- [x] Add validation coverage for generated assets
 
 ---
 
