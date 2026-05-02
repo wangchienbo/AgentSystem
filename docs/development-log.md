@@ -1,3 +1,28 @@
+## 2026-05-02: Phase G1 replay ingestion and persistence baseline landed
+
+### Summary
+Continued Phase G1 by wiring the new replay-grade sample model into a bounded curated ingestion and persistence path.
+
+### What Was Done
+- Added `app/system/replay_regression_samples.py`
+  - bounded validation for curated replay-backed samples
+  - allowed source kinds only
+  - message-count and excerpt-size guards
+  - persistence, single-load, recent-list, and batch-ingest APIs
+- Added `tests/unit/test_replay_regression_samples.py`
+  - validation rejection coverage
+  - persistence/load/list roundtrip coverage
+  - mixed accept/reject ingestion coverage
+- Updated `tasklist_phase_g1_evidence_refinement.md`
+  - marked Phase 2.2 and 2.3 complete
+
+### Validation
+- `pytest tests/unit/test_governance_observation_models.py tests/unit/test_replay_regression_samples.py -q`
+
+### Notes
+This finishes the replay sample schema + bounded ingestion substrate, so the next slice can enrich fixed/live observation production with layered evidence rather than inventing storage rules later.
+
+
 ## 2026-05-02: Phase G1 observation contract baseline landed
 
 ### Summary

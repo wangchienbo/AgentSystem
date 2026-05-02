@@ -41,14 +41,14 @@ Implement the next-stage governance observation substrate described in `docs/des
 - [x] Add validation tests
 
 ### 2.2 Curated replay ingestion path
-- [ ] Add ingestion service for curated replay-backed samples
-- [ ] Ensure ingestion is bounded and not a raw mirror of production traffic
-- [ ] Add tests for acceptance / rejection rules
+- [x] Add ingestion service for curated replay-backed samples
+- [x] Ensure ingestion is bounded and not a raw mirror of production traffic
+- [x] Add tests for acceptance / rejection rules
 
 ### 2.3 Persistence and retrieval
-- [ ] Add persistence path for replay samples
-- [ ] Add list / recent retrieval APIs
-- [ ] Add tests for persistence roundtrip
+- [x] Add persistence path for replay samples
+- [x] Add list / recent retrieval APIs
+- [x] Add tests for persistence roundtrip
 
 ---
 
