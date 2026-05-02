@@ -1,3 +1,29 @@
+## 2026-05-02: Phase P Phase 6 topology, audit replay, and deterministic harness baseline
+
+### Summary
+Started Phase 6 by adding a runtime topology read model, a replay-oriented invocation audit store, and a deterministic validation harness that captures and replays representative invocation chains.
+
+### What Was Done
+- Added `app/system/invocation/runtime_topology.py`
+  - runtime topology snapshot over assets, runtime assets, sessions, bindings, and downstream edges
+- Added `app/system/invocation/invocation_audit.py`
+  - invocation audit record model
+  - request envelope, binding mode, downstream links, tool/vLLM links, and response capture
+  - replay retrieval path
+- Added `app/system/invocation/validation_harness.py`
+  - deterministic harness combining topology snapshot + replay record generation
+- Added `tests/unit/test_runtime_topology_and_validation_harness.py`
+  - topology coverage
+  - audit replay coverage
+  - representative deterministic invocation-chain validation
+
+### Validation
+- `pytest tests/unit/test_runtime_topology_and_validation_harness.py -q`
+
+### Notes
+This completes Phase 6.1 and 6.2 baseline, and lands the first deterministic slice of 6.6. Error taxonomy propagation, multi-hop propagation, restart recovery, and broader regression chains remain next.
+
+
 ## 2026-05-02: Phase P Phase 5 scaffolding and generated-asset compliance completion
 
 ### Summary

@@ -188,18 +188,18 @@ This tasklist is the implementation driver for the full refactor. It is structur
 ## Phase 6. Governance Views, Audit Replay, and End-to-End Validation
 
 ### 6.1 Runtime topology read model
-- [ ] Add runtime topology read model
-- [ ] Include assets, instances, sessions, bindings, and downstream invocation edges
-- [ ] Add topology query tests
+- [x] Add runtime topology read model
+- [x] Include assets, instances, sessions, bindings, and downstream invocation edges
+- [x] Add topology query tests
 
 ### 6.2 Audit and replay chain
-- [ ] Add invocation audit record model
-- [ ] Record request envelope
-- [ ] Record binding resolution mode
-- [ ] Record downstream call links
-- [ ] Record tool/vllm usage links
-- [ ] Add replay-oriented retrieval path
-- [ ] Add replay tests for representative invocation chains
+- [x] Add invocation audit record model
+- [x] Record request envelope
+- [x] Record binding resolution mode
+- [x] Record downstream call links
+- [x] Record tool/vllm usage links
+- [x] Add replay-oriented retrieval path
+- [x] Add replay tests for representative invocation chains
 
 ### 6.3 Error taxonomy propagation
 - [ ] Propagate structured error taxonomy across dispatcher, runtime layer, tool/vllm, and persistence
@@ -217,7 +217,7 @@ This tasklist is the implementation driver for the full refactor. It is structur
 - [ ] Add cache reload behavior test
 
 ### 6.6 End-to-end regression validation
-- [ ] Add representative deterministic chain test
+- [x] Add representative deterministic chain test
 - [ ] Add representative LLM-assisted chain test
 - [ ] Add mixed multi-hop chain test
 - [ ] Add compatibility regression for legacy caller path
