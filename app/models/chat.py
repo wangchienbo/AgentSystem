@@ -131,6 +131,17 @@ class InterpretedCommand(BaseModel):
     structured_answer: StructuredAnswer | None = Field(default=None, description="Structured cognition/action answer contract")
 
 
+class TaskContinuationDecision(BaseModel):
+    """Structured next-step decision for pending task continuation."""
+    conversation_mode: Literal["clarify", "draft_create", "continue_task", "execute", "report_status"]
+    pending_task_id: str | None = None
+    target_ref: dict[str, Any] = Field(default_factory=dict)
+    draft_proposal: dict[str, Any] = Field(default_factory=dict)
+    next_action: dict[str, Any] = Field(default_factory=dict)
+    missing_fields: list[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
 # ---------------------------------------------------------------------------
 # Internal: workflow plan
 # ---------------------------------------------------------------------------

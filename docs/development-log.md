@@ -1,3 +1,30 @@
+## 2026-05-03: Continuation-decision scaffolding added to Phase 1
+
+### Summary
+Extended the pending-task foundation with structured continuation-decision scaffolding in the gateway so future model-driven continuation can operate on explicit decision objects instead of implicit session heuristics.
+
+### What Was Done
+- Updated `app/models/chat.py`
+  - added `TaskContinuationDecision`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - builds a structured continuation decision before command execution
+  - currently supports scaffolded modes for:
+    - `continue_task`
+    - `draft_create`
+  - appends continuation-decision notes into context
+  - injects `pending_task` and `continuation_decision` into `InterpretedCommand.context`
+- Updated tests:
+  - strengthened pending-task gateway test to verify continuation note emission
+  - added draft-create decision test
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `4 passed`
+
+### Notes
+This is still scaffolding, not the final model-driven planner. The next implementation slice should replace the current heuristic decision builder with structured model output and connect `draft_create` to actual draft-app creation flow.
+
+
 ## 2026-05-03: Consolidated master plan for model-driven closure upgrade added
 
 ### Summary

@@ -17,6 +17,7 @@ from app.models.chat import (
     ChatMessageResponse,
     InlineItem,
     InterpretedCommand,
+    TaskContinuationDecision,
 )
 from app.models.telemetry import InteractionTelemetryRecord
 from app.services.context_center import ContextCenter
@@ -184,6 +185,7 @@ class LightBrainGateway:
         )
         session_id = session.session_id
         pending_task = self._get_latest_pending_task(request.user_id)
+        continuation_decision = self._build_continuation_decision(request.message, pending_task)
         self._register_runtime_session(session_id=session_id, user_id=request.user_id, channel=request.channel)
         self._memory.record_user_message(session_id, request.message)
         self._mirror_session_node(session_id=session_id, user_id=request.user_id, channel=request.channel)
@@ -193,6 +195,13 @@ class LightBrainGateway:
                 session_id=session_id,
                 role="system",
                 content=self._render_pending_task_note(pending_task),
+                kind="system_note",
+            )
+        if continuation_decision is not None:
+            self._append_context_record(
+                session_id=session_id,
+                role="system",
+                content=self._render_continuation_decision_note(continuation_decision),
                 kind="system_note",
             )
 
@@ -247,6 +256,10 @@ class LightBrainGateway:
         # Phase 7.2: enrich command with tools and session state
         available_apps = available_apps or []
         command = self._enrich_command(command, session_id, available_apps)
+        if pending_task is not None:
+            command.context["pending_task"] = pending_task.model_dump(mode="json")
+        if continuation_decision is not None:
+            command.context["continuation_decision"] = continuation_decision.model_dump(mode="json")
         self._memory.record_command(session_id, command)
 
         # Phase 7.3: execute workflow and return reply
@@ -1704,12 +1717,54 @@ class LightBrainGateway:
             logger.warning("Failed to load pending task for %s: %s", user_id, e)
             return None
 
+    def _build_continuation_decision(
+        self,
+        message: str,
+        pending_task: PendingTaskRecord | None,
+    ) -> TaskContinuationDecision | None:
+        stripped = (message or "").strip()
+        if not stripped:
+            return None
+        if pending_task is not None and stripped in {"继续", "开始执行", "按刚才那个继续", "结合之前记录继续"}:
+            return TaskContinuationDecision(
+                conversation_mode="continue_task",
+                pending_task_id=pending_task.task_id,
+                target_ref=pending_task.target_ref,
+                next_action=pending_task.next_recommended_action or {"type": "resume_pending_task"},
+                missing_fields=list(pending_task.missing_fields),
+                confidence=0.9,
+            )
+        if pending_task is None and any(token in stripped for token in ["创建", "新建", "做一个", "搞一个"]) and any(
+            token.lower() in stripped.lower() for token in ["app", "应用", "程序", "模块"]
+        ):
+            inferred_name = "draft_app"
+            for token in ["写代码", "天气", "提醒", "日志", "监控"]:
+                if token in stripped:
+                    inferred_name = f"{token}_app"
+                    break
+            return TaskContinuationDecision(
+                conversation_mode="draft_create",
+                draft_proposal={
+                    "name": inferred_name,
+                    "source_message": stripped,
+                },
+                next_action={"type": "create_draft_app"},
+                confidence=0.6,
+            )
+        return None
+
     def _render_pending_task_note(self, task: PendingTaskRecord) -> str:
         target = task.target_ref.get("target_id") or task.target_ref.get("app_id") or "unknown"
         missing = ", ".join(task.missing_fields) if task.missing_fields else "none"
         return (
             f"pending_task task_id={task.task_id} intent={task.intent} status={task.status} "
             f"target={target} missing_fields={missing}"
+        )
+
+    def _render_continuation_decision_note(self, decision: TaskContinuationDecision) -> str:
+        return (
+            f"continuation_decision mode={decision.conversation_mode} "
+            f"pending_task_id={decision.pending_task_id or 'none'} confidence={decision.confidence:.2f}"
         )
 
     def _auto_save(self) -> None:

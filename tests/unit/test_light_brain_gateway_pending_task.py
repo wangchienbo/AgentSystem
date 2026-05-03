@@ -75,3 +75,14 @@ def test_gateway_appends_pending_task_note_to_context():
     assert response.content
     note_contents = [record.content for record in context_center.records if record.role == "system"]
     assert any("pending_task task_id=pt-1" in content for content in note_contents)
+    assert any("continuation_decision mode=continue_task" in content for content in note_contents)
+
+
+def test_gateway_builds_draft_create_decision_without_pending_task():
+    gateway = LightBrainGateway(memory=LightBrainMemory(), interpreter=_Interpreter())
+
+    decision = gateway._build_continuation_decision("创建一个写代码 app", None)
+
+    assert decision is not None
+    assert decision.conversation_mode == "draft_create"
+    assert decision.next_action["type"] == "create_draft_app"
