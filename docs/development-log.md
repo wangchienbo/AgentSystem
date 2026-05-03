@@ -1,3 +1,20 @@
+## 2026-05-03: Bug-risk audit items added to closure-upgrade tasklist
+
+### Summary
+Captured the main current bootstrap-phase bug risks directly in the tasklist so they are tracked as explicit regression work rather than remaining only in chat analysis.
+
+### What Was Done
+- Updated `docs/tasklist_model_driven_closure_upgrade_2026-05-03.md`
+  - added bug-oriented regression items for:
+    - duplicate creation risk
+    - multi-pending-task recovery selection
+    - draft/pending/target consistency
+    - continue-task interception boundary behavior
+
+### Notes
+These items target the most likely structural bugs introduced by the current Phase 1 bootstrap implementation and should be validated before the continuation path becomes more complex.
+
+
 ## 2026-05-03: Solution audit refinements added to plan documents
 
 ### Summary

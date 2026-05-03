@@ -177,6 +177,14 @@ This tasklist is derived from:
 
 ---
 
+### R6. Add bug-oriented regression coverage for current bootstrap risks
+- [ ] add duplicate-creation regression test
+- [ ] add multi-pending-task recovery selection test
+- [ ] add draft-app / pending-task / target-ref consistency test
+- [ ] add `continue_task` interception boundary test to ensure it does not permanently bypass later unified execution flow
+
+---
+
 ## Phase 5. Logging and Run Isolation
 
 ### 5.1 Add run identifier to chat logs
