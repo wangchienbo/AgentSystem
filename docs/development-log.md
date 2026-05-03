@@ -1,3 +1,24 @@
+## 2026-05-03: Full 50-scenario user-level E2E run completed
+
+### Summary
+Finished the full 50-scenario × 20-turn user-level E2E run against the real HTTP `/api/chat` path and captured the final result plus timeout-failure analysis.
+
+### What Was Done
+- Added `docs/full-50-scenario-user-e2e-result-2026-05-03.md`
+  - recorded the final 50-scenario user-level E2E result
+  - summarized total pass/fail counts and latency
+  - documented the two remaining timeout failures (`S05`, `S15`)
+  - extracted recommended follow-up fixes for creation-path and audit-query latency
+
+### Validation
+- inspected `/tmp/agentsystem_e2e_user_level_report.json`
+- inspected `/tmp/e2e_full_run.log`
+- confirmed final totals: 50 scenarios / 1000 turns / 998 successful turns / 2 timeout failures
+
+### Notes
+This run proves the user-level path is broadly stable, but not yet fully closed. The remaining failures are concentrated in two long-tail timeout cases rather than systemic transport breakage.
+
+
 ## 2026-05-03: Interaction-record problem analysis completed
 
 ### Summary
