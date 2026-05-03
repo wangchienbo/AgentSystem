@@ -1,3 +1,25 @@
+## 2026-05-03: Full interaction-record exports added for user 123 and E2E test-user sessions
+
+### Summary
+Exported raw interaction records into analysis-friendly markdown documents so issue review no longer depends on summaries alone.
+
+### What Was Done
+- Added `docs/user-123-full-interaction-2026-05-03.md`
+  - full markdown export of `data/chat_logs/session_123.jsonl`
+  - includes timestamp, session_id, success/error status, request, and response for each record
+- Added `docs/e2e-user-interaction-records-2026-05-03.md`
+  - full markdown export of available `data/chat_logs/session_user_*.jsonl` test-user sessions
+  - includes raw per-record request/response payloads for qualitative inspection
+
+### Validation
+- parsed `data/chat_logs/session_123.jsonl`
+- parsed `data/chat_logs/session_user_*.jsonl`
+- generated markdown exports under `docs/`
+
+### Notes
+This gives the project a durable, reviewable corpus for diagnosing false-positive "success" replies, continuation failures, and draft-vs-execution gaps.
+
+
 ## 2026-05-03: User-level E2E progress and user-123 interaction records consolidated
 
 ### Summary
