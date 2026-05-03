@@ -1,3 +1,24 @@
+## 2026-05-03: 50-scenario interaction-by-interaction review completed
+
+### Summary
+Performed a scenario-by-scenario closure review of the full 50-scenario user-level E2E run, focusing on whether the final returned state matched the user’s likely end expectation rather than only whether the API replied successfully.
+
+### What Was Done
+- Added `docs/50-scenario-interaction-review-2026-05-03.md`
+  - reviewed all 50 scenarios using exported interaction records plus the final report
+  - labeled each scenario as matched / partial / failed
+  - captured final user message and final reply excerpt per scenario
+  - summarized recurring scenario-level issue tags and final conclusions
+
+### Validation
+- parsed `tests/e2e/test_50_scenarios_20_turns_user_level.py` for scenario definitions
+- parsed `data/chat_logs/session_user_*.jsonl` for latest scenario records
+- parsed `/tmp/agentsystem_e2e_user_level_report.json` for final pass/fail ground truth
+
+### Notes
+The review shows a major gap between response success and outcome closure: only a minority of scenarios look cleanly closed, while many “green” scenarios still end in over-scaffolded or follow-up-heavy replies.
+
+
 ## 2026-05-03: Full 50-scenario user-level E2E run completed
 
 ### Summary
