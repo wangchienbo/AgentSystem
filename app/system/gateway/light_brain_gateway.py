@@ -1779,6 +1779,13 @@ class LightBrainGateway:
             return
         if self._draft_app_service is None or self._pending_task_store is None:
             return
+        existing_task = self._pending_task_store.get_latest_open_task(user_id)
+        if existing_task is not None and existing_task.intent == "create_app" and existing_task.status in {"drafted", "pending_input", "ready_to_execute"}:
+            decision.pending_task_id = existing_task.task_id
+            decision.target_ref = dict(existing_task.target_ref)
+            decision.missing_fields = list(existing_task.missing_fields)
+            decision.next_action = existing_task.next_recommended_action or decision.next_action
+            return
         draft_name = decision.draft_proposal.get("name") or "draft_app"
         draft_goal = decision.draft_proposal.get("source_message") or message
         draft_app = self._draft_app_service.create_draft_app(

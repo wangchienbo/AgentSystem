@@ -141,3 +141,81 @@ def test_gateway_continue_task_returns_progress_response(tmp_path: Path):
     assert response.requires_input is True
     assert response.data is not None
     assert response.data["pending_task"]["target_ref"]["app_id"].startswith("app_draft_")
+
+
+def test_duplicate_create_request_reuses_existing_open_task(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    draft_service = DraftAppService(runtime_store)
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        draft_app_service=draft_service,
+        pending_task_store=pending_store,
+    )
+
+    decision1 = gateway._build_continuation_decision("创建一个写代码 app", None)
+    assert decision1 is not None
+    gateway._materialize_continuation_decision(decision1, user_id="u1", session_id="s1", message="创建一个写代码 app")
+    existing_task_id = decision1.pending_task_id
+    existing_app_id = decision1.target_ref["app_id"]
+
+    latest_task = pending_store.get_latest_open_task("u1")
+    decision2 = gateway._build_continuation_decision("创建一个写代码 app", latest_task)
+    gateway._materialize_continuation_decision(decision2 or decision1, user_id="u1", session_id="s1", message="创建一个写代码 app")
+
+    assert len(draft_service.list_apps("u1")) == 1
+    final_task = pending_store.get_latest_open_task("u1")
+    assert final_task is not None
+    assert final_task.task_id == existing_task_id
+    assert final_task.target_ref["app_id"] == existing_app_id
+
+
+def test_latest_pending_task_selected_when_multiple_tasks_exist(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    draft_service = DraftAppService(runtime_store)
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        draft_app_service=draft_service,
+        pending_task_store=pending_store,
+    )
+
+    d1 = gateway._build_continuation_decision("创建一个天气 app", None)
+    gateway._materialize_continuation_decision(d1, user_id="u1", session_id="s1", message="创建一个天气 app")
+    d2 = gateway._build_continuation_decision("创建一个日志 app", None)
+    gateway._materialize_continuation_decision(d2, user_id="u1", session_id="s2", message="创建一个日志 app")
+
+    response = asyncio.run(
+        gateway.receive_message(ChatMessageRequest(user_id="u1", channel="test", message="继续", session_id="s2"))
+    )
+
+    assert response.data is not None
+    assert response.data["pending_task"]["task_id"] == d2.pending_task_id
+
+
+def test_continue_interception_keeps_structured_payload(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    draft_service = DraftAppService(runtime_store)
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        draft_app_service=draft_service,
+        pending_task_store=pending_store,
+    )
+
+    create_decision = gateway._build_continuation_decision("创建一个提醒 app", None)
+    gateway._materialize_continuation_decision(create_decision, user_id="u1", session_id="s1", message="创建一个提醒 app")
+    response = asyncio.run(
+        gateway.receive_message(ChatMessageRequest(user_id="u1", channel="test", message="继续", session_id="s1"))
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    assert "continuation_decision" in response.data
+    assert response.data["continuation_decision"]["conversation_mode"] == "continue_task"

@@ -1,3 +1,25 @@
+## 2026-05-03: Bug-oriented regressions added and duplicate-create path tightened
+
+### Summary
+Implemented the first bug-risk regression slice from the closure-upgrade tasklist and tightened the bootstrap draft-create behavior to avoid duplicate object creation on repeated create requests.
+
+### What Was Done
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added duplicate-create regression coverage
+  - added multi-pending-task latest-selection coverage
+  - added structured payload continuity coverage for `continue_task`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - reuses existing open create task during draft-create materialization when a compatible open task already exists
+  - prevents the current bootstrap path from creating duplicate draft apps for repeated create requests in the same user flow
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `9 passed`
+
+### Notes
+This reduces one of the highest-probability structural bugs in the current Phase 1 implementation, but the broader task/execution convergence work is still pending.
+
+
 ## 2026-05-03: Bug-risk audit items added to closure-upgrade tasklist
 
 ### Summary
