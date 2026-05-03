@@ -21,6 +21,7 @@ from app.models.chat import (
 from app.models.telemetry import InteractionTelemetryRecord
 from app.services.context_center import ContextCenter
 from app.models.context import SessionContextRecord, SessionLink, SessionNode
+from app.models.pending_task import PendingTaskRecord
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.system.catalog.runtime_center import RuntimeCenter
@@ -117,6 +118,7 @@ class LightBrainGateway:
         self._context_upload_helper = ContextUploadHelper(ContextUploadConfig())
         self._contract_linter = ContractLinter()
         self._telemetry_service = extra_deps.get("telemetry_service")
+        self._pending_task_store = extra_deps.get("pending_task_store")
 
         # Legacy: accept app_catalog as initial value
         if app_catalog is not None:
@@ -181,10 +183,18 @@ class LightBrainGateway:
             session_id=request.session_id,
         )
         session_id = session.session_id
+        pending_task = self._get_latest_pending_task(request.user_id)
         self._register_runtime_session(session_id=session_id, user_id=request.user_id, channel=request.channel)
         self._memory.record_user_message(session_id, request.message)
         self._mirror_session_node(session_id=session_id, user_id=request.user_id, channel=request.channel)
         self._append_context_record(session_id=session_id, role="user", content=request.message, kind="message")
+        if pending_task is not None:
+            self._append_context_record(
+                session_id=session_id,
+                role="system",
+                content=self._render_pending_task_note(pending_task),
+                kind="system_note",
+            )
 
         # Phase H+: Rate limit check
         allowed, block_reason = self._rate_limiter.is_session_allowed(session_id)
@@ -1683,6 +1693,23 @@ class LightBrainGateway:
             type="text",
             content="✅ 已取消当前操作。",
             session_id=session_id,
+        )
+
+    def _get_latest_pending_task(self, user_id: str | None) -> PendingTaskRecord | None:
+        if self._pending_task_store is None or not user_id:
+            return None
+        try:
+            return self._pending_task_store.get_latest_open_task(user_id)
+        except Exception as e:
+            logger.warning("Failed to load pending task for %s: %s", user_id, e)
+            return None
+
+    def _render_pending_task_note(self, task: PendingTaskRecord) -> str:
+        target = task.target_ref.get("target_id") or task.target_ref.get("app_id") or "unknown"
+        missing = ", ".join(task.missing_fields) if task.missing_fields else "none"
+        return (
+            f"pending_task task_id={task.task_id} intent={task.intent} status={task.status} "
+            f"target={target} missing_fields={missing}"
         )
 
     def _auto_save(self) -> None:

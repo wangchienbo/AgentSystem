@@ -1,3 +1,34 @@
+## 2026-05-03: Phase 1 implementation started with pending-task scaffolding
+
+### Summary
+Started the model-driven closure upgrade implementation by adding pending-task persistence primitives and wiring pending-task context into the LightBrain gateway.
+
+### What Was Done
+- Added `app/models/pending_task.py`
+  - introduced `PendingTaskRecord`
+  - defined task status lifecycle for drafted / pending / executing / completed style flows
+- Added `app/system/runtime/pending_task_store.py`
+  - user-scoped pending task persistence
+  - latest-open-task lookup
+  - completion / abandonment marking
+- Added `app/services/pending_task_store.py`
+  - service-layer export for the pending-task store
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - accepts injected `pending_task_store`
+  - loads the latest open task for the incoming user
+  - appends a structured pending-task note into session context for downstream decision use
+- Added tests:
+  - `tests/unit/test_pending_task_store.py`
+  - `tests/unit/test_light_brain_gateway_pending_task.py`
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `3 passed`
+
+### Notes
+This is scaffolding, not the full continuation engine yet. The next slice is to let the model consume this task context for structured `continue_task` / `draft_create` decisions.
+
+
 ## 2026-05-03: Engineering tasklist for model-driven closure upgrade added
 
 ### Summary
