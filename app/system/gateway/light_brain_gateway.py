@@ -120,6 +120,7 @@ class LightBrainGateway:
         self._contract_linter = ContractLinter()
         self._telemetry_service = extra_deps.get("telemetry_service")
         self._pending_task_store = extra_deps.get("pending_task_store")
+        self._draft_app_service = extra_deps.get("draft_app_service")
 
         # Legacy: accept app_catalog as initial value
         if app_catalog is not None:
@@ -198,6 +199,14 @@ class LightBrainGateway:
                 kind="system_note",
             )
         if continuation_decision is not None:
+            self._materialize_continuation_decision(
+                decision=continuation_decision,
+                user_id=request.user_id,
+                session_id=session_id,
+                message=request.message,
+            )
+            if pending_task is None:
+                pending_task = self._get_latest_pending_task(request.user_id)
             self._append_context_record(
                 session_id=session_id,
                 role="system",
@@ -1752,6 +1761,45 @@ class LightBrainGateway:
                 confidence=0.6,
             )
         return None
+
+    def _materialize_continuation_decision(
+        self,
+        decision: TaskContinuationDecision,
+        user_id: str,
+        session_id: str,
+        message: str,
+    ) -> None:
+        if decision.conversation_mode != "draft_create":
+            return
+        if self._draft_app_service is None or self._pending_task_store is None:
+            return
+        draft_name = decision.draft_proposal.get("name") or "draft_app"
+        draft_goal = decision.draft_proposal.get("source_message") or message
+        draft_app = self._draft_app_service.create_draft_app(
+            owner_user_id=user_id,
+            name=draft_name,
+            goal=draft_goal,
+        )
+        decision.target_ref = {"app_id": draft_app.id, "target_id": draft_app.id}
+        from app.models.pending_task import PendingTaskRecord
+        pending_task = PendingTaskRecord(
+            task_id=f"pt_{draft_app.id}",
+            user_id=user_id,
+            session_id=session_id,
+            intent="create_app",
+            status="drafted",
+            draft_payload={
+                "name": draft_name,
+                "source_message": message,
+            },
+            target_ref={"app_id": draft_app.id, "target_id": draft_app.id},
+            missing_fields=["runtime_profile"],
+            next_recommended_action={"type": "continue_draft_app_setup", "app_id": draft_app.id},
+            last_user_message=message,
+        )
+        self._pending_task_store.upsert_task(pending_task)
+        decision.pending_task_id = pending_task.task_id
+        decision.missing_fields = list(pending_task.missing_fields)
 
     def _render_pending_task_note(self, task: PendingTaskRecord) -> str:
         target = task.target_ref.get("target_id") or task.target_ref.get("app_id") or "unknown"

@@ -1,3 +1,28 @@
+## 2026-05-03: Draft-app materialization wired into Phase 1 scaffold
+
+### Summary
+Connected the draft-create continuation path to actual draft-app persistence and pending-task creation, so the closure-upgrade flow now materializes a real draft object instead of stopping at decision scaffolding.
+
+### What Was Done
+- Added `app/services/draft_app_service.py`
+  - persists draft `AppInstance` records with stable draft IDs
+  - supports retrieval and listing for future continuation work
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - accepts injected `draft_app_service`
+  - materializes `draft_create` continuation decisions into real draft apps
+  - creates matching pending-task records linked to the generated draft app
+  - writes target refs back into the continuation decision context
+- Updated tests:
+  - added draft-app materialization test covering draft app + pending task creation linkage
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `5 passed`
+
+### Notes
+This is the first point where draft-first behavior becomes stateful instead of purely descriptive. The next step is to consume the created draft app in downstream create/continue flows and eventually replace the heuristic decision builder with model-generated structured continuation output.
+
+
 ## 2026-05-03: Continuation-decision scaffolding added to Phase 1
 
 ### Summary

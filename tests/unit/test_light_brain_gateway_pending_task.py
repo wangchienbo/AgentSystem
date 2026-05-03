@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 from app.models.chat import ChatMessageRequest
 from app.models.pending_task import PendingTaskRecord
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.services.draft_app_service import DraftAppService
 from app.services.light_brain_memory import LightBrainMemory
 from app.system.gateway.light_brain_gateway import LightBrainGateway
 
@@ -86,3 +89,28 @@ def test_gateway_builds_draft_create_decision_without_pending_task():
     assert decision is not None
     assert decision.conversation_mode == "draft_create"
     assert decision.next_action["type"] == "create_draft_app"
+
+
+def test_gateway_materializes_draft_app_and_pending_task(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    draft_service = DraftAppService(runtime_store)
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        draft_app_service=draft_service,
+        pending_task_store=pending_store,
+    )
+
+    decision = gateway._build_continuation_decision("创建一个写代码 app", None)
+    assert decision is not None
+    gateway._materialize_continuation_decision(decision, user_id="u1", session_id="s1", message="创建一个写代码 app")
+
+    assert decision.pending_task_id is not None
+    assert decision.target_ref["app_id"].startswith("app_draft_")
+    latest_task = pending_store.get_latest_open_task("u1")
+    assert latest_task is not None
+    assert latest_task.status == "drafted"
+    assert latest_task.target_ref["app_id"] == decision.target_ref["app_id"]
+    assert draft_service.get_app(decision.target_ref["app_id"]) is not None
