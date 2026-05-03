@@ -7,8 +7,9 @@ from app.services.pending_task_store import PendingTaskStore
 class PendingTaskOrchestrator:
     """Thin orchestration layer for bootstrap pending-task continuation logic."""
 
-    def __init__(self, pending_task_store: PendingTaskStore | None = None) -> None:
+    def __init__(self, pending_task_store: PendingTaskStore | None = None, draft_app_service=None) -> None:
         self._pending_task_store = pending_task_store
+        self._draft_app_service = draft_app_service
 
     def advance_if_possible(self, pending_task: PendingTaskRecord | None) -> PendingTaskRecord | None:
         if pending_task is None or self._pending_task_store is None:
@@ -75,6 +76,13 @@ class PendingTaskOrchestrator:
         if known_facts.get("draft_ready_reported") is True:
             return pending_task
         known_facts["draft_ready_reported"] = True
+        app_id = pending_task.target_ref.get("app_id") or pending_task.target_ref.get("target_id")
+        if self._draft_app_service is not None and app_id:
+            try:
+                self._draft_app_service.mark_ready_for_lifecycle(app_id)
+                known_facts["lifecycle_ready_status"] = "compiled"
+            except Exception:
+                pass
         updated = pending_task.model_copy(update={
             "known_facts": known_facts,
             "status": "completed",

@@ -124,12 +124,14 @@ def test_gateway_continue_task_returns_progress_response(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
+    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
     pending_store = PendingTaskStore(runtime_store)
     gateway = LightBrainGateway(
         memory=LightBrainMemory(),
         interpreter=_Interpreter(),
         draft_app_service=draft_service,
         pending_task_store=pending_store,
+        pending_task_orchestrator=PendingTaskOrchestrator(pending_store, draft_service),
     )
 
     create_decision = gateway._build_continuation_decision("创建一个写代码 app", None)
@@ -208,12 +210,14 @@ def test_continue_interception_keeps_structured_payload(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
+    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
     pending_store = PendingTaskStore(runtime_store)
     gateway = LightBrainGateway(
         memory=LightBrainMemory(),
         interpreter=_Interpreter(),
         draft_app_service=draft_service,
         pending_task_store=pending_store,
+        pending_task_orchestrator=PendingTaskOrchestrator(pending_store, draft_service),
     )
 
     create_decision = gateway._build_continuation_decision("创建一个提醒 app", None)
@@ -267,7 +271,7 @@ def test_second_continue_consumes_execute_draft_next_action(tmp_path: Path):
         interpreter=_Interpreter(),
         draft_app_service=draft_service,
         pending_task_store=pending_store,
-        pending_task_orchestrator=PendingTaskOrchestrator(pending_store),
+        pending_task_orchestrator=PendingTaskOrchestrator(pending_store, draft_service),
     )
 
     create_decision = gateway._build_continuation_decision("创建一个博客 app", None)
@@ -293,7 +297,7 @@ def test_third_continue_reports_draft_ready_completion(tmp_path: Path):
         interpreter=_Interpreter(),
         draft_app_service=draft_service,
         pending_task_store=pending_store,
-        pending_task_orchestrator=PendingTaskOrchestrator(pending_store),
+        pending_task_orchestrator=PendingTaskOrchestrator(pending_store, draft_service),
     )
 
     create_decision = gateway._build_continuation_decision("创建一个日记 app", None)
@@ -306,3 +310,6 @@ def test_third_continue_reports_draft_ready_completion(tmp_path: Path):
     assert "草案任务已经准备完成" in response.content
     assert response.data["pending_task"]["status"] == "completed"
     assert response.data["pending_task"]["known_facts"]["draft_ready_reported"] is True
+    assert response.data["pending_task"]["known_facts"]["lifecycle_ready_status"] == "compiled"
+    app_id = response.data["pending_task"]["target_ref"]["app_id"]
+    assert draft_service.get_app(app_id).status == "compiled"

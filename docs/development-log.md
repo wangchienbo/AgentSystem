@@ -1,3 +1,27 @@
+## 2026-05-04: draft-ready completion now marks lifecycle convergence metadata
+
+### Summary
+Pushed the completed bootstrap continuation path one step closer to the main app lifecycle by making ready-report completion update the draft app itself and expose lifecycle-ready metadata back through the pending-task flow.
+
+### What Was Done
+- Updated `app/services/draft_app_service.py`
+  - added `mark_ready_for_lifecycle(app_id)`
+  - completed draft-ready tasks now move the draft app status to `compiled`
+- Updated `app/services/pending_task_orchestrator.py`
+  - injected draft app service support
+  - `report_draft_ready` now marks the draft app as lifecycle-ready when an app target exists
+  - writes `lifecycle_ready_status=compiled` into pending task known facts
+- Updated gateway tests and orchestrator tests
+  - verify the ready-report stage updates both pending-task facts and the underlying draft app status
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `13 passed`
+
+### Notes
+This is still not full `AppApplicationService` convergence, but it creates the first concrete handshake from the bootstrap continuation loop back into the draft app's own lifecycle state.
+
+
 ## 2026-05-04: report_draft_ready stage added to continuation flow
 
 ### Summary

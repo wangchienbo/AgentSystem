@@ -29,6 +29,15 @@ class DraftAppService:
     def get_app(self, app_id: str) -> AppInstance | None:
         return self._apps.get(app_id)
 
+    def mark_ready_for_lifecycle(self, app_id: str) -> AppInstance | None:
+        app = self._apps.get(app_id)
+        if app is None:
+            return None
+        app.status = "compiled"
+        self._apps[app_id] = app
+        self._save()
+        return app
+
     def list_apps(self, owner_user_id: str | None = None) -> list[AppInstance]:
         items = list(self._apps.values())
         if owner_user_id is not None:
