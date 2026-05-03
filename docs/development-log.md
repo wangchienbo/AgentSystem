@@ -1,24 +1,25 @@
-## 2026-05-02: Phase G1 operator evidence-layer digest summaries landed
+## 2026-05-03: User-level E2E progress and user-123 interaction records consolidated
 
 ### Summary
-Extended the governance dashboard and operator summary surfaces so they expose compact evidence-layer digest summaries, not just raw observation payloads.
+Captured the running 50-scenario user-level E2E progress into a persistent project document and merged it with a targeted review of real user `123` interaction records.
 
 ### What Was Done
-- Updated `app/system/regression_dashboard.py`
-  - merged observation digests now carry `evidence_kind_counts`, `dominant_failure_stage`, and `dominant_evidence_kind`
-  - added `observation_digest_summary` to the governance dashboard
-  - exposed the same summary under operator-facing `refinement.governance`
-- Updated `tests/unit/test_regression_nightly_control.py`
-  - added coverage for dashboard-level digest summary exposure
-  - added coverage for operator summary payload exposure
-- Updated `tasklist_phase_g1_evidence_refinement.md`
-  - marked Phase 4.1 complete
+- Added `docs/e2e-user-level-progress-2026-05-03.md`
+  - recorded the active 50-scenario × 20-turn user-level E2E run status
+  - listed completed scenario ledger through the captured checkpoint
+  - summarized representative interaction record observations from the live run
+  - consolidated recent real-user `123` interaction records from `data/chat_logs/session_123.jsonl`
+  - extracted preliminary product findings around pending-task recovery, clarification loops, and false-positive "success" envelopes
 
 ### Validation
-- `pytest tests/unit/test_regression_nightly_control.py -q`
+- inspected live tmux-backed run output from `e2e-full`
+- inspected `/tmp/e2e_full_run.log`
+- inspected `data/users/123.json`
+- inspected `data/chat_logs/session_123.jsonl`
+- inspected `data/persistence/agent_state.json`
 
 ### Notes
-This gives operators a compact read model for governance observation state, which is the right substrate before replay-backed nightly/manual inputs are added in the next slice.
+This checkpoint is important because it separates transport/session stability from actual user-goal closure. The live run is strong on response continuity, but the `123` record shows that partially specified app-creation intents still stall in explanation mode instead of entering a resumable draft-execution path.
 
 
 ## 2026-05-02: Phase G1 failure attribution rules extracted and stabilized
