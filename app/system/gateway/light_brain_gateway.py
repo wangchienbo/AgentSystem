@@ -121,6 +121,7 @@ class LightBrainGateway:
         self._telemetry_service = extra_deps.get("telemetry_service")
         self._pending_task_store = extra_deps.get("pending_task_store")
         self._draft_app_service = extra_deps.get("draft_app_service")
+        self._pending_task_orchestrator = extra_deps.get("pending_task_orchestrator")
 
         # Legacy: accept app_catalog as initial value
         if app_catalog is not None:
@@ -1863,6 +1864,8 @@ class LightBrainGateway:
         )
 
     def _advance_pending_task_if_possible(self, pending_task: PendingTaskRecord | None) -> PendingTaskRecord | None:
+        if self._pending_task_orchestrator is not None:
+            return self._pending_task_orchestrator.advance_if_possible(pending_task)
         if pending_task is None or self._pending_task_store is None:
             return pending_task
         missing_fields = list(pending_task.missing_fields)

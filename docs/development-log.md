@@ -1,3 +1,28 @@
+## 2026-05-03: PendingTaskOrchestrator extracted from gateway bootstrap path
+
+### Summary
+Pulled the bootstrap pending-task advancement logic into a dedicated orchestrator service so the gateway no longer owns the full auto-advance behavior directly.
+
+### What Was Done
+- Added `app/services/pending_task_orchestrator.py`
+  - introduced `PendingTaskOrchestrator.advance_if_possible(...)`
+  - moved default runtime-profile advancement and pending-task writeback into the orchestrator layer
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - accepts injected `pending_task_orchestrator`
+  - delegates pending-task advancement to the orchestrator when available
+  - retains local fallback behavior for compatibility during migration
+- Added tests:
+  - `tests/unit/test_pending_task_orchestrator.py`
+  - validates orchestrator-driven advancement and persistence writeback
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `11 passed`
+
+### Notes
+This is the first architectural cleanup step explicitly called for by the solution audit. The behavior is still bootstrap-scoped, but the control point is now moving out of the gateway and toward a proper continuation orchestration layer.
+
+
 ## 2026-05-03: Resume-and-advance bootstrap path added for draft continuation
 
 ### Summary
