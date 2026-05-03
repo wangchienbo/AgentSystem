@@ -114,3 +114,30 @@ def test_gateway_materializes_draft_app_and_pending_task(tmp_path: Path):
     assert latest_task.status == "drafted"
     assert latest_task.target_ref["app_id"] == decision.target_ref["app_id"]
     assert draft_service.get_app(decision.target_ref["app_id"]) is not None
+
+
+def test_gateway_continue_task_returns_progress_response(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    draft_service = DraftAppService(runtime_store)
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        draft_app_service=draft_service,
+        pending_task_store=pending_store,
+    )
+
+    create_decision = gateway._build_continuation_decision("创建一个写代码 app", None)
+    assert create_decision is not None
+    gateway._materialize_continuation_decision(create_decision, user_id="u1", session_id="s1", message="创建一个写代码 app")
+
+    response = asyncio.run(
+        gateway.receive_message(ChatMessageRequest(user_id="u1", channel="test", message="继续", session_id="s1"))
+    )
+
+    assert response.type == "progress"
+    assert "我已经恢复上次未完成的任务" in response.content
+    assert response.requires_input is True
+    assert response.data is not None
+    assert response.data["pending_task"]["target_ref"]["app_id"].startswith("app_draft_")

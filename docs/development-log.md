@@ -1,3 +1,33 @@
+## 2026-05-03: Continue-task path now returns resumable progress response
+
+### Summary
+Extended the Phase 1 closure flow so `继续` can now recover an existing pending draft-app task and return a structured progress response instead of falling back to generic intent handling.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - intercepts `continue_task` decisions before the generic interpreter path
+  - returns a `progress` response with:
+    - recovered task intent
+    - current target app ID
+    - current task status
+    - missing fields
+    - next recommended step
+  - includes structured `pending_task` and `continuation_decision` data in the response payload
+- Updated tests:
+  - added end-to-end unit coverage for:
+    - create draft app
+    - materialize pending task
+    - send `继续`
+    - receive structured resumable response
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `6 passed`
+
+### Notes
+This is still a bounded Phase 1 path, but it is the first user-visible continuation behavior that actually resumes a persisted draft task instead of only recording it. Next step is to make the resumed flow actively fill or execute missing fields rather than only reporting them.
+
+
 ## 2026-05-03: Draft-app materialization wired into Phase 1 scaffold
 
 ### Summary

@@ -248,6 +248,12 @@ class LightBrainGateway:
         self._tool_loop_guard.reset_command()
 
         # Phase 7.4: try new interaction runtime first for asset-centered routes
+        if continuation_decision is not None and continuation_decision.conversation_mode == "continue_task":
+            response = self._build_continue_task_response(session_id, pending_task, continuation_decision)
+            self._after_reply(session_id=session_id, reply=response)
+            self._auto_save()
+            return response
+
         interaction_result = self._try_new_interaction_chain(request.message)
         if interaction_result is not None:
             return self._build_interaction_response(session_id, request.message, interaction_result, _cmd_start_time)
@@ -1813,6 +1819,39 @@ class LightBrainGateway:
         return (
             f"continuation_decision mode={decision.conversation_mode} "
             f"pending_task_id={decision.pending_task_id or 'none'} confidence={decision.confidence:.2f}"
+        )
+
+    def _build_continue_task_response(
+        self,
+        session_id: str,
+        pending_task: PendingTaskRecord | None,
+        decision: TaskContinuationDecision,
+    ) -> ChatMessageResponse:
+        if pending_task is None:
+            return ChatMessageResponse(
+                type="text",
+                content="我没有找到可继续的未完成任务。你可以直接告诉我现在想做什么。",
+                session_id=session_id,
+            )
+        target_id = pending_task.target_ref.get("app_id") or pending_task.target_ref.get("target_id") or "unknown"
+        missing = "、".join(pending_task.missing_fields) if pending_task.missing_fields else "无"
+        next_step = pending_task.next_recommended_action.get("type") if pending_task.next_recommended_action else "resume_pending_task"
+        content = (
+            f"我已经恢复上次未完成的任务：{pending_task.intent}。\n"
+            f"当前目标：{target_id}\n"
+            f"当前状态：{pending_task.status}\n"
+            f"还缺字段：{missing}\n"
+            f"下一步建议：{next_step}"
+        )
+        return ChatMessageResponse(
+            type="progress",
+            content=content,
+            session_id=session_id,
+            data={
+                "pending_task": pending_task.model_dump(mode="json"),
+                "continuation_decision": decision.model_dump(mode="json"),
+            },
+            requires_input=bool(pending_task.missing_fields),
         )
 
     def _auto_save(self) -> None:
