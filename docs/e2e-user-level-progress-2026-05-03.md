@@ -1,5 +1,24 @@
 # 2026-05-03 User-level E2E Progress + User 123 Interaction Analysis
 
+## Final sync update
+The full 50-scenario run has now completed.
+
+### Final result snapshot
+- total scenarios: **50**
+- scenarios fully passed: **48**
+- scenarios with failure: **2**
+- total turns: **1000**
+- successful turns: **998**
+- failed turns: **2**
+- pass rate: **99.8%**
+- total runtime: **21873.4s** (~6.08h)
+- remaining failure scenarios:
+  - `S05` Turn 4, `做一个计算器App吧`, timeout 180s
+  - `S15` Turn 6, `有多少次请求记录？`, timeout 180s
+
+For the dedicated final-result writeup, see:
+- `docs/full-50-scenario-user-e2e-result-2026-05-03.md`
+
 ## Scope
 This note consolidates:
 - the already-run portion of the 50-scenario × 20-turn user-level E2E test

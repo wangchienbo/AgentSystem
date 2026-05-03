@@ -1,5 +1,19 @@
 # Interaction Record Problem Analysis (2026-05-03)
 
+## Final run status sync
+This analysis was produced during the same testing cycle that later completed the full 50-scenario run.
+
+### Final user-level E2E outcome
+- total scenarios: **50**
+- fully passed: **48**
+- failed scenarios: **2**
+- total turns: **1000**
+- successful turns: **998**
+- failed turns: **2**
+- both failures were timeout failures (`S05`, `S15`)
+
+This strengthens the core thesis of this document: the platform is broadly stable at transport/session level, but still shows tail-risk in execution closure and latency-sensitive flows.
+
 ## Scope
 This document analyzes the exported interaction records from:
 - `docs/user-123-full-interaction-2026-05-03.md`
