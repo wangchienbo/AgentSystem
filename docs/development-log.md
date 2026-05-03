@@ -1,3 +1,24 @@
+## 2026-05-03: Solution audit refinements added to plan documents
+
+### Summary
+Recorded implementation-audit findings to keep the closure-upgrade work aligned with the main architecture and avoid Phase 1 bootstrap code turning into long-term technical debt.
+
+### What Was Done
+- Updated `docs/model-driven-closure-upgrade-master-plan-2026-05-03.md`
+  - added architecture guardrails covering:
+    - pending task vs source of truth separation
+    - draft app as lifecycle state
+    - gateway anti-bloat
+    - heuristic continuation as temporary bootstrap path
+    - resume-and-advance target behavior
+    - richer failure-state semantics
+- Updated `docs/tasklist_model_driven_closure_upgrade_2026-05-03.md`
+  - added cross-cutting implementation refinements so the tasklist now explicitly tracks the architectural cleanup work alongside feature delivery
+
+### Notes
+This audit does not invalidate the current direction. It narrows the implementation path so Phase 1 can keep moving without silently forking the architecture.
+
+
 ## 2026-05-03: Continue-task path now returns resumable progress response
 
 ### Summary

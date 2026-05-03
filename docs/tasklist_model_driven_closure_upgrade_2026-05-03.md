@@ -153,6 +153,30 @@ This tasklist is derived from:
 
 ---
 
+## Cross-cutting implementation refinements
+
+### R1. Keep bootstrap continuation logic explicitly temporary
+- [ ] mark current heuristic continuation builder as transitional in code comments and docs
+- [ ] define replacement path to model-generated continuation schema
+
+### R2. Add a dedicated continuation orchestrator
+- [ ] introduce a thin `PendingTaskOrchestrator` or equivalent layer
+- [ ] move task materialization / resume-and-advance / next_action consumption out of gateway over time
+
+### R3. Converge draft app flow into the main app lifecycle
+- [ ] treat `draft` as a formal `AppInstance` lifecycle state
+- [ ] avoid long-term split between draft-app side path and primary app creation path
+
+### R4. Upgrade resume from report to advance
+- [ ] after resuming a task, auto-apply safe defaults where possible
+- [ ] only ask the user when a true blocking field remains
+
+### R5. Enrich task failure states
+- [ ] extend task status model with richer recovery semantics
+- [ ] support `awaiting_confirmation` / `execution_failed` / `needs_retry` / `truth_mismatch`
+
+---
+
 ## Phase 5. Logging and Run Isolation
 
 ### 5.1 Add run identifier to chat logs

@@ -344,6 +344,52 @@ Core structure should support:
 
 ---
 
+## 9.5 Architecture guardrails from implementation audit
+As Phase 1 has started landing in code, several guardrails should be made explicit to prevent the bootstrap implementation from hardening into accidental long-term architecture.
+
+### Guardrail A: Pending task is not the source of truth
+`pending_task` should remain an interaction-layer work record.
+It should not become a competing truth system versus:
+- runtime center
+- lifecycle state
+- app context
+- registry / canonical target state
+
+Its purpose is to preserve unfinished interaction work, not to replace domain truth.
+
+### Guardrail B: Draft app is a lifecycle state, not a parallel object family
+The system already supports `AppInstance.status = draft`.
+That means draft creation should eventually fold back into the main app lifecycle path, rather than stay as a permanent side-service split.
+
+### Guardrail C: Gateway should not accumulate orchestration logic
+The gateway may temporarily host bootstrap continuation logic, but long term:
+- task materialization
+- resume-and-advance behavior
+- `next_action` consumption
+- task status writeback
+
+should be pushed into a dedicated orchestrator/executor layer.
+
+### Guardrail D: Heuristic continuation is temporary
+The current heuristic continuation builder is a bootstrap path only.
+Its long-term role is to be replaced by model-generated structured continuation decisions using a fixed schema.
+
+### Guardrail E: Resume must evolve from report to advance
+The current `continue_task` path now resumes and reports state.
+That is useful, but insufficient.
+The target behavior is `resume_and_advance`, where the system automatically applies safe defaults or executes the next bounded step before asking again.
+
+### Guardrail F: Failure states need richer semantics
+As the continuation path grows, task states should distinguish between:
+- awaiting confirmation
+- execution failed
+- needs retry
+- truth mismatch
+
+so recovery is not reduced to a binary success/failure model.
+
+---
+
 ## 10. Validation strategy
 The upgrade is not complete until it is re-validated through the same user-level harness that exposed the closure gap.
 
