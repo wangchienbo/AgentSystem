@@ -1,3 +1,28 @@
+## 2026-05-03: PendingTaskOrchestrator now consumes explicit next_action types
+
+### Summary
+Upgraded the bootstrap continuation executor so it no longer only fills defaults implicitly. It now explicitly consumes `next_action.type` values and advances the task through distinct bootstrap stages.
+
+### What Was Done
+- Updated `app/services/pending_task_orchestrator.py`
+  - dispatches on `next_action.type`
+  - supports:
+    - `continue_draft_app_setup`
+    - `execute_draft_app_setup`
+  - first stage fills bootstrap defaults and transitions to `execute_draft_app_setup`
+  - second stage marks the draft setup as prepared and transitions to `report_draft_ready`
+- Updated tests:
+  - expanded orchestrator coverage for explicit `execute_draft_app_setup`
+  - added gateway coverage for a second `继续` consuming the execution-stage next action
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `13 passed`
+
+### Notes
+This is still bootstrap-stage task execution, not the final generalized executor, but it is the first point where `next_action` becomes a real executable contract instead of a passive annotation.
+
+
 ## 2026-05-03: PendingTaskOrchestrator expanded beyond a single default field
 
 ### Summary

@@ -13,6 +13,15 @@ class PendingTaskOrchestrator:
     def advance_if_possible(self, pending_task: PendingTaskRecord | None) -> PendingTaskRecord | None:
         if pending_task is None or self._pending_task_store is None:
             return pending_task
+
+        next_action_type = (pending_task.next_recommended_action or {}).get("type", "")
+        if next_action_type == "continue_draft_app_setup":
+            return self._continue_draft_app_setup(pending_task)
+        if next_action_type == "execute_draft_app_setup":
+            return self._execute_draft_app_setup(pending_task)
+        return pending_task
+
+    def _continue_draft_app_setup(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:
         missing_fields = list(pending_task.missing_fields)
         known_facts = dict(pending_task.known_facts)
         changed = False
@@ -40,6 +49,21 @@ class PendingTaskOrchestrator:
             "missing_fields": missing_fields,
             "status": new_status,
             "next_recommended_action": next_action,
+        })
+        self._pending_task_store.upsert_task(updated)
+        return updated
+
+    def _execute_draft_app_setup(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:
+        if pending_task.missing_fields:
+            return pending_task
+        known_facts = dict(pending_task.known_facts)
+        if known_facts.get("draft_setup_prepared") is True and (pending_task.next_recommended_action or {}).get("type") == "report_draft_ready":
+            return pending_task
+        known_facts["draft_setup_prepared"] = True
+        updated = pending_task.model_copy(update={
+            "known_facts": known_facts,
+            "status": "ready_to_execute",
+            "next_recommended_action": {"type": "report_draft_ready"},
         })
         self._pending_task_store.upsert_task(updated)
         return updated
