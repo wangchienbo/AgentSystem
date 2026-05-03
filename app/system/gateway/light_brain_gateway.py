@@ -249,6 +249,7 @@ class LightBrainGateway:
 
         # Phase 7.4: try new interaction runtime first for asset-centered routes
         if continuation_decision is not None and continuation_decision.conversation_mode == "continue_task":
+            pending_task = self._advance_pending_task_if_possible(pending_task)
             response = self._build_continue_task_response(session_id, pending_task, continuation_decision)
             self._after_reply(session_id=session_id, reply=response)
             self._auto_save()
@@ -1860,6 +1861,29 @@ class LightBrainGateway:
             },
             requires_input=bool(pending_task.missing_fields),
         )
+
+    def _advance_pending_task_if_possible(self, pending_task: PendingTaskRecord | None) -> PendingTaskRecord | None:
+        if pending_task is None or self._pending_task_store is None:
+            return pending_task
+        missing_fields = list(pending_task.missing_fields)
+        known_facts = dict(pending_task.known_facts)
+        changed = False
+        if "runtime_profile" in missing_fields and "runtime_profile" not in known_facts:
+            known_facts["runtime_profile"] = "default"
+            missing_fields.remove("runtime_profile")
+            changed = True
+        if not changed:
+            return pending_task
+        new_status = "ready_to_execute" if not missing_fields else pending_task.status
+        next_action = {"type": "execute_draft_app_setup"} if not missing_fields else pending_task.next_recommended_action
+        updated = pending_task.model_copy(update={
+            "known_facts": known_facts,
+            "missing_fields": missing_fields,
+            "status": new_status,
+            "next_recommended_action": next_action,
+        })
+        self._pending_task_store.upsert_task(updated)
+        return updated
 
     def _auto_save(self) -> None:
         if self._persistence is None:

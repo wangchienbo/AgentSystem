@@ -1,3 +1,25 @@
+## 2026-05-03: Resume-and-advance bootstrap path added for draft continuation
+
+### Summary
+Upgraded the current `continue_task` flow from pure resume-and-report into a minimal resume-and-advance path by auto-filling the default runtime profile and writing the updated state back into the pending task.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - on `continue_task`, attempts bounded advancement before building the response
+  - auto-fills `runtime_profile=default` when that is the only missing bootstrap field
+  - updates pending-task known facts, missing fields, status, and next recommended action
+- Updated tests:
+  - adjusted continuation expectations for auto-default advancement
+  - added explicit writeback coverage for default runtime profile advancement
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `10 passed`
+
+### Notes
+This is still a narrow bootstrap advancement path. It proves the architecture can move from `resume_and_report` toward `resume_and_advance`, but the next step is to move this logic into a dedicated orchestrator and generalize it beyond a single default field.
+
+
 ## 2026-05-03: Bug-oriented regressions added and duplicate-create path tightened
 
 ### Summary

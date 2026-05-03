@@ -25,6 +25,10 @@ class _PendingTaskStore:
     def get_latest_open_task(self, user_id):
         return self.task if user_id == "u1" else None
 
+    def upsert_task(self, task):
+        self.task = task
+        return task
+
 
 class _RecentWindow:
     def __init__(self):
@@ -138,9 +142,11 @@ def test_gateway_continue_task_returns_progress_response(tmp_path: Path):
 
     assert response.type == "progress"
     assert "我已经恢复上次未完成的任务" in response.content
-    assert response.requires_input is True
+    assert response.requires_input is False
     assert response.data is not None
     assert response.data["pending_task"]["target_ref"]["app_id"].startswith("app_draft_")
+    assert response.data["pending_task"]["known_facts"]["runtime_profile"] == "default"
+    assert response.data["pending_task"]["status"] == "ready_to_execute"
 
 
 def test_duplicate_create_request_reuses_existing_open_task(tmp_path: Path):
@@ -219,3 +225,30 @@ def test_continue_interception_keeps_structured_payload(tmp_path: Path):
     assert response.data is not None
     assert "continuation_decision" in response.data
     assert response.data["continuation_decision"]["conversation_mode"] == "continue_task"
+    assert response.data["pending_task"]["status"] == "ready_to_execute"
+
+
+def test_continue_task_writes_back_default_runtime_profile(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    draft_service = DraftAppService(runtime_store)
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        draft_app_service=draft_service,
+        pending_task_store=pending_store,
+    )
+
+    create_decision = gateway._build_continuation_decision("创建一个监控 app", None)
+    gateway._materialize_continuation_decision(create_decision, user_id="u1", session_id="s1", message="创建一个监控 app")
+    response = asyncio.run(
+        gateway.receive_message(ChatMessageRequest(user_id="u1", channel="test", message="继续", session_id="s1"))
+    )
+    latest_task = pending_store.get_latest_open_task("u1")
+
+    assert response.data is not None
+    assert latest_task is not None
+    assert latest_task.known_facts["runtime_profile"] == "default"
+    assert latest_task.status == "ready_to_execute"
+    assert latest_task.missing_fields == []
