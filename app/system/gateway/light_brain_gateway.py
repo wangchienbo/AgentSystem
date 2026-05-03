@@ -122,6 +122,7 @@ class LightBrainGateway:
         self._pending_task_store = extra_deps.get("pending_task_store")
         self._draft_app_service = extra_deps.get("draft_app_service")
         self._pending_task_orchestrator = extra_deps.get("pending_task_orchestrator")
+        self._app_application_service = extra_deps.get("app_application_service")
 
         # Legacy: accept app_catalog as initial value
         if app_catalog is not None:
@@ -1845,7 +1846,7 @@ class LightBrainGateway:
         target_id = pending_task.target_ref.get("app_id") or pending_task.target_ref.get("target_id") or "unknown"
         missing = "、".join(pending_task.missing_fields) if pending_task.missing_fields else "无"
         next_step = pending_task.next_recommended_action.get("type") if pending_task.next_recommended_action else "resume_pending_task"
-        if next_step == "draft_ready_reported" or pending_task.status == "completed":
+        if next_step == "apply_draft_app" or pending_task.status == "completed":
             content = (
                 f"草案任务已经准备完成。\n"
                 f"当前目标：{target_id}\n"
@@ -1865,6 +1866,7 @@ class LightBrainGateway:
                         "app_status": pending_task.known_facts.get("lifecycle_ready_status", "compiled"),
                         "handoff_target": "AppApplicationService",
                         "recommended_intent": "apply_draft_app",
+                        "next_action": pending_task.next_recommended_action or {"type": "apply_draft_app", "app_id": target_id},
                     },
                 },
                 actions=[
@@ -1955,6 +1957,29 @@ class LightBrainGateway:
             return False
         return self._memory.delete_session(session_id)
 
+    async def _execute_apply_draft_app(self, session_id: str, action_params: dict[str, Any]) -> ChatMessageResponse:
+        app_application_service = getattr(self, "_app_application_service", None)
+        if app_application_service is None:
+            return ChatMessageResponse(
+                type="error",
+                content="正式生命周期接入服务暂未注入，当前还不能执行 apply_draft_app。",
+                session_id=session_id,
+            )
+        command = InterpretedCommand(
+            intent="apply_draft_app",
+            raw_input="apply_draft_app",
+            target_app=action_params.get("app_id"),
+            parameters={"app_id": action_params.get("app_id")},
+        )
+        response = await app_application_service.handle(command, session_id, [])
+        if response is None:
+            return ChatMessageResponse(
+                type="error",
+                content="apply_draft_app 没有被应用层接管。",
+                session_id=session_id,
+            )
+        return response
+
     async def execute_action(
         self,
         user_id: str,
@@ -1964,9 +1989,11 @@ class LightBrainGateway:
     ) -> ChatMessageResponse:
         """Execute an action from a previous reply (button click)."""
         action_params = action_params or {}
-        intent = action_params.get("intent", "unclear")
-        target = action_params.get("target", "")
         action_session_id = action_params.get("session_id") or session_id
+        intent = action_params.get("intent", "unclear")
+        if intent == "apply_draft_app":
+            return await self._execute_apply_draft_app(action_session_id, action_params)
+        target = action_params.get("target", "")
 
         if action_session_id != session_id:
             self._memory.create_session(user_id=user_id, channel="action", session_id=action_session_id)

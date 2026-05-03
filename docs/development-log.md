@@ -1,4 +1,33 @@
-## 2026-05-04: lifecycle handoff metadata exposed in completed draft continuation replies
+## 2026-05-04: apply_draft_app handoff now reaches application layer
+
+### Summary
+Extended the completed draft continuation path one step further so the lifecycle handoff is no longer just advisory metadata. The gateway action can now invoke an application-layer handler that registers the compiled draft app into the formal lifecycle service.
+
+### What Was Done
+- Added `app/services/draft_app_application_service.py`
+  - introduced `DraftAppApplicationService.handle_apply_draft_app(...)`
+  - resolves a compiled draft app and registers or reuses it inside `AppLifecycleService`
+- Updated `app/services/app_application_service.py`
+  - can auto-register the `apply_draft_app` application-layer handler when draft-application support is injected
+- Updated `app/services/pending_task_orchestrator.py`
+  - completed ready-report tasks now emit `next_recommended_action=apply_draft_app`
+  - includes `handoff_target=AppApplicationService` and target `app_id`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - completed continuation replies now expose the new handoff action contract in payload
+  - `execute_action(...)` now directly routes `apply_draft_app` into the application layer when available
+- Updated tests:
+  - orchestrator coverage for the upgraded `apply_draft_app` handoff contract
+  - application-layer coverage for draft-to-lifecycle registration
+  - gateway action coverage for real `apply_draft_app` execution from the continuation reply
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `15 passed`
+
+### Notes
+This is still a thin lifecycle registration bridge rather than full install/start convergence, but the handoff is now executable instead of remaining only as a recommendation.
+
+
 
 ### Summary
 Made the completed draft-ready continuation response lifecycle-aware so the gateway now returns an explicit handoff contract for the next formal application-layer step.

@@ -6,9 +6,12 @@ from pathlib import Path
 from app.models.chat import ChatMessageRequest
 from app.models.pending_task import PendingTaskRecord
 from app.persistence.runtime_state_store import RuntimeStateStore
+from app.services.app_application_service import AppApplicationService
+from app.services.draft_app_application_service import DraftAppApplicationService
 from app.services.draft_app_service import DraftAppService
 from app.services.light_brain_memory import LightBrainMemory
 from app.system.gateway.light_brain_gateway import LightBrainGateway
+from app.system.runtime.lifecycle import AppLifecycleService
 
 
 class _Interpreter:
@@ -311,9 +314,52 @@ def test_third_continue_reports_draft_ready_completion(tmp_path: Path):
     assert response.data["pending_task"]["status"] == "completed"
     assert response.data["pending_task"]["known_facts"]["draft_ready_reported"] is True
     assert response.data["pending_task"]["known_facts"]["lifecycle_ready_status"] == "compiled"
+    assert response.data["pending_task"]["next_recommended_action"]["type"] == "apply_draft_app"
     assert response.data["lifecycle_handoff"]["handoff_target"] == "AppApplicationService"
     assert response.data["lifecycle_handoff"]["recommended_intent"] == "apply_draft_app"
     assert response.related_app == response.data["pending_task"]["target_ref"]["app_id"]
     assert response.actions[0].payload["intent"] == "apply_draft_app"
     app_id = response.data["pending_task"]["target_ref"]["app_id"]
     assert draft_service.get_app(app_id).status == "compiled"
+
+
+def test_execute_action_apply_draft_app_routes_to_application_layer(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    draft_service = DraftAppService(runtime_store)
+    lifecycle = AppLifecycleService(runtime_store)
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+
+    pending_store = PendingTaskStore(runtime_store)
+    app_application_service = AppApplicationService(
+        draft_app_application_service=DraftAppApplicationService(draft_service, lifecycle)
+    )
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        draft_app_service=draft_service,
+        pending_task_store=pending_store,
+        pending_task_orchestrator=PendingTaskOrchestrator(pending_store, draft_service),
+        app_application_service=app_application_service,
+    )
+
+    create_decision = gateway._build_continuation_decision("创建一个笔记 app", None)
+    gateway._materialize_continuation_decision(create_decision, user_id="u1", session_id="s1", message="创建一个笔记 app")
+    asyncio.run(gateway.receive_message(ChatMessageRequest(user_id="u1", channel="test", message="继续", session_id="s1")))
+    asyncio.run(gateway.receive_message(ChatMessageRequest(user_id="u1", channel="test", message="继续", session_id="s1")))
+    final_response = asyncio.run(gateway.receive_message(ChatMessageRequest(user_id="u1", channel="test", message="继续", session_id="s1")))
+    app_id = final_response.data["pending_task"]["target_ref"]["app_id"]
+
+    action_response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="s1",
+            action_id=f"apply-draft:{app_id}",
+            action_params={"intent": "apply_draft_app", "app_id": app_id},
+        )
+    )
+
+    assert action_response.type == "progress"
+    assert action_response.related_app == app_id
+    assert lifecycle.get_instance(app_id).status == "compiled"
+    assert "已把 draft app 接入正式生命周期" in action_response.content

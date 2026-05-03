@@ -7,9 +7,15 @@ from app.services.pending_task_store import PendingTaskStore
 class PendingTaskOrchestrator:
     """Thin orchestration layer for bootstrap pending-task continuation logic."""
 
-    def __init__(self, pending_task_store: PendingTaskStore | None = None, draft_app_service=None) -> None:
+    def __init__(
+        self,
+        pending_task_store: PendingTaskStore | None = None,
+        draft_app_service=None,
+        app_application_service=None,
+    ) -> None:
         self._pending_task_store = pending_task_store
         self._draft_app_service = draft_app_service
+        self._app_application_service = app_application_service
 
     def advance_if_possible(self, pending_task: PendingTaskRecord | None) -> PendingTaskRecord | None:
         if pending_task is None or self._pending_task_store is None:
@@ -86,7 +92,11 @@ class PendingTaskOrchestrator:
         updated = pending_task.model_copy(update={
             "known_facts": known_facts,
             "status": "completed",
-            "next_recommended_action": {"type": "draft_ready_reported"},
+            "next_recommended_action": {
+                "type": "apply_draft_app",
+                "app_id": app_id,
+                "handoff_target": "AppApplicationService",
+            },
         })
         self._pending_task_store.upsert_task(updated)
         return updated

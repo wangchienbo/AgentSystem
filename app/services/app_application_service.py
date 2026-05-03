@@ -5,6 +5,7 @@ from typing import Any
 
 from app.models.chat import InterpretedCommand
 from app.services.app_command_router import AppCommandRouter
+from app.services.draft_app_application_service import DraftAppApplicationService
 
 
 class AppApplicationService:
@@ -14,8 +15,15 @@ class AppApplicationService:
     app-domain application layer.
     """
 
-    def __init__(self, router: AppCommandRouter | None = None) -> None:
+    def __init__(
+        self,
+        router: AppCommandRouter | None = None,
+        draft_app_application_service: DraftAppApplicationService | None = None,
+    ) -> None:
         self._router = router or AppCommandRouter()
+        self._draft_app_application_service = draft_app_application_service
+        if self._draft_app_application_service is not None:
+            self.register_handler("apply_draft_app", self._draft_app_application_service.handle_apply_draft_app)
 
     def register_handler(
         self,
