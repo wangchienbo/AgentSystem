@@ -1,3 +1,27 @@
+## 2026-05-03: Engineering tasklist for model-driven closure upgrade added
+
+### Summary
+Translated the closure-upgrade redesign into a concrete engineering tasklist aligned to the current AgentSystem codebase.
+
+### What Was Done
+- Added `docs/tasklist_model_driven_closure_upgrade_2026-05-03.md`
+  - broke the redesign into six implementation phases
+  - mapped the work to pending-task persistence, gateway decision flow, draft-first execution, lifecycle truth, read fast-paths, response semantics, logging isolation, and regression validation
+  - listed likely module touch points in the current codebase
+
+### Validation
+- aligned the tasklist to the existing framework areas already used in prior analysis:
+  - gateway
+  - intent / requirement routing
+  - app context / persistence
+  - app application service
+  - runtime / asset center
+  - E2E runner
+
+### Notes
+This should be the execution driver for the next engineering slice. The analysis phase is now sufficiently complete; the critical next step is implementation and targeted regression.
+
+
 ## 2026-05-03: Partial-scenario grouping and solution plan produced
 
 ### Summary
