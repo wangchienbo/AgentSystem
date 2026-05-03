@@ -1808,7 +1808,7 @@ class LightBrainGateway:
                 "source_message": message,
             },
             target_ref={"app_id": draft_app.id, "target_id": draft_app.id},
-            missing_fields=["runtime_profile"],
+            missing_fields=["runtime_profile", "execution_mode"],
             next_recommended_action={"type": "continue_draft_app_setup", "app_id": draft_app.id},
             last_user_message=message,
         )
@@ -1874,6 +1874,12 @@ class LightBrainGateway:
         if "runtime_profile" in missing_fields and "runtime_profile" not in known_facts:
             known_facts["runtime_profile"] = "default"
             missing_fields.remove("runtime_profile")
+            changed = True
+        if "execution_mode" in missing_fields and "execution_mode" not in known_facts:
+            known_facts["execution_mode"] = "service"
+            missing_fields.remove("execution_mode")
+            changed = True
+        if not changed and not missing_fields and pending_task.status != "ready_to_execute":
             changed = True
         if not changed:
             return pending_task

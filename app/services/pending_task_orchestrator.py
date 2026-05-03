@@ -22,6 +22,14 @@ class PendingTaskOrchestrator:
             missing_fields.remove("runtime_profile")
             changed = True
 
+        if "execution_mode" in missing_fields and "execution_mode" not in known_facts:
+            known_facts["execution_mode"] = "service"
+            missing_fields.remove("execution_mode")
+            changed = True
+
+        if not changed and not missing_fields and pending_task.status != "ready_to_execute":
+            changed = True
+
         if not changed:
             return pending_task
 

@@ -146,6 +146,7 @@ def test_gateway_continue_task_returns_progress_response(tmp_path: Path):
     assert response.data is not None
     assert response.data["pending_task"]["target_ref"]["app_id"].startswith("app_draft_")
     assert response.data["pending_task"]["known_facts"]["runtime_profile"] == "default"
+    assert response.data["pending_task"]["known_facts"]["execution_mode"] == "service"
     assert response.data["pending_task"]["status"] == "ready_to_execute"
 
 
@@ -250,5 +251,6 @@ def test_continue_task_writes_back_default_runtime_profile(tmp_path: Path):
     assert response.data is not None
     assert latest_task is not None
     assert latest_task.known_facts["runtime_profile"] == "default"
+    assert latest_task.known_facts["execution_mode"] == "service"
     assert latest_task.status == "ready_to_execute"
     assert latest_task.missing_fields == []

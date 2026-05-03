@@ -1,3 +1,26 @@
+## 2026-05-03: PendingTaskOrchestrator expanded beyond a single default field
+
+### Summary
+Extended the orchestrator-driven bootstrap advancement path so it can advance more than one setup field and converge cleanly to `ready_to_execute` when the remaining bootstrap defaults are fully resolved.
+
+### What Was Done
+- Updated `app/services/pending_task_orchestrator.py`
+  - now applies defaults for both `runtime_profile` and `execution_mode`
+  - promotes tasks to `ready_to_execute` and switches `next_action` to `execute_draft_app_setup` when bootstrap defaults are fully satisfied
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - aligned the compatibility fallback logic with the expanded orchestrator behavior
+- Updated tests:
+  - expanded orchestrator coverage to validate multi-field advancement
+  - expanded gateway continuation assertions to verify both defaults are written back
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `11 passed`
+
+### Notes
+This keeps the continuation path bootstrap-scoped, but it is a meaningful step toward a generalized `resume_and_advance` executor that can consume richer `next_action` definitions.
+
+
 ## 2026-05-03: PendingTaskOrchestrator extracted from gateway bootstrap path
 
 ### Summary

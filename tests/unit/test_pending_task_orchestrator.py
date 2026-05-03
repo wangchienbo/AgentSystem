@@ -15,7 +15,7 @@ def test_pending_task_orchestrator_advances_default_runtime_profile(tmp_path: Pa
         user_id="u1",
         intent="create_app",
         status="drafted",
-        missing_fields=["runtime_profile"],
+        missing_fields=["runtime_profile", "execution_mode"],
         next_recommended_action={"type": "continue_draft_app_setup"},
     )
     store.upsert_task(task)
@@ -25,6 +25,7 @@ def test_pending_task_orchestrator_advances_default_runtime_profile(tmp_path: Pa
 
     assert updated is not None
     assert updated.known_facts["runtime_profile"] == "default"
+    assert updated.known_facts["execution_mode"] == "service"
     assert updated.status == "ready_to_execute"
     assert updated.missing_fields == []
     assert store.get_latest_open_task("u1").status == "ready_to_execute"
