@@ -1,3 +1,28 @@
+## 2026-05-04: report_draft_ready stage added to continuation flow
+
+### Summary
+Extended the bootstrap continuation chain with a post-setup ready-report stage so repeated `继续` calls can now complete the draft-setup flow and return a terminal ready message.
+
+### What Was Done
+- Updated `app/services/pending_task_orchestrator.py`
+  - added explicit `report_draft_ready` handling
+  - marks `draft_ready_reported` in known facts
+  - transitions task status to `completed`
+  - switches `next_action` to `draft_ready_reported`
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - returns a specialized ready-completion progress message when the draft task reaches terminal ready-report state
+- Updated tests:
+  - added orchestrator coverage for ready-report completion
+  - added gateway coverage for the third `继续` completing the draft-ready report stage
+
+### Validation
+- `pytest tests/unit/test_pending_task_store.py tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `15 passed`
+
+### Notes
+This closes the current bootstrap continuation loop end-to-end: defaults → execute setup → ready report. It is still not the final app-lifecycle integration, but it creates a full staged continuation chain that can now be mapped onto the main lifecycle path.
+
+
 ## 2026-05-03: PendingTaskOrchestrator now consumes explicit next_action types
 
 ### Summary

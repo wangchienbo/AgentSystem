@@ -51,3 +51,29 @@ def test_pending_task_orchestrator_executes_ready_draft_setup(tmp_path: Path):
     assert updated is not None
     assert updated.known_facts["draft_setup_prepared"] is True
     assert updated.next_recommended_action["type"] == "report_draft_ready"
+
+
+def test_pending_task_orchestrator_reports_ready_completion(tmp_path: Path):
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    task = PendingTaskRecord(
+        task_id="pt-3",
+        user_id="u1",
+        intent="create_app",
+        status="ready_to_execute",
+        known_facts={
+            "runtime_profile": "default",
+            "execution_mode": "service",
+            "draft_setup_prepared": True,
+        },
+        missing_fields=[],
+        next_recommended_action={"type": "report_draft_ready"},
+    )
+    store.upsert_task(task)
+    orchestrator = PendingTaskOrchestrator(store)
+
+    updated = orchestrator.advance_if_possible(task)
+
+    assert updated is not None
+    assert updated.status == "completed"
+    assert updated.known_facts["draft_ready_reported"] is True
+    assert updated.next_recommended_action["type"] == "draft_ready_reported"

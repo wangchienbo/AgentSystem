@@ -19,6 +19,8 @@ class PendingTaskOrchestrator:
             return self._continue_draft_app_setup(pending_task)
         if next_action_type == "execute_draft_app_setup":
             return self._execute_draft_app_setup(pending_task)
+        if next_action_type == "report_draft_ready":
+            return self._report_draft_ready(pending_task)
         return pending_task
 
     def _continue_draft_app_setup(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:
@@ -64,6 +66,19 @@ class PendingTaskOrchestrator:
             "known_facts": known_facts,
             "status": "ready_to_execute",
             "next_recommended_action": {"type": "report_draft_ready"},
+        })
+        self._pending_task_store.upsert_task(updated)
+        return updated
+
+    def _report_draft_ready(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:
+        known_facts = dict(pending_task.known_facts)
+        if known_facts.get("draft_ready_reported") is True:
+            return pending_task
+        known_facts["draft_ready_reported"] = True
+        updated = pending_task.model_copy(update={
+            "known_facts": known_facts,
+            "status": "completed",
+            "next_recommended_action": {"type": "draft_ready_reported"},
         })
         self._pending_task_store.upsert_task(updated)
         return updated

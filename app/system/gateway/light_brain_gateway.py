@@ -1845,6 +1845,23 @@ class LightBrainGateway:
         target_id = pending_task.target_ref.get("app_id") or pending_task.target_ref.get("target_id") or "unknown"
         missing = "、".join(pending_task.missing_fields) if pending_task.missing_fields else "无"
         next_step = pending_task.next_recommended_action.get("type") if pending_task.next_recommended_action else "resume_pending_task"
+        if next_step == "draft_ready_reported" or pending_task.status == "completed":
+            content = (
+                f"草案任务已经准备完成。\n"
+                f"当前目标：{target_id}\n"
+                f"当前状态：{pending_task.status}\n"
+                f"下一步：可以把这个 draft app 接入正式 App 生命周期。"
+            )
+            return ChatMessageResponse(
+                type="progress",
+                content=content,
+                session_id=session_id,
+                data={
+                    "pending_task": pending_task.model_dump(mode="json"),
+                    "continuation_decision": decision.model_dump(mode="json"),
+                },
+                requires_input=False,
+            )
         content = (
             f"我已经恢复上次未完成的任务：{pending_task.intent}。\n"
             f"当前目标：{target_id}\n"
