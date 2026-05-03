@@ -1,3 +1,28 @@
+## 2026-05-04: lifecycle handoff metadata exposed in completed draft continuation replies
+
+### Summary
+Made the completed draft-ready continuation response lifecycle-aware so the gateway now returns an explicit handoff contract for the next formal application-layer step.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - completed draft-ready replies now include lifecycle status in the message
+  - added `lifecycle_handoff` payload with:
+    - `handoff_target=AppApplicationService`
+    - `recommended_intent=apply_draft_app`
+    - target app id and status
+  - added a primary action suggestion for applying the draft app into the formal lifecycle
+  - attached `related_app` to the response for app-aware session memory
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - verifies lifecycle handoff metadata, action payload, and related app linkage on completed continuation replies
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `13 passed`
+
+### Notes
+This still stops short of executing `AppApplicationService`, but the reply contract is now ready for a dedicated app-application handler to consume without more ad-hoc gateway inference.
+
+
 ## 2026-05-04: draft-ready completion now marks lifecycle convergence metadata
 
 ### Summary

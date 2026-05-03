@@ -1850,6 +1850,7 @@ class LightBrainGateway:
                 f"草案任务已经准备完成。\n"
                 f"当前目标：{target_id}\n"
                 f"当前状态：{pending_task.status}\n"
+                f"生命周期状态：{pending_task.known_facts.get('lifecycle_ready_status', 'compiled')}\n"
                 f"下一步：可以把这个 draft app 接入正式 App 生命周期。"
             )
             return ChatMessageResponse(
@@ -1859,8 +1860,24 @@ class LightBrainGateway:
                 data={
                     "pending_task": pending_task.model_dump(mode="json"),
                     "continuation_decision": decision.model_dump(mode="json"),
+                    "lifecycle_handoff": {
+                        "app_id": target_id,
+                        "app_status": pending_task.known_facts.get("lifecycle_ready_status", "compiled"),
+                        "handoff_target": "AppApplicationService",
+                        "recommended_intent": "apply_draft_app",
+                    },
                 },
+                actions=[
+                    ActionSuggestion(
+                        id=f"apply-draft:{target_id}",
+                        label="接入正式生命周期",
+                        action_type="execute",
+                        payload={"intent": "apply_draft_app", "app_id": target_id},
+                        style="primary",
+                    )
+                ],
                 requires_input=False,
+                related_app=target_id,
             )
         content = (
             f"我已经恢复上次未完成的任务：{pending_task.intent}。\n"

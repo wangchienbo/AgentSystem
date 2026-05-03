@@ -311,5 +311,9 @@ def test_third_continue_reports_draft_ready_completion(tmp_path: Path):
     assert response.data["pending_task"]["status"] == "completed"
     assert response.data["pending_task"]["known_facts"]["draft_ready_reported"] is True
     assert response.data["pending_task"]["known_facts"]["lifecycle_ready_status"] == "compiled"
+    assert response.data["lifecycle_handoff"]["handoff_target"] == "AppApplicationService"
+    assert response.data["lifecycle_handoff"]["recommended_intent"] == "apply_draft_app"
+    assert response.related_app == response.data["pending_task"]["target_ref"]["app_id"]
+    assert response.actions[0].payload["intent"] == "apply_draft_app"
     app_id = response.data["pending_task"]["target_ref"]["app_id"]
     assert draft_service.get_app(app_id).status == "compiled"
