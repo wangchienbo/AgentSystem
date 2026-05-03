@@ -1,3 +1,17 @@
+## 2026-05-03: Consolidated master plan for model-driven closure upgrade added
+
+### Summary
+Added a single master-plan document that consolidates the closure-gap diagnosis, architecture principles, module-level redesign, phased implementation path, and validation strategy.
+
+### What Was Done
+- Added `docs/model-driven-closure-upgrade-master-plan-2026-05-03.md`
+  - consolidated background, evidence, root-cause grouping, design principles, architecture direction, module mapping, roadmap, and definition of done
+  - positioned the tasklist as the execution layer beneath a broader design plan
+
+### Notes
+This document is intended to become the primary reference for the closure-upgrade workstream, reducing the need to jump between multiple analysis and planning files.
+
+
 ## 2026-05-03: Phase 1 implementation started with pending-task scaffolding
 
 ### Summary
