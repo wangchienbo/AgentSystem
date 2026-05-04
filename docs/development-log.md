@@ -1,3 +1,26 @@
+## 2026-05-05: Wave 7 service-up E2E path refreshed for context recovery payloads
+
+### Summary
+Started updating the service-up E2E script so it checks recent working-memory exposure and bounded continuation recovery after a client-side restart. The script changes landed, but full green validation is currently blocked by upstream model-key exhaustion during real `/api/chat` create-app traffic.
+
+### What Was Done
+- Updated `tests/scripts/e2e_self_iteration_service_up.py`
+  - tracks `session_id` after login
+  - checks that continuation responses expose `context_view`
+  - adds a bounded restart-style recovery probe using a fresh HTTP client with carried cookies/session id
+  - keeps the downstream `/api/action` activation handoff assertions intact
+- Ran the service-up script against a real temporary server
+  - startup/login/nightly registration work
+  - full end-to-end closure is blocked when `/api/chat` hits `ModelClientError` with `All API keys are temporarily unavailable`
+
+### Validation
+- `python3 tests/scripts/e2e_self_iteration_service_up.py`
+- Result: blocked by upstream model availability during real HTTP create-app traffic
+
+### Notes
+This is a real external blocker, not a local test regression. Once model capacity is available again, the updated service-up probe should be re-run to finish 10.5 and confirm full runnable closure.
+
+
 ## 2026-05-05: Wave 7 HTTP acceptance coverage extended for recent working memory
 
 ### Summary

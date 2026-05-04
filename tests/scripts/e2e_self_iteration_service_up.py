@@ -46,6 +46,7 @@ NC = "\033[0m"
 class SessionClient:
     def __init__(self) -> None:
         self.s = requests.Session()
+        self.session_id: str | None = None
 
     def post(self, path: str, *, json_body: dict[str, Any] | None = None, params: dict[str, Any] | None = None) -> requests.Response:
         return self.s.post(f"{BASE_URL}{path}", json=json_body, params=params, timeout=120)
@@ -142,6 +143,7 @@ def login(client: SessionClient) -> None:
     data = resp.json()
     if not data.get("success"):
         fail("login returned success=false", data)
+    client.session_id = data.get("session_id")
     ok("login")
 
 
@@ -158,28 +160,28 @@ def ensure_schedule(client: SessionClient) -> None:
 
 def chat_probe(client: SessionClient) -> None:
     stage("chat probe")
-    resp = client.post("/api/chat", json_body={"message": "你好，请简单介绍一下你自己"})
+    resp = client.post("/api/chat", json_body={"message": "创建一个笔记 app"})
     if resp.status_code != 200:
         fail(f"chat status={resp.status_code}", resp.text)
     data = resp.json()
+    if not data.get("success"):
+        fail("chat probe returned success=false", data)
     text = str(data.get("response") or data.get("content") or "")
     if not text:
         fail("chat returned empty response", data)
+    workflow_contract = data.get("workflow_contract") or {}
+    pending_task = workflow_contract.get("pending_task") or {}
+    if not pending_task.get("task_id"):
+        fail("chat probe did not expose pending task workflow contract", data)
     ok("chat interaction works")
 
 
 def draft_activation_probe(client: SessionClient) -> None:
-    stage("draft creation")
-    create_resp = client.post("/api/chat", json_body={"message": "创建一个笔记 app"})
-    if create_resp.status_code != 200:
-        fail(f"draft create status={create_resp.status_code}", create_resp.text)
-    create_data = create_resp.json()
-    if not create_data.get("success"):
-        fail("draft create returned success=false", create_data)
-    ok("draft creation request accepted")
+    stage("draft continuation path")
 
     continue_data = None
     apply_action = None
+    saw_context_view = False
     for index in range(3):
         stage(f"draft continue[{index}]")
         continue_resp = client.post("/api/chat", json_body={"message": "继续"})
@@ -188,6 +190,9 @@ def draft_activation_probe(client: SessionClient) -> None:
         continue_data = continue_resp.json()
         if not continue_data.get("success"):
             fail(f"draft continue[{index}] returned success=false", continue_data)
+        context_view = continue_data.get("context_view") or {}
+        if isinstance(context_view, dict) and isinstance(context_view.get("stable"), list):
+            saw_context_view = True
         actions = continue_data.get("actions") or []
         for item in actions:
             payload = item.get("payload") or {}
@@ -199,9 +204,24 @@ def draft_activation_probe(client: SessionClient) -> None:
 
     if continue_data is None:
         fail("draft continuation produced no response")
+    if not saw_context_view:
+        fail("draft continuation did not expose recent working memory context_view", continue_data)
     if apply_action is None:
         fail("draft continuation did not expose a real apply_draft_app action", continue_data)
-    ok("draft continuation exposed activation handoff action")
+    ok("draft continuation exposed activation handoff action and context view")
+
+    stage("restart-bounded continuation recovery")
+    recovered_client = SessionClient()
+    recovered_client.s.cookies.update(client.s.cookies)
+    recovery_resp = recovered_client.post("/api/chat", json_body={"message": "继续", "session_id": client.session_id})
+    if recovery_resp.status_code != 200:
+        fail(f"bounded continuation recovery status={recovery_resp.status_code}", recovery_resp.text)
+    recovery_data = recovery_resp.json()
+    if not recovery_data.get("success"):
+        fail("bounded continuation recovery returned success=false", recovery_data)
+    if not isinstance(recovery_data.get("context_view"), dict):
+        fail("bounded continuation recovery missing context_view", recovery_data)
+    ok("bounded continuation recovery remains available after client restart")
 
     stage("draft apply action")
     action_resp = client.post("/api/action", json_body=apply_action)
