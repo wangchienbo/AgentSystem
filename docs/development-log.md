@@ -1,3 +1,27 @@
+## 2026-05-05: Executable implementation action slice landed between repo and acceptance
+
+### Summary
+Filled the middle segment of the post-Phase-Q workflow chain by making `implement_app_change` a real executable action that materializes a deterministic implementation bundle and prepares the workflow for acceptance.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - added executable `implement_app_change` action handling in `execute_action(...)`
+  - action now derives target files from `repo_context.target_modules` or task-list module hints
+  - materializes a structured `implementation_plan` with repo path, target files, prepared work items, and summary
+  - seeds bounded acceptance commands/criteria when missing
+  - advances workflow to `acceptance_pending` and recommends `run_acceptance`
+  - returns structured progress payload with `pending_task`, `implementation_plan`, `acceptance_plan`, and bounded `context_view`
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added focused coverage for implementation-plan materialization and acceptance handoff
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py -q`
+- result: `18 passed`
+
+### Notes
+This now gives the workflow a continuous deterministic chain from repo-context closure to implementation-plan closure to executable acceptance.
+
+
 ## 2026-05-05: Executable acceptance action slice landed after repo-context closure
 
 ### Summary

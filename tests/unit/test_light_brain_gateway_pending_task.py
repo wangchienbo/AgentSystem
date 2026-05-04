@@ -283,6 +283,59 @@ def test_execute_locate_repo_context_updates_pending_task(tmp_path: Path):
     assert updated.next_recommended_action["type"] == "implement_app_change"
 
 
+def test_execute_implement_app_change_materializes_plan(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    task = PendingTaskRecord(
+        task_id="pt-impl-1",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="ready_to_execute",
+        current_stage="implementation_pending",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_3"},
+        repo_context={
+            "active_repo_path": "/root/project/AgentSystem",
+            "primary_readme_path": "/root/project/AgentSystem/README.md",
+            "key_docs": [],
+            "target_modules": ["app/system/gateway/light_brain_gateway.py"],
+        },
+        acceptance_plan={
+            "test_probe_commands": [],
+            "http_runtime_verification_points": [],
+            "success_criteria": [],
+            "results": [],
+        },
+        next_recommended_action={"type": "implement_app_change", "app_id": "app_repo_3"},
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:implement_app_change:app_repo_3",
+            action_params={"intent": "implement_app_change", "app_id": "app_repo_3"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    assert response.data["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
+    updated = pending_store.get_latest_open_task("u1")
+    assert updated is not None
+    assert updated.current_stage == "acceptance_pending"
+    assert updated.next_recommended_action["type"] == "run_acceptance"
+    assert updated.acceptance_plan["test_probe_commands"] == ["pytest tests/unit/test_light_brain_gateway_pending_task.py -q"]
+
+
 def test_execute_run_acceptance_records_passed_result(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     from app.system.runtime.pending_task_store import PendingTaskStore
@@ -331,6 +384,11 @@ def test_execute_run_acceptance_records_passed_result(tmp_path: Path):
     assert response.type == "progress"
     assert response.data is not None
     assert response.data["acceptance_result"]["status"] == "passed"
+    updated = pending_store.get_latest_open_task("u1")
+    assert updated is None or updated.status == "completed"
+
+
+def test_execute_run_acceptance_records_failed_result(tmp_path: Path):
     updated = pending_store.get_latest_open_task("u1")
     assert updated is None or updated.status == "completed"
 

@@ -2335,6 +2335,75 @@ class LightBrainGateway:
         self._auto_save()
         return response
 
+    async def _execute_implement_app_change(self, user_id: str, session_id: str, action_params: dict[str, Any]) -> ChatMessageResponse:
+        if self._pending_task_store is None:
+            return ChatMessageResponse(type="error", content="pending task store 未注入，当前不能执行 implement_app_change。", session_id=session_id)
+        pending_task = self._pending_task_store.get_latest_open_task(user_id)
+        if pending_task is None:
+            return ChatMessageResponse(type="error", content="没有找到可执行 implement_app_change 的未完成任务。", session_id=session_id)
+
+        repo_context = dict(pending_task.repo_context or {})
+        target_modules = list(repo_context.get("target_modules") or [])
+        if not target_modules:
+            target_modules = [
+                item.get("module", "")
+                for item in pending_task.task_list
+                if isinstance(item, dict) and item.get("module")
+            ]
+            target_modules = [item for item in target_modules if item]
+        implementation_plan = {
+            "repo_path": repo_context.get("active_repo_path") or "/root/project/AgentSystem",
+            "target_files": target_modules,
+            "work_items": [
+                {
+                    "type": "code_change",
+                    "target": module,
+                    "status": "prepared",
+                }
+                for module in target_modules
+            ],
+            "summary": f"Prepared implementation bundle for {len(target_modules)} target module(s).",
+        }
+        acceptance_plan = dict(pending_task.acceptance_plan or {})
+        acceptance_plan.setdefault("test_probe_commands", [])
+        if not acceptance_plan["test_probe_commands"]:
+            acceptance_plan["test_probe_commands"] = ["pytest tests/unit/test_light_brain_gateway_pending_task.py -q"]
+        acceptance_plan.setdefault("http_runtime_verification_points", [])
+        acceptance_plan.setdefault("success_criteria", [])
+        if not acceptance_plan["success_criteria"]:
+            acceptance_plan["success_criteria"] = ["targeted workflow tests pass"]
+        updated = pending_task.model_copy(update={
+            "implementation_plan": implementation_plan,
+            "acceptance_plan": acceptance_plan,
+            "status": "ready_to_execute",
+            "current_stage": "acceptance_pending",
+            "stage_status": "completed",
+            "next_recommended_action": {"type": PENDING_TASK_ACTION_RUN_ACCEPTANCE, "app_id": pending_task.target_ref.get("app_id")},
+        })
+        self._pending_task_store.upsert_task(updated)
+        self._memory.create_session(user_id=user_id, channel="action", session_id=session_id)
+        response = ChatMessageResponse(
+            type="progress",
+            content=(
+                f"我已经整理出可执行的实现变更包。\n"
+                f"目标文件数：{len(target_modules)}\n"
+                f"仓库路径：{implementation_plan['repo_path']}\n"
+                f"下一步建议：{PENDING_TASK_ACTION_RUN_ACCEPTANCE}"
+            ),
+            session_id=session_id,
+            data={
+                "pending_task": updated.model_dump(mode="json"),
+                "implementation_plan": implementation_plan,
+                "acceptance_plan": acceptance_plan,
+                "context_view": self._get_recent_context_view(session_id),
+            },
+            actions=[self._build_future_workflow_action(next_step=PENDING_TASK_ACTION_RUN_ACCEPTANCE, target_id=updated.target_ref.get("app_id") or "unknown")],
+            related_app=updated.target_ref.get("app_id"),
+        )
+        self._after_reply(session_id=session_id, reply=response)
+        self._auto_save()
+        return response
+
     async def execute_action(
         self,
         user_id: str,
@@ -2346,6 +2415,8 @@ class LightBrainGateway:
         action_params = action_params or {}
         action_session_id = action_params.get("session_id") or session_id
         intent = action_params.get("intent", "unclear")
+        if intent == PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE:
+            return await self._execute_implement_app_change(user_id, action_session_id, action_params)
         if intent == PENDING_TASK_ACTION_RUN_ACCEPTANCE:
             return await self._execute_run_acceptance(user_id, action_session_id, action_params)
         if intent == PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT:
