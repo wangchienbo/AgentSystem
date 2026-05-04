@@ -129,6 +129,79 @@ def test_api_chat_response_prefixes_verification_required_mode() -> None:
     assert data["structured_answer"]["self_model"]["answer_mode"] == "verification_required"
 
 
+def test_api_chat_exposes_compatible_workflow_contract_metadata() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import AsyncMock, patch
+    from app.models.chat import ChatMessageResponse, ActionSuggestion
+
+    fake_reply = ChatMessageResponse(
+        type="progress",
+        content="从上下文恢复继续执行。",
+        session_id="session_tester",
+        data={
+            "pending_task": {"task_id": "pt-ctx-1"},
+            "continuation_decision": {"conversation_mode": "continue_task"},
+            "context_view": {"stable_count": 2, "pending_count": 1},
+        },
+    )
+
+    with patch("app.system.http_test_server.gateway.receive_message", new=AsyncMock(return_value=fake_reply)):
+        response = client.post("/api/chat", json={"message": "继续"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data"]["pending_task"]["task_id"] == "pt-ctx-1"
+    assert data["workflow_contract"]["continuation_decision"]["conversation_mode"] == "continue_task"
+    assert data["context_view"] == {"stable_count": 2, "pending_count": 1}
+
+
+def test_api_action_exposes_compatible_workflow_contract_metadata() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import AsyncMock, patch
+    from app.models.chat import ChatMessageResponse
+
+    fake_reply = ChatMessageResponse(
+        type="progress",
+        content="动作执行已接续。",
+        session_id="session_tester",
+        data={
+            "pending_task": {"task_id": "pt-action-1"},
+            "continuation_decision": {"conversation_mode": "continue_task"},
+        },
+    )
+
+    with patch("app.system.http_test_server.gateway.execute_action", new=AsyncMock(return_value=fake_reply)):
+        response = client.post(
+            "/api/action",
+            json={"action_id": "continue:pt-action-1", "action_params": {}},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["workflow_contract"]["pending_task"]["task_id"] == "pt-action-1"
+    assert data["workflow_contract"]["continuation_decision"]["conversation_mode"] == "continue_task"
+
+
 def test_api_chat_exposes_gateway_action_contract() -> None:
     user_sessions.clear()
     conversation_history.clear()

@@ -598,6 +598,8 @@ Status: [x] completed
 
 ### 10.1 Extend HTTP surfaces compatibly where needed
 
+Status: [x] completed
+
 #### Tasks
 - ensure `/api/chat` and `/api/action` can work with the new workflow/context contracts without breaking existing consumers
 - if needed, add compatible context-view metadata fields in responses without removing current fields

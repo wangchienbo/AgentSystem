@@ -1,3 +1,29 @@
+## 2026-05-05: Wave 7 HTTP response contracts extended compatibly
+
+### Summary
+Started Wave 7 by extending `/api/chat` and `/api/action` response assembly so newer workflow/context contracts can surface through HTTP without breaking existing consumers.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - added `_build_http_response_contract(...)`
+  - existing fields remain unchanged: `data`, `actions`, `related_app`
+  - compatible optional fields now surface when available:
+    - `workflow_contract`
+    - `context_view`
+- Restored live chat observation persistence after response-assembly refactor
+- Updated `tests/unit/test_http_test_server.py`
+  - verifies `/api/chat` exposes compatible `workflow_contract` and `context_view`
+  - verifies `/api/action` exposes compatible `workflow_contract`
+  - confirms existing HTTP response behavior remains green
+
+### Validation
+- `pytest tests/unit/test_http_test_server.py -q`
+- Result: `30 passed`
+
+### Notes
+This keeps current HTTP consumers stable while giving newer clients a bounded path to workflow/context metadata. The next Wave 7 step should add focused Context Center unit coverage.
+
+
 ## 2026-05-05: Wave 6 continuation recovery now uses Context Center
 
 ### Summary

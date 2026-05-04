@@ -39,6 +39,27 @@ from app.system.chat_regression import (
     read_run_details,
     run_regression_governance_cycle,
 )
+
+
+def _build_http_response_contract(llm_resp: object) -> dict[str, object]:
+    data = getattr(llm_resp, "data", None)
+    response: dict[str, object] = {
+        "data": data,
+        "actions": [item.model_dump(mode="json") for item in getattr(llm_resp, "actions", [])],
+        "related_app": getattr(llm_resp, "related_app", None),
+    }
+    if isinstance(data, dict):
+        pending_task = data.get("pending_task")
+        continuation_decision = data.get("continuation_decision")
+        if pending_task is not None or continuation_decision is not None:
+            response["workflow_contract"] = {
+                "pending_task": pending_task,
+                "continuation_decision": continuation_decision,
+            }
+        if data.get("context_view") is not None:
+            response["context_view"] = data.get("context_view")
+    return response
+
 from app.system.regression_governance_policy import build_governance_rollout_operator_summary
 
 logging.basicConfig(level=logging.INFO)
@@ -498,15 +519,14 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
                 structured_answer=structured_answer.model_dump() if structured_answer else None,
             )
         )
+        response_contract = _build_http_response_contract(llm_resp)
         return {
             "success": True,
             "response": response_text,
             "structured_answer": structured_answer.model_dump() if structured_answer else None,
             "session_id": session_id,
             "latency_ms": latency_ms,
-            "data": getattr(llm_resp, "data", None),
-            "actions": [item.model_dump(mode="json") for item in getattr(llm_resp, "actions", [])],
-            "related_app": getattr(llm_resp, "related_app", None),
+            **response_contract,
         }
     except Exception as e:
         finished_at = datetime.now()
@@ -635,15 +655,14 @@ async def api_action(req: ActionRequest, user: dict = Depends(get_current_user))
             "content": response_text,
             "timestamp": finished_at.isoformat(),
         })
+        response_contract = _build_http_response_contract(llm_resp)
         return {
             "success": True,
             "response": response_text,
             "structured_answer": structured_answer.model_dump() if structured_answer else None,
             "session_id": session_id,
             "latency_ms": latency_ms,
-            "data": getattr(llm_resp, "data", None),
-            "actions": [item.model_dump(mode="json") for item in getattr(llm_resp, "actions", [])],
-            "related_app": getattr(llm_resp, "related_app", None),
+            **response_contract,
         }
     except Exception as e:
         logger.exception("LLM action failed")
