@@ -1,3 +1,27 @@
+## 2026-05-05: Phase Q acceptance checklist refreshed after service-up closure
+
+### Summary
+Performed a final bounded validation pass against the main Phase Q workflow/context test slices after closing 10.5, and marked the remaining explicit documentation-maintenance item complete.
+
+### What Was Done
+- Re-ran the main focused Phase Q validation slices covering:
+  - pending-task continuation behavior
+  - HTTP workflow/context compatibility
+  - gateway workflow/context integration
+  - Context Center focused storage/recovery behavior
+  - reorder window behavior
+  - durable context buffer behavior
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked 11.4 (development log maintenance) complete because each completed wave has already been documented with validation evidence
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py tests/unit/test_gateway_workflow_context_integration.py tests/unit/services/test_context_center_focused.py tests/unit/services/test_context_reorder_window.py tests/unit/services/test_durable_context_buffer.py -q`
+- result: `61 passed`
+
+### Notes
+At this point the explicit Phase Q task list items in sections 10 and 11 are fully checked off, and the main acceptance checklist remains backed by focused test evidence plus the passing service-up E2E closure.
+
+
 ## 2026-05-05: Wave 7 service-up E2E path closed with deterministic recovery probes
 
 ### Summary

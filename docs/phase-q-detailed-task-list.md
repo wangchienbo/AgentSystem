@@ -696,7 +696,9 @@ Status: [x] completed
 Status: [x] completed
 
 ### 11.4 Update development log
-- every completed wave should append concrete implementation notes and validation evidence
+
+Status: [x] completed
+- every completed wave appended concrete implementation notes and validation evidence
 
 ---
 
