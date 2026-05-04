@@ -1,3 +1,22 @@
+## 2026-05-04: Phase Q detailed task list for workflow and Context Center rollout
+
+### Summary
+Converted the finalized Phase Q design baseline into a detailed module-level implementation task list so the next development stage can proceed as bounded rollout waves instead of broad exploratory changes.
+
+### What Was Done
+- Added `docs/phase-q-detailed-task-list.md`
+  - breaks delivery into rollout waves for workflow state, Context Center foundation, summary pipeline, retrieval integration, repo/upgrade/acceptance awareness, workflow hooks, and HTTP/E2E closure
+  - includes target modules, concrete subtasks, and acceptance criteria for each wave
+  - preserves compatibility constraints such as minimal detail events, summary-first retrieval, stable+pending recent view, and mandatory startup recovery
+  - records recommended commit boundaries and a phase-completion acceptance checklist
+
+### Validation
+- Design-only documentation update, no code execution required.
+
+### Notes
+This task list is intended to be the implementation companion to `docs/phase-q-workflow-context-center-final-design.md` and should be used as the main decomposition reference for the next coding phase.
+
+
 ## 2026-05-04: Phase Q final design baseline for workflow and Context Center convergence
 
 ### Summary
