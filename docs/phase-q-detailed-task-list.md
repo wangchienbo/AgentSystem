@@ -630,6 +630,8 @@ Status: [x] completed
 
 ### 10.3 Add gateway/workflow integration tests
 
+Status: [x] completed
+
 #### Tasks
 - add focused tests for:
   - workflow stage progression beyond draft-only path

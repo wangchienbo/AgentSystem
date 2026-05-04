@@ -1,3 +1,26 @@
+## 2026-05-05: Wave 7 gateway and workflow integration coverage landed
+
+### Summary
+Completed the current Wave 7 task list by adding focused integration coverage across workflow stage progression, Context Center hook writes, summary-first context assembly, detail lookup compatibility, and continuation recovery from shared working context.
+
+### What Was Done
+- Added `tests/unit/test_gateway_workflow_context_integration.py`
+  - verifies workflow stage progression emits Context Center hook events
+  - verifies acceptance lifecycle writes remain visible in shared detail storage
+  - verifies summary-first context assembly stays compatible with detail retrieval and asset evidence lookup
+  - verifies gateway continuation recovery can still return workflow payloads when resuming from Context Center memory
+- Updated `tests/unit/test_context_bundle_assembly_and_tool_runtime.py`
+  - made context reference assertions compatible with summary records that do not expose `record_id`
+- Re-ran the nearby gateway/context suites together as a focused integration envelope
+
+### Validation
+- `pytest tests/unit/test_gateway_workflow_context_integration.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_context_bundle_assembly_and_tool_runtime.py tests/unit/test_tool_context_contract_and_context_center.py -q`
+- Result: `23 passed`
+
+### Notes
+This closes the current Wave 7 checklist with a tighter integration net around gateway, workflow state, and Context Center convergence. The next step is to move into service-up and end-to-end closure work beyond the current focused unit/integration layer.
+
+
 ## 2026-05-05: Wave 7 focused Context Center unit coverage landed
 
 ### Summary

@@ -73,7 +73,7 @@ def test_tool_context_runtime_only_uses_resolved_local_session_inputs() -> None:
         asset_id="asset:demo:v1",
         local_session_id="local-1",
         model_id="gpt-5.4",
-        context_refs=[item["record_id"] for item in bundle["summary"] + bundle["recent"]],
+        context_refs=[item.get("record_id", f"summary:{index}") for index, item in enumerate(bundle["summary"], start=1)] + [item["record_id"] for item in bundle["recent"]],
         token_usage={"input": 100, "output": 20},
         output_summary="done",
     )
