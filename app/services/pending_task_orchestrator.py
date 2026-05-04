@@ -13,6 +13,7 @@ from app.models.pending_task import (
 )
 from app.services.pending_task_store import PendingTaskStore
 from app.services.high_value_fact_messages import acceptance_result_message
+from app.system.governance_failure_attribution import classify_governance_failure
 
 
 def _workflow_hook_message(event: str, stage: str, action: str = "") -> str:
@@ -247,6 +248,28 @@ class PendingTaskOrchestrator:
                 role=role,
                 content=content,
                 metadata={"app_context": True, **dict(metadata or {})},
+            )
+        )
+
+    def write_governance_observation(self, *, session_id: str, probe: dict[str, object]) -> None:
+        if self._context_center is None:
+            return
+        attribution = classify_governance_failure(probe)
+        from app.models.context import SessionContextRecord
+        self._context_center.append_context(
+            SessionContextRecord(
+                session_id=session_id,
+                kind="system_note",
+                role="system",
+                content=(
+                    f"governance_observation signal={attribution.signal} "
+                    f"failure_stage={attribution.failure_stage or 'none'} reason={attribution.reason}"
+                ),
+                metadata={
+                    "governance_observation": True,
+                    "signal": attribution.signal,
+                    "failure_stage": attribution.failure_stage,
+                },
             )
         )
 

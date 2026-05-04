@@ -1,3 +1,25 @@
+## 2026-05-05: Wave 6 governance-observation writes landed
+
+### Summary
+Continued Wave 6 by integrating a bounded governance/self-iteration observation path into Context Center, so reusable governance signals can join the shared working-context line without dumping raw logs.
+
+### What Was Done
+- Updated `app/services/pending_task_orchestrator.py`
+  - added `write_governance_observation(...)`
+  - uses `classify_governance_failure(...)` to compress probes into compact reusable signals
+  - writes governance observations through Context Center as bounded compact events
+- Updated `tests/unit/test_pending_task_orchestrator.py`
+  - verifies a governance observation with required verification is written as a compact `missing_evidence` signal event
+- Validation also re-ran decision-protocol and context-detail tests to ensure integration stayed compatible
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/services/test_context_detail_events.py tests/unit/test_interaction_decision_protocol.py -q`
+- Result: `31 passed`
+
+### Notes
+This lands one concrete governance/self-iteration contribution path into shared working context. The next Wave 6 step should broaden continuation recovery so it can combine pending-task state with recent Context Center working memory.
+
+
 ## 2026-05-05: Wave 6 app-side context writing landed
 
 ### Summary

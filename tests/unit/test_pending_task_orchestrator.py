@@ -316,6 +316,23 @@ def test_pending_task_orchestrator_allows_app_side_context_writes(tmp_path: Path
     assert events[-1].message == "app_runtime_event status=running"
 
 
+def test_pending_task_orchestrator_can_write_governance_observation(tmp_path: Path):
+    from app.services.context_center import ContextCenter
+
+    context_center = ContextCenter(base_dir=tmp_path / "context")
+    orchestrator = PendingTaskOrchestrator(context_center=context_center)
+
+    orchestrator.write_governance_observation(
+        session_id="sess-gov-1",
+        probe={"verification_mode": "required", "response": "need evidence"},
+    )
+
+    events = context_center.read_detail_events("sess-gov-1")
+    assert events[-1].message == (
+        "governance_observation signal=missing_evidence failure_stage=evidence reason=verification mode requires additional evidence or tools"
+    )
+
+
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     lifecycle = AppLifecycleService(runtime_store)
