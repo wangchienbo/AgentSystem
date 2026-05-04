@@ -5,30 +5,37 @@ AgentSystem 服务启动后自我迭代闭环 E2E
 
 目标：
 1. 以真实 HTTP 请求验证服务可交互
-2. 通过 governance nightly trigger 驱动一次 regression/self-iteration 闭环
-3. 验证结果中必须出现 cycle，并允许 rollout 被 apply 或被 preflight 阻断
+2. 验证 draft continuation -> `/api/action` -> running activation 的 HTTP 闭环
+3. 通过 governance nightly trigger 驱动一次 regression/self-iteration 闭环
+4. 验证结果中必须出现 cycle，并允许 rollout 被 apply 或被 preflight 阻断
 
 用法：
-  1. 启动服务:
-     cd /root/project/AgentSystem && python3 -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port 8765
-  2. 运行脚本:
+  1. 直接运行（脚本会自启动临时服务）:
      python3 tests/scripts/e2e_self_iteration_service_up.py
 
 可选环境变量：
   BASE_URL=http://127.0.0.1:8765
+  START_SERVER=0   # 复用外部已启动服务时可关闭内置启动
 """
 from __future__ import annotations
 
+import atexit
 import json
 import os
+import subprocess
 import sys
+import time
+from pathlib import Path
 from typing import Any
 
 import requests
 
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8765").rstrip("/")
+START_SERVER = os.environ.get("START_SERVER", "1") != "0"
 USERNAME = "e2e-self-iteration"
 PASSWORD = "test123456"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SERVER_LOG = ROOT_DIR / "data" / "e2e_self_iteration_service_up.log"
 
 GREEN = "\033[0;32m"
 RED = "\033[0;31m"
@@ -47,6 +54,10 @@ class SessionClient:
         return self.s.get(f"{BASE_URL}{path}", params=params, timeout=120)
 
 
+_SERVER_PROCESS: subprocess.Popen[str] | None = None
+_SERVER_LOG_HANDLE = None
+
+
 def fail(msg: str, payload: Any | None = None) -> None:
     print(f"{RED}FAIL{NC}: {msg}")
     if payload is not None:
@@ -59,9 +70,72 @@ def fail(msg: str, payload: Any | None = None) -> None:
 
 def ok(msg: str) -> None:
     print(f"{GREEN}OK{NC}: {msg}")
+    sys.stdout.flush()
+
+
+def stage(msg: str) -> None:
+    print(f"{YELLOW}STAGE{NC}: {msg}")
+    sys.stdout.flush()
+
+
+def ensure_server_ready(timeout_seconds: int = 30) -> None:
+    deadline = time.time() + timeout_seconds
+    last_error: Exception | None = None
+    while time.time() < deadline:
+        try:
+            response = requests.get(f"{BASE_URL}/api/status", timeout=3)
+            if response.status_code == 200:
+                ok("server is ready")
+                return
+        except Exception as exc:
+            last_error = exc
+        time.sleep(1)
+    fail("server did not become ready in time", str(last_error) if last_error else None)
+
+
+def _cleanup_server() -> None:
+    global _SERVER_PROCESS, _SERVER_LOG_HANDLE
+    if _SERVER_PROCESS is not None and _SERVER_PROCESS.poll() is None:
+        _SERVER_PROCESS.terminate()
+        try:
+            _SERVER_PROCESS.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            _SERVER_PROCESS.kill()
+    if _SERVER_LOG_HANDLE is not None:
+        _SERVER_LOG_HANDLE.close()
+    _SERVER_PROCESS = None
+    _SERVER_LOG_HANDLE = None
+
+
+def start_server_if_needed() -> None:
+    global _SERVER_PROCESS, _SERVER_LOG_HANDLE
+    if not START_SERVER:
+        ensure_server_ready()
+        return
+    SERVER_LOG.parent.mkdir(parents=True, exist_ok=True)
+    _SERVER_LOG_HANDLE = SERVER_LOG.open("w", encoding="utf-8")
+    _SERVER_PROCESS = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "app.system.http_test_server:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8765",
+        ],
+        cwd=str(ROOT_DIR),
+        stdout=_SERVER_LOG_HANDLE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    atexit.register(_cleanup_server)
+    ensure_server_ready()
 
 
 def login(client: SessionClient) -> None:
+    stage("login")
     resp = client.post("/login", json_body={"username": USERNAME, "password": PASSWORD})
     if resp.status_code != 200:
         fail(f"login status={resp.status_code}", resp.text)
@@ -72,6 +146,7 @@ def login(client: SessionClient) -> None:
 
 
 def ensure_schedule(client: SessionClient) -> None:
+    stage("register nightly schedule")
     resp = client.post("/api/governance/regression-cycle/nightly", params={"interval_seconds": 1})
     if resp.status_code != 200:
         fail(f"register nightly schedule status={resp.status_code}", resp.text)
@@ -82,6 +157,7 @@ def ensure_schedule(client: SessionClient) -> None:
 
 
 def chat_probe(client: SessionClient) -> None:
+    stage("chat probe")
     resp = client.post("/api/chat", json_body={"message": "你好，请简单介绍一下你自己"})
     if resp.status_code != 200:
         fail(f"chat status={resp.status_code}", resp.text)
@@ -93,6 +169,7 @@ def chat_probe(client: SessionClient) -> None:
 
 
 def draft_activation_probe(client: SessionClient) -> None:
+    stage("draft creation")
     create_resp = client.post("/api/chat", json_body={"message": "创建一个笔记 app"})
     if create_resp.status_code != 200:
         fail(f"draft create status={create_resp.status_code}", create_resp.text)
@@ -104,6 +181,7 @@ def draft_activation_probe(client: SessionClient) -> None:
     continue_data = None
     apply_action = None
     for index in range(3):
+        stage(f"draft continue[{index}]")
         continue_resp = client.post("/api/chat", json_body={"message": "继续"})
         if continue_resp.status_code != 200:
             fail(f"draft continue[{index}] status={continue_resp.status_code}", continue_resp.text)
@@ -125,6 +203,7 @@ def draft_activation_probe(client: SessionClient) -> None:
         fail("draft continuation did not expose a real apply_draft_app action", continue_data)
     ok("draft continuation exposed activation handoff action")
 
+    stage("draft apply action")
     action_resp = client.post("/api/action", json_body=apply_action)
     if action_resp.status_code != 200:
         fail(f"draft apply action status={action_resp.status_code}", action_resp.text)
@@ -144,6 +223,8 @@ def draft_activation_probe(client: SessionClient) -> None:
     ok("draft HTTP action activation surface works")
 
 
+def run_self_iteration_cycle(client: SessionClient) -> dict[str, Any]:
+    stage("governance self-iteration cycle")
     resp = client.post("/api/governance/regression-cycle/nightly/trigger", params={"auto_apply_governance": "true"})
     if resp.status_code != 200:
         fail(f"nightly trigger status={resp.status_code}", resp.text)
@@ -155,6 +236,7 @@ def draft_activation_probe(client: SessionClient) -> None:
     cycle = data.get("cycle")
     if not isinstance(cycle, dict) or not cycle.get("run_id"):
         fail("cycle result missing run_id", data)
+    ok("governance self-iteration cycle triggered")
     return data
 
 
@@ -181,6 +263,7 @@ def verify_cycle_payload(data: dict[str, Any]) -> None:
 
 
 def fetch_latest_regression(client: SessionClient) -> None:
+    stage("fetch latest regression")
     resp = client.get("/api/chat-regression/latest")
     if resp.status_code != 200:
         fail(f"latest regression status={resp.status_code}", resp.text)
@@ -195,6 +278,7 @@ def fetch_latest_regression(client: SessionClient) -> None:
 
 def main() -> None:
     print(f"{YELLOW}BASE_URL={BASE_URL}{NC}")
+    start_server_if_needed()
     client = SessionClient()
     login(client)
     ensure_schedule(client)

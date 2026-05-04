@@ -209,7 +209,7 @@ class LightBrainGateway:
         )
         session_id = session.session_id
         pending_task = self._get_latest_pending_task(request.user_id)
-        continuation_decision = self._build_continuation_decision(request.message, pending_task)
+        continuation_decision = self._build_continuation_decision(request.message, pending_task, session_id)
         self._register_runtime_session(session_id=session_id, user_id=request.user_id, channel=request.channel)
         self._memory.record_user_message(session_id, request.message)
         self._mirror_session_node(session_id=session_id, user_id=request.user_id, channel=request.channel)
@@ -1851,6 +1851,7 @@ class LightBrainGateway:
         self,
         message: str,
         pending_task: PendingTaskRecord | None,
+        session_id: str | None = None,
     ) -> TaskContinuationDecision | None:
         stripped = (message or "").strip()
         if not stripped:
@@ -1864,6 +1865,21 @@ class LightBrainGateway:
                 missing_fields=list(pending_task.missing_fields),
                 confidence=0.9,
             )
+        if pending_task is None and stripped in {"继续", "开始执行", "按刚才那个继续", "结合之前记录继续"} and self._context_center is not None and session_id:
+            recent = self._context_center.get_recent_working_memory_view(session_id, limit=20)
+            combined_text = " ".join(
+                [str(item.get("message") or "") for item in (recent.get("stable") or [])]
+                + [str(item.get("message") or "") for item in (recent.get("pending") or [])]
+            )
+            if any(token in combined_text.lower() for token in ["draft", "create", "app", "创建"]):
+                return TaskContinuationDecision(
+                    conversation_mode="continue_task",
+                    pending_task_id=None,
+                    target_ref={"target_id": "context_recovery"},
+                    next_action={"type": "resume_from_context_center"},
+                    missing_fields=[],
+                    confidence=0.55,
+                )
         if pending_task is None and any(token in stripped for token in ["创建", "新建", "做一个", "搞一个"]) and any(
             token.lower() in stripped.lower() for token in ["app", "应用", "程序", "模块"]
         ):
@@ -1984,6 +2000,13 @@ class LightBrainGateway:
         decision: TaskContinuationDecision,
     ) -> ChatMessageResponse:
         if pending_task is None:
+            if (decision.next_action or {}).get("type") == "resume_from_context_center":
+                return ChatMessageResponse(
+                    type="progress",
+                    content="我没有找到完整的 pending task，但结合 Context Center 里的最近工作记忆，当前可以从上一次未完成的上下文继续恢复推进。",
+                    session_id=session_id,
+                    data={"continuation_decision": decision.model_dump(mode="json")},
+                )
             return ChatMessageResponse(
                 type="text",
                 content="我没有找到可继续的未完成任务。你可以直接告诉我现在想做什么。",

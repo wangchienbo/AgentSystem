@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import yaml
 from pathlib import Path
 
@@ -290,7 +291,32 @@ class OpenAIResponsesClient:
                 tool_names,
                 len(messages),
             )
-            response = client.post(url, json=payload, headers=headers)
+            last_error: Exception | None = None
+            for attempt in range(2):
+                try:
+                    response = client.post(url, json=payload, headers=headers)
+                    break
+                except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ReadError) as exc:
+                    last_error = exc
+                    if attempt >= 1:
+                        raise ModelClientError(
+                            f"Chat with tools transport failed after retry: {exc}",
+                            status_code=None,
+                            retryable=True,
+                        ) from exc
+                    logger.warning(
+                        "ModelClient.chat_with_tools transient transport failure model=%s attempt=%s error=%s",
+                        model_name,
+                        attempt + 1,
+                        exc,
+                    )
+                    time.sleep(0.5)
+            else:
+                raise ModelClientError(
+                    f"Chat with tools transport failed: {last_error}",
+                    status_code=None,
+                    retryable=True,
+                )
         if response.status_code >= 400:
             debug_path = Path('/tmp/agentsystem_chat_with_tools_payload.json')
             try:

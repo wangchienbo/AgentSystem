@@ -386,8 +386,15 @@ async def login_page(request: Request):
 
 @app.post("/login")
 async def login(request: Request):
-    form_data = await request.form()
-    username = form_data.get("username", "testuser")
+    username = "testuser"
+    content_type = (request.headers.get("content-type") or "").lower()
+    if "application/json" in content_type:
+        payload = await request.json()
+        if isinstance(payload, dict):
+            username = payload.get("username", username)
+    else:
+        form_data = await request.form()
+        username = form_data.get("username", username)
     # 按用户名生成稳定的 session_id（同一用户每次登录都恢复同一会话）
     session_id = f"session_{username}"
     if session_id in user_sessions:
@@ -443,13 +450,16 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
 
     try:
         # Build ChatMessageRequest for LightBrain gateway
+        augmented_message = _augment_user_message(req.message, session_id)
         chat_req = ChatMessageRequest(
             user_id=user.get("username", "anonymous"),
             channel="webchat",
-            message=_augment_user_message(req.message, session_id),
+            message=req.message,
             session_id=session_id,
             memory_context=_build_effective_memory_context(session_id),
         )
+        if augmented_message != req.message:
+            chat_req.memory_context = ((chat_req.memory_context or "") + f"\n\n[webchat_style_hint]\n{augmented_message}").strip()
         # Call AgentSystem LightBrain gateway (which handles LLM routing and Tool calls)
         llm_resp = await gateway.receive_message(chat_req)
         response_text = getattr(llm_resp, "content", "") or ""

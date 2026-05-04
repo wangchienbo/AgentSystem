@@ -8,6 +8,22 @@ from app.system.http_test_server import app, user_sessions, conversation_history
 client = TestClient(app)
 
 
+
+
+def test_login_accepts_json_payload_without_form_parser_dependency() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+
+    response = client.post("/login", json={"username": "json_tester", "password": "ignored"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["session_id"] == "session_json_tester"
+    assert data["username"] == "json_tester"
+    assert "session_json_tester" in user_sessions
+
+
 def test_api_chat_accepts_new_explicit_session_id_after_login() -> None:
     user_sessions.clear()
     conversation_history.clear()

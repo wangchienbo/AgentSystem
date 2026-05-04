@@ -84,6 +84,11 @@ from app.services.user_service import UserService
 from app.services.auth_service import AuthService
 from app.services.session_router import SessionRouter
 from app.services.pipeline_service import PipelineService
+from app.services.draft_app_service import DraftAppService
+from app.services.draft_app_application_service import DraftAppApplicationService
+from app.services.app_application_service import AppApplicationService
+from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+from app.system.runtime.pending_task_store import PendingTaskStore
 from app.system.assets.config_center_asset import ConfigCenterAsset
 from app.system.assets.registration_protocol import AssetRegistrationProtocol
 from app.system.assets.self_iteration_center_asset import SelfIterationCenterAsset
@@ -749,6 +754,21 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         llm_responder=None,  # Will be set after llm_responder is created
     )
     persistence_service = PersistenceService()
+    draft_app_service = DraftAppService(store=runtime_store)
+    pending_task_store = PendingTaskStore(store=runtime_store)
+    draft_app_application_service = DraftAppApplicationService(
+        draft_app_service=draft_app_service,
+        lifecycle_service=lifecycle,
+        runtime_host_service=runtime_host,
+    )
+    app_application_service = AppApplicationService(
+        draft_app_application_service=draft_app_application_service,
+    )
+    pending_task_orchestrator = PendingTaskOrchestrator(
+        pending_task_store=pending_task_store,
+        draft_app_service=draft_app_service,
+        app_application_service=app_application_service,
+    )
     feedback_service = FeedbackService(store=runtime_store)
     skill_factory.reload_generated_skills()
 
@@ -1190,6 +1210,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         # Phase 7.4: new interaction runtime injection
         interaction_orchestrator=interaction_orchestrator,
         invocation_dispatcher=invocation_dispatcher,
+        draft_app_service=draft_app_service,
+        pending_task_store=pending_task_store,
+        pending_task_orchestrator=pending_task_orchestrator,
+        app_application_service=app_application_service,
     )
 
     runtime_center.register_asset(
