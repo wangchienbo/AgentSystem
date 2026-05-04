@@ -27,9 +27,9 @@ def test_durable_context_buffer_bounds_session_history(tmp_path) -> None:
 
 def test_context_center_exposes_session_aware_pending_buffer(tmp_path) -> None:
     center = ContextCenter(base_dir=tmp_path)
-    center.append_pending_buffer_event("sess-a", {"timestamp": "1", "role": "user", "message": "a1"})
-    center.append_pending_buffer_event("sess-b", {"timestamp": "1", "role": "user", "message": "b1"})
-    center.append_pending_buffer_event("sess-a", {"timestamp": "2", "role": "system", "message": "a2"})
+    center.append_pending_buffer_event("sess-a", {"timestamp": "2026-05-04T17:08:00Z", "role": "user", "message": "a1"})
+    center.append_pending_buffer_event("sess-b", {"timestamp": "2026-05-04T17:08:10Z", "role": "user", "message": "b1"})
+    center.append_pending_buffer_event("sess-a", {"timestamp": "2026-05-04T17:08:20Z", "role": "system", "message": "a2"})
 
     assert [item["message"] for item in center.read_pending_buffer_events("sess-a")] == ["a1", "a2"]
     assert [item["message"] for item in center.read_pending_buffer_events("sess-b")] == ["b1"]

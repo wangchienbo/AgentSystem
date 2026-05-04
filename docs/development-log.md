@@ -1,3 +1,34 @@
+## 2026-05-04: Wave 2 session-local reorder window landed
+
+### Summary
+Continued Wave 2 by adding the session-local sliding reorder window that separates stable events from still-waiting events and flushes only the stable portion into the formal detail store.
+
+### What Was Done
+- Added `app/services/context_reorder_window.py`
+  - introduced session-local reorder logic
+  - sorts modest out-of-order events by timestamp
+  - separates stable events from waiting events
+- Updated `app/services/context_center.py`
+  - wired the reorder window into the formal Context Center service area
+  - added `flush_stable_pending_events(...)`
+  - stable pending events now flush into the detail store
+  - waiting events remain in the durable pending buffer
+- Added focused tests:
+  - `tests/unit/services/test_context_reorder_window.py`
+  - verifies out-of-order correction
+  - verifies recent events remain waiting
+  - verifies stable flush + waiting retention through `ContextCenter`
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 2 section 5.5 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_detail_events.py tests/unit/services/test_durable_context_buffer.py tests/unit/services/test_context_reorder_window.py tests/unit/test_tool_context_contract_and_context_center.py -q`
+- Result: `14 passed`
+
+### Notes
+This lands the sliding reorder behavior, but the startup recovery path is still pending. The next Wave 2 slice should complete recovery-before-ready wiring on top of the durable buffer and reorder substrate.
+
+
 ## 2026-05-04: Wave 2 durable pending-event buffer landed
 
 ### Summary

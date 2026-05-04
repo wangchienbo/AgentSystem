@@ -9,6 +9,7 @@ from app.system.invocation.tool_context_contract import ModelInvocationRecord, T
 from app.models.context import SessionContextRecord, SessionContextWindow, SessionLink, SessionNode
 from app.services.context_query_service import ContextQueryService
 from app.services.context_recovery_manager import ContextRecoveryManager
+from app.services.context_reorder_window import SessionLocalReorderWindow
 from app.services.context_summary_worker import ContextSummaryWorker
 from app.services.context_writer import ContextWriter
 from app.services.durable_context_buffer import DurableContextBuffer
@@ -34,6 +35,7 @@ class ContextCenter:
         self._recovery_manager = ContextRecoveryManager.from_base_dir(self._base_dir)
         self._summary_worker = ContextSummaryWorker.from_base_dir(self._base_dir)
         self._durable_buffer = DurableContextBuffer.from_base_dir(self._base_dir)
+        self._reorder_window = SessionLocalReorderWindow()
         self._recovery_manager.mark_ready()
 
     # Chapter 5 target-shaped APIs -------------------------------------------------
@@ -126,10 +128,28 @@ class ContextCenter:
         return self._query_service.read_summary_events(session_id=session_id, limit=limit)
 
     def append_pending_buffer_event(self, session_id: str, event: dict[str, Any]) -> dict[str, Any]:
-        return self._durable_buffer.append_pending_event(session_id=session_id, event=event)
+        stored = self._durable_buffer.append_pending_event(session_id=session_id, event=event)
+        self.flush_stable_pending_events(session_id)
+        return stored
 
     def read_pending_buffer_events(self, session_id: str):
         return self._durable_buffer.read_pending_events(session_id=session_id)
+
+    def flush_stable_pending_events(self, session_id: str, *, now: datetime | None = None) -> dict[str, Any]:
+        pending = self._durable_buffer.read_pending_events(session_id=session_id)
+        result = self._reorder_window.rebalance(pending, now=now)
+        for event in result.stable_events:
+            self._writer.append_detail_event(
+                session_id=session_id,
+                role=str(event.get("role") or "system"),
+                message=str(event.get("message") or ""),
+                timestamp=datetime.fromisoformat(str(event["timestamp"]).replace("Z", "+00:00")),
+            )
+        self._durable_buffer.replace_pending_events(session_id=session_id, events=result.waiting_events)
+        return {
+            "flushed_count": len(result.stable_events),
+            "waiting_count": len(result.waiting_events),
+        }
 
     def read_context(self, session_id: str, limit: int = 100) -> SessionContextWindow:
         records = self._records.get(session_id, [])

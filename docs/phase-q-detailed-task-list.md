@@ -244,6 +244,8 @@ Status: [x] completed
 
 ### 5.5 Implement session-local sliding reorder window
 
+Status: [x] completed
+
 #### Tasks
 - implement 5 minute reorder window:
   - first 2 minutes stable zone
