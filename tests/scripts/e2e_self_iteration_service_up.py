@@ -92,7 +92,58 @@ def chat_probe(client: SessionClient) -> None:
     ok("chat interaction works")
 
 
-def run_self_iteration_cycle(client: SessionClient) -> dict[str, Any]:
+def draft_activation_probe(client: SessionClient) -> None:
+    create_resp = client.post("/api/chat", json_body={"message": "创建一个笔记 app"})
+    if create_resp.status_code != 200:
+        fail(f"draft create status={create_resp.status_code}", create_resp.text)
+    create_data = create_resp.json()
+    if not create_data.get("success"):
+        fail("draft create returned success=false", create_data)
+    ok("draft creation request accepted")
+
+    continue_data = None
+    apply_action = None
+    for index in range(3):
+        continue_resp = client.post("/api/chat", json_body={"message": "继续"})
+        if continue_resp.status_code != 200:
+            fail(f"draft continue[{index}] status={continue_resp.status_code}", continue_resp.text)
+        continue_data = continue_resp.json()
+        if not continue_data.get("success"):
+            fail(f"draft continue[{index}] returned success=false", continue_data)
+        actions = continue_data.get("actions") or []
+        for item in actions:
+            payload = item.get("payload") or {}
+            if payload.get("intent") == "apply_draft_app":
+                apply_action = {"action_id": item.get("id"), "action_params": payload}
+                break
+        if apply_action is not None:
+            break
+
+    if continue_data is None:
+        fail("draft continuation produced no response")
+    if apply_action is None:
+        fail("draft continuation did not expose a real apply_draft_app action", continue_data)
+    ok("draft continuation exposed activation handoff action")
+
+    action_resp = client.post("/api/action", json_body=apply_action)
+    if action_resp.status_code != 200:
+        fail(f"draft apply action status={action_resp.status_code}", action_resp.text)
+    action_data = action_resp.json()
+    if not action_data.get("success"):
+        fail("draft apply action returned success=false", action_data)
+    if not isinstance(action_data.get("data"), dict):
+        fail("draft apply action missing structured data payload", action_data)
+    if action_data["data"].get("lifecycle_transition") != "draft_to_running_activation":
+        fail("draft apply action missing draft_to_running_activation transition", action_data)
+    actions = action_data.get("actions") or []
+    if not actions:
+        fail("draft apply action missing follow-up actions", action_data)
+    first_payload = (actions[0] or {}).get("payload") or {}
+    if first_payload.get("intent") != "query_app":
+        fail("draft apply action did not expose query_app follow-up", action_data)
+    ok("draft HTTP action activation surface works")
+
+
     resp = client.post("/api/governance/regression-cycle/nightly/trigger", params={"auto_apply_governance": "true"})
     if resp.status_code != 200:
         fail(f"nightly trigger status={resp.status_code}", resp.text)
@@ -148,6 +199,7 @@ def main() -> None:
     login(client)
     ensure_schedule(client)
     chat_probe(client)
+    draft_activation_probe(client)
     result = run_self_iteration_cycle(client)
     verify_cycle_payload(result)
     fetch_latest_regression(client)

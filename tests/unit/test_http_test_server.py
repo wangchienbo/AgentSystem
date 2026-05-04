@@ -71,6 +71,8 @@ def test_api_chat_exposes_structured_answer_payload() -> None:
     assert data["structured_answer"]["self_model"]["human_equivalence_state"] == "non_human_equivalent"
 
 
+
+
 def test_api_chat_response_prefixes_verification_required_mode() -> None:
     user_sessions.clear()
     conversation_history.clear()
@@ -111,7 +113,57 @@ def test_api_chat_response_prefixes_verification_required_mode() -> None:
     assert data["structured_answer"]["self_model"]["answer_mode"] == "verification_required"
 
 
-def test_fixed_prompt_regression_seed_covers_core_scan_topics() -> None:
+def test_api_chat_exposes_gateway_action_contract() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import AsyncMock, patch
+    from app.models.chat import ChatMessageResponse, ActionSuggestion
+
+    fake_reply = ChatMessageResponse(
+        type="progress",
+        content="草稿 app 已准备好正式接入。",
+        session_id="session_tester",
+        data={
+            "pending_task": {
+                "task_id": "task-draft-1",
+                "target_ref": {"app_id": "app_draft_demo"},
+                "next_recommended_action": {"type": "apply_draft_app", "app_id": "app_draft_demo"},
+            },
+            "lifecycle_handoff": {
+                "recommended_intent": "apply_draft_app",
+                "target_app_id": "app_draft_demo",
+            },
+        },
+        actions=[
+            ActionSuggestion(
+                id="apply-draft:app_draft_demo",
+                label="正式启用这个 app",
+                action_type="execute",
+                payload={"intent": "apply_draft_app", "app_id": "app_draft_demo"},
+                style="primary",
+            )
+        ],
+        related_app="app_draft_demo",
+    )
+
+    with patch("app.system.http_test_server.gateway.receive_message", new=AsyncMock(return_value=fake_reply)):
+        response = client.post("/api/chat", json={"message": "继续"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["data"]["lifecycle_handoff"]["recommended_intent"] == "apply_draft_app"
+    assert data["actions"][0]["payload"] == {"intent": "apply_draft_app", "app_id": "app_draft_demo"}
+    assert data["related_app"] == "app_draft_demo"
     prompts = {
         "api": "请梳理 API handler 和 request/response 流程",
         "validation": "请检查校验器和 guard 规则",

@@ -80,6 +80,35 @@ Extended the draft continuation closure one layer outward by fixing the HTTP `/a
 This was not just additional HTTP coverage. It exposed that the HTTP action endpoint had been routing through a pseudo-chat payload contract instead of the formal gateway action surface, which meant lifecycle handoff actions were not actually exercised end-to-end at the web boundary.
 
 
+## 2026-05-04: HTTP chat contract now exposes real draft handoff actions
+
+### Summary
+Completed the remaining HTTP closure gap by making `/api/chat` surface the same structured gateway handoff contract that the web and service-up layers need for real continuation execution. The HTTP chat response now includes `data`, `actions`, and `related_app`, and the service-up E2E script consumes the real `apply_draft_app` action payload from continuation replies instead of using placeholder parameters.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - `/api/chat` now returns structured gateway fields: `data`, `actions`, `related_app`
+  - keeps existing `response`, `structured_answer`, `session_id`, and `latency_ms` contract intact
+- Updated `tests/unit/test_http_test_server.py`
+  - added `test_api_chat_exposes_gateway_action_contract`
+  - restored `test_api_chat_response_prefixes_verification_required_mode()` after a test-file edit collision
+  - verified full HTTP server unit suite remains stable
+- Updated `tests/scripts/e2e_self_iteration_service_up.py`
+  - `draft_activation_probe(...)` now extracts the real `apply_draft_app` action from `/api/chat` continuation responses
+  - `/api/action` is now invoked with the actual emitted payload instead of a placeholder `app_id`
+- Updated `docs/testing.md`
+  - documented that `/api/chat` must expose real handoff/action payloads for web and service-up acceptance
+
+### Validation
+- `pytest tests/unit/test_http_test_server.py -q -k 'api_chat_exposes_gateway_action_contract or api_action_executes_real_apply_draft_app_path'`
+- Result: `2 passed, 24 deselected in 2.11s`
+- `pytest tests/unit/test_http_test_server.py -q`
+- Result: `27 passed in 2.40s`
+
+### Notes
+This turns the HTTP continuation path from a text-only hint into a real machine-consumable handoff contract. Without this, service-up flows could appear green while still hardcoding activation parameters outside the actual chat-to-action boundary.
+
+
 ## 2026-05-04: apply_draft_app handoff now reaches application layer
 
 ### Summary

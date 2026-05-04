@@ -488,7 +488,16 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
                 structured_answer=structured_answer.model_dump() if structured_answer else None,
             )
         )
-        return {"success": True, "response": response_text, "structured_answer": structured_answer.model_dump() if structured_answer else None, "session_id": session_id, "latency_ms": latency_ms}
+        return {
+            "success": True,
+            "response": response_text,
+            "structured_answer": structured_answer.model_dump() if structured_answer else None,
+            "session_id": session_id,
+            "latency_ms": latency_ms,
+            "data": getattr(llm_resp, "data", None),
+            "actions": [item.model_dump(mode="json") for item in getattr(llm_resp, "actions", [])],
+            "related_app": getattr(llm_resp, "related_app", None),
+        }
     except Exception as e:
         finished_at = datetime.now()
         latency_ms = int((finished_at - started_at).total_seconds() * 1000)

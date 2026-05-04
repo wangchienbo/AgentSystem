@@ -126,6 +126,7 @@ Used to validate full user/system flows:
 - validate v2 conversation-heavy creation / refinement / execute_action / approval regressions
 - validate service-up self-iteration closure through real HTTP interaction followed by governance cycle trigger/apply or preflight block
 - validate HTTP action forwarding through the real `/api/action` surface for lifecycle handoff actions such as `apply_draft_app`, rather than relying on pseudo-chat payload injection
+- validate that `/api/chat` also exposes the gateway handoff contract (`data`, `actions`, `related_app`) so service-up and web-layer acceptance can consume real follow-up actions instead of placeholder parameters
 
 ### 2.3.1 Service-up self-iteration acceptance path
 This is now a preferred acceptance path for regression-governance and self-iteration work.
