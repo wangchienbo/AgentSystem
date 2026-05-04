@@ -1,3 +1,38 @@
+## 2026-05-04: Wave 2 minimal Context Center detail-event schema landed
+
+### Summary
+Continued Wave 2 by implementing the minimal detail-event write/read contract and wiring Context Center to mirror non-summary records into that compact day-filed detail stream.
+
+### What Was Done
+- Updated `app/models/context.py`
+  - added `ContextDetailEvent` with only:
+    - `timestamp`
+    - `role`
+    - `message`
+- Updated `app/services/context_writer.py`
+  - added `append_detail_event(...)`
+  - writes minimal JSONL detail events under `context/detail/<session_id>/YYYY-MM-DD.jsonl`
+- Updated `app/services/context_query_service.py`
+  - added `read_detail_events(...)`
+  - reads minimal detail event records back as structured models
+- Updated `app/services/context_center.py`
+  - non-summary context records now mirror into the minimal detail store
+  - preserved role values unchanged
+  - summaries remain excluded from the detail event stream
+- Added focused tests:
+  - `tests/unit/services/test_context_detail_events.py`
+  - verifies minimal schema persistence, role passthrough, readback, and Context Center mirroring behavior
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 2 section 5.2 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_center.py tests/unit/services/test_context_center_service_layout.py tests/unit/services/test_context_detail_events.py tests/unit/test_tool_context_contract_and_context_center.py -q`
+- Result: `12 passed`
+
+### Notes
+This keeps the detail layer intentionally narrow, as required by the Phase Q design. The next Wave 2 step should fill in the formal session-bucketed multi-day storage behavior more explicitly.
+
+
 ## 2026-05-04: Wave 2 Context Center service layout foundation landed
 
 ### Summary

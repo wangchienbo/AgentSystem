@@ -11,6 +11,13 @@ SessionLinkType = Literal["child", "continuation", "related"]
 ContextRecordKind = Literal["message", "summary", "system_note", "tool_result"]
 SessionStatus = Literal["active", "idle", "resolved", "archived"]
 ActorKind = Literal["interaction", "orchestration", "app", "skill", "system"]
+ContextDetailRole = str
+
+
+class ContextDetailEvent(BaseModel):
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    role: ContextDetailRole = Field(default="system")
+    message: str = Field(default="")
 
 
 class SessionLink(BaseModel):

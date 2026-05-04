@@ -187,6 +187,8 @@ Status: [x] completed
 
 ### 5.2 Implement minimal detail event schema
 
+Status: [x] completed
+
 #### Tasks
 - define detail event write/read contract using only:
   - `timestamp`
