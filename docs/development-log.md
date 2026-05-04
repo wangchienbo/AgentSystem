@@ -1,3 +1,24 @@
+## 2026-05-05: Wave 6 app-side context writing landed
+
+### Summary
+Continued Wave 6 by allowing app/runtime-side components to write compact context events through the same Context Center-backed path used by workflow hooks.
+
+### What Was Done
+- Updated `app/services/pending_task_orchestrator.py`
+  - added `write_app_context_event(...)`
+  - app/runtime-originated events now write through Context Center as compact `system_note` records
+  - preserves session partitioning while allowing non-system roles such as `app`
+- Updated `tests/unit/test_pending_task_orchestrator.py`
+  - verifies app-side writes are stored and retrievable from Context Center
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/services/test_context_detail_events.py -q`
+- Result: `15 passed`
+
+### Notes
+This lands a simple shared write path for app/runtime-originated context events. The next Wave 6 step should integrate at least one governance/self-iteration observation path into the shared working-context line.
+
+
 ## 2026-05-05: Wave 6 workflow context write hooks landed
 
 ### Summary

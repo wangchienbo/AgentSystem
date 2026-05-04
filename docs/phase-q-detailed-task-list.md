@@ -554,6 +554,8 @@ Status: [x] completed
 
 ### 9.2 Integrate app-side context writing
 
+Status: [x] completed
+
 #### Tasks
 - allow app/runtime components to write context events through the same writer service
 - ensure app-originated events respect session partitioning and role rules

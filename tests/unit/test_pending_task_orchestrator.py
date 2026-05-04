@@ -298,6 +298,24 @@ def test_pending_task_orchestrator_can_capture_acceptance_plan_and_result(tmp_pa
     assert context_events[-1].message == "workflow_hook event=acceptance_completed stage=intent_received"
 
 
+def test_pending_task_orchestrator_allows_app_side_context_writes(tmp_path: Path):
+    from app.services.context_center import ContextCenter
+
+    context_center = ContextCenter(base_dir=tmp_path / "context")
+    orchestrator = PendingTaskOrchestrator(context_center=context_center)
+
+    orchestrator.write_app_context_event(
+        session_id="sess-app-1",
+        role="app",
+        content="app_runtime_event status=running",
+        metadata={"component": "runtime_host"},
+    )
+
+    events = context_center.read_detail_events("sess-app-1")
+    assert events[-1].role == "app"
+    assert events[-1].message == "app_runtime_event status=running"
+
+
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     lifecycle = AppLifecycleService(runtime_store)

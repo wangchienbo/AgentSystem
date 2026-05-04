@@ -229,6 +229,27 @@ class PendingTaskOrchestrator:
         self._emit_workflow_hook(pending_task, event="acceptance_completed", stage=pending_task.current_stage)
         return updated
 
+    def write_app_context_event(
+        self,
+        *,
+        session_id: str,
+        role: str,
+        content: str,
+        metadata: dict[str, object] | None = None,
+    ) -> None:
+        if self._context_center is None:
+            return
+        from app.models.context import SessionContextRecord
+        self._context_center.append_context(
+            SessionContextRecord(
+                session_id=session_id,
+                kind="system_note",
+                role=role,
+                content=content,
+                metadata={"app_context": True, **dict(metadata or {})},
+            )
+        )
+
     def _emit_workflow_hook(self, pending_task: PendingTaskRecord, *, event: str, stage: str, action: str = "") -> None:
         if self._context_center is None or not pending_task.session_id:
             return
