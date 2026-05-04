@@ -533,6 +533,8 @@ Status: [x] completed
 
 ### 9.1 Add workflow context write hooks
 
+Status: [x] completed
+
 #### Tasks
 - add mandatory write hooks for:
   - stage entered

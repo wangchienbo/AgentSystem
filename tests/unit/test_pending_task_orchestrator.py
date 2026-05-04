@@ -150,17 +150,21 @@ def test_pending_task_workflow_constants_are_stable() -> None:
 
 
 def test_pending_task_orchestrator_supports_generic_stage_transition_helpers(tmp_path: Path):
+    from app.services.context_center import ContextCenter
+
     store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    context_center = ContextCenter(base_dir=tmp_path / "context")
     task = PendingTaskRecord(
         task_id="pt-generic-1",
         user_id="u1",
+        session_id="sess-1",
         intent="ship change",
         current_stage="solution_reviewing",
         stage_status="pending",
         next_recommended_action={"type": "approve_solution_draft"},
     )
     store.upsert_task(task)
-    orchestrator = PendingTaskOrchestrator(store)
+    orchestrator = PendingTaskOrchestrator(store, context_center=context_center)
 
     in_progress = orchestrator.mark_stage_in_progress(
         task,
@@ -184,19 +188,26 @@ def test_pending_task_orchestrator_supports_generic_stage_transition_helpers(tmp
     assert completed.status == "ready_to_execute"
     assert completed.next_recommended_action["type"] == "locate_repo_context"
     assert completed.artifacts[-1]["kind"] == "task_list"
+    context_events = context_center.read_detail_events("sess-1")
+    assert context_events[0].message == "workflow_hook event=stage_entered stage=tasklist_preparing action=materialize_task_list"
+    assert context_events[1].message == "workflow_hook event=stage_completed stage=repo_locating action=locate_repo_context"
 
 
 def test_pending_task_orchestrator_can_mark_blocked_state(tmp_path: Path):
+    from app.services.context_center import ContextCenter
+
     store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    context_center = ContextCenter(base_dir=tmp_path / "context")
     task = PendingTaskRecord(
         task_id="pt-blocked-1",
         user_id="u1",
+        session_id="sess-1",
         intent="ship change",
         current_stage="repo_locating",
         stage_status="in_progress",
     )
     store.upsert_task(task)
-    orchestrator = PendingTaskOrchestrator(store)
+    orchestrator = PendingTaskOrchestrator(store, context_center=context_center)
 
     blocked = orchestrator.mark_blocked(
         task,
@@ -209,6 +220,7 @@ def test_pending_task_orchestrator_can_mark_blocked_state(tmp_path: Path):
     assert blocked.status == "blocked"
     assert blocked.known_facts["blocked_reason"] == "repo path missing"
     assert blocked.next_recommended_action["type"] == "locate_repo_context"
+    assert context_center.read_detail_events("sess-1")[-1].message == "workflow_hook event=stage_blocked stage=blocked action=locate_repo_context"
 
 
 def test_pending_task_orchestrator_can_capture_repo_context(tmp_path: Path):
@@ -281,7 +293,9 @@ def test_pending_task_orchestrator_can_capture_acceptance_plan_and_result(tmp_pa
     assert completed.acceptance_plan["results"][-1]["status"] == "passed"
     assert completed.acceptance_plan["results"][-1]["evidence"]["command"] == "pytest tests/unit/test_pending_task_orchestrator.py -q"
     context_events = context_center.read_detail_events("sess-1")
-    assert context_events[-1].message == "acceptance_result status=passed summary=targeted acceptance checks passed"
+    assert context_events[-3].message == "workflow_hook event=acceptance_started stage=intent_received"
+    assert context_events[-2].message == "acceptance_result status=passed summary=targeted acceptance checks passed"
+    assert context_events[-1].message == "workflow_hook event=acceptance_completed stage=intent_received"
 
 
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))

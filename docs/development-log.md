@@ -1,3 +1,28 @@
+## 2026-05-05: Wave 6 workflow context write hooks landed
+
+### Summary
+Started Wave 6 by adding mandatory workflow context write hooks for stage-entry, stage-completion, stage-blocked, acceptance-started, and acceptance-completed transitions, all written through Context Center.
+
+### What Was Done
+- Updated `app/services/pending_task_orchestrator.py`
+  - added workflow hook emission on generic stage transitions
+  - added workflow hook emission for blocked transitions
+  - added workflow hook emission for acceptance start/completion
+  - all hooks write compact system-note events through Context Center
+- Updated `tests/unit/test_pending_task_orchestrator.py`
+  - verifies stage-entered hook emission
+  - verifies stage-completed hook emission
+  - verifies stage-blocked hook emission
+  - verifies acceptance-started / acceptance-result / acceptance-completed event sequence
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/services/test_context_detail_events.py -q`
+- Result: `14 passed`
+
+### Notes
+This lands the mandatory workflow hook substrate inside pending-task orchestration. The next Wave 6 step should let app/runtime-side components write through the same Context Center path.
+
+
 ## 2026-05-05: Wave 5 high-value fact message templates landed
 
 ### Summary

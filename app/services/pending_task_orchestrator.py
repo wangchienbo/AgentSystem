@@ -15,6 +15,11 @@ from app.services.pending_task_store import PendingTaskStore
 from app.services.high_value_fact_messages import acceptance_result_message
 
 
+def _workflow_hook_message(event: str, stage: str, action: str = "") -> str:
+    suffix = f" action={action}" if action else ""
+    return f"workflow_hook event={event} stage={stage}{suffix}"
+
+
 class PendingTaskOrchestrator:
     """Workflow stage transition engine, preserving current draft bootstrap behavior."""
 
@@ -71,6 +76,17 @@ class PendingTaskOrchestrator:
         updated = pending_task.model_copy(update=updates)
         if self._pending_task_store is not None:
             self._pending_task_store.upsert_task(updated)
+        self._emit_workflow_hook(
+            pending_task,
+            event=(
+                "stage_blocked" if stage_status == STAGE_STATUS_BLOCKED else
+                "stage_completed" if stage_status == STAGE_STATUS_COMPLETED else
+                "stage_entered" if stage_status == STAGE_STATUS_IN_PROGRESS else
+                "stage_updated"
+            ),
+            stage=stage,
+            action=(next_action or {}).get("type", "") if next_action else "",
+        )
         return updated
 
     def mark_stage_in_progress(
@@ -178,6 +194,7 @@ class PendingTaskOrchestrator:
         updated = pending_task.model_copy(update={"acceptance_plan": acceptance_plan})
         if self._pending_task_store is not None:
             self._pending_task_store.upsert_task(updated)
+        self._emit_workflow_hook(pending_task, event="acceptance_started", stage=pending_task.current_stage)
         return updated
 
     def capture_acceptance_result(
@@ -209,7 +226,22 @@ class PendingTaskOrchestrator:
                     metadata={"acceptance": True, **dict(evidence or {})},
                 )
             )
+        self._emit_workflow_hook(pending_task, event="acceptance_completed", stage=pending_task.current_stage)
         return updated
+
+    def _emit_workflow_hook(self, pending_task: PendingTaskRecord, *, event: str, stage: str, action: str = "") -> None:
+        if self._context_center is None or not pending_task.session_id:
+            return
+        from app.models.context import SessionContextRecord
+        self._context_center.append_context(
+            SessionContextRecord(
+                session_id=pending_task.session_id,
+                kind="system_note",
+                role="system",
+                content=_workflow_hook_message(event=event, stage=stage, action=action),
+                metadata={"workflow_hook": True, "event": event, "stage": stage, **({"action": action} if action else {})},
+            )
+        )
 
     def _continue_draft_app_setup(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:
         missing_fields = list(pending_task.missing_fields)
