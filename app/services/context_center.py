@@ -154,14 +154,38 @@ class ContextCenter:
             "session_id": session_id,
             "stable": [
                 {
+                    "id": f"detail:{session_id}:{index}",
                     "timestamp": item.timestamp.isoformat().replace("+00:00", "Z"),
                     "role": item.role,
                     "message": item.message,
                 }
-                for item in stable_events[-limit:]
+                for index, item in enumerate(stable_events[-limit:], start=max(1, len(stable_events[-limit:]) * 0 + 1))
             ],
             "pending": list(pending_events)[-limit:],
         }
+
+    def get_recent_working_memory_summaries(self, session_id: str, limit: int = 5) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": f"summary:{session_id}:{index}",
+                "timestamp": item.timestamp.isoformat().replace("+00:00", "Z"),
+                "role": item.role,
+                "message": item.message,
+            }
+            for index, item in enumerate(self.read_summary_events(session_id, limit=limit), start=1)
+        ]
+
+    def get_detail_record_by_reference(self, session_id: str, reference_id: str) -> dict[str, Any] | None:
+        if not reference_id.startswith(f"detail:{session_id}:"):
+            return None
+        try:
+            index = int(reference_id.rsplit(":", 1)[-1]) - 1
+        except ValueError:
+            return None
+        stable = self.get_recent_working_memory_view(session_id, limit=300)["stable"]
+        if index < 0 or index >= len(stable):
+            return None
+        return stable[index]
 
     def flush_stable_pending_events(self, session_id: str, *, now: datetime | None = None) -> dict[str, Any]:
         pending = self._durable_buffer.read_pending_events(session_id=session_id)

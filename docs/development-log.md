@@ -1,3 +1,29 @@
+## 2026-05-04: Wave 3 summary/detail retrieval integration points landed
+
+### Summary
+Completed Wave 3 by adding explicit summary and detail retrieval integration points on Context Center, including recent summary views and internal detail lookup by reference for gateway/runtime assembly.
+
+### What Was Done
+- Updated `app/services/context_center.py`
+  - recent working-memory stable events now carry internal reference ids
+  - added `get_recent_working_memory_summaries(...)`
+  - added `get_detail_record_by_reference(...)`
+  - kept retrieval inside the system-internal Context Center boundary
+- Added focused integration tests:
+  - `tests/unit/services/test_context_retrieval_integration.py`
+  - verifies gateway-like and runtime-like consumers can call summary and detail retrieval methods directly
+  - verifies detail lookup by internal reference id works
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 3 section 6.5 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_retrieval_integration.py tests/unit/services/test_summary_prompt_policy.py tests/unit/services/test_context_summary_worker.py tests/unit/services/test_context_reorder_window.py tests/unit/test_tool_context_contract_and_context_center.py tests/unit/services/test_context_detail_events.py tests/unit/services/test_context_center_service_layout.py tests/unit/services/test_durable_context_buffer.py -q`
+- Result: `30 passed`
+
+### Notes
+Wave 3 is now closed at the current rollout depth: working-memory view, provisional/final summary flow, summary policy, and internal retrieval hooks are all in place. The next step should move into Wave 4 protocol and gateway integration.
+
+
 ## 2026-05-04: Wave 3 summary prompt policy landed
 
 ### Summary

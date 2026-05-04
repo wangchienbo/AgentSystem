@@ -367,6 +367,8 @@ Status: [x] completed
 
 ### 6.5 Add summary/detail retrieval integration points
 
+Status: [x] completed
+
 #### Tasks
 - implement query methods for:
   - recent working memory summaries
