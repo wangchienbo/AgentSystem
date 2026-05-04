@@ -71,6 +71,37 @@
 - Focused Phase P slice：69/69 通过
 - 全量本地回归：`pytest -q` → 1033 passed, 15 skipped, 5 xfailed
 
+### 3.12.2 Phase Q / Context Center 与工作流收口
+目标：验证 pending-task 工作流、Context Center working memory、summary/detail 检索、HTTP 兼容扩展、以及 bounded continuation recovery 已形成兼容闭环。
+
+覆盖文件：
+- `tests/unit/test_pending_task_orchestrator.py`
+- `tests/unit/services/test_context_detail_events.py`
+- `tests/unit/services/test_context_center_service_layout.py`
+- `tests/unit/services/test_context_center_focused.py`
+- `tests/unit/services/test_context_reorder_window.py`
+- `tests/unit/services/test_durable_context_buffer.py`
+- `tests/unit/services/test_context_summary_worker.py`
+- `tests/unit/test_gateway_workflow_context_integration.py`
+- `tests/unit/test_light_brain_gateway_pending_task.py`
+- `tests/unit/test_http_test_server.py`
+
+覆盖要点：
+- canonical workflow stage / status transition helper
+- repo / upgrade / acceptance 计划事实写入 pending-task state
+- Context Center detail day-file、durable pending buffer、reorder window、startup recovery
+- recent stable + pending working memory 合并与 detail reference lookup
+- provisional summary 与 finalized summary replacement
+- workflow hook、app-side write、governance observation write 进入共享上下文
+- continuation recovery 的 pending-task-first + Context Center fallback
+- `/api/chat` 与 `/api/action` 的 `workflow_contract` / `context_view` 兼容输出
+- HTTP acceptance 对 recent working memory 与 continuation recovery payload 的验证
+- service-up E2E 脚本已扩展 context-view / restart-style recovery 探针，完整跑绿仍受外部模型可用性影响
+
+结果：
+- focused Context Center / workflow / HTTP slice 已按波次分别通过
+- `tests/scripts/e2e_self_iteration_service_up.py` 已完成脚本增强，但真实服务闭环当前受上游模型 key 暂时不可用阻塞
+
 ### 3.5 Iteration 10 ~ 12 v2 端到端回归
 目标：验证 Phase H 主路径在复杂创建、修改 refinement、execute_action 回流、权限审批、持久化一致性上的稳定性。
 

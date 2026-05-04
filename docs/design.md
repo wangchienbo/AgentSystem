@@ -116,6 +116,22 @@ The prompt-selection layer should sit between context compaction/evidence retrie
 The recently completed chat-regression governance loop, nightly automation control plane, and domain-aware refinement persistence establish a usable first-generation self-governance substrate.
 The next design task is not to blindly add more signals, but to evolve that substrate into a disciplined, layered governance pipeline that can absorb more reality while remaining auditable and structurally stable.
 
+### Phase Q workflow/context convergence snapshot
+The current implementation now includes a compatible workflow-context convergence layer on top of the existing gateway/runtime substrate.
+
+Landed outcome:
+- canonical pending-task workflow stages and transition helpers beyond narrow draft bootstrap
+- Context Center storage, durable pending buffer, reorder window, startup recovery, recent working-memory views, provisional summaries, and replacement-based finalized summaries
+- summary/detail retrieval support through Context Center and tool-context assembly layers
+- repo / upgrade / acceptance planning facts carried inside pending-task state
+- workflow hook writes, app-side writes, governance observation writes, and continuation recovery convergence through Context Center
+- HTTP response compatibility extensions for workflow/context metadata
+
+Design posture:
+- keep the current working closure live while extending in thin bounded layers
+- preserve summary-first model assembly as the default shaping policy
+- keep detail retrieval explicit and bounded instead of exposing raw stores by default
+
 ### Phase P completion snapshot
 The Phase P asset invocation runtime and session-binding redesign is now functionally landed in the codebase.
 

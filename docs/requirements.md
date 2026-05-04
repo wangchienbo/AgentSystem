@@ -214,7 +214,23 @@ The subsystem should treat regression as an operator loop with three layers:
 - **Summarize**: governance dashboard and operator summary
 - **Act**: automated refinement triggers derived from risk signals
 
-## 5.1.1 Evidence-Grade Answer Governance
+## 5.1.3 Workflow Context and Continuation Convergence
+The interaction gateway, pending-task workflow layer, and Context Center should converge on a compatible working-memory contract for multi-step continuation instead of treating draft bootstrap as an isolated special case.
+
+The system must support:
+- canonical pending-task workflow stages beyond draft-only bootstrap, including repo, implementation, upgrade, acceptance, blocked, and done progression
+- stage-aware pending-task facts for repo context, implementation targets, upgrade planning, and acceptance planning/results
+- mandatory workflow context hook writes for key transitions including stage entered, stage completed, stage blocked, and acceptance start/completion
+- compact app-side and governance/self-iteration-side context writes through the same Context Center-backed path used by workflow hooks
+- recent working memory views that expose bounded stable + pending content without defaulting to raw full-history dumps
+- continuation recovery that can prefer pending-task state first and fall back to bounded Context Center working memory when pending-task facts are partial or absent
+- HTTP compatibility surfaces that preserve current `data/actions/related_app` fields while optionally exposing bounded `workflow_contract` and `context_view` metadata
+
+The system must preserve these governance boundaries:
+- summary-first assembly should remain the default budget posture for model-facing context shaping
+- detail retrieval should stay explicit and bounded
+- lower-grade working-memory hints must not be silently upgraded into verified implementation claims
+
 The interaction and tool-calling layers must support a reusable evidence-grade governance mechanism for high-risk answers, especially repository/code introspection, configuration claims, runtime-state claims, and implementation-detail claims.
 
 The system must distinguish at least these evidence grades:

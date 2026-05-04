@@ -680,17 +680,16 @@ Status: [x] completed
 ## 11. Documentation Tasks
 
 ### 11.1 Update requirements
-- add any accepted new requirement language for workflow stage closure, context center working memory, and summary/detail retrieval if not already reflected
+
+Status: [x] completed
 
 ### 11.2 Update design references
-- update `docs/design.md` with a short pointer to the new phase document once implementation begins landing materially
+
+Status: [x] completed
 
 ### 11.3 Update testing docs
-- update `docs/testing.md` and `docs/testing-detail.md` to include:
-  - Context Center storage/recovery coverage
-  - summary replacement coverage
-  - workflow hook coverage
-  - restart recovery expectations
+
+Status: [x] completed
 
 ### 11.4 Update development log
 - every completed wave should append concrete implementation notes and validation evidence

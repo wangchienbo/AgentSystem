@@ -82,6 +82,12 @@ Used for lightweight client-level validation such as:
 - interpreter/gateway self-iteration asset-first coverage should explicitly validate that self-iteration-like requests stay on the bounded asset-navigation route with limited turn budget, exposing only the minimal runtime-asset interaction surface plus clarification helpers instead of leaking repo-search or script-execution tools
 - interpreter/gateway script-first route coverage should explicitly validate the post-prestep fallback boundary, ensuring script-like requests expose only the narrowed script execution tool set (`exec_shell`, core file tools, clarification helpers) instead of leaking generic search or broad asset-navigation tools into the dedicated script-first branch
 - interpreter/gateway regression coverage should explicitly validate code-introspection uncertainty discipline, including cases where the system must say "未证实" or "尚未读取文件内容，不能确认" instead of inventing concrete storage engines or implementation details
+- Context Center storage/recovery coverage for detail day-files, durable buffer persistence, reorder-window flushing, startup recovery, recent stable+pending merge, and detail-reference lookup
+- summary replacement coverage for finalized summary overwrite behavior and failure-tolerant provisional-summary retention
+- workflow hook coverage for stage-entered/completed/blocked and acceptance lifecycle writes into shared context detail storage
+- continuation recovery coverage for pending-task-first plus Context Center fallback behavior
+- HTTP compatibility coverage for `workflow_contract` / `context_view` additive response metadata and recent working-memory exposure
+- service-up acceptance refresh for bounded context-view and restart-style continuation recovery checks, with full real end-to-end closure still dependent on external model availability
 
 ### 2.2.2 Chat regression governance tests
 Used to validate the new chat regression operator loop end to end through the HTTP test surface:

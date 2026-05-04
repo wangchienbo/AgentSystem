@@ -1,3 +1,25 @@
+## 2026-05-05: Phase Q documentation references refreshed
+
+### Summary
+Advanced the documentation wave by updating requirements, design, and testing references so the newly landed workflow/context convergence work is reflected in the main project docs.
+
+### What Was Done
+- Updated `docs/requirements.md`
+  - added workflow-context convergence requirements for canonical workflow stages, Context Center working memory, continuation recovery, and bounded HTTP metadata exposure
+- Updated `docs/design.md`
+  - added a Phase Q snapshot describing workflow/context convergence and its summary-first bounded-detail posture
+- Updated `docs/testing.md`
+  - added explicit coverage references for Context Center storage/recovery, summary replacement, workflow hooks, continuation recovery, HTTP metadata, and bounded service-up acceptance expectations
+- Updated `docs/testing-detail.md`
+  - added a dedicated Phase Q / Context Center closure section with relevant test files, coverage points, and current E2E blocker note
+
+### Validation
+- documentation-only change, aligned against the landed Phase Q implementation and existing focused test evidence
+
+### Notes
+This closes the main Phase Q documentation reference refresh. The remaining explicit documentation task is continuous development-log maintenance, which has been kept current wave by wave.
+
+
 ## 2026-05-05: Wave 7 service-up E2E path refreshed for context recovery payloads
 
 ### Summary
