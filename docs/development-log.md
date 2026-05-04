@@ -48,6 +48,38 @@ Added focused acceptance coverage for the draft continuation chain through the g
 This closes an actual consistency gap, not just a test gap. Before this change, `apply_draft_app` could successfully activate the app while still skipping the normal session reply writeback path, which would have made the action behave differently from other gateway actions.
 
 
+## 2026-05-04: HTTP action forwarding now uses real gateway action execution
+
+### Summary
+Extended the draft continuation closure one layer outward by fixing the HTTP `/api/action` surface so it no longer fakes action execution through `receive_message(...)`. The server now forwards actions into `LightBrainGateway.execute_action(...)`, and HTTP tests cover the real `apply_draft_app` action path through to `draft_to_running_activation`.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - changed `/api/action` to call `gateway.execute_action(...)` directly
+  - returns structured action data including `data`, `actions`, `related_app`, `session_id`, and `latency_ms`
+  - preserves assistant reply logging into `conversation_history`
+- Updated `tests/unit/test_http_test_server.py`
+  - added `test_api_action_executes_real_apply_draft_app_path`
+  - verifies HTTP action forwarding reaches the real `apply_draft_app` execution surface
+  - verifies the HTTP response includes `draft_to_running_activation`
+  - verifies follow-up `query_app` action payload is preserved
+  - verifies assistant reply is appended into HTTP conversation history
+- Updated `app/system/regression_governance_observation.py`
+  - normalized failed-but-unclassified probes onto the legal `answer_shaping` failure stage
+  - removed a latent `ObservationRecord` validation break that was destabilizing unrelated HTTP tests
+- Updated `docs/testing.md`
+  - documented that lifecycle handoff actions must also be covered through the real `/api/action` HTTP surface
+
+### Validation
+- `pytest tests/unit/test_http_test_server.py -q -k 'api_action_executes_real_apply_draft_app_path or api_governance_regression_dashboard_endpoint or api_governance_operator_summary_endpoint or api_governance_nightly_status_includes_driver_state or governance_dashboard_exposes_automation_control_card'`
+- Result: `5 passed, 22 deselected in 2.07s`
+- `pytest tests/unit/test_http_test_server.py -q`
+- Result: `27 passed in 2.38s`
+
+### Notes
+This was not just additional HTTP coverage. It exposed that the HTTP action endpoint had been routing through a pseudo-chat payload contract instead of the formal gateway action surface, which meant lifecycle handoff actions were not actually exercised end-to-end at the web boundary.
+
+
 ## 2026-05-04: apply_draft_app handoff now reaches application layer
 
 ### Summary

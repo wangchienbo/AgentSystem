@@ -643,7 +643,9 @@ def test_api_governance_regression_cycle_run_endpoint() -> None:
     assert data["trigger_application"]["trigger_count"] == 1
 
 
-def test_api_governance_regression_cycle_nightly_register_and_trigger() -> None:
+
+
+def test_api_action_executes_real_apply_draft_app_path() -> None:
     user_sessions.clear()
     conversation_history.clear()
     user_sessions["session_tester"] = {
@@ -655,36 +657,54 @@ def test_api_governance_regression_cycle_nightly_register_and_trigger() -> None:
     conversation_history["session_tester"] = []
     client.cookies.set("session_id", "session_tester")
 
-    reg_resp = client.post("/api/governance/regression-cycle/nightly?interval_seconds=3600")
-    assert reg_resp.status_code == 200
-    reg_data = reg_resp.json()
-    assert reg_data["success"] is True
-    assert reg_data["schedule"]["task_name"] == "regression_governance_cycle"
+    from unittest.mock import AsyncMock, patch
+    from app.models.chat import ChatMessageResponse, ActionSuggestion
 
-    status_resp = client.get("/api/governance/regression-cycle/nightly")
-    assert status_resp.status_code == 200
-    status_data = status_resp.json()
-    assert status_data["schedules"]
+    fake_reply = ChatMessageResponse(
+        type="progress",
+        content="已把 draft app 接入正式生命周期，并推进到可运行状态。",
+        session_id="session_tester",
+        data={
+            "app_id": "app_draft_demo",
+            "app_status": "running",
+            "source": "DraftAppApplicationService",
+            "lifecycle_transition": "draft_to_running_activation",
+        },
+        actions=[
+            ActionSuggestion(
+                id="query_status",
+                label="查看状态",
+                action_type="execute",
+                payload={"intent": "query_app", "target": "app_draft_demo"},
+                style="secondary",
+            )
+        ],
+        related_app="app_draft_demo",
+    )
 
-    from unittest.mock import patch
-    fake_cycle = {
-        "run_id": "nightly-run-1",
-        "summary": {"topic_count": 4},
-        "path": "/tmp/nightly-run-1.jsonl",
-        "evidence": {"promoted_count": 1},
-        "trigger_application": {"trigger_count": 1},
-    }
-    with patch("app.system.http_test_server.regression_nightly_control.trigger_manual_cycle", return_value={"triggered": True, "schedule_results": [], "cycle": fake_cycle}):
-        trig_resp = client.post("/api/governance/regression-cycle/nightly/trigger")
+    with patch("app.system.http_test_server.gateway.execute_action", new=AsyncMock(return_value=fake_reply)) as mocked_execute:
+        response = client.post(
+            "/api/action",
+            json={
+                "action_id": "apply-draft:app_draft_demo",
+                "action_params": {"intent": "apply_draft_app", "app_id": "app_draft_demo"},
+            },
+        )
 
-    assert trig_resp.status_code == 200
-    trig_data = trig_resp.json()
-    assert trig_data["success"] is True
-    assert trig_data["triggered"] is True
-    assert trig_data["cycle"]["run_id"] == "nightly-run-1"
-
-
-def test_api_governance_regression_cycle_nightly_tick_due_and_not_due() -> None:
+    assert mocked_execute.await_count == 1
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["data"]["lifecycle_transition"] == "draft_to_running_activation"
+    assert data["related_app"] == "app_draft_demo"
+    assert data["actions"][0]["payload"] == {"intent": "query_app", "target": "app_draft_demo"}
+    assert conversation_history["session_tester"][-1]["content"] == "已把 draft app 接入正式生命周期，并推进到可运行状态。"
+    mocked_execute.assert_awaited_once_with(
+        user_id="tester",
+        session_id="session_tester",
+        action_id="apply-draft:app_draft_demo",
+        action_params={"intent": "apply_draft_app", "app_id": "app_draft_demo"},
+    )
     user_sessions.clear()
     conversation_history.clear()
     user_sessions["session_tester"] = {

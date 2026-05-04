@@ -119,6 +119,7 @@ def build_observation_record(run_id: str, probe: dict[str, Any]) -> ObservationR
         )
 
     derived_success = bool(probe.get("success")) and failure_stage is None
+    normalized_failure_stage = failure_stage if failure_stage is not None else (None if derived_success else "answer_shaping")
 
     return ObservationRecord(
         observation_id=str(probe.get("observation_id") or f"{run_id}:{topic}:{probe.get('session_id') or 'none'}"),
@@ -128,10 +129,10 @@ def build_observation_record(run_id: str, probe: dict[str, Any]) -> ObservationR
         source=source,
         scope=scope,
         domain="regression_quality",
-        subdomain=str(probe.get("subdomain") or failure_stage or "healthy"),
+        subdomain=str(probe.get("subdomain") or normalized_failure_stage or "healthy"),
         signal=signal,
         success=derived_success,
-        failure_stage=failure_stage,
+        failure_stage=normalized_failure_stage,
         evidence=evidence,
         tags=[topic, scope, signal],
         metadata={"answer_mode": answer_mode, "verification_mode": verification_mode},

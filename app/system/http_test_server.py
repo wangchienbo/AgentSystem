@@ -597,30 +597,35 @@ class ActionRequest(BaseModel):
 
 @app.post("/api/action")
 async def api_action(req: ActionRequest, user: dict = Depends(get_current_user)):
-    """把前端的 Action 转发给 LightBrain gateway，触发对应 Tool/Skill。"""
+    """把前端 Action 直接转发给 LightBrain gateway.execute_action(...)。"""
     session_id = user["session_id"]
+    started_at = datetime.now()
     try:
-        # 构造 LightBrain 的请求，payload 中放置 action 信息
-        # 使用占位信息满足 ChatMessageRequest 的必填字段
-        chat_req = ChatMessageRequest(
+        llm_resp = await gateway.execute_action(
             user_id=user.get("username", "anonymous"),
-            channel="webchat",
-            message=f"[action:{req.action_id}]",  # 简短占位，实际行为在 payload 中
             session_id=session_id,
-            memory_context=_build_effective_memory_context(session_id),
+            action_id=req.action_id,
+            action_params=req.action_params,
         )
-        # 注入 payload 让 LightBrain 能识别要调用的工具
-        chat_req = chat_req.copy(update={"payload": {"action_id": req.action_id, "params": req.action_params}})
-        llm_resp = await gateway.receive_message(chat_req)
         response_text = getattr(llm_resp, "content", "") or ""
         structured_answer = getattr(llm_resp, "structured_answer", None)
-        # 记录到对话历史（assistant）
+        finished_at = datetime.now()
+        latency_ms = int((finished_at - started_at).total_seconds() * 1000)
         conversation_history.setdefault(session_id, []).append({
             "role": "assistant",
             "content": response_text,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": finished_at.isoformat(),
         })
-        return {"success": True, "response": response_text, "structured_answer": structured_answer.model_dump() if structured_answer else None}
+        return {
+            "success": True,
+            "response": response_text,
+            "structured_answer": structured_answer.model_dump() if structured_answer else None,
+            "session_id": session_id,
+            "latency_ms": latency_ms,
+            "data": getattr(llm_resp, "data", None),
+            "actions": [item.model_dump(mode="json") for item in getattr(llm_resp, "actions", [])],
+            "related_app": getattr(llm_resp, "related_app", None),
+        }
     except Exception as e:
         logger.exception("LLM action failed")
         return {"success": False, "error": f"LLM action failed: {str(e)}"}
