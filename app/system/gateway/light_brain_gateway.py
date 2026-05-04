@@ -1978,6 +1978,8 @@ class LightBrainGateway:
                 content="apply_draft_app 没有被应用层接管。",
                 session_id=session_id,
             )
+        self._after_reply(session_id=session_id, reply=response)
+        self._auto_save()
         return response
 
     async def execute_action(

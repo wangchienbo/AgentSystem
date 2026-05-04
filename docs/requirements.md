@@ -166,6 +166,7 @@ The LLM interaction gateway must:
 - decide whether clarification is needed before proceeding
 - dispatch to the appropriate subsystem (meta-app, app management, skill management, status query)
 - maintain per-user conversation sessions with history and context
+- dedicated gateway action branches must not bypass normal assistant-reply persistence; action results should be written back with the same session-memory and auto-save semantics as ordinary action execution
 - return structured responses with actionable follow-up suggestions
 - support conversation compaction to prevent context explosion
 - degrade gracefully to rule-based matching when the model is unavailable

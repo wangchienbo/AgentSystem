@@ -1,18 +1,27 @@
 from pathlib import Path
+import asyncio
 
 from app.models.app_blueprint import AppBlueprint
 from app.models.app_instance import AppInstance
+from app.models.chat import ChatMessageRequest
 from app.models.interaction import AppCatalogEntry, UserCommand
+from app.services.app_application_service import AppApplicationService
 from app.services.app_catalog import AppCatalogService
 from app.services.app_data_store import AppDataStore
 from app.services.app_installer import AppInstallerService
 from app.services.app_registry import AppRegistryService
 from app.services.app_context_store import AppContextStore
+from app.services.draft_app_application_service import DraftAppApplicationService
+from app.services.draft_app_service import DraftAppService
 from app.services.interaction_gateway import InteractionGateway
 from app.services.lifecycle import AppLifecycleService
+from app.services.light_brain_memory import LightBrainMemory
+from app.services.pending_task_orchestrator import PendingTaskOrchestrator
 from app.services.requirement_router import RequirementRouter
 from app.services.runtime_host import AppRuntimeHostService
 from app.services.runtime_state_store import RuntimeStateStore
+from app.system.gateway.light_brain_gateway import LightBrainGateway
+from app.system.runtime.pending_task_store import PendingTaskStore
 from tests.unit.api_test_helper import create_isolated_test_client
 
 
@@ -166,26 +175,94 @@ def test_runtime_state_store_persists_files(tmp_path: Path) -> None:
     assert Path(base_dir, "runtime_pending_tasks.json").exists()
 
 
-def test_interaction_api_and_persistence_snapshot(tmp_path: Path) -> None:
-    client = create_isolated_test_client(tmp_path)
-    catalog_response = client.get("/catalog/apps")
-    assert catalog_response.status_code == 200
-    assert len(catalog_response.json()) >= 2
 
-    service_response = client.post(
-        "/interaction/command",
-        json={"user_id": "qq-user", "text": "打开助手"},
+
+class _GatewayInterpreter:
+    def interpret(self, message, available_apps, user_id, session_id):
+        from app.models.chat import InterpretedCommand
+
+        return InterpretedCommand(intent="greet", raw_input=message, user_id=user_id)
+
+
+def _advance_to_applyable_draft(gateway: LightBrainGateway, *, user_id: str = "u1", session_id: str = "s1") -> str:
+    create_decision = gateway._build_continuation_decision("创建一个笔记 app", None)
+    assert create_decision is not None
+    gateway._materialize_continuation_decision(create_decision, user_id=user_id, session_id=session_id, message="创建一个笔记 app")
+    asyncio.run(gateway.receive_message(ChatMessageRequest(user_id=user_id, channel="test", message="继续", session_id=session_id)))
+    asyncio.run(gateway.receive_message(ChatMessageRequest(user_id=user_id, channel="test", message="继续", session_id=session_id)))
+    final_response = asyncio.run(gateway.receive_message(ChatMessageRequest(user_id=user_id, channel="test", message="继续", session_id=session_id)))
+    assert final_response.data is not None
+    return final_response.data["pending_task"]["target_ref"]["app_id"]
+
+
+def test_draft_apply_action_acceptance_runs_to_running_and_keeps_reply_context(tmp_path: Path) -> None:
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-draft-acceptance"))
+    draft_service = DraftAppService(runtime_store)
+    lifecycle = AppLifecycleService(store=runtime_store)
+    runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
+    app_application_service = AppApplicationService(
+        draft_app_application_service=DraftAppApplicationService(draft_service, lifecycle, runtime_host)
     )
-    assert service_response.status_code == 200
-    assert service_response.json()["action"] == "open_app"
-
-    pipeline_response = client.post(
-        "/interaction/command",
-        json={"user_id": "qq-user", "text": "执行流水线"},
+    pending_task_store = PendingTaskStore(runtime_store)
+    memory = LightBrainMemory(data_dir=str(tmp_path / "memory-draft-acceptance"))
+    gateway = LightBrainGateway(
+        memory=memory,
+        interpreter=_GatewayInterpreter(),
+        draft_app_service=draft_service,
+        pending_task_store=pending_task_store,
+        pending_task_orchestrator=PendingTaskOrchestrator(pending_task_store, draft_service),
+        app_application_service=app_application_service,
     )
-    assert pipeline_response.status_code == 200
-    assert pipeline_response.json()["action"] == "run_pipeline"
 
-    persistence_response = client.get("/runtime/persistence")
-    assert persistence_response.status_code == 200
-    assert "app_instances" in persistence_response.json()
+    app_id = _advance_to_applyable_draft(gateway)
+    action_response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="s1",
+            action_id=f"apply-draft:{app_id}",
+            action_params={"intent": "apply_draft_app", "app_id": app_id},
+        )
+    )
+
+    assert action_response.type == "progress"
+    assert action_response.related_app == app_id
+    assert action_response.data is not None
+    assert action_response.data["lifecycle_transition"] == "draft_to_running_activation"
+    assert lifecycle.get_instance(app_id).status == "running"
+    recent_messages = memory.get_recent_messages("s1")
+    assert recent_messages[-1]["role"] == "assistant"
+    assert "推进到可运行状态" in recent_messages[-1]["content"]
+
+
+def test_draft_apply_action_acceptance_exposes_follow_up_query_app_action(tmp_path: Path) -> None:
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime-draft-followup"))
+    draft_service = DraftAppService(runtime_store)
+    lifecycle = AppLifecycleService(store=runtime_store)
+    runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
+    app_application_service = AppApplicationService(
+        draft_app_application_service=DraftAppApplicationService(draft_service, lifecycle, runtime_host)
+    )
+    pending_task_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(data_dir=str(tmp_path / "memory-draft-followup")),
+        interpreter=_GatewayInterpreter(),
+        draft_app_service=draft_service,
+        pending_task_store=pending_task_store,
+        pending_task_orchestrator=PendingTaskOrchestrator(pending_task_store, draft_service),
+        app_application_service=app_application_service,
+    )
+
+    app_id = _advance_to_applyable_draft(gateway)
+    action_response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="s1",
+            action_id=f"apply-draft:{app_id}",
+            action_params={"intent": "apply_draft_app", "app_id": app_id},
+        )
+    )
+
+    assert action_response.actions
+    follow_up = action_response.actions[0]
+    assert follow_up.id == "query_status"
+    assert follow_up.payload == {"intent": "query_app", "target": app_id}

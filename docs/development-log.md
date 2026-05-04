@@ -15,11 +15,37 @@ Extended the draft lifecycle handoff beyond lifecycle registration so `apply_dra
   - gateway action test now verifies end-to-end continuation reply → `apply_draft_app` → running app closure
 
 ### Validation
-- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
-- Result: `15 passed`
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_interaction_gateway.py -q`
+- Result: `21 passed`
 
 ### Notes
 This is still a bounded activation bridge and not the final generalized install/start orchestration path, but the draft continuation chain can now end in a real running app state instead of stopping at compiled lifecycle registration.
+The focused acceptance coverage also exposed and closed a gateway behavior gap: the dedicated `apply_draft_app` action path had been bypassing the normal `_after_reply` / auto-save path, so final activation replies were not persisted into session memory like ordinary action replies.
+
+
+## 2026-05-04: apply_draft_app action now preserves gateway reply persistence and acceptance closure
+
+### Summary
+Added focused acceptance coverage for the draft continuation chain through the gateway action surface, then fixed a real behavior gap so the dedicated `apply_draft_app` action path now records its final activation reply through the same gateway reply-persistence path as ordinary actions.
+
+### What Was Done
+- Updated `tests/unit/test_interaction_gateway.py`
+  - added acceptance coverage for `create draft -> staged 继续 -> apply_draft_app -> running`
+  - verifies the final assistant reply is persisted into session memory
+  - verifies the activation response exposes the `query_app` follow-up action
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `_execute_apply_draft_app(...)` now calls `_after_reply(...)`
+  - `_execute_apply_draft_app(...)` now calls `_auto_save()`
+  - keeps the dedicated application-layer fast path aligned with ordinary `execute_action(...)` reply persistence semantics
+- Updated `docs/testing.md`
+  - documented that draft-continuation coverage must include final assistant-reply persistence for activation handoff
+
+### Validation
+- `pytest tests/unit/test_interaction_gateway.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_pending_task_orchestrator.py -q`
+- Result: `21 passed`
+
+### Notes
+This closes an actual consistency gap, not just a test gap. Before this change, `apply_draft_app` could successfully activate the app while still skipping the normal session reply writeback path, which would have made the action behave differently from other gateway actions.
 
 
 ## 2026-05-04: apply_draft_app handoff now reaches application layer

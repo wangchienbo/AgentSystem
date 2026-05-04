@@ -36,6 +36,7 @@ The current design direction is:
 - experience can be turned into candidate skills
 - governed cross-layer invocation now converges on a shared asset invocation runtime layer, unified session-aware invocation envelope, asset-center session-binding truth, context-center content assembly, routing governance registry/service, topology read model, audit/replay path, and recovery/error-taxonomy validation as implemented by Phase P
 - draft-app bootstrap continuation should terminate in an application-layer handoff that can be executed through the same action surface, instead of leaving lifecycle convergence as reply text only
+- dedicated application-layer handoff actions must preserve the same gateway reply-persistence semantics as ordinary actions, including `_after_reply(...)` writeback and auto-save behavior
 - where the runtime substrate is already available, that handoff may continue through install/start activation so the bootstrap chain can converge into a real runnable app state instead of halting at compiled registration
 
 ---
