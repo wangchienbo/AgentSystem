@@ -44,3 +44,23 @@ def test_context_recovery_manager_tracks_ready_state(tmp_path) -> None:
     recovery.mark_ready()
     assert recovery.recovering is False
     assert recovery.ready is True
+
+
+def test_context_recovery_manager_recovers_pending_sessions_before_ready(tmp_path) -> None:
+    recovery = ContextRecoveryManager.from_base_dir(tmp_path)
+    buffer_dir = build_context_storage_paths(tmp_path).buffer_dir
+    buffer_dir.mkdir(parents=True, exist_ok=True)
+    (buffer_dir / "sess-a.json").write_text('{"session_id":"sess-a","events":[{"timestamp":"2026-05-04T17:00:00Z"}]}', encoding="utf-8")
+    (buffer_dir / "sess-b.json").write_text('{"session_id":"sess-b","events":[{"timestamp":"2026-05-04T17:01:00Z"}]}', encoding="utf-8")
+
+    calls: list[str] = []
+
+    result = recovery.recover_pending_sessions(
+        buffer_dir=buffer_dir,
+        flush_session=lambda session_id, now: calls.append(session_id) or {"flushed_count": 1},
+    )
+
+    assert calls == ["sess-a", "sess-b"]
+    assert result == {"recovered_sessions": 2, "flushed_events": 2}
+    assert recovery.ready is True
+    assert recovery.recovering is False

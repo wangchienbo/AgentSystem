@@ -36,7 +36,10 @@ class ContextCenter:
         self._summary_worker = ContextSummaryWorker.from_base_dir(self._base_dir)
         self._durable_buffer = DurableContextBuffer.from_base_dir(self._base_dir)
         self._reorder_window = SessionLocalReorderWindow()
-        self._recovery_manager.mark_ready()
+        self._startup_recovery_result = self._recovery_manager.recover_pending_sessions(
+            buffer_dir=self._durable_buffer.paths.buffer_dir,
+            flush_session=self.flush_stable_pending_events,
+        )
 
     # Chapter 5 target-shaped APIs -------------------------------------------------
 
@@ -137,6 +140,11 @@ class ContextCenter:
 
     def flush_stable_pending_events(self, session_id: str, *, now: datetime | None = None) -> dict[str, Any]:
         pending = self._durable_buffer.read_pending_events(session_id=session_id)
+        if not pending:
+            return {
+                "flushed_count": 0,
+                "waiting_count": 0,
+            }
         result = self._reorder_window.rebalance(pending, now=now)
         for event in result.stable_events:
             self._writer.append_detail_event(
@@ -150,6 +158,10 @@ class ContextCenter:
             "flushed_count": len(result.stable_events),
             "waiting_count": len(result.waiting_events),
         }
+
+    @property
+    def startup_recovery_result(self) -> dict[str, Any]:
+        return dict(self._startup_recovery_result)
 
     def read_context(self, session_id: str, limit: int = 100) -> SessionContextWindow:
         records = self._records.get(session_id, [])

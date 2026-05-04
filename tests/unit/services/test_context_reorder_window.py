@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from app.services.context_center import ContextCenter
 from app.services.context_reorder_window import SessionLocalReorderWindow
@@ -47,3 +47,19 @@ def test_context_center_flushes_stable_pending_events_and_keeps_waiting(tmp_path
     assert result["waiting_count"] == 1
     assert [item.message for item in detail_events][-1:] == ["stable"]
     assert [item["message"] for item in pending_events] == ["waiting"]
+
+
+def test_context_center_recovers_pending_buffer_on_startup(tmp_path) -> None:
+    base_now = datetime.now(UTC)
+    stable_ts = (base_now.replace(microsecond=0) - timedelta(minutes=10)).isoformat().replace("+00:00", "Z")
+    waiting_ts = (base_now.replace(microsecond=0) - timedelta(seconds=30)).isoformat().replace("+00:00", "Z")
+
+    first = ContextCenter(base_dir=tmp_path)
+    first.append_pending_buffer_event("sess-1", {"timestamp": stable_ts, "role": "user", "message": "stable"})
+    first.append_pending_buffer_event("sess-1", {"timestamp": waiting_ts, "role": "system", "message": "waiting"})
+
+    second = ContextCenter(base_dir=tmp_path)
+
+    assert second.startup_recovery_result["recovered_sessions"] >= 1
+    assert [item.message for item in second.read_detail_events("sess-1")][-1:] == ["stable"]
+    assert [item["message"] for item in second.read_pending_buffer_events("sess-1")] == ["waiting"]
