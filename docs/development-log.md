@@ -1,3 +1,29 @@
+## 2026-05-04: Wave 4 controlled asset-detail and summary expansion landed
+
+### Summary
+Completed the current Wave 4 retrieval integration slice by adding bounded asset-detail expansion plus broader asset/context summary expansion inside gateway assembly, while keeping everything on the system-controlled retrieval side.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - gateway assembly now expands `needed_asset_detail_ids`
+  - gateway assembly now expands `needed_more_asset_summary_query`
+  - gateway assembly now expands `needed_more_context_summary_query`
+  - all expansion results are attached under `controlled_retrieval_expansion`
+  - expansion is bounded:
+    - asset detail limit: 5
+    - summary limit: 5
+- Updated `tests/unit/test_light_brain.py`
+  - verifies gateway can inject bounded asset details and summary expansions through a gateway-side asset registry stub
+  - verifies broader summary expansion works without exposing raw stores by default
+
+### Validation
+- `pytest tests/unit/test_light_brain.py tests/unit/test_interaction_decision_protocol.py tests/unit/test_interaction_runtime_integration.py -q`
+- Result: `84 passed`
+
+### Notes
+Wave 4 is now closed at the current planned depth: retrieval request protocol, recent working-memory assembly, controlled context detail injection, and bounded asset/context expansion are all wired. The next task-list wave is the repo/upgrade/acceptance self-awareness work.
+
+
 ## 2026-05-04: Wave 4 controlled context-detail injection landed
 
 ### Summary

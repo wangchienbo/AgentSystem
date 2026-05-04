@@ -411,6 +411,7 @@ class LightBrainGateway:
                 for node in self._context_center.get_child_sessions(session_id)
             }
             self._inject_controlled_context_details(command, session_id)
+            self._expand_controlled_retrievals(command)
 
         self._normalize_command_from_context(command)
         return command
@@ -453,6 +454,44 @@ class LightBrainGateway:
             command.context["context_assembly"] = {
                 "mode": "system_controlled_detail_injection",
                 "detail_ids": [item.get("id") for item in injected],
+            }
+
+    def _expand_controlled_retrievals(self, command: InterpretedCommand) -> None:
+        asset_service = self._app_registry
+        if asset_service is None:
+            return
+        needed_asset_detail_ids = tuple(command.context.get("needed_asset_detail_ids") or command.parameters.get("needed_asset_detail_ids") or [])
+        needed_more_asset_summary_query = str(command.context.get("needed_more_asset_summary_query") or command.parameters.get("needed_more_asset_summary_query") or "").strip()
+        needed_more_context_summary_query = str(command.context.get("needed_more_context_summary_query") or command.parameters.get("needed_more_context_summary_query") or "").strip()
+
+        expanded_asset_details = []
+        if hasattr(asset_service, "get_asset_detail"):
+            for asset_id in needed_asset_detail_ids[:5]:
+                try:
+                    expanded_asset_details.append(asset_service.get_asset_detail(str(asset_id)))
+                except Exception:
+                    continue
+        expanded_asset_summaries = []
+        if needed_more_asset_summary_query and hasattr(asset_service, "list_assets"):
+            query = needed_more_asset_summary_query.lower()
+            for item in list(asset_service.list_assets())[:50]:
+                hay = f"{item.get('asset_id', '')} {item.get('summary', '')}".lower()
+                if query in hay:
+                    expanded_asset_summaries.append(item)
+                if len(expanded_asset_summaries) >= 5:
+                    break
+        expanded_context_summaries = []
+        if needed_more_context_summary_query and self._context_center is not None:
+            summaries = (command.context.get("recent_working_memory") or {}).get("summaries") or []
+            query = needed_more_context_summary_query.lower()
+            expanded_context_summaries = [item for item in summaries if query in str(item.get("message") or "").lower()][:5]
+
+        if expanded_asset_details or expanded_asset_summaries or expanded_context_summaries:
+            command.context["controlled_retrieval_expansion"] = {
+                "asset_details": expanded_asset_details,
+                "asset_summaries": expanded_asset_summaries,
+                "context_summaries": expanded_context_summaries,
+                "bounds": {"asset_detail_limit": 5, "summary_limit": 5},
             }
 
     def _mirror_session_node(self, session_id: str, user_id: str, channel: str) -> None:

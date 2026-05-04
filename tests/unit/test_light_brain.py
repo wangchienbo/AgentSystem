@@ -417,7 +417,39 @@ class TestLightBrainGateway:
         assert child_id in enriched.parameters["related_session_ids"]
 
     @pytest.mark.asyncio
-    async def test_gateway_registers_runtime_session_entity(self):
+    async def test_gateway_enriches_controlled_asset_and_summary_expansion(self):
+        class _AssetRegistry:
+            def list_assets(self):
+                return [
+                    {"asset_id": "asset:self_iteration_center:v1", "summary": "self iteration summary"},
+                    {"asset_id": "asset:config_center:v1", "summary": "config summary"},
+                ]
+
+            def get_asset_detail(self, asset_id):
+                return {"asset_id": asset_id, "detail": "expanded detail"}
+
+        self.gateway.set_app_registry(_AssetRegistry())
+        request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
+        reply = await self.gateway.process_message(request)
+
+        command = InterpretedCommand(
+            intent="query_status",
+            confidence=1.0,
+            parameters={
+                "needed_asset_detail_ids": ["asset:self_iteration_center:v1"],
+                "needed_more_asset_summary_query": "self iteration",
+                "needed_more_context_summary_query": "recent",
+            },
+            user_id="u1",
+            raw_input="状态",
+        )
+        enriched = self.gateway._enrich_command(command, reply.session_id, [])
+
+        assert "controlled_retrieval_expansion" in enriched.context
+        assert enriched.context["controlled_retrieval_expansion"]["asset_details"][0]["asset_id"] == "asset:self_iteration_center:v1"
+        assert enriched.context["controlled_retrieval_expansion"]["asset_summaries"][0]["asset_id"] == "asset:self_iteration_center:v1"
+        assert enriched.context["controlled_retrieval_expansion"]["bounds"]["asset_detail_limit"] == 5
+
         request = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
         reply = await self.gateway.process_message(request)
         session_node = self.runtime_center.get_session(reply.session_id)

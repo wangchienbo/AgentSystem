@@ -442,6 +442,8 @@ Status: [x] completed
 
 ### 7.4 Add controlled asset detail and broader summary expansion path
 
+Status: [x] completed
+
 #### Tasks
 - integrate `needed_asset_detail_ids`
 - integrate `needed_more_asset_summary_query`
