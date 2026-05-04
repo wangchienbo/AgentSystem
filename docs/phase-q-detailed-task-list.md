@@ -427,6 +427,8 @@ Status: [x] completed
 
 ### 7.3 Add controlled context detail injection path
 
+Status: [x] completed
+
 #### Tasks
 - when the model requests `needed_context_detail_ids`, load the requested detail through Context Center query service
 - append detail into the next model turn through system-controlled assembly

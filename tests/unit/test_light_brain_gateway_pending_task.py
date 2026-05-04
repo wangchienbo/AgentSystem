@@ -52,6 +52,9 @@ class _ContextCenter:
     def get_recent_working_memory_summaries(self, session_id, limit=5):
         return [{"id": f"summary:{session_id}:1", "message": "recent summary"}]
 
+    def get_detail_record_by_reference(self, session_id, reference_id):
+        return {"id": reference_id, "message": "detail payload"}
+
     def get_recent_context(self, session_id, limit=100):
         return _RecentWindow()
 

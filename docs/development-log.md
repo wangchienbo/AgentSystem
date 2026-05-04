@@ -1,3 +1,30 @@
+## 2026-05-04: Wave 4 controlled context-detail injection landed
+
+### Summary
+Continued Wave 4 by adding the controlled context-detail injection path inside gateway assembly, so requested internal detail references are loaded through Context Center and attached as system-controlled context rather than ordinary tool behavior.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - gateway enrichment now checks for requested `needed_context_detail_ids`
+  - requested detail references are loaded through `ContextCenter.get_detail_record_by_reference(...)`
+  - injected results are attached to `command.context["injected_context_details"]`
+  - assembly metadata is recorded under `command.context["context_assembly"]`
+  - normalized command parameters now carry `injected_context_detail_ids` for downstream awareness
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - extended Context Center stub with detail-reference lookup support
+- Updated `tests/unit/test_light_brain.py`
+  - verifies gateway enrichment injects requested detail records
+  - verifies injection is marked as `system_controlled_detail_injection`
+- Validation also re-ran protocol/runtime gateway tests to ensure no ordinary tool-trace contract was disturbed
+
+### Validation
+- `pytest tests/unit/test_light_brain.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_interaction_decision_protocol.py tests/unit/test_interaction_runtime_integration.py -q`
+- Result: `96 passed`
+
+### Notes
+This lands the system-controlled detail injection path required by Wave 4. The next steps should continue into the remaining gateway/model retrieval protocol slices after 7.3.
+
+
 ## 2026-05-04: Wave 4 gateway recent-working-memory assembly landed
 
 ### Summary

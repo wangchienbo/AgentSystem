@@ -403,11 +403,13 @@ class TestLightBrainGateway:
             child_id,
             SessionContextRecord(session_id=child_id, role="assistant", content="child note", kind="message"),
         )
-        command = InterpretedCommand(intent="query_status", confidence=1.0, parameters={}, user_id="u1", raw_input="状态")
+        command = InterpretedCommand(intent="query_status", confidence=1.0, parameters={"needed_context_detail_ids": [f"detail:{reply.session_id}:1"]}, user_id="u1", raw_input="状态")
         command.context["context_hints"] = ["children:sess-child:child note"]
         enriched = self.gateway._enrich_command(command, reply.session_id, [])
         assert "recent_working_memory" in enriched.context
         assert enriched.context["recent_working_memory"]["stable"]
+        assert "injected_context_details" in enriched.context
+        assert enriched.context["context_assembly"]["mode"] == "system_controlled_detail_injection"
         assert "recent_session_context" in enriched.context
         assert child_id in enriched.context["linked_session_context"]
         assert child_id in enriched.context["child_session_contexts"]

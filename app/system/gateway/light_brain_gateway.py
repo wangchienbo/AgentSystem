@@ -410,6 +410,7 @@ class LightBrainGateway:
                 ]
                 for node in self._context_center.get_child_sessions(session_id)
             }
+            self._inject_controlled_context_details(command, session_id)
 
         self._normalize_command_from_context(command)
         return command
@@ -429,7 +430,30 @@ class LightBrainGateway:
             if related_ids:
                 parameters["related_session_ids"] = related_ids
 
+        if command.context.get("injected_context_details") and not parameters.get("injected_context_detail_ids"):
+            parameters["injected_context_detail_ids"] = [
+                item.get("id") for item in command.context["injected_context_details"] if item.get("id")
+            ]
+
         command.parameters = parameters
+
+    def _inject_controlled_context_details(self, command: InterpretedCommand, session_id: str) -> None:
+        if self._context_center is None:
+            return
+        requested_ids = tuple(command.context.get("needed_context_detail_ids") or command.parameters.get("needed_context_detail_ids") or [])
+        if not requested_ids:
+            return
+        injected = []
+        for reference_id in requested_ids:
+            detail = self._context_center.get_detail_record_by_reference(session_id, str(reference_id))
+            if detail is not None:
+                injected.append(detail)
+        if injected:
+            command.context["injected_context_details"] = injected
+            command.context["context_assembly"] = {
+                "mode": "system_controlled_detail_injection",
+                "detail_ids": [item.get("id") for item in injected],
+            }
 
     def _mirror_session_node(self, session_id: str, user_id: str, channel: str) -> None:
         if self._context_center is None:
