@@ -9,6 +9,9 @@ It is intentionally detailed and module-scoped so the next development stage can
 Companion design reference:
 - `docs/phase-q-workflow-context-center-final-design.md`
 
+Completion summary:
+- `docs/phase-q-completion-summary.md`
+
 This task list assumes development continues inside the tracked repository and remains compatible with the current App OS architecture.
 
 ---
