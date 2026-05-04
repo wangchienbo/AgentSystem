@@ -1,3 +1,29 @@
+## 2026-05-04: Wave 3 finalized summary replacement worker landed
+
+### Summary
+Continued Wave 3 by finishing the finalized summary replacement worker behavior on top of the serialized summary worker, including clean replacement semantics and failure isolation from detail persistence.
+
+### What Was Done
+- Updated `app/services/context_summary_worker.py`
+  - finalized replacement continues to run on the existing single-threaded worker path
+  - replacement jobs now explicitly preserve the `rate_limit=1` / `max_concurrency=1` contract
+  - added failure capture via `failed_jobs`
+  - failed finalized-summary jobs no longer break the worker loop or detail persistence path
+- Updated `tests/unit/services/test_context_summary_worker.py`
+  - verifies finalized summary replacement still replaces prior formal summary cleanly
+  - verifies worker single-active-job behavior remains enforced
+  - verifies failed finalized summary generation leaves provisional summary available and does not block persisted detail state
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 3 section 6.3 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_summary_worker.py tests/unit/services/test_context_reorder_window.py tests/unit/test_tool_context_contract_and_context_center.py tests/unit/services/test_context_detail_events.py tests/unit/services/test_context_center_service_layout.py tests/unit/services/test_durable_context_buffer.py -q`
+- Result: `26 passed`
+
+### Notes
+Wave 3 summary replacement is now behaviorally complete enough for the current rollout slice: provisional summaries remain available immediately, finalized summaries replace them cleanly, and worker failures stay isolated. The next Wave 3 step should move to retrieval shaping and model-facing defaults if remaining items still exist in the task list.
+
+
 ## 2026-05-04: Wave 3 provisional summary write path landed
 
 ### Summary

@@ -41,6 +41,19 @@ def test_context_summary_worker_respects_single_active_job(tmp_path) -> None:
     assert len(worker.queued_jobs) == 1
 
 
+def test_context_summary_worker_failure_does_not_block_existing_provisional_summary(tmp_path) -> None:
+    center = ContextCenter(base_dir=tmp_path)
+    center.append_context_record("sess-5", SessionContextRecord(session_id="sess-5", kind="message", role="user", content="draft detail"))
+
+    worker = ContextSummaryWorker.from_base_dir(tmp_path)
+    result = worker.enqueue_summary_write(session_id="sess-5", summary_text="FAIL: llm unavailable", replace=True)
+    summaries = center.read_summary_events("sess-5")
+
+    assert result["processed"] == 0
+    assert result["failed"] == 1
+    assert [item.message for item in summaries] == ["[user] draft detail"]
+
+
 def test_context_center_exposes_summary_write_path(tmp_path) -> None:
     center = ContextCenter(base_dir=tmp_path)
 

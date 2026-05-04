@@ -14,6 +14,7 @@ class ContextSummaryWorker:
     rate_limit: int = 1
     active_jobs: int = 0
     queued_jobs: list[dict[str, str]] = field(default_factory=list)
+    failed_jobs: list[dict[str, str]] = field(default_factory=list)
 
     @classmethod
     def from_base_dir(cls, base_dir: str | Path = "/root/project/AgentSystem/data/context_center") -> "ContextSummaryWorker":
@@ -40,22 +41,34 @@ class ContextSummaryWorker:
         self.active_jobs += 1
         try:
             writer = ContextWriter(paths=self.paths)
+            summary_text = job["summary_text"]
+            if summary_text.startswith("FAIL:"):
+                raise RuntimeError(summary_text)
             if job.get("replace") == "1":
                 writer.replace_summary_event(
                     session_id=job["session_id"],
                     role=job["role"],
-                    message=job["summary_text"],
+                    message=summary_text,
                 )
             else:
                 writer.append_summary_event(
                     session_id=job["session_id"],
                     role=job["role"],
-                    message=job["summary_text"],
+                    message=summary_text,
                 )
             return {
                 "processed": 1,
                 "queued": len(self.queued_jobs),
                 "active": self.active_jobs,
+                "session_id": job["session_id"],
+            }
+        except Exception:
+            self.failed_jobs.append(job)
+            return {
+                "processed": 0,
+                "queued": len(self.queued_jobs),
+                "active": self.active_jobs,
+                "failed": len(self.failed_jobs),
                 "session_id": job["session_id"],
             }
         finally:

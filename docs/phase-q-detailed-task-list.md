@@ -333,6 +333,8 @@ Status: [x] completed
 
 ### 6.3 Implement finalized summary replacement worker
 
+Status: [x] completed
+
 #### Tasks
 - implement async summary replacement worker
 - worker must be single-threaded and rate-limited to 1
