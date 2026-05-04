@@ -1,3 +1,23 @@
+## 2026-05-05: Phase R proposal seed added after Phase Q closure
+
+### Summary
+Started the handoff beyond Phase Q by drafting a bounded proposal seed for the next phase, so continued work can move forward without blurring the completed Phase Q boundary.
+
+### What Was Done
+- Added `docs/phase-r-proposal-seed.md`
+  - defines the post-Phase-Q direction as runtime execution closure rather than more foundation convergence
+  - proposes executable action closure for repo / implementation / upgrade / acceptance actions
+  - recommends starting with executable repo-context and acceptance-planning waves
+- Updated `docs/phase-q-completion-summary.md`
+  - added a direct pointer to the new Phase R proposal seed
+
+### Validation
+- documentation-only phase-boundary planning; no code-path changes introduced
+
+### Notes
+This gives the project a clean next-step target while preserving the statement that Phase Q itself is already closed.
+
+
 ## 2026-05-05: Phase Q completion summary added
 
 ### Summary

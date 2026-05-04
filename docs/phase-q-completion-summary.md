@@ -64,3 +64,6 @@ The following project docs were refreshed during closure:
 ## Remaining Boundary
 
 Phase Q is complete at the task-list closure level. Any next step should be treated as a new phase or a new wave on top of this baseline, not as unfinished Phase Q cleanup.
+
+Immediate follow-up proposal seed:
+- `docs/phase-r-proposal-seed.md`
