@@ -11,6 +11,7 @@ from app.services.context_query_service import ContextQueryService
 from app.services.context_recovery_manager import ContextRecoveryManager
 from app.services.context_summary_worker import ContextSummaryWorker
 from app.services.context_writer import ContextWriter
+from app.services.durable_context_buffer import DurableContextBuffer
 
 
 class ContextCenter:
@@ -32,6 +33,7 @@ class ContextCenter:
         self._query_service = ContextQueryService.from_base_dir(self._base_dir)
         self._recovery_manager = ContextRecoveryManager.from_base_dir(self._base_dir)
         self._summary_worker = ContextSummaryWorker.from_base_dir(self._base_dir)
+        self._durable_buffer = DurableContextBuffer.from_base_dir(self._base_dir)
         self._recovery_manager.mark_ready()
 
     # Chapter 5 target-shaped APIs -------------------------------------------------
@@ -122,6 +124,12 @@ class ContextCenter:
 
     def read_summary_events(self, session_id: str, limit: int = 100):
         return self._query_service.read_summary_events(session_id=session_id, limit=limit)
+
+    def append_pending_buffer_event(self, session_id: str, event: dict[str, Any]) -> dict[str, Any]:
+        return self._durable_buffer.append_pending_event(session_id=session_id, event=event)
+
+    def read_pending_buffer_events(self, session_id: str):
+        return self._durable_buffer.read_pending_events(session_id=session_id)
 
     def read_context(self, session_id: str, limit: int = 100) -> SessionContextWindow:
         records = self._records.get(session_id, [])

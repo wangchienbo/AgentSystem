@@ -1,3 +1,33 @@
+## 2026-05-04: Wave 2 durable pending-event buffer landed
+
+### Summary
+Continued Wave 2 by adding a session-aware durable temporary buffer for not-yet-stable context events, with bounded persistence across process restarts.
+
+### What Was Done
+- Added `app/services/durable_context_buffer.py`
+  - session-aware persistent pending-event buffer
+  - bounded per-session retention
+  - append / read / replace / clear operations
+  - file-backed persistence under the Context Center buffer area
+- Updated `app/services/context_center.py`
+  - wired the durable buffer as part of the formal Context Center service area
+  - added helper accessors for pending buffer append/read operations
+- Added focused tests:
+  - `tests/unit/services/test_durable_context_buffer.py`
+  - verifies restart-like persistence across buffer instances
+  - verifies bounded trimming behavior
+  - verifies session-aware separation through `ContextCenter`
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 2 section 5.4 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_center_service_layout.py tests/unit/services/test_context_detail_events.py tests/unit/services/test_durable_context_buffer.py tests/unit/test_tool_context_contract_and_context_center.py -q`
+- Result: `14 passed`
+
+### Notes
+This lands the durable pending buffer substrate, but not yet the sliding reorder window or startup recovery flush logic. Those remain the next Wave 2 steps.
+
+
 ## 2026-05-04: Wave 2 session-bucketed day-file context storage landed
 
 ### Summary

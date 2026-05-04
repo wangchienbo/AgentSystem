@@ -228,6 +228,8 @@ Status: [x] completed
 
 ### 5.4 Implement durable temporary buffer
 
+Status: [x] completed
+
 #### Tasks
 - add a persistent temporary event buffer for not-yet-stable events
 - implement it as a bounded ring-buffer style file or equivalent bounded durable structure
