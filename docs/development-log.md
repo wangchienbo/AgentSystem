@@ -1,3 +1,31 @@
+## 2026-05-04: Phase Q final design baseline for workflow and Context Center convergence
+
+### Summary
+Captured the final compatible design baseline for the next major AgentSystem evolution stage, converging workflow closure, context/asset summary-detail retrieval, repo/upgrade/acceptance self-awareness, and a system-level Context Center into one formal document.
+
+### What Was Done
+- Added `docs/phase-q-workflow-context-center-final-design.md`
+  - defines the expanded workflow stage model beyond narrow draft continuation
+  - keeps `PendingTaskRecord` as the compatible workflow state container
+  - formalizes action expansion for review, task list, repo, implementation, upgrade, and acceptance steps
+  - defines asset and context summary/detail retrieval contracts
+  - defines repo / upgrade / acceptance self-awareness requirements
+  - defines Context Center as system-level working-memory and recovery infrastructure
+  - locks the minimal context event model to `timestamp + role + message`
+  - defines session-bucketed, day-filed detail/summary storage
+  - defines durable buffer + priority queue + 5 minute sliding reorder window
+  - defines startup recovery before readiness
+  - defines recent working memory as `stable + pending`, default recent 300
+  - defines provisional summary write plus single-threaded async LLM replacement
+  - includes the previously agreed detail rules such as role naming, summary prompt constraints, workflow write hooks, and acceptance auto-write requirements
+
+### Validation
+- Design-only documentation update, no code execution required.
+
+### Notes
+This document is intended to become the formal baseline for subsequent module-level task-list decomposition and implementation work. It captures the final agreed details from the design convergence discussion rather than a broad exploratory draft.
+
+
 ## 2026-05-04: apply_draft_app now advances to installed-and-running closure
 
 ### Summary
