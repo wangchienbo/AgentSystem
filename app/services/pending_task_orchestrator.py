@@ -22,10 +22,12 @@ class PendingTaskOrchestrator:
         pending_task_store: PendingTaskStore | None = None,
         draft_app_service=None,
         app_application_service=None,
+        context_center=None,
     ) -> None:
         self._pending_task_store = pending_task_store
         self._draft_app_service = draft_app_service
         self._app_application_service = app_application_service
+        self._context_center = context_center
 
     def advance_if_possible(self, pending_task: PendingTaskRecord | None) -> PendingTaskRecord | None:
         if pending_task is None or self._pending_task_store is None:
@@ -156,6 +158,56 @@ class PendingTaskOrchestrator:
         updated = pending_task.model_copy(update={"upgrade_plan": upgrade_plan})
         if self._pending_task_store is not None:
             self._pending_task_store.upsert_task(updated)
+        return updated
+
+    def capture_acceptance_plan(
+        self,
+        pending_task: PendingTaskRecord,
+        *,
+        test_probe_commands: list[str] | None = None,
+        http_runtime_verification_points: list[str] | None = None,
+        success_criteria: list[str] | None = None,
+    ) -> PendingTaskRecord:
+        acceptance_plan = {
+            "test_probe_commands": list(test_probe_commands or []),
+            "http_runtime_verification_points": list(http_runtime_verification_points or []),
+            "success_criteria": list(success_criteria or []),
+            "results": list((pending_task.acceptance_plan or {}).get("results") or []),
+        }
+        updated = pending_task.model_copy(update={"acceptance_plan": acceptance_plan})
+        if self._pending_task_store is not None:
+            self._pending_task_store.upsert_task(updated)
+        return updated
+
+    def capture_acceptance_result(
+        self,
+        pending_task: PendingTaskRecord,
+        *,
+        status: str,
+        summary: str,
+        evidence: dict[str, object] | None = None,
+    ) -> PendingTaskRecord:
+        acceptance_plan = {
+            **pending_task.acceptance_plan,
+            "results": [
+                *(pending_task.acceptance_plan.get("results") or []),
+                {"status": status, "summary": summary, "evidence": dict(evidence or {})},
+            ],
+        }
+        updated = pending_task.model_copy(update={"acceptance_plan": acceptance_plan})
+        if self._pending_task_store is not None:
+            self._pending_task_store.upsert_task(updated)
+        if self._context_center is not None and pending_task.session_id:
+            from app.models.context import SessionContextRecord
+            self._context_center.append_context(
+                SessionContextRecord(
+                    session_id=pending_task.session_id,
+                    kind="system_note",
+                    role="system",
+                    content=f"acceptance_result status={status} summary={summary}",
+                    metadata={"acceptance": True, **dict(evidence or {})},
+                )
+            )
         return updated
 
     def _continue_draft_app_setup(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:

@@ -126,7 +126,14 @@ class PendingTaskRecord(BaseModel):
             "rollback_hint": "",
         }
     )
-    acceptance_plan: dict[str, Any] = Field(default_factory=dict)
+    acceptance_plan: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "test_probe_commands": [],
+            "http_runtime_verification_points": [],
+            "success_criteria": [],
+            "results": [],
+        }
+    )
     draft_payload: dict[str, Any] = Field(default_factory=dict)
     target_ref: dict[str, Any] = Field(default_factory=dict)
     known_facts: dict[str, Any] = Field(default_factory=dict)

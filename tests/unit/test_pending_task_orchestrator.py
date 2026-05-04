@@ -132,7 +132,12 @@ def test_pending_task_record_supports_wave1_workflow_fields():
         "activation_reload_path": [],
         "rollback_hint": "",
     }
-    assert task.acceptance_plan == {}
+    assert task.acceptance_plan == {
+        "test_probe_commands": [],
+        "http_runtime_verification_points": [],
+        "success_criteria": [],
+        "results": [],
+    }
     assert task.artifacts == []
 
 
@@ -247,6 +252,36 @@ def test_pending_task_orchestrator_can_capture_upgrade_plan(tmp_path: Path):
     assert updated.upgrade_plan["activation_reload_path"] == ["restart gateway", "verify runtime health"]
     assert updated.upgrade_plan["rollback_hint"] == "git checkout -- app/services/context_center.py"
     assert store.get_latest_open_task("u1").upgrade_plan["build_install_plan"] == ["pytest -q", "pip install -e ."]
+
+
+def test_pending_task_orchestrator_can_capture_acceptance_plan_and_result(tmp_path: Path):
+    from app.services.context_center import ContextCenter
+
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    context_center = ContextCenter(base_dir=tmp_path / "context")
+    task = PendingTaskRecord(task_id="pt-accept-1", user_id="u1", session_id="sess-1", intent="ship change")
+    store.upsert_task(task)
+    orchestrator = PendingTaskOrchestrator(store, context_center=context_center)
+
+    planned = orchestrator.capture_acceptance_plan(
+        task,
+        test_probe_commands=["pytest tests/unit/test_pending_task_orchestrator.py -q"],
+        http_runtime_verification_points=["GET /health returns 200"],
+        success_criteria=["all targeted tests pass", "health endpoint healthy"],
+    )
+    completed = orchestrator.capture_acceptance_result(
+        planned,
+        status="passed",
+        summary="targeted acceptance checks passed",
+        evidence={"command": "pytest tests/unit/test_pending_task_orchestrator.py -q"},
+    )
+
+    assert planned.acceptance_plan["test_probe_commands"] == ["pytest tests/unit/test_pending_task_orchestrator.py -q"]
+    assert planned.acceptance_plan["http_runtime_verification_points"] == ["GET /health returns 200"]
+    assert completed.acceptance_plan["results"][-1]["status"] == "passed"
+    assert completed.acceptance_plan["results"][-1]["evidence"]["command"] == "pytest tests/unit/test_pending_task_orchestrator.py -q"
+    context_events = context_center.read_detail_events("sess-1")
+    assert context_events[-1].message == "acceptance_result status=passed summary=targeted acceptance checks passed"
 
 
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))

@@ -495,6 +495,8 @@ Status: [x] completed
 
 ### 8.3 Implement acceptance plan and acceptance result capture
 
+Status: [x] completed
+
 #### Tasks
 - define acceptance-plan structure in workflow state
 - capture:

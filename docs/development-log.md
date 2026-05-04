@@ -1,3 +1,35 @@
+## 2026-05-05: Wave 5 acceptance-plan and acceptance-result capture landed
+
+### Summary
+Continued Wave 5 by defining the acceptance-plan structure, capturing acceptance results back into workflow state, and emitting acceptance completion into Context Center.
+
+### What Was Done
+- Updated `app/models/pending_task.py`
+  - `acceptance_plan` now has a stable default structure:
+    - `test_probe_commands`
+    - `http_runtime_verification_points`
+    - `success_criteria`
+    - `results`
+- Updated `app/services/pending_task_orchestrator.py`
+  - constructor now optionally accepts `context_center`
+  - added `capture_acceptance_plan(...)`
+  - added `capture_acceptance_result(...)`
+  - acceptance results persist into pending-task workflow state
+  - acceptance completion emits a minimal Context Center system-note event when session context is available
+- Updated `tests/unit/test_pending_task_orchestrator.py`
+  - verifies default acceptance-plan structure exists
+  - verifies acceptance plan persistence
+  - verifies acceptance result serialization
+  - verifies acceptance completion emits a Context Center write event
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/services/test_context_detail_events.py -q`
+- Result: `26 passed`
+
+### Notes
+This completes the acceptance-plan/result substrate for the current workflow-state layer. The next Wave 5 step should standardize high-value fact message templates so repo/upgrade/acceptance writes become more stable and reusable.
+
+
 ## 2026-05-05: Wave 5 upgrade-plan capture landed
 
 ### Summary
