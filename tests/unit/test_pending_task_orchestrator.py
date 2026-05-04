@@ -135,7 +135,68 @@ def test_pending_task_workflow_constants_are_stable() -> None:
     assert "completed" in STAGE_STATUS_VALUES
 
 
-def test_app_application_service_applies_draft_into_lifecycle(tmp_path: Path):
+def test_pending_task_orchestrator_supports_generic_stage_transition_helpers(tmp_path: Path):
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    task = PendingTaskRecord(
+        task_id="pt-generic-1",
+        user_id="u1",
+        intent="ship change",
+        current_stage="solution_reviewing",
+        stage_status="pending",
+        next_recommended_action={"type": "approve_solution_draft"},
+    )
+    store.upsert_task(task)
+    orchestrator = PendingTaskOrchestrator(store)
+
+    in_progress = orchestrator.mark_stage_in_progress(
+        task,
+        stage="tasklist_preparing",
+        next_action={"type": "materialize_task_list"},
+    )
+    completed = orchestrator.mark_stage_completed(
+        in_progress,
+        stage="tasklist_preparing",
+        next_stage="repo_locating",
+        status="ready_to_execute",
+        next_action={"type": "locate_repo_context"},
+        artifact={"kind": "task_list", "id": "tl-1"},
+    )
+
+    assert in_progress.current_stage == "tasklist_preparing"
+    assert in_progress.stage_status == "in_progress"
+    assert in_progress.next_recommended_action["type"] == "materialize_task_list"
+    assert completed.current_stage == "repo_locating"
+    assert completed.stage_status == "completed"
+    assert completed.status == "ready_to_execute"
+    assert completed.next_recommended_action["type"] == "locate_repo_context"
+    assert completed.artifacts[-1]["kind"] == "task_list"
+
+
+def test_pending_task_orchestrator_can_mark_blocked_state(tmp_path: Path):
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    task = PendingTaskRecord(
+        task_id="pt-blocked-1",
+        user_id="u1",
+        intent="ship change",
+        current_stage="repo_locating",
+        stage_status="in_progress",
+    )
+    store.upsert_task(task)
+    orchestrator = PendingTaskOrchestrator(store)
+
+    blocked = orchestrator.mark_blocked(
+        task,
+        reason="repo path missing",
+        next_action={"type": "locate_repo_context"},
+    )
+
+    assert blocked.current_stage == "blocked"
+    assert blocked.stage_status == "blocked"
+    assert blocked.status == "blocked"
+    assert blocked.known_facts["blocked_reason"] == "repo path missing"
+    assert blocked.next_recommended_action["type"] == "locate_repo_context"
+
+
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     lifecycle = AppLifecycleService(runtime_store)

@@ -114,6 +114,8 @@ Status: [x] completed
 
 ### 4.3 Upgrade PendingTaskOrchestrator into stage transition engine
 
+Status: [x] completed
+
 #### Tasks
 - refactor `app/services/pending_task_orchestrator.py`
 - preserve current draft-specific stage logic

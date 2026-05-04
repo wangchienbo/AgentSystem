@@ -3,6 +3,10 @@ from __future__ import annotations
 from app.models.pending_task import (
     PENDING_TASK_ACTION_APPLY_DRAFT_APP,
     PendingTaskRecord,
+    STAGE_STATUS_BLOCKED,
+    STAGE_STATUS_COMPLETED,
+    STAGE_STATUS_IN_PROGRESS,
+    WORKFLOW_STAGE_BLOCKED,
     WORKFLOW_STAGE_DONE,
     WORKFLOW_STAGE_IMPLEMENTATION_PENDING,
     WORKFLOW_STAGE_IMPLEMENTATION_RUNNING,
@@ -11,7 +15,7 @@ from app.services.pending_task_store import PendingTaskStore
 
 
 class PendingTaskOrchestrator:
-    """Thin orchestration layer for bootstrap pending-task continuation logic."""
+    """Workflow stage transition engine, preserving current draft bootstrap behavior."""
 
     def __init__(
         self,
@@ -38,6 +42,83 @@ class PendingTaskOrchestrator:
 
     def _base_stage_update(self, *, stage: str, stage_status: str) -> dict[str, str]:
         return {"current_stage": stage, "stage_status": stage_status}
+
+    def transition_stage(
+        self,
+        pending_task: PendingTaskRecord,
+        *,
+        stage: str,
+        stage_status: str,
+        status: str | None = None,
+        next_action: dict[str, object] | None = None,
+        known_fact_updates: dict[str, object] | None = None,
+        artifact: dict[str, object] | None = None,
+    ) -> PendingTaskRecord:
+        updates: dict[str, object] = {
+            **self._base_stage_update(stage=stage, stage_status=stage_status),
+        }
+        if status is not None:
+            updates["status"] = status
+        if next_action is not None:
+            updates["next_recommended_action"] = next_action
+        if known_fact_updates:
+            updates["known_facts"] = {**pending_task.known_facts, **known_fact_updates}
+        if artifact is not None:
+            updates["artifacts"] = [*pending_task.artifacts, artifact]
+        updated = pending_task.model_copy(update=updates)
+        if self._pending_task_store is not None:
+            self._pending_task_store.upsert_task(updated)
+        return updated
+
+    def mark_stage_in_progress(
+        self,
+        pending_task: PendingTaskRecord,
+        *,
+        stage: str,
+        next_action: dict[str, object] | None = None,
+    ) -> PendingTaskRecord:
+        return self.transition_stage(
+            pending_task,
+            stage=stage,
+            stage_status=STAGE_STATUS_IN_PROGRESS,
+            next_action=next_action,
+        )
+
+    def mark_stage_completed(
+        self,
+        pending_task: PendingTaskRecord,
+        *,
+        stage: str,
+        next_stage: str | None = None,
+        status: str | None = None,
+        next_action: dict[str, object] | None = None,
+        artifact: dict[str, object] | None = None,
+    ) -> PendingTaskRecord:
+        target_stage = next_stage or stage
+        return self.transition_stage(
+            pending_task,
+            stage=target_stage,
+            stage_status=STAGE_STATUS_COMPLETED,
+            status=status,
+            next_action=next_action,
+            artifact=artifact,
+        )
+
+    def mark_blocked(
+        self,
+        pending_task: PendingTaskRecord,
+        *,
+        reason: str,
+        next_action: dict[str, object] | None = None,
+    ) -> PendingTaskRecord:
+        return self.transition_stage(
+            pending_task,
+            stage=WORKFLOW_STAGE_BLOCKED,
+            stage_status=STAGE_STATUS_BLOCKED,
+            status="blocked",
+            next_action=next_action,
+            known_fact_updates={"blocked_reason": reason},
+        )
 
     def _continue_draft_app_setup(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:
         missing_fields = list(pending_task.missing_fields)
@@ -69,7 +150,7 @@ class PendingTaskOrchestrator:
             "next_recommended_action": next_action,
             **self._base_stage_update(
                 stage=WORKFLOW_STAGE_IMPLEMENTATION_PENDING if not missing_fields else pending_task.current_stage,
-                stage_status="completed" if not missing_fields else pending_task.stage_status,
+                stage_status=STAGE_STATUS_COMPLETED if not missing_fields else pending_task.stage_status,
             ),
         })
         self._pending_task_store.upsert_task(updated)
@@ -86,7 +167,7 @@ class PendingTaskOrchestrator:
             "known_facts": known_facts,
             "status": "ready_to_execute",
             "next_recommended_action": {"type": "report_draft_ready"},
-            **self._base_stage_update(stage=WORKFLOW_STAGE_IMPLEMENTATION_RUNNING, stage_status="completed"),
+            **self._base_stage_update(stage=WORKFLOW_STAGE_IMPLEMENTATION_RUNNING, stage_status=STAGE_STATUS_COMPLETED),
         })
         self._pending_task_store.upsert_task(updated)
         return updated
@@ -111,7 +192,7 @@ class PendingTaskOrchestrator:
                 "app_id": app_id,
                 "handoff_target": "AppApplicationService",
             },
-            **self._base_stage_update(stage=WORKFLOW_STAGE_DONE, stage_status="completed"),
+            **self._base_stage_update(stage=WORKFLOW_STAGE_DONE, stage_status=STAGE_STATUS_COMPLETED),
         })
         self._pending_task_store.upsert_task(updated)
         return updated

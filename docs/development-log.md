@@ -1,3 +1,34 @@
+## 2026-05-04: Wave 1 orchestrator stage-transition engine helpers landed
+
+### Summary
+Closed the remaining Wave 1 gap by upgrading `PendingTaskOrchestrator` from a draft-only continuation helper into a reusable stage-transition engine while preserving the current draft bootstrap path.
+
+### What Was Done
+- Updated `app/services/pending_task_orchestrator.py`
+  - added generic stage transition helper APIs
+  - added reusable helpers for:
+    - `mark_stage_in_progress(...)`
+    - `mark_stage_completed(...)`
+    - `mark_blocked(...)`
+    - low-level `transition_stage(...)`
+  - kept the existing draft continuation sequence intact on top of the same orchestrator
+  - switched remaining stage-status literals to shared constants
+- Updated focused tests:
+  - `tests/unit/test_pending_task_orchestrator.py`
+  - added non-draft workflow transition coverage for:
+    - tasklist preparation → repo locating
+    - blocked state representation
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 1 section 4.3 complete
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `19 passed`
+
+### Notes
+Wave 1 is now fully closed at the contract/orchestrator layer. The next implementation step should move forward to Wave 2 Context Center storage and recovery foundation.
+
+
 ## 2026-05-04: Wave 1 workflow stage constants and future action contract landed
 
 ### Summary
