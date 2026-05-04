@@ -154,6 +154,8 @@ def test_gateway_continue_task_returns_progress_response(tmp_path: Path):
     assert response.data["pending_task"]["known_facts"]["runtime_profile"] == "default"
     assert response.data["pending_task"]["known_facts"]["execution_mode"] == "service"
     assert response.data["pending_task"]["status"] == "ready_to_execute"
+    assert response.data["pending_task"]["current_stage"] == "implementation_pending"
+    assert response.data["pending_task"]["stage_status"] == "completed"
 
 
 def test_duplicate_create_request_reuses_existing_open_task(tmp_path: Path):
@@ -241,6 +243,7 @@ def test_continue_task_writes_back_default_runtime_profile(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
+    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
     pending_store = PendingTaskStore(runtime_store)
     gateway = LightBrainGateway(
         memory=LightBrainMemory(),
@@ -251,6 +254,7 @@ def test_continue_task_writes_back_default_runtime_profile(tmp_path: Path):
 
     create_decision = gateway._build_continuation_decision("创建一个监控 app", None)
     gateway._materialize_continuation_decision(create_decision, user_id="u1", session_id="s1", message="创建一个监控 app")
+    gateway._pending_task_orchestrator = PendingTaskOrchestrator(pending_store, draft_service)
     response = asyncio.run(
         gateway.receive_message(ChatMessageRequest(user_id="u1", channel="test", message="继续", session_id="s1"))
     )
@@ -261,6 +265,8 @@ def test_continue_task_writes_back_default_runtime_profile(tmp_path: Path):
     assert latest_task.known_facts["runtime_profile"] == "default"
     assert latest_task.known_facts["execution_mode"] == "service"
     assert latest_task.status == "ready_to_execute"
+    assert latest_task.current_stage == "implementation_pending"
+    assert latest_task.stage_status == "completed"
     assert latest_task.missing_fields == []
 
 
@@ -287,6 +293,8 @@ def test_second_continue_consumes_execute_draft_next_action(tmp_path: Path):
     assert response.data is not None
     assert latest_task is not None
     assert latest_task.known_facts["draft_setup_prepared"] is True
+    assert latest_task.current_stage == "implementation_running"
+    assert latest_task.stage_status == "completed"
     assert latest_task.next_recommended_action["type"] == "report_draft_ready"
 
 
@@ -313,6 +321,8 @@ def test_third_continue_reports_draft_ready_completion(tmp_path: Path):
     assert response.data is not None
     assert "草案任务已经准备完成" in response.content
     assert response.data["pending_task"]["status"] == "completed"
+    assert response.data["pending_task"]["current_stage"] == "done"
+    assert response.data["pending_task"]["stage_status"] == "completed"
     assert response.data["pending_task"]["known_facts"]["draft_ready_reported"] is True
     assert response.data["pending_task"]["known_facts"]["lifecycle_ready_status"] == "compiled"
     assert response.data["pending_task"]["next_recommended_action"]["type"] == "apply_draft_app"

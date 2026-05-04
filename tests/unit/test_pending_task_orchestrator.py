@@ -20,6 +20,8 @@ def test_pending_task_orchestrator_advances_default_runtime_profile(tmp_path: Pa
         user_id="u1",
         intent="create_app",
         status="drafted",
+        current_stage="solution_drafting",
+        stage_status="in_progress",
         missing_fields=["runtime_profile", "execution_mode"],
         next_recommended_action={"type": "continue_draft_app_setup"},
     )
@@ -32,6 +34,8 @@ def test_pending_task_orchestrator_advances_default_runtime_profile(tmp_path: Pa
     assert updated.known_facts["runtime_profile"] == "default"
     assert updated.known_facts["execution_mode"] == "service"
     assert updated.status == "ready_to_execute"
+    assert updated.current_stage == "implementation_pending"
+    assert updated.stage_status == "completed"
     assert updated.missing_fields == []
     assert updated.next_recommended_action["type"] == "execute_draft_app_setup"
     assert store.get_latest_open_task("u1").status == "ready_to_execute"
@@ -44,6 +48,8 @@ def test_pending_task_orchestrator_executes_ready_draft_setup(tmp_path: Path):
         user_id="u1",
         intent="create_app",
         status="ready_to_execute",
+        current_stage="implementation_pending",
+        stage_status="completed",
         known_facts={"runtime_profile": "default", "execution_mode": "service"},
         missing_fields=[],
         next_recommended_action={"type": "execute_draft_app_setup"},
@@ -55,6 +61,8 @@ def test_pending_task_orchestrator_executes_ready_draft_setup(tmp_path: Path):
 
     assert updated is not None
     assert updated.known_facts["draft_setup_prepared"] is True
+    assert updated.current_stage == "implementation_running"
+    assert updated.stage_status == "completed"
     assert updated.next_recommended_action["type"] == "report_draft_ready"
 
 
@@ -68,6 +76,8 @@ def test_pending_task_orchestrator_reports_ready_completion(tmp_path: Path):
         user_id="u1",
         intent="create_app",
         status="ready_to_execute",
+        current_stage="implementation_running",
+        stage_status="completed",
         known_facts={
             "runtime_profile": "default",
             "execution_mode": "service",
@@ -84,12 +94,30 @@ def test_pending_task_orchestrator_reports_ready_completion(tmp_path: Path):
 
     assert updated is not None
     assert updated.status == "completed"
+    assert updated.current_stage == "done"
+    assert updated.stage_status == "completed"
     assert updated.known_facts["draft_ready_reported"] is True
     assert updated.known_facts["lifecycle_ready_status"] == "compiled"
     assert updated.next_recommended_action["type"] == "apply_draft_app"
     assert updated.next_recommended_action["app_id"] == draft_app.id
     assert updated.next_recommended_action["handoff_target"] == "AppApplicationService"
     assert draft_service.get_app(draft_app.id).status == "compiled"
+
+
+def test_pending_task_record_supports_wave1_workflow_fields():
+    task = PendingTaskRecord(task_id="pt-x", user_id="u1", intent="create_app")
+
+    assert task.workflow_type == "draft_app_bootstrap"
+    assert task.current_stage == "intent_received"
+    assert task.stage_status == "pending"
+    assert task.solution_draft == {}
+    assert task.review_result == {}
+    assert task.task_list == []
+    assert task.repo_context == {}
+    assert task.implementation_plan == {}
+    assert task.upgrade_plan == {}
+    assert task.acceptance_plan == {}
+    assert task.artifacts == []
 
 
 def test_app_application_service_applies_draft_into_lifecycle(tmp_path: Path):

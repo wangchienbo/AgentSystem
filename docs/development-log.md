@@ -1,3 +1,42 @@
+## 2026-05-04: Wave 1 workflow state foundation implementation started
+
+### Summary
+Started Phase Q implementation by landing the first workflow-state foundation slice. `PendingTaskRecord` now carries the initial workflow-stage fields from the new design baseline, and the pending-task orchestrator updates stage metadata as the existing draft continuation path advances.
+
+### What Was Done
+- Updated `app/models/pending_task.py`
+  - added initial workflow-state fields:
+    - `workflow_type`
+    - `current_stage`
+    - `stage_status`
+    - `solution_draft`
+    - `review_result`
+    - `task_list`
+    - `repo_context`
+    - `implementation_plan`
+    - `upgrade_plan`
+    - `acceptance_plan`
+    - `artifacts`
+  - kept backward-compatible defaults so existing pending-task records can still load
+- Updated `app/services/pending_task_orchestrator.py`
+  - added basic stage-update helper support
+  - mapped the existing draft continuation flow onto the first workflow-stage progression:
+    - continuation default-fill now advances into `implementation_pending`
+    - draft setup execution now advances into `implementation_running`
+    - ready-report completion now converges into `done`
+- Updated focused tests:
+  - `tests/unit/test_pending_task_orchestrator.py`
+  - `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added assertions for the new workflow-stage fields and stage progression behavior
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `16 passed`
+
+### Notes
+This is intentionally a thin Wave 1 slice. It does not yet introduce the broader non-draft stage handlers or the new action execution surfaces, but it establishes the compatible workflow-state shape and proves the existing draft continuation path can carry stage metadata without regressing.
+
+
 ## 2026-05-04: Phase Q detailed task list for workflow and Context Center rollout
 
 ### Summary

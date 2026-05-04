@@ -30,6 +30,9 @@ class PendingTaskOrchestrator:
             return self._report_draft_ready(pending_task)
         return pending_task
 
+    def _base_stage_update(self, *, stage: str, stage_status: str) -> dict[str, str]:
+        return {"current_stage": stage, "stage_status": stage_status}
+
     def _continue_draft_app_setup(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:
         missing_fields = list(pending_task.missing_fields)
         known_facts = dict(pending_task.known_facts)
@@ -58,6 +61,10 @@ class PendingTaskOrchestrator:
             "missing_fields": missing_fields,
             "status": new_status,
             "next_recommended_action": next_action,
+            **self._base_stage_update(
+                stage="implementation_pending" if not missing_fields else pending_task.current_stage,
+                stage_status="completed" if not missing_fields else pending_task.stage_status,
+            ),
         })
         self._pending_task_store.upsert_task(updated)
         return updated
@@ -73,6 +80,7 @@ class PendingTaskOrchestrator:
             "known_facts": known_facts,
             "status": "ready_to_execute",
             "next_recommended_action": {"type": "report_draft_ready"},
+            **self._base_stage_update(stage="implementation_running", stage_status="completed"),
         })
         self._pending_task_store.upsert_task(updated)
         return updated
@@ -97,6 +105,7 @@ class PendingTaskOrchestrator:
                 "app_id": app_id,
                 "handoff_target": "AppApplicationService",
             },
+            **self._base_stage_update(stage="done", stage_status="completed"),
         })
         self._pending_task_store.upsert_task(updated)
         return updated
