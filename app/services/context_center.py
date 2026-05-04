@@ -130,6 +130,9 @@ class ContextCenter:
     def read_summary_events(self, session_id: str, limit: int = 100):
         return self._query_service.read_summary_events(session_id=session_id, limit=limit)
 
+    def enqueue_summary_write(self, session_id: str, summary_text: str, *, role: str = "system") -> dict[str, Any]:
+        return self._summary_worker.enqueue_summary_write(session_id=session_id, summary_text=summary_text, role=role)
+
     def append_pending_buffer_event(self, session_id: str, event: dict[str, Any]) -> dict[str, Any]:
         stored = self._durable_buffer.append_pending_event(session_id=session_id, event=event)
         self.flush_stable_pending_events(session_id)

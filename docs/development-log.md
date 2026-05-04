@@ -1,3 +1,34 @@
+## 2026-05-04: Wave 2 summary write path and one-thread worker landed
+
+### Summary
+Continued Wave 2 by wiring the summary write path through a one-thread worker model so summary writes stay serialized and flow into the formal summary day-file store.
+
+### What Was Done
+- Updated `app/services/context_summary_worker.py`
+  - added in-memory queued job handling
+  - kept `max_concurrency=1` as the enforced write serialization model
+  - added `enqueue_summary_write(...)`
+  - added `drain_once(...)`
+  - summary jobs now write through the formal summary event path
+- Updated `app/services/context_center.py`
+  - added `enqueue_summary_write(...)` facade
+  - integrates the summary worker into the Context Center write path
+- Added focused tests:
+  - `tests/unit/services/test_context_summary_worker.py`
+  - verifies summary write persistence
+  - verifies single-active-job backpressure behavior
+  - verifies Context Center exposes the summary write path
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 2 section 5.7 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_center_service_layout.py tests/unit/services/test_context_detail_events.py tests/unit/services/test_durable_context_buffer.py tests/unit/services/test_context_reorder_window.py tests/unit/services/test_context_summary_worker.py tests/unit/test_tool_context_contract_and_context_center.py -q`
+- Result: `22 passed`
+
+### Notes
+This lands serialized summary writing at the worker boundary. The next Wave 2 step should fill in summary replacement semantics and retrieval shaping on top of this path.
+
+
 ## 2026-05-04: Wave 2 session-local reorder window landed
 
 ### Summary

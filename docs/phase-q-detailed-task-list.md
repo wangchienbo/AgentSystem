@@ -282,6 +282,8 @@ Status: [x] completed
 
 ### 5.7 Enforce session-local write serialization
 
+Status: [x] completed
+
 #### Tasks
 - ensure same-session writes cannot race
 - add per-session lock/serializer strategy
