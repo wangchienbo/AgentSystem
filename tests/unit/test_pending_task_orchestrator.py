@@ -127,7 +127,11 @@ def test_pending_task_record_supports_wave1_workflow_fields():
         "target_modules": [],
     }
     assert task.implementation_plan == {}
-    assert task.upgrade_plan == {}
+    assert task.upgrade_plan == {
+        "build_install_plan": [],
+        "activation_reload_path": [],
+        "rollback_hint": "",
+    }
     assert task.acceptance_plan == {}
     assert task.artifacts == []
 
@@ -224,6 +228,25 @@ def test_pending_task_orchestrator_can_capture_repo_context(tmp_path: Path):
     assert len(updated.repo_context["key_docs"]) == 2
     assert "app/models/pending_task.py" in updated.repo_context["target_modules"]
     assert store.get_latest_open_task("u1").repo_context["active_repo_path"] == "/root/project/AgentSystem"
+
+
+def test_pending_task_orchestrator_can_capture_upgrade_plan(tmp_path: Path):
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    task = PendingTaskRecord(task_id="pt-upgrade-1", user_id="u1", intent="ship change")
+    store.upsert_task(task)
+    orchestrator = PendingTaskOrchestrator(store)
+
+    updated = orchestrator.capture_upgrade_plan(
+        task,
+        build_install_plan=["pytest -q", "pip install -e ."],
+        activation_reload_path=["restart gateway", "verify runtime health"],
+        rollback_hint="git checkout -- app/services/context_center.py",
+    )
+
+    assert updated.upgrade_plan["build_install_plan"] == ["pytest -q", "pip install -e ."]
+    assert updated.upgrade_plan["activation_reload_path"] == ["restart gateway", "verify runtime health"]
+    assert updated.upgrade_plan["rollback_hint"] == "git checkout -- app/services/context_center.py"
+    assert store.get_latest_open_task("u1").upgrade_plan["build_install_plan"] == ["pytest -q", "pip install -e ."]
 
 
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))

@@ -140,6 +140,24 @@ class PendingTaskOrchestrator:
             self._pending_task_store.upsert_task(updated)
         return updated
 
+    def capture_upgrade_plan(
+        self,
+        pending_task: PendingTaskRecord,
+        *,
+        build_install_plan: list[str] | None = None,
+        activation_reload_path: list[str] | None = None,
+        rollback_hint: str = "",
+    ) -> PendingTaskRecord:
+        upgrade_plan = {
+            "build_install_plan": list(build_install_plan or []),
+            "activation_reload_path": list(activation_reload_path or []),
+            "rollback_hint": rollback_hint,
+        }
+        updated = pending_task.model_copy(update={"upgrade_plan": upgrade_plan})
+        if self._pending_task_store is not None:
+            self._pending_task_store.upsert_task(updated)
+        return updated
+
     def _continue_draft_app_setup(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:
         missing_fields = list(pending_task.missing_fields)
         known_facts = dict(pending_task.known_facts)

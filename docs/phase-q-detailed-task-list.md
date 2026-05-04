@@ -478,6 +478,8 @@ Status: [x] completed
 
 ### 8.2 Implement upgrade plan capture
 
+Status: [x] completed
+
 #### Tasks
 - define upgrade-plan structure in workflow state
 - capture:

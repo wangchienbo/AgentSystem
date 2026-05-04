@@ -119,7 +119,13 @@ class PendingTaskRecord(BaseModel):
         }
     )
     implementation_plan: dict[str, Any] = Field(default_factory=dict)
-    upgrade_plan: dict[str, Any] = Field(default_factory=dict)
+    upgrade_plan: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "build_install_plan": [],
+            "activation_reload_path": [],
+            "rollback_hint": "",
+        }
+    )
     acceptance_plan: dict[str, Any] = Field(default_factory=dict)
     draft_payload: dict[str, Any] = Field(default_factory=dict)
     target_ref: dict[str, Any] = Field(default_factory=dict)

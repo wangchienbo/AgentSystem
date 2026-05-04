@@ -1,3 +1,30 @@
+## 2026-05-05: Wave 5 upgrade-plan capture landed
+
+### Summary
+Continued Wave 5 by defining and persisting the upgrade-plan structure in pending-task workflow state, including build/install steps, activation-reload path, and rollback hint.
+
+### What Was Done
+- Updated `app/models/pending_task.py`
+  - `upgrade_plan` now has a stable default structure:
+    - `build_install_plan`
+    - `activation_reload_path`
+    - `rollback_hint`
+- Updated `app/services/pending_task_orchestrator.py`
+  - added `capture_upgrade_plan(...)`
+  - persists upgrade-plan facts through the existing pending-task store path
+- Updated `tests/unit/test_pending_task_orchestrator.py`
+  - verifies the default upgrade-plan structure exists on workflow state
+  - verifies orchestrator can persist a descriptive upgrade plan and rollback hint
+  - verifies stored workflow state retains captured upgrade-plan facts
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `21 passed`
+
+### Notes
+This lands the descriptive upgrade-plan substrate for the current rollout stage. The next Wave 5 slice should define and persist the acceptance-plan/result structures, then emit acceptance outcomes into Context Center.
+
+
 ## 2026-05-05: Wave 5 repo-context capture landed
 
 ### Summary
