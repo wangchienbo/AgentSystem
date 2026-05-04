@@ -241,6 +241,48 @@ def test_duplicate_create_request_reuses_existing_open_task(tmp_path: Path):
     assert final_task.target_ref["app_id"] == existing_app_id
 
 
+def test_execute_locate_repo_context_updates_pending_task(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    task = PendingTaskRecord(
+        task_id="pt-repo-1",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="ready_to_execute",
+        current_stage="repo_locating",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_1"},
+        next_recommended_action={"type": "locate_repo_context", "app_id": "app_repo_1"},
+        task_list=[{"id": "t1", "module": "app/system/gateway/light_brain_gateway.py"}],
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:locate_repo_context:app_repo_1",
+            action_params={"intent": "locate_repo_context", "app_id": "app_repo_1"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    assert response.data["repo_context"]["active_repo_path"] == "/root/project/AgentSystem"
+    assert response.data["repo_context"]["primary_readme_path"].endswith("/root/project/AgentSystem/README.md")
+    updated = pending_store.get_latest_open_task("u1")
+    assert updated is not None
+    assert updated.current_stage == "implementation_pending"
+    assert updated.next_recommended_action["type"] == "implement_app_change"
+
+
 def test_latest_pending_task_selected_when_multiple_tasks_exist(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)

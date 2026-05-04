@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from app.models.chat import (
@@ -2185,6 +2186,77 @@ class LightBrainGateway:
         self._auto_save()
         return response
 
+    async def _execute_locate_repo_context(self, user_id: str, session_id: str, action_params: dict[str, Any]) -> ChatMessageResponse:
+        if self._pending_task_store is None:
+            return ChatMessageResponse(type="error", content="pending task store 未注入，当前不能执行 locate_repo_context。", session_id=session_id)
+        pending_task = self._pending_task_store.get_latest_open_task(user_id)
+        if pending_task is None:
+            return ChatMessageResponse(type="error", content="没有找到可执行 locate_repo_context 的未完成任务。", session_id=session_id)
+
+        repo_root = Path("/root/project/AgentSystem")
+        primary_readme = repo_root / "README.md"
+        key_docs = [
+            "docs/requirements.md",
+            "docs/design.md",
+            "docs/testing.md",
+            "docs/testing-detail.md",
+            "docs/development-log.md",
+        ]
+        target_modules = sorted({
+            item.get("module", "")
+            for item in pending_task.task_list
+            if isinstance(item, dict) and item.get("module")
+        })
+        updated_repo_context = {
+            "active_repo_path": str(repo_root),
+            "primary_readme_path": str(primary_readme if primary_readme.exists() else repo_root / "README.md"),
+            "key_docs": key_docs,
+            "target_modules": target_modules,
+        }
+        updated_acceptance = dict(pending_task.acceptance_plan or {})
+        updated_acceptance.setdefault("test_probe_commands", [])
+        updated_acceptance.setdefault("http_runtime_verification_points", [])
+        updated_acceptance.setdefault("success_criteria", [])
+        updated_acceptance.setdefault("results", [])
+        if not updated_acceptance["success_criteria"]:
+            updated_acceptance["success_criteria"] = [
+                "repository context can be resolved to a concrete repo path",
+                "primary README path is captured",
+                "key project docs are available for implementation and testing guidance",
+            ]
+        updated = pending_task.model_copy(update={
+            "repo_context": updated_repo_context,
+            "acceptance_plan": updated_acceptance,
+            "status": "ready_to_execute",
+            "current_stage": "implementation_pending",
+            "stage_status": "completed",
+            "next_recommended_action": {"type": PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE, "app_id": pending_task.target_ref.get("app_id")},
+        })
+        self._pending_task_store.upsert_task(updated)
+        self._memory.create_session(user_id=user_id, channel="action", session_id=session_id)
+        response = ChatMessageResponse(
+            type="progress",
+            content=(
+                f"我已经定位到当前仓库上下文。\n"
+                f"仓库路径：{updated_repo_context['active_repo_path']}\n"
+                f"README：{updated_repo_context['primary_readme_path']}\n"
+                f"关键文档数：{len(updated_repo_context['key_docs'])}\n"
+                f"下一步建议：{PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE}"
+            ),
+            session_id=session_id,
+            data={
+                "pending_task": updated.model_dump(mode="json"),
+                "repo_context": updated_repo_context,
+                "acceptance_plan": updated_acceptance,
+                "context_view": self._get_recent_context_view(session_id),
+            },
+            actions=[self._build_future_workflow_action(next_step=PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE, target_id=updated.target_ref.get("app_id") or "unknown")],
+            related_app=updated.target_ref.get("app_id"),
+        )
+        self._after_reply(session_id=session_id, reply=response)
+        self._auto_save()
+        return response
+
     async def execute_action(
         self,
         user_id: str,
@@ -2196,6 +2268,8 @@ class LightBrainGateway:
         action_params = action_params or {}
         action_session_id = action_params.get("session_id") or session_id
         intent = action_params.get("intent", "unclear")
+        if intent == PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT:
+            return await self._execute_locate_repo_context(user_id, action_session_id, action_params)
         if intent == PENDING_TASK_ACTION_APPLY_DRAFT_APP:
             return await self._execute_apply_draft_app(action_session_id, action_params)
         target = action_params.get("target", "")
