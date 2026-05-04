@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from app.system.invocation.tool_context_contract import ModelInvocationRecord, ToolContextQueryRequest, ToolContextQueryResponse
 
 from app.models.context import SessionContextRecord, SessionContextWindow, SessionLink, SessionNode
+from app.services.context_query_service import ContextQueryService
+from app.services.context_recovery_manager import ContextRecoveryManager
+from app.services.context_summary_worker import ContextSummaryWorker
+from app.services.context_writer import ContextWriter
 
 
 class ContextCenter:
@@ -16,12 +21,18 @@ class ContextCenter:
     but establishes the target interface for the migration.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, base_dir: str | Path = "/root/project/AgentSystem/data/context_center") -> None:
         self._nodes: dict[str, SessionNode] = {}
         self._records: dict[str, list[SessionContextRecord]] = {}
         self._links: list[SessionLink] = []
         self._asset_local_sessions: dict[tuple[str, str], str] = {}
         self._model_invocations: list[ModelInvocationRecord] = []
+        self._base_dir = Path(base_dir)
+        self._writer = ContextWriter.from_base_dir(self._base_dir)
+        self._query_service = ContextQueryService.from_base_dir(self._base_dir)
+        self._recovery_manager = ContextRecoveryManager.from_base_dir(self._base_dir)
+        self._summary_worker = ContextSummaryWorker.from_base_dir(self._base_dir)
+        self._recovery_manager.mark_ready()
 
     # Chapter 5 target-shaped APIs -------------------------------------------------
 

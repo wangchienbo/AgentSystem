@@ -1,3 +1,33 @@
+## 2026-05-04: Wave 2 Context Center service layout foundation landed
+
+### Summary
+Started Wave 2 by turning Context Center storage/recovery concerns into explicit first-class service modules and wiring them into `ContextCenter` construction.
+
+### What Was Done
+- Added new service modules:
+  - `app/services/context_storage_paths.py`
+  - `app/services/context_writer.py`
+  - `app/services/context_query_service.py`
+  - `app/services/context_recovery_manager.py`
+  - `app/services/context_summary_worker.py`
+- Updated `app/services/context_center.py`
+  - `ContextCenter` now constructs the formal service area during initialization
+  - wires writer, query, recovery, and summary-worker services from one shared base directory
+  - establishes a ready/recovering substrate for later Wave 2 recovery work
+- Added focused tests:
+  - `tests/unit/services/test_context_center_service_layout.py`
+  - verifies service construction, shared storage layout, directory bootstrap, and ready/recovering state transitions
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 2 section 5.1 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_center.py tests/unit/services/test_context_center_service_layout.py tests/unit/test_tool_context_contract_and_context_center.py -q`
+- Result: `9 passed`
+
+### Notes
+This is intentionally the wiring slice only. It does not yet implement the minimal detail event schema, day-file storage, durable buffer, or reorder window, but it creates the real module boundaries those next Wave 2 slices will fill.
+
+
 ## 2026-05-04: Wave 1 orchestrator stage-transition engine helpers landed
 
 ### Summary

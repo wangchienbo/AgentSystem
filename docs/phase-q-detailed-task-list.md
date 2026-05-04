@@ -168,6 +168,8 @@ Status: [x] completed
 
 ### 5.1 Introduce Context Center storage module layout
 
+Status: [x] completed
+
 #### Tasks
 - add a formal Context Center service area, for example under:
   - `app/services/context_center.py`
