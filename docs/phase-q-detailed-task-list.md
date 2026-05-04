@@ -612,6 +612,8 @@ Status: [x] completed
 
 ### 10.2 Add focused Context Center unit tests
 
+Status: [x] completed
+
 #### Tasks
 - add unit tests for:
   - storage path helpers

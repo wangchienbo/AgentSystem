@@ -1,3 +1,28 @@
+## 2026-05-05: Wave 7 focused Context Center unit coverage landed
+
+### Summary
+Continued Wave 7 by adding a focused Context Center unit suite that exercises storage-path helpers, recent stable+pending merge behavior, startup recovery, session-local pending-buffer replacement, and summary replacement semantics.
+
+### What Was Done
+- Added `tests/unit/services/test_context_center_focused.py`
+  - covers storage path helper output
+  - covers merged recent working memory + detail-reference lookup
+  - covers startup recovery behavior
+  - covers session-local pending-buffer replacement behavior
+  - covers summary replacement keeping only the latest formal summary
+  - covers zero-pending recovery path
+- Updated existing Context Center service tests to use future-safe timestamps where waiting-buffer semantics depend on current time
+  - `tests/unit/services/test_context_reorder_window.py`
+  - `tests/unit/services/test_durable_context_buffer.py`
+
+### Validation
+- `pytest tests/unit/services/test_context_center_focused.py tests/unit/services/test_context_detail_events.py tests/unit/services/test_context_summary_worker.py tests/unit/services/test_context_reorder_window.py tests/unit/services/test_durable_context_buffer.py tests/unit/services/test_context_center_service_layout.py -q`
+- Result: `28 passed`
+
+### Notes
+This gives Wave 7 a tighter dedicated unit envelope around Context Center internals and removes time-fragile expectations from two existing tests. Next should be gateway/workflow integration coverage.
+
+
 ## 2026-05-05: Wave 7 HTTP response contracts extended compatibly
 
 ### Summary

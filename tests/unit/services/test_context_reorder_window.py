@@ -36,10 +36,10 @@ def test_session_local_reorder_window_keeps_recent_events_waiting() -> None:
 
 def test_context_center_flushes_stable_pending_events_and_keeps_waiting(tmp_path) -> None:
     center = ContextCenter(base_dir=tmp_path)
-    center.append_pending_buffer_event("sess-1", {"timestamp": "2026-05-04T17:02:00Z", "role": "user", "message": "stable"})
-    center.append_pending_buffer_event("sess-1", {"timestamp": "2026-05-04T17:08:30Z", "role": "system", "message": "waiting"})
+    center.append_pending_buffer_event("sess-1", {"timestamp": "2099-05-04T17:02:00Z", "role": "user", "message": "stable"})
+    center.append_pending_buffer_event("sess-1", {"timestamp": "2099-05-04T17:08:30Z", "role": "system", "message": "waiting"})
 
-    result = center.flush_stable_pending_events("sess-1", now=datetime(2026, 5, 4, 17, 10, tzinfo=UTC))
+    result = center.flush_stable_pending_events("sess-1", now=datetime(2099, 5, 4, 17, 10, tzinfo=UTC))
     detail_events = center.read_detail_events("sess-1")
     pending_events = center.read_pending_buffer_events("sess-1")
     summaries = center.read_summary_events("sess-1")
