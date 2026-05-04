@@ -1,3 +1,27 @@
+## 2026-05-05: Wave 6 continuation recovery now uses Context Center
+
+### Summary
+Completed Wave 6 by broadening continuation recovery so a "继续" request can fall back to recent Context Center working memory when pending-task state is missing, while preserving the current pending-task-first behavior.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `_build_continuation_decision(...)` now accepts `session_id`
+  - pending-task-first continuation behavior remains unchanged
+  - when pending task is absent, gateway can inspect recent Context Center working memory and produce a bounded `resume_from_context_center` continuation path
+- Updated `_build_continue_task_response(...)`
+  - returns a compatible progress response for Context Center-based continuation recovery
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - verifies backward-compatible pending-task continuation still works
+  - verifies continuation can recover from recent Context Center memory when pending-task facts are partial or absent
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_light_brain.py -q`
+- Result: `79 passed`
+
+### Notes
+Wave 6 is now closed at the current rollout depth: workflow hooks, app-side writes, governance observations, and continuation recovery all converge on Context Center. The next task-list wave is HTTP/service-up/end-to-end closure.
+
+
 ## 2026-05-05: Wave 6 governance-observation writes landed
 
 ### Summary

@@ -47,7 +47,7 @@ class _ContextCenter:
         return None
 
     def get_recent_working_memory_view(self, session_id, limit=300):
-        return {"session_id": session_id, "stable": [{"id": f"detail:{session_id}:1", "message": "recent stable"}], "pending": [{"message": "recent pending"}]}
+        return {"session_id": session_id, "stable": [{"id": f"detail:{session_id}:1", "message": "draft create app pending"}], "pending": [{"message": "recent pending"}]}
 
     def get_recent_working_memory_summaries(self, session_id, limit=5):
         return [{"id": f"summary:{session_id}:1", "message": "recent summary"}]
@@ -96,6 +96,26 @@ def test_gateway_appends_pending_task_note_to_context():
     note_contents = [record.content for record in context_center.records if record.role == "system"]
     assert any("pending_task task_id=pt-1" in content for content in note_contents)
     assert any("continuation_decision mode=continue_task" in content for content in note_contents)
+
+
+def test_gateway_can_recover_continue_from_context_center_without_pending_task():
+    memory = LightBrainMemory()
+    context_center = _ContextCenter()
+    gateway = LightBrainGateway(
+        memory=memory,
+        interpreter=_Interpreter(),
+        context_center=context_center,
+        pending_task_store=_PendingTaskStore(None),
+    )
+
+    response = asyncio.run(
+        gateway.receive_message(
+            ChatMessageRequest(user_id="u1", channel="test", message="继续", session_id="sess-ctx-1")
+        )
+    )
+
+    assert response.type == "progress"
+    assert "Context Center" in response.content
 
 
 def test_gateway_builds_draft_create_decision_without_pending_task():

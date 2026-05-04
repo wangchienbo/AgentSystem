@@ -580,6 +580,8 @@ Status: [x] completed
 
 ### 9.4 Use Context Center in continuation recovery
 
+Status: [x] completed
+
 #### Tasks
 - update continuation logic so “continue” recovery can combine:
   - pending task state
