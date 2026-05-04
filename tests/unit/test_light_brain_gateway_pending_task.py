@@ -12,6 +12,7 @@ from app.services.draft_app_service import DraftAppService
 from app.services.light_brain_memory import LightBrainMemory
 from app.system.gateway.light_brain_gateway import LightBrainGateway
 from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService
 
 
 class _Interpreter:
@@ -327,12 +328,13 @@ def test_execute_action_apply_draft_app_routes_to_application_layer(tmp_path: Pa
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     lifecycle = AppLifecycleService(runtime_store)
+    runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
     from app.services.pending_task_orchestrator import PendingTaskOrchestrator
 
     pending_store = PendingTaskStore(runtime_store)
     app_application_service = AppApplicationService(
-        draft_app_application_service=DraftAppApplicationService(draft_service, lifecycle)
+        draft_app_application_service=DraftAppApplicationService(draft_service, lifecycle, runtime_host)
     )
     gateway = LightBrainGateway(
         memory=LightBrainMemory(),
@@ -361,5 +363,6 @@ def test_execute_action_apply_draft_app_routes_to_application_layer(tmp_path: Pa
 
     assert action_response.type == "progress"
     assert action_response.related_app == app_id
-    assert lifecycle.get_instance(app_id).status == "compiled"
-    assert "已把 draft app 接入正式生命周期" in action_response.content
+    assert lifecycle.get_instance(app_id).status == "running"
+    assert action_response.data["lifecycle_transition"] == "draft_to_running_activation"
+    assert "推进到可运行状态" in action_response.content

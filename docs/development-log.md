@@ -1,3 +1,27 @@
+## 2026-05-04: apply_draft_app now advances to installed-and-running closure
+
+### Summary
+Extended the draft lifecycle handoff beyond lifecycle registration so `apply_draft_app` now pushes the compiled draft through install and runtime start, reaching a directly usable running state when runtime host support is available.
+
+### What Was Done
+- Updated `app/services/draft_app_application_service.py`
+  - injected optional `AppRuntimeHostService`
+  - changed `apply_draft_app` flow from compiled registration into install/start convergence
+  - returns `draft_to_running_activation` lifecycle transition metadata
+  - adds a follow-up `query_app` action for runtime inspection
+  - ensures runtime-host registration path is used when lifecycle instance does not yet exist
+- Updated tests:
+  - application-layer test now verifies `apply_draft_app` reaches `running`
+  - gateway action test now verifies end-to-end continuation reply → `apply_draft_app` → running app closure
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `15 passed`
+
+### Notes
+This is still a bounded activation bridge and not the final generalized install/start orchestration path, but the draft continuation chain can now end in a real running app state instead of stopping at compiled lifecycle registration.
+
+
 ## 2026-05-04: apply_draft_app handoff now reaches application layer
 
 ### Summary

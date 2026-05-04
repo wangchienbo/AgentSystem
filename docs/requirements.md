@@ -258,6 +258,7 @@ The requirement-intake layer should also support a minimal clarification/extract
 - let requirement-derived blueprint drafts carry lightweight app-shape and runtime-profile hints so later stages do not have to recover those semantics from raw text again
 - allow requirement-derived blueprint drafts for transform-style apps to materialize prompt-driven workflow steps (for example `prompt.invoke`) directly in the draft when that is the intended execution posture
 - draft-app pending-task closure should converge into executable application-layer handoff, not stop at reply-only lifecycle recommendations
+- when runtime host support is available, `apply_draft_app` should be able to carry a compiled draft through install/start into a directly usable running state
 
 The observation layer should also support a first-pass evidence-promotion loop that can:
 - ingest raw operational references

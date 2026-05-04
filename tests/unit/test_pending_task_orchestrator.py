@@ -9,6 +9,7 @@ from app.services.draft_app_application_service import DraftAppApplicationServic
 from app.services.draft_app_service import DraftAppService
 from app.services.pending_task_orchestrator import PendingTaskOrchestrator
 from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService
 from app.system.runtime.pending_task_store import PendingTaskStore
 
 
@@ -95,10 +96,11 @@ def test_app_application_service_applies_draft_into_lifecycle(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     lifecycle = AppLifecycleService(runtime_store)
+    runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
     draft_app = draft_service.create_draft_app(owner_user_id="u1", name="测试 app", goal="创建一个 app")
     draft_service.mark_ready_for_lifecycle(draft_app.id)
     application = AppApplicationService(
-        draft_app_application_service=DraftAppApplicationService(draft_service, lifecycle)
+        draft_app_application_service=DraftAppApplicationService(draft_service, lifecycle, runtime_host)
     )
 
     from app.models.chat import InterpretedCommand
@@ -120,4 +122,6 @@ def test_app_application_service_applies_draft_into_lifecycle(tmp_path: Path):
     assert response is not None
     assert response.type == "progress"
     assert response.related_app == draft_app.id
-    assert lifecycle.get_instance(draft_app.id).status == "compiled"
+    assert lifecycle.get_instance(draft_app.id).status == "running"
+    assert response.data["lifecycle_transition"] == "draft_to_running_activation"
+    assert response.actions[0].payload["intent"] == "query_app"
