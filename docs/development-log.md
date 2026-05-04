@@ -1,3 +1,29 @@
+## 2026-05-05: Wave 5 high-value fact message templates landed
+
+### Summary
+Completed Wave 5 by standardizing reusable high-value fact message templates for repo, target-file, upgrade-path, and acceptance-result events, and wiring acceptance-result context writes to use the shared template helper.
+
+### What Was Done
+- Added `app/services/high_value_fact_messages.py`
+  - `repo_located_message(...)`
+  - `target_file_identified_message(...)`
+  - `upgrade_path_determined_message(...)`
+  - `acceptance_result_message(...)`
+- Updated `app/services/pending_task_orchestrator.py`
+  - acceptance-result Context Center writes now use the shared `acceptance_result_message(...)` helper
+- Added focused tests:
+  - `tests/unit/services/test_high_value_fact_messages.py`
+  - verifies the template helpers emit stable strings
+- Validation also rechecked pending-task orchestration and context-event behavior
+
+### Validation
+- `pytest tests/unit/services/test_high_value_fact_messages.py tests/unit/test_pending_task_orchestrator.py tests/unit/services/test_context_detail_events.py -q`
+- Result: `15 passed`
+
+### Notes
+Wave 5 is now closed at the current planned depth: repo context, upgrade plan, acceptance plan/result, and stable reusable fact-message templates are all in place. The next task-list wave should continue into later workflow/runtime integration work.
+
+
 ## 2026-05-05: Wave 5 acceptance-plan and acceptance-result capture landed
 
 ### Summary

@@ -513,6 +513,8 @@ Status: [x] completed
 
 ### 8.4 Standardize high-value fact message templates
 
+Status: [x] completed
+
 #### Tasks
 - define consistent message templates for high-value reusable facts such as:
   - repo located

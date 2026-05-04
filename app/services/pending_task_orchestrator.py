@@ -12,6 +12,7 @@ from app.models.pending_task import (
     WORKFLOW_STAGE_IMPLEMENTATION_RUNNING,
 )
 from app.services.pending_task_store import PendingTaskStore
+from app.services.high_value_fact_messages import acceptance_result_message
 
 
 class PendingTaskOrchestrator:
@@ -204,7 +205,7 @@ class PendingTaskOrchestrator:
                     session_id=pending_task.session_id,
                     kind="system_note",
                     role="system",
-                    content=f"acceptance_result status={status} summary={summary}",
+                    content=acceptance_result_message(status=status, summary=summary),
                     metadata={"acceptance": True, **dict(evidence or {})},
                 )
             )
