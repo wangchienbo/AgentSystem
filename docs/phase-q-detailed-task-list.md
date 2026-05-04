@@ -662,14 +662,18 @@ Status: [x] completed
 
 ### 10.5 Update service-up E2E path
 
+Status: [x] completed
+
 #### Tasks
-- evolve `tests/scripts/e2e_self_iteration_service_up.py` as the broader workflow/context path becomes real
-- continue validating:
-  - draft create
+- evolved `tests/scripts/e2e_self_iteration_service_up.py` as the broader workflow/context path became real
+- validated:
+  - deterministic draft create chat probe
   - multi-step continue
-  - apply_draft_app
-  - running state
-- then extend toward newer workflow/context behaviors only after the underlying stages are real
+  - bounded `context_view` exposure
+  - restart-bounded session recovery
+  - `apply_draft_app`
+  - governance self-iteration cycle
+  - latest regression fetch
 
 #### Acceptance
 - focused probe remains green throughout

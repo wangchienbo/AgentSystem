@@ -1865,6 +1865,18 @@ class LightBrainGateway:
                 missing_fields=list(pending_task.missing_fields),
                 confidence=0.9,
             )
+        create_like = any(token in stripped for token in ["创建", "新建", "做一个", "搞一个"]) and any(
+            token.lower() in stripped.lower() for token in ["app", "应用", "程序", "模块"]
+        )
+        if pending_task is not None and create_like and pending_task.intent == "create_app" and pending_task.status in {"drafted", "pending_input", "ready_to_execute"}:
+            return TaskContinuationDecision(
+                conversation_mode="continue_task",
+                pending_task_id=pending_task.task_id,
+                target_ref=pending_task.target_ref,
+                next_action=pending_task.next_recommended_action or {"type": "resume_pending_task"},
+                missing_fields=list(pending_task.missing_fields),
+                confidence=0.8,
+            )
         if pending_task is None and stripped in {"继续", "开始执行", "按刚才那个继续", "结合之前记录继续"} and self._context_center is not None and session_id:
             recent = self._context_center.get_recent_working_memory_view(session_id, limit=20)
             combined_text = " ".join(
@@ -1880,9 +1892,7 @@ class LightBrainGateway:
                     missing_fields=[],
                     confidence=0.55,
                 )
-        if pending_task is None and any(token in stripped for token in ["创建", "新建", "做一个", "搞一个"]) and any(
-            token.lower() in stripped.lower() for token in ["app", "应用", "程序", "模块"]
-        ):
+        if pending_task is None and create_like:
             inferred_name = "draft_app"
             for token in ["写代码", "天气", "提醒", "日志", "监控"]:
                 if token in stripped:
@@ -1993,6 +2003,13 @@ class LightBrainGateway:
             related_app=target_id,
         )
 
+    def _get_recent_context_view(self, session_id: str | None) -> dict[str, object]:
+        if self._context_center is not None and session_id:
+            view = self._context_center.get_recent_working_memory_view(session_id, limit=20)
+            if isinstance(view, dict):
+                return view
+        return {"stable": [], "pending": []}
+
     def _build_continue_task_response(
         self,
         session_id: str,
@@ -2001,7 +2018,7 @@ class LightBrainGateway:
     ) -> ChatMessageResponse:
         if pending_task is None:
             if (decision.next_action or {}).get("type") == "resume_from_context_center":
-                context_view = self._context_center.get_recent_working_memory_view(session_id, limit=20) if self._context_center is not None else None
+                context_view = self._get_recent_context_view(session_id)
                 return ChatMessageResponse(
                     type="progress",
                     content="我没有找到完整的 pending task，但结合 Context Center 里的最近工作记忆，当前可以从上一次未完成的上下文继续恢复推进。",
@@ -2038,6 +2055,7 @@ class LightBrainGateway:
                         "recommended_intent": PENDING_TASK_ACTION_APPLY_DRAFT_APP,
                         "next_action": pending_task.next_recommended_action or {"type": PENDING_TASK_ACTION_APPLY_DRAFT_APP, "app_id": target_id},
                     },
+                    "context_view": self._get_recent_context_view(session_id),
                 },
                 actions=[
                     ActionSuggestion(
@@ -2067,7 +2085,7 @@ class LightBrainGateway:
             data={
                 "pending_task": pending_task.model_dump(mode="json"),
                 "continuation_decision": decision.model_dump(mode="json"),
-                "context_view": self._context_center.get_recent_working_memory_view(session_id, limit=20) if self._context_center is not None else None,
+                "context_view": self._get_recent_context_view(session_id),
             },
             actions=[future_action] if future_action is not None else [],
             requires_input=bool(pending_task.missing_fields),

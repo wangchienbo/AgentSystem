@@ -1,3 +1,27 @@
+## 2026-05-05: Wave 7 service-up E2E path closed with deterministic recovery probes
+
+### Summary
+Finished the remaining 10.5 service-up closure work by making the broader workflow/context E2E probe deterministic enough to run green again, even while still exercising the real HTTP surface.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - duplicate create-app requests now reuse the existing open create-app pending task as a continuation instead of falling through to the model path
+  - continuation responses now always expose a bounded `context_view` payload shape, even when Context Center is unavailable
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added coverage for duplicate create-app requests short-circuiting into structured continuation
+- Updated `tests/scripts/e2e_self_iteration_service_up.py`
+  - chat probe now uses deterministic create-app traffic instead of open-ended model-dependent prompts
+  - continuation probe validates `context_view`, activation handoff action, restart-bounded session recovery through persisted session history, `/api/action` activation, governance trigger, and latest regression fetch
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- `python3 tests/scripts/e2e_self_iteration_service_up.py`
+  - passed end to end
+
+### Notes
+This closes 10.5 and removes the earlier temporary blocker caused by model-key instability on the old open-ended recovery probe.
+
+
 ## 2026-05-05: Phase Q documentation references refreshed
 
 ### Summary

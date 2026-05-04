@@ -189,6 +189,29 @@ def test_gateway_continue_task_returns_progress_response(tmp_path: Path):
     assert response.data["pending_task"]["stage_status"] == "completed"
 
 
+def test_duplicate_create_request_with_existing_open_task_shortcuts_to_continue():
+    task = PendingTaskRecord(
+        task_id="pt-existing-1",
+        user_id="u1",
+        intent="create_app",
+        status="drafted",
+        target_ref={"app_id": "app_draft_existing"},
+        next_recommended_action={"type": "continue_draft_app_setup", "app_id": "app_draft_existing"},
+    )
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=_PendingTaskStore(task),
+    )
+
+    decision = gateway._build_continuation_decision("创建一个笔记 app", task, "sess-1")
+
+    assert decision is not None
+    assert decision.conversation_mode == "continue_task"
+    assert decision.pending_task_id == "pt-existing-1"
+    assert decision.target_ref["app_id"] == "app_draft_existing"
+
+
 def test_duplicate_create_request_reuses_existing_open_task(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)

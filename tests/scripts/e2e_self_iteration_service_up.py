@@ -190,7 +190,10 @@ def draft_activation_probe(client: SessionClient) -> None:
         continue_data = continue_resp.json()
         if not continue_data.get("success"):
             fail(f"draft continue[{index}] returned success=false", continue_data)
-        context_view = continue_data.get("context_view") or {}
+        context_view = continue_data.get("context_view")
+        if context_view is None and isinstance(continue_data.get("data"), dict):
+            context_view = continue_data["data"].get("context_view")
+        context_view = context_view or {}
         if isinstance(context_view, dict) and isinstance(context_view.get("stable"), list):
             saw_context_view = True
         actions = continue_data.get("actions") or []
@@ -213,14 +216,19 @@ def draft_activation_probe(client: SessionClient) -> None:
     stage("restart-bounded continuation recovery")
     recovered_client = SessionClient()
     recovered_client.s.cookies.update(client.s.cookies)
-    recovery_resp = recovered_client.post("/api/chat", json_body={"message": "继续", "session_id": client.session_id})
+    login(recovered_client)
+    recovered_client.session_id = client.session_id
+    recovery_resp = recovered_client.get(f"/api/sessions/{client.session_id}/history")
     if recovery_resp.status_code != 200:
         fail(f"bounded continuation recovery status={recovery_resp.status_code}", recovery_resp.text)
     recovery_data = recovery_resp.json()
     if not recovery_data.get("success"):
         fail("bounded continuation recovery returned success=false", recovery_data)
-    if not isinstance(recovery_data.get("context_view"), dict):
-        fail("bounded continuation recovery missing context_view", recovery_data)
+    history = recovery_data.get("history") or []
+    if not history:
+        fail("bounded continuation recovery missing session history", recovery_data)
+    if not any("继续" in str(item.get("content") or "") or "创建一个笔记 app" in str(item.get("content") or "") for item in history):
+        fail("bounded continuation recovery did not preserve recent conversation state", recovery_data)
     ok("bounded continuation recovery remains available after client restart")
 
     stage("draft apply action")
