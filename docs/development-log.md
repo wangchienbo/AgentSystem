@@ -1,3 +1,30 @@
+## 2026-05-04: Wave 4 gateway recent-working-memory assembly landed
+
+### Summary
+Continued Wave 4 by wiring Context Center recent working-memory views directly into gateway command assembly, while keeping the existing loose session-history surfaces for backward compatibility.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - gateway enrichment now loads `recent_working_memory` from Context Center
+  - structure includes:
+    - `summaries`
+    - `stable`
+    - `pending`
+  - existing `recent_session_context`, linked-session context, and child-session context remain intact for compatibility
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - extended the test Context Center stub with recent working-memory summary/stable/pending support
+- Updated `tests/unit/test_light_brain.py`
+  - verifies enriched commands now carry `recent_working_memory`
+  - verifies stable working-memory content is present alongside legacy context surfaces
+
+### Validation
+- `pytest tests/unit/test_light_brain.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_interaction_runtime_integration.py -q`
+- Result: `81 passed`
+
+### Notes
+This lands gateway-side consumption of the Context Center recent-view shape while preserving the current reply contract. The next Wave 4 step should add the controlled context-detail injection path when the model explicitly asks for internal detail references.
+
+
 ## 2026-05-04: Wave 4 DecisionProtocol retrieval request expansion landed
 
 ### Summary

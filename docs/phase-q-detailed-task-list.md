@@ -407,6 +407,8 @@ Status: [x] completed
 
 ### 7.2 Integrate recent working memory into gateway assembly
 
+Status: [x] completed
+
 #### Tasks
 - update gateway / interaction assembly so the model gets summary-first working memory instead of only loose session history
 - include stable + pending working memory view

@@ -391,7 +391,14 @@ class LightBrainGateway:
                 command.context["similar_past_interactions"] = similar
 
         if self._context_center is not None:
+            recent_working_memory = self._context_center.get_recent_working_memory_view(session_id, limit=300)
+            recent_summaries = self._context_center.get_recent_working_memory_summaries(session_id, limit=5)
             recent_window = self._context_center.get_recent_context(session_id, limit=100)
+            command.context["recent_working_memory"] = {
+                "summaries": recent_summaries,
+                "stable": recent_working_memory.get("stable") or [],
+                "pending": recent_working_memory.get("pending") or [],
+            }
             command.context["recent_session_context"] = [
                 record.model_dump(mode="json") for record in recent_window.records
             ]

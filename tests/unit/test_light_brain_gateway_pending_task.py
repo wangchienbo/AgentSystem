@@ -46,6 +46,12 @@ class _ContextCenter:
     def register_session_node(self, node):
         return None
 
+    def get_recent_working_memory_view(self, session_id, limit=300):
+        return {"session_id": session_id, "stable": [{"id": f"detail:{session_id}:1", "message": "recent stable"}], "pending": [{"message": "recent pending"}]}
+
+    def get_recent_working_memory_summaries(self, session_id, limit=5):
+        return [{"id": f"summary:{session_id}:1", "message": "recent summary"}]
+
     def get_recent_context(self, session_id, limit=100):
         return _RecentWindow()
 

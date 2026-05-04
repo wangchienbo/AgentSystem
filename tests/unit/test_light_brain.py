@@ -406,6 +406,8 @@ class TestLightBrainGateway:
         command = InterpretedCommand(intent="query_status", confidence=1.0, parameters={}, user_id="u1", raw_input="状态")
         command.context["context_hints"] = ["children:sess-child:child note"]
         enriched = self.gateway._enrich_command(command, reply.session_id, [])
+        assert "recent_working_memory" in enriched.context
+        assert enriched.context["recent_working_memory"]["stable"]
         assert "recent_session_context" in enriched.context
         assert child_id in enriched.context["linked_session_context"]
         assert child_id in enriched.context["child_session_contexts"]
