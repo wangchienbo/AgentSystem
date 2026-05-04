@@ -647,6 +647,8 @@ Status: [x] completed
 
 ### 10.4 Add HTTP acceptance coverage for recent working memory and continuation recovery
 
+Status: [x] completed
+
 #### Tasks
 - extend HTTP/server tests to cover:
   - recent view assembly

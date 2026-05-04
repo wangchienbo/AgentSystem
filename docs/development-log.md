@@ -1,3 +1,26 @@
+## 2026-05-05: Wave 7 HTTP acceptance coverage extended for recent working memory
+
+### Summary
+Continued Wave 7 by extending HTTP-level acceptance coverage around recent working memory exposure and continuation recovery, including the response payload path that surfaces stable and pending context after recovery.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - continuation recovery responses now include `context_view` when resuming from Context Center
+  - normal continue-task progress responses also carry the recent working-memory view when Context Center is available
+- Updated `tests/unit/test_http_test_server.py`
+  - verifies `/api/chat` can expose stable + pending recent working memory through `context_view`
+  - keeps compatible workflow-contract assertions intact
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - verifies Context Center fallback continuation returns recent stable memory inside response data
+
+### Validation
+- `pytest tests/unit/test_http_test_server.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `44 passed`
+
+### Notes
+This adds bounded HTTP acceptance coverage for the newer recovery payloads without changing the existing action-path contract. The remaining Wave 7 closure task is the service-up E2E path refresh.
+
+
 ## 2026-05-05: Wave 7 gateway and workflow integration coverage landed
 
 ### Summary

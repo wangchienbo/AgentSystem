@@ -116,6 +116,8 @@ def test_gateway_can_recover_continue_from_context_center_without_pending_task()
 
     assert response.type == "progress"
     assert "Context Center" in response.content
+    assert response.data is not None
+    assert response.data["context_view"]["stable"][0]["message"] == "draft create app pending"
 
 
 def test_gateway_builds_draft_create_decision_without_pending_task():

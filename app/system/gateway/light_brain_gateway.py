@@ -2001,11 +2001,12 @@ class LightBrainGateway:
     ) -> ChatMessageResponse:
         if pending_task is None:
             if (decision.next_action or {}).get("type") == "resume_from_context_center":
+                context_view = self._context_center.get_recent_working_memory_view(session_id, limit=20) if self._context_center is not None else None
                 return ChatMessageResponse(
                     type="progress",
                     content="我没有找到完整的 pending task，但结合 Context Center 里的最近工作记忆，当前可以从上一次未完成的上下文继续恢复推进。",
                     session_id=session_id,
-                    data={"continuation_decision": decision.model_dump(mode="json")},
+                    data={"continuation_decision": decision.model_dump(mode="json"), "context_view": context_view},
                 )
             return ChatMessageResponse(
                 type="text",
@@ -2066,6 +2067,7 @@ class LightBrainGateway:
             data={
                 "pending_task": pending_task.model_dump(mode="json"),
                 "continuation_decision": decision.model_dump(mode="json"),
+                "context_view": self._context_center.get_recent_working_memory_view(session_id, limit=20) if self._context_center is not None else None,
             },
             actions=[future_action] if future_action is not None else [],
             requires_input=bool(pending_task.missing_fields),
