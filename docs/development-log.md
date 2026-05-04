@@ -1,3 +1,33 @@
+## 2026-05-04: Wave 4 DecisionProtocol retrieval request expansion landed
+
+### Summary
+Started Wave 4 by extending the decision protocol and interaction decision envelope to carry explicit context/asset retrieval requests without breaking existing text/detail/invoke flows.
+
+### What Was Done
+- Updated `app/system/asset_center/models.py`
+  - expanded `InteractionDecisionEnvelope` with retrieval request fields:
+    - `needed_context_detail_ids`
+    - `needed_more_context_summary_query`
+    - `needed_asset_detail_ids`
+    - `needed_more_asset_summary_query`
+  - added `request_context_retrieval` as a validated decision kind
+  - preserved existing text / single detail / invoke compatibility
+- Updated `app/system/interaction_runtime/decision_protocol.py`
+  - added normalization path for `request_context_retrieval`
+  - maps retrieval request decisions to `load_context_retrieval`
+- Updated `tests/unit/test_interaction_decision_protocol.py`
+  - verifies parsing/validation of the new retrieval request fields
+  - verifies retrieval requests normalize without breaking existing branches
+- Validation also covered existing protocol/runtime surfaces to ensure compatibility stayed intact
+
+### Validation
+- `pytest tests/unit/test_interaction_decision_protocol.py tests/unit/test_asset_centered_runtime_foundation.py tests/unit/test_interaction_runtime_integration.py -q`
+- Result: `21 passed`
+
+### Notes
+This lands the protocol surface only. The next Wave 4 step should wire the gateway and interaction assembly to actually consume Context Center recent working-memory views.
+
+
 ## 2026-05-04: Wave 3 summary/detail retrieval integration points landed
 
 ### Summary

@@ -42,11 +42,15 @@ class InteractionDecisionEnvelope:
     decision: str
     text: str | None = None
     need_asset_detail_id: str | None = None
+    needed_context_detail_ids: tuple[str, ...] = ()
+    needed_more_context_summary_query: str | None = None
+    needed_asset_detail_ids: tuple[str, ...] = ()
+    needed_more_asset_summary_query: str | None = None
     invoke: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
-        allowed = {"text", "need_asset_detail_id", "invoke"}
+        allowed = {"text", "need_asset_detail_id", "invoke", "request_context_retrieval"}
         if self.decision not in allowed:
             raise ValueError(f"decision must be one of {sorted(allowed)}")
         if self.decision == "text" and not self.text:
@@ -55,12 +59,23 @@ class InteractionDecisionEnvelope:
             raise ValueError("need_asset_detail_id decision requires need_asset_detail_id")
         if self.decision == "invoke" and not self.invoke:
             raise ValueError("invoke decision requires invoke payload")
+        if self.decision == "request_context_retrieval" and not (
+            self.needed_context_detail_ids
+            or self.needed_more_context_summary_query
+            or self.needed_asset_detail_ids
+            or self.needed_more_asset_summary_query
+        ):
+            raise ValueError("request_context_retrieval decision requires at least one retrieval field")
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "decision": self.decision,
             "text": self.text,
             "need_asset_detail_id": self.need_asset_detail_id,
+            "needed_context_detail_ids": list(self.needed_context_detail_ids),
+            "needed_more_context_summary_query": self.needed_more_context_summary_query,
+            "needed_asset_detail_ids": list(self.needed_asset_detail_ids),
+            "needed_more_asset_summary_query": self.needed_more_asset_summary_query,
             "invoke": self.invoke,
             "metadata": self.metadata,
         }

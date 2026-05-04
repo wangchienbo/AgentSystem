@@ -21,6 +21,15 @@ def test_decision_protocol_accepts_three_branch_envelope() -> None:
     detail_result = protocol.normalize(
         InteractionDecisionEnvelope(decision="need_asset_detail_id", need_asset_detail_id="asset:self_iteration_center:v1")
     )
+    retrieval_result = protocol.normalize(
+        InteractionDecisionEnvelope(
+            decision="request_context_retrieval",
+            needed_context_detail_ids=("detail:sess-1:1",),
+            needed_more_context_summary_query="recent implementation work",
+            needed_asset_detail_ids=("asset:self_iteration_center:v1",),
+            needed_more_asset_summary_query="self iteration assets",
+        )
+    )
     invoke_result = protocol.normalize(
         InteractionDecisionEnvelope(
             decision="invoke",
@@ -30,10 +39,15 @@ def test_decision_protocol_accepts_three_branch_envelope() -> None:
 
     assert text_result.resolved_action == "reply_text"
     assert detail_result.resolved_action == "load_detail"
+    assert retrieval_result.resolved_action == "load_context_retrieval"
     assert invoke_result.resolved_action == "invoke_method"
 
 
-def test_decision_protocol_rejects_invalid_invoke_payload() -> None:
+def test_decision_protocol_retrieval_request_requires_payload() -> None:
+    with pytest.raises(ValueError):
+        InteractionDecisionEnvelope(decision="request_context_retrieval").validate()
+
+
     protocol = DecisionProtocol()
     with pytest.raises(InteractionDecisionProtocolError):
         protocol.resolve_against_context(

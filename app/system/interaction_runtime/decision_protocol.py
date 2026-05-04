@@ -24,6 +24,8 @@ class DecisionProtocol:
             return DecisionProtocolResult(envelope=envelope, resolved_action="reply_text")
         if envelope.decision == "need_asset_detail_id":
             return DecisionProtocolResult(envelope=envelope, resolved_action="load_detail")
+        if envelope.decision == "request_context_retrieval":
+            return DecisionProtocolResult(envelope=envelope, resolved_action="load_context_retrieval")
         if envelope.decision == "invoke":
             return DecisionProtocolResult(envelope=envelope, resolved_action="invoke_method")
         raise InteractionDecisionProtocolError(f"Unsupported decision: {envelope.decision}")

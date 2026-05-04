@@ -385,6 +385,8 @@ Status: [x] completed
 
 ### 7.1 Expand DecisionProtocol for context/asset retrieval requests
 
+Status: [x] completed
+
 #### Tasks
 - extend decision protocol models to support:
   - `needed_context_detail_ids`
