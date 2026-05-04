@@ -350,6 +350,8 @@ Status: [x] completed
 
 ### 6.4 Implement summary prompt policy
 
+Status: [x] completed
+
 #### Tasks
 - codify summary prompt rules:
   - short record: near-verbatim, light cleanup only

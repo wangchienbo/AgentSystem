@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.services.context_storage_paths import ContextStoragePaths, build_context_storage_paths
 from app.services.context_writer import ContextWriter
+from app.services.summary_prompt_policy import SummaryPromptPolicy
 
 
 @dataclass
@@ -15,6 +16,7 @@ class ContextSummaryWorker:
     active_jobs: int = 0
     queued_jobs: list[dict[str, str]] = field(default_factory=list)
     failed_jobs: list[dict[str, str]] = field(default_factory=list)
+    prompt_policy: SummaryPromptPolicy = field(default_factory=SummaryPromptPolicy)
 
     @classmethod
     def from_base_dir(cls, base_dir: str | Path = "/root/project/AgentSystem/data/context_center") -> "ContextSummaryWorker":
@@ -26,9 +28,13 @@ class ContextSummaryWorker:
             "summary_text": summary_text,
             "role": role,
             "replace": "1" if replace else "0",
+            "prompt": self.build_summary_prompt(summary_text),
         }
         self.queued_jobs.append(job)
         return self.drain_once()
+
+    def build_summary_prompt(self, summary_text: str) -> str:
+        return self.prompt_policy.build_prompt(record_text=summary_text)
 
     def drain_once(self) -> dict[str, int | str]:
         if self.active_jobs >= self.max_concurrency or not self.queued_jobs:

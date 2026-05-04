@@ -1,3 +1,34 @@
+## 2026-05-04: Wave 3 summary prompt policy landed
+
+### Summary
+Continued Wave 3 by codifying the summary prompt policy into a centralized builder so short and long records follow explicit constraints against factual invention and completion inflation.
+
+### What Was Done
+- Added `app/services/summary_prompt_policy.py`
+  - centralized summary prompt construction
+  - short-record branch: near-verbatim with light cleanup only
+  - long-record branch: summarize only what was done and what the result was
+  - explicitly forbids invented facts, attempt-to-confirmation inflation, and partial-to-complete inflation
+- Updated `app/services/context_summary_worker.py`
+  - worker now owns a `SummaryPromptPolicy`
+  - added `build_summary_prompt(...)` so summary prompt assembly is centralized at the worker boundary
+  - enqueue path records the assembled prompt alongside the queued summary job
+- Added focused tests:
+  - `tests/unit/services/test_summary_prompt_policy.py`
+  - verifies short-vs-long branching
+  - verifies required constraint text is present
+  - verifies worker uses centralized prompt construction
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 3 section 6.4 complete
+
+### Validation
+- `pytest tests/unit/services/test_summary_prompt_policy.py tests/unit/services/test_context_summary_worker.py tests/unit/services/test_context_reorder_window.py tests/unit/test_tool_context_contract_and_context_center.py tests/unit/services/test_context_detail_events.py tests/unit/services/test_context_center_service_layout.py tests/unit/services/test_durable_context_buffer.py -q`
+- Result: `29 passed`
+
+### Notes
+This completes the prompt-policy layer under the summary worker. The next Wave 3 step should add the explicit summary/detail retrieval integration points required by runtime and gateway layers.
+
+
 ## 2026-05-04: Wave 3 finalized summary replacement worker landed
 
 ### Summary
