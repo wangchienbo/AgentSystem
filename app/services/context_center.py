@@ -130,8 +130,8 @@ class ContextCenter:
     def read_summary_events(self, session_id: str, limit: int = 100):
         return self._query_service.read_summary_events(session_id=session_id, limit=limit)
 
-    def enqueue_summary_write(self, session_id: str, summary_text: str, *, role: str = "system") -> dict[str, Any]:
-        return self._summary_worker.enqueue_summary_write(session_id=session_id, summary_text=summary_text, role=role)
+    def enqueue_summary_write(self, session_id: str, summary_text: str, *, role: str = "system", replace: bool = True) -> dict[str, Any]:
+        return self._summary_worker.enqueue_summary_write(session_id=session_id, summary_text=summary_text, role=role, replace=replace)
 
     def append_pending_buffer_event(self, session_id: str, event: dict[str, Any]) -> dict[str, Any]:
         stored = self._durable_buffer.append_pending_event(session_id=session_id, event=event)
@@ -140,6 +140,22 @@ class ContextCenter:
 
     def read_pending_buffer_events(self, session_id: str):
         return self._durable_buffer.read_pending_events(session_id=session_id)
+
+    def get_recent_working_memory_view(self, session_id: str, limit: int = 300) -> dict[str, Any]:
+        stable_events = self.read_detail_events(session_id, limit=limit)
+        pending_events = self.read_pending_buffer_events(session_id)
+        return {
+            "session_id": session_id,
+            "stable": [
+                {
+                    "timestamp": item.timestamp.isoformat().replace("+00:00", "Z"),
+                    "role": item.role,
+                    "message": item.message,
+                }
+                for item in stable_events[-limit:]
+            ],
+            "pending": list(pending_events)[-limit:],
+        }
 
     def flush_stable_pending_events(self, session_id: str, *, now: datetime | None = None) -> dict[str, Any]:
         pending = self._durable_buffer.read_pending_events(session_id=session_id)
@@ -203,9 +219,23 @@ class ContextCenter:
         return [record.model_dump(mode="json") for record in window.records]
 
     def query_summary_records(self, asset_id: str, local_session_id: str, limit: int = 5) -> list[dict[str, Any]]:
+        session_id = self.resolve_asset_local_session(asset_id, local_session_id) or local_session_id
+        summary_events = self.read_summary_events(session_id, limit=limit)
+        if summary_events:
+            latest = summary_events[-1]
+            return [
+                {
+                    "session_id": session_id,
+                    "kind": "summary",
+                    "role": latest.role,
+                    "content": latest.message,
+                    "created_at": latest.timestamp.isoformat().replace("+00:00", "Z"),
+                    "metadata": {"source": "summary_store", "view": "stable", "replacement": True},
+                }
+            ]
         window = self.query_by_asset_local_session(asset_id, local_session_id, limit=200)
         records = [record for record in window.records if record.kind == "summary"]
-        return [record.model_dump(mode="json") for record in records[-limit:]]
+        return [record.model_dump(mode="json") for record in records[-1:]]
 
     def query_snapshot_record(self, asset_id: str, local_session_id: str) -> dict[str, Any] | None:
         window = self.query_by_asset_local_session(asset_id, local_session_id, limit=200)

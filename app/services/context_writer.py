@@ -33,6 +33,15 @@ class ContextWriter:
         self._append_jsonl(day_file, event)
         return event
 
+    def replace_summary_event(self, *, session_id: str, role: str, message: str, timestamp: datetime | None = None) -> ContextDetailEvent:
+        event = ContextDetailEvent(timestamp=timestamp or datetime.now(UTC), role=role, message=message)
+        session_dir = self.paths.summary_dir / session_id
+        if session_dir.exists():
+            for path in session_dir.glob("*.jsonl"):
+                path.unlink()
+        self._append_jsonl(self.summary_day_file(session_id, event.timestamp), event)
+        return event
+
     def detail_day_file(self, session_id: str, timestamp: datetime) -> Path:
         return self.paths.detail_dir / session_id / f"{timestamp.astimezone(UTC).date().isoformat()}.jsonl"
 

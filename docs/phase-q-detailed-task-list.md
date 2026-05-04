@@ -299,6 +299,8 @@ Status: [x] completed
 
 ### 6.1 Implement recent working memory query surface
 
+Status: [x] completed
+
 #### Tasks
 - implement query service that returns default recent 300 events
 - read across multiple day files when necessary

@@ -19,11 +19,12 @@ class ContextSummaryWorker:
     def from_base_dir(cls, base_dir: str | Path = "/root/project/AgentSystem/data/context_center") -> "ContextSummaryWorker":
         return cls(paths=build_context_storage_paths(base_dir))
 
-    def enqueue_summary_write(self, *, session_id: str, summary_text: str, role: str = "system") -> dict[str, int | str]:
+    def enqueue_summary_write(self, *, session_id: str, summary_text: str, role: str = "system", replace: bool = True) -> dict[str, int | str]:
         job = {
             "session_id": session_id,
             "summary_text": summary_text,
             "role": role,
+            "replace": "1" if replace else "0",
         }
         self.queued_jobs.append(job)
         return self.drain_once()
@@ -39,11 +40,18 @@ class ContextSummaryWorker:
         self.active_jobs += 1
         try:
             writer = ContextWriter(paths=self.paths)
-            writer.append_summary_event(
-                session_id=job["session_id"],
-                role=job["role"],
-                message=job["summary_text"],
-            )
+            if job.get("replace") == "1":
+                writer.replace_summary_event(
+                    session_id=job["session_id"],
+                    role=job["role"],
+                    message=job["summary_text"],
+                )
+            else:
+                writer.append_summary_event(
+                    session_id=job["session_id"],
+                    role=job["role"],
+                    message=job["summary_text"],
+                )
             return {
                 "processed": 1,
                 "queued": len(self.queued_jobs),

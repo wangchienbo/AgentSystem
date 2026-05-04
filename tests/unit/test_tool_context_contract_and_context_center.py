@@ -27,6 +27,7 @@ def test_context_center_query_surfaces_by_asset_local_session() -> None:
     center.append_context(
         SessionContextRecord(session_id="sess-1", kind="tool_result", role="tool", content="evidence", metadata={"evidence_ref": "ev-1"})
     )
+    center.enqueue_summary_write("sess-1", "final-summary", replace=True)
 
     recent = center.query_recent_window("asset:demo:v1", "local-1", limit=2)
     summaries = center.query_summary_records("asset:demo:v1", "local-1")
@@ -34,7 +35,8 @@ def test_context_center_query_surfaces_by_asset_local_session() -> None:
     evidence = center.query_evidence_refs("asset:demo:v1", "local-1")
 
     assert len(recent) == 2
-    assert summaries[-1]["content"] == "summary-1"
+    assert summaries[-1]["content"] == "final-summary"
+    assert summaries[-1]["metadata"]["source"] == "summary_store"
     assert snapshot is not None and snapshot["metadata"]["snapshot"] is True
     assert evidence[-1]["metadata"]["evidence_ref"] == "ev-1"
 

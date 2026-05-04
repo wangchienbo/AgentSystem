@@ -1,3 +1,35 @@
+## 2026-05-04: Wave 3 recent working-memory view landed
+
+### Summary
+Moved into Wave 3 by adding the recent working-memory query surface that merges stable detail events with still-pending buffered events into one structured retrieval view.
+
+### What Was Done
+- Updated `app/services/context_center.py`
+  - added `get_recent_working_memory_view(session_id, limit=300)`
+  - merges:
+    - stable events from formal detail storage
+    - pending events from the durable pending buffer
+  - returns a structured view separating `stable` and `pending`
+- Updated `app/services/context_summary_worker.py`
+  - summary path now supports formal replacement semantics via `replace=True`
+- Updated `app/services/context_writer.py`
+  - added `replace_summary_event(...)` to clear prior formal summary files before writing the finalized summary
+- Updated `tests/unit/services/test_context_summary_worker.py`
+  - added coverage for summary replacement semantics
+  - added coverage for recent working-memory stable/pending merged view
+- Updated `tests/unit/test_tool_context_contract_and_context_center.py`
+  - summary retrieval now prefers stable summary-store output and returns the finalized summary view
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 3 section 6.1 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_summary_worker.py tests/unit/test_tool_context_contract_and_context_center.py tests/unit/services/test_context_detail_events.py tests/unit/services/test_context_center_service_layout.py tests/unit/services/test_durable_context_buffer.py tests/unit/services/test_context_reorder_window.py -q`
+- Result: `24 passed`
+
+### Notes
+This starts the Wave 3 retrieval layer and also tightens the summary path so finalized summaries replace prior formal summaries cleanly. The next Wave 3 slice should shape the working-memory default/limit behavior and tool-facing retrieval contract further.
+
+
 ## 2026-05-04: Wave 2 summary write path and one-thread worker landed
 
 ### Summary
