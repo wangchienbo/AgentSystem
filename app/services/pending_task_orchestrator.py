@@ -120,6 +120,26 @@ class PendingTaskOrchestrator:
             known_fact_updates={"blocked_reason": reason},
         )
 
+    def capture_repo_context(
+        self,
+        pending_task: PendingTaskRecord,
+        *,
+        active_repo_path: str,
+        primary_readme_path: str,
+        key_docs: list[str] | None = None,
+        target_modules: list[str] | None = None,
+    ) -> PendingTaskRecord:
+        repo_context = {
+            "active_repo_path": active_repo_path,
+            "primary_readme_path": primary_readme_path,
+            "key_docs": list(key_docs or []),
+            "target_modules": list(target_modules or []),
+        }
+        updated = pending_task.model_copy(update={"repo_context": repo_context})
+        if self._pending_task_store is not None:
+            self._pending_task_store.upsert_task(updated)
+        return updated
+
     def _continue_draft_app_setup(self, pending_task: PendingTaskRecord) -> PendingTaskRecord:
         missing_fields = list(pending_task.missing_fields)
         known_facts = dict(pending_task.known_facts)

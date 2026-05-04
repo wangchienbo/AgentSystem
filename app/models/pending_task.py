@@ -110,7 +110,14 @@ class PendingTaskRecord(BaseModel):
     solution_draft: dict[str, Any] = Field(default_factory=dict)
     review_result: dict[str, Any] = Field(default_factory=dict)
     task_list: list[dict[str, Any]] = Field(default_factory=list)
-    repo_context: dict[str, Any] = Field(default_factory=dict)
+    repo_context: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "active_repo_path": "",
+            "primary_readme_path": "",
+            "key_docs": [],
+            "target_modules": [],
+        }
+    )
     implementation_plan: dict[str, Any] = Field(default_factory=dict)
     upgrade_plan: dict[str, Any] = Field(default_factory=dict)
     acceptance_plan: dict[str, Any] = Field(default_factory=dict)

@@ -1,3 +1,31 @@
+## 2026-05-05: Wave 5 repo-context capture landed
+
+### Summary
+Started Wave 5 by defining and wiring the reusable repo-context structure into pending-task workflow state, including active repo path, primary README path, consulted docs, and target modules.
+
+### What Was Done
+- Updated `app/models/pending_task.py`
+  - `repo_context` now has a stable default structure:
+    - `active_repo_path`
+    - `primary_readme_path`
+    - `key_docs`
+    - `target_modules`
+- Updated `app/services/pending_task_orchestrator.py`
+  - added `capture_repo_context(...)`
+  - persists repo-awareness facts back into pending-task state through the existing store path
+- Updated `tests/unit/test_pending_task_orchestrator.py`
+  - verifies repo-context default structure exists on pending-task workflow state
+  - verifies orchestrator can persist captured repo facts
+  - verifies stored workflow state retains the captured repo context
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `20 passed`
+
+### Notes
+This lands the workflow-state shape and persistence path for repo awareness. The next Wave 5 slice should define and persist the upgrade-plan structure.
+
+
 ## 2026-05-04: Wave 4 controlled asset-detail and summary expansion landed
 
 ### Summary

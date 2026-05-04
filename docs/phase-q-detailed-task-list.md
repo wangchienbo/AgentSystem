@@ -459,6 +459,8 @@ Status: [x] completed
 
 ### 8.1 Implement repo context capture
 
+Status: [x] completed
+
 #### Tasks
 - define a reusable repo-context structure carried in pending task state
 - capture:

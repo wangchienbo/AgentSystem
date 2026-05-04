@@ -120,7 +120,12 @@ def test_pending_task_record_supports_wave1_workflow_fields():
     assert task.solution_draft == {}
     assert task.review_result == {}
     assert task.task_list == []
-    assert task.repo_context == {}
+    assert task.repo_context == {
+        "active_repo_path": "",
+        "primary_readme_path": "",
+        "key_docs": [],
+        "target_modules": [],
+    }
     assert task.implementation_plan == {}
     assert task.upgrade_plan == {}
     assert task.acceptance_plan == {}
@@ -195,6 +200,30 @@ def test_pending_task_orchestrator_can_mark_blocked_state(tmp_path: Path):
     assert blocked.status == "blocked"
     assert blocked.known_facts["blocked_reason"] == "repo path missing"
     assert blocked.next_recommended_action["type"] == "locate_repo_context"
+
+
+def test_pending_task_orchestrator_can_capture_repo_context(tmp_path: Path):
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    task = PendingTaskRecord(task_id="pt-repo-1", user_id="u1", intent="ship change")
+    store.upsert_task(task)
+    orchestrator = PendingTaskOrchestrator(store)
+
+    updated = orchestrator.capture_repo_context(
+        task,
+        active_repo_path="/root/project/AgentSystem",
+        primary_readme_path="/root/project/AgentSystem/README.md",
+        key_docs=[
+            "/root/project/AgentSystem/docs/phase-q-detailed-task-list.md",
+            "/root/project/AgentSystem/docs/phase-q-workflow-context-center-final-design.md",
+        ],
+        target_modules=["app/models/pending_task.py", "app/services/pending_task_orchestrator.py"],
+    )
+
+    assert updated.repo_context["active_repo_path"] == "/root/project/AgentSystem"
+    assert updated.repo_context["primary_readme_path"] == "/root/project/AgentSystem/README.md"
+    assert len(updated.repo_context["key_docs"]) == 2
+    assert "app/models/pending_task.py" in updated.repo_context["target_modules"]
+    assert store.get_latest_open_task("u1").repo_context["active_repo_path"] == "/root/project/AgentSystem"
 
 
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
