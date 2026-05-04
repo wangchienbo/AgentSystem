@@ -63,4 +63,4 @@ def test_context_center_mirrors_non_summary_records_to_detail_store(tmp_path) ->
 
     assert [item.role for item in events] == ["user", "system"]
     assert [item.message for item in events] == ["hello", "note"]
-    assert [item.message for item in summaries] == ["summary"]
+    assert [item.message for item in summaries] == ["[user] hello", "[system] note", "summary"]

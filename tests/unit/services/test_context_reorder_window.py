@@ -42,11 +42,13 @@ def test_context_center_flushes_stable_pending_events_and_keeps_waiting(tmp_path
     result = center.flush_stable_pending_events("sess-1", now=datetime(2026, 5, 4, 17, 10, tzinfo=UTC))
     detail_events = center.read_detail_events("sess-1")
     pending_events = center.read_pending_buffer_events("sess-1")
+    summaries = center.read_summary_events("sess-1")
 
     assert result["flushed_count"] == 1
     assert result["waiting_count"] == 1
     assert [item.message for item in detail_events][-1:] == ["stable"]
     assert [item["message"] for item in pending_events] == ["waiting"]
+    assert [item.message for item in summaries][-1:] == ["[user] stable"]
 
 
 def test_context_center_recovers_pending_buffer_on_startup(tmp_path) -> None:

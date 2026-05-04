@@ -318,6 +318,8 @@ Status: [x] completed
 
 ### 6.2 Implement provisional summary write path
 
+Status: [x] completed
+
 #### Tasks
 - when detail event is formally flushed, generate immediate provisional summary
 - write provisional summary into session/day summary file

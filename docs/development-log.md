@@ -1,3 +1,30 @@
+## 2026-05-04: Wave 3 provisional summary write path landed
+
+### Summary
+Continued Wave 3 by adding immediate provisional summary generation whenever detail events are formally persisted, so summary retrieval remains available before finalized summary replacement runs.
+
+### What Was Done
+- Updated `app/services/context_center.py`
+  - formal detail persistence now triggers immediate provisional summary writes
+  - applies both to direct formal context appends and reordered pending-event flushes
+  - added `_build_provisional_summary(...)` helper for compact provisional summary text
+- Updated `tests/unit/services/test_context_summary_worker.py`
+  - verifies provisional summary becomes available immediately after formal detail persistence
+- Updated `tests/unit/services/test_context_reorder_window.py`
+  - verifies reordered stable-event flush also writes provisional summary output
+- Updated `tests/unit/services/test_context_detail_events.py`
+  - aligned summary-store expectations to include provisional summary entries
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 3 section 6.2 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_summary_worker.py tests/unit/services/test_context_reorder_window.py tests/unit/test_tool_context_contract_and_context_center.py tests/unit/services/test_context_detail_events.py tests/unit/services/test_context_center_service_layout.py tests/unit/services/test_durable_context_buffer.py -q`
+- Result: `25 passed`
+
+### Notes
+This lands the provisional summary path required before final LLM replacement. The next Wave 3 slice should finish the finalized summary replacement worker behavior more explicitly on top of the serialized summary worker.
+
+
 ## 2026-05-04: Wave 3 recent working-memory view landed
 
 ### Summary

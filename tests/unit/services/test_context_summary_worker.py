@@ -62,3 +62,12 @@ def test_context_center_recent_working_memory_view_merges_stable_and_pending(tmp
     assert view["session_id"] == "sess-3"
     assert [item["message"] for item in view["stable"]] == ["stable-1", "stable-2"]
     assert [item["message"] for item in view["pending"]] == ["pending-1"]
+
+
+def test_context_center_writes_provisional_summary_immediately_for_formal_detail(tmp_path) -> None:
+    center = ContextCenter(base_dir=tmp_path)
+    center.append_context_record("sess-4", SessionContextRecord(session_id="sess-4", kind="message", role="user", content="hello world"))
+
+    summaries = center.read_summary_events("sess-4")
+
+    assert [item.message for item in summaries] == ["[user] hello world"]

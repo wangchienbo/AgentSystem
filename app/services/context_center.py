@@ -119,6 +119,12 @@ class ContextCenter:
                 message=record.content,
                 timestamp=record.created_at,
             )
+            self._write_provisional_summary(
+                session_id=record.session_id,
+                role="system",
+                message=self._build_provisional_summary(record.role, record.content),
+                timestamp=record.created_at,
+            )
         node = self._nodes.get(record.session_id)
         if node is not None:
             node.updated_at = datetime.now(UTC)
@@ -166,11 +172,20 @@ class ContextCenter:
             }
         result = self._reorder_window.rebalance(pending, now=now)
         for event in result.stable_events:
+            event_timestamp = datetime.fromisoformat(str(event["timestamp"]).replace("Z", "+00:00"))
+            event_role = str(event.get("role") or "system")
+            event_message = str(event.get("message") or "")
             self._writer.append_detail_event(
                 session_id=session_id,
-                role=str(event.get("role") or "system"),
-                message=str(event.get("message") or ""),
-                timestamp=datetime.fromisoformat(str(event["timestamp"]).replace("Z", "+00:00")),
+                role=event_role,
+                message=event_message,
+                timestamp=event_timestamp,
+            )
+            self._write_provisional_summary(
+                session_id=session_id,
+                role="system",
+                message=self._build_provisional_summary(event_role, event_message),
+                timestamp=event_timestamp,
             )
         self._durable_buffer.replace_pending_events(session_id=session_id, events=result.waiting_events)
         return {
@@ -181,6 +196,20 @@ class ContextCenter:
     @property
     def startup_recovery_result(self) -> dict[str, Any]:
         return dict(self._startup_recovery_result)
+
+    def _build_provisional_summary(self, role: str, message: str) -> str:
+        compact = " ".join(message.split())
+        if len(compact) > 120:
+            compact = compact[:117] + "..."
+        return f"[{role}] {compact}" if compact else f"[{role}]"
+
+    def _write_provisional_summary(self, *, session_id: str, role: str, message: str, timestamp: datetime) -> None:
+        self._writer.append_summary_event(
+            session_id=session_id,
+            role=role,
+            message=message,
+            timestamp=timestamp,
+        )
 
     def read_context(self, session_id: str, limit: int = 100) -> SessionContextWindow:
         records = self._records.get(session_id, [])
