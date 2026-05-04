@@ -17,7 +17,12 @@ class ContextQueryService:
         return cls(paths=build_context_storage_paths(base_dir))
 
     def read_detail_events(self, *, session_id: str, limit: int = 100) -> list[ContextDetailEvent]:
-        session_dir = self.paths.detail_dir / session_id
+        return self._read_day_bucketed_events(self.paths.detail_dir / session_id, limit=limit)
+
+    def read_summary_events(self, *, session_id: str, limit: int = 100) -> list[ContextDetailEvent]:
+        return self._read_day_bucketed_events(self.paths.summary_dir / session_id, limit=limit)
+
+    def _read_day_bucketed_events(self, session_dir: Path, *, limit: int) -> list[ContextDetailEvent]:
         if not session_dir.exists():
             return []
         events: list[ContextDetailEvent] = []
@@ -27,4 +32,5 @@ class ContextQueryService:
                     continue
                 payload = json.loads(line)
                 events.append(ContextDetailEvent.model_validate(payload))
+        events.sort(key=lambda item: item.timestamp)
         return events[-limit:]

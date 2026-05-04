@@ -210,6 +210,8 @@ Status: [x] completed
 
 ### 5.3 Implement session-bucketed day-file storage
 
+Status: [x] completed
+
 #### Tasks
 - create storage layout:
   - `context/detail/<session_id>/YYYY-MM-DD.jsonl`

@@ -98,7 +98,14 @@ class ContextCenter:
 
     def append_context(self, record: SessionContextRecord) -> SessionContextRecord:
         self._records.setdefault(record.session_id, []).append(record)
-        if record.kind != "summary":
+        if record.kind == "summary":
+            self._writer.append_summary_event(
+                session_id=record.session_id,
+                role=record.role,
+                message=record.content,
+                timestamp=record.created_at,
+            )
+        else:
             self._writer.append_detail_event(
                 session_id=record.session_id,
                 role=record.role,
@@ -112,6 +119,9 @@ class ContextCenter:
 
     def read_detail_events(self, session_id: str, limit: int = 100):
         return self._query_service.read_detail_events(session_id=session_id, limit=limit)
+
+    def read_summary_events(self, session_id: str, limit: int = 100):
+        return self._query_service.read_summary_events(session_id=session_id, limit=limit)
 
     def read_context(self, session_id: str, limit: int = 100) -> SessionContextWindow:
         records = self._records.get(session_id, [])

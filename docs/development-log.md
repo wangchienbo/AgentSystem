@@ -1,3 +1,35 @@
+## 2026-05-04: Wave 2 session-bucketed day-file context storage landed
+
+### Summary
+Extended the Wave 2 detail-event substrate into explicit session-bucketed day-file storage for both detail and summary streams, including multi-day read support.
+
+### What Was Done
+- Updated `app/services/context_writer.py`
+  - promoted day-file helpers into explicit public helpers for detail and summary streams
+  - added `append_summary_event(...)`
+  - now writes both detail and summary events into session-bucketed day files
+- Updated `app/services/context_query_service.py`
+  - added `read_summary_events(...)`
+  - generalized day-bucketed read support across multiple day files
+  - sorts by timestamp so cross-day reads remain ordered
+- Updated `app/services/context_center.py`
+  - summary records now mirror into the summary day-file stream
+  - added summary read path alongside detail read path
+- Updated `tests/unit/services/test_context_detail_events.py`
+  - added day-boundary write coverage
+  - added cross-day readback coverage
+  - added summary-stream mirroring coverage
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 2 section 5.3 complete
+
+### Validation
+- `pytest tests/unit/services/test_context_center.py tests/unit/services/test_context_center_service_layout.py tests/unit/services/test_context_detail_events.py tests/unit/test_tool_context_contract_and_context_center.py -q`
+- Result: `13 passed`
+
+### Notes
+This finishes the explicit day-file storage layer for the minimal detail/summary substrate. The next Wave 2 step should focus on the durable temporary buffer for pending-window recovery.
+
+
 ## 2026-05-04: Wave 2 minimal Context Center detail-event schema landed
 
 ### Summary
