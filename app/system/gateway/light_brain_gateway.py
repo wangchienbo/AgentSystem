@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -2257,6 +2258,83 @@ class LightBrainGateway:
         self._auto_save()
         return response
 
+    async def _execute_run_acceptance(self, user_id: str, session_id: str, action_params: dict[str, Any]) -> ChatMessageResponse:
+        if self._pending_task_store is None:
+            return ChatMessageResponse(type="error", content="pending task store 未注入，当前不能执行 run_acceptance。", session_id=session_id)
+        pending_task = self._pending_task_store.get_latest_open_task(user_id)
+        if pending_task is None:
+            return ChatMessageResponse(type="error", content="没有找到可执行 run_acceptance 的未完成任务。", session_id=session_id)
+
+        acceptance_plan = dict(pending_task.acceptance_plan or {})
+        commands = list(acceptance_plan.get("test_probe_commands") or [])
+        if not commands:
+            return ChatMessageResponse(type="error", content="当前 acceptance_plan 还没有可执行的 test_probe_commands。", session_id=session_id)
+
+        repo_root = Path((pending_task.repo_context or {}).get("active_repo_path") or "/root/project/AgentSystem")
+        results = list(acceptance_plan.get("results") or [])
+        command_results: list[dict[str, Any]] = []
+        overall_status = "passed"
+        for command in commands:
+            proc = subprocess.run(
+                ["bash", "-lc", command],
+                cwd=str(repo_root),
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            item = {
+                "command": command,
+                "status": "passed" if proc.returncode == 0 else "failed",
+                "exit_code": proc.returncode,
+                "stdout_tail": (proc.stdout or "")[-2000:],
+                "stderr_tail": (proc.stderr or "")[-2000:],
+            }
+            command_results.append(item)
+            if proc.returncode != 0:
+                overall_status = "failed"
+
+        result_entry = {
+            "status": overall_status,
+            "ran_at": datetime.now(UTC).isoformat(),
+            "evidence": {
+                "repo_path": str(repo_root),
+                "commands": command_results,
+            },
+        }
+        results.append(result_entry)
+        acceptance_plan["results"] = results
+        next_action = None if overall_status == "passed" else {"type": PENDING_TASK_ACTION_RUN_ACCEPTANCE, "app_id": pending_task.target_ref.get("app_id")}
+        updated = pending_task.model_copy(update={
+            "acceptance_plan": acceptance_plan,
+            "status": "completed" if overall_status == "passed" else "blocked",
+            "current_stage": "done" if overall_status == "passed" else "acceptance_pending",
+            "stage_status": "completed" if overall_status == "passed" else "blocked",
+            "next_recommended_action": next_action,
+        })
+        self._pending_task_store.upsert_task(updated)
+        self._memory.create_session(user_id=user_id, channel="action", session_id=session_id)
+        response = ChatMessageResponse(
+            type="progress",
+            content=(
+                f"验收执行已完成。\n"
+                f"仓库路径：{repo_root}\n"
+                f"执行命令数：{len(command_results)}\n"
+                f"验收结果：{overall_status}"
+            ),
+            session_id=session_id,
+            data={
+                "pending_task": updated.model_dump(mode="json"),
+                "acceptance_plan": acceptance_plan,
+                "acceptance_result": result_entry,
+                "context_view": self._get_recent_context_view(session_id),
+            },
+            actions=[self._build_future_workflow_action(next_step=PENDING_TASK_ACTION_RUN_ACCEPTANCE, target_id=updated.target_ref.get("app_id") or "unknown")] if overall_status != "passed" else [],
+            related_app=updated.target_ref.get("app_id"),
+        )
+        self._after_reply(session_id=session_id, reply=response)
+        self._auto_save()
+        return response
+
     async def execute_action(
         self,
         user_id: str,
@@ -2268,6 +2346,8 @@ class LightBrainGateway:
         action_params = action_params or {}
         action_session_id = action_params.get("session_id") or session_id
         intent = action_params.get("intent", "unclear")
+        if intent == PENDING_TASK_ACTION_RUN_ACCEPTANCE:
+            return await self._execute_run_acceptance(user_id, action_session_id, action_params)
         if intent == PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT:
             return await self._execute_locate_repo_context(user_id, action_session_id, action_params)
         if intent == PENDING_TASK_ACTION_APPLY_DRAFT_APP:

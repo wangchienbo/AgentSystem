@@ -1,3 +1,27 @@
+## 2026-05-05: Executable acceptance action slice landed after repo-context closure
+
+### Summary
+Continued the post-Phase-Q runtime-execution closure by making `run_acceptance` a real executable workflow action that runs bounded acceptance commands and persists evidence back into pending-task state.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - added executable `run_acceptance` action handling in `execute_action(...)`
+  - action now runs bounded `acceptance_plan.test_probe_commands` inside the resolved repo path
+  - captures exit code, stdout/stderr tail, repo path, and run timestamp as structured evidence
+  - writes acceptance results back into `acceptance_plan.results`
+  - marks workflow `done/completed` on pass, or `blocked` with retry action on failure
+  - returns structured progress payload with `pending_task`, `acceptance_plan`, `acceptance_result`, and bounded `context_view`
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added focused pass/fail coverage for executable acceptance action behavior
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py -q`
+- result: `17 passed`
+
+### Notes
+This builds directly on the prior `locate_repo_context` closure and turns the acceptance side of the workflow from a planned contract into a real executable evidence-producing path.
+
+
 ## 2026-05-05: Post-Phase-Q first executable action slice for repo-context landed
 
 ### Summary

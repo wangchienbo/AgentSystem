@@ -283,6 +283,112 @@ def test_execute_locate_repo_context_updates_pending_task(tmp_path: Path):
     assert updated.next_recommended_action["type"] == "implement_app_change"
 
 
+def test_execute_run_acceptance_records_passed_result(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    task = PendingTaskRecord(
+        task_id="pt-accept-1",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="ready_to_execute",
+        current_stage="acceptance_running",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_1"},
+        repo_context={
+            "active_repo_path": str(repo_root),
+            "primary_readme_path": str(repo_root / "README.md"),
+            "key_docs": [],
+            "target_modules": [],
+        },
+        acceptance_plan={
+            "test_probe_commands": ["python3 -c 'print(\"ok\")'"],
+            "http_runtime_verification_points": [],
+            "success_criteria": ["command exits 0"],
+            "results": [],
+        },
+        next_recommended_action={"type": "run_acceptance", "app_id": "app_repo_1"},
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:run_acceptance:app_repo_1",
+            action_params={"intent": "run_acceptance", "app_id": "app_repo_1"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    assert response.data["acceptance_result"]["status"] == "passed"
+    updated = pending_store.get_latest_open_task("u1")
+    assert updated is None or updated.status == "completed"
+
+
+def test_execute_run_acceptance_records_failed_result(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    task = PendingTaskRecord(
+        task_id="pt-accept-2",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="ready_to_execute",
+        current_stage="acceptance_running",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_2"},
+        repo_context={
+            "active_repo_path": str(repo_root),
+            "primary_readme_path": str(repo_root / "README.md"),
+            "key_docs": [],
+            "target_modules": [],
+        },
+        acceptance_plan={
+            "test_probe_commands": ["python3 -c 'import sys; sys.exit(3)'"],
+            "http_runtime_verification_points": [],
+            "success_criteria": ["command exits 0"],
+            "results": [],
+        },
+        next_recommended_action={"type": "run_acceptance", "app_id": "app_repo_2"},
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:run_acceptance:app_repo_2",
+            action_params={"intent": "run_acceptance", "app_id": "app_repo_2"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    assert response.data["acceptance_result"]["status"] == "failed"
+    updated = pending_store.get_latest_open_task("u1")
+    assert updated is not None
+    assert updated.status == "blocked"
+    assert updated.next_recommended_action["type"] == "run_acceptance"
+
+
 def test_latest_pending_task_selected_when_multiple_tasks_exist(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
