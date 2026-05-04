@@ -1,3 +1,42 @@
+## 2026-05-04: Wave 1 workflow stage constants and future action contract landed
+
+### Summary
+Continued the current Wave 1 rollout by centralizing workflow-stage/action constants and extending the gateway action contract so future workflow operations can be emitted without breaking the existing draft lifecycle path.
+
+### What Was Done
+- Updated `app/models/pending_task.py`
+  - added canonical workflow-stage constants and reusable stage-status constants
+  - added centralized future workflow action constants alongside `apply_draft_app`
+  - switched `PendingTaskRecord` defaults to the shared constants
+- Updated `app/services/pending_task_orchestrator.py`
+  - replaced remaining draft-path stage/action literals with the shared constants
+  - kept the existing draft continuation progression intact while moving it onto the canonical contract
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - added contract-level support for future workflow actions:
+    - `approve_solution_draft`
+    - `revise_solution_draft`
+    - `materialize_task_list`
+    - `locate_repo_context`
+    - `implement_app_change`
+    - `upgrade_app_runtime`
+    - `run_acceptance`
+  - preserved `apply_draft_app` compatibility
+  - allowed continuation replies to emit future workflow action buttons before full handlers exist
+- Updated focused tests:
+  - `tests/unit/test_pending_task_orchestrator.py`
+  - `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added assertions for canonical constant stability and future workflow action payload emission
+- Updated `docs/phase-q-detailed-task-list.md`
+  - marked Wave 1 sections 4.2 and 4.4 complete
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- Result: `18 passed`
+
+### Notes
+This keeps implementation aligned with the current Wave 1 sequence. The remaining Wave 1 gap is the broader stage-transition engine behavior in 4.3 for non-draft workflow progression.
+
+
 ## 2026-05-04: Wave 1 workflow state foundation implementation started
 
 ### Summary

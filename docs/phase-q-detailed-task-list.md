@@ -82,6 +82,8 @@ All tasks below must respect these constraints:
 
 ### 4.2 Introduce canonical workflow stage constants
 
+Status: [x] completed
+
 #### Tasks
 - define canonical stage values for:
   - `intent_received`
@@ -134,6 +136,8 @@ All tasks below must respect these constraints:
 ---
 
 ### 4.4 Expand gateway action contract for future workflow operations
+
+Status: [x] completed
 
 #### Tasks
 - extend gateway action payload builders to support future actions:

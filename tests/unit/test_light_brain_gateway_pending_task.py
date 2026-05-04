@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from app.models.chat import ChatMessageRequest
+from app.models.chat import ChatMessageRequest, TaskContinuationDecision
 from app.models.pending_task import PendingTaskRecord
 from app.persistence.runtime_state_store import RuntimeStateStore
 from app.services.app_application_service import AppApplicationService
@@ -332,6 +332,40 @@ def test_third_continue_reports_draft_ready_completion(tmp_path: Path):
     assert response.actions[0].payload["intent"] == "apply_draft_app"
     app_id = response.data["pending_task"]["target_ref"]["app_id"]
     assert draft_service.get_app(app_id).status == "compiled"
+
+
+def test_continue_response_exposes_future_workflow_action_contract(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    task = PendingTaskRecord(
+        task_id="pt-future-1",
+        user_id="u1",
+        session_id="s1",
+        intent="继续推进应用改动",
+        status="ready_to_execute",
+        current_stage="solution_reviewing",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_future_demo", "target_id": "app_future_demo"},
+        next_recommended_action={"type": "approve_solution_draft"},
+    )
+
+    response = gateway._build_continue_task_response(
+        "s1",
+        task,
+        TaskContinuationDecision(conversation_mode="continue_task", pending_task_id="pt-future-1"),
+    )
+
+    assert response.actions[0].payload["intent"] == "approve_solution_draft"
+    assert response.actions[0].payload["app_id"] == "app_future_demo"
+    assert "当前阶段：solution_reviewing (in_progress)" in response.content
+
 
 
 def test_execute_action_apply_draft_app_routes_to_application_layer(tmp_path: Path):

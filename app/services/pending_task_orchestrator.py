@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from app.models.pending_task import PendingTaskRecord
+from app.models.pending_task import (
+    PENDING_TASK_ACTION_APPLY_DRAFT_APP,
+    PendingTaskRecord,
+    WORKFLOW_STAGE_DONE,
+    WORKFLOW_STAGE_IMPLEMENTATION_PENDING,
+    WORKFLOW_STAGE_IMPLEMENTATION_RUNNING,
+)
 from app.services.pending_task_store import PendingTaskStore
 
 
@@ -62,7 +68,7 @@ class PendingTaskOrchestrator:
             "status": new_status,
             "next_recommended_action": next_action,
             **self._base_stage_update(
-                stage="implementation_pending" if not missing_fields else pending_task.current_stage,
+                stage=WORKFLOW_STAGE_IMPLEMENTATION_PENDING if not missing_fields else pending_task.current_stage,
                 stage_status="completed" if not missing_fields else pending_task.stage_status,
             ),
         })
@@ -80,7 +86,7 @@ class PendingTaskOrchestrator:
             "known_facts": known_facts,
             "status": "ready_to_execute",
             "next_recommended_action": {"type": "report_draft_ready"},
-            **self._base_stage_update(stage="implementation_running", stage_status="completed"),
+            **self._base_stage_update(stage=WORKFLOW_STAGE_IMPLEMENTATION_RUNNING, stage_status="completed"),
         })
         self._pending_task_store.upsert_task(updated)
         return updated
@@ -101,11 +107,11 @@ class PendingTaskOrchestrator:
             "known_facts": known_facts,
             "status": "completed",
             "next_recommended_action": {
-                "type": "apply_draft_app",
+                "type": PENDING_TASK_ACTION_APPLY_DRAFT_APP,
                 "app_id": app_id,
                 "handoff_target": "AppApplicationService",
             },
-            **self._base_stage_update(stage="done", stage_status="completed"),
+            **self._base_stage_update(stage=WORKFLOW_STAGE_DONE, stage_status="completed"),
         })
         self._pending_task_store.upsert_task(updated)
         return updated

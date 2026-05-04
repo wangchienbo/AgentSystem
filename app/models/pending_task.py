@@ -6,6 +6,69 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
+WORKFLOW_STAGE_INTENT_RECEIVED = "intent_received"
+WORKFLOW_STAGE_SOLUTION_DRAFTING = "solution_drafting"
+WORKFLOW_STAGE_SOLUTION_REVIEWING = "solution_reviewing"
+WORKFLOW_STAGE_TASKLIST_PREPARING = "tasklist_preparing"
+WORKFLOW_STAGE_REPO_LOCATING = "repo_locating"
+WORKFLOW_STAGE_IMPLEMENTATION_PENDING = "implementation_pending"
+WORKFLOW_STAGE_IMPLEMENTATION_RUNNING = "implementation_running"
+WORKFLOW_STAGE_UPGRADE_PENDING = "upgrade_pending"
+WORKFLOW_STAGE_UPGRADE_RUNNING = "upgrade_running"
+WORKFLOW_STAGE_ACCEPTANCE_PENDING = "acceptance_pending"
+WORKFLOW_STAGE_ACCEPTANCE_RUNNING = "acceptance_running"
+WORKFLOW_STAGE_DONE = "done"
+WORKFLOW_STAGE_BLOCKED = "blocked"
+
+WORKFLOW_STAGE_VALUES = (
+    WORKFLOW_STAGE_INTENT_RECEIVED,
+    WORKFLOW_STAGE_SOLUTION_DRAFTING,
+    WORKFLOW_STAGE_SOLUTION_REVIEWING,
+    WORKFLOW_STAGE_TASKLIST_PREPARING,
+    WORKFLOW_STAGE_REPO_LOCATING,
+    WORKFLOW_STAGE_IMPLEMENTATION_PENDING,
+    WORKFLOW_STAGE_IMPLEMENTATION_RUNNING,
+    WORKFLOW_STAGE_UPGRADE_PENDING,
+    WORKFLOW_STAGE_UPGRADE_RUNNING,
+    WORKFLOW_STAGE_ACCEPTANCE_PENDING,
+    WORKFLOW_STAGE_ACCEPTANCE_RUNNING,
+    WORKFLOW_STAGE_DONE,
+    WORKFLOW_STAGE_BLOCKED,
+)
+
+STAGE_STATUS_PENDING = "pending"
+STAGE_STATUS_IN_PROGRESS = "in_progress"
+STAGE_STATUS_COMPLETED = "completed"
+STAGE_STATUS_BLOCKED = "blocked"
+
+STAGE_STATUS_VALUES = (
+    STAGE_STATUS_PENDING,
+    STAGE_STATUS_IN_PROGRESS,
+    STAGE_STATUS_COMPLETED,
+    STAGE_STATUS_BLOCKED,
+)
+
+PENDING_TASK_ACTION_APPLY_DRAFT_APP = "apply_draft_app"
+PENDING_TASK_ACTION_APPROVE_SOLUTION_DRAFT = "approve_solution_draft"
+PENDING_TASK_ACTION_REVISE_SOLUTION_DRAFT = "revise_solution_draft"
+PENDING_TASK_ACTION_MATERIALIZE_TASK_LIST = "materialize_task_list"
+PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT = "locate_repo_context"
+PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE = "implement_app_change"
+PENDING_TASK_ACTION_UPGRADE_APP_RUNTIME = "upgrade_app_runtime"
+PENDING_TASK_ACTION_RUN_ACCEPTANCE = "run_acceptance"
+
+PENDING_TASK_ACTION_VALUES = (
+    PENDING_TASK_ACTION_APPLY_DRAFT_APP,
+    PENDING_TASK_ACTION_APPROVE_SOLUTION_DRAFT,
+    PENDING_TASK_ACTION_REVISE_SOLUTION_DRAFT,
+    PENDING_TASK_ACTION_MATERIALIZE_TASK_LIST,
+    PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT,
+    PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE,
+    PENDING_TASK_ACTION_UPGRADE_APP_RUNTIME,
+    PENDING_TASK_ACTION_RUN_ACCEPTANCE,
+)
+
+
 PendingTaskStatus = Literal[
     "drafted",
     "pending_input",
@@ -42,8 +105,8 @@ class PendingTaskRecord(BaseModel):
     intent: str = Field(..., min_length=1)
     status: PendingTaskStatus = "pending_input"
     workflow_type: str = "draft_app_bootstrap"
-    current_stage: WorkflowStage = "intent_received"
-    stage_status: StageStatus = "pending"
+    current_stage: WorkflowStage = WORKFLOW_STAGE_INTENT_RECEIVED
+    stage_status: StageStatus = STAGE_STATUS_PENDING
     solution_draft: dict[str, Any] = Field(default_factory=dict)
     review_result: dict[str, Any] = Field(default_factory=dict)
     task_list: list[dict[str, Any]] = Field(default_factory=list)

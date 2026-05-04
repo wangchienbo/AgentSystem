@@ -22,7 +22,17 @@ from app.models.chat import (
 from app.models.telemetry import InteractionTelemetryRecord
 from app.services.context_center import ContextCenter
 from app.models.context import SessionContextRecord, SessionLink, SessionNode
-from app.models.pending_task import PendingTaskRecord
+from app.models.pending_task import (
+    PENDING_TASK_ACTION_APPLY_DRAFT_APP,
+    PENDING_TASK_ACTION_APPROVE_SOLUTION_DRAFT,
+    PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE,
+    PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT,
+    PENDING_TASK_ACTION_MATERIALIZE_TASK_LIST,
+    PENDING_TASK_ACTION_REVISE_SOLUTION_DRAFT,
+    PENDING_TASK_ACTION_RUN_ACCEPTANCE,
+    PENDING_TASK_ACTION_UPGRADE_APP_RUNTIME,
+    PendingTaskRecord,
+)
 from app.services.light_brain_interpreter import LightBrainInterpreter
 from app.services.tool_registry import ToolRegistry
 from app.system.catalog.runtime_center import RuntimeCenter
@@ -55,6 +65,17 @@ from app.system.self_iteration_strategy_formatter import (
 from app.system.runtime_asset_formatter import render_asset_detail_document, render_asset_info_summary
 
 logger = logging.getLogger(__name__)
+
+
+WORKFLOW_FUTURE_ACTION_LABELS = {
+    PENDING_TASK_ACTION_APPROVE_SOLUTION_DRAFT: "批准方案草案",
+    PENDING_TASK_ACTION_REVISE_SOLUTION_DRAFT: "修改方案草案",
+    PENDING_TASK_ACTION_MATERIALIZE_TASK_LIST: "生成任务清单",
+    PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT: "定位仓库上下文",
+    PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE: "实施应用修改",
+    PENDING_TASK_ACTION_UPGRADE_APP_RUNTIME: "升级应用运行时",
+    PENDING_TASK_ACTION_RUN_ACCEPTANCE: "运行验收验证",
+}
 
 
 class LightBrainGateway:
@@ -253,6 +274,27 @@ class LightBrainGateway:
         if continuation_decision is not None and continuation_decision.conversation_mode == "continue_task":
             pending_task = self._advance_pending_task_if_possible(pending_task)
             response = self._build_continue_task_response(session_id, pending_task, continuation_decision)
+            self._after_reply(session_id=session_id, reply=response)
+            self._auto_save()
+            return response
+        if continuation_decision is not None and continuation_decision.conversation_mode == "draft_create":
+            pending_task = self._get_latest_pending_task(request.user_id)
+            if pending_task is None and continuation_decision.target_ref:
+                from app.models.pending_task import PendingTaskRecord
+                target_id = continuation_decision.target_ref.get("app_id") or continuation_decision.target_ref.get("target_id") or "unknown"
+                pending_task = PendingTaskRecord(
+                    task_id=continuation_decision.pending_task_id or f"pt_{target_id}",
+                    user_id=request.user_id or "system",
+                    session_id=session_id,
+                    intent="create_app",
+                    status="drafted",
+                    draft_payload=dict(continuation_decision.draft_proposal),
+                    target_ref=dict(continuation_decision.target_ref),
+                    missing_fields=list(continuation_decision.missing_fields),
+                    next_recommended_action=continuation_decision.next_action or {"type": "continue_draft_app_setup", "app_id": target_id},
+                    last_user_message=request.message,
+                )
+            response = self._build_draft_create_response(session_id, pending_task, continuation_decision)
             self._after_reply(session_id=session_id, reply=response)
             self._auto_save()
             return response
@@ -1831,6 +1873,40 @@ class LightBrainGateway:
             f"pending_task_id={decision.pending_task_id or 'none'} confidence={decision.confidence:.2f}"
         )
 
+    def _build_draft_create_response(
+        self,
+        session_id: str,
+        pending_task: PendingTaskRecord | None,
+        decision: TaskContinuationDecision,
+    ) -> ChatMessageResponse:
+        if pending_task is None:
+            return ChatMessageResponse(
+                type="text",
+                content="我尝试创建草案任务，但没有成功建立待继续任务。",
+                session_id=session_id,
+            )
+        target_id = pending_task.target_ref.get("app_id") or pending_task.target_ref.get("target_id") or "unknown"
+        missing = "、".join(pending_task.missing_fields) if pending_task.missing_fields else "无"
+        next_step = pending_task.next_recommended_action.get("type") if pending_task.next_recommended_action else "continue_draft_app_setup"
+        return ChatMessageResponse(
+            type="progress",
+            content=(
+                f"我已经先帮你创建了一个 draft app。\n"
+                f"当前目标：{target_id}\n"
+                f"当前状态：{pending_task.status}\n"
+                f"还缺字段：{missing}\n"
+                f"下一步建议：{next_step}\n"
+                f"你可以直接回复“继续”，我会沿着这条创建链往下推进。"
+            ),
+            session_id=session_id,
+            data={
+                "pending_task": pending_task.model_dump(mode="json"),
+                "continuation_decision": decision.model_dump(mode="json"),
+            },
+            requires_input=bool(pending_task.missing_fields),
+            related_app=target_id,
+        )
+
     def _build_continue_task_response(
         self,
         session_id: str,
@@ -1846,7 +1922,7 @@ class LightBrainGateway:
         target_id = pending_task.target_ref.get("app_id") or pending_task.target_ref.get("target_id") or "unknown"
         missing = "、".join(pending_task.missing_fields) if pending_task.missing_fields else "无"
         next_step = pending_task.next_recommended_action.get("type") if pending_task.next_recommended_action else "resume_pending_task"
-        if next_step == "apply_draft_app" or pending_task.status == "completed":
+        if next_step == PENDING_TASK_ACTION_APPLY_DRAFT_APP or pending_task.status == "completed":
             content = (
                 f"草案任务已经准备完成。\n"
                 f"当前目标：{target_id}\n"
@@ -1865,8 +1941,8 @@ class LightBrainGateway:
                         "app_id": target_id,
                         "app_status": pending_task.known_facts.get("lifecycle_ready_status", "compiled"),
                         "handoff_target": "AppApplicationService",
-                        "recommended_intent": "apply_draft_app",
-                        "next_action": pending_task.next_recommended_action or {"type": "apply_draft_app", "app_id": target_id},
+                        "recommended_intent": PENDING_TASK_ACTION_APPLY_DRAFT_APP,
+                        "next_action": pending_task.next_recommended_action or {"type": PENDING_TASK_ACTION_APPLY_DRAFT_APP, "app_id": target_id},
                     },
                 },
                 actions=[
@@ -1874,17 +1950,19 @@ class LightBrainGateway:
                         id=f"apply-draft:{target_id}",
                         label="接入正式生命周期",
                         action_type="execute",
-                        payload={"intent": "apply_draft_app", "app_id": target_id},
+                        payload={"intent": PENDING_TASK_ACTION_APPLY_DRAFT_APP, "app_id": target_id},
                         style="primary",
                     )
                 ],
                 requires_input=False,
                 related_app=target_id,
             )
+        future_action = self._build_future_workflow_action(next_step=next_step, target_id=target_id)
         content = (
             f"我已经恢复上次未完成的任务：{pending_task.intent}。\n"
             f"当前目标：{target_id}\n"
             f"当前状态：{pending_task.status}\n"
+            f"当前阶段：{pending_task.current_stage} ({pending_task.stage_status})\n"
             f"还缺字段：{missing}\n"
             f"下一步建议：{next_step}"
         )
@@ -1896,7 +1974,19 @@ class LightBrainGateway:
                 "pending_task": pending_task.model_dump(mode="json"),
                 "continuation_decision": decision.model_dump(mode="json"),
             },
+            actions=[future_action] if future_action is not None else [],
             requires_input=bool(pending_task.missing_fields),
+        )
+
+    def _build_future_workflow_action(self, *, next_step: str, target_id: str) -> ActionSuggestion | None:
+        if next_step not in WORKFLOW_FUTURE_ACTION_LABELS:
+            return None
+        return ActionSuggestion(
+            id=f"workflow-action:{next_step}:{target_id}",
+            label=WORKFLOW_FUTURE_ACTION_LABELS[next_step],
+            action_type="execute",
+            payload={"intent": next_step, "app_id": target_id},
+            style="secondary",
         )
 
     def _advance_pending_task_if_possible(self, pending_task: PendingTaskRecord | None) -> PendingTaskRecord | None:
@@ -1993,7 +2083,7 @@ class LightBrainGateway:
         action_params = action_params or {}
         action_session_id = action_params.get("session_id") or session_id
         intent = action_params.get("intent", "unclear")
-        if intent == "apply_draft_app":
+        if intent == PENDING_TASK_ACTION_APPLY_DRAFT_APP:
             return await self._execute_apply_draft_app(action_session_id, action_params)
         target = action_params.get("target", "")
 

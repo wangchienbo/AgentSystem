@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.models.pending_task import PendingTaskRecord
+from app.models.pending_task import (
+    PENDING_TASK_ACTION_APPLY_DRAFT_APP,
+    PendingTaskRecord,
+    STAGE_STATUS_PENDING,
+    STAGE_STATUS_VALUES,
+    WORKFLOW_STAGE_INTENT_RECEIVED,
+    WORKFLOW_STAGE_VALUES,
+)
 from app.persistence.runtime_state_store import RuntimeStateStore
 from app.services.app_application_service import AppApplicationService
 from app.services.draft_app_application_service import DraftAppApplicationService
@@ -108,8 +115,8 @@ def test_pending_task_record_supports_wave1_workflow_fields():
     task = PendingTaskRecord(task_id="pt-x", user_id="u1", intent="create_app")
 
     assert task.workflow_type == "draft_app_bootstrap"
-    assert task.current_stage == "intent_received"
-    assert task.stage_status == "pending"
+    assert task.current_stage == WORKFLOW_STAGE_INTENT_RECEIVED
+    assert task.stage_status == STAGE_STATUS_PENDING
     assert task.solution_draft == {}
     assert task.review_result == {}
     assert task.task_list == []
@@ -118,6 +125,14 @@ def test_pending_task_record_supports_wave1_workflow_fields():
     assert task.upgrade_plan == {}
     assert task.acceptance_plan == {}
     assert task.artifacts == []
+
+
+def test_pending_task_workflow_constants_are_stable() -> None:
+    assert WORKFLOW_STAGE_INTENT_RECEIVED in WORKFLOW_STAGE_VALUES
+    assert "implementation_running" in WORKFLOW_STAGE_VALUES
+    assert "done" in WORKFLOW_STAGE_VALUES
+    assert STAGE_STATUS_PENDING in STAGE_STATUS_VALUES
+    assert "completed" in STAGE_STATUS_VALUES
 
 
 def test_app_application_service_applies_draft_into_lifecycle(tmp_path: Path):
