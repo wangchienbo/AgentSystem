@@ -64,6 +64,7 @@ The first bounded execution waves are now partially landed:
 Current posture:
 - these actions now have executable skeleton behavior and structured payload returns
 - the chain is deterministic and bounded, but still represents workflow-oriented closure rather than fully general autonomous implementation
+- the real `/api/action` HTTP surface now has bounded live-chain coverage from task-list preparation through acceptance completion
 - next expansion should deepen execution truth and evidence quality, not reopen Phase Q foundations
 
 ## Suggested first wave for Phase R

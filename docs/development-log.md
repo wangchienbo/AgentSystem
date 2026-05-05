@@ -1,3 +1,21 @@
+## 2026-05-05: Phase R seed updated with live HTTP workflow-chain coverage state
+
+### Summary
+Refreshed the next-phase proposal seed again so it reflects the newest execution truth: the deterministic workflow chain is not only executable at the gateway layer, but now also has bounded live `/api/action` coverage through to acceptance completion.
+
+### What Was Done
+- Updated `docs/phase-r-proposal-seed.md`
+  - added the explicit note that the real `/api/action` HTTP surface now has bounded live-chain coverage from task-list preparation through acceptance completion
+- Re-ran the key gateway + HTTP workflow slices to confirm the proposal refresh still matches current implementation truth
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `56 passed`
+
+### Notes
+This keeps the forward-looking phase seed anchored to what is already true in code and tests, which matters now that the workflow chain is no longer hypothetical.
+
+
 ## 2026-05-05: Real `/api/action` implementation-to-acceptance chain slice added
 
 ### Summary
