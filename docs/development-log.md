@@ -123,6 +123,42 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Phase 1 CLI control-plane skeleton landed for standard-install-model work
+
+### Summary
+Started the standard-install-model task list proper by landing the first Python CLI control-plane skeleton, so install-model migration no longer depends only on repo shell scripts.
+
+### What Was Done
+- Added `app/cli.py`
+  - introduced a Python CLI entrypoint with planned command routing for:
+    - `start`
+    - `stop`
+    - `restart`
+    - `status`
+    - `install`
+    - `bootstrap`
+    - `doctor`
+    - `runtime-layout`
+    - `migrate-runtime`
+    - `assets list|discover|install|install-all`
+  - current handlers return explicit planned status details and repo-root context instead of silently doing nothing
+- Updated `pyproject.toml`
+  - added `project.scripts` entrypoint: `agentsystem = "app.cli:main"`
+- Added `tests/unit/test_cli.py`
+  - covered CLI parser command-surface presence
+  - covered top-level command routing
+  - covered `assets install <asset_id>` routing
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked Phase 1 CLI skeleton and initial validation as landed
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- result: `3 passed`
+
+### Notes
+This is intentionally a skeleton-first landing: the operator control plane now has a formal Python entrypoint and explicit command surface before deeper runtime/install service binding is wired in.
+
+
 ## 2026-05-06: Validation map now carries changed-file intent slices
 
 ### Summary

@@ -15,6 +15,9 @@ dependencies = [
   "PyYAML>=6.0.2"
 ]
 
+[project.scripts]
+agentsystem = "app.cli:main"
+
 [tool.setuptools]
 packages = ["app"]
 

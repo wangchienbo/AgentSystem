@@ -1,0 +1,32 @@
+from __future__ import annotations
+
+from app.cli import build_parser, run_cli
+
+
+def test_build_parser_supports_phase1_command_surface() -> None:
+    parser = build_parser()
+    choices = parser._subparsers._group_actions[0].choices  # type: ignore[attr-defined]
+    assert "start" in choices
+    assert "stop" in choices
+    assert "restart" in choices
+    assert "status" in choices
+    assert "install" in choices
+    assert "bootstrap" in choices
+    assert "doctor" in choices
+    assert "runtime-layout" in choices
+    assert "migrate-runtime" in choices
+    assert "assets" in choices
+
+
+def test_run_cli_returns_planned_status_for_top_level_command() -> None:
+    result = run_cli(["status"])
+    assert result.command == "status"
+    assert result.details["status"] == "planned"
+    assert str(result.details["repo_root"]).endswith("/root/project/AgentSystem")
+
+
+def test_run_cli_supports_assets_install_command() -> None:
+    result = run_cli(["assets", "install", "asset.demo"])
+    assert result.command == "assets.install"
+    assert result.details["status"] == "planned"
+    assert result.details["asset_id"] == "asset.demo"
