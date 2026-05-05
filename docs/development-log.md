@@ -1,3 +1,21 @@
+## 2026-05-05: HTTP compatibility coverage refreshed for executable workflow actions
+
+### Summary
+Extended the HTTP acceptance slice so the newly executable repo / implementation / acceptance workflow actions are also covered through the `/api/action` compatibility surface.
+
+### What Was Done
+- Updated `tests/unit/test_http_test_server.py`
+  - added coverage that `/api/action` responses can expose executable workflow payloads including `implementation_plan`, `acceptance_plan`, `acceptance_result`, and top-level `context_view`
+  - kept the check bounded and compatibility-oriented by stubbing gateway action execution and verifying the HTTP contract shape
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `50 passed`
+
+### Notes
+This keeps the newer executable workflow slices aligned with the existing HTTP compatibility posture rather than leaving them covered only at direct gateway-unit level.
+
+
 ## 2026-05-05: Executable implementation action slice landed between repo and acceptance
 
 ### Summary
