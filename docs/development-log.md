@@ -123,6 +123,32 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: CLI status, doctor, and runtime-layout contracts moved beyond placeholders
+
+### Summary
+Continued Phase 1 of the standard-install-model task list by turning part of the CLI from pure placeholders into lightweight real contracts for runtime layout and basic health inspection.
+
+### What Was Done
+- Updated `app/cli.py`
+  - added `_runtime_layout(...)` helper for config/data/logs/installed/build path reporting
+  - added `_doctor_status(...)` helper for compact directory existence checks
+  - `runtime-layout` now returns an explicit path contract
+  - `status` and `doctor` now return lightweight real checks instead of generic planned placeholders
+- Updated `tests/unit/test_cli.py`
+  - added focused tests for `runtime-layout` output contract
+  - added focused tests for `doctor` checks contract
+  - refreshed `status` test to validate the real status contract
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked initial CLI behavior-contract work as landed
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- result: `5 passed`
+
+### Notes
+This keeps Phase 1 moving in the right order: establish a real Python control-plane contract first, then deepen service binding later.
+
+
 ## 2026-05-06: Phase 1 CLI control-plane skeleton landed for standard-install-model work
 
 ### Summary

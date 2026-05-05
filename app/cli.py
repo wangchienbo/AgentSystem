@@ -6,6 +6,16 @@ from pathlib import Path
 from typing import Sequence
 
 
+RUNTIME_LAYOUT_KEYS = {
+    "repo_root": "/root/project/AgentSystem",
+    "config_dir": "/root/project/AgentSystem/config",
+    "data_dir": "/root/project/AgentSystem/data",
+    "logs_dir": "/root/project/AgentSystem/logs",
+    "installed_dir": "/root/project/AgentSystem/installed",
+    "build_dir": "/root/project/AgentSystem/build",
+}
+
+
 @dataclass(frozen=True)
 class CLIResult:
     command: str
@@ -35,6 +45,31 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _runtime_layout(repo_root: Path) -> dict[str, object]:
+    return {
+        "repo_root": str(repo_root),
+        "config_dir": str(repo_root / "config"),
+        "data_dir": str(repo_root / "data"),
+        "logs_dir": str(repo_root / "logs"),
+        "installed_dir": str(repo_root / "installed"),
+        "build_dir": str(repo_root / "build"),
+    }
+
+
+def _doctor_status(repo_root: Path) -> dict[str, object]:
+    layout = _runtime_layout(repo_root)
+    checks = {
+        key: Path(str(value)).exists()
+        for key, value in layout.items()
+        if key != "repo_root"
+    }
+    return {
+        "status": "ok" if all(checks.values()) else "needs_attention",
+        "checks": checks,
+        **layout,
+    }
+
+
 def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -58,6 +93,18 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
         return CLIResult(
             command=f"assets.{asset_command}",
             details={"status": "planned", "repo_root": str(repo_root)},
+        )
+
+    if args.command == "runtime-layout":
+        return CLIResult(
+            command="runtime-layout",
+            details={"status": "ok", **_runtime_layout(repo_root)},
+        )
+
+    if args.command in {"status", "doctor"}:
+        return CLIResult(
+            command=args.command,
+            details=_doctor_status(repo_root),
         )
 
     return CLIResult(

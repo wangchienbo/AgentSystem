@@ -67,6 +67,12 @@ Convert AgentSystem from repo-coupled runtime into a standard install model with
 - define dry-run or inspect behavior where useful
 - define which commands operate on source repo vs installed runtime
 
+### 2.3 Define CLI behavior contracts
+Status: [x] initial contract landed
+- `status` / `doctor` now return a compact runtime-layout health contract with directory existence checks
+- `runtime-layout` now returns an explicit path contract for config/data/logs/installed/build directories
+- deeper failure and dry-run semantics remain future work
+
 ### 2.4 Implement missing CLI skeletons
 Status: [x] initial skeleton landed
 - added a python CLI entrypoint (`app.cli`) instead of relying only on repo shell scripts

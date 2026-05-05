@@ -18,11 +18,29 @@ def test_build_parser_supports_phase1_command_surface() -> None:
     assert "assets" in choices
 
 
-def test_run_cli_returns_planned_status_for_top_level_command() -> None:
+def test_run_cli_returns_status_contract_for_top_level_command() -> None:
     result = run_cli(["status"])
     assert result.command == "status"
-    assert result.details["status"] == "planned"
+    assert result.details["status"] in {"ok", "needs_attention"}
     assert str(result.details["repo_root"]).endswith("/root/project/AgentSystem")
+
+
+def test_run_cli_returns_runtime_layout_contract() -> None:
+    result = run_cli(["runtime-layout"])
+    assert result.command == "runtime-layout"
+    assert result.details["status"] == "ok"
+    assert str(result.details["config_dir"]).endswith("/root/project/AgentSystem/config")
+    assert str(result.details["installed_dir"]).endswith("/root/project/AgentSystem/installed")
+
+
+def test_run_cli_returns_doctor_checks() -> None:
+    result = run_cli(["doctor"])
+    assert result.command == "doctor"
+    assert result.details["status"] in {"ok", "needs_attention"}
+    checks = result.details["checks"]
+    assert isinstance(checks, dict)
+    assert "config_dir" in checks
+    assert "data_dir" in checks
 
 
 def test_run_cli_supports_assets_install_command() -> None:
