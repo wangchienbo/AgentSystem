@@ -78,6 +78,7 @@ Status: [x] initial skeleton landed
 - added a python CLI entrypoint (`app.cli`) instead of relying only on repo shell scripts
 - wired a planned command surface for top-level runtime/install commands and `assets` subcommands
 - current command handlers return explicit planned status details so the control plane contract exists before deeper service binding
+- legacy `start_server.sh` / `stop_server.sh` now act as compatibility wrappers that delegate into the Python CLI
 
 ### 2.5 Validate CLI control plane
 Status: [x] initial skeleton validation landed

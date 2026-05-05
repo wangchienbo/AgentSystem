@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from app.cli import build_parser, run_cli
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_build_parser_supports_phase1_command_surface() -> None:
@@ -41,6 +45,13 @@ def test_run_cli_returns_doctor_checks() -> None:
     assert isinstance(checks, dict)
     assert "config_dir" in checks
     assert "data_dir" in checks
+
+
+def test_repo_shell_wrappers_delegate_to_python_cli() -> None:
+    start_wrapper = (REPO_ROOT / "start_server.sh").read_text(encoding="utf-8")
+    stop_wrapper = (REPO_ROOT / "stop_server.sh").read_text(encoding="utf-8")
+    assert "-m app.cli start" in start_wrapper
+    assert "-m app.cli stop" in stop_wrapper
 
 
 def test_run_cli_supports_assets_install_command() -> None:

@@ -123,6 +123,29 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Legacy start/stop shell scripts converted into CLI compatibility wrappers
+
+### Summary
+Continued Phase 1 in the intended direction by making the legacy repo shell scripts delegate into the Python CLI, so the control plane starts converging on one entrypoint instead of two unrelated command surfaces.
+
+### What Was Done
+- Updated `start_server.sh`
+  - now acts as a compatibility wrapper that delegates to `python -m app.cli start`
+- Updated `stop_server.sh`
+  - now acts as a compatibility wrapper that delegates to `python -m app.cli stop`
+- Updated `tests/unit/test_cli.py`
+  - added assertions that the legacy shell wrappers route into the Python CLI entrypoint
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded the shell-wrapper compatibility convergence in the Phase 1 CLI skeleton notes
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- result: `6 passed`
+
+### Notes
+This is a deliberate migration step: old operator muscle-memory still works, but the control plane is now converging on the installed Python CLI instead of repo-specific script logic.
+
+
 ## 2026-05-06: CLI status, doctor, and runtime-layout contracts moved beyond placeholders
 
 ### Summary
