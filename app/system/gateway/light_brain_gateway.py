@@ -2195,24 +2195,40 @@ class LightBrainGateway:
             return ChatMessageResponse(type="error", content="没有找到可执行 locate_repo_context 的未完成任务。", session_id=session_id)
 
         repo_root = Path(__file__).resolve().parents[3]
+        repo_valid = repo_root.exists() and repo_root.is_dir()
         primary_readme = repo_root / "README.md"
-        key_docs = [
+        configured_key_docs = [
             "docs/requirements.md",
             "docs/design.md",
             "docs/testing.md",
             "docs/testing-detail.md",
             "docs/development-log.md",
         ]
+        key_docs = [path for path in configured_key_docs if (repo_root / path).exists()]
         target_modules = sorted({
-            item.get("module", "")
+            item.get("module", "").strip()
             for item in pending_task.task_list
             if isinstance(item, dict) and item.get("module")
         })
+        target_modules = [item for item in target_modules if item]
+        git_branch = ""
+        git_dirty = False
+        if repo_valid:
+            branch_proc = subprocess.run(["bash", "-lc", "git rev-parse --abbrev-ref HEAD"], cwd=str(repo_root), capture_output=True, text=True, timeout=10)
+            if branch_proc.returncode == 0:
+                git_branch = (branch_proc.stdout or "").strip()
+            dirty_proc = subprocess.run(["bash", "-lc", "git status --short"], cwd=str(repo_root), capture_output=True, text=True, timeout=10)
+            if dirty_proc.returncode == 0:
+                git_dirty = bool((dirty_proc.stdout or "").strip())
         updated_repo_context = {
             "active_repo_path": str(repo_root),
-            "primary_readme_path": str(primary_readme if primary_readme.exists() else repo_root / "README.md"),
+            "repo_valid": repo_valid,
+            "primary_readme_path": str(primary_readme),
+            "primary_readme_exists": primary_readme.exists(),
             "key_docs": key_docs,
             "target_modules": target_modules,
+            "git_branch": git_branch,
+            "git_dirty": git_dirty,
         }
         updated_acceptance = dict(pending_task.acceptance_plan or {})
         updated_acceptance.setdefault("test_probe_commands", [])
@@ -2221,9 +2237,9 @@ class LightBrainGateway:
         updated_acceptance.setdefault("results", [])
         if not updated_acceptance["success_criteria"]:
             updated_acceptance["success_criteria"] = [
-                "repository context can be resolved to a concrete repo path",
-                "primary README path is captured",
-                "key project docs are available for implementation and testing guidance",
+                "repository context resolves to a concrete repo path",
+                "primary README presence is captured",
+                "key project docs are filtered to existing files for implementation/testing guidance",
             ]
         updated = pending_task.model_copy(update={
             "repo_context": updated_repo_context,

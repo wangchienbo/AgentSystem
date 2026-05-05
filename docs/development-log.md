@@ -37,6 +37,33 @@ Updated the testing docs so the newer executable workflow chain is explicitly re
 This makes the documented validation story match the new execution reality and reduces the need to reconstruct the chain only from commit history or dev logs.
 
 
+## 2026-05-05: Phase R Wave 1 repo-context truth upgrade landed
+
+### Summary
+Started executing the first explicit Phase R wave by enriching `locate_repo_context` with more grounded repo-truth signals instead of returning only a minimal path/doc shell.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `locate_repo_context` now records:
+    - `repo_valid`
+    - `primary_readme_exists`
+    - existing-only `key_docs`
+    - normalized `target_modules`
+    - cheap git facts: `git_branch`, `git_dirty`
+  - acceptance criteria text was updated to reflect the richer repo-truth semantics
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - extended assertions to cover the richer repo-context payload shape
+- Updated `docs/phase-r-detailed-task-list.md`
+  - marked Wave 1 repo inspection enrichment and validation items complete
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `56 passed`
+
+### Notes
+This is the first concrete step from Phase R planning into implementation, and it improves repo-context truth without reopening the already closed Phase Q foundation scope.
+
+
 ## 2026-05-05: Phase R seed updated with live HTTP workflow-chain coverage state
 
 ### Summary

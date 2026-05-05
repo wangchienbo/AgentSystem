@@ -35,18 +35,16 @@ Recommended bounded rollout order:
 ## 4. Wave 1: Repo-Context Truth Upgrade
 
 ### 4.1 Repo inspection enrichment
-- expand `locate_repo_context` so it can discover:
-  - repo root validity
-  - active README presence
-  - key docs that actually exist
-  - bounded module targets from task list and repo inspection
-  - lightweight repo facts such as branch / dirty state only when cheaply available
+Status: [x] completed
+- `locate_repo_context` now validates repo-root existence, captures README presence, filters key docs to existing files, normalizes bounded module targets, and records cheap repo facts (`git_branch`, `git_dirty`, `repo_valid`)
 
 ### 4.2 Validation
-- add focused tests for:
+Status: [x] completed
+- focused tests cover:
   - missing README fallback handling
   - bounded existing-doc filtering
   - target module normalization
+  - cheap git-fact extraction
 
 ## 5. Wave 2: Implementation-Plan Truth Upgrade
 

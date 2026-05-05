@@ -278,7 +278,11 @@ def test_execute_locate_repo_context_updates_pending_task(tmp_path: Path):
     assert response.type == "progress"
     assert response.data is not None
     assert response.data["repo_context"]["active_repo_path"] == str(REPO_ROOT)
-    assert response.data["repo_context"]["primary_readme_path"]== str(REPO_ROOT / "README.md")
+    assert response.data["repo_context"]["primary_readme_path"] == str(REPO_ROOT / "README.md")
+    assert response.data["repo_context"]["repo_valid"] is True
+    assert isinstance(response.data["repo_context"]["primary_readme_exists"], bool)
+    assert isinstance(response.data["repo_context"]["git_branch"], str)
+    assert isinstance(response.data["repo_context"]["git_dirty"], bool)
     updated = pending_store.get_latest_open_task("u1")
     assert updated is not None
     assert updated.current_stage == "implementation_pending"
