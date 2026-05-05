@@ -283,6 +283,47 @@ def test_execute_locate_repo_context_updates_pending_task(tmp_path: Path):
     assert updated.next_recommended_action["type"] == "implement_app_change"
 
 
+def test_execute_materialize_task_list_prepares_repo_handoff(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    task = PendingTaskRecord(
+        task_id="pt-tasklist-1",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="ready_to_execute",
+        current_stage="tasklist_preparing",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_0"},
+        draft_payload={"name": "demo_app"},
+        next_recommended_action={"type": "materialize_task_list", "app_id": "app_repo_0"},
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:materialize_task_list:app_repo_0",
+            action_params={"intent": "materialize_task_list", "app_id": "app_repo_0"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    assert len(response.data["task_list"]) == 3
+    updated = pending_store.get_latest_open_task("u1")
+    assert updated is not None
+    assert updated.current_stage == "repo_locating"
+    assert updated.next_recommended_action["type"] == "locate_repo_context"
+
+
 def test_execute_implement_app_change_materializes_plan(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     from app.system.runtime.pending_task_store import PendingTaskStore

@@ -1,3 +1,25 @@
+## 2026-05-05: Executable task-list materialization slice landed before repo-context execution
+
+### Summary
+Backfilled the earliest executable action in the post-Phase-Q workflow chain by making `materialize_task_list` a real action that prepares deterministic work items and hands off to repo-context execution.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - added executable `materialize_task_list` action handling in `execute_action(...)`
+  - action now generates a bounded default task list when none exists, including repo review, implementation preparation, and acceptance preparation items
+  - advances workflow to `repo_locating` and recommends `locate_repo_context`
+  - returns structured progress payload with `pending_task`, `task_list`, and bounded `context_view`
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added focused coverage for task-list materialization and repo handoff progression
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py -q`
+- result: `19 passed`
+
+### Notes
+This closes the front of the new executable workflow chain, which now runs in bounded deterministic slices from task-list preparation through repo, implementation, and acceptance stages.
+
+
 ## 2026-05-05: HTTP compatibility coverage refreshed for executable workflow actions
 
 ### Summary

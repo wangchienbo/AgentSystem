@@ -2404,6 +2404,67 @@ class LightBrainGateway:
         self._auto_save()
         return response
 
+    async def _execute_materialize_task_list(self, user_id: str, session_id: str, action_params: dict[str, Any]) -> ChatMessageResponse:
+        if self._pending_task_store is None:
+            return ChatMessageResponse(type="error", content="pending task store 未注入，当前不能执行 materialize_task_list。", session_id=session_id)
+        pending_task = self._pending_task_store.get_latest_open_task(user_id)
+        if pending_task is None:
+            return ChatMessageResponse(type="error", content="没有找到可执行 materialize_task_list 的未完成任务。", session_id=session_id)
+
+        app_id = pending_task.target_ref.get("app_id") or "app_unknown"
+        draft_name = (pending_task.draft_payload or {}).get("name") or app_id
+        task_list = list(pending_task.task_list or [])
+        if not task_list:
+            task_list = [
+                {
+                    "id": "task-1",
+                    "title": f"review repo context for {draft_name}",
+                    "module": "README.md",
+                    "status": "prepared",
+                },
+                {
+                    "id": "task-2",
+                    "title": f"prepare workflow implementation slice for {draft_name}",
+                    "module": "app/system/gateway/light_brain_gateway.py",
+                    "status": "prepared",
+                },
+                {
+                    "id": "task-3",
+                    "title": f"prepare acceptance probes for {draft_name}",
+                    "module": "tests/unit/test_light_brain_gateway_pending_task.py",
+                    "status": "prepared",
+                },
+            ]
+        updated = pending_task.model_copy(update={
+            "task_list": task_list,
+            "status": "ready_to_execute",
+            "current_stage": "repo_locating",
+            "stage_status": "completed",
+            "next_recommended_action": {"type": PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT, "app_id": app_id},
+        })
+        self._pending_task_store.upsert_task(updated)
+        self._memory.create_session(user_id=user_id, channel="action", session_id=session_id)
+        response = ChatMessageResponse(
+            type="progress",
+            content=(
+                f"我已经生成了任务清单。\n"
+                f"目标：{app_id}\n"
+                f"任务数：{len(task_list)}\n"
+                f"下一步建议：{PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT}"
+            ),
+            session_id=session_id,
+            data={
+                "pending_task": updated.model_dump(mode="json"),
+                "task_list": task_list,
+                "context_view": self._get_recent_context_view(session_id),
+            },
+            actions=[self._build_future_workflow_action(next_step=PENDING_TASK_ACTION_LOCATE_REPO_CONTEXT, target_id=app_id)],
+            related_app=app_id,
+        )
+        self._after_reply(session_id=session_id, reply=response)
+        self._auto_save()
+        return response
+
     async def execute_action(
         self,
         user_id: str,
@@ -2415,6 +2476,8 @@ class LightBrainGateway:
         action_params = action_params or {}
         action_session_id = action_params.get("session_id") or session_id
         intent = action_params.get("intent", "unclear")
+        if intent == PENDING_TASK_ACTION_MATERIALIZE_TASK_LIST:
+            return await self._execute_materialize_task_list(user_id, action_session_id, action_params)
         if intent == PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE:
             return await self._execute_implement_app_change(user_id, action_session_id, action_params)
         if intent == PENDING_TASK_ACTION_RUN_ACCEPTANCE:
