@@ -51,6 +51,21 @@ But extend it into execution closure so a workflow can move from:
 - to explicit acceptance output
 - to persisted acceptance evidence
 
+## Progress update after initial execution waves
+
+The first bounded execution waves are now partially landed:
+- `approve_solution_draft`
+- `revise_solution_draft`
+- `materialize_task_list`
+- `locate_repo_context`
+- `implement_app_change`
+- `run_acceptance`
+
+Current posture:
+- these actions now have executable skeleton behavior and structured payload returns
+- the chain is deterministic and bounded, but still represents workflow-oriented closure rather than fully general autonomous implementation
+- next expansion should deepen execution truth and evidence quality, not reopen Phase Q foundations
+
 ## Suggested first wave for Phase R
 
 ### Wave 1: executable repo-context and acceptance planning
