@@ -8,8 +8,8 @@ Its first responsibility is to register and locate the master control skill for 
 ## Registered master control skill
 
 - Skill id: `agentsystem-master-control`
-- Skill path: `/root/project/AgentSystem/skills/generated/agentsystem-master-control/SKILL.md`
-- Governed scope: the full AgentSystem repository at `/root/project/AgentSystem`
+- Skill path: `./skills/generated/agentsystem-master-control/SKILL.md`
+- Governed scope: the full AgentSystem repository at `<repo-root>`
 
 ## Entry conditions
 
@@ -21,9 +21,9 @@ This anchor exists to locate the master control skill. It is not the full contro
 
 ## Control artifacts
 
-- `/root/project/AgentSystem/control-plane/project-map.yaml`
-- `/root/project/AgentSystem/control-plane/modules/`
-- `/root/project/AgentSystem/control-plane/interfaces/`
-- `/root/project/AgentSystem/control-plane/tasks/`
-- `/root/project/AgentSystem/control-plane/subordinate-skills/registry.yaml`
-- `/root/project/AgentSystem/control-plane/subordinate-skills/structural-candidates.yaml`
+- `./control-plane/project-map.yaml`
+- `./control-plane/modules/`
+- `./control-plane/interfaces/`
+- `./control-plane/tasks/`
+- `./control-plane/subordinate-skills/registry.yaml`
+- `./control-plane/subordinate-skills/structural-candidates.yaml`

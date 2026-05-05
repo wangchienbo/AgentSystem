@@ -5,7 +5,7 @@ It is intentionally practical and non-authoritative: README and docs remain the 
 
 ## Project root
 
-- Repository root: `/root/project/AgentSystem`
+- Repository root: `<repo-root>`
 
 ## Primary docs
 
@@ -81,7 +81,7 @@ These files often change after running the API or tests. Treat them as runtime s
 
 If `/root/project/README.md` does not exist, use this repo-local README instead:
 
-- `/root/project/AgentSystem/README.md`
+- `<repo-root>/README.md`
 
 For AgentSystem work, do not stop at `/root/project`; enter the actual repo root.
 
@@ -89,7 +89,7 @@ For AgentSystem work, do not stop at `/root/project`; enter the actual repo root
 
 For each completed feature/module:
 
-1. implement in `/root/project/AgentSystem`
+1. implement in `<repo-root>`
 2. run/update tests
 3. update docs when behavior changes
 4. add a development-log entry

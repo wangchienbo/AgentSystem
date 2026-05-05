@@ -147,7 +147,7 @@ INFO:httpx:HTTP Request: POST https://crs.ruinique.com/v1/chat/completions  ← 
 ### 5.1 快速冒烟测试
 
 ```bash
-cd /root/project/AgentSystem
+cd <repo-root>
 python3 e2e_test.py
 ```
 
@@ -196,7 +196,7 @@ tail -f /tmp/agent_test.log
 每次推送代码前，必须运行：
 
 ```bash
-cd /root/project/AgentSystem
+cd <repo-root>
 python3 e2e_test.py
 ```
 
