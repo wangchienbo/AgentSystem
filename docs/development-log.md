@@ -1,3 +1,23 @@
+## 2026-05-05: Phase R detailed task list created from the proposal seed
+
+### Summary
+Converted the Phase R seed from a directional note into an implementation-oriented detailed task list, so continued work can follow bounded waves instead of ad hoc follow-up steps.
+
+### What Was Done
+- Added `docs/phase-r-detailed-task-list.md`
+  - captured current starting state after the executable workflow chain landing
+  - defined bounded waves for repo-context truth, implementation-plan truth, acceptance-evidence truth, and operator/HTTP surfacing
+  - added documentation tasks, suggested commit boundaries, and an initial acceptance checklist for Phase R
+- Updated `docs/phase-r-proposal-seed.md`
+  - added a direct pointer to the new detailed task list
+
+### Validation
+- documentation-only planning refinement; no runtime behavior changed
+
+### Notes
+This is the clean transition from "Phase R should exist" to "Phase R now has an explicit rollout list".
+
+
 ## 2026-05-05: Testing docs refreshed for executable workflow action chain
 
 ### Summary

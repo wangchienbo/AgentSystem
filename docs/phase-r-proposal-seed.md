@@ -5,6 +5,9 @@
 This document captures the immediate next-step proposal after Phase Q closure.
 It is not a full implementation plan yet. Its role is to define the most natural next phase boundary so development can continue without reopening Phase Q.
 
+Detailed rollout task list:
+- `docs/phase-r-detailed-task-list.md`
+
 ## Why a new phase is needed
 
 Phase Q already closed the workflow/context convergence baseline:
