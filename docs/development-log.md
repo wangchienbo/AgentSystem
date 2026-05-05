@@ -68,6 +68,24 @@ Started the next bounded Phase R extension layer by linking implementation inten
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
 
 
+## 2026-05-05: Orchestrator acceptance-summary tests tightened for persisted summary behavior
+
+### Summary
+Continued the same Wave 5 thread by strengthening the orchestrator acceptance test so the persisted `evidence_summary` behavior stays explicitly covered as the richer schema settles.
+
+### What Was Done
+- Updated `tests/unit/test_pending_task_orchestrator.py`
+  - extended the acceptance flow assertions to verify default and completed `evidence_summary` values
+  - kept Context Center event assertions focused on emitted messages while the nested evidence remains owned by pending-task state
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `68 passed`
+
+### Notes
+This keeps the verification centered on the real contract boundary: nested evidence summaries live in pending-task state, while Context Center remains a lighter event stream.
+
+
 ## 2026-05-05: Testing and proposal docs refreshed for Wave 5 mutation/evidence binding state
 
 ### Summary

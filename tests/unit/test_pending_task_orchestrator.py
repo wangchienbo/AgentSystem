@@ -314,6 +314,7 @@ def test_pending_task_orchestrator_can_capture_acceptance_plan_and_result(tmp_pa
     assert completed.acceptance_plan["results"][-1]["evidence"]["command"] == "pytest tests/unit/test_pending_task_orchestrator.py -q"
     assert completed.acceptance_plan["evidence_summary"] == {"command_count": 1, "passed_count": 1, "failed_count": 0}
     context_events = context_center.read_detail_events("sess-1")
+    assert context_events[-2].message == "acceptance_result status=passed summary=targeted acceptance checks passed"
     assert context_events[-3].message == "workflow_hook event=acceptance_started stage=intent_received"
     assert context_events[-2].message == "acceptance_result status=passed summary=targeted acceptance checks passed"
     assert context_events[-1].message == "workflow_hook event=acceptance_completed stage=intent_received"
