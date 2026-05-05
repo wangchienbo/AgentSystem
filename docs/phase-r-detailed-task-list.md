@@ -123,6 +123,7 @@ Status: [x] first slice landed
 Status: [x] first slice landed
 - focused tests cover changed-file intent exposure and acceptance-evidence to work-item binding on both gateway and real `/api/action` paths
 - orchestrator tests cover persisted `evidence_summary` behavior and keep Context Center verification scoped to the lighter event/message contract
+- real HTTP coverage now also includes distinct multi-command work-item binding and compact `change_execution_summary` assertions
 
 ### 11.3 Next open slice
 Status: [ ] pending

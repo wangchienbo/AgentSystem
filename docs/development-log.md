@@ -123,6 +123,27 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-05: Real HTTP coverage extended for multi-command binding and compact change summary
+
+### Summary
+Pushed Wave 5 one step further on the real `/api/action` surface by adding a focused HTTP test that covers distinct multi-command work-item binding together with the compact `change_execution_summary` read model.
+
+### What Was Done
+- Updated `tests/unit/test_http_test_server.py`
+  - added a real `/api/action` acceptance test with two commands and two mapped work items
+  - verified distinct `matched_work_item_ids` on each command result
+  - verified compact `change_execution_summary.work_item_ids_touched` on the outward HTTP payload
+- Updated `docs/phase-r-detailed-task-list.md`
+  - refreshed Wave 5 validation notes to include real HTTP coverage for distinct multi-command binding and compact change summary surfacing
+
+### Validation
+- `pytest tests/unit/test_http_test_server.py tests/unit/test_light_brain_gateway_pending_task.py -q`
+- result: `58 passed`
+
+### Notes
+This closes another outward-surface gap: the distinct multi-command binding and compact change summary are now not only present in gateway-focused tests, but also explicitly verified on the real HTTP action path.
+
+
 ## 2026-05-05: Design, requirements, and testing docs synced for compact change-execution summary
 
 ### Summary

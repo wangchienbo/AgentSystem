@@ -462,7 +462,81 @@ def test_api_action_runs_real_implementation_to_acceptance_chain(tmp_path) -> No
         gateway._pending_task_store = original_store
 
 
-def test_api_chat_exposes_gateway_action_contract() -> None:
+def test_api_action_runs_real_acceptance_with_distinct_multi_command_work_item_binding(tmp_path) -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from app.models.pending_task import PendingTaskRecord
+    from app.persistence.runtime_state_store import RuntimeStateStore
+    from app.system.runtime.pending_task_store import PendingTaskStore
+
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    original_store = getattr(gateway, "_pending_task_store", None)
+    gateway._pending_task_store = store
+    try:
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        task = PendingTaskRecord(
+            task_id="pt-http-multi-bind",
+            user_id="tester",
+            session_id="session_tester",
+            intent="create_app",
+            status="ready_to_execute",
+            current_stage="acceptance_running",
+            stage_status="in_progress",
+            target_ref={"app_id": "app_http_multi_bind"},
+            repo_context={
+                "active_repo_path": str(repo_root),
+                "primary_readme_path": str(repo_root / "README.md"),
+                "key_docs": [],
+                "target_modules": [],
+            },
+            implementation_plan={
+                "changed_files_intent": [
+                    {"path": "app/a.py", "mapped_work_item_id": "work-1"},
+                    {"path": "app/b.py", "mapped_work_item_id": "work-2"},
+                ],
+                "work_items": [
+                    {"id": "work-1", "target": "app/a.py"},
+                    {"id": "work-2", "target": "app/b.py"},
+                ],
+                "validation_map": [
+                    {"probe": "python3 -c 'print(\"a\")'", "mapped_work_item_id": "work-1"},
+                    {"probe": "python3 -c 'print(\"b\")'", "mapped_work_item_id": "work-2"},
+                ],
+            },
+            acceptance_plan={
+                "test_probe_commands": ["python3 -c 'print(\"a\")'", "python3 -c 'print(\"b\")'"],
+                "http_runtime_verification_points": [],
+                "success_criteria": ["commands exit 0"],
+                "results": [],
+            },
+            next_recommended_action={"type": "run_acceptance", "app_id": "app_http_multi_bind"},
+        )
+        store.upsert_task(task)
+
+        acceptance_response = client.post(
+            "/api/action",
+            json={"action_id": "workflow-action:run_acceptance:app_http_multi_bind", "action_params": {"intent": "run_acceptance", "app_id": "app_http_multi_bind"}},
+        )
+        assert acceptance_response.status_code == 200
+        acceptance_data = acceptance_response.json()
+        commands = acceptance_data["data"]["acceptance_result"]["evidence"]["commands"]
+        assert commands[0]["matched_work_item_ids"] == ["work-1"]
+        assert commands[1]["matched_work_item_ids"] == ["work-2"]
+        assert acceptance_data["data"]["acceptance_result"]["evidence"]["change_execution_summary"]["work_item_ids_touched"] == ["work-1", "work-2"]
+    finally:
+        gateway._pending_task_store = original_store
+
+
     user_sessions.clear()
     conversation_history.clear()
     user_sessions["session_tester"] = {
