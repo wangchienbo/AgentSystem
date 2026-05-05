@@ -123,6 +123,27 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Web-start shell wrapper also converged onto the Python CLI
+
+### Summary
+Continued the same Phase 1 control-plane convergence by removing `start_web_server.sh` as a separate startup surface and routing it into the same Python CLI start path as the other legacy wrappers.
+
+### What Was Done
+- Updated `start_web_server.sh`
+  - now acts as a compatibility wrapper that delegates to `python -m app.cli start`
+- Updated `tests/unit/test_cli.py`
+  - extended wrapper assertions to include `start_web_server.sh`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the web-start wrapper also converged onto the Python CLI path
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- result: `6 passed`
+
+### Notes
+This reduces one more parallel startup path and keeps operator entrypoints converging on the same future installed CLI surface.
+
+
 ## 2026-05-06: Legacy start/stop shell scripts converted into CLI compatibility wrappers
 
 ### Summary
