@@ -123,6 +123,30 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-05: Wave 5 compact change-execution summary surfaced on acceptance evidence
+
+### Summary
+Continued the third Wave 5 open slice by surfacing a bounded operator-facing change/result summary directly inside acceptance evidence, instead of leaving changed-file and touched-work-item interpretation fully implicit.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `run_acceptance` now adds `change_execution_summary` to acceptance evidence
+  - the compact summary includes changed-file count, changed-file paths, and touched work-item ids
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added focused assertions for `change_execution_summary.work_item_ids_touched` on the multi-command acceptance path
+- Updated `tests/unit/test_http_test_server.py`
+  - added real `/api/action` assertions for surfaced `change_execution_summary.changed_file_count`
+- Updated `docs/phase-r-detailed-task-list.md`
+  - recorded that the compact changed-file/result summary open slice now has first landed progress
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `58 passed`
+
+### Notes
+This remains bounded and compatibility-safe, but it gives operator-facing consumers a lighter summary surface for change/evidence linkage without requiring them to reconstruct it from raw command rows.
+
+
 ## 2026-05-05: Testing docs refreshed for changed-file source hints and distinct multi-command binding
 
 ### Summary

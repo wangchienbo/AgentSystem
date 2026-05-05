@@ -632,6 +632,7 @@ def test_execute_run_acceptance_maps_multiple_commands_to_distinct_work_items(tm
     assert command_results[0]["matched_work_item_ids"] == ["work-1"]
     assert command_results[1]["matched_work_item_ids"] == ["work-2"]
     assert response.data["acceptance_plan"]["evidence_summary"]["command_count"] == 2
+    assert response.data["acceptance_result"]["evidence"]["change_execution_summary"]["work_item_ids_touched"] == ["work-1", "work-2"]
 
 
 def test_execute_run_acceptance_records_failed_result(tmp_path: Path):

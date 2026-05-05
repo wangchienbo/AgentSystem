@@ -2291,6 +2291,7 @@ class LightBrainGateway:
         implementation_plan = dict(pending_task.implementation_plan or {})
         validation_map = list(implementation_plan.get("validation_map") or [])
         implementation_work_items = list(implementation_plan.get("work_items") or [])
+        changed_files_intent = list(implementation_plan.get("changed_files_intent") or [])
         command_results: list[dict[str, Any]] = []
         overall_status = "passed"
         for command in commands:
@@ -2340,6 +2341,11 @@ class LightBrainGateway:
                     "command_count": len(command_results),
                     "passed_count": sum(1 for item in command_results if item["status"] == "passed"),
                     "failed_count": sum(1 for item in command_results if item["status"] != "passed"),
+                },
+                "change_execution_summary": {
+                    "changed_file_count": len(changed_files_intent),
+                    "changed_files": [item.get("path") for item in changed_files_intent if item.get("path")],
+                    "work_item_ids_touched": sorted({wid for item in command_results for wid in item.get("matched_work_item_ids", [])}),
                 },
             },
         }

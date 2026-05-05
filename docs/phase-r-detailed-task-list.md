@@ -133,3 +133,4 @@ Status: [ ] pending
 First progress already landed:
 - changed-file intent now derives source hints from both `repo_context.target_modules` and `task_list.module`
 - multi-command acceptance evidence can now be covered and verified against distinct `mapped_work_item_id` entries
+- gateway acceptance evidence now exposes a compact `change_execution_summary` with changed-file count, changed files, and touched work-item ids
