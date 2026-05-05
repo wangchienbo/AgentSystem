@@ -108,3 +108,15 @@ Phase R should be considered meaningfully underway when:
 - acceptance evidence is normalized and reusable
 - HTTP and gateway surfaces expose the richer payloads without contract drift
 - focused tests remain green after each wave
+
+## 11. Next Bounded Extension Layer
+
+### 11.1 Wave 5: Mutation/evidence binding
+Status: [x] first slice landed
+- `implement_app_change` now carries `changed_files_intent` linked to `mapped_work_item_id`
+- `validation_map` now also records `mapped_work_item_id`
+- `run_acceptance` now maps command evidence back to `matched_work_item_ids`
+
+### 11.2 Validation
+Status: [x] first slice landed
+- focused tests cover changed-file intent exposure and acceptance-evidence to work-item binding on both gateway and real `/api/action` paths

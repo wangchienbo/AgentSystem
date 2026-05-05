@@ -37,6 +37,31 @@ Updated the testing docs so the newer executable workflow chain is explicitly re
 This makes the documented validation story match the new execution reality and reduces the need to reconstruct the chain only from commit history or dev logs.
 
 
+## 2026-05-05: Phase R Wave 5 first mutation/evidence binding slice landed
+
+### Summary
+Started the next bounded Phase R extension layer by linking implementation intent and acceptance evidence more explicitly, without widening into uncontrolled autonomous mutation.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `implement_app_change` now emits `changed_files_intent` records linked to `mapped_work_item_id`
+  - `validation_map` now also records `mapped_work_item_id`
+  - `run_acceptance` now records `matched_work_item_ids` on command evidence, using direct validation-map matches and a bounded single-work-item fallback
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added focused assertions for changed-file intent exposure and work-item binding in acceptance evidence
+- Updated `tests/unit/test_http_test_server.py`
+  - extended real `/api/action` chain assertions to cover changed-file intent and matched work-item evidence fields
+- Updated `docs/phase-r-detailed-task-list.md`
+  - added Wave 5 first-slice tracking for mutation/evidence binding
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `56 passed`
+
+### Notes
+This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
+
+
 ## 2026-05-05: Phase R proposal and closure docs refreshed after first rollout arc completion
 
 ### Summary

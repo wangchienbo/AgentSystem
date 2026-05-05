@@ -454,8 +454,10 @@ def test_execute_implement_app_change_materializes_plan(tmp_path: Path):
     assert response.type == "progress"
     assert response.data is not None
     assert response.data["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
+    assert response.data["implementation_plan"]["changed_files_intent"][0]["path"] == "app/system/gateway/light_brain_gateway.py"
     assert response.data["implementation_plan"]["work_items"][0]["rationale"].startswith("derived from workflow target module")
     assert response.data["implementation_plan"]["validation_map"][0]["probe"] == "pytest tests/unit/test_light_brain_gateway_pending_task.py -q"
+    assert response.data["implementation_plan"]["validation_map"][0]["mapped_work_item_id"] == "work-1"
     updated = pending_store.get_latest_open_task("u1")
     assert updated is not None
     assert updated.current_stage == "acceptance_pending"
@@ -517,6 +519,7 @@ def test_execute_run_acceptance_records_passed_result(tmp_path: Path):
     assert "stderr_excerpt" in command_evidence
     assert "ran_at" in command_evidence
     assert isinstance(command_evidence["matched_success_criteria"], list)
+    assert command_evidence["matched_work_item_ids"] == []
     assert response.data["acceptance_result"]["evidence"]["summary"]["passed_count"] >= 1
     updated = pending_store.get_latest_open_task("u1")
     assert updated is None or updated.status == "completed"

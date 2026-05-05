@@ -2288,6 +2288,9 @@ class LightBrainGateway:
 
         repo_root = Path((pending_task.repo_context or {}).get("active_repo_path") or Path(__file__).resolve().parents[3])
         results = list(acceptance_plan.get("results") or [])
+        implementation_plan = dict(pending_task.implementation_plan or {})
+        validation_map = list(implementation_plan.get("validation_map") or [])
+        implementation_work_items = list(implementation_plan.get("work_items") or [])
         command_results: list[dict[str, Any]] = []
         overall_status = "passed"
         for command in commands:
@@ -2298,6 +2301,16 @@ class LightBrainGateway:
                 text=True,
                 timeout=120,
             )
+            matched_validation_items = [
+                item
+                for item in validation_map
+                if isinstance(item, dict) and item.get("probe") == command
+            ]
+            matched_work_item_ids = [item.get("mapped_work_item_id") for item in matched_validation_items if item.get("mapped_work_item_id")]
+            if not matched_work_item_ids and len(implementation_work_items) == 1:
+                fallback_id = implementation_work_items[0].get("id")
+                if fallback_id:
+                    matched_work_item_ids = [fallback_id]
             matched_criteria = [
                 criterion
                 for criterion in acceptance_plan.get("success_criteria", [])
@@ -2311,6 +2324,7 @@ class LightBrainGateway:
                 "stderr_excerpt": (proc.stderr or "")[-2000:],
                 "ran_at": datetime.now(UTC).isoformat(),
                 "matched_success_criteria": matched_criteria,
+                "matched_work_item_ids": matched_work_item_ids,
             }
             command_results.append(item)
             if proc.returncode != 0:
@@ -2382,6 +2396,14 @@ class LightBrainGateway:
         implementation_plan = {
             "repo_path": repo_context.get("active_repo_path") or str(Path(__file__).resolve().parents[3]),
             "target_files": target_modules,
+            "changed_files_intent": [
+                {
+                    "path": module,
+                    "change_type": "modify",
+                    "mapped_work_item_id": f"work-{index+1}",
+                }
+                for index, module in enumerate(target_modules)
+            ],
             "work_items": [
                 {
                     "id": f"work-{index+1}",
@@ -2396,9 +2418,10 @@ class LightBrainGateway:
             "validation_map": [
                 {
                     "target": module,
+                    "mapped_work_item_id": f"work-{index+1}",
                     "probe": "pytest tests/unit/test_light_brain_gateway_pending_task.py -q",
                 }
-                for module in target_modules
+                for index, module in enumerate(target_modules)
             ],
             "summary": f"Prepared implementation bundle for {len(target_modules)} target module(s).",
         }
