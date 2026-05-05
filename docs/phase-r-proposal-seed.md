@@ -68,6 +68,7 @@ Current posture:
 - these actions now have executable skeleton behavior and structured payload returns
 - repo-context truth, implementation-plan truth, acceptance-evidence truth, and HTTP/runtime surfacing all have bounded landed coverage
 - a second bounded extension layer has started, linking changed-file intent, validation mapping, and acceptance evidence back to work-item identifiers
+- the richer binding shape is now also reflected in canonical pending-task defaults and orchestrator acceptance-summary persistence
 - the chain remains deterministic and bounded, and still represents workflow-oriented closure rather than fully general autonomous implementation
 - the real `/api/action` HTTP surface now has bounded live-chain coverage from task-list preparation through acceptance completion, with richer payload assertions on repo, implementation, changed-file intent, and acceptance evidence fields
 - next expansion should continue deepening mutation/evidence binding on top of this baseline instead of reopening Phase Q foundations

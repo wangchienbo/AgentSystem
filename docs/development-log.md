@@ -68,6 +68,25 @@ Started the next bounded Phase R extension layer by linking implementation inten
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
 
 
+## 2026-05-05: Phase R task list and proposal refreshed after Wave 5 schema/orchestrator tightening
+
+### Summary
+Refreshed the Phase R planning docs again so Wave 5 no longer reads like only a gateway-side slice. The task list and proposal now reflect that the richer binding shape has propagated into canonical pending-task defaults and orchestrator-side persistence/verification.
+
+### What Was Done
+- Updated `docs/phase-r-detailed-task-list.md`
+  - expanded Wave 5 status notes to include canonical pending-task defaults and orchestrator acceptance-flow preservation of the richer binding/evidence summary shape
+  - expanded Wave 5 validation notes to include persisted `evidence_summary` verification and the lighter Context Center contract boundary
+- Updated `docs/phase-r-proposal-seed.md`
+  - refreshed the current posture to note that the richer binding shape is now reflected in pending-task defaults and orchestrator acceptance-summary persistence
+
+### Validation
+- documentation-only state refresh aligned to already passing gateway, orchestrator, and HTTP tests
+
+### Notes
+This keeps the forward-looking phase docs aligned with the real implementation depth of Wave 5, not just its first gateway-visible slice.
+
+
 ## 2026-05-05: Orchestrator acceptance-summary tests tightened for persisted summary behavior
 
 ### Summary
