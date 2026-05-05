@@ -97,6 +97,11 @@ Why this next:
 - the next missing truth is the bridge between implementation intent and actual change evidence
 - it advances runtime usefulness without reopening Phase Q or over-expanding autonomy
 
+Immediate open slice within this wave:
+- derive changed-file intent from repo inspection plus task-list hints more explicitly
+- improve multi-command evidence-to-work-item mapping beyond the current single-work-item fallback
+- evaluate whether a compact operator-facing changed-file/result summary read model is warranted
+
 ## Entry criteria
 
 Phase R should start only if the team agrees to treat Phase Q as closed and avoid reopening its foundation scope except for bug fixes.

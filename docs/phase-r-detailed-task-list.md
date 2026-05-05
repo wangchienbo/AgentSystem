@@ -123,3 +123,9 @@ Status: [x] first slice landed
 Status: [x] first slice landed
 - focused tests cover changed-file intent exposure and acceptance-evidence to work-item binding on both gateway and real `/api/action` paths
 - orchestrator tests cover persisted `evidence_summary` behavior and keep Context Center verification scoped to the lighter event/message contract
+
+### 11.3 Next open slice
+Status: [ ] pending
+- derive bounded changed-file intent from actual repo inspection plus task-list hints instead of only direct module carry-forward
+- allow acceptance evidence to map multiple commands back to distinct work-item ids without relying on the single-work-item fallback
+- decide whether a lightweight changed-file/result summary should also surface into a compact operator-facing read model

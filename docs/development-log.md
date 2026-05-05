@@ -68,6 +68,25 @@ Started the next bounded Phase R extension layer by linking implementation inten
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
 
 
+## 2026-05-05: Phase R next-open-slice notes added for Wave 5 continuation
+
+### Summary
+Added explicit next-open-slice notes so the current Wave 5 continuation path is recorded in the phase docs, instead of leaving the next implementation move implicit.
+
+### What Was Done
+- Updated `docs/phase-r-detailed-task-list.md`
+  - restored the Wave 5 validation subsection and added a new pending next-open-slice subsection
+  - recorded the next likely implementation targets: stronger repo-derived changed-file intent, better multi-command work-item mapping, and a possible compact operator-facing changed-file/result summary
+- Updated `docs/phase-r-proposal-seed.md`
+  - mirrored the same immediate open-slice notes in the forward-looking proposal seed
+
+### Validation
+- documentation-only planning refinement; no runtime behavior changed
+
+### Notes
+This makes the continuation path after the current Wave 5 first slice explicit, so the next engineering move is documented before more implementation lands.
+
+
 ## 2026-05-05: Requirements and design docs refreshed for bounded executable workflow truth surfaces
 
 ### Summary
