@@ -454,6 +454,7 @@ def test_api_action_runs_real_implementation_to_acceptance_chain(tmp_path) -> No
         assert acceptance_data["data"]["acceptance_result"]["status"] == "passed"
         assert acceptance_data["data"]["acceptance_result"]["evidence"]["summary"]["passed_count"] == 1
         assert acceptance_data["data"]["acceptance_plan"]["evidence_summary"]["passed_count"] == 1
+        assert acceptance_data["data"]["acceptance_plan"]["change_execution_summary"]["changed_file_count"] == 1
         assert acceptance_data["data"]["acceptance_result"]["evidence"]["change_execution_summary"]["changed_file_count"] == 1
         assert acceptance_data["data"]["acceptance_result"]["evidence"]["commands"][0]["matched_success_criteria"] == ["command exits 0"]
         assert acceptance_data["data"]["acceptance_result"]["evidence"]["commands"][0]["matched_work_item_ids"] == ["work-1"]
@@ -532,6 +533,7 @@ def test_api_action_runs_real_acceptance_with_distinct_multi_command_work_item_b
         commands = acceptance_data["data"]["acceptance_result"]["evidence"]["commands"]
         assert commands[0]["matched_work_item_ids"] == ["work-1"]
         assert commands[1]["matched_work_item_ids"] == ["work-2"]
+        assert acceptance_data["data"]["acceptance_plan"]["change_execution_summary"]["work_item_ids_touched"] == ["work-1", "work-2"]
         assert acceptance_data["data"]["acceptance_result"]["evidence"]["change_execution_summary"]["work_item_ids_touched"] == ["work-1", "work-2"]
     finally:
         gateway._pending_task_store = original_store

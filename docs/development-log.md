@@ -123,6 +123,29 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-05: Compact change-execution summary promoted onto top-level acceptance plan
+
+### Summary
+Continued the same Wave 5 direction by promoting the compact `change_execution_summary` from nested acceptance evidence onto the top-level `acceptance_plan`, so lightweight consumers do not need to traverse into the latest result payload to find it.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `run_acceptance` now copies `change_execution_summary` onto the top-level `acceptance_plan` after execution
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added assertions for top-level `acceptance_plan.change_execution_summary` on the multi-command path
+- Updated `tests/unit/test_http_test_server.py`
+  - added real `/api/action` assertions for top-level `acceptance_plan.change_execution_summary`
+- Updated `docs/phase-r-detailed-task-list.md`
+  - refreshed Wave 5 notes to reflect top-level promotion of the compact change-execution summary
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `58 passed`
+
+### Notes
+This removes another small consumer burden: compact change/result linkage now sits alongside `evidence_summary` on the top-level acceptance plan instead of being available only inside nested result evidence.
+
+
 ## 2026-05-05: Real HTTP coverage extended for multi-command binding and compact change summary
 
 ### Summary
