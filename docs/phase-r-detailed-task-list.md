@@ -129,3 +129,6 @@ Status: [ ] pending
 - derive bounded changed-file intent from actual repo inspection plus task-list hints instead of only direct module carry-forward
 - allow acceptance evidence to map multiple commands back to distinct work-item ids without relying on the single-work-item fallback
 - decide whether a lightweight changed-file/result summary should also surface into a compact operator-facing read model
+
+First progress already landed:
+- changed-file intent now derives source hints from both `repo_context.target_modules` and `task_list.module`

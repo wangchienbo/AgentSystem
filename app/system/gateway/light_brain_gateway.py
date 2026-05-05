@@ -2386,14 +2386,19 @@ class LightBrainGateway:
             return ChatMessageResponse(type="error", content="没有找到可执行 implement_app_change 的未完成任务。", session_id=session_id)
 
         repo_context = dict(pending_task.repo_context or {})
-        target_modules = list(repo_context.get("target_modules") or [])
+        repo_hint_modules = list(repo_context.get("target_modules") or [])
+        task_list_hint_modules = [
+            item.get("module", "")
+            for item in pending_task.task_list
+            if isinstance(item, dict) and item.get("module")
+        ]
+        target_modules = list(repo_hint_modules)
         if not target_modules:
-            target_modules = [
-                item.get("module", "")
-                for item in pending_task.task_list
-                if isinstance(item, dict) and item.get("module")
-            ]
+            target_modules = task_list_hint_modules
             target_modules = [item for item in target_modules if item]
+        changed_file_paths = sorted({*(item for item in repo_hint_modules if item), *(item for item in task_list_hint_modules if item)})
+        if not changed_file_paths:
+            changed_file_paths = list(target_modules)
         implementation_plan = {
             "repo_path": repo_context.get("active_repo_path") or str(Path(__file__).resolve().parents[3]),
             "target_files": target_modules,
@@ -2402,8 +2407,9 @@ class LightBrainGateway:
                     "path": module,
                     "change_type": "modify",
                     "mapped_work_item_id": f"work-{index+1}",
+                    "source_hint": "repo_context.target_modules" if module in repo_hint_modules else "task_list.module",
                 }
-                for index, module in enumerate(target_modules)
+                for index, module in enumerate(changed_file_paths)
             ],
             "work_items": [
                 {
@@ -2412,7 +2418,7 @@ class LightBrainGateway:
                     "target": module,
                     "status": "prepared",
                     "rationale": f"derived from workflow target module {module}",
-                    "source": "repo_context.target_modules",
+                    "source": "repo_context.target_modules" if module in repo_hint_modules else "task_list.module",
                 }
                 for index, module in enumerate(target_modules)
             ],

@@ -455,6 +455,7 @@ def test_execute_implement_app_change_materializes_plan(tmp_path: Path):
     assert response.data is not None
     assert response.data["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
     assert response.data["implementation_plan"]["changed_files_intent"][0]["path"] == "app/system/gateway/light_brain_gateway.py"
+    assert response.data["implementation_plan"]["changed_files_intent"][0]["source_hint"] == "repo_context.target_modules"
     assert response.data["implementation_plan"]["work_items"][0]["rationale"].startswith("derived from workflow target module")
     assert response.data["implementation_plan"]["validation_map"][0]["probe"] == "pytest tests/unit/test_light_brain_gateway_pending_task.py -q"
     assert response.data["implementation_plan"]["validation_map"][0]["mapped_work_item_id"] == "work-1"
@@ -463,6 +464,50 @@ def test_execute_implement_app_change_materializes_plan(tmp_path: Path):
     assert updated.current_stage == "acceptance_pending"
     assert updated.next_recommended_action["type"] == "run_acceptance"
     assert updated.acceptance_plan["test_probe_commands"] == ["pytest tests/unit/test_light_brain_gateway_pending_task.py -q"]
+
+
+def test_execute_implement_app_change_derives_changed_file_intent_from_task_list_when_repo_hints_missing(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    task = PendingTaskRecord(
+        task_id="pt-impl-2",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="ready_to_execute",
+        current_stage="implementation_pending",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_2"},
+        repo_context={
+            "active_repo_path": str(REPO_ROOT),
+            "primary_readme_path": str(REPO_ROOT / "README.md"),
+            "key_docs": [],
+            "target_modules": [],
+        },
+        task_list=[{"id": "t1", "module": "tests/unit/test_http_test_server.py"}],
+        next_recommended_action={"type": "implement_app_change", "app_id": "app_repo_2"},
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:implement_app_change:app_repo_2",
+            action_params={"intent": "implement_app_change", "app_id": "app_repo_2"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    assert response.data["implementation_plan"]["changed_files_intent"][0]["path"] == "tests/unit/test_http_test_server.py"
+    assert response.data["implementation_plan"]["changed_files_intent"][0]["source_hint"] == "task_list.module"
 
 
 def test_execute_run_acceptance_records_passed_result(tmp_path: Path):

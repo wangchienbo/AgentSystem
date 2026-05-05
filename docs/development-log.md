@@ -123,6 +123,30 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-05: Wave 5 next-open-slice started with repo/task-list changed-file intent sourcing
+
+### Summary
+Moved Wave 5 forward from planning into implementation again by starting the first item in the recorded next-open-slice list: changed-file intent now carries explicit source hints derived from repo-context and task-list inputs.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `implement_app_change` now derives changed-file intent from the union of `repo_context.target_modules` and `task_list.module` hints
+  - each changed-file intent record now carries a `source_hint` describing whether it came from repo-context or task-list sourcing
+  - work-item `source` fields now follow the same repo/task-list distinction
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - extended the existing implementation-plan assertions to cover repo-context-derived `source_hint`
+  - added a focused fallback test proving changed-file intent can be derived from `task_list.module` when repo hints are absent
+- Updated `docs/phase-r-detailed-task-list.md`
+  - marked the first next-open-slice item as having initial progress landed
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `57 passed`
+
+### Notes
+This is still bounded and compatibility-safe, but it makes changed-file intent more explicit about where it came from instead of treating all module carry-forward the same.
+
+
 ## 2026-05-05: Gateway acceptance path now persists top-level evidence summary
 
 ### Summary
