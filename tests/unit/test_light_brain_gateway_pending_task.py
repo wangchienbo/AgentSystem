@@ -571,6 +571,69 @@ def test_execute_run_acceptance_records_passed_result(tmp_path: Path):
     assert updated is None or updated.status == "completed"
 
 
+def test_execute_run_acceptance_maps_multiple_commands_to_distinct_work_items(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    task = PendingTaskRecord(
+        task_id="pt-accept-multi",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="ready_to_execute",
+        current_stage="acceptance_running",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_multi"},
+        repo_context={
+            "active_repo_path": str(repo_root),
+            "primary_readme_path": str(repo_root / "README.md"),
+            "key_docs": [],
+            "target_modules": [],
+        },
+        implementation_plan={
+            "work_items": [
+                {"id": "work-1", "target": "app/a.py"},
+                {"id": "work-2", "target": "app/b.py"},
+            ],
+            "validation_map": [
+                {"probe": "python3 -c 'print(\"a\")'", "mapped_work_item_id": "work-1"},
+                {"probe": "python3 -c 'print(\"b\")'", "mapped_work_item_id": "work-2"},
+            ],
+        },
+        acceptance_plan={
+            "test_probe_commands": ["python3 -c 'print(\"a\")'", "python3 -c 'print(\"b\")'"],
+            "http_runtime_verification_points": [],
+            "success_criteria": ["commands exit 0"],
+            "results": [],
+        },
+        next_recommended_action={"type": "run_acceptance", "app_id": "app_repo_multi"},
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:run_acceptance:app_repo_multi",
+            action_params={"intent": "run_acceptance", "app_id": "app_repo_multi"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    command_results = response.data["acceptance_result"]["evidence"]["commands"]
+    assert command_results[0]["matched_work_item_ids"] == ["work-1"]
+    assert command_results[1]["matched_work_item_ids"] == ["work-2"]
+    assert response.data["acceptance_plan"]["evidence_summary"]["command_count"] == 2
+
+
 def test_execute_run_acceptance_records_failed_result(tmp_path: Path):
     updated = pending_store.get_latest_open_task("u1")
     assert updated is None or updated.status == "completed"

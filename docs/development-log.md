@@ -123,6 +123,27 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-05: Wave 5 multi-command work-item binding verified
+
+### Summary
+Continued the current Wave 5 open slice by proving that acceptance evidence can cleanly bind multiple commands to distinct work-item identifiers through the validation map, instead of only relying on the single-work-item fallback path.
+
+### What Was Done
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added a focused acceptance test with two commands and two mapped work items
+  - verified each command result binds to its own `matched_work_item_ids` entry
+  - verified the top-level `acceptance_plan.evidence_summary.command_count` reflects the multi-command run
+- Updated `docs/phase-r-detailed-task-list.md`
+  - recorded that multi-command work-item binding now has explicit verified progress in the Wave 5 next-open-slice notes
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `58 passed`
+
+### Notes
+The gateway mapping logic already supported exact probe-to-work-item matches; this step closes the verification gap and makes that distinct multi-command binding part of the explicit tested contract.
+
+
 ## 2026-05-05: Wave 5 next-open-slice started with repo/task-list changed-file intent sourcing
 
 ### Summary
