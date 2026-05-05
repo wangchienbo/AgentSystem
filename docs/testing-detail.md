@@ -120,7 +120,7 @@
 - richer payload fields now covered on the live HTTP path:
   - repo truth: `repo_valid`, `primary_readme_exists`, `git_branch`, `git_dirty`
   - implementation truth: `changed_files_intent`, `work_items[].rationale`, `work_items[].source`, `validation_map`, `validation_map[].mapped_work_item_id`
-  - acceptance evidence truth: normalized command evidence, summary counts, and `matched_work_item_ids`
+  - acceptance evidence truth: normalized command evidence, summary counts, `matched_work_item_ids`, and top-level `acceptance_plan.evidence_summary`
 - real `/api/action` live slices 已覆盖：
   - task-list -> repo
   - repo -> implementation

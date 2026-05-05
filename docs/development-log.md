@@ -68,6 +68,24 @@ Started the next bounded Phase R extension layer by linking implementation inten
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
 
 
+## 2026-05-05: Testing-detail and proposal docs synced for top-level evidence summary promotion
+
+### Summary
+Refreshed the remaining detail/planning docs so they explicitly reflect the new top-level `acceptance_plan.evidence_summary` promotion on the gateway acceptance path.
+
+### What Was Done
+- Updated `docs/testing-detail.md`
+  - expanded the acceptance-evidence truth bullets to include top-level `acceptance_plan.evidence_summary`
+- Updated `docs/phase-r-proposal-seed.md`
+  - refreshed the current posture to note that the richer binding shape now includes top-level `acceptance_plan.evidence_summary` in addition to pending-task defaults and orchestrator persistence
+
+### Validation
+- documentation-only state refresh aligned to already passing gateway, orchestrator, and HTTP tests
+
+### Notes
+This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
+
+
 ## 2026-05-05: Gateway acceptance path now persists top-level evidence summary
 
 ### Summary
