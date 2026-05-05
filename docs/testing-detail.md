@@ -662,3 +662,10 @@ Content-Type: application/json
   - `runtime_layout_mentions 1`
   - `asset_mentions 6`
   - `doctor_mentions 1`
+- Rewrote `S41` into an operator-focused system status / doctor / runtime-layout / asset-check conversation.
+- Additional observed summary after refresh:
+  - `status_mentions 1`
+  - `doctor_mentions 3`
+  - `runtime_layout_mentions 2`
+  - `asset_discover_mentions 1`
+  - `restart_mentions 2`

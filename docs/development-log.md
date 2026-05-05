@@ -123,6 +123,42 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Second operator-facing scenario refresh spread install-model checks earlier in the suite
+
+### Summary
+Continued Phase 2.3 by refreshing a second scenario, so operator/install-model coverage is no longer isolated to only the final scenario in the 50x20 suite.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - rewrote `S41` into `系统-状态与运维检查`
+  - preserved 20 turns and overall 50-scenario shape
+  - added natural-language prompts for:
+    - status inspection
+    - doctor / health-check interpretation
+    - runtime-layout explanation
+    - asset list / discover / install reasoning
+    - restart vs stop decision boundaries
+    - pre-migration checklist framing
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded `S41` as part of the first scenario-refresh arc
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - captured the broader spread of install-model-sensitive operator coverage
+
+### Validation
+- `python3 - <<'PY' ... ast.parse(source) ... PY`
+- observed:
+  - `syntax_ok`
+  - `scenario_count 50`
+  - `status_mentions 1`
+  - `doctor_mentions 3`
+  - `runtime_layout_mentions 2`
+  - `asset_discover_mentions 1`
+  - `restart_mentions 2`
+
+### Notes
+This makes the suite healthier for migration-baseline work because operator checks now appear in more than one place and are not only concentrated in the very last scenario.
+
+
 ## 2026-05-06: First operator-facing scenario refresh landed for standard-install baseline work
 
 ### Summary
