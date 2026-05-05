@@ -701,3 +701,4 @@ The test suite should grow with the architecture, but remain grounded in determi
 - Preserved the 50-scenario shape for before/after migration comparability.
 - Added explicit natural-language coverage for status, doctor, runtime-layout, asset list/discover/install, restart guidance, migrate-runtime framing, and baseline-regression reasoning.
 - Rewrote `S41` into a system-status and operator-check workflow scenario so install-model-sensitive operator reasoning is not concentrated in only one tail scenario.
+- Rewrote `S12` into a bulk-app lifecycle scenario with explicit install/register and asset-check reasoning before startup, so install-model-sensitive flows also appear in mid-suite lifecycle coverage.

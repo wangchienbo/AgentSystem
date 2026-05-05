@@ -669,3 +669,10 @@ Content-Type: application/json
   - `runtime_layout_mentions 2`
   - `asset_discover_mentions 1`
   - `restart_mentions 2`
+- Rewrote `S12` into a bulk-app lifecycle scenario with install/register/asset-check prompts before and after startup.
+- Additional observed summary after refresh:
+  - `标准安装链路 1`
+  - `安装和注册 1`
+  - `list 还是 discover 1`
+  - `install 一个之后 1`
+  - `统一停止三个App 1`

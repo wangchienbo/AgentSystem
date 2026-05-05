@@ -123,6 +123,40 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Third scenario refresh pushed install-model reasoning into lifecycle batch operations
+
+### Summary
+Continued Phase 2.3 by refreshing a mid-suite lifecycle scenario, so install-model-sensitive operator reasoning now shows up not only in system-check flows but also inside a bulk app creation/start/stop chain.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - rewrote `S12` into `App批量操作与安装链路`
+  - preserved 20 turns and the total 50-scenario suite shape
+  - added natural-language prompts for:
+    - install/register checks before startup
+    - asset list vs discover reasoning
+    - post-install minimal verification
+    - batch stop / selective restart lifecycle handling
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded `S12` as part of the current scenario-refresh arc
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - captured the new lifecycle-oriented operator coverage and validation evidence
+
+### Validation
+- `python3 - <<'PY' ... ast.parse(source) ... PY`
+- observed:
+  - `syntax_ok`
+  - `scenario_count 50`
+  - `标准安装链路 1`
+  - `安装和注册 1`
+  - `list 还是 discover 1`
+  - `install 一个之后 1`
+  - `统一停止三个App 1`
+
+### Notes
+This broadens the install-model baseline in a useful way because operator reasoning is now mixed into lifecycle scenarios, not only into system-inspection or tail-end migration conversations.
+
+
 ## 2026-05-06: Second operator-facing scenario refresh spread install-model checks earlier in the suite
 
 ### Summary

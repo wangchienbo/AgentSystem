@@ -117,6 +117,7 @@ Status: [x] first install-model-sensitive scenario refresh landed
 - preserved the 50 scenario structure for comparability
 - rewrote `S50` into an operator-facing standard-install lifecycle conversation
 - rewrote `S41` into a system status and operator-check workflow conversation
+- rewrote `S12` into a bulk-app flow with install/register/asset-check operator reasoning
 - added natural-language turns covering status / doctor / runtime-layout / assets / restart / migrate-runtime / baseline-regression reasoning
 
 ### 3.4 Add scenario-end expectation checks
