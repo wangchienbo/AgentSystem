@@ -610,3 +610,28 @@ Content-Type: application/json
 - token 消耗、延迟、成功率、反馈信号应进入候选版本验收维度
 
 这部分目前首先属于架构与文档设计要求，后续实现后应补充对应的联调和回放测试脚本。
+
+## 2026-05-06 - Standard-install-model Phase 2 scenario audit evidence
+
+### Target
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+### Findings
+- scenario count preserved at 50
+- scenario-end `/api/history/{session_id}` validation already exists
+- operator/install-model gaps still present:
+  - explicit install coverage is thin
+  - asset discover/list/install operator flows are missing
+  - restart/recovery operator chains are missing
+  - runtime-layout / migrate-runtime operator flows are missing
+
+### Command evidence
+- `python3 - <<'PY' ... Path('tests/e2e/test_50_scenarios_20_turns_user_level.py').read_text(...) ... PY`
+- observed summary:
+  - `history_check True`
+  - `scenario_count 50`
+  - `install 2`
+  - `discover 0`
+  - `assets 0`
+  - `restart 0`
+  - `restore 0`

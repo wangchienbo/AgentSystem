@@ -683,3 +683,14 @@ The current testing strategy should continue to protect the system’s core iden
 - evolution from runtime practice into reusable capability suggestions
 
 The test suite should grow with the architecture, but remain grounded in deterministic validation wherever possible.
+
+## 2026-05-06 - Standard-install-model Phase 2 scenario audit
+
+- Inspected `tests/e2e/test_50_scenarios_20_turns_user_level.py` as the current 50x20 user-level baseline harness.
+- Confirmed the harness still preserves 50 scenarios and already performs scenario-end `/api/history/{session_id}` validation.
+- Identified install-model-sensitive gaps before baseline use:
+  - explicit install operator flows are very light
+  - explicit asset discover/list/install flows are absent
+  - explicit restart/recovery continuity operator chains are absent
+  - explicit runtime-layout / migrate-runtime operator flows are absent
+- Conclusion: the suite remains strong as a broad capability demo baseline, but needs operator-lifecycle strengthening before it can serve as the authoritative standard-install migration baseline.

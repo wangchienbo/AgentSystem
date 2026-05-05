@@ -96,19 +96,21 @@ Status: [x] initial skeleton validation landed
 ## 3. Phase 2 - Regenerate and strengthen real-user regression scenarios
 
 ### 3.1 Audit current 50x20 scenario suite
-- inspect `tests/e2e/test_50_scenarios_20_turns_user_level.py`
-- identify weak or too-generic scenarios
-- identify missing install/lifecycle/asset/restore paths
-- identify which scenarios are still mostly capability-demo rather than realistic usage
+Status: [x] initial audit landed
+- inspected `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- confirmed the suite still preserves 50 scenarios and includes scenario-end `/api/history/{session_id}` checks
+- identified current install-model-sensitive gaps:
+  - very light explicit install coverage
+  - no explicit asset discover/list/install operator coverage
+  - no explicit restart/recovery continuity operator chain
+  - no explicit standard-install runtime-layout / migrate-runtime operator flow
+- identified the suite as still strong on broad app capability demos, but underweight on operator lifecycle paths needed for install-model baseline
 
 ### 3.2 Define stronger scenario coverage goals
-- include create -> install -> start -> use -> modify -> stop -> delete chains
-- include app creation with clarification loops
-- include asset install / discover / list behavior where exposed to users/operators
-- include restart/recovery continuity checks
-- include permission and failure-recovery cases
-- include multi-app and cross-topic interruptions
-- include realistic natural-language phrasing only
+Status: [x] initial coverage goals landed
+- next scenario refresh should add operator-flavored natural-language chains for install/start/status/doctor/asset actions
+- preserve the 50x20 structure for before/after migration comparability
+- keep scenario-end history validation as a required baseline expectation
 
 ### 3.3 Regenerate or enhance scenario content
 - preserve 50 scenario structure for comparability

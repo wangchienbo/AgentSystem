@@ -123,6 +123,41 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Phase 2 audit identified operator-lifecycle gaps in the 50x20 E2E baseline
+
+### Summary
+Started Phase 2 of the standard-install-model task list by auditing the current 50x20 user-level E2E suite and recording the concrete install-model-sensitive gaps that must be strengthened before pre-migration baseline runs.
+
+### What Was Done
+- Inspected `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- Confirmed the harness still preserves 50 scenarios
+- Confirmed scenario-end `/api/history/{session_id}` validation already exists
+- Recorded the main operator-lifecycle gaps:
+  - explicit install coverage is still thin
+  - asset discover/list/install operator coverage is absent
+  - restart/recovery operator chains are absent
+  - runtime-layout / migrate-runtime operator flows are absent
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked Phase 2.1 audit as landed
+  - marked initial Phase 2.2 coverage goals as landed
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - captured the audit findings and command evidence for future before/after migration baseline work
+
+### Validation
+- `python3 - <<'PY' ... Path('tests/e2e/test_50_scenarios_20_turns_user_level.py').read_text(...) ... PY`
+- observed:
+  - `history_check True`
+  - `scenario_count 50`
+  - `install 2`
+  - `discover 0`
+  - `assets 0`
+  - `restart 0`
+  - `restore 0`
+
+### Notes
+This is a real shift into Phase 2 rather than more Phase 1 repetition: the current suite is still useful, but it is not yet a trustworthy install-model migration baseline without stronger operator-focused scenarios.
+
+
 ## 2026-05-06: README refreshed for Phase 1 CLI control-plane transition
 
 ### Summary
