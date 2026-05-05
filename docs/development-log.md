@@ -1,3 +1,26 @@
+## 2026-05-05: Executable solution-review actions landed at the front of the workflow chain
+
+### Summary
+Completed the earliest review branch of the new executable workflow chain by making `approve_solution_draft` and `revise_solution_draft` real executable actions instead of only future-action labels.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - added executable `approve_solution_draft` action handling
+  - approval now records review decision, advances workflow to `tasklist_preparing`, and recommends `materialize_task_list`
+  - added executable `revise_solution_draft` action handling
+  - revision now records `revise_required`, keeps the task in input-needed state, and returns a structured response that requires follow-up input
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added focused coverage for approval handoff into task-list preparation
+  - added focused coverage for revise-required input gating
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py -q`
+- result: `21 passed`
+
+### Notes
+At this point the bounded executable workflow chain now starts as early as solution review and continues through task-list materialization, repo context, implementation preparation, and acceptance execution.
+
+
 ## 2026-05-05: Executable task-list materialization slice landed before repo-context execution
 
 ### Summary

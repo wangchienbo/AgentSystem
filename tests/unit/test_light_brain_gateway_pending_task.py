@@ -283,6 +283,84 @@ def test_execute_locate_repo_context_updates_pending_task(tmp_path: Path):
     assert updated.next_recommended_action["type"] == "implement_app_change"
 
 
+def test_execute_approve_solution_draft_hands_off_to_tasklist(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    task = PendingTaskRecord(
+        task_id="pt-approve-1",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="pending_input",
+        current_stage="solution_reviewing",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_start"},
+        next_recommended_action={"type": "approve_solution_draft", "app_id": "app_repo_start"},
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:approve_solution_draft:app_repo_start",
+            action_params={"intent": "approve_solution_draft", "app_id": "app_repo_start"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    updated = pending_store.get_latest_open_task("u1")
+    assert updated is not None
+    assert updated.current_stage == "tasklist_preparing"
+    assert updated.next_recommended_action["type"] == "materialize_task_list"
+
+
+def test_execute_revise_solution_draft_marks_input_required(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    task = PendingTaskRecord(
+        task_id="pt-revise-1",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="pending_input",
+        current_stage="solution_reviewing",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_start"},
+        next_recommended_action={"type": "revise_solution_draft", "app_id": "app_repo_start"},
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:revise_solution_draft:app_repo_start",
+            action_params={"intent": "revise_solution_draft", "app_id": "app_repo_start"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.requires_input is True
+    updated = pending_store.get_latest_open_task("u1")
+    assert updated is not None
+    assert updated.stage_status == "blocked"
+    assert updated.review_result["decision"] == "revise_required"
+
+
 def test_execute_materialize_task_list_prepares_repo_handoff(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     from app.system.runtime.pending_task_store import PendingTaskStore

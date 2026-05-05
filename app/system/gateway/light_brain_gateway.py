@@ -2465,6 +2465,78 @@ class LightBrainGateway:
         self._auto_save()
         return response
 
+    async def _execute_approve_solution_draft(self, user_id: str, session_id: str, action_params: dict[str, Any]) -> ChatMessageResponse:
+        if self._pending_task_store is None:
+            return ChatMessageResponse(type="error", content="pending task store 未注入，当前不能执行 approve_solution_draft。", session_id=session_id)
+        pending_task = self._pending_task_store.get_latest_open_task(user_id)
+        if pending_task is None:
+            return ChatMessageResponse(type="error", content="没有找到可执行 approve_solution_draft 的未完成任务。", session_id=session_id)
+
+        updated = pending_task.model_copy(update={
+            "status": "ready_to_execute",
+            "current_stage": "tasklist_preparing",
+            "stage_status": "completed",
+            "review_result": {**(pending_task.review_result or {}), "decision": "approved"},
+            "next_recommended_action": {"type": PENDING_TASK_ACTION_MATERIALIZE_TASK_LIST, "app_id": pending_task.target_ref.get("app_id")},
+        })
+        self._pending_task_store.upsert_task(updated)
+        self._memory.create_session(user_id=user_id, channel="action", session_id=session_id)
+        response = ChatMessageResponse(
+            type="progress",
+            content=(
+                f"方案草案已批准。\n"
+                f"当前目标：{pending_task.target_ref.get('app_id') or 'unknown'}\n"
+                f"下一步建议：{PENDING_TASK_ACTION_MATERIALIZE_TASK_LIST}"
+            ),
+            session_id=session_id,
+            data={
+                "pending_task": updated.model_dump(mode="json"),
+                "review_result": updated.review_result,
+                "context_view": self._get_recent_context_view(session_id),
+            },
+            actions=[self._build_future_workflow_action(next_step=PENDING_TASK_ACTION_MATERIALIZE_TASK_LIST, target_id=updated.target_ref.get("app_id") or "unknown")],
+            related_app=updated.target_ref.get("app_id"),
+        )
+        self._after_reply(session_id=session_id, reply=response)
+        self._auto_save()
+        return response
+
+    async def _execute_revise_solution_draft(self, user_id: str, session_id: str, action_params: dict[str, Any]) -> ChatMessageResponse:
+        if self._pending_task_store is None:
+            return ChatMessageResponse(type="error", content="pending task store 未注入，当前不能执行 revise_solution_draft。", session_id=session_id)
+        pending_task = self._pending_task_store.get_latest_open_task(user_id)
+        if pending_task is None:
+            return ChatMessageResponse(type="error", content="没有找到可执行 revise_solution_draft 的未完成任务。", session_id=session_id)
+
+        updated = pending_task.model_copy(update={
+            "status": "pending_input",
+            "current_stage": "solution_drafting",
+            "stage_status": "blocked",
+            "review_result": {**(pending_task.review_result or {}), "decision": "revise_required"},
+            "next_recommended_action": {"type": PENDING_TASK_ACTION_REVISE_SOLUTION_DRAFT, "app_id": pending_task.target_ref.get("app_id")},
+        })
+        self._pending_task_store.upsert_task(updated)
+        self._memory.create_session(user_id=user_id, channel="action", session_id=session_id)
+        response = ChatMessageResponse(
+            type="progress",
+            content=(
+                f"方案草案已标记为需要修订。\n"
+                f"当前目标：{pending_task.target_ref.get('app_id') or 'unknown'}\n"
+                f"你可以补充修改意见后继续推进。"
+            ),
+            session_id=session_id,
+            data={
+                "pending_task": updated.model_dump(mode="json"),
+                "review_result": updated.review_result,
+                "context_view": self._get_recent_context_view(session_id),
+            },
+            related_app=updated.target_ref.get("app_id"),
+            requires_input=True,
+        )
+        self._after_reply(session_id=session_id, reply=response)
+        self._auto_save()
+        return response
+
     async def execute_action(
         self,
         user_id: str,
@@ -2476,6 +2548,10 @@ class LightBrainGateway:
         action_params = action_params or {}
         action_session_id = action_params.get("session_id") or session_id
         intent = action_params.get("intent", "unclear")
+        if intent == PENDING_TASK_ACTION_APPROVE_SOLUTION_DRAFT:
+            return await self._execute_approve_solution_draft(user_id, action_session_id, action_params)
+        if intent == PENDING_TASK_ACTION_REVISE_SOLUTION_DRAFT:
+            return await self._execute_revise_solution_draft(user_id, action_session_id, action_params)
         if intent == PENDING_TASK_ACTION_MATERIALIZE_TASK_LIST:
             return await self._execute_materialize_task_list(user_id, action_session_id, action_params)
         if intent == PENDING_TASK_ACTION_IMPLEMENT_APP_CHANGE:
