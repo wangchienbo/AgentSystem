@@ -123,6 +123,30 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Validation map now carries changed-file intent slices
+
+### Summary
+Continued the same Wave 5 thread by tightening the bridge between implementation planning and later acceptance probes: validation-map entries now explicitly carry the bounded changed-file paths they are meant to validate.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `implement_app_change` now adds `changed_file_paths` to each validation-map entry
+  - the changed-file paths are derived from the bounded changed-file intent grouping for the corresponding mapped work item
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added focused assertions for `validation_map[].changed_file_paths` on both repo-hint and task-list fallback paths
+- Updated `tests/unit/test_http_test_server.py`
+  - added real `/api/action` assertions for surfaced `validation_map[].changed_file_paths`
+- Updated `docs/phase-r-detailed-task-list.md`
+  - refreshed Wave 5 notes to include bounded changed-file slices on validation-map entries
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `58 passed`
+
+### Notes
+This is a small but useful contract improvement: acceptance probes now point not only to work-item ids, but also back to the concrete changed-file intent slice they are expected to validate.
+
+
 ## 2026-05-05: Compact change-execution summary promoted onto top-level acceptance plan
 
 ### Summary

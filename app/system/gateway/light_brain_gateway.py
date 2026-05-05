@@ -2406,6 +2406,9 @@ class LightBrainGateway:
         changed_file_paths = sorted({*(item for item in repo_hint_modules if item), *(item for item in task_list_hint_modules if item)})
         if not changed_file_paths:
             changed_file_paths = list(target_modules)
+        changed_file_intent_by_work_item: dict[str, list[str]] = {}
+        for index, module in enumerate(changed_file_paths):
+            changed_file_intent_by_work_item.setdefault(f"work-{index+1}", []).append(module)
         implementation_plan = {
             "repo_path": repo_context.get("active_repo_path") or str(Path(__file__).resolve().parents[3]),
             "target_files": target_modules,
@@ -2434,6 +2437,7 @@ class LightBrainGateway:
                     "target": module,
                     "mapped_work_item_id": f"work-{index+1}",
                     "probe": "pytest tests/unit/test_light_brain_gateway_pending_task.py -q",
+                    "changed_file_paths": changed_file_intent_by_work_item.get(f"work-{index+1}", []),
                 }
                 for index, module in enumerate(target_modules)
             ],

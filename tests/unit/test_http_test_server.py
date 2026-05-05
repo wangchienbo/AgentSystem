@@ -384,6 +384,7 @@ def test_api_action_runs_real_repo_to_implementation_chain(tmp_path) -> None:
         impl_data = impl_response.json()
         assert impl_data["data"]["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
         assert impl_data["data"]["implementation_plan"]["validation_map"][0]["probe"] == "pytest tests/unit/test_light_brain_gateway_pending_task.py -q"
+        assert impl_data["data"]["implementation_plan"]["validation_map"][0]["changed_file_paths"] == ["app/system/gateway/light_brain_gateway.py"]
         assert impl_data["data"]["implementation_plan"]["changed_files_intent"][0]["mapped_work_item_id"] == "work-1"
         assert impl_data["actions"][0]["payload"]["intent"] == "run_acceptance"
     finally:
