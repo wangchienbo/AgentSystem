@@ -68,6 +68,24 @@ Started the next bounded Phase R extension layer by linking implementation inten
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
 
 
+## 2026-05-05: Requirements and design docs refreshed for bounded executable workflow truth surfaces
+
+### Summary
+Extended the core requirements/design docs so the newer executable workflow truth surfaces are no longer described only in testing and phase-tracking docs.
+
+### What Was Done
+- Updated `docs/design.md`
+  - added a Phase R executable workflow closure snapshot covering richer repo, implementation, acceptance, and persistence surfaces
+- Updated `docs/requirements.md`
+  - added current bounded executable workflow requirements for repo truth, changed-file intent, work-item binding, top-level `acceptance_plan.evidence_summary`, and lighter Context Center contracts
+
+### Validation
+- documentation-only architecture/requirements refresh aligned to already passing gateway, orchestrator, and HTTP tests
+
+### Notes
+This lifts the newer workflow/evidence posture into the main product docs, so it is part of the formal requirements/design story instead of living only in phase-specific tracking files.
+
+
 ## 2026-05-05: Testing-detail and proposal docs synced for top-level evidence summary promotion
 
 ### Summary

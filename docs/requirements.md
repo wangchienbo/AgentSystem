@@ -38,6 +38,16 @@ The system must support:
 - reviewing runtime practice into reusable experience
 - suggesting reusable skills from runtime experience
 
+### 2.3 Current bounded executable workflow requirements
+The system must preserve compatibility while allowing bounded executable workflow closure to grow beyond draft/bootstrap-only progression.
+
+Current additive requirements include:
+- repo-context execution should be able to expose grounded repo-truth fields such as repo validity, README presence, existing key docs, and cheap git facts
+- implementation-plan execution should be able to expose bounded changed-file intent and validation mapping linked by stable work-item identifiers
+- acceptance execution should be able to expose normalized command evidence, work-item bindings, and a top-level persisted `acceptance_plan.evidence_summary`
+- the same richer workflow/evidence shape should remain compatible across gateway action replies, real `/api/action` responses, canonical pending-task defaults, and orchestrator persistence paths
+- Context Center integration should remain lighter-weight than pending-task evidence state, so nested evidence richness does not require equally rich event metadata contracts
+
 ### 2.2 Architectural goals
 The system should:
 - treat **App** as the main user-facing product unit

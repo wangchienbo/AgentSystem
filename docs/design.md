@@ -39,6 +39,17 @@ The current design direction is:
 - dedicated application-layer handoff actions must preserve the same gateway reply-persistence semantics as ordinary actions, including `_after_reply(...)` writeback and auto-save behavior
 - where the runtime substrate is already available, that handoff may continue through install/start activation so the bootstrap chain can converge into a real runnable app state instead of halting at compiled registration
 
+### Phase R executable workflow closure snapshot
+The current implementation has progressed beyond the initial Phase Q workflow/context convergence and now includes a bounded executable workflow-closure layer with additive runtime truth surfaces.
+
+Current additive execution-truth posture:
+- repo-context payloads may expose `repo_valid`, `primary_readme_exists`, `git_branch`, and `git_dirty`
+- implementation plans may expose `changed_files_intent`, bounded `work_items`, and `validation_map` entries carrying `mapped_work_item_id`
+- acceptance execution may expose normalized command evidence, `matched_work_item_ids`, and top-level `acceptance_plan.evidence_summary`
+- the richer evidence/binding shape is preserved not only in gateway action replies and real `/api/action` responses, but also in canonical pending-task defaults and orchestrator persistence paths
+
+These additions are compatibility-safe extensions over the existing workflow contract rather than a replacement of the prior workflow/context substrate.
+
 ---
 
 ## 2. Core Design Principles
