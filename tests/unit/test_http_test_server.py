@@ -372,6 +372,8 @@ def test_api_action_runs_real_repo_to_implementation_chain(tmp_path) -> None:
         assert repo_response.status_code == 200
         repo_data = repo_response.json()
         assert repo_data["data"]["repo_context"]["active_repo_path"] == str(REPO_ROOT)
+        assert repo_data["data"]["repo_context"]["repo_valid"] is True
+        assert "git_branch" in repo_data["data"]["repo_context"]
         assert repo_data["actions"][0]["payload"]["intent"] == "implement_app_change"
 
         impl_response = client.post(
@@ -381,6 +383,7 @@ def test_api_action_runs_real_repo_to_implementation_chain(tmp_path) -> None:
         assert impl_response.status_code == 200
         impl_data = impl_response.json()
         assert impl_data["data"]["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
+        assert impl_data["data"]["implementation_plan"]["validation_map"][0]["probe"] == "pytest tests/unit/test_light_brain_gateway_pending_task.py -q"
         assert impl_data["actions"][0]["payload"]["intent"] == "run_acceptance"
     finally:
         gateway._pending_task_store = original_store
@@ -448,6 +451,8 @@ def test_api_action_runs_real_implementation_to_acceptance_chain(tmp_path) -> No
         assert acceptance_response.status_code == 200
         acceptance_data = acceptance_response.json()
         assert acceptance_data["data"]["acceptance_result"]["status"] == "passed"
+        assert acceptance_data["data"]["acceptance_result"]["evidence"]["summary"]["passed_count"] == 1
+        assert acceptance_data["data"]["acceptance_result"]["evidence"]["commands"][0]["matched_success_criteria"] == ["command exits 0"]
         assert acceptance_data["workflow_contract"]["pending_task"]["current_stage"] == "done"
     finally:
         gateway._pending_task_store = original_store

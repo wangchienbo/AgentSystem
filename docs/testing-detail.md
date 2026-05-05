@@ -117,6 +117,10 @@
 - `implement_app_change` 生成结构化 `implementation_plan` 并 handoff 到 `run_acceptance`
 - `run_acceptance` 执行 bounded probe commands、落盘 evidence、通过时推进到 `done`，失败时回到 blocked retry posture
 - `/api/action` compatibility payload 包含 `task_list` / `repo_context` / `implementation_plan` / `acceptance_plan` / `acceptance_result` / `context_view`
+- richer payload fields now covered on the live HTTP path:
+  - repo truth: `repo_valid`, `primary_readme_exists`, `git_branch`, `git_dirty`
+  - implementation truth: `work_items[].rationale`, `work_items[].source`, `validation_map`
+  - acceptance evidence truth: normalized command evidence plus summary counts
 - real `/api/action` live slices 已覆盖：
   - task-list -> repo
   - repo -> implementation

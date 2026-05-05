@@ -37,6 +37,29 @@ Updated the testing docs so the newer executable workflow chain is explicitly re
 This makes the documented validation story match the new execution reality and reduces the need to reconstruct the chain only from commit history or dev logs.
 
 
+## 2026-05-05: Phase R Wave 4 operator and HTTP surfacing landed
+
+### Summary
+Closed the fourth explicit Phase R wave by hardening the richer workflow payloads on the real HTTP action surface and documenting the expanded validation story.
+
+### What Was Done
+- Updated `tests/unit/test_http_test_server.py`
+  - expanded real `/api/action` chain assertions to cover richer repo-context, implementation-plan, and acceptance-evidence payload fields
+- Updated `docs/phase-r-detailed-task-list.md`
+  - marked Wave 4 runtime surfacing and validation items complete
+- Updated `docs/testing.md`
+  - refreshed the test summary so it explicitly mentions richer live HTTP payload coverage
+- Updated `docs/testing-detail.md`
+  - documented the richer repo / implementation / acceptance fields now asserted on the live `/api/action` path
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `56 passed`
+
+### Notes
+This completes the first bounded Phase R rollout arc: richer workflow payloads are now not only generated internally, but also asserted at the outward HTTP action surface.
+
+
 ## 2026-05-05: Phase R Wave 3 acceptance-evidence truth upgrade landed
 
 ### Summary

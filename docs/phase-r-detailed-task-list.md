@@ -74,13 +74,12 @@ Status: [x] completed
 ## 7. Wave 4: Operator / HTTP Surfaces
 
 ### 7.1 Runtime surfacing
-- ensure the richer repo / implementation / acceptance payloads remain stable on:
-  - gateway action replies
-  - `/api/action`
-  - service-up and regression-friendly probes where practical
+Status: [x] completed
+- richer repo / implementation / acceptance payloads remain exposed on gateway action replies and `/api/action`, including repo truth, implementation validation mapping, and normalized acceptance evidence summary fields
 
 ### 7.2 Validation
-- expand real HTTP action slices when new payload fields become stable
+Status: [x] completed
+- real HTTP action slices now assert the richer payload fields once they stabilize
 
 ## 8. Documentation Tasks
 
