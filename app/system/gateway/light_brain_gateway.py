@@ -2345,6 +2345,7 @@ class LightBrainGateway:
         }
         results.append(result_entry)
         acceptance_plan["results"] = results
+        acceptance_plan["evidence_summary"] = dict(result_entry["evidence"]["summary"])
         next_action = None if overall_status == "passed" else {"type": PENDING_TASK_ACTION_RUN_ACCEPTANCE, "app_id": pending_task.target_ref.get("app_id")}
         updated = pending_task.model_copy(update={
             "acceptance_plan": acceptance_plan,

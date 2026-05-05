@@ -68,6 +68,29 @@ Started the next bounded Phase R extension layer by linking implementation inten
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
 
 
+## 2026-05-05: Gateway acceptance path now persists top-level evidence summary
+
+### Summary
+Continued the same Wave 5 refinement by making the gateway acceptance execution path promote aggregate evidence summary back onto the top-level `acceptance_plan`, so the summary shape is consistent across gateway execution, pending-task state, and orchestrator persistence.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `run_acceptance` now copies aggregate summary counts into `acceptance_plan["evidence_summary"]` after command execution
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added assertions for top-level `acceptance_plan.evidence_summary` on both passed and failed acceptance runs
+- Updated `tests/unit/test_http_test_server.py`
+  - added real `/api/action` assertions for surfaced top-level `acceptance_plan.evidence_summary`
+- Updated `docs/phase-r-detailed-task-list.md`
+  - refreshed Wave 5 notes to include gateway-side top-level evidence-summary promotion
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `68 passed`
+
+### Notes
+This removes another small schema drift: aggregate acceptance summary now lives in the same top-level place whether it was produced by gateway execution or orchestrator-side capture.
+
+
 ## 2026-05-05: Phase Q closure summary and testing overview refreshed for Wave 5 continuity
 
 ### Summary

@@ -453,6 +453,7 @@ def test_api_action_runs_real_implementation_to_acceptance_chain(tmp_path) -> No
         acceptance_data = acceptance_response.json()
         assert acceptance_data["data"]["acceptance_result"]["status"] == "passed"
         assert acceptance_data["data"]["acceptance_result"]["evidence"]["summary"]["passed_count"] == 1
+        assert acceptance_data["data"]["acceptance_plan"]["evidence_summary"]["passed_count"] == 1
         assert acceptance_data["data"]["acceptance_result"]["evidence"]["commands"][0]["matched_success_criteria"] == ["command exits 0"]
         assert acceptance_data["data"]["acceptance_result"]["evidence"]["commands"][0]["matched_work_item_ids"] == ["work-1"]
         assert acceptance_data["workflow_contract"]["pending_task"]["current_stage"] == "done"

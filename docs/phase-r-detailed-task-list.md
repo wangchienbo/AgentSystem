@@ -116,6 +116,7 @@ Status: [x] first slice landed
 - `implement_app_change` now carries `changed_files_intent` linked to `mapped_work_item_id`
 - `validation_map` now also records `mapped_work_item_id`
 - `run_acceptance` now maps command evidence back to `matched_work_item_ids`
+- gateway acceptance execution now also promotes aggregate `evidence_summary` back onto the top-level `acceptance_plan`
 - canonical pending-task defaults and orchestrator acceptance flows now preserve the richer binding/evidence summary shape
 
 ### 11.2 Validation
