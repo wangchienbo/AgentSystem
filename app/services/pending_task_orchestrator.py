@@ -220,13 +220,17 @@ class PendingTaskOrchestrator:
             self._pending_task_store.upsert_task(updated)
         if self._context_center is not None and pending_task.session_id:
             from app.models.context import SessionContextRecord
+            metadata = {"acceptance": True}
+            for key, value in dict(evidence or {}).items():
+                if isinstance(value, (str, int, float, bool)):
+                    metadata[key] = value
             self._context_center.append_context(
                 SessionContextRecord(
                     session_id=pending_task.session_id,
                     kind="system_note",
                     role="system",
                     content=acceptance_result_message(status=status, summary=summary),
-                    metadata={"acceptance": True, **dict(evidence or {})},
+                    metadata=metadata,
                 )
             )
         self._emit_workflow_hook(pending_task, event="acceptance_completed", stage=pending_task.current_stage)

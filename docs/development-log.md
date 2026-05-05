@@ -68,6 +68,26 @@ Started the next bounded Phase R extension layer by linking implementation inten
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
 
 
+## 2026-05-05: Orchestrator acceptance-summary persistence verified and metadata sanitization tightened
+
+### Summary
+Kept pushing the same Wave 5 line by verifying that orchestrator-side acceptance summary persistence really works, and tightened Context Center metadata emission so richer evidence summaries do not violate the context record schema.
+
+### What Was Done
+- Updated `tests/unit/test_pending_task_orchestrator.py`
+  - extended the acceptance-plan/result flow test to assert `evidence_summary` persistence from plan defaults into completed results
+- Updated `app/services/pending_task_orchestrator.py`
+  - sanitized Context Center metadata emission to keep only scalar evidence fields when writing acceptance result notes
+  - preserved richer nested evidence inside pending-task state while avoiding metadata schema violations
+
+### Validation
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `68 passed`
+
+### Notes
+This closes a subtle schema edge: pending-task state can carry richer nested evidence, while Context Center event metadata remains within its scalar contract.
+
+
 ## 2026-05-05: Phase R proposal and closure docs refreshed after first rollout arc completion
 
 ### Summary
