@@ -123,6 +123,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-05: Design, requirements, and testing docs synced for compact change-execution summary
+
+### Summary
+Refreshed the remaining core docs so the newly surfaced compact `change_execution_summary` is now reflected consistently across requirements, design, and testing narratives.
+
+### What Was Done
+- Updated `docs/testing.md`
+  - expanded the workflow coverage summary to mention compact change-execution summary surfacing
+- Updated `docs/testing-detail.md`
+  - added compact `change_execution_summary` to the acceptance-evidence truth bullets for the live HTTP path
+- Updated `docs/design.md`
+  - refreshed the Phase R executable workflow snapshot to include compact change-execution summary exposure
+- Updated `docs/requirements.md`
+  - refreshed the bounded executable workflow requirements to include compact change-execution summary support
+
+### Validation
+- documentation-only state refresh aligned to already passing focused workflow tests
+
+### Notes
+This keeps the newer lightweight operator-facing summary surface from being visible only in code and dev-log chronology.
+
+
 ## 2026-05-05: Wave 5 compact change-execution summary surfaced on acceptance evidence
 
 ### Summary
