@@ -511,6 +511,13 @@ def test_execute_run_acceptance_records_passed_result(tmp_path: Path):
     assert response.type == "progress"
     assert response.data is not None
     assert response.data["acceptance_result"]["status"] == "passed"
+    command_evidence = response.data["acceptance_result"]["evidence"]["commands"][0]
+    assert command_evidence["exit_code"] == 0
+    assert "stdout_excerpt" in command_evidence
+    assert "stderr_excerpt" in command_evidence
+    assert "ran_at" in command_evidence
+    assert isinstance(command_evidence["matched_success_criteria"], list)
+    assert response.data["acceptance_result"]["evidence"]["summary"]["passed_count"] >= 1
     updated = pending_store.get_latest_open_task("u1")
     assert updated is None or updated.status == "completed"
 
@@ -568,6 +575,10 @@ def test_execute_run_acceptance_records_failed_result(tmp_path: Path):
     assert response.type == "progress"
     assert response.data is not None
     assert response.data["acceptance_result"]["status"] == "failed"
+    command_evidence = response.data["acceptance_result"]["evidence"]["commands"][0]
+    assert command_evidence["exit_code"] == 3
+    assert command_evidence["status"] == "failed"
+    assert response.data["acceptance_result"]["evidence"]["summary"]["failed_count"] == 1
     updated = pending_store.get_latest_open_task("u1")
     assert updated is not None
     assert updated.status == "blocked"

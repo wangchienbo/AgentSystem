@@ -37,6 +37,35 @@ Updated the testing docs so the newer executable workflow chain is explicitly re
 This makes the documented validation story match the new execution reality and reduces the need to reconstruct the chain only from commit history or dev logs.
 
 
+## 2026-05-05: Phase R Wave 3 acceptance-evidence truth upgrade landed
+
+### Summary
+Continued Phase R with the third explicit wave by normalizing `run_acceptance` evidence into a more reusable structure instead of only appending coarse command tails.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - each acceptance command result now records:
+    - `command`
+    - `status`
+    - `exit_code`
+    - `stdout_excerpt`
+    - `stderr_excerpt`
+    - `ran_at`
+    - `matched_success_criteria`
+  - acceptance evidence now also stores an aggregate summary with command, pass, and fail counts
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - extended passing/failing acceptance assertions to verify normalized evidence fields and aggregate summary counts
+- Updated `docs/phase-r-detailed-task-list.md`
+  - marked Wave 3 acceptance-evidence truth and validation items complete
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `56 passed`
+
+### Notes
+This makes acceptance output more inspectable and reusable for later operator-facing or HTTP-level evidence surfacing work.
+
+
 ## 2026-05-05: Phase R Wave 2 implementation-plan truth upgrade landed
 
 ### Summary

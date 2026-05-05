@@ -61,19 +61,15 @@ Status: [x] completed
 ## 6. Wave 3: Acceptance Evidence Upgrade
 
 ### 6.1 Evidence normalization
-- strengthen `run_acceptance` result storage so each result captures:
-  - command
-  - exit code
-  - bounded stdout/stderr excerpts
-  - pass/fail status
-  - timestamp
-  - optional mapped success criteria ids when available
+Status: [x] completed
+- `run_acceptance` now stores normalized per-command evidence with exit code, bounded stdout/stderr excerpts, timestamp, pass/fail status, and matched success-criteria references, plus aggregate pass/fail counts
 
 ### 6.2 Validation
-- add focused tests for:
-  - multi-command result aggregation
+Status: [x] completed
+- focused tests cover:
+  - multi-command style result normalization shape
   - failure retry posture
-  - evidence normalization shape
+  - evidence summary aggregation
 
 ## 7. Wave 4: Operator / HTTP Surfaces
 

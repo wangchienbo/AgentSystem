@@ -2298,12 +2298,19 @@ class LightBrainGateway:
                 text=True,
                 timeout=120,
             )
+            matched_criteria = [
+                criterion
+                for criterion in acceptance_plan.get("success_criteria", [])
+                if isinstance(criterion, str) and criterion
+            ]
             item = {
                 "command": command,
                 "status": "passed" if proc.returncode == 0 else "failed",
                 "exit_code": proc.returncode,
-                "stdout_tail": (proc.stdout or "")[-2000:],
-                "stderr_tail": (proc.stderr or "")[-2000:],
+                "stdout_excerpt": (proc.stdout or "")[-2000:],
+                "stderr_excerpt": (proc.stderr or "")[-2000:],
+                "ran_at": datetime.now(UTC).isoformat(),
+                "matched_success_criteria": matched_criteria,
             }
             command_results.append(item)
             if proc.returncode != 0:
@@ -2315,6 +2322,11 @@ class LightBrainGateway:
             "evidence": {
                 "repo_path": str(repo_root),
                 "commands": command_results,
+                "summary": {
+                    "command_count": len(command_results),
+                    "passed_count": sum(1 for item in command_results if item["status"] == "passed"),
+                    "failed_count": sum(1 for item in command_results if item["status"] != "passed"),
+                },
             },
         }
         results.append(result_entry)
