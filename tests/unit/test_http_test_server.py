@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.system.http_test_server import app, user_sessions, conversation_history, refinement_rollout
+from app.system.http_test_server import app, user_sessions, conversation_history, refinement_rollout, gateway
 
 
 client = TestClient(app)
@@ -278,6 +278,55 @@ def test_api_action_exposes_implementation_and_acceptance_payloads() -> None:
     assert data["data"]["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
     assert data["data"]["acceptance_result"]["status"] == "passed"
     assert data["context_view"] == {"stable": [], "pending": []}
+
+
+def test_api_action_runs_real_executable_workflow_chain(tmp_path) -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from app.models.pending_task import PendingTaskRecord
+    from app.persistence.runtime_state_store import RuntimeStateStore
+    from app.system.runtime.pending_task_store import PendingTaskStore
+
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    original_store = getattr(gateway, "_pending_task_store", None)
+    gateway._pending_task_store = store
+    try:
+        task = PendingTaskRecord(
+            task_id="pt-http-chain-1",
+            user_id="tester",
+            session_id="session_tester",
+            intent="create_app",
+            status="ready_to_execute",
+            current_stage="tasklist_preparing",
+            stage_status="in_progress",
+            target_ref={"app_id": "app_http_chain"},
+            draft_payload={"name": "http_chain_demo"},
+            next_recommended_action={"type": "materialize_task_list", "app_id": "app_http_chain"},
+        )
+        store.upsert_task(task)
+
+        response = client.post(
+            "/api/action",
+            json={"action_id": "workflow-action:materialize_task_list:app_http_chain", "action_params": {"intent": "materialize_task_list", "app_id": "app_http_chain"}},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert len(data["data"]["task_list"]) == 3
+        assert data["workflow_contract"]["pending_task"]["current_stage"] == "repo_locating"
+        assert data["actions"][0]["payload"]["intent"] == "locate_repo_context"
+    finally:
+        gateway._pending_task_store = original_store
 
 
 def test_api_chat_exposes_gateway_action_contract() -> None:

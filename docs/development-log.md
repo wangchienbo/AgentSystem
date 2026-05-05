@@ -1,3 +1,23 @@
+## 2026-05-05: Real `/api/action` workflow-chain test added over executable task-list path
+
+### Summary
+Extended the HTTP test surface from compatibility-only stubs to one real executable workflow-chain slice through `/api/action`, so the new deterministic action chain has at least one true HTTP entrypoint test using the live gateway path.
+
+### What Was Done
+- Updated `tests/unit/test_http_test_server.py`
+  - added a real `/api/action` test that injects a runtime pending-task store, seeds a `tasklist_preparing` pending task, calls `materialize_task_list` through the live HTTP endpoint, and verifies:
+    - the task list is generated
+    - workflow state advances to `repo_locating`
+    - the returned action handoff points to `locate_repo_context`
+
+### Validation
+- `pytest tests/unit/test_http_test_server.py -q`
+- result: `33 passed`
+
+### Notes
+This is a useful midpoint between direct gateway-unit tests and full service-up E2E, and it gives the new executable workflow chain one real HTTP path assertion without making the regression suite too heavy.
+
+
 ## 2026-05-05: Cross-slice validation refresh after executable workflow chain landing
 
 ### Summary
