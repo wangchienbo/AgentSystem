@@ -1,7 +1,7 @@
 #!/bin/bash
 # AgentSystem 一键停止脚本
 
-PROJECT_DIR="/root/project/AgentSystem"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PORT=${PORT:-80}
 LOG_FILE="/tmp/agent_startup.log"
 

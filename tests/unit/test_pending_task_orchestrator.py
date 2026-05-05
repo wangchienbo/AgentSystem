@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+from pathlib import Path
+
 from app.models.pending_task import (
     PENDING_TASK_ACTION_APPLY_DRAFT_APP,
     PendingTaskRecord,
@@ -231,20 +235,20 @@ def test_pending_task_orchestrator_can_capture_repo_context(tmp_path: Path):
 
     updated = orchestrator.capture_repo_context(
         task,
-        active_repo_path="/root/project/AgentSystem",
-        primary_readme_path="/root/project/AgentSystem/README.md",
+        active_repo_path=str(REPO_ROOT),
+        primary_readme_path=str(REPO_ROOT / "README.md"),
         key_docs=[
-            "/root/project/AgentSystem/docs/phase-q-detailed-task-list.md",
-            "/root/project/AgentSystem/docs/phase-q-workflow-context-center-final-design.md",
+            str(REPO_ROOT / "docs/phase-q-detailed-task-list.md"),
+            str(REPO_ROOT / "docs/phase-q-workflow-context-center-final-design.md"),
         ],
         target_modules=["app/models/pending_task.py", "app/services/pending_task_orchestrator.py"],
     )
 
-    assert updated.repo_context["active_repo_path"] == "/root/project/AgentSystem"
-    assert updated.repo_context["primary_readme_path"] == "/root/project/AgentSystem/README.md"
+    assert updated.repo_context["active_repo_path"] == str(REPO_ROOT)
+    assert updated.repo_context["primary_readme_path"] == str(REPO_ROOT / "README.md")
     assert len(updated.repo_context["key_docs"]) == 2
     assert "app/models/pending_task.py" in updated.repo_context["target_modules"]
-    assert store.get_latest_open_task("u1").repo_context["active_repo_path"] == "/root/project/AgentSystem"
+    assert store.get_latest_open_task("u1").repo_context["active_repo_path"] == str(REPO_ROOT)
 
 
 def test_pending_task_orchestrator_can_capture_upgrade_plan(tmp_path: Path):

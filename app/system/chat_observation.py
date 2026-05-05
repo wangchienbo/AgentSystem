@@ -7,10 +7,11 @@ from typing import Any
 from uuid import uuid4
 
 from app.models.governance_observation import GovernanceEvidenceDigest
+from app.services.context_storage_paths import DEFAULT_CHAT_OBSERVATION_DIR
 from app.system.regression_governance_observation import build_governance_evidence_digest, classify_failure_stage, classify_signal
 
 
-CHAT_OBSERVATION_LOG_DIR = Path("/root/project/AgentSystem/data/chat_observation")
+CHAT_OBSERVATION_LOG_DIR = DEFAULT_CHAT_OBSERVATION_DIR
 
 
 def _classify_topic(message: str) -> str:

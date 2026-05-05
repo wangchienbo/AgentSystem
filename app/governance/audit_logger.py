@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Literal
 from dataclasses import dataclass, field
 
+from app.services.context_storage_paths import DEFAULT_AUDIT_LOG_DIR
+
 AuditAction = Literal[
     "create_app",
     "modify_app",
@@ -46,7 +48,7 @@ class AuditEntry:
 class AuditLogger:
     """Audit logger for governance compliance."""
     
-    def __init__(self, log_dir: str = "/root/project/AgentSystem/logs/audit") -> None:
+    def __init__(self, log_dir: str | Path = DEFAULT_AUDIT_LOG_DIR) -> None:
         self._log_dir = Path(log_dir)
         self._log_dir.mkdir(parents=True, exist_ok=True)
         self._current_date = datetime.now(UTC).strftime("%Y-%m-%d")

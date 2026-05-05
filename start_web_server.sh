@@ -8,7 +8,7 @@ echo "=== AgentSystem Web Test Server 启动脚本 ==="
 echo ""
 
 # 1. 设置项目路径
-PROJECT_DIR="/root/project/AgentSystem"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="$PROJECT_DIR/.venv"
 CONFIG_DIR="$HOME/.config/agentsystem"
 CONFIG_FILE="$CONFIG_DIR/config.yaml"

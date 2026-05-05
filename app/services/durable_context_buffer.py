@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.services.context_storage_paths import ContextStoragePaths, build_context_storage_paths
+from app.services.context_storage_paths import ContextStoragePaths, DEFAULT_CONTEXT_CENTER_DIR, build_context_storage_paths
 
 
 @dataclass
@@ -16,7 +16,7 @@ class DurableContextBuffer:
     @classmethod
     def from_base_dir(
         cls,
-        base_dir: str | Path = "/root/project/AgentSystem/data/context_center",
+        base_dir: str | Path = DEFAULT_CONTEXT_CENTER_DIR,
         *,
         max_events_per_session: int = 200,
     ) -> "DurableContextBuffer":

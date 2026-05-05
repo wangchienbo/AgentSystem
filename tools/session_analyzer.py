@@ -13,8 +13,9 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-DATA_DIR = Path("/root/project/data")
-RUNTIME_DIR = Path("/root/project/AgentSystem/data/runtime")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = REPO_ROOT / "data"
+RUNTIME_DIR = REPO_ROOT / "data/runtime"
 
 
 def _load_json(path: Path, default):

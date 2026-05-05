@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """E2E LLM Tool Calling test - reads API key from config only."""
 import sys
-sys.path.insert(0, '/root/project/AgentSystem')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.ai.tool_calling_engine import ToolCallingEngine, ToolDef
 from app.ai.model_router import ModelRouter

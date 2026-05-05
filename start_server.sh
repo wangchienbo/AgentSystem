@@ -9,7 +9,7 @@
 
 set -e
 
-PROJECT_DIR="/root/project/AgentSystem"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="$PROJECT_DIR/.venv"
 CONFIG_FILE="$HOME/.config/agentsystem/config.yaml"
 PORT=${PORT:-80}

@@ -4,6 +4,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.services.context_storage_paths import (
+    DEFAULT_CONTEXT_CENTER_DIR,
+)
 from app.system.invocation.tool_context_contract import ModelInvocationRecord, ToolContextQueryRequest, ToolContextQueryResponse
 
 from app.models.context import SessionContextRecord, SessionContextWindow, SessionLink, SessionNode
@@ -23,7 +26,7 @@ class ContextCenter:
     but establishes the target interface for the migration.
     """
 
-    def __init__(self, *, base_dir: str | Path = "/root/project/AgentSystem/data/context_center") -> None:
+    def __init__(self, *, base_dir: str | Path = DEFAULT_CONTEXT_CENTER_DIR) -> None:
         self._nodes: dict[str, SessionNode] = {}
         self._records: dict[str, list[SessionContextRecord]] = {}
         self._links: list[SessionLink] = []

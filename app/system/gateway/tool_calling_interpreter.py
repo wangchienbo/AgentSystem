@@ -567,7 +567,7 @@ for root in roots:
 print(json.dumps(rows[:max_rows], ensure_ascii=False))
 PY"""
         script_started = datetime.now(UTC)
-        prestep = exec_shell(command=command, workdir="/root/project/AgentSystem", timeout=60)
+        prestep = exec_shell(command=command, workdir=str(Path(__file__).resolve().parents[3]), timeout=60)
         script_latency_ms = int((datetime.now(UTC) - script_started).total_seconds() * 1000)
         if not prestep.get("success"):
             self._record_deterministic_prestep_telemetry(

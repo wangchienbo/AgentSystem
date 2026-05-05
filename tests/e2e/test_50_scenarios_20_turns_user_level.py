@@ -666,7 +666,7 @@ def main():
     except Exception as exc:
         print(f"  ❌ 服务不可达: {exc}")
         print(f"  请先启动 AgentSystem 服务:")
-        print(f"    cd /root/project/AgentSystem && bash start_web_server.sh")
+        print(f"    cd <repo-root> && bash start_web_server.sh")
         sys.exit(1)
 
     # Run tests

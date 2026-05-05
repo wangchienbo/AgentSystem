@@ -5,7 +5,7 @@ AgentSystem 端到端 HTTP 交互测试 — Python 版
 更精细的测试控制：支持会话追踪、按钮操作模拟、多轮对话、权限矩阵。
 
 用法:
-  1. 启动服务: cd /root/project/AgentSystem && python3 -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+  1. 启动服务: cd <repo-root> && python3 -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000
   2. 运行测试: python3 tests/scripts/e2e_detailed_tests.py
 """
 import requests
@@ -539,7 +539,7 @@ if __name__ == "__main__":
         print(f"\n  ✅ 服务已启动: {resp.json()}")
     except requests.ConnectionError:
         print(f"\n  {RED}❌ 服务未启动！请先运行:{NC}")
-        print(f"  cd /root/project/AgentSystem && python3 -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000")
+        print(f"  cd <repo-root> && python3 -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000")
         sys.exit(1)
 
     # 运行所有测试

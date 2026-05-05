@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import Iterable
 
 from app.models.governance_observation import ReplayRegressionSample
+from app.services.context_storage_paths import DEFAULT_REPLAY_REGRESSION_SAMPLES_DIR
 
 
-REPLAY_SAMPLE_STORE_DIR = Path("/root/project/AgentSystem/data/replay_regression_samples")
+REPLAY_SAMPLE_STORE_DIR = DEFAULT_REPLAY_REGRESSION_SAMPLES_DIR
 ALLOWED_REPLAY_SOURCES = {"accepted_chat", "accepted_regression", "operator_curated", "production_trace_excerpt"}
 
 

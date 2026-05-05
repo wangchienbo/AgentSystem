@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from app.services.context_storage_paths import ContextStoragePaths, build_context_storage_paths
+from app.services.context_storage_paths import ContextStoragePaths, DEFAULT_CONTEXT_CENTER_DIR, build_context_storage_paths
 from app.services.context_writer import ContextWriter
 from app.services.summary_prompt_policy import SummaryPromptPolicy
 
@@ -19,7 +19,7 @@ class ContextSummaryWorker:
     prompt_policy: SummaryPromptPolicy = field(default_factory=SummaryPromptPolicy)
 
     @classmethod
-    def from_base_dir(cls, base_dir: str | Path = "/root/project/AgentSystem/data/context_center") -> "ContextSummaryWorker":
+    def from_base_dir(cls, base_dir: str | Path = DEFAULT_CONTEXT_CENTER_DIR) -> "ContextSummaryWorker":
         return cls(paths=build_context_storage_paths(base_dir))
 
     def enqueue_summary_write(self, *, session_id: str, summary_text: str, role: str = "system", replace: bool = True) -> dict[str, int | str]:

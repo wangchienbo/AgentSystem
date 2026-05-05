@@ -15,7 +15,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_REPO_ROOT = Path("/root/project/AgentSystem")
+DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SEARCH_ROOT = DEFAULT_REPO_ROOT
 IGNORED_DIR_NAMES = {
     ".git",

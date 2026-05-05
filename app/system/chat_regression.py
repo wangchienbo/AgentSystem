@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
+from app.services.context_storage_paths import DEFAULT_CHAT_REGRESSION_DIR
 from app.services.refinement_memory import RefinementMemoryStore
 from uuid import uuid4
 
@@ -17,7 +18,7 @@ FIXED_PROMPT_MATRIX: dict[str, str] = {
     "storage": "请检查 storage backend 和读写路径",
 }
 
-REGRESSION_LOG_DIR = Path("/root/project/AgentSystem/data/chat_regression")
+REGRESSION_LOG_DIR = DEFAULT_CHAT_REGRESSION_DIR
 
 
 @dataclass

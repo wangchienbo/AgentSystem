@@ -4,7 +4,7 @@ AgentSystem E2E 深度测试套件
 覆盖: 登录、基础对话、App 生命周期、LLM 调用、权限、复杂多轮等 50+ 场景
 
 运行方式:
-    cd /root/project/AgentSystem
+    cd <repo-root>
     python3 e2e_test.py
 
 依赖:

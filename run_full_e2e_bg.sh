@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd /root/project/AgentSystem
-export PYTHONPATH=/root/project/AgentSystem
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT"
+export PYTHONPATH="$ROOT"
 export PYTHONUNBUFFERED=1
 exec .venv/bin/python3 -m tests.e2e.test_50_scenarios_20_turns_user_level \
   --base-url http://localhost:80 \

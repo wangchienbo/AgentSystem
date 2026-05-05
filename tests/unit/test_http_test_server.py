@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import pathlib
+
 from fastapi.testclient import TestClient
 
 from app.system.http_test_server import app, user_sessions, conversation_history, refinement_rollout, gateway
 
 
 client = TestClient(app)
-
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 
@@ -369,7 +371,7 @@ def test_api_action_runs_real_repo_to_implementation_chain(tmp_path) -> None:
         )
         assert repo_response.status_code == 200
         repo_data = repo_response.json()
-        assert repo_data["data"]["repo_context"]["active_repo_path"] == "/root/project/AgentSystem"
+        assert repo_data["data"]["repo_context"]["active_repo_path"] == str(REPO_ROOT)
         assert repo_data["actions"][0]["payload"]["intent"] == "implement_app_change"
 
         impl_response = client.post(
@@ -602,8 +604,7 @@ def test_api_chat_regression_run_and_latest_endpoints() -> None:
     assert run_data["success"] is True
     assert run_data["run_id"] == "run-endpoint"
 
-    import pathlib
-    regression_dir = pathlib.Path("/root/project/AgentSystem/data/chat_regression")
+    regression_dir = REPO_ROOT / "data/chat_regression"
     regression_dir.mkdir(parents=True, exist_ok=True)
     latest_file = regression_dir / "run-endpoint.jsonl"
     latest_file.write_text("{\"kind\":\"summary\",\"run_id\":\"run-endpoint\",\"started_at\":\"2026-04-27T00:00:00Z\"}\n", encoding="utf-8")
@@ -627,8 +628,7 @@ def test_api_chat_regression_runs_and_detail_endpoints() -> None:
     conversation_history["session_tester"] = []
     client.cookies.set("session_id", "session_tester")
 
-    import pathlib
-    regression_dir = pathlib.Path("/root/project/AgentSystem/data/chat_regression")
+    regression_dir = REPO_ROOT / "data/chat_regression"
     regression_dir.mkdir(parents=True, exist_ok=True)
     run_path = regression_dir / "run-list.jsonl"
     run_path.write_text(

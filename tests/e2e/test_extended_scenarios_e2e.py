@@ -1,7 +1,7 @@
 """Extended Natural Language E2E Tests - Multi-scenario user interactions.
 
 Tests cover the complete user journey with various real-world scenarios.
-All tests run against the actual installed system in /root/project/AgentSystem
+All tests run against the actual installed system in the repository root
 """
 from __future__ import annotations
 

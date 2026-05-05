@@ -1,11 +1,11 @@
 project:
   id: agentsystem
   name: AgentSystem
-  root: /root/project/AgentSystem
-  anchor: /root/project/AgentSystem/PROJECT_CONTROL.md
+  root: .
+  anchor: ./PROJECT_CONTROL.md
   master_control_skill:
     id: agentsystem-master-control
-    path: /root/project/AgentSystem/skills/generated/agentsystem-master-control/SKILL.md
+    path: ./skills/generated/agentsystem-master-control/SKILL.md
   focus: recursive-bootstrap-initialized
   status: active
 scopes:

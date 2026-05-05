@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 from app.models.chat import ChatMessageRequest, TaskContinuationDecision
 from app.models.pending_task import PendingTaskRecord
 from app.persistence.runtime_state_store import RuntimeStateStore
@@ -275,8 +277,8 @@ def test_execute_locate_repo_context_updates_pending_task(tmp_path: Path):
 
     assert response.type == "progress"
     assert response.data is not None
-    assert response.data["repo_context"]["active_repo_path"] == "/root/project/AgentSystem"
-    assert response.data["repo_context"]["primary_readme_path"].endswith("/root/project/AgentSystem/README.md")
+    assert response.data["repo_context"]["active_repo_path"] == str(REPO_ROOT)
+    assert response.data["repo_context"]["primary_readme_path"]== str(REPO_ROOT / "README.md")
     updated = pending_store.get_latest_open_task("u1")
     assert updated is not None
     assert updated.current_stage == "implementation_pending"
@@ -421,8 +423,8 @@ def test_execute_implement_app_change_materializes_plan(tmp_path: Path):
         stage_status="in_progress",
         target_ref={"app_id": "app_repo_3"},
         repo_context={
-            "active_repo_path": "/root/project/AgentSystem",
-            "primary_readme_path": "/root/project/AgentSystem/README.md",
+            "active_repo_path": str(REPO_ROOT),
+            "primary_readme_path": str(REPO_ROOT / "README.md"),
             "key_docs": [],
             "target_modules": ["app/system/gateway/light_brain_gateway.py"],
         },

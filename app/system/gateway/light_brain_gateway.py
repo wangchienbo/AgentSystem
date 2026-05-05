@@ -2194,7 +2194,7 @@ class LightBrainGateway:
         if pending_task is None:
             return ChatMessageResponse(type="error", content="没有找到可执行 locate_repo_context 的未完成任务。", session_id=session_id)
 
-        repo_root = Path("/root/project/AgentSystem")
+        repo_root = Path(__file__).resolve().parents[3]
         primary_readme = repo_root / "README.md"
         key_docs = [
             "docs/requirements.md",
@@ -2270,7 +2270,7 @@ class LightBrainGateway:
         if not commands:
             return ChatMessageResponse(type="error", content="当前 acceptance_plan 还没有可执行的 test_probe_commands。", session_id=session_id)
 
-        repo_root = Path((pending_task.repo_context or {}).get("active_repo_path") or "/root/project/AgentSystem")
+        repo_root = Path((pending_task.repo_context or {}).get("active_repo_path") or Path(__file__).resolve().parents[3])
         results = list(acceptance_plan.get("results") or [])
         command_results: list[dict[str, Any]] = []
         overall_status = "passed"
@@ -2352,7 +2352,7 @@ class LightBrainGateway:
             ]
             target_modules = [item for item in target_modules if item]
         implementation_plan = {
-            "repo_path": repo_context.get("active_repo_path") or "/root/project/AgentSystem",
+            "repo_path": repo_context.get("active_repo_path") or str(Path(__file__).resolve().parents[3]),
             "target_files": target_modules,
             "work_items": [
                 {

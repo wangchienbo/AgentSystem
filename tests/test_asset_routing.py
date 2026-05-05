@@ -1,6 +1,7 @@
 """Phase H 资产感知路由测试验证 - Tool Call 层 + Model Router"""
 import sys
-sys.path.insert(0, '/root/project/AgentSystem')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.ai.model_router import ModelRouter
 from app.system.runtime.config_center import ConfigCenterService

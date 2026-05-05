@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.services.context_storage_paths import ContextStoragePaths, build_context_storage_paths
+from app.services.context_storage_paths import ContextStoragePaths, DEFAULT_CONTEXT_CENTER_DIR, build_context_storage_paths
 
 
 @dataclass
@@ -14,7 +14,7 @@ class ContextRecoveryManager:
     recovering: bool = False
 
     @classmethod
-    def from_base_dir(cls, base_dir: str | Path = "/root/project/AgentSystem/data/context_center") -> "ContextRecoveryManager":
+    def from_base_dir(cls, base_dir: str | Path = DEFAULT_CONTEXT_CENTER_DIR) -> "ContextRecoveryManager":
         return cls(paths=build_context_storage_paths(base_dir))
 
     def mark_recovering(self) -> None:

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.models.context import ContextDetailEvent
-from app.services.context_storage_paths import ContextStoragePaths, build_context_storage_paths
+from app.services.context_storage_paths import ContextStoragePaths, DEFAULT_CONTEXT_CENTER_DIR, build_context_storage_paths
 
 
 @dataclass
@@ -13,7 +13,7 @@ class ContextQueryService:
     paths: ContextStoragePaths
 
     @classmethod
-    def from_base_dir(cls, base_dir: str | Path = "/root/project/AgentSystem/data/context_center") -> "ContextQueryService":
+    def from_base_dir(cls, base_dir: str | Path = DEFAULT_CONTEXT_CENTER_DIR) -> "ContextQueryService":
         return cls(paths=build_context_storage_paths(base_dir))
 
     def read_detail_events(self, *, session_id: str, limit: int = 100) -> list[ContextDetailEvent]:

@@ -18,6 +18,7 @@ from app.models.refinement_loop import (
 from app.services.priority_analysis import PriorityAnalysisRequest, PriorityAnalysisService
 from app.services.proposal_review import ProposalReviewService
 from app.services.refinement_failure_analysis import RefinementFailureAnalysisService
+from app.services.context_storage_paths import DEFAULT_SCRIPTS_DIR
 from app.services.refinement_memory import RefinementMemoryStore
 
 
@@ -31,7 +32,7 @@ class RefinementLoopService:
         proposal_review: ProposalReviewService,
         priority_analysis: PriorityAnalysisService,
         memory: RefinementMemoryStore | None = None,
-        regression_runner: str = "/root/project/AgentSystem/scripts/run_test_groups.sh",
+        regression_runner: str | Path = DEFAULT_SCRIPTS_DIR / "run_test_groups.sh",
         verification_executor=None,
         failure_analysis: RefinementFailureAnalysisService | None = None,
     ) -> None:

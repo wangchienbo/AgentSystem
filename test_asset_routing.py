@@ -1,7 +1,8 @@
 """Test asset-aware model routing in ToolCallingEngine and ModelRouter."""
 import asyncio
 import sys
-sys.path.insert(0, '/root/project/AgentSystem')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 async def test_asset_aware_routing():
     """Test that asset_id is properly passed through model routing chain."""

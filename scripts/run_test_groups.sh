@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/root/project/AgentSystem"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PYTEST="$ROOT/.venv/bin/python -m pytest -q"
 
 cd "$ROOT"
