@@ -191,6 +191,7 @@ class PendingTaskOrchestrator:
             "http_runtime_verification_points": list(http_runtime_verification_points or []),
             "success_criteria": list(success_criteria or []),
             "results": list((pending_task.acceptance_plan or {}).get("results") or []),
+            "evidence_summary": dict((pending_task.acceptance_plan or {}).get("evidence_summary") or {"command_count": 0, "passed_count": 0, "failed_count": 0}),
         }
         updated = pending_task.model_copy(update={"acceptance_plan": acceptance_plan})
         if self._pending_task_store is not None:
@@ -212,6 +213,7 @@ class PendingTaskOrchestrator:
                 *(pending_task.acceptance_plan.get("results") or []),
                 {"status": status, "summary": summary, "evidence": dict(evidence or {})},
             ],
+            "evidence_summary": dict((evidence or {}).get("summary") or pending_task.acceptance_plan.get("evidence_summary") or {}),
         }
         updated = pending_task.model_copy(update={"acceptance_plan": acceptance_plan})
         if self._pending_task_store is not None:

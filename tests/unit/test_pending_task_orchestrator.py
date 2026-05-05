@@ -126,11 +126,22 @@ def test_pending_task_record_supports_wave1_workflow_fields():
     assert task.task_list == []
     assert task.repo_context == {
         "active_repo_path": "",
+        "repo_valid": False,
         "primary_readme_path": "",
+        "primary_readme_exists": False,
         "key_docs": [],
         "target_modules": [],
+        "git_branch": "",
+        "git_dirty": False,
     }
-    assert task.implementation_plan == {}
+    assert task.implementation_plan == {
+        "repo_path": "",
+        "target_files": [],
+        "changed_files_intent": [],
+        "work_items": [],
+        "validation_map": [],
+        "summary": "",
+    }
     assert task.upgrade_plan == {
         "build_install_plan": [],
         "activation_reload_path": [],
@@ -141,6 +152,7 @@ def test_pending_task_record_supports_wave1_workflow_fields():
         "http_runtime_verification_points": [],
         "success_criteria": [],
         "results": [],
+        "evidence_summary": {"command_count": 0, "passed_count": 0, "failed_count": 0},
     }
     assert task.artifacts == []
 

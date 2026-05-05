@@ -47,16 +47,22 @@ Started the next bounded Phase R extension layer by linking implementation inten
   - `implement_app_change` now emits `changed_files_intent` records linked to `mapped_work_item_id`
   - `validation_map` now also records `mapped_work_item_id`
   - `run_acceptance` now records `matched_work_item_ids` on command evidence, using direct validation-map matches and a bounded single-work-item fallback
+- Updated `app/models/pending_task.py`
+  - promoted richer repo-context, implementation-plan, and acceptance-plan defaults into the canonical pending-task schema
+- Updated `app/services/pending_task_orchestrator.py`
+  - carried the richer acceptance evidence summary through orchestrator capture/update flows
 - Updated `tests/unit/test_light_brain_gateway_pending_task.py`
   - added focused assertions for changed-file intent exposure and work-item binding in acceptance evidence
 - Updated `tests/unit/test_http_test_server.py`
   - extended real `/api/action` chain assertions to cover changed-file intent and matched work-item evidence fields
+- Updated `tests/unit/test_pending_task_orchestrator.py`
+  - refreshed pending-task default-shape expectations for the richer repo, implementation, and acceptance schema
 - Updated `docs/phase-r-detailed-task-list.md`
   - added Wave 5 first-slice tracking for mutation/evidence binding
 
 ### Validation
-- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
-- result: `56 passed`
+- `pytest tests/unit/test_pending_task_orchestrator.py tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `68 passed`
 
 ### Notes
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.

@@ -113,12 +113,25 @@ class PendingTaskRecord(BaseModel):
     repo_context: dict[str, Any] = Field(
         default_factory=lambda: {
             "active_repo_path": "",
+            "repo_valid": False,
             "primary_readme_path": "",
+            "primary_readme_exists": False,
             "key_docs": [],
             "target_modules": [],
+            "git_branch": "",
+            "git_dirty": False,
         }
     )
-    implementation_plan: dict[str, Any] = Field(default_factory=dict)
+    implementation_plan: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "repo_path": "",
+            "target_files": [],
+            "changed_files_intent": [],
+            "work_items": [],
+            "validation_map": [],
+            "summary": "",
+        }
+    )
     upgrade_plan: dict[str, Any] = Field(
         default_factory=lambda: {
             "build_install_plan": [],
@@ -132,6 +145,7 @@ class PendingTaskRecord(BaseModel):
             "http_runtime_verification_points": [],
             "success_criteria": [],
             "results": [],
+            "evidence_summary": {"command_count": 0, "passed_count": 0, "failed_count": 0},
         }
     )
     draft_payload: dict[str, Any] = Field(default_factory=dict)
