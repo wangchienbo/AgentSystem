@@ -67,3 +67,7 @@ Phase Q is complete at the task-list closure level. Any next step should be trea
 
 Immediate follow-up proposal seed:
 - `docs/phase-r-proposal-seed.md`
+- `docs/phase-r-detailed-task-list.md`
+
+Phase R note:
+- the first bounded Phase R rollout arc has now completed, covering repo-context truth, implementation-plan truth, acceptance-evidence truth, and operator / HTTP surfacing hardening

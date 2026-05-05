@@ -37,6 +37,27 @@ Updated the testing docs so the newer executable workflow chain is explicitly re
 This makes the documented validation story match the new execution reality and reduces the need to reconstruct the chain only from commit history or dev logs.
 
 
+## 2026-05-05: Phase R proposal and closure docs refreshed after first rollout arc completion
+
+### Summary
+Refreshed the forward-looking docs so they no longer describe the initial Phase R rollout as only partially landed. The seed and closure docs now reflect that the first bounded Phase R arc is complete.
+
+### What Was Done
+- Updated `docs/phase-r-proposal-seed.md`
+  - revised the progress section from partially landed to landed for the initial rollout arc
+  - recorded that repo, implementation, acceptance, and HTTP surfacing truth upgrades are complete
+  - added a next-step suggestion for a second bounded rollout arc centered on mutation/evidence binding
+- Updated `docs/phase-q-completion-summary.md`
+  - added the follow-on Phase R detailed task list link
+  - recorded that the first bounded Phase R rollout arc has completed after Phase Q closure
+
+### Validation
+- documentation-only state refresh aligned to already passing implementation and HTTP tests
+
+### Notes
+This keeps the phase-boundary docs honest, so the project record now clearly separates completed Phase Q closure, completed first Phase R rollout, and the next bounded extension layer.
+
+
 ## 2026-05-05: Phase R Wave 4 operator and HTTP surfacing landed
 
 ### Summary

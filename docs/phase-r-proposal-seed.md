@@ -56,7 +56,7 @@ But extend it into execution closure so a workflow can move from:
 
 ## Progress update after initial execution waves
 
-The first bounded execution waves are now partially landed:
+The first bounded execution waves are now landed for the initial rollout arc:
 - `approve_solution_draft`
 - `revise_solution_draft`
 - `materialize_task_list`
@@ -66,22 +66,34 @@ The first bounded execution waves are now partially landed:
 
 Current posture:
 - these actions now have executable skeleton behavior and structured payload returns
-- the chain is deterministic and bounded, but still represents workflow-oriented closure rather than fully general autonomous implementation
-- the real `/api/action` HTTP surface now has bounded live-chain coverage from task-list preparation through acceptance completion
-- next expansion should deepen execution truth and evidence quality, not reopen Phase Q foundations
+- repo-context truth, implementation-plan truth, acceptance-evidence truth, and HTTP/runtime surfacing all have bounded landed coverage
+- the chain remains deterministic and bounded, and still represents workflow-oriented closure rather than fully general autonomous implementation
+- the real `/api/action` HTTP surface now has bounded live-chain coverage from task-list preparation through acceptance completion, with richer payload assertions on repo, implementation, and acceptance evidence fields
+- next expansion should build a second bounded rollout arc on top of this baseline instead of reopening Phase Q foundations
 
-## Suggested first wave for Phase R
+## Initial rollout arc completion
 
-### Wave 1: executable repo-context and acceptance planning
-Start with the lowest-risk, highest-leverage runtime closures:
-- make `locate_repo_context` executable against the actual repository
-- materialize acceptance plans into explicit commands / probes / criteria
-- persist those acceptance results back into workflow state + Context Center
+The first bounded rollout arc of Phase R should now be treated as complete:
+- Wave 1: repo-context truth upgrade, completed
+- Wave 2: implementation-plan truth upgrade, completed
+- Wave 3: acceptance-evidence truth upgrade, completed
+- Wave 4: operator and HTTP surface hardening, completed
 
-Why this first:
-- it builds on Phase Q structures directly
-- it avoids premature broad mutation execution
-- it improves real closure quality for later implementation / upgrade waves
+Implication:
+- future Phase R work should extend the execution closure baseline rather than re-proving the same first-wave chain
+
+## Suggested next wave for Phase R
+
+### Wave 5: real mutation and evidence-to-change binding
+Start with the next bounded closure layer above the current baseline:
+- connect implementation work items more explicitly to concrete changed-file intent
+- bind acceptance evidence to those implementation work items more directly
+- keep execution bounded and inspectable, without broad autonomous mutation
+
+Why this next:
+- the first arc already proved workflow action closure and HTTP surfacing
+- the next missing truth is the bridge between implementation intent and actual change evidence
+- it advances runtime usefulness without reopening Phase Q or over-expanding autonomy
 
 ## Entry criteria
 
