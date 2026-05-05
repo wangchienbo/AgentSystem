@@ -1,3 +1,22 @@
+## 2026-05-05: Testing docs refreshed for executable workflow action chain
+
+### Summary
+Updated the testing docs so the newer executable workflow chain is explicitly represented in the project’s documented validation surface, not only in development-log chronology.
+
+### What Was Done
+- Updated `docs/testing.md`
+  - added executable workflow-action coverage to the main testing summary, including live `/api/action` chain checks
+- Updated `docs/testing-detail.md`
+  - added a dedicated section for the executable workflow action chain
+  - documented coverage for review actions, task-list materialization, repo-context execution, implementation-plan execution, acceptance execution, compatibility payloads, and live `/api/action` slices
+
+### Validation
+- documentation-only test-surface refresh aligned to already passing gateway and HTTP tests
+
+### Notes
+This makes the documented validation story match the new execution reality and reduces the need to reconstruct the chain only from commit history or dev logs.
+
+
 ## 2026-05-05: Phase R seed updated with live HTTP workflow-chain coverage state
 
 ### Summary

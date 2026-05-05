@@ -102,6 +102,29 @@
 - focused Context Center / workflow / HTTP slice 已按波次分别通过
 - `tests/scripts/e2e_self_iteration_service_up.py` 已完成脚本增强，但真实服务闭环当前受上游模型 key 暂时不可用阻塞
 
+### 3.12.3 Executable workflow action chain
+目标：验证 post-Phase-Q 的可执行 workflow action skeleton 已经贯通 solution review、task-list、repo-context、implementation、acceptance，并且 HTTP `/api/action` 暴露与 handoff 结构稳定。
+
+覆盖文件：
+- `tests/unit/test_light_brain_gateway_pending_task.py`
+- `tests/unit/test_http_test_server.py`
+
+覆盖要点：
+- `approve_solution_draft` 推进到 `tasklist_preparing`
+- `revise_solution_draft` 返回 input-required / blocked review state
+- `materialize_task_list` 生成 bounded task list 并 handoff 到 `locate_repo_context`
+- `locate_repo_context` 解析真实仓库路径、README、key docs、target modules
+- `implement_app_change` 生成结构化 `implementation_plan` 并 handoff 到 `run_acceptance`
+- `run_acceptance` 执行 bounded probe commands、落盘 evidence、通过时推进到 `done`，失败时回到 blocked retry posture
+- `/api/action` compatibility payload 包含 `task_list` / `repo_context` / `implementation_plan` / `acceptance_plan` / `acceptance_result` / `context_view`
+- real `/api/action` live slices 已覆盖：
+  - task-list -> repo
+  - repo -> implementation
+  - implementation -> acceptance(done)
+
+结果：
+- 当前 executable workflow chain 已有 gateway unit、HTTP compatibility、以及 bounded live `/api/action` 连续 handoff 覆盖
+
 ### 3.5 Iteration 10 ~ 12 v2 端到端回归
 目标：验证 Phase H 主路径在复杂创建、修改 refinement、execute_action 回流、权限审批、持久化一致性上的稳定性。
 
