@@ -123,6 +123,25 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-05: Testing docs refreshed for changed-file source hints and distinct multi-command binding
+
+### Summary
+Refreshed the testing docs again so the newer Wave 5 verification details are explicit in the formal testing narrative, not only in the development log and task-list notes.
+
+### What Was Done
+- Updated `docs/testing.md`
+  - expanded the workflow coverage summary to mention changed-file intent source hints and distinct multi-command work-item binding
+- Updated `docs/testing-detail.md`
+  - documented `changed_files_intent[].source_hint`
+  - clarified that acceptance evidence coverage now explicitly includes distinct/multi-command `matched_work_item_ids`
+
+### Validation
+- documentation-only testing-doc refresh aligned to already passing focused workflow tests
+
+### Notes
+This keeps the testing docs aligned with the current Wave 5 verification granularity instead of stopping at broader first-slice wording.
+
+
 ## 2026-05-05: Wave 5 multi-command work-item binding verified
 
 ### Summary
