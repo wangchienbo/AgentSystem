@@ -123,6 +123,25 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: README refreshed for Phase 1 CLI control-plane transition
+
+### Summary
+Updated the project README so the new CLI control-plane surface is visible at the main operator entrypoint, not only inside task docs and development-log chronology.
+
+### What Was Done
+- Updated `README.md`
+  - added a new Operator CLI section
+  - documented the current Phase 1 CLI skeleton commands
+  - documented the current posture of `status`, `doctor`, `runtime-layout`, and legacy shell-wrapper delegation
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- result: `6 passed`
+
+### Notes
+This keeps the main repo entrypoint aligned with the standard-install-model transition, so operators can discover the new Python CLI surface without first reading the detailed task list.
+
+
 ## 2026-05-06: Web-start shell wrapper also converged onto the Python CLI
 
 ### Summary

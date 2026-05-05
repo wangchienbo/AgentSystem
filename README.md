@@ -52,6 +52,24 @@ See:
 - `docs/testing-detail.md`
 - `docs/development-log.md`
 
+## Operator CLI (Phase 1 skeleton)
+
+The repository is transitioning toward a standard install model with a Python control-plane entrypoint:
+
+```bash
+agentsystem status
+agentsystem doctor
+agentsystem runtime-layout
+agentsystem assets list
+agentsystem assets install <asset_id>
+```
+
+Current posture:
+- these commands exist as an initial CLI skeleton
+- `status` / `doctor` expose lightweight runtime-layout checks
+- `runtime-layout` exposes the current repo-based layout contract
+- legacy `start_server.sh`, `stop_server.sh`, and `start_web_server.sh` now act as compatibility wrappers that delegate into the Python CLI
+
 ## Run
 
 ```bash
