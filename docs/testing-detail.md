@@ -635,3 +635,30 @@ Content-Type: application/json
   - `assets 0`
   - `restart 0`
   - `restore 0`
+
+## 2026-05-06 - Standard-install-model Phase 2 scenario refresh evidence
+
+### Target
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+### Changes
+- rewrote `S50` from a generic publish/feedback flow into an operator-facing standard-install lifecycle scenario
+- preserved total scenario count at 50
+- preserved 20 turns for the refreshed scenario
+- added natural-language prompts for:
+  - status
+  - doctor
+  - runtime-layout
+  - assets list/discover/install
+  - restart guidance
+  - migrate-runtime framing
+  - pre-migration baseline reasoning
+
+### Command evidence
+- `python3 - <<'PY' ... ast.parse(source) ... PY`
+- observed summary:
+  - `syntax_ok`
+  - `scenario_count 50`
+  - `runtime_layout_mentions 1`
+  - `asset_mentions 6`
+  - `doctor_mentions 1`

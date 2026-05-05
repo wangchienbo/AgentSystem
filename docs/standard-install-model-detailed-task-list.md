@@ -113,11 +113,10 @@ Status: [x] initial coverage goals landed
 - keep scenario-end history validation as a required baseline expectation
 
 ### 3.3 Regenerate or enhance scenario content
-- preserve 50 scenario structure for comparability
-- rewrite weak scenarios to be more realistic and more complex where needed
-- ensure each scenario still has 20 turns
-- keep 3 second delay baseline
-- ensure scenario set covers standard-install-model-sensitive behaviors
+Status: [x] first install-model-sensitive scenario refresh landed
+- preserved the 50 scenario structure for comparability
+- rewrote `S50` into an operator-facing standard-install lifecycle conversation
+- added natural-language turns covering status / doctor / runtime-layout / assets / restart / migrate-runtime / baseline-regression reasoning
 
 ### 3.4 Add scenario-end expectation checks
 - pull `/api/history/{session_id}` after each scenario

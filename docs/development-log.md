@@ -123,6 +123,41 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: First operator-facing scenario refresh landed for standard-install baseline work
+
+### Summary
+Continued Phase 2 by starting actual scenario regeneration, not just audit. The first refresh rewrote one of the generic cross-flow scenarios into a standard-install-model-sensitive operator conversation while preserving the 50x20 comparability shape.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - rewrote `S50` into `交叉-标准安装运维全流程`
+  - preserved 20 turns
+  - added natural-language prompts covering:
+    - runtime status
+    - doctor / health check
+    - runtime-layout explanation
+    - asset list / discover / install operator flows
+    - restart guidance
+    - migrate-runtime framing
+    - pre-migration regression reasoning
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked the first Phase 2.3 scenario refresh as landed
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - recorded the scenario refresh intent and validation evidence
+
+### Validation
+- `python3 - <<'PY' ... ast.parse(source) ... PY`
+- observed:
+  - `syntax_ok`
+  - `scenario_count 50`
+  - `runtime_layout_mentions 1`
+  - `asset_mentions 6`
+  - `doctor_mentions 1`
+
+### Notes
+This is the first real content mutation of the 50x20 suite for the install-model transition. More scenarios still need operator-lifecycle strengthening, but the baseline is no longer purely generic at the tail end.
+
+
 ## 2026-05-06: Phase 2 audit identified operator-lifecycle gaps in the 50x20 E2E baseline
 
 ### Summary

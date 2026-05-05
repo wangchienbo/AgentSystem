@@ -694,3 +694,9 @@ The test suite should grow with the architecture, but remain grounded in determi
   - explicit restart/recovery continuity operator chains are absent
   - explicit runtime-layout / migrate-runtime operator flows are absent
 - Conclusion: the suite remains strong as a broad capability demo baseline, but needs operator-lifecycle strengthening before it can serve as the authoritative standard-install migration baseline.
+
+## 2026-05-06 - Standard-install-model Phase 2 scenario refresh
+
+- Rewrote `S50` in `tests/e2e/test_50_scenarios_20_turns_user_level.py` into an operator-facing standard-install lifecycle scenario.
+- Preserved the 50-scenario shape for before/after migration comparability.
+- Added explicit natural-language coverage for status, doctor, runtime-layout, asset list/discover/install, restart guidance, migrate-runtime framing, and baseline-regression reasoning.

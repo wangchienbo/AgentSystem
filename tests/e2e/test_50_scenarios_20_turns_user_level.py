@@ -2,7 +2,7 @@
 
 Tests the full AgentSystem stack end-to-end through the real HTTP API
 (`/api/chat`), with actual LLM responses. Each turn includes a configurable
-delay to avoid overwhelming vLLM.
+delay to avoid overwhelming vLLM, plus scenario-end conversation checks.
 
 Usage:
     # Default: 3s delay between turns, target localhost:8765
@@ -409,12 +409,14 @@ SCENARIOS = [
         "先完成设计任务", "标记设计为已完成", "开始开发", "开发进度如何？",
         "记录开发笔记", "遇到一个问题需要解决", "记录问题和解决方案", "生成项目进度报告",
     ]},
-    {"id": "S50", "name": "交叉-全流程端到端", "user_id": "user_cross_05", "turns": [
-        "注册一个新用户user_cross_05", "新用户登录", "查看欢迎页面", "浏览可用的App模板",
-        "选择一个模板创建App", "自定义App配置", "保存配置", "启动App",
-        "测试App功能", "发现一个问题", "报告这个问题", "查看问题状态",
-        "尝试修复", "修复成功了吗？", "重新测试", "测试通过", "发布App",
-        "查看发布状态", "邀请其他用户试用", "收集反馈",
+    {"id": "S50", "name": "交叉-标准安装运维全流程", "user_id": "user_cross_05", "turns": [
+        "我是新来的运维，先告诉我这个系统现在怎么安装和启动", "先检查当前运行状态", "再做一次健康检查",
+        "把当前运行时目录布局给我讲清楚", "如果我要查看可用资产，应该怎么查", "那就列一下当前可见的资产",
+        "再试试发现还没安装的资产", "假设我要安装一个 asset.demo 资产，应该怎么做", "安装前要注意什么前置条件？",
+        "如果服务异常，我应该先 stop 还是先 doctor", "那 restart 适合什么场景", "如果我要迁移到标准安装模型，第一步应该做什么",
+        "迁移前为什么要先做 50x20 基线回归", "如果回归里发现资产链路缺失，应该先补什么", "那当前这套基线最明显缺什么类型的场景",
+        "除了资产链路，还缺哪些 operator 生命周期场景", "如果我要把 repo 脚本入口逐步收敛到统一 CLI，应该怎么理解现在的状态",
+        "那 start_server.sh 和 start_web_server.sh 现在扮演什么角色", "请把标准安装迁移前的关键检查项给我总结成一个简短清单", "好的，按这个方向继续推进",
     ]},
 ]
 
@@ -433,6 +435,14 @@ class TurnResult:
     elapsed_ms: float = 0.0
     http_status: int = 0
     session_id: str = ""
+    full_response: str = ""
+
+
+@dataclass
+class ScenarioExpectationResult:
+    ok: bool
+    checks: list[str] = field(default_factory=list)
+    failures: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -447,6 +457,7 @@ class ScenarioResult:
     total_fail: int = 0
     total_error: int = 0   # HTTP/network errors (not counted as business fail)
     total_ms: float = 0.0
+    expectation: ScenarioExpectationResult | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -512,6 +523,12 @@ class E2EClient:
 
         return data
 
+    def get_history(self, session_id: str) -> list[dict[str, Any]]:
+        resp = self.client.get(f"{self.base_url}/api/history/{session_id}")
+        resp.raise_for_status()
+        data = resp.json()
+        return list(data.get("history") or [])
+
     def close(self):
         self.client.close()
 
@@ -519,6 +536,46 @@ class E2EClient:
 # ---------------------------------------------------------------------------
 # Test runner
 # ---------------------------------------------------------------------------
+
+def _evaluate_scenario_history(scenario: dict, history: list[dict[str, Any]], result: ScenarioResult) -> ScenarioExpectationResult:
+    checks: list[str] = []
+    failures: list[str] = []
+
+    user_messages = [item for item in history if item.get("role") == "user"]
+    assistant_messages = [item for item in history if item.get("role") == "assistant"]
+
+    if len(user_messages) != result.total_turns:
+        failures.append(f"expected {result.total_turns} user turns, got {len(user_messages)}")
+    else:
+        checks.append(f"user turn count matched: {len(user_messages)}")
+
+    if len(assistant_messages) < max(1, result.total_turns - 2):
+        failures.append(f"assistant replies too few: {len(assistant_messages)}")
+    else:
+        checks.append(f"assistant replies acceptable: {len(assistant_messages)}")
+
+    unique_sessions = {sid for sid in result.session_ids if sid}
+    if len(unique_sessions) > 1:
+        failures.append(f"session drift detected: {sorted(unique_sessions)}")
+    elif len(unique_sessions) == 1:
+        checks.append(f"single session preserved: {next(iter(unique_sessions))}")
+
+    last_reply = (assistant_messages[-1].get("content") or "") if assistant_messages else ""
+    if not last_reply.strip():
+        failures.append("final assistant reply empty")
+    else:
+        checks.append("final assistant reply non-empty")
+
+    lower_blob = "\n".join((item.get("content") or "") for item in assistant_messages).lower()
+    bad_markers = ["traceback", "internal server error", "llm request failed"]
+    found_bad = [marker for marker in bad_markers if marker in lower_blob]
+    if found_bad:
+        failures.append(f"unexpected error markers in conversation: {found_bad}")
+    else:
+        checks.append("no obvious error markers in assistant history")
+
+    return ScenarioExpectationResult(ok=not failures, checks=checks, failures=failures)
+
 
 def run_scenario(
     client: E2EClient,
@@ -569,6 +626,7 @@ def run_scenario(
                 elapsed_ms=elapsed,
                 http_status=200,
                 session_id=sid,
+                full_response=data.get("response", "") or "",
             )
         except httpx.HTTPStatusError as exc:
             elapsed = (time.monotonic() - t0) * 1000
@@ -617,6 +675,20 @@ def run_scenario(
         # Delay between turns to avoid vLLM overload
         if delay > 0 and idx < len(scenario["turns"]) - 1:
             time.sleep(delay)
+
+    if current_session:
+        try:
+            history = client.get_history(current_session)
+            result.expectation = _evaluate_scenario_history(scenario, history, result)
+            if result.expectation.ok:
+                print(f"    [history] ✅ scenario-end history checks passed ({len(history)} records)")
+            else:
+                print(f"    [history] ❌ scenario-end history checks failed: {'; '.join(result.expectation.failures[:3])}")
+                result.total_fail += 1
+        except Exception as exc:
+            print(f"    [history] ❌ failed to fetch/evaluate history: {exc}")
+            result.total_fail += 1
+            result.total_error += 1
 
     return result
 
