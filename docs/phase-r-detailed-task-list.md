@@ -49,14 +49,12 @@ Status: [x] completed
 ## 5. Wave 2: Implementation-Plan Truth Upgrade
 
 ### 5.1 Structured implementation bundle
-- strengthen `implement_app_change` so the implementation plan can carry:
-  - target files
-  - work item types
-  - bounded rationale / source links
-  - suggested validation mapping from work items to acceptance probes
+Status: [x] completed
+- `implement_app_change` now emits structured work items with bounded rationale/source links and a `validation_map` that seeds acceptance probes from the implementation bundle
 
 ### 5.2 Validation
-- add focused tests for:
+Status: [x] completed
+- focused tests cover:
   - plan derivation from repo context + task list
   - acceptance probe seeding from implementation bundle
 

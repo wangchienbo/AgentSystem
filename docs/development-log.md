@@ -37,6 +37,29 @@ Updated the testing docs so the newer executable workflow chain is explicitly re
 This makes the documented validation story match the new execution reality and reduces the need to reconstruct the chain only from commit history or dev logs.
 
 
+## 2026-05-05: Phase R Wave 2 implementation-plan truth upgrade landed
+
+### Summary
+Continued Phase R with the second explicit wave by making `implement_app_change` carry richer implementation-bundle truth instead of only target-file placeholders.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `implement_app_change` now emits richer `work_items` with bounded rationale and source links
+  - added `validation_map` so implementation targets map forward into acceptance probes
+  - acceptance probe seeding now derives from the implementation bundle when commands are missing
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added focused assertions for rationale/source-backed work items and validation-map probe seeding
+- Updated `docs/phase-r-detailed-task-list.md`
+  - marked Wave 2 implementation-plan truth and validation items complete
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py tests/unit/test_http_test_server.py -q`
+- result: `56 passed`
+
+### Notes
+This pushes the implementation stage beyond a simple file list and makes it a better bridge into acceptance evidence without broadening into uncontrolled autonomous mutation.
+
+
 ## 2026-05-05: Phase R Wave 1 repo-context truth upgrade landed
 
 ### Summary

@@ -2372,9 +2372,19 @@ class LightBrainGateway:
             "target_files": target_modules,
             "work_items": [
                 {
+                    "id": f"work-{index+1}",
                     "type": "code_change",
                     "target": module,
                     "status": "prepared",
+                    "rationale": f"derived from workflow target module {module}",
+                    "source": "repo_context.target_modules",
+                }
+                for index, module in enumerate(target_modules)
+            ],
+            "validation_map": [
+                {
+                    "target": module,
+                    "probe": "pytest tests/unit/test_light_brain_gateway_pending_task.py -q",
                 }
                 for module in target_modules
             ],
@@ -2383,7 +2393,7 @@ class LightBrainGateway:
         acceptance_plan = dict(pending_task.acceptance_plan or {})
         acceptance_plan.setdefault("test_probe_commands", [])
         if not acceptance_plan["test_probe_commands"]:
-            acceptance_plan["test_probe_commands"] = ["pytest tests/unit/test_light_brain_gateway_pending_task.py -q"]
+            acceptance_plan["test_probe_commands"] = sorted({item["probe"] for item in implementation_plan["validation_map"]}) or ["pytest tests/unit/test_light_brain_gateway_pending_task.py -q"]
         acceptance_plan.setdefault("http_runtime_verification_points", [])
         acceptance_plan.setdefault("success_criteria", [])
         if not acceptance_plan["success_criteria"]:
