@@ -556,11 +556,11 @@ Content-Type: application/json
 - `.env.local.example`
 
 默认私有配置路径位于仓库外：
-- `/root/.config/agentsystem/config.yaml`
+- `~/.config/agentsystem/config.yaml`
 
 兼容旧私有路径（迁移期）：
-- `/root/.config/agentsystem/model.local.json`
-- `/root/.config/agentsystem/model.local.env`
+- `~/.config/agentsystem/model.local.json`
+- `~/.config/agentsystem/model.local.env`
 
 仓库内只保留模板：
 - `config/config.local.example.yaml`

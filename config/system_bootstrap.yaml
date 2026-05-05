@@ -5,7 +5,7 @@ asset_center:
   bootstrap_module: "app.system.asset_center.bootstrap"
 
 model_runtime:
-  config_path: "/root/.config/agentsystem/model_pool.yaml"
+  config_path: "${AGENTSYSTEM_HOME:-~/.config/agentsystem}/model_pool.yaml"
 
 startup:
   order:

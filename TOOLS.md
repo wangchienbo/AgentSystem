@@ -55,7 +55,7 @@ python scripts/model_probe.py
 
 Default private config path:
 
-- `/root/.config/agentsystem/config.yaml`
+- `~/.config/agentsystem/config.yaml`
 
 Supported env-style fallbacks include:
 
@@ -79,11 +79,11 @@ These files often change after running the API or tests. Treat them as runtime s
 
 ## Repo navigation hints
 
-If `/root/project/README.md` does not exist, use this repo-local README instead:
+If the top-level project README does not exist, use this repo-local README instead:
 
 - `<repo-root>/README.md`
 
-For AgentSystem work, do not stop at `/root/project`; enter the actual repo root.
+For AgentSystem work, do not stop at the outer project container; enter the actual repo root.
 
 ## Workflow reminders
 
@@ -103,7 +103,7 @@ Recommended git flow:
 
 ## Current practical gotchas
 
-- Top-level `/root/project/README.md` may be absent; the active README is the repo-local one in this project.
+- The outer project README may be absent; the active README is the repo-local one in this project.
 - `pytest` may not exist in the host shell unless `.venv` is activated first.
 - `data/runtime/*.json` modifications may just reflect execution/test activity rather than unfinished source work.
 - System-skill implementations are now grouped under `app/services/system_skills/`; keep wrappers in the old paths only for import compatibility during migration.

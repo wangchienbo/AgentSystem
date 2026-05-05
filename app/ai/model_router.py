@@ -10,8 +10,8 @@ Usage:
     client = router.get_client("skill:maoxuan")          # uses skill's model_preference
     client = router.get_client("architect", "complex")   # uses caller routing
 
-Configuration REQUIRED: /root/.config/agentsystem/config.yaml must exist
-with model pool and routing definitions.
+Configuration REQUIRED: ~/.config/agentsystem/config.yaml (or $AGENTSYSTEM_HOME/config.yaml)
+must exist with model pool and routing definitions.
 """
 from __future__ import annotations
 
@@ -22,10 +22,11 @@ from typing import Any
 
 import yaml
 
+from app.ai.model_config_loader import DEFAULT_MODEL_CONFIG_PATH
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
 
 
-DEFAULT_CONFIG_PATH = Path("/root/.config/agentsystem/config.yaml")
+DEFAULT_CONFIG_PATH = DEFAULT_MODEL_CONFIG_PATH
 DEFAULT_PREFERENCE_ALIASES: dict[str, str] = {
     # Cost-tier aliases — resolved against config.yaml model pool.
     # These are FALLBACK defaults when the config doesn't define the alias

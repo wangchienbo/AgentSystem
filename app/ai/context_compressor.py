@@ -1,5 +1,5 @@
 import yaml
-from pathlib import Path
+from app.ai.model_config_loader import DEFAULT_MODEL_CONFIG_PATH
 """
 Context Compressor - 智能上下文压缩组件
 目标：降低长对话 Token 消耗 (>35%)，提升响应速度 (>20%)
@@ -37,7 +37,7 @@ class ContextCompressor:
         # Load from global config if not provided
         if max_turns is None:
             try:
-                cfg = yaml.safe_load(Path("/root/.config/agentsystem/config.yaml").read_text(encoding="utf-8")) or {}
+                cfg = yaml.safe_load(DEFAULT_MODEL_CONFIG_PATH.read_text(encoding="utf-8")) or {}
                 app_cfg = cfg.get("app", {}) or {}
                 max_turns = app_cfg.get("context_compress_turns", 10)
             except Exception:

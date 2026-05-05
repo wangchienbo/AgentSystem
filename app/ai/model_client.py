@@ -374,7 +374,8 @@ class OpenAIResponsesClient:
         """
         if max_turns is None:
             try:
-                cfg = yaml.safe_load(Path("/root/.config/agentsystem/config.yaml").read_text(encoding="utf-8")) or {}
+                from app.ai.model_config_loader import DEFAULT_MODEL_CONFIG_PATH
+                cfg = yaml.safe_load(DEFAULT_MODEL_CONFIG_PATH.read_text(encoding="utf-8")) or {}
                 app_cfg = cfg.get("app", {}) or {}
                 max_turns = app_cfg.get("max_turns", 10)
             except Exception:

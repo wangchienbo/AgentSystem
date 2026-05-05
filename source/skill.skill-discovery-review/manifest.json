@@ -1,0 +1,17 @@
+{
+  "asset_id": "skill.skill-discovery-review",
+  "asset_type": "skill",
+  "name": "Skill Discovery Review",
+  "version": "0.1.0",
+  "entry": "SKILL.md",
+  "owner": "system",
+  "owner_role": "admin",
+  "dependencies": [],
+  "source_path": "source/skill.skill-discovery-review",
+  "description": "先查复用能力再决定是否新建 skill",
+  "metadata": {
+    "skill_kind": "discovery",
+    "stable_for_creative_mode": true,
+    "workspace_skill_path": "skills/skill-discovery-review/SKILL.md"
+  }
+}

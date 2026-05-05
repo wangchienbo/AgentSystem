@@ -593,14 +593,14 @@ class LightBrainGateway:
 | **修改** | `app/services/system_skills/maoxuan.py` | 改为通过 ModelRouter 获取 client |
 | **修改** | `app/services/prompt_invocation_service.py` | 改为通过 ModelRouter 获取 client |
 | **修改** | `app/bootstrap/runtime.py` | 注册 ModelRouter + App Designer 服务 |
-| **修改** | `/root/.config/agentsystem/config.yaml` | 多模型配置 |
+| **修改** | `~/.config/agentsystem/config.yaml` | 多模型配置 |
 
 ---
 
 ## 5. 配置示例
 
 ```yaml
-# /root/.config/agentsystem/config.yaml
+# ~/.config/agentsystem/config.yaml
 model:
   default: strong
 

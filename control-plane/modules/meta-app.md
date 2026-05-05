@@ -11,8 +11,8 @@ Provide an in-project meta-app capability for AgentSystem that can define, boots
 
 ## Reference sources
 This module is inspired by the structure ideas in:
-- `/root/.openclaw/workspace/skills/control-skill-factory/`
-- `/root/.openclaw/workspace/skills/project-skill-factory/`
-- `/root/.openclaw/workspace/skills/project-module-control-plane/`
+- `<openclaw-workspace>/skills/control-skill-factory/`
+- `<openclaw-workspace>/skills/project-skill-factory/`
+- `<openclaw-workspace>/skills/project-module-control-plane/`
 
 It must adapt those ideas to AgentSystem's current application-generation and application-modification paths rather than copying external workspace skills verbatim.

@@ -8,9 +8,10 @@ import yaml
 
 from app.models.model_config import ModelConfig
 
-DEFAULT_MODEL_CONFIG_PATH = Path("/root/.config/agentsystem/config.yaml")
-LEGACY_MODEL_JSON_PATH = Path("/root/.config/agentsystem/model.local.json")
-LEGACY_MODEL_ENV_PATH = Path("/root/.config/agentsystem/model.local.env")
+DEFAULT_AGENTSYSTEM_HOME = Path(os.getenv("AGENTSYSTEM_HOME", Path.home() / ".config" / "agentsystem"))
+DEFAULT_MODEL_CONFIG_PATH = DEFAULT_AGENTSYSTEM_HOME / "config.yaml"
+LEGACY_MODEL_JSON_PATH = DEFAULT_AGENTSYSTEM_HOME / "model.local.json"
+LEGACY_MODEL_ENV_PATH = DEFAULT_AGENTSYSTEM_HOME / "model.local.env"
 
 
 class ModelConfigError(ValueError):

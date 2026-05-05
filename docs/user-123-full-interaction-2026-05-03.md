@@ -1015,7 +1015,7 @@ null
 
 细节说明：
 - 通过 `list_files` 和 `exec_shell` 确认根目录下存在 `project` 文件夹。
-- 进入 `/root/project` 后发现 `AgentSystem` 目录，这是核心代码库。
+- 进入外层 project 容器后发现 `AgentSystem` 目录，这是核心代码库。
 - 该目录包含 `README.md`、`pyproject.toml` 等标准项目文件，确认为源码主仓库。
 
 需要我进一步展示仓库结构或特定模块代码吗？
@@ -1063,12 +1063,12 @@ null
 ```
 - response:
 ```text
-结论：上下文中心**已实现持久化**，数据存储在 `/root/project/data` 目录下的 **SQLite 数据库** 中。
+结论：上下文中心**已实现持久化**，数据存储在 `<project-root>/data` 目录下的 **SQLite 数据库** 中。
 
 细节说明：
 1. **代码位置**：核心持久化逻辑位于 `app/services/app_context_store.py`（需进一步确认具体实现）。
-2. **存储路径**：通过 `list_files` 确认 `/root/project/data` 目录存在，用于存放持久化数据。
-3. **记忆目录**：`/root/project/memory-tdai` 可能用于特定记忆模块的存储。
+2. **存储路径**：通过 `list_files` 确认 `<project-root>/data` 目录存在，用于存放持久化数据。
+3. **记忆目录**：`<project-root>/memory-tdai` 可能用于特定记忆模块的存储。
 
 需要我进一步展示 `app_context_store.py` 的具体代码实现或数据库表结构吗？
 ```
@@ -1093,7 +1093,7 @@ null
 2. **持久化证据**：
    - 存在 `AppContextStore` 服务类专门处理上下文存储
    - 项目使用 SQLite 作为持久化后端（根据之前对话结论）
-   - 数据存储在 `/root/project/data` 目录下
+   - 数据存储在 `<project-root>/data` 目录下
 
 需要我读取 `app_context_store.py` 的具体实现代码，展示持久化的详细逻辑吗？
 ```
@@ -1116,7 +1116,7 @@ null
    - 从搜索结果可见 `from app.services.app_context_store import AppContextStore` 被多个模块引用
 
 2. **数据存储位置**：
-   - `/root/project/data` 目录已存在，用于存储持久化数据
+   - `<project-root>/data` 目录已存在，用于存储持久化数据
 
 3. **引用情况**：
    - `app/app_installer.py` 中导入了 `AppContextStore`
