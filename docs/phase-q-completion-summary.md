@@ -71,3 +71,4 @@ Immediate follow-up proposal seed:
 
 Phase R note:
 - the first bounded Phase R rollout arc has now completed, covering repo-context truth, implementation-plan truth, acceptance-evidence truth, and operator / HTTP surfacing hardening
+- a second bounded Phase R extension layer has also started, adding mutation/evidence binding across changed-file intent, work-item mapping, pending-task defaults, and orchestrator persistence

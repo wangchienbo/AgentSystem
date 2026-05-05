@@ -68,6 +68,24 @@ Started the next bounded Phase R extension layer by linking implementation inten
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
 
 
+## 2026-05-05: Phase Q closure summary and testing overview refreshed for Wave 5 continuity
+
+### Summary
+Refreshed the higher-level summary docs so they now reflect not only the completed first Phase R rollout arc, but also the fact that Wave 5 mutation/evidence binding is already underway and covered in the current testing story.
+
+### What Was Done
+- Updated `docs/phase-q-completion-summary.md`
+  - added the second bounded Phase R extension-layer note covering changed-file intent, work-item mapping, pending-task defaults, and orchestrator persistence
+- Updated `docs/testing.md`
+  - expanded the testing overview so it explicitly mentions persisted `evidence_summary` behavior in the current workflow action coverage
+
+### Validation
+- documentation-only continuity refresh aligned to already passing implementation, orchestrator, and HTTP tests
+
+### Notes
+This keeps the top-level project summary and testing overview from lagging behind the newer Wave 5 execution and persistence work.
+
+
 ## 2026-05-05: Phase R task list and proposal refreshed after Wave 5 schema/orchestrator tightening
 
 ### Summary

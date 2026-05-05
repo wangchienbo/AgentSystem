@@ -87,7 +87,7 @@ Used for lightweight client-level validation such as:
 - workflow hook coverage for stage-entered/completed/blocked and acceptance lifecycle writes into shared context detail storage
 - continuation recovery coverage for pending-task-first plus Context Center fallback behavior
 - HTTP compatibility coverage for `workflow_contract` / `context_view` additive response metadata and recent working-memory exposure
-- executable workflow-action coverage for solution review, task-list, repo-context, implementation, and acceptance action slices, including bounded live `/api/action` chain checks for richer repo-truth, implementation validation-map, changed-file intent, work-item binding, and normalized acceptance-evidence payloads
+- executable workflow-action coverage for solution review, task-list, repo-context, implementation, and acceptance action slices, including bounded live `/api/action` chain checks for richer repo-truth, implementation validation-map, changed-file intent, work-item binding, normalized acceptance-evidence payloads, and persisted `evidence_summary` behavior
 - service-up acceptance refresh for bounded context-view and restart-style continuation recovery checks, with full real end-to-end closure still dependent on external model availability
 
 ### 2.2.2 Chat regression governance tests
