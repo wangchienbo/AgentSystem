@@ -1,3 +1,20 @@
+## 2026-05-05: Real `/api/action` repo-to-implementation chain slice added
+
+### Summary
+Extended the real HTTP workflow-action coverage beyond task-list preparation by adding a second live `/api/action` chain slice that exercises repo-context execution followed by implementation-plan execution.
+
+### What Was Done
+- Updated `tests/unit/test_http_test_server.py`
+  - added a live `/api/action` test that seeds a `repo_locating` pending task, executes `locate_repo_context`, verifies repo-context payload and handoff to `implement_app_change`, then executes `implement_app_change` and verifies implementation-plan payload plus handoff to `run_acceptance`
+
+### Validation
+- `pytest tests/unit/test_http_test_server.py -q`
+- result: `34 passed`
+
+### Notes
+This grows the real HTTP workflow-chain coverage from a single task-list slice into a longer repo-to-implementation path while still keeping the test bounded and deterministic.
+
+
 ## 2026-05-05: Real `/api/action` workflow-chain test added over executable task-list path
 
 ### Summary

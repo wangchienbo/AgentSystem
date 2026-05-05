@@ -329,6 +329,61 @@ def test_api_action_runs_real_executable_workflow_chain(tmp_path) -> None:
         gateway._pending_task_store = original_store
 
 
+def test_api_action_runs_real_repo_to_implementation_chain(tmp_path) -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from app.models.pending_task import PendingTaskRecord
+    from app.persistence.runtime_state_store import RuntimeStateStore
+    from app.system.runtime.pending_task_store import PendingTaskStore
+
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    original_store = getattr(gateway, "_pending_task_store", None)
+    gateway._pending_task_store = store
+    try:
+        task = PendingTaskRecord(
+            task_id="pt-http-chain-2",
+            user_id="tester",
+            session_id="session_tester",
+            intent="create_app",
+            status="ready_to_execute",
+            current_stage="repo_locating",
+            stage_status="in_progress",
+            target_ref={"app_id": "app_http_chain_2"},
+            task_list=[{"id": "t1", "module": "app/system/gateway/light_brain_gateway.py"}],
+            next_recommended_action={"type": "locate_repo_context", "app_id": "app_http_chain_2"},
+        )
+        store.upsert_task(task)
+
+        repo_response = client.post(
+            "/api/action",
+            json={"action_id": "workflow-action:locate_repo_context:app_http_chain_2", "action_params": {"intent": "locate_repo_context", "app_id": "app_http_chain_2"}},
+        )
+        assert repo_response.status_code == 200
+        repo_data = repo_response.json()
+        assert repo_data["data"]["repo_context"]["active_repo_path"] == "/root/project/AgentSystem"
+        assert repo_data["actions"][0]["payload"]["intent"] == "implement_app_change"
+
+        impl_response = client.post(
+            "/api/action",
+            json={"action_id": "workflow-action:implement_app_change:app_http_chain_2", "action_params": {"intent": "implement_app_change", "app_id": "app_http_chain_2"}},
+        )
+        assert impl_response.status_code == 200
+        impl_data = impl_response.json()
+        assert impl_data["data"]["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
+        assert impl_data["actions"][0]["payload"]["intent"] == "run_acceptance"
+    finally:
+        gateway._pending_task_store = original_store
+
+
 def test_api_chat_exposes_gateway_action_contract() -> None:
     user_sessions.clear()
     conversation_history.clear()
