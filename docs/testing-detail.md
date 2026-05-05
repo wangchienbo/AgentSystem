@@ -676,3 +676,10 @@ Content-Type: application/json
   - `list 还是 discover 1`
   - `install 一个之后 1`
   - `统一停止三个App 1`
+- Rewrote `S25` into an exception-recovery and restart-continuity scenario with explicit prompts for abnormal exit, session-state checking, doctor usage, runtime-layout/log inspection, and recovery sequencing.
+- Additional observed summary after refresh:
+  - `异常退出 1`
+  - `会话状态 1`
+  - `重新启动或恢复 1`
+  - `runtime-layout 1`
+  - `恢复检查 1`

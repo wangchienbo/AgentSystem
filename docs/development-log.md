@@ -123,6 +123,42 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Recovery and restart continuity coverage landed in the baseline suite
+
+### Summary
+Continued Phase 2.3 by adding a scenario refresh specifically targeting failure-recovery and restart continuity, so the install-model baseline now starts covering the operator reasoning that follows abnormal service exits.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - rewrote `S25` into `多轮-异常恢复与重启连续性`
+  - preserved 20 turns and the 50-scenario suite shape
+  - added natural-language prompts for:
+    - abnormal service exit
+    - session-state and content persistence checks
+    - restart vs restore reasoning
+    - doctor usage after partial recovery
+    - runtime-layout and log-directory inspection
+    - ordered recovery verification
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded `S25` as part of the current scenario-refresh arc
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - captured the new recovery-oriented operator evidence
+
+### Validation
+- `python3 - <<'PY' ... ast.parse(source) ... PY`
+- observed:
+  - `syntax_ok`
+  - `scenario_count 50`
+  - `异常退出 1`
+  - `会话状态 1`
+  - `重新启动或恢复 1`
+  - `runtime-layout 1`
+  - `恢复检查 1`
+
+### Notes
+This directly addresses one of the most important migration-baseline gaps from the earlier audit: restart/recovery continuity is now represented in the suite as a real user/operator conversation rather than only as a checklist item.
+
+
 ## 2026-05-06: Third scenario refresh pushed install-model reasoning into lifecycle batch operations
 
 ### Summary
