@@ -384,6 +384,73 @@ def test_api_action_runs_real_repo_to_implementation_chain(tmp_path) -> None:
         gateway._pending_task_store = original_store
 
 
+def test_api_action_runs_real_implementation_to_acceptance_chain(tmp_path) -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from app.models.pending_task import PendingTaskRecord
+    from app.persistence.runtime_state_store import RuntimeStateStore
+    from app.system.runtime.pending_task_store import PendingTaskStore
+
+    store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
+    original_store = getattr(gateway, "_pending_task_store", None)
+    gateway._pending_task_store = store
+    try:
+        repo_root = tmp_path / "repo"
+        repo_root.mkdir()
+        task = PendingTaskRecord(
+            task_id="pt-http-chain-3",
+            user_id="tester",
+            session_id="session_tester",
+            intent="create_app",
+            status="ready_to_execute",
+            current_stage="implementation_pending",
+            stage_status="in_progress",
+            target_ref={"app_id": "app_http_chain_3"},
+            repo_context={
+                "active_repo_path": str(repo_root),
+                "primary_readme_path": str(repo_root / "README.md"),
+                "key_docs": [],
+                "target_modules": ["app/system/gateway/light_brain_gateway.py"],
+            },
+            acceptance_plan={
+                "test_probe_commands": ["python3 -c 'print(\"ok\")'"],
+                "http_runtime_verification_points": [],
+                "success_criteria": ["command exits 0"],
+                "results": [],
+            },
+            next_recommended_action={"type": "implement_app_change", "app_id": "app_http_chain_3"},
+        )
+        store.upsert_task(task)
+
+        impl_response = client.post(
+            "/api/action",
+            json={"action_id": "workflow-action:implement_app_change:app_http_chain_3", "action_params": {"intent": "implement_app_change", "app_id": "app_http_chain_3"}},
+        )
+        assert impl_response.status_code == 200
+        impl_data = impl_response.json()
+        assert impl_data["actions"][0]["payload"]["intent"] == "run_acceptance"
+
+        acceptance_response = client.post(
+            "/api/action",
+            json={"action_id": "workflow-action:run_acceptance:app_http_chain_3", "action_params": {"intent": "run_acceptance", "app_id": "app_http_chain_3"}},
+        )
+        assert acceptance_response.status_code == 200
+        acceptance_data = acceptance_response.json()
+        assert acceptance_data["data"]["acceptance_result"]["status"] == "passed"
+        assert acceptance_data["workflow_contract"]["pending_task"]["current_stage"] == "done"
+    finally:
+        gateway._pending_task_store = original_store
+
+
 def test_api_chat_exposes_gateway_action_contract() -> None:
     user_sessions.clear()
     conversation_history.clear()

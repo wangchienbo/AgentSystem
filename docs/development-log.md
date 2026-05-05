@@ -1,3 +1,22 @@
+## 2026-05-05: Real `/api/action` implementation-to-acceptance chain slice added
+
+### Summary
+Completed the first full live HTTP workflow-chain arc by extending the real `/api/action` tests through implementation handoff into executable acceptance, including assertion of the final completed workflow state.
+
+### What Was Done
+- Updated `tests/unit/test_http_test_server.py`
+  - added a live `/api/action` test that seeds an `implementation_pending` task, executes `implement_app_change`, verifies the handoff to `run_acceptance`, then executes `run_acceptance` and verifies:
+    - `acceptance_result.status == passed`
+    - the workflow contract shows `current_stage == done`
+
+### Validation
+- `pytest tests/unit/test_http_test_server.py -q`
+- result: `35 passed`
+
+### Notes
+With this slice in place, the real HTTP workflow-action coverage now spans task-list preparation, repo-context execution, implementation-plan execution, and acceptance completion across bounded deterministic tests.
+
+
 ## 2026-05-05: Real `/api/action` repo-to-implementation chain slice added
 
 ### Summary
