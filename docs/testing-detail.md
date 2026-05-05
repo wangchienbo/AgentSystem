@@ -119,8 +119,8 @@
 - `/api/action` compatibility payload 包含 `task_list` / `repo_context` / `implementation_plan` / `acceptance_plan` / `acceptance_result` / `context_view`
 - richer payload fields now covered on the live HTTP path:
   - repo truth: `repo_valid`, `primary_readme_exists`, `git_branch`, `git_dirty`
-  - implementation truth: `work_items[].rationale`, `work_items[].source`, `validation_map`
-  - acceptance evidence truth: normalized command evidence plus summary counts
+  - implementation truth: `changed_files_intent`, `work_items[].rationale`, `work_items[].source`, `validation_map`, `validation_map[].mapped_work_item_id`
+  - acceptance evidence truth: normalized command evidence, summary counts, and `matched_work_item_ids`
 - real `/api/action` live slices 已覆盖：
   - task-list -> repo
   - repo -> implementation

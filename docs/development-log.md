@@ -68,6 +68,26 @@ Started the next bounded Phase R extension layer by linking implementation inten
 This is a bounded bridge between implementation planning and acceptance evidence, not a jump to broad autonomous code mutation.
 
 
+## 2026-05-05: Testing and proposal docs refreshed for Wave 5 mutation/evidence binding state
+
+### Summary
+Refreshed the testing and forward-looking phase docs so the project record now explicitly reflects the Wave 5 first-slice binding between changed-file intent, validation mapping, and acceptance evidence.
+
+### What Was Done
+- Updated `docs/testing.md`
+  - expanded the testing summary to include changed-file intent and work-item binding coverage on the live workflow path
+- Updated `docs/testing-detail.md`
+  - documented the richer implementation and acceptance fields now asserted on the real `/api/action` surface, including `changed_files_intent`, `mapped_work_item_id`, and `matched_work_item_ids`
+- Updated `docs/phase-r-proposal-seed.md`
+  - refreshed the current posture section to record that the second bounded extension layer has started and already links changed-file intent, validation mapping, and acceptance evidence back to work-item identifiers
+
+### Validation
+- documentation-only state refresh aligned to already passing gateway, orchestrator, and HTTP tests
+
+### Notes
+This keeps the Phase R record coherent across implementation, validation, and planning docs as the project moves beyond the first rollout arc.
+
+
 ## 2026-05-05: Orchestrator acceptance-summary persistence verified and metadata sanitization tightened
 
 ### Summary
