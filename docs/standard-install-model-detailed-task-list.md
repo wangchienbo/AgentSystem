@@ -165,6 +165,7 @@ Status: [x] initial static validation landed
 - verified the refreshed operator-heavy harness still compiles (`python3 -m py_compile ...`)
 - verified CLI usage/help still renders with the expected subset/run/output flags
 - exact live service subset execution remains a later step under Phase 3 service-up baseline prep
+- canonical operator-focused subset for the next live run is now defined as: `S12,S25,S36,S41,S50`
 
 **Exit criteria**
 - 50x20 suite is realistic enough to serve as migration baseline

@@ -706,3 +706,4 @@ The test suite should grow with the architecture, but remain grounded in determi
 - Rewrote `S36` into a skill-install failure-and-repair scenario so asset discovery, install retry, doctor clues, installed/log-directory inspection, and post-fix verification are represented in the operator baseline.
 - Enhanced the 50x20 harness report output so each scenario now emits an explicit verdict plus compact reasons, and the JSON artifact carries history expectation checks/failures for before/after migration comparison.
 - Performed initial static harness validation with `python3 -m py_compile` and `--help` rendering after the recent operator-scenario and verdict/report changes.
+- Defined the canonical operator-focused live subset for the next harness run as: `S12,S25,S36,S41,S50`.

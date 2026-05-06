@@ -123,6 +123,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Canonical operator-focused subset defined for the next live harness run
+
+### Summary
+Tightened the transition from Phase 2 into later live validation by explicitly defining which refreshed scenarios should be used for the first operator-heavy subset run.
+
+### What Was Done
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - defined the canonical operator-focused subset for the next live harness run as:
+    - `S12,S25,S36,S41,S50`
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - recorded the same subset so the next service-up validation step has a stable target set
+
+### Notes
+This keeps the next live run bounded and intentional. Instead of picking ad hoc scenarios later, the subset is now preselected to cover install/register, restart continuity, install repair, system/operator checks, and standard-install migration reasoning.
+
+
 ## 2026-05-06: Initial harness validation landed after the operator-scenario refresh arc
 
 ### Summary

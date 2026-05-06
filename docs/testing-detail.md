@@ -736,3 +736,4 @@ Content-Type: application/json
 
 ### Notes
 This is an initial static validation pass for the refreshed harness. Live subset execution remains a later step once the service-up baseline run is intentionally entered.
+- Canonical operator-focused live subset for the next run: `S12,S25,S36,S41,S50`.
