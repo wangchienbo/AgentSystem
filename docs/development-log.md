@@ -123,6 +123,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Added rate-limiter diagnostics to expose per-session stacking behavior
+
+### Summary
+Since the operator subset still saturated `session_user_skill_01` after the atomic acquire fix, the next bounded step was to instrument the rate limiter itself. We now log session-level acquire, block, and release state so the next rerun can show whether the same logical session is truly overlapping work, leaking long-lived work, or simply churning too fast.
+
+### What Was Done
+- Updated `app/services/rate_limiter.py`
+  - added logger initialization
+  - added structured logging for successful acquires
+  - added structured logging for blocked acquires
+  - added structured logging for releases
+- Updated `docs/testing-detail.md`
+  - recorded the new diagnostics instrumentation and validation evidence
+
+### Validation
+- `python3 -m py_compile app/services/rate_limiter.py`
+- direct smoke check still succeeds for one acquire + one release cycle
+
+### Notes
+This is an observability step, but it is the right one now. We have already repaired several plausible code-path defects. The next rerun needs sharper evidence about the exact concurrency shape inside one logical session instead of more guesswork.
+
+
 ## 2026-05-06: Atomic acquire landed, but the operator subset still saturates one logical session
 
 ### Summary

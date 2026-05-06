@@ -1001,3 +1001,20 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - the atomic acquire fix was necessary, but it was not sufficient to eliminate the operator-subset concurrency failure signature
 - the next investigation should move from acquire/release mechanics to identifying why the same logical session (`session_user_skill_01`) accumulates or overlaps requests at runtime
+
+## 2026-05-06 - Rate-limiter concurrency diagnostics instrumentation
+
+### Target
+- `app/services/rate_limiter.py`
+
+### Changes
+- added structured acquire/release logging for per-session concurrency state
+- blocked acquire logs now include:
+  - session id
+  - current concurrent count
+  - current query timestamp count
+- successful acquire/release logs now emit the post-operation concurrent count
+
+### Validation
+- `python3 -m py_compile app/services/rate_limiter.py`
+- direct smoke check still succeeds for one acquire + one release cycle

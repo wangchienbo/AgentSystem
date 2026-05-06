@@ -5,6 +5,9 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from threading import Lock
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -55,14 +58,32 @@ class RateLimiter:
 
             # Check concurrent queries
             if state.concurrent_queries >= self.config.max_concurrent_queries_per_session:
+                logger.warning(
+                    "RateLimiter acquire blocked: session=%s concurrent=%s query_timestamps=%s",
+                    session_id,
+                    state.concurrent_queries,
+                    len(state.query_timestamps),
+                )
                 return False, f"Concurrent query limit exceeded ({state.concurrent_queries}/{self.config.max_concurrent_queries_per_session})"
 
             # Check queries per minute
             if len(state.query_timestamps) >= self.config.max_queries_per_session_per_minute:
+                logger.warning(
+                    "RateLimiter query-rate blocked: session=%s concurrent=%s query_timestamps=%s",
+                    session_id,
+                    state.concurrent_queries,
+                    len(state.query_timestamps),
+                )
                 return False, f"Query rate limit exceeded ({len(state.query_timestamps)}/{self.config.max_queries_per_session_per_minute} per minute)"
 
             state.concurrent_queries += 1
             state.query_timestamps.append(current_time)
+            logger.info(
+                "RateLimiter acquire: session=%s concurrent=%s query_timestamps=%s",
+                session_id,
+                state.concurrent_queries,
+                len(state.query_timestamps),
+            )
             return True, None
 
     def is_session_allowed(self, session_id: str) -> tuple[bool, str | None]:
@@ -105,6 +126,12 @@ class RateLimiter:
         with self._lock:
             state = self._session_states[session_id]
             state.concurrent_queries = max(0, state.concurrent_queries - 1)
+            logger.info(
+                "RateLimiter release: session=%s concurrent=%s query_timestamps=%s",
+                session_id,
+                state.concurrent_queries,
+                len(state.query_timestamps),
+            )
     
     def is_tool_call_allowed(self, session_id: str, command_tool_count: int) -> tuple[bool, str | None]:
         """Check if a tool call is allowed.
