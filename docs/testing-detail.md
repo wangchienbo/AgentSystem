@@ -785,3 +785,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Interpretation
 - the CLI readiness slice is working as intended: configuration is present, but the live local HTTP service is still down, which matches the earlier blocked operator-subset run.
+
+## 2026-05-06 - Explicit not-implemented CLI control contract evidence
+
+### Target
+- `app/cli.py`
+- `tests/unit/test_cli.py`
+
+### Changes
+- `start` / `stop` / `restart` / `install` / `bootstrap` / `migrate-runtime` now return:
+  - `status=not_implemented`
+  - `exit_code=2`
+  - `next_step=use status/doctor to inspect readiness before wiring live runtime control`
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- `python3 -m app.cli start`
+- results:
+  - test suite: `7 passed`
+  - command output includes `status=not_implemented`
+  - process exits with code `2`

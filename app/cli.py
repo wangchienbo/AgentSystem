@@ -25,6 +25,18 @@ class CLIResult:
     exit_code: int = 0
 
 
+def _planned_command_result(command: str, repo_root: Path) -> CLIResult:
+    return CLIResult(
+        command=command,
+        exit_code=2,
+        details={
+            "status": "not_implemented",
+            "repo_root": str(repo_root),
+            "next_step": "use status/doctor to inspect readiness before wiring live runtime control",
+        },
+    )
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
@@ -141,6 +153,9 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
             command=args.command,
             details=_doctor_status(repo_root),
         )
+
+    if args.command in {"start", "stop", "restart", "install", "bootstrap", "migrate-runtime"}:
+        return _planned_command_result(args.command, repo_root)
 
     return CLIResult(
         command=args.command,

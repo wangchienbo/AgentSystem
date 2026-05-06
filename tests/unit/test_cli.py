@@ -31,6 +31,14 @@ def test_run_cli_returns_status_contract_for_top_level_command() -> None:
     assert "config_file" in result.details
 
 
+def test_run_cli_returns_not_implemented_contract_for_start() -> None:
+    result = run_cli(["start"])
+    assert result.command == "start"
+    assert result.exit_code == 2
+    assert result.details["status"] == "not_implemented"
+    assert "next_step" in result.details
+
+
 def test_run_cli_returns_runtime_layout_contract() -> None:
     result = run_cli(["runtime-layout"])
     assert result.command == "runtime-layout"

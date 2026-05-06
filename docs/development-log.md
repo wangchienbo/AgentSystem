@@ -123,6 +123,36 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Unwired runtime-control commands now fail explicitly instead of pretending to be usable
+
+### Summary
+Tightened the CLI control-plane contract by turning the remaining placeholder runtime-control commands into explicit `not_implemented` responses with a non-zero exit code. This avoids false confidence during the install-model transition and makes the current control-plane maturity more honest.
+
+### What Was Done
+- Updated `app/cli.py`
+  - `start` / `stop` / `restart` / `install` / `bootstrap` / `migrate-runtime` now return:
+    - `status=not_implemented`
+    - `exit_code=2`
+    - a `next_step` hint pointing operators to `status` / `doctor`
+- Updated `tests/unit/test_cli.py`
+  - added coverage for the `start` not-implemented contract
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - clarified the CLI behavior contract for not-yet-wired runtime control actions
+- Updated `docs/testing-detail.md`
+  - recorded the explicit command behavior and exit code evidence
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- result: `7 passed`
+- `python3 -m app.cli start`
+- observed:
+  - `status=not_implemented`
+  - exit code `2`
+
+### Notes
+I'm glad we tightened this. Returning a successful-looking planned response for `start` was too soft once we had already hit a real service-up blocker. A clear non-zero contract is safer and more operator-honest.
+
+
 ## 2026-05-06: Live doctor run confirmed the new readiness surface matches the real blocker
 
 ### Summary

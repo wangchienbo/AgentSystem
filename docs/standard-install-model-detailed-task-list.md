@@ -86,7 +86,8 @@ Status: [ ] pending
 ### 2.3 Define CLI behavior contracts
 Status: [x] initial contract landed
 - `status` / `doctor` now return a compact runtime-layout health contract with directory existence checks
-- `runtime-layout` now returns an explicit path contract for config/data/logs/installed/build directories
+- `status` / `doctor` now surface config-file presence and local service reachability
+- not-yet-wired runtime control commands (`start` / `stop` / `restart` / `install` / `bootstrap` / `migrate-runtime`) now return an explicit `not_implemented` contract with exit code `2`
 - deeper failure and dry-run semantics remain future work
 
 ### 2.4 Implement missing CLI skeletons
