@@ -1128,3 +1128,25 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - source check confirmed:
   - `max_attempts = 4`
   - `transient_statuses = {502, 503, 504}`
+
+## 2026-05-06 - Post-504-hardening clean-generation rerun observation
+
+### Commands
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `685765`
+
+### Observed result
+- the fresh generation again showed healthy early acquire/release behavior for `session_user_lifecycle_07`
+- unlike the previous clean-generation slice, the observed tool-calling path advanced through multiple successful model/tool turns instead of immediately surfacing a 504
+- observed successful progression included:
+  - `call_asset_method`
+  - `exec_shell`
+  - `list_files`
+  - `exec_shell`
+  - `write_file`
+- no immediate upstream `504 Gateway Timeout` appeared in the inspected fresh slice
+
+### Interpretation
+- the strengthened bounded retry/window hardening materially improved the previously dominant clean-generation blocker
+- the operator subset is now getting deeper into real tool-execution turns before the run needs further diagnosis

@@ -123,6 +123,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Post-504-hardening clean-generation rerun went materially deeper into tool execution
+
+### Summary
+Reran the operator subset after the strengthened bounded 504 hardening. In the fresh server generation, the previously dominant early `chat_with_tools` 504 did not immediately recur. Instead, the observed path progressed through multiple successful model/tool turns under `session_user_lifecycle_07`, which is a real improvement over the previous clean-generation slice.
+
+### What Was Done
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator-focused subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `685765`
+- updated `docs/testing-detail.md`
+  - recorded the deeper tool-execution progression and the absence of an immediate 504 in the inspected slice
+
+### Notes
+This is encouraging. The bounded 504 hardening appears to have reduced the earliest clean-generation blocker enough for the subset to reach deeper real work. The next rerun/inspection should now focus on what new deeper-layer blocker emerges after this longer successful stretch.
+
+
 ## 2026-05-06: Tool-calling model path got stronger bounded 504 retry hardening
 
 ### Summary
