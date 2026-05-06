@@ -1088,3 +1088,27 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Validation
 - `bash -n scripts/start_phase3_subset_server.sh`
 - script header and marker-writing logic verified
+
+## 2026-05-06 - Clean-generation rerun proved new diagnostics are live
+
+### Commands
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected only the fresh log generation after the launcher marker
+
+### Observed result
+- fresh marker and PID were present in the log:
+  - `phase3-subset-start ...`
+  - `phase3-subset-server-pid 678962`
+- warning-level rate-limiter diagnostics are now confirmed live in the fresh generation:
+  - `RateLimiter acquire: session=session_user_lifecycle_07 concurrent=1 query_timestamps=1`
+  - `RateLimiter release: session=session_user_lifecycle_07 concurrent=0 query_timestamps=1`
+  - next turn reacquired normally at `concurrent=1`, `query_timestamps=2`
+- the same fresh generation then exposed a different blocking layer on the second turn:
+  - upstream `504 Gateway Timeout`
+  - `ModelClient.chat_with_tools transient server failure ... attempt=1 status=504`
+
+### Interpretation
+- process/log generation ambiguity is now resolved for this rerun
+- acquire/release behavior is at least visible and appears healthy in the observed fresh slice
+- the next dominant blocker in this clean generation is upstream tool-calling model instability rather than an immediate stale-log ambiguity

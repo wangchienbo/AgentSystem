@@ -123,6 +123,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Clean-generation rerun confirmed the new diagnostics and exposed upstream 504s as the next blocker
+
+### Summary
+Used the dedicated Phase 3 launcher and inspected only the fresh log generation. This finally removed the process/log ambiguity. In that clean slice, the warning-level `RateLimiter acquire/release` diagnostics appeared as expected, and the first observed session (`session_user_lifecycle_07`) showed a normal acquire → release → reacquire pattern. The next blocker surfaced immediately after that: upstream `ModelClient.chat_with_tools` 504 failures.
+
+### What Was Done
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator-focused subset with ready-state wait and delay
+- inspected only the fresh log generation after the startup marker and recorded PID
+- updated `docs/testing-detail.md`
+  - captured the clean-generation evidence and the fresh 504 signature
+
+### Notes
+This is a meaningful breakthrough. We now have trustworthy evidence that the new diagnostics are live and that at least the observed early session path is not immediately saturating concurrency. In the clean generation, the next blocking layer is upstream tool-calling instability, not stale-log ambiguity.
+
+
 ## 2026-05-06: Added a dedicated Phase 3 subset server launcher to control process/log generation
 
 ### Summary
