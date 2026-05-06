@@ -123,6 +123,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Added a dedicated Phase 3 subset server launcher to control process/log generation
+
+### Summary
+Since the previous rerun raised real doubt about whether the inspected log belonged to the exact restarted server generation, the next bounded fix was to control startup and log ownership explicitly. Added a dedicated launcher that truncates the target log, writes a fresh generation marker, records the launched PID, and then starts the `.venv` uvicorn test server.
+
+### What Was Done
+- Added `scripts/start_phase3_subset_server.sh`
+  - truncates the target log file before startup
+  - writes an explicit startup marker with timestamp
+  - writes the launched server PID into the same log
+  - starts `app.system.http_test_server:app` from `.venv` with the expected `PYTHONPATH`
+- Updated `docs/testing-detail.md`
+  - recorded the dedicated launcher and validation evidence
+
+### Validation
+- `bash -n scripts/start_phase3_subset_server.sh`
+- verified the script header and marker-writing logic
+
+### Notes
+This is the right move before another behavioral diagnosis pass. It gives the next rerun a clean log generation boundary and a concrete PID anchor, which should stop stale log interpretation from contaminating the Phase 3 subset investigation.
+
+
 ## 2026-05-06: Warning-level rerun still showed stale-looking signatures, so process/log generation must be verified next
 
 ### Summary

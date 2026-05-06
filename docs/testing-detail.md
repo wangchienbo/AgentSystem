@@ -1071,3 +1071,20 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - the rerun log suggests the effective service process/log capture path is still not reflecting the newest rate-limiter diagnostics consistently
 - before making more product-path fixes, the next bounded step should verify that the intended restarted server process is actually the one serving the subset run and that the captured log file belongs to that exact process generation
+
+## 2026-05-06 - Dedicated Phase 3 subset server launcher for process/log generation control
+
+### Target
+- `scripts/start_phase3_subset_server.sh`
+
+### Changes
+- added a dedicated launcher for the Phase 3 subset validation path
+- the launcher now:
+  - truncates the target log file before startup
+  - writes an explicit startup marker with timestamp
+  - writes the launched server PID into the same log
+  - starts the `.venv` uvicorn test server with the expected `PYTHONPATH`
+
+### Validation
+- `bash -n scripts/start_phase3_subset_server.sh`
+- script header and marker-writing logic verified
