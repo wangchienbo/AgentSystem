@@ -292,13 +292,22 @@ class OpenAIResponsesClient:
                 len(messages),
             )
             last_error: Exception | None = None
-            for attempt in range(2):
+            for attempt in range(3):
                 try:
                     response = client.post(url, json=payload, headers=headers)
+                    if response.status_code >= 500 and attempt < 2:
+                        logger.warning(
+                            "ModelClient.chat_with_tools transient server failure model=%s attempt=%s status=%s",
+                            model_name,
+                            attempt + 1,
+                            response.status_code,
+                        )
+                        time.sleep(0.75 * (attempt + 1))
+                        continue
                     break
                 except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ReadError) as exc:
                     last_error = exc
-                    if attempt >= 1:
+                    if attempt >= 2:
                         raise ModelClientError(
                             f"Chat with tools transport failed after retry: {exc}",
                             status_code=None,
@@ -310,7 +319,7 @@ class OpenAIResponsesClient:
                         attempt + 1,
                         exc,
                     )
-                    time.sleep(0.5)
+                    time.sleep(0.75 * (attempt + 1))
             else:
                 raise ModelClientError(
                     f"Chat with tools transport failed: {last_error}",

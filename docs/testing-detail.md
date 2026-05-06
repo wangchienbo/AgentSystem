@@ -878,3 +878,16 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - the `.venv` start-path correction fixed the earlier multipart/login blocker
 - the current next-layer issue is upstream model/tool-calling instability and concurrency pressure during the operator-heavy subset run
+
+## 2026-05-06 - Tool-calling 5xx retry hardening evidence
+
+### Target
+- `app/ai/model_client.py`
+
+### Changes
+- `chat_with_tools(...)` retry window expanded from 2 attempts to 3 attempts
+- transient HTTP 5xx responses are now retried with bounded backoff before surfacing a failure
+- transport retries also use slightly longer bounded backoff to reduce immediate repeat pressure
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py`

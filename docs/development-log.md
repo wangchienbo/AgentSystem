@@ -123,6 +123,26 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Tool-calling client hardened against transient 5xx failures
+
+### Summary
+Started addressing the new post-environment failure layer revealed by the `.venv`-based live subset run. The first bounded mitigation is inside the tool-calling model client: transient 5xx responses now get explicit bounded retries instead of failing immediately on the first upstream gateway hiccup.
+
+### What Was Done
+- Updated `app/ai/model_client.py`
+  - expanded `chat_with_tools(...)` retry attempts from 2 to 3
+  - added bounded retries for transient HTTP 5xx responses
+  - slightly increased backoff for both transport and server-failure retries
+- Updated `docs/testing-detail.md`
+  - recorded the retry-hardening change and syntax-level validation
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py`
+
+### Notes
+This is intentionally a narrow first mitigation. The live subset showed both 504s and concurrency pressure; retrying transient upstream 5xx failures is the lowest-risk first step before touching deeper session/concurrency behavior.
+
+
 ## 2026-05-06: `.venv` start-path correction moved the live subset failure up into model/runtime behavior
 
 ### Summary
