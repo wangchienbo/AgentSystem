@@ -1112,3 +1112,19 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - process/log generation ambiguity is now resolved for this rerun
 - acquire/release behavior is at least visible and appears healthy in the observed fresh slice
 - the next dominant blocker in this clean generation is upstream tool-calling model instability rather than an immediate stale-log ambiguity
+
+## 2026-05-06 - Bounded 504 retry hardening for tool-calling model path
+
+### Target
+- `app/ai/model_client.py`
+
+### Changes
+- increased `chat_with_tools(...)` retry budget from 3 attempts to 4 attempts
+- split transient upstream handling so `502/503/504` receive a stronger backoff schedule than generic 5xx
+- retry logs now include `retry_in` so rerun evidence can show the actual pause window
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py`
+- source check confirmed:
+  - `max_attempts = 4`
+  - `transient_statuses = {502, 503, 504}`

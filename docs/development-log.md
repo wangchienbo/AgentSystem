@@ -123,6 +123,30 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Tool-calling model path got stronger bounded 504 retry hardening
+
+### Summary
+Now that the clean-generation rerun showed upstream `ModelClient.chat_with_tools` 504 failures as the first trustworthy blocker, the next bounded fix was to harden that exact path. Increased retry budget and gave `502/503/504` a stronger backoff schedule than generic 5xx so short upstream gateway turbulence has a better chance to self-heal before the turn fails.
+
+### What Was Done
+- Updated `app/ai/model_client.py`
+  - increased `chat_with_tools(...)` retry budget from 3 to 4 attempts
+  - introduced `transient_statuses = {502, 503, 504}`
+  - added stronger backoff for those statuses
+  - retry logs now include `retry_in` so rerun evidence can show the actual pause window
+- Updated `docs/testing-detail.md`
+  - recorded the bounded 504 retry hardening and validation evidence
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py`
+- source check confirmed:
+  - `max_attempts = 4`
+  - `transient_statuses = {502, 503, 504}`
+
+### Notes
+This stays within the same bounded-hardening philosophy as the earlier retry work, but it is now targeted using clean-generation evidence instead of mixed logs.
+
+
 ## 2026-05-06: Clean-generation rerun confirmed the new diagnostics and exposed upstream 504s as the next blocker
 
 ### Summary

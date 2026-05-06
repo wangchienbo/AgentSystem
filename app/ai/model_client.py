@@ -292,34 +292,51 @@ class OpenAIResponsesClient:
                 len(messages),
             )
             last_error: Exception | None = None
-            for attempt in range(3):
+            max_attempts = 4
+            transient_statuses = {502, 503, 504}
+            for attempt in range(max_attempts):
                 try:
                     response = client.post(url, json=payload, headers=headers)
-                    if response.status_code >= 500 and attempt < 2:
+                    if response.status_code in transient_statuses and attempt < max_attempts - 1:
+                        wait_seconds = 1.5 * (attempt + 1)
                         logger.warning(
-                            "ModelClient.chat_with_tools transient server failure model=%s attempt=%s status=%s",
+                            "ModelClient.chat_with_tools transient server failure model=%s attempt=%s status=%s retry_in=%ss",
                             model_name,
                             attempt + 1,
                             response.status_code,
+                            wait_seconds,
                         )
-                        time.sleep(0.75 * (attempt + 1))
+                        time.sleep(wait_seconds)
+                        continue
+                    if response.status_code >= 500 and attempt < max_attempts - 1:
+                        wait_seconds = 0.75 * (attempt + 1)
+                        logger.warning(
+                            "ModelClient.chat_with_tools transient server failure model=%s attempt=%s status=%s retry_in=%ss",
+                            model_name,
+                            attempt + 1,
+                            response.status_code,
+                            wait_seconds,
+                        )
+                        time.sleep(wait_seconds)
                         continue
                     break
                 except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ReadError) as exc:
                     last_error = exc
-                    if attempt >= 2:
+                    if attempt >= max_attempts - 1:
                         raise ModelClientError(
                             f"Chat with tools transport failed after retry: {exc}",
                             status_code=None,
                             retryable=True,
                         ) from exc
+                    wait_seconds = 0.75 * (attempt + 1)
                     logger.warning(
-                        "ModelClient.chat_with_tools transient transport failure model=%s attempt=%s error=%s",
+                        "ModelClient.chat_with_tools transient transport failure model=%s attempt=%s error=%s retry_in=%ss",
                         model_name,
                         attempt + 1,
                         exc,
+                        wait_seconds,
                     )
-                    time.sleep(0.75 * (attempt + 1))
+                    time.sleep(wait_seconds)
             else:
                 raise ModelClientError(
                     f"Chat with tools transport failed: {last_error}",
