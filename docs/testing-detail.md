@@ -683,3 +683,10 @@ Content-Type: application/json
   - `重新启动或恢复 1`
   - `runtime-layout 1`
   - `恢复检查 1`
+- Rewrote `S36` into a skill-install failure and repair scenario with explicit prompts for discover retry, doctor clues, installed/log inspection, and post-fix usability verification.
+- Additional observed summary after refresh:
+  - `安装失败 3`
+  - `discover 一次相关资产 1`
+  - `doctor 能告诉我哪些线索 1`
+  - `installed 目录 2`
+  - `排查步骤总结 1`

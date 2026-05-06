@@ -123,6 +123,41 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Asset-install failure and repair coverage entered the baseline suite
+
+### Summary
+Continued Phase 2.3 by refreshing a skill-install scenario into a failure-and-repair flow, so the install-model baseline now covers a concrete operator conversation around discover/install troubleshooting and post-fix verification.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - rewrote `S36` into `Skill-安装失败与修复`
+  - preserved 20 turns and the 50-scenario suite shape
+  - added natural-language prompts for:
+    - install failure triage
+    - discover retry
+    - doctor clues after repeated failure
+    - installed/log-directory inspection
+    - successful post-fix verification and workflow recap
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded `S36` as part of the current scenario-refresh arc
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - captured the new asset-install failure/repair coverage and validation evidence
+
+### Validation
+- `python3 - <<'PY' ... ast.parse(source) ... PY`
+- observed:
+  - `syntax_ok`
+  - `scenario_count 50`
+  - `安装失败 3`
+  - `discover 一次相关资产 1`
+  - `doctor 能告诉我哪些线索 1`
+  - `installed 目录 2`
+  - `排查步骤总结 1`
+
+### Notes
+This closes another major gap from the original Phase 2 audit: asset/skill install failure is now represented as an actual troubleshooting conversation rather than only as an abstract coverage goal.
+
+
 ## 2026-05-06: Recovery and restart continuity coverage landed in the baseline suite
 
 ### Summary

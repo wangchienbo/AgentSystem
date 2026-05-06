@@ -703,3 +703,4 @@ The test suite should grow with the architecture, but remain grounded in determi
 - Rewrote `S41` into a system-status and operator-check workflow scenario so install-model-sensitive operator reasoning is not concentrated in only one tail scenario.
 - Rewrote `S12` into a bulk-app lifecycle scenario with explicit install/register and asset-check reasoning before startup, so install-model-sensitive flows also appear in mid-suite lifecycle coverage.
 - Rewrote `S25` into an exception-recovery and restart-continuity scenario so service restart, state recovery, doctor usage, and runtime-layout/log inspection now appear in a realistic document-editing continuity flow.
+- Rewrote `S36` into a skill-install failure-and-repair scenario so asset discovery, install retry, doctor clues, installed/log-directory inspection, and post-fix verification are represented in the operator baseline.
