@@ -4,6 +4,8 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
+from urllib.error import URLError
+from urllib.request import urlopen
 
 
 RUNTIME_LAYOUT_KEYS = {
@@ -56,16 +58,49 @@ def _runtime_layout(repo_root: Path) -> dict[str, object]:
     }
 
 
+def _config_file() -> Path:
+    return Path.home() / ".config" / "agentsystem" / "config.yaml"
+
+
+def _service_health(port: int = 80) -> dict[str, object]:
+    url = f"http://localhost:{port}/api/status"
+    try:
+        with urlopen(url, timeout=2.0) as response:
+            return {
+                "service_reachable": True,
+                "service_status_code": getattr(response, "status", 200),
+                "service_url": url,
+            }
+    except URLError as exc:
+        return {
+            "service_reachable": False,
+            "service_error": str(exc.reason or exc),
+            "service_url": url,
+        }
+    except Exception as exc:
+        return {
+            "service_reachable": False,
+            "service_error": f"{type(exc).__name__}: {exc}",
+            "service_url": url,
+        }
+
+
 def _doctor_status(repo_root: Path) -> dict[str, object]:
     layout = _runtime_layout(repo_root)
+    config_file = _config_file()
     checks = {
         key: Path(str(value)).exists()
         for key, value in layout.items()
         if key != "repo_root"
     }
+    checks["config_file"] = config_file.exists()
+    service = _service_health()
+    checks["service_reachable"] = bool(service["service_reachable"])
     return {
         "status": "ok" if all(checks.values()) else "needs_attention",
         "checks": checks,
+        "config_file": str(config_file),
+        **service,
         **layout,
     }
 

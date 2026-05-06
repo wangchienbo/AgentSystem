@@ -749,3 +749,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Interpretation
 - the enhanced harness and operator-focused subset are ready, but live subset validation is blocked until the local service is started as part of Phase 3 service-up preparation.
+
+## 2026-05-06 - Phase 3 service-readiness doctor slice evidence
+
+### Target
+- `app/cli.py`
+- `tests/unit/test_cli.py`
+
+### Changes
+- `status` / `doctor` now include:
+  - `config_file`
+  - `service_reachable`
+  - `service_url`
+  - `service_error` or `service_status_code`
+- `checks` now explicitly include:
+  - `config_file`
+  - `service_reachable`
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- result: `6 passed`

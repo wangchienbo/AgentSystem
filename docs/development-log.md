@@ -123,6 +123,34 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Phase 3 service-readiness checks entered the CLI control plane
+
+### Summary
+Moved the standard-install-model workstream into the first real Phase 3 code slice by teaching the CLI doctor/status surface to report the two most immediate gating signals for live baseline work: config presence and local service reachability.
+
+### What Was Done
+- Updated `app/cli.py`
+  - `status` / `doctor` now report:
+    - `config_file`
+    - `service_reachable`
+    - `service_url`
+    - `service_error` or `service_status_code`
+  - service readiness probes `http://localhost:80/api/status`
+- Updated `tests/unit/test_cli.py`
+  - extended status/doctor tests to assert the new service-readiness and config-file fields
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked the first Phase 3.1 service-readiness doctor slice as landed
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - recorded the new readiness fields and focused test evidence
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- result: `6 passed`
+
+### Notes
+This is the right next slice after the blocked live subset attempt. Instead of only documenting that the service was down, the control plane can now surface that readiness state directly before a long baseline run.
+
+
 ## 2026-05-06: Live operator-subset attempt confirmed the next real blocker is service-up readiness
 
 ### Summary

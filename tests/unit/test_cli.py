@@ -27,6 +27,8 @@ def test_run_cli_returns_status_contract_for_top_level_command() -> None:
     assert result.command == "status"
     assert result.details["status"] in {"ok", "needs_attention"}
     assert str(result.details["repo_root"]).endswith("/root/project/AgentSystem")
+    assert "service_reachable" in result.details
+    assert "config_file" in result.details
 
 
 def test_run_cli_returns_runtime_layout_contract() -> None:
@@ -45,6 +47,8 @@ def test_run_cli_returns_doctor_checks() -> None:
     assert isinstance(checks, dict)
     assert "config_dir" in checks
     assert "data_dir" in checks
+    assert "config_file" in checks
+    assert "service_reachable" in checks
 
 
 def test_repo_shell_wrappers_delegate_to_python_cli() -> None:
