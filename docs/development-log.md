@@ -123,6 +123,36 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: First live operator-subset run exposed a missing runtime dependency
+
+### Summary
+Advanced from service-up validation into a real operator-focused subset run. The service came up, the harness passed connectivity, and the run immediately exposed a concrete runtime dependency defect instead of abstract readiness drift.
+
+### What Was Done
+- Started the service with the canonical repo-coupled uvicorn path
+- Ran the canonical operator-focused subset:
+  - `S12,S25,S36,S41,S50`
+- Investigated `/tmp/agentsystem_phase3_subset.log`
+- Found the concrete root cause:
+  - `AssertionError: The 'python-multipart' library must be installed to use form parsing.`
+  - triggered from `/login` form parsing in `app/system/http_test_server.py`
+- Updated `pyproject.toml`
+  - added `python-multipart>=0.0.9` to install dependencies
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded the missing-runtime-dependency finding under Phase 3.1
+- Updated `docs/testing-detail.md`
+  - recorded the exact commands, harness behavior, and root-cause log evidence
+
+### Validation / Observed Result
+- harness connectivity gate passed
+- subset run reached live request execution
+- all scenarios failed with repeated `HTTP 500` / connection reset behavior
+- server log isolated the concrete missing dependency
+
+### Notes
+This is good progress, honestly. We are no longer blocked on vague readiness issues. The live subset has now produced a specific install-model-sensitive defect in the runtime dependency surface, which is exactly the kind of thing this phase is supposed to flush out.
+
+
 ## 2026-05-06: Canonical repo-coupled uvicorn path proved service-up viability
 
 ### Summary

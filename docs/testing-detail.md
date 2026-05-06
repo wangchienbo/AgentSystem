@@ -837,3 +837,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Interpretation
 - the current repo-coupled start path is runnable and can bring the local service up; the earlier blocked subset run was caused by the service not being started, not by a broken uvicorn startup path.
+
+## 2026-05-06 - First live operator-subset run root cause evidence
+
+### Commands
+- `PYTHONPATH=/root/project/AgentSystem nohup python3 -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port 80 > /tmp/agentsystem_phase3_subset.log 2>&1 &`
+- `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://localhost:80 --scenarios S12,S25,S36,S41,S50 --delay 0 --timeout 20 --output /tmp/agentsystem_e2e_operator_subset.json`
+- `tail -n 80 /tmp/agentsystem_phase3_subset.log`
+
+### Observed result
+- harness connectivity gate passed (`HTTP 405` on reachability check)
+- all 5 scenarios failed with repeated `HTTP 500` / connection reset patterns
+- server log root cause:
+  - `AssertionError: The 'python-multipart' library must be installed to use form parsing.`
+  - failure occurred in `/root/project/AgentSystem/app/system/http_test_server.py` during `/login` form parsing
+
+### Fix landed
+- added `python-multipart>=0.0.9` to `pyproject.toml`
+
+### Interpretation
+- the operator subset is now past pure service-up gating and has produced a concrete missing-runtime-dependency defect for the current install path.
