@@ -123,6 +123,27 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Ready-state wait removed the startup race, but runtime blockers still dominate
+
+### Summary
+Retried the operator subset after adding the explicit `/api/status` ready-state wait. This time the run no longer failed immediately at the connectivity gate, which means the sequencing fix did its job. The remaining blockers stayed in the runtime layer: repeated concurrent-query blocking and an invocation-path mismatch around `strategy_overview`.
+
+### What Was Done
+- restarted the `.venv` uvicorn service
+- reran the operator-focused subset with:
+  - `--wait-ready-seconds 60`
+  - `--delay 1`
+- inspected `/tmp/agentsystem_phase3_subset.log`
+- observed continuing runtime-layer signatures:
+  - `Concurrent query limit exceeded (5/5)`
+  - `Invocation dispatch error: method strategy_overview not declared by asset:self_iteration_center:v1`
+- updated `docs/testing-detail.md`
+  - recorded the ready-state-gated rerun observation
+
+### Notes
+This is still useful progress. We can now stop blaming startup sequencing for this slice. The next real work is back where it belongs: session concurrency behavior and invocation-path correctness under the operator-heavy subset.
+
+
 ## 2026-05-06: Harness now waits explicitly for ready state before live subset execution
 
 ### Summary

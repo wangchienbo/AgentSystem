@@ -932,3 +932,22 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Validation
 - `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py`
 - `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --help | grep -n 'wait-ready-seconds'`
+
+## 2026-05-06 - Ready-state-gated rerun observation
+
+### Commands
+- restarted `.venv` uvicorn service
+- reran operator subset with:
+  - `--wait-ready-seconds 60`
+  - `--delay 1`
+
+### Observed result
+- ready-state gate no longer failed first
+- report file remained on the prior failing summary shape (`scenarios_all_ok 0`, `scenarios_with_fail 5`)
+- live log still shows repeated:
+  - `Concurrent query limit exceeded (5/5)`
+  - `Invocation dispatch error: method strategy_overview not declared by asset:self_iteration_center:v1`
+
+### Interpretation
+- the ready-state wait fix removed one sequencing failure mode
+- the remaining dominant blockers are still runtime-level concurrency pressure and invocation-path correctness
