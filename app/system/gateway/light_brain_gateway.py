@@ -264,111 +264,111 @@ class LightBrainGateway:
         self._rate_limiter.increment_concurrent(session_id)
         self._rate_limiter.record_query(session_id)
 
-        # Phase H+: Observability - start command tracking
-        import time as _time
-        _cmd_start_time = _time.time()
-        _cmd_tool_calls = 0
+        try:
+            # Phase H+: Observability - start command tracking
+            import time as _time
+            _cmd_start_time = _time.time()
+            _cmd_tool_calls = 0
 
-        # Phase H+: Tool loop guard - reset at command start
-        self._tool_loop_guard.reset_command()
+            # Phase H+: Tool loop guard - reset at command start
+            self._tool_loop_guard.reset_command()
 
-        # Phase 7.4: try new interaction runtime first for asset-centered routes
-        if continuation_decision is not None and continuation_decision.conversation_mode == "continue_task":
-            pending_task = self._advance_pending_task_if_possible(pending_task)
-            response = self._build_continue_task_response(session_id, pending_task, continuation_decision)
-            self._after_reply(session_id=session_id, reply=response)
-            self._auto_save()
-            return response
-        if continuation_decision is not None and continuation_decision.conversation_mode == "draft_create":
-            pending_task = self._get_latest_pending_task(request.user_id)
-            if pending_task is None and continuation_decision.target_ref:
-                from app.models.pending_task import PendingTaskRecord
-                target_id = continuation_decision.target_ref.get("app_id") or continuation_decision.target_ref.get("target_id") or "unknown"
-                pending_task = PendingTaskRecord(
-                    task_id=continuation_decision.pending_task_id or f"pt_{target_id}",
-                    user_id=request.user_id or "system",
-                    session_id=session_id,
-                    intent="create_app",
-                    status="drafted",
-                    draft_payload=dict(continuation_decision.draft_proposal),
-                    target_ref=dict(continuation_decision.target_ref),
-                    missing_fields=list(continuation_decision.missing_fields),
-                    next_recommended_action=continuation_decision.next_action or {"type": "continue_draft_app_setup", "app_id": target_id},
-                    last_user_message=request.message,
-                )
-            response = self._build_draft_create_response(session_id, pending_task, continuation_decision)
-            self._after_reply(session_id=session_id, reply=response)
-            self._auto_save()
-            return response
+            # Phase 7.4: try new interaction runtime first for asset-centered routes
+            if continuation_decision is not None and continuation_decision.conversation_mode == "continue_task":
+                pending_task = self._advance_pending_task_if_possible(pending_task)
+                response = self._build_continue_task_response(session_id, pending_task, continuation_decision)
+                self._after_reply(session_id=session_id, reply=response)
+                self._auto_save()
+                return response
+            if continuation_decision is not None and continuation_decision.conversation_mode == "draft_create":
+                pending_task = self._get_latest_pending_task(request.user_id)
+                if pending_task is None and continuation_decision.target_ref:
+                    from app.models.pending_task import PendingTaskRecord
+                    target_id = continuation_decision.target_ref.get("app_id") or continuation_decision.target_ref.get("target_id") or "unknown"
+                    pending_task = PendingTaskRecord(
+                        task_id=continuation_decision.pending_task_id or f"pt_{target_id}",
+                        user_id=request.user_id or "system",
+                        session_id=session_id,
+                        intent="create_app",
+                        status="drafted",
+                        draft_payload=dict(continuation_decision.draft_proposal),
+                        target_ref=dict(continuation_decision.target_ref),
+                        missing_fields=list(continuation_decision.missing_fields),
+                        next_recommended_action=continuation_decision.next_action or {"type": "continue_draft_app_setup", "app_id": target_id},
+                        last_user_message=request.message,
+                    )
+                response = self._build_draft_create_response(session_id, pending_task, continuation_decision)
+                self._after_reply(session_id=session_id, reply=response)
+                self._auto_save()
+                return response
 
-        interaction_result = self._try_new_interaction_chain(request.message)
-        if interaction_result is not None:
-            return self._build_interaction_response(session_id, request.message, interaction_result, _cmd_start_time)
+            interaction_result = self._try_new_interaction_chain(request.message)
+            if interaction_result is not None:
+                return self._build_interaction_response(session_id, request.message, interaction_result, _cmd_start_time)
 
-        # Phase 7.1: interpret intent using interpreter (legacy fallback)
-        if hasattr(self._interpreter, "set_tool_registry"):
-            self._interpreter.set_tool_registry(self._tool_registry)
-        command = self._interpreter.interpret(
-            message=request.message,
-            available_apps=available_apps or [],
-            user_id=request.user_id or "system",
-            session_id=session_id,
-        )
-
-        # Phase 7.2: enrich command with tools and session state
-        available_apps = available_apps or []
-        command = self._enrich_command(command, session_id, available_apps)
-        if pending_task is not None:
-            command.context["pending_task"] = pending_task.model_dump(mode="json")
-        if continuation_decision is not None:
-            command.context["continuation_decision"] = continuation_decision.model_dump(mode="json")
-        self._memory.record_command(session_id, command)
-
-        # Phase 7.3: execute workflow and return reply
-        interaction_id = f"lightbrain:{session_id}:{abs(hash(request.message))}"
-        result = await self._execute_command(command, session_id, available_apps)
-        self._after_reply(session_id=session_id, reply=result)
-
-        if self._telemetry_service is not None:
-            self._telemetry_service.record_interaction(
-                InteractionTelemetryRecord(
-                    interaction_id=interaction_id,
-                    session_id=session_id,
-                    user_id=request.user_id,
-                    app_id=command.target_app,
-                    request_type="light_brain_message",
-                    success=not result.content.startswith("[Reached max turns"),
-                    failure_reason="max_turns_reached" if result.content.startswith("[Reached max turns") else None,
-                    total_input_tokens=max(1, len(request.message) // 4),
-                    total_output_tokens=max(1, len(result.content) // 4),
-                    total_tokens=max(1, (len(request.message) + len(result.content)) // 4),
-                    total_latency_ms=int((_time.time() - _cmd_start_time) * 1000),
-                    total_tool_calls=_cmd_tool_calls,
-                    strategy_name=command.intent,
-                )
+            # Phase 7.1: interpret intent using interpreter (legacy fallback)
+            if hasattr(self._interpreter, "set_tool_registry"):
+                self._interpreter.set_tool_registry(self._tool_registry)
+            command = self._interpreter.interpret(
+                message=request.message,
+                available_apps=available_apps or [],
+                user_id=request.user_id or "system",
+                session_id=session_id,
             )
 
-        # Phase H+: Observability - record command metrics
-        _cmd_duration_ms = int((_time.time() - _cmd_start_time) * 1000)
-        from app.utils.observability import CommandMetrics
-        self._observability.record_command(CommandMetrics(
-            session_id=session_id,
-            user_id=command.user_id,
-            command_type=command.intent,
-            target_app=command.target_app,
-            status="success" if not result.content.startswith("请求过于频繁") else "blocked",
-            duration_ms=_cmd_duration_ms,
-            tokens_used=len(result.content) // 4,  # rough estimate
-            tool_calls=_cmd_tool_calls,
-        ))
+            # Phase 7.2: enrich command with tools and session state
+            available_apps = available_apps or []
+            command = self._enrich_command(command, session_id, available_apps)
+            if pending_task is not None:
+                command.context["pending_task"] = pending_task.model_dump(mode="json")
+            if continuation_decision is not None:
+                command.context["continuation_decision"] = continuation_decision.model_dump(mode="json")
+            self._memory.record_command(session_id, command)
 
-        # Phase H+: Rate limit - release concurrent slot
-        self._rate_limiter.decrement_concurrent(session_id)
+            # Phase 7.3: execute workflow and return reply
+            interaction_id = f"lightbrain:{session_id}:{abs(hash(request.message))}"
+            result = await self._execute_command(command, session_id, available_apps)
+            self._after_reply(session_id=session_id, reply=result)
 
-        # Phase 7.5: auto-save state if persistence available
-        self._auto_save()
+            if self._telemetry_service is not None:
+                self._telemetry_service.record_interaction(
+                    InteractionTelemetryRecord(
+                        interaction_id=interaction_id,
+                        session_id=session_id,
+                        user_id=request.user_id,
+                        app_id=command.target_app,
+                        request_type="light_brain_message",
+                        success=not result.content.startswith("[Reached max turns"),
+                        failure_reason="max_turns_reached" if result.content.startswith("[Reached max turns") else None,
+                        total_input_tokens=max(1, len(request.message) // 4),
+                        total_output_tokens=max(1, len(result.content) // 4),
+                        total_tokens=max(1, (len(request.message) + len(result.content)) // 4),
+                        total_latency_ms=int((_time.time() - _cmd_start_time) * 1000),
+                        total_tool_calls=_cmd_tool_calls,
+                        strategy_name=command.intent,
+                    )
+                )
 
-        return result
+            # Phase H+: Observability - record command metrics
+            _cmd_duration_ms = int((_time.time() - _cmd_start_time) * 1000)
+            from app.utils.observability import CommandMetrics
+            self._observability.record_command(CommandMetrics(
+                session_id=session_id,
+                user_id=command.user_id,
+                command_type=command.intent,
+                target_app=command.target_app,
+                status="success" if not result.content.startswith("请求过于频繁") else "blocked",
+                duration_ms=_cmd_duration_ms,
+                tokens_used=len(result.content) // 4,  # rough estimate
+                tool_calls=_cmd_tool_calls,
+            ))
+
+            # Phase 7.5: auto-save state if persistence available
+            self._auto_save()
+
+            return result
+        finally:
+            self._rate_limiter.decrement_concurrent(session_id)
 
     # Backward compatibility alias
     process_message = receive_message

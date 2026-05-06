@@ -891,3 +891,15 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Validation
 - `python3 -m py_compile app/ai/model_client.py`
+
+## 2026-05-06 - Concurrent-slot release hardening evidence
+
+### Target
+- `app/system/gateway/light_brain_gateway.py`
+
+### Changes
+- wrapped the post-rate-limit command execution path in `try/finally`
+- `self._rate_limiter.decrement_concurrent(session_id)` now runs even when command execution returns early or raises
+
+### Validation
+- `python3 -m py_compile app/system/gateway/light_brain_gateway.py app/ai/model_client.py`

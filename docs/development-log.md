@@ -123,6 +123,29 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Rate-limit concurrent slots now release reliably on all command paths
+
+### Summary
+Addressed the second failure signature exposed by the operator-heavy live subset. The gateway previously incremented the per-session concurrent counter before several early-return and exception paths, which could strand slots and trigger repeated `Concurrent query limit exceeded (5/5)` blocks. The command path is now wrapped so the slot is always released.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - wrapped the post-rate-limit execution path in `try/finally`
+  - moved `self._rate_limiter.decrement_concurrent(session_id)` into the `finally` block
+  - this now covers:
+    - early returns from continuation/draft paths
+    - interaction-chain returns
+    - command execution exceptions
+- Updated `docs/testing-detail.md`
+  - recorded the concurrency-release hardening and syntax-level validation
+
+### Validation
+- `python3 -m py_compile app/system/gateway/light_brain_gateway.py app/ai/model_client.py`
+
+### Notes
+This was the right next bounded fix after the 5xx retry hardening. If concurrent slots were being stranded, no amount of upstream retry tuning would fully stabilize the operator subset.
+
+
 ## 2026-05-06: Tool-calling client hardened against transient 5xx failures
 
 ### Summary
