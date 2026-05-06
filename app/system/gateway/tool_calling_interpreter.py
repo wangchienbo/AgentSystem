@@ -230,18 +230,36 @@ def build_turn_state_board(message: str, history: list[dict[str, Any]]) -> str:
     recent_reply = recent_assistant[0][:120] if recent_assistant else "(暂无近期回复)"
     text = (message or "").lower()
     is_script_shape = is_script_like_request(message)
+    operator_heavy_keywords = (
+        "app",
+        "标准安装",
+        "安装链路",
+        "交付",
+        "创建",
+        "状态",
+        "运行",
+        "安装",
+        "注册",
+        "部署",
+    )
+    is_operator_heavy = any(keyword in text for keyword in operator_heavy_keywords)
     if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
         next_action = "优先选择一个最高价值的定位或读取动作，不要同轮规划多个工具"
         stop_condition = "拿到能回答用户当前精度的直接证据后立即停止"
     elif is_script_shape:
         next_action = "优先判断是否应该转为脚本方案"
         stop_condition = "一旦脚本比碎片工具链更合适，就切换策略"
+    elif is_operator_heavy:
+        next_action = "优先通过 call_asset_method 查询 App 状态或资产信息；只在资产接口无法直接回答时才走文件系统探索"
+        stop_condition = "一旦能够基于资产查询结果或已有证据直接回答用户问题，立即停止工具调用"
     else:
         next_action = "选择一个最高价值下一步动作"
         stop_condition = "当前问题已可回答时立即停止"
     escalation = ""
     if is_script_shape and any(marker in recent_reply for marker in ("[Reached max turns", "未完成", "继续搜索")):
         escalation = "\n- 升级规则: 近期已出现未收敛信号，本轮优先使用 exec_shell 执行一次性脚本聚合，而不是继续零碎搜索"
+    if is_operator_heavy and any(marker in recent_reply for marker in ("[Reached max turns", "未完成", "tool_call", "call_asset_method")):
+        escalation = "\n- 收敛提醒: 近期已出现未收敛信号，本轮应优先给出基于已获取证据的明确结论，不要继续多轮工具探索"
     return (
         "[当前状态板]\n"
         f"- 当前未解决问题: {unresolved}\n"

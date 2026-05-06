@@ -1249,3 +1249,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - the markup-leak guard appears to have contained the user-visible response-shape defect in the observed slice
 - the next dominant blocker is now clearly inefficient tool-path selection / exploration breadth, not raw output leakage
+
+## 2026-05-06 - Operator-heavy convergence guidance hardening
+
+### Target
+- `app/system/gateway/tool_calling_interpreter.py`
+
+### Changes
+- extended `build_turn_state_board(...)` to detect operator-heavy messages (app/标准安装/安装链路/交付/创建/状态/运行/安装/注册/部署)
+- operator-heavy paths now receive:
+  - "下一步建议: 优先通过 call_asset_method 查询 App 状态或资产信息；只在资产接口无法直接回答时才走文件系统探索"
+  - "停止条件: 一旦能够基于资产查询结果或已有证据直接回答用户问题，立即停止工具调用"
+- added convergence escalation for operator-heavy messages with non-convergent history markers
+  - "收敛提醒: 近期已出现未收敛信号，本轮应优先给出基于已获取证据的明确结论，不要继续多轮工具探索"
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+- direct checks confirmed:
+  - standard-install phrasing returns operator-heavy guidance
+  - generic greeting returns default guidance
+  - non-convergent history triggers convergence escalation

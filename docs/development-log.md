@@ -123,6 +123,33 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Added operator-heavy convergence guidance to reduce tool-path wandering
+
+### Summary
+After multiple rounds of narrowing proved that the dominant remaining blocker was tool-path wandering (repeated `call_asset_method` + filesystem exploration consuming the expanded 8-turn budget), the next bounded fix was to add stronger branch-level convergence guidance specifically for operator-heavy messages. Instead of giving them the same generic "choose the best next action" advice, they now receive explicit directives to prefer asset-method queries over filesystem exploration, and a tighter stop condition.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - extended `build_turn_state_board(...)` with operator-heavy keyword detection
+  - operator-heavy messages now receive:
+    - "下一步建议: 优先通过 call_asset_method 查询 App 状态或资产信息；只在资产接口无法直接回答时才走文件系统探索"
+    - "停止条件: 一旦能够基于资产查询结果或已有证据直接回答用户问题，立即停止工具调用"
+  - added convergence escalation for messages with non-convergent history markers:
+    - "收敛提醒: 近期已出现未收敛信号，本轮应优先给出基于已获取证据的明确结论，不要继续多轮工具探索"
+- Updated `docs/testing-detail.md`
+  - recorded the convergence guidance hardening and validation evidence
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+- direct checks confirmed:
+  - standard-install phrasing returns operator-heavy guidance with asset-first directive
+  - generic greeting returns default guidance
+  - non-convergent history triggers the escalation clause
+
+### Notes
+This is intentionally a guidance-layer fix rather than a tool-surface restriction. It is the right next step because it gives the model a clearer convergence signal without removing any real capability. If wandering persists, the next escalation would be to narrow the tool surface for this route.
+
+
 ## 2026-05-06: Post-markup-guard rerun shows the next remaining blocker is tool-path wandering
 
 ### Summary
