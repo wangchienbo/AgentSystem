@@ -123,6 +123,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Live doctor run confirmed the new readiness surface matches the real blocker
+
+### Summary
+Ran the new CLI doctor surface directly after landing the readiness slice. The output correctly distinguished repo-local readiness from live service availability, confirming that the control-plane check is surfacing the same blocker seen during the failed operator-subset run.
+
+### What Was Done
+- Ran `python3 -m app.cli doctor`
+- Observed:
+  - `status=needs_attention`
+  - repo-local layout checks all passed
+  - `config_file=True`
+  - `service_reachable=False`
+  - `service_error=[Errno 111] Connection refused`
+- Updated `README.md`
+  - documented that `status` / `doctor` now surface config-file presence and local service reachability
+- Updated `docs/testing-detail.md`
+  - recorded the exact doctor output and interpretation
+
+### Notes
+I'm glad this lined up cleanly. It means the new readiness surface is not theoretical, it is already reporting the real next blocker we hit in practice.
+
+
 ## 2026-05-06: Phase 3 service-readiness checks entered the CLI control plane
 
 ### Summary

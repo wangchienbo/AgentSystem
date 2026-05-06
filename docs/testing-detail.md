@@ -769,3 +769,19 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Validation
 - `pytest tests/unit/test_cli.py -q`
 - result: `6 passed`
+
+## 2026-05-06 - Live doctor output after service-readiness slice
+
+### Command
+- `python3 -m app.cli doctor`
+
+### Observed output summary
+- `status=needs_attention`
+- all repo-local layout checks passed
+- `config_file=True`
+- `service_reachable=False`
+- `service_error=[Errno 111] Connection refused`
+- `service_url=http://localhost:80/api/status`
+
+### Interpretation
+- the CLI readiness slice is working as intended: configuration is present, but the live local HTTP service is still down, which matches the earlier blocked operator-subset run.
