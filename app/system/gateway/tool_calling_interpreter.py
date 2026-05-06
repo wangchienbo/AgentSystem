@@ -989,7 +989,19 @@ PY"""
 
     def _apply_execution_fact_provenance(self, raw_input: str, result: Any) -> str:
         """Temporary pass-through until a tool-agnostic governance module is introduced."""
-        return (getattr(result, "final_text", "") or "").strip()
+        final_text = (getattr(result, "final_text", "") or "").strip()
+        if "<tool_call>" in final_text or "<function=" in final_text:
+            tool_calls = getattr(result, "tool_calls", []) or []
+            if tool_calls:
+                tool_names = [getattr(call, "tool_name", "tool") for call in tool_calls if getattr(call, "tool_name", None)]
+                unique_names = []
+                for name in tool_names:
+                    if name not in unique_names:
+                        unique_names.append(name)
+                if unique_names:
+                    return f"已完成内部工具分析，涉及: {', '.join(unique_names)}。正在基于这些结果整理最终结论。"
+            return "已完成内部工具分析，正在整理最终结论。"
+        return final_text
 
     def _build_structured_answer(self, raw_input: str, result: Any, final_text: str, confidence: float) -> StructuredAnswer:
         payload = None

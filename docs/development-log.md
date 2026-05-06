@@ -123,6 +123,27 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Added a response-shape guard against raw tool-call markup leaks
+
+### Summary
+After the post-budget-widening rerun exposed raw `<tool_call>` / `<function=...>` fragments leaking into direct responses, the next bounded fix was to harden the final text shaping path. Internal tool-call markup is now intercepted and replaced with a human-readable bounded summary derived from the recorded tool call names.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - hardened `_apply_execution_fact_provenance(...)`
+  - detects raw internal tool-call markers in `final_text`
+  - replaces them with a bounded summary instead of passing the raw markup through
+- Updated `docs/testing-detail.md`
+  - recorded the response-shape guard and direct validation evidence
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+- direct check confirmed raw markup is transformed into a bounded human-readable summary
+
+### Notes
+This is a containment fix, not the final ideal behavior. But it closes a user-visible correctness defect immediately while deeper tool-output shaping continues to evolve.
+
+
 ## 2026-05-06: Post-budget-widening rerun exposed a new deeper blocker, raw tool-call markup leaking into direct responses
 
 ### Summary

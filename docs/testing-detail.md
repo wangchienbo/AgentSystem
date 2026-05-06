@@ -1214,3 +1214,17 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - widening the operator-heavy turn budget helped avoid the earlier immediate `Reached max turns (6)` ceiling in the observed slice
 - the next exposed blocker is now response-shape / tool-call rendering correctness, not the old early turn-budget ceiling
+
+## 2026-05-06 - Tool-call markup leak guard
+
+### Target
+- `app/system/gateway/tool_calling_interpreter.py`
+
+### Changes
+- hardened `_apply_execution_fact_provenance(...)` so raw internal tool-call markup is never passed through directly to user-visible text
+- when `final_text` contains internal markers such as `<tool_call>` / `<function=...>`, the interpreter now replaces them with a bounded human-readable summary derived from recorded tool call names
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+- direct check confirmed a raw markup payload is transformed into:
+  - `已完成内部工具分析，涉及: call_asset_method, exec_shell。正在基于这些结果整理最终结论。`
