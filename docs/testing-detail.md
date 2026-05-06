@@ -903,3 +903,17 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Validation
 - `python3 -m py_compile app/system/gateway/light_brain_gateway.py app/ai/model_client.py`
+
+## 2026-05-06 - Post-hardening rerun timing note
+
+### Commands
+- restarted `.venv` uvicorn service
+- reran operator subset with `--delay 1`
+
+### Observed result
+- harness connectivity gate returned: `服务不可达: timed out`
+- existing log still confirms the prior `.venv`-based server process had reached `Application startup complete.`
+
+### Interpretation
+- this rerun attempt appears to have hit startup/readiness timing rather than the earlier multipart/login or stranded-concurrency defect classes
+- the next live rerun should explicitly wait for ready state before launching the subset

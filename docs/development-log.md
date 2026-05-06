@@ -123,6 +123,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Post-hardening rerun attempt exposed a remaining service-readiness sequencing issue
+
+### Summary
+After landing the 5xx retry and concurrent-slot release fixes, attempted to rerun the operator subset again. This pass did not produce a new application-layer failure signature because it tripped at the service-readiness gate first, suggesting the next rerun should explicitly wait for ready state before launching the harness.
+
+### What Was Done
+- attempted to restart the `.venv` uvicorn service
+- reran the operator-focused subset with `--delay 1`
+- observed the harness fail early with:
+  - `服务不可达: timed out`
+- checked the existing server log and confirmed prior `.venv` boot markers still existed:
+  - `Started server process [613359]`
+  - `Application startup complete.`
+- updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded the readiness-sequencing issue after the recent hardening changes
+- updated `docs/testing-detail.md`
+  - captured the rerun timing note
+
+### Notes
+This is not the same class of failure as the earlier multipart blocker or stranded concurrency issue. It looks more like sequencing, which means the next bounded improvement is to make the rerun wait explicitly for ready state before firing the subset.
+
+
 ## 2026-05-06: Rate-limit concurrent slots now release reliably on all command paths
 
 ### Summary
