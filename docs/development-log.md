@@ -123,6 +123,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Post-markup-guard rerun shows the next remaining blocker is tool-path wandering
+
+### Summary
+Reran the operator subset in a fresh generation after adding the direct-response markup guard. In the observed slice, raw `<tool_call>` leakage did not recur. The path also used the widened 8-turn budget, but the dominant remaining pattern is still exploratory wandering across asset, shell, and filesystem style tools, which keeps consuming the expanded budget.
+
+### What Was Done
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator-focused subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `702452`
+- updated `docs/testing-detail.md`
+  - recorded that markup leakage no longer appeared in the observed slice and that wandering remained dominant
+
+### Notes
+This is a clean narrowing step. The user-visible markup leak appears contained in the observed slice. The remaining deeper issue is now the tool-path itself: too much exploratory breadth before converging on the needed answer.
+
+
 ## 2026-05-06: Added a response-shape guard against raw tool-call markup leaks
 
 ### Summary

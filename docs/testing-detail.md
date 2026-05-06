@@ -1228,3 +1228,24 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
 - direct check confirmed a raw markup payload is transformed into:
   - `已完成内部工具分析，涉及: call_asset_method, exec_shell。正在基于这些结果整理最终结论。`
+
+## 2026-05-06 - Post-markup-guard clean-generation observation
+
+### Commands
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `702452`
+
+### Observed result
+- no raw `<tool_call>` / `<function=...>` leakage is visible in the observed slice
+- the operator-heavy path now uses the widened 8-turn budget and reaches at least turn 8
+- the dominant remaining pattern is still exploratory wandering across asset + shell + filesystem style tools, for example:
+  - repeated `call_asset_method`
+  - `exec_shell`
+  - `list_files`
+  - `read_file`
+  - `read_file`
+
+### Interpretation
+- the markup-leak guard appears to have contained the user-visible response-shape defect in the observed slice
+- the next dominant blocker is now clearly inefficient tool-path selection / exploration breadth, not raw output leakage
