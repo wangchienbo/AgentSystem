@@ -704,3 +704,4 @@ The test suite should grow with the architecture, but remain grounded in determi
 - Rewrote `S12` into a bulk-app lifecycle scenario with explicit install/register and asset-check reasoning before startup, so install-model-sensitive flows also appear in mid-suite lifecycle coverage.
 - Rewrote `S25` into an exception-recovery and restart-continuity scenario so service restart, state recovery, doctor usage, and runtime-layout/log inspection now appear in a realistic document-editing continuity flow.
 - Rewrote `S36` into a skill-install failure-and-repair scenario so asset discovery, install retry, doctor clues, installed/log-directory inspection, and post-fix verification are represented in the operator baseline.
+- Enhanced the 50x20 harness report output so each scenario now emits an explicit verdict plus compact reasons, and the JSON artifact carries history expectation checks/failures for before/after migration comparison.

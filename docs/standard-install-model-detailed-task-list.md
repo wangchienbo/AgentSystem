@@ -149,15 +149,16 @@ Status: [x] already present in harness baseline contract, doc tracking refreshed
 - add room for scenario-specific expectation extensions later
 
 ### 3.5 Improve report output
-Status: [ ] pending
-- include scenario-end expectation pass/fail
-- include history validation failure reasons
-- include per-scenario verdict suitable for before/after diff
-- store structured report artifacts for baseline comparison
-- explicitly add fields for later closure-quality layering where possible:
-  - `scenario_id`
-  - run-level correlation metadata
-  - separation between transport/response success and richer closure interpretation when extended later
+Status: [x] initial verdict-oriented reporting landed
+- per-scenario stdout now includes explicit verdict and compact failure reasons
+- JSON report now stores per-scenario verdict, verdict reasons, and history expectation checks/failures
+- output is now more suitable for before/after migration diffing without rereading raw turn logs
+- explicitly added closure-oriented fields that will support later comparison layering:
+  - `verdict`
+  - `verdict_reasons`
+  - `history_expectation_ok`
+  - `history_expectation_failures`
+  - `history_expectation_checks`
 
 ### 3.6 Validate enhanced harness
 Status: [ ] pending

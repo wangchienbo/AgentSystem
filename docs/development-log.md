@@ -123,6 +123,40 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Verdict-oriented scenario reporting landed in the 50x20 harness
+
+### Summary
+Continued Phase 2 by improving the harness output itself, not just the scenario content. The 50x20 suite now emits clearer per-scenario verdicts and stores richer structured evidence for before/after migration comparison.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - added `_scenario_verdict(...)`
+  - scenario stdout now prints explicit `verdict=` lines with compact reasons
+  - failed-scenario summary now includes verdict reasons, not only failed turns
+  - JSON report now stores:
+    - `verdict`
+    - `verdict_reasons`
+    - `history_expectation_ok`
+    - `history_expectation_failures`
+    - `history_expectation_checks`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked initial Phase 2.5 report-output work as landed
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - captured the new report fields and syntax-level validation evidence
+
+### Validation
+- `python3 - <<'PY' ... ast.parse(source) ... PY`
+- observed:
+  - `syntax_ok`
+  - `verdict_reasons 1`
+  - `history_expectation_failures 1`
+  - `all_turns_and_history_checks_passed 1`
+  - `verdict= 2`
+
+### Notes
+This is a useful harness-level improvement because before/after migration comparison will now be able to rely on structured scenario verdicts instead of re-reading raw turn logs or inferring closure quality from aggregate pass counts alone.
+
+
 ## 2026-05-06: Asset-install failure and repair coverage entered the baseline suite
 
 ### Summary

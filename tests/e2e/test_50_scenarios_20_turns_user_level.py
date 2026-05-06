@@ -574,6 +574,20 @@ def _evaluate_scenario_history(scenario: dict, history: list[dict[str, Any]], re
     return ScenarioExpectationResult(ok=not failures, checks=checks, failures=failures)
 
 
+def _scenario_verdict(result: ScenarioResult) -> tuple[str, list[str]]:
+    reasons: list[str] = []
+    if result.total_error > 0:
+        reasons.append(f"transport_or_service_errors={result.total_error}")
+    if result.total_fail > 0:
+        reasons.append(f"failed_turns={result.total_fail}")
+    if result.expectation and not result.expectation.ok:
+        reasons.extend(result.expectation.failures[:3])
+    if not reasons:
+        reasons.append("all_turns_and_history_checks_passed")
+    verdict = "pass" if result.total_fail == 0 and result.total_error == 0 and (not result.expectation or result.expectation.ok) else "fail"
+    return verdict, reasons
+
+
 def run_scenario(
     client: E2EClient,
     scenario: dict,
@@ -750,10 +764,12 @@ def main():
         sr = run_scenario(client, scenario, delay=args.delay, turn_timeout=args.timeout)
         elapsed = time.monotonic() - t0
 
-        status = "✅" if sr.total_fail == 0 else f"⚠️ {sr.total_fail}fail"
+        verdict, reasons = _scenario_verdict(sr)
+        status = "✅" if verdict == "pass" else f"⚠️ {sr.total_fail}fail"
         if sr.total_error > 0:
             status += f" ({sr.total_error} errors)"
         print(f"  → {status} {sr.total_ok}ok/{sr.total_fail}fail, {elapsed:.1f}s")
+        print(f"    verdict={verdict} | reason={' ; '.join(reasons[:3])}")
         all_results.append(sr)
 
     grand_elapsed = time.monotonic() - grand_start
@@ -784,11 +800,13 @@ def main():
     print(f"  平均轮次耗时:   {grand_elapsed/total_turns_run:.1f}s")
 
     # Failed scenario details
-    failed_scenarios = [r for r in all_results if r.total_fail > 0]
+    failed_scenarios = [r for r in all_results if _scenario_verdict(r)[0] == "fail"]
     if failed_scenarios:
         print(f"\n  失败场景详情:")
         for r in failed_scenarios:
-            print(f"\n    {r.scenario_id} {r.name} ({r.user_id}): {r.total_ok}ok/{r.total_fail}fail")
+            verdict, reasons = _scenario_verdict(r)
+            print(f"\n    {r.scenario_id} {r.name} ({r.user_id}): verdict={verdict}, reason={' ; '.join(reasons[:3])}")
+            print(f"      turns={r.total_ok}ok/{r.total_fail}fail, errors={r.total_error}")
             for t in r.turns:
                 if not t.ok:
                     msg_preview = t.message[:50] if t.message else "(empty)"
@@ -816,6 +834,11 @@ def main():
                 "id": r.scenario_id, "name": r.name, "user_id": r.user_id,
                 "total_turns": r.total_turns, "ok": r.total_ok, "fail": r.total_fail,
                 "errors": r.total_error, "seconds": round(r.total_ms / 1000, 1),
+                "verdict": _scenario_verdict(r)[0],
+                "verdict_reasons": _scenario_verdict(r)[1],
+                "history_expectation_ok": r.expectation.ok if r.expectation else None,
+                "history_expectation_failures": r.expectation.failures if r.expectation else [],
+                "history_expectation_checks": r.expectation.checks if r.expectation else [],
                 "turns": [
                     {
                         "turn": t.turn_index,

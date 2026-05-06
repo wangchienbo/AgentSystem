@@ -690,3 +690,27 @@ Content-Type: application/json
   - `doctor 能告诉我哪些线索 1`
   - `installed 目录 2`
   - `排查步骤总结 1`
+
+## 2026-05-06 - Standard-install-model Phase 2 report-output enhancement evidence
+
+### Target
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+### Changes
+- added `_scenario_verdict(...)` helper
+- scenario stdout now prints `verdict=` and compact reason text
+- JSON report now includes:
+  - `verdict`
+  - `verdict_reasons`
+  - `history_expectation_ok`
+  - `history_expectation_failures`
+  - `history_expectation_checks`
+
+### Command evidence
+- `python3 - <<'PY' ... ast.parse(source) ... PY`
+- observed summary:
+  - `syntax_ok`
+  - `verdict_reasons 1`
+  - `history_expectation_failures 1`
+  - `all_turns_and_history_checks_passed 1`
+  - `verdict= 2`
