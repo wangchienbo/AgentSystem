@@ -1018,3 +1018,21 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Validation
 - `python3 -m py_compile app/services/rate_limiter.py`
 - direct smoke check still succeeds for one acquire + one release cycle
+
+## 2026-05-06 - Diagnostic rerun scope expansion observation
+
+### Commands
+- restarted `.venv` uvicorn service
+- reran operator subset with ready-state wait and delay
+- inspected `/tmp/agentsystem_phase3_subset.log` for concurrency signatures
+
+### Observed result
+- repeated `Concurrent query limit exceeded (5/5)` still present
+- the saturation is not limited to one logical session anymore in the observed log slice; it appears on at least:
+  - `session_user_context_10`
+  - `session_user_skill_01`
+- the newly added info-level acquire/release diagnostics did not surface in the current log slice, which implies current logging configuration is not exposing that level for this module during the subset run
+
+### Interpretation
+- the remaining failure mode is broader than one isolated scenario session
+- before adding more behavioral fixes, the next bounded step should ensure acquire/release diagnostics are emitted at the active log level during rerun, or otherwise capture the same state through warning/error-level observability

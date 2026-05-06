@@ -123,6 +123,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Diagnostic rerun showed concurrency saturation across multiple logical sessions
+
+### Summary
+Reran the ready-gated operator subset after adding rate-limiter diagnostics. The log confirmed that the remaining `Concurrent query limit exceeded (5/5)` signature is not confined to `session_user_skill_01`; it also appears on `session_user_context_10` in the same observed run. That broadens the problem from one isolated session path to a more general runtime concurrency pattern. It also showed that the new acquire/release diagnostics did not surface at the current effective log level.
+
+### What Was Done
+- restarted the `.venv` uvicorn service
+- reran the operator-focused subset with ready-state wait and delay
+- inspected `/tmp/agentsystem_phase3_subset.log` for concurrency signatures
+- updated `docs/testing-detail.md`
+  - recorded the multi-session saturation observation and the missing info-level diagnostics in the current log output
+
+### Notes
+This is a meaningful shift in diagnosis. The blocker is no longer best framed as one bad session path. The next bounded step is to promote the critical acquire/release state to the active log level, or capture the same state via warning/error paths, so the next rerun produces actionable concurrency-shape evidence.
+
+
 ## 2026-05-06: Added rate-limiter diagnostics to expose per-session stacking behavior
 
 ### Summary
