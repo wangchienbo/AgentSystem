@@ -123,6 +123,34 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Readiness checks now surface the canonical current start command
+
+### Summary
+Extended the Phase 3 readiness slice so the control plane not only says the service is down, but also tells the operator exactly which repo-coupled command path should currently bring it up. This keeps the migration work grounded in the current runnable truth while install-model separation is still in progress.
+
+### What Was Done
+- Updated `app/cli.py`
+  - added `suggested_start_command`
+  - exposed it from `doctor` / `status`
+  - exposed the same hint from unwired runtime-control commands like `start`
+- Updated `tests/unit/test_cli.py`
+  - asserted the new command hint is present and references `uvicorn app.system.http_test_server:app`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that Phase 3.1 readiness now surfaces the canonical current start path
+- Updated `docs/testing-detail.md`
+  - captured the exact hint and the focused validation evidence
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- result: `7 passed`
+- `python3 -m app.cli doctor`
+- observed hint:
+  - `cd /root/project/AgentSystem && PYTHONPATH=/root/project/AgentSystem uvicorn app.system.http_test_server:app --host 0.0.0.0 --port 80`
+
+### Notes
+This is a small but useful bridge step. Until `agentsystem start` is truly wired, the control plane should at least surface the canonical current start command instead of making the operator rediscover it manually.
+
+
 ## 2026-05-06: Unwired runtime-control commands now fail explicitly instead of pretending to be usable
 
 ### Summary

@@ -37,6 +37,7 @@ def test_run_cli_returns_not_implemented_contract_for_start() -> None:
     assert result.exit_code == 2
     assert result.details["status"] == "not_implemented"
     assert "next_step" in result.details
+    assert "uvicorn app.system.http_test_server:app" in str(result.details["suggested_start_command"])
 
 
 def test_run_cli_returns_runtime_layout_contract() -> None:
@@ -57,6 +58,7 @@ def test_run_cli_returns_doctor_checks() -> None:
     assert "data_dir" in checks
     assert "config_file" in checks
     assert "service_reachable" in checks
+    assert "suggested_start_command" in result.details
 
 
 def test_repo_shell_wrappers_delegate_to_python_cli() -> None:

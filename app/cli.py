@@ -33,6 +33,7 @@ def _planned_command_result(command: str, repo_root: Path) -> CLIResult:
             "status": "not_implemented",
             "repo_root": str(repo_root),
             "next_step": "use status/doctor to inspect readiness before wiring live runtime control",
+            "suggested_start_command": _start_command(repo_root),
         },
     )
 
@@ -97,6 +98,13 @@ def _service_health(port: int = 80) -> dict[str, object]:
         }
 
 
+def _start_command(repo_root: Path, port: int = 80) -> str:
+    return (
+        f"cd {repo_root} && PYTHONPATH={repo_root} "
+        f"uvicorn app.system.http_test_server:app --host 0.0.0.0 --port {port}"
+    )
+
+
 def _doctor_status(repo_root: Path) -> dict[str, object]:
     layout = _runtime_layout(repo_root)
     config_file = _config_file()
@@ -112,6 +120,7 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
         "status": "ok" if all(checks.values()) else "needs_attention",
         "checks": checks,
         "config_file": str(config_file),
+        "suggested_start_command": _start_command(repo_root),
         **service,
         **layout,
     }

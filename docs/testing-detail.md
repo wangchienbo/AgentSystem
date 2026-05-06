@@ -805,3 +805,20 @@ This is an initial static validation pass for the refreshed harness. Live subset
   - test suite: `7 passed`
   - command output includes `status=not_implemented`
   - process exits with code `2`
+
+## 2026-05-06 - Canonical repo-coupled start-command hint evidence
+
+### Target
+- `app/cli.py`
+- `tests/unit/test_cli.py`
+
+### Changes
+- `doctor` / `status` and unwired runtime-control commands now expose:
+  - `suggested_start_command=cd /root/project/AgentSystem && PYTHONPATH=/root/project/AgentSystem uvicorn app.system.http_test_server:app --host 0.0.0.0 --port 80`
+
+### Validation
+- `pytest tests/unit/test_cli.py -q`
+- `python3 -m app.cli doctor`
+- results:
+  - test suite: `7 passed`
+  - doctor output includes the canonical start-command hint
