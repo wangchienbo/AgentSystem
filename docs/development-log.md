@@ -123,6 +123,33 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Session rate-limit acquire is now atomic
+
+### Summary
+Traced the remaining concurrency blocker to a race window in the gateway rate-limit path. Session admission was previously split across separate calls, `is_session_allowed(...)`, `increment_concurrent(...)`, and `record_query(...)`, which meant multiple near-simultaneous requests could all pass validation before any of them reserved the slot. The acquire path is now atomic.
+
+### What Was Done
+- Updated `app/services/rate_limiter.py`
+  - added `try_acquire_session_slot(session_id)`
+  - the helper now performs validation and slot reservation under one lock
+  - it also records the query timestamp as part of the same atomic step
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - replaced the split admission flow with `self._rate_limiter.try_acquire_session_slot(session_id)`
+  - removed the separate post-check `increment_concurrent(...)` and `record_query(...)` calls from the receive path
+- Updated `docs/testing-detail.md`
+  - recorded the atomic acquire change and smoke-check evidence
+
+### Validation
+- `python3 -m py_compile app/services/rate_limiter.py app/system/gateway/light_brain_gateway.py`
+- direct smoke check confirmed:
+  - first acquire succeeds
+  - concurrent count increments to `1`
+  - release returns the counter to `0`
+
+### Notes
+This is the right next fix for the operator-heavy subset, because it closes the exact race between permission check and slot reservation instead of only treating the symptom after the counter is already inflated.
+
+
 ## 2026-05-06: Runtime fallback descriptor now preserves the self-iteration strategy alias
 
 ### Summary

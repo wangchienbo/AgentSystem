@@ -964,3 +964,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Validation
 - `python3 -m py_compile app/bootstrap/runtime.py`
 - string check confirmed one `"name": "strategy_overview"` entry in the fallback descriptor block
+
+## 2026-05-06 - Atomic session-slot acquisition evidence
+
+### Targets
+- `app/services/rate_limiter.py`
+- `app/system/gateway/light_brain_gateway.py`
+
+### Changes
+- added `try_acquire_session_slot(session_id)` to combine rate validation with concurrent-slot reservation atomically
+- updated gateway receive path to use the atomic acquire helper instead of separate:
+  - `is_session_allowed(...)`
+  - `increment_concurrent(...)`
+  - `record_query(...)`
+
+### Validation
+- `python3 -m py_compile app/services/rate_limiter.py app/system/gateway/light_brain_gateway.py`
+- direct smoke check:
+  - first acquire returns `(True, None)`
+  - concurrent state increments to `1`
+  - release brings the counter back to `0`

@@ -240,7 +240,7 @@ class LightBrainGateway:
             )
 
         # Phase H+: Rate limit check
-        allowed, block_reason = self._rate_limiter.is_session_allowed(session_id)
+        allowed, block_reason = self._rate_limiter.try_acquire_session_slot(session_id)
         if not allowed:
             logger.warning(f"Rate limit blocked: session={session_id}, reason={block_reason}")
             # Phase H+: Observability - record blocked command
@@ -261,9 +261,6 @@ class LightBrainGateway:
                 content=f"请求过于频繁，请稍后再试。{block_reason}",
                 session_id=session_id,
             )
-        self._rate_limiter.increment_concurrent(session_id)
-        self._rate_limiter.record_query(session_id)
-
         try:
             # Phase H+: Observability - start command tracking
             import time as _time

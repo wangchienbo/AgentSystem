@@ -44,6 +44,27 @@ class RateLimiter:
         cutoff = current_time - window_seconds
         return [ts for ts in timestamps if ts > cutoff]
     
+    def try_acquire_session_slot(self, session_id: str) -> tuple[bool, str | None]:
+        """Atomically validate rate limits and reserve one concurrent session slot."""
+        with self._lock:
+            current_time = time.time()
+            state = self._session_states[session_id]
+
+            # Clean old timestamps
+            state.query_timestamps = self._clean_old_timestamps(state.query_timestamps, current_time)
+
+            # Check concurrent queries
+            if state.concurrent_queries >= self.config.max_concurrent_queries_per_session:
+                return False, f"Concurrent query limit exceeded ({state.concurrent_queries}/{self.config.max_concurrent_queries_per_session})"
+
+            # Check queries per minute
+            if len(state.query_timestamps) >= self.config.max_queries_per_session_per_minute:
+                return False, f"Query rate limit exceeded ({len(state.query_timestamps)}/{self.config.max_queries_per_session_per_minute} per minute)"
+
+            state.concurrent_queries += 1
+            state.query_timestamps.append(current_time)
+            return True, None
+
     def is_session_allowed(self, session_id: str) -> tuple[bool, str | None]:
         """Check if a query is allowed for the given session.
         
