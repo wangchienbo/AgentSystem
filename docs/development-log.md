@@ -123,6 +123,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Clean-generation rerun now exposes the next deeper blocker, the tool-turn ceiling
+
+### Summary
+Reran the operator subset again in a fresh server generation after the strengthened 504 hardening. The early 504 did not appear in the observed slice, and early acquire/release behavior remained healthy. The next deeper blocker that surfaced was the tool-turn ceiling itself: `ToolCallingEngine result: final_text=[Reached max turns (6)]` after a chain of exploratory `call_asset_method` and filesystem probes.
+
+### What Was Done
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator-focused subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `689183`
+- updated `docs/testing-detail.md`
+  - recorded the deeper blocker and the tool-call chain that preceded it
+
+### Notes
+This is real forward progress. We are no longer stuck on stale logs, immediate concurrency saturation, or immediate 504s in the observed slice. The current deeper issue is that the tool-calling path spends its limited budget wandering before it can finish the user turn. That gives the next bounded fix a much sharper target.
+
+
 ## 2026-05-06: Post-504-hardening clean-generation rerun went materially deeper into tool execution
 
 ### Summary

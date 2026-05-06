@@ -1150,3 +1150,27 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - the strengthened bounded retry/window hardening materially improved the previously dominant clean-generation blocker
 - the operator subset is now getting deeper into real tool-execution turns before the run needs further diagnosis
+
+## 2026-05-06 - Deeper clean-generation blocker: tool-turn ceiling
+
+### Commands
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `689183`
+
+### Observed result
+- early acquire/release behavior remained healthy
+- the previously dominant early 504 did not appear in the observed slice
+- the first clearly exposed deeper blocker was now:
+  - `ToolCallingEngine result: final_text=[Reached max turns (6)]`
+- the recorded tool-call chain before the ceiling was hit included repeated asset/tool exploration:
+  - `call_asset_method`
+  - `call_asset_method`
+  - `call_asset_method`
+  - `list_files`
+  - `exec_shell`
+  - `exec_shell`
+
+### Interpretation
+- after the 504 hardening, the operator subset is now reaching a deeper failure layer
+- the next bounded improvement target should focus on reducing unproductive tool-call wandering or raising/reshaping the tool-turn budget for this path
