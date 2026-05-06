@@ -1174,3 +1174,25 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - after the 504 hardening, the operator subset is now reaching a deeper failure layer
 - the next bounded improvement target should focus on reducing unproductive tool-call wandering or raising/reshaping the tool-turn budget for this path
+
+## 2026-05-06 - Operator-heavy turn-budget widening
+
+### Target
+- `app/system/gateway/tool_calling_interpreter.py`
+
+### Changes
+- widened `choose_turn_budget(...)` for operator-heavy messages related to:
+  - `app`
+  - `标准安装`
+  - `安装链路`
+  - `交付`
+  - `创建`
+  - `状态`
+  - `运行`
+- such requests now receive a turn budget of `8` instead of the generic `6`
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+- direct checks confirmed:
+  - standard-install / app-delivery phrasing now returns `8`
+  - generic greeting still returns `6`

@@ -260,10 +260,21 @@ def is_script_like_request(message: str) -> bool:
 
 def choose_turn_budget(message: str) -> int:
     text = (message or "").lower()
+    operator_heavy_keywords = (
+        "app",
+        "标准安装",
+        "安装链路",
+        "交付",
+        "创建",
+        "状态",
+        "运行",
+    )
     if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
         return 8
     if is_script_like_request(message):
         return 10
+    if any(keyword in text for keyword in operator_heavy_keywords):
+        return 8
     return 6
 
 

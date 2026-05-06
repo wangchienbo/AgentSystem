@@ -123,6 +123,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Operator-heavy routes now get a wider turn budget
+
+### Summary
+After the clean-generation rerun showed `Reached max turns (6)` as the next deeper blocker, the next bounded fix was to widen the turn budget specifically for operator-heavy request shapes instead of globally inflating all routes. Standard-install / app-delivery style prompts now get `8` turns, while generic lightweight prompts keep the old `6`.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - extended `choose_turn_budget(...)` with operator-heavy keywords
+  - requests mentioning app delivery / standard-install / status / run style work now receive `8` turns
+- Updated `docs/testing-detail.md`
+  - recorded the widened budget and direct validation evidence
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+- direct checks confirmed:
+  - standard-install phrasing now returns `8`
+  - generic greeting still returns `6`
+
+### Notes
+This is intentionally bounded. It does not remove the need to reduce wandering, but it gives the operator-heavy subset a bit more room to complete while we continue tightening the path itself.
+
+
 ## 2026-05-06: Clean-generation rerun now exposes the next deeper blocker, the tool-turn ceiling
 
 ### Summary
