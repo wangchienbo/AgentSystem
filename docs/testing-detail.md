@@ -714,3 +714,25 @@ Content-Type: application/json
   - `history_expectation_failures 1`
   - `all_turns_and_history_checks_passed 1`
   - `verdict= 2`
+
+## 2026-05-06 - Standard-install-model Phase 2 harness validation evidence
+
+### Target
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --help`
+
+### Observed result
+- module compiles successfully
+- CLI help renders expected flags:
+  - `--base-url`
+  - `--delay`
+  - `--timeout`
+  - `--scenarios`
+  - `--range`
+  - `--output`
+
+### Notes
+This is an initial static validation pass for the refreshed harness. Live subset execution remains a later step once the service-up baseline run is intentionally entered.

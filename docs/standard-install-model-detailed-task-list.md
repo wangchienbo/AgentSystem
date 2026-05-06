@@ -161,11 +161,10 @@ Status: [x] initial verdict-oriented reporting landed
   - `history_expectation_checks`
 
 ### 3.6 Validate enhanced harness
-Status: [ ] pending
-- run small scenario subset first against the refreshed operator-heavy suite
-- fix harness bugs
-- update docs with exact usage and report paths
-- commit enhanced regression harness
+Status: [x] initial static validation landed
+- verified the refreshed operator-heavy harness still compiles (`python3 -m py_compile ...`)
+- verified CLI usage/help still renders with the expected subset/run/output flags
+- exact live service subset execution remains a later step under Phase 3 service-up baseline prep
 
 **Exit criteria**
 - 50x20 suite is realistic enough to serve as migration baseline

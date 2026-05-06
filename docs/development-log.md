@@ -123,6 +123,34 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Initial harness validation landed after the operator-scenario refresh arc
+
+### Summary
+Continued Phase 2 by validating the enhanced harness itself after multiple scenario and report-layer mutations. This pass was intentionally static and contract-oriented, confirming the harness still compiles and exposes the expected operator-facing CLI surface.
+
+### What Was Done
+- Validated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --help`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked initial Phase 2.6 validation as landed
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - recorded the static validation evidence and the expected harness flags
+
+### Validation
+- module compiled successfully
+- CLI help exposed the expected flags:
+  - `--base-url`
+  - `--delay`
+  - `--timeout`
+  - `--scenarios`
+  - `--range`
+  - `--output`
+
+### Notes
+I kept this bounded on purpose. Running the live operator-heavy subset belongs to the next explicit service-up baseline phase, while this step verifies that the refreshed harness remains structurally sound before that longer run.
+
+
 ## 2026-05-06: Verdict-oriented scenario reporting landed in the 50x20 harness
 
 ### Summary
