@@ -917,3 +917,18 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - this rerun attempt appears to have hit startup/readiness timing rather than the earlier multipart/login or stranded-concurrency defect classes
 - the next live rerun should explicitly wait for ready state before launching the subset
+
+## 2026-05-06 - Harness ready-state wait gate evidence
+
+### Target
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+### Changes
+- added `_wait_for_service(...)` helper based on `/api/status`
+- replaced the old one-shot `/api/chat` reachability probe with an explicit ready-state wait
+- added CLI flag:
+  - `--wait-ready-seconds`
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --help | grep -n 'wait-ready-seconds'`

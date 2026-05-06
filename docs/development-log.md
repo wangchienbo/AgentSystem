@@ -123,6 +123,29 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Harness now waits explicitly for ready state before live subset execution
+
+### Summary
+Implemented the next bounded fix implied by the post-hardening rerun attempt. Instead of doing a one-shot reachability probe and racing startup, the 50x20 harness now waits explicitly for `/api/status` readiness before launching scenarios.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - added `_wait_for_service(...)`
+  - switched the pre-run service gate from a one-shot `/api/chat` probe to an explicit `/api/status` ready-state wait
+  - added `--wait-ready-seconds`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that live subset validation now has an explicit ready-state wait capability
+- Updated `docs/testing-detail.md`
+  - captured the new wait gate and help-surface evidence
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --help | grep -n 'wait-ready-seconds'`
+
+### Notes
+This is exactly the small sequencing fix the previous rerun pointed to. It keeps the next live subset attempt focused on application behavior instead of losing cycles to service startup races.
+
+
 ## 2026-05-06: Post-hardening rerun attempt exposed a remaining service-readiness sequencing issue
 
 ### Summary

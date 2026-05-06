@@ -534,6 +534,22 @@ class E2EClient:
 # Test runner
 # ---------------------------------------------------------------------------
 
+def _wait_for_service(base_url: str, timeout_seconds: float = 30.0) -> tuple[bool, str]:
+    deadline = time.monotonic() + timeout_seconds
+    last_error = "service did not become ready"
+    while time.monotonic() < deadline:
+        try:
+            with httpx.Client(timeout=5.0) as hc:
+                resp = hc.get(f"{base_url}/api/status")
+                if resp.status_code < 500:
+                    return True, f"HTTP {resp.status_code}"
+                last_error = f"HTTP {resp.status_code}"
+        except Exception as exc:
+            last_error = str(exc)
+        time.sleep(1.0)
+    return False, last_error
+
+
 def _evaluate_scenario_history(scenario: dict, history: list[dict[str, Any]], result: ScenarioResult) -> ScenarioExpectationResult:
     checks: list[str] = []
     failures: list[str] = []
@@ -712,6 +728,7 @@ def main():
     parser.add_argument("--scenarios", default="", help="Comma-separated scenario IDs to run (e.g. S01,S02)")
     parser.add_argument("--range", default="", help="Scenario range (e.g. 1-10)")
     parser.add_argument("--output", default="/tmp/agentsystem_e2e_user_level_report.json", help="Report output path")
+    parser.add_argument("--wait-ready-seconds", type=float, default=30.0, help="How long to wait for /api/status readiness before running (default: 30)")
     args = parser.parse_args()
 
     # Filter scenarios
@@ -740,14 +757,11 @@ def main():
 
     # Health check
     print(f"\n[1/3] 检查服务连通性 ...")
-    try:
-        hc = httpx.Client(timeout=5.0)
-        resp = hc.get(f"{args.base_url}/api/chat", headers={"Accept": "text/html"})
-        # Even if 401 (login required), server is reachable
-        print(f"  ✅ 服务可达 (HTTP {resp.status_code})")
-        hc.close()
-    except Exception as exc:
-        print(f"  ❌ 服务不可达: {exc}")
+    ready, ready_detail = _wait_for_service(args.base_url, timeout_seconds=args.wait_ready_seconds)
+    if ready:
+        print(f"  ✅ 服务就绪 ({ready_detail})")
+    else:
+        print(f"  ❌ 服务不可达: {ready_detail}")
         print(f"  请先启动 AgentSystem 服务:")
         print(f"    cd <repo-root> && bash start_web_server.sh")
         sys.exit(1)
