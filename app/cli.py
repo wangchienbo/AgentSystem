@@ -99,9 +99,15 @@ def _service_health(port: int = 80) -> dict[str, object]:
 
 
 def _start_command(repo_root: Path, port: int = 80) -> str:
+    python_bin = repo_root / ".venv" / "bin" / "python3"
+    if python_bin.exists():
+        return (
+            f"cd {repo_root} && PYTHONPATH={repo_root} "
+            f"{python_bin} -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port {port}"
+        )
     return (
         f"cd {repo_root} && PYTHONPATH={repo_root} "
-        f"uvicorn app.system.http_test_server:app --host 0.0.0.0 --port {port}"
+        f"python3 -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port {port}"
     )
 
 

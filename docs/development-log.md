@@ -123,6 +123,34 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: `.venv` start-path correction moved the live subset failure up into model/runtime behavior
+
+### Summary
+After correcting the service start path to use the project virtualenv, reran the operator-focused subset. The login-layer dependency issue disappeared, and the run advanced far enough to expose the next real failure layer: intermittent tool-calling model 504s and concurrency-limit pressure.
+
+### What Was Done
+- restarted the service with `.venv/bin/python3 -m uvicorn ...`
+- reran the canonical operator-focused subset:
+  - `S12,S25,S36,S41,S50`
+- inspected `/tmp/agentsystem_phase3_subset.log`
+- confirmed that:
+  - `POST /login HTTP/1.1 200 OK`
+  - `POST /api/chat HTTP/1.1 200 OK`
+- isolated the new next-layer issues:
+  - `ModelClientError: Chat with tools failed: 504 ...`
+  - `Rate limit blocked: Concurrent query limit exceeded (5/5)`
+- extracted summary from `/tmp/agentsystem_e2e_operator_subset.json`
+  - `scenarios_all_ok 0`
+  - `scenarios_with_fail 5`
+- updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the live subset has now moved beyond the multipart/login blocker and into model/runtime instability
+- updated `docs/testing-detail.md`
+  - captured the second live subset run evidence and the new failure signatures
+
+### Notes
+This is real progress. I'm glad we got here, because it means the environment-layer blocker is no longer the main story. The next work now sits in runtime/model behavior under operator-heavy load, which is exactly the deeper failure mode this baseline was meant to reveal.
+
+
 ## 2026-05-06: First live operator-subset run exposed a missing runtime dependency
 
 ### Summary

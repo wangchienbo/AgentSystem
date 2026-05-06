@@ -857,3 +857,24 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Interpretation
 - the operator subset is now past pure service-up gating and has produced a concrete missing-runtime-dependency defect for the current install path.
+
+## 2026-05-06 - Second live operator-subset run after `.venv` start-path correction
+
+### Commands
+- restarted service with `.venv/bin/python3 -m uvicorn ...`
+- `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://localhost:80 --scenarios S12,S25,S36,S41,S50 --delay 0 --timeout 20 --output /tmp/agentsystem_e2e_operator_subset.json`
+- `grep -n "ERROR:\|Traceback\|POST /api/chat\|200 OK\|504 Gateway Timeout" /tmp/agentsystem_phase3_subset.log`
+
+### Observed result
+- login succeeded (`POST /login HTTP/1.1 200 OK`)
+- `/api/chat` requests reached real execution (`POST /api/chat HTTP/1.1 200 OK`)
+- LLM/tool-calling path intermittently failed with:
+  - `ModelClientError: Chat with tools failed: 504 ...`
+  - `Rate limit blocked: Concurrent query limit exceeded (5/5)`
+- JSON report summary remained:
+  - `scenarios_all_ok 0`
+  - `scenarios_with_fail 5`
+
+### Interpretation
+- the `.venv` start-path correction fixed the earlier multipart/login blocker
+- the current next-layer issue is upstream model/tool-calling instability and concurrency pressure during the operator-heavy subset run
