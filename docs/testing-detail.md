@@ -951,3 +951,16 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - the ready-state wait fix removed one sequencing failure mode
 - the remaining dominant blockers are still runtime-level concurrency pressure and invocation-path correctness
+
+## 2026-05-06 - Self-iteration descriptor alias parity evidence
+
+### Target
+- `app/bootstrap/runtime.py`
+
+### Changes
+- updated the runtime fallback descriptor payload for `asset:self_iteration_center:v1`
+- added the missing `strategy_overview` alias so dispatcher-side descriptor reconstruction matches the asset's declared invoke surface
+
+### Validation
+- `python3 -m py_compile app/bootstrap/runtime.py`
+- string check confirmed one `"name": "strategy_overview"` entry in the fallback descriptor block

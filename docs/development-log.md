@@ -123,6 +123,26 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Runtime fallback descriptor now preserves the self-iteration strategy alias
+
+### Summary
+Traced the `method strategy_overview not declared by asset:self_iteration_center:v1` failure to a descriptor-parity gap in the runtime fallback descriptor provider. The asset itself declares `strategy_overview`, but the bootstrap fallback descriptor reconstruction only exposed `get_self_iteration_strategy_overview`, so dispatcher validation could reject a valid runtime route.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - extended the fallback descriptor payload for `asset:self_iteration_center:v1`
+  - added the missing `strategy_overview` alias with the same input schema as `get_self_iteration_strategy_overview`
+- Updated `docs/testing-detail.md`
+  - recorded the descriptor alias parity fix and validation evidence
+
+### Validation
+- `python3 -m py_compile app/bootstrap/runtime.py`
+- string check confirmed the fallback descriptor block now contains `"name": "strategy_overview"`
+
+### Notes
+This is a clean, bounded fix. It does not change the asset behavior itself, only makes the dispatcher's fallback descriptor reconstruction faithful to the actual declared invoke surface.
+
+
 ## 2026-05-06: Ready-state wait removed the startup race, but runtime blockers still dominate
 
 ### Summary

@@ -1125,6 +1125,16 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                                 "comparison_limit": {"type": "integer", "default": 5},
                             },
                         },
+                    }, {
+                        "name": "strategy_overview",
+                        "description": "Alias for get_self_iteration_strategy_overview",
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {
+                                "replay_session_id": {"type": "string"},
+                                "comparison_limit": {"type": "integer", "default": 5},
+                            },
+                        },
                     }]
                 return {
                     "descriptor_version": 1,
