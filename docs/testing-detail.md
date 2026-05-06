@@ -737,3 +737,15 @@ Content-Type: application/json
 ### Notes
 This is an initial static validation pass for the refreshed harness. Live subset execution remains a later step once the service-up baseline run is intentionally entered.
 - Canonical operator-focused live subset for the next run: `S12,S25,S36,S41,S50`.
+
+## 2026-05-06 - Standard-install-model Phase 2 live subset attempt
+
+### Command
+- `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://localhost:80 --scenarios S12,S25,S36,S41,S50 --delay 0 --timeout 20 --output /tmp/agentsystem_e2e_operator_subset.json`
+
+### Result
+- service connectivity check failed before scenario execution
+- observed error: `[Errno 111] Connection refused`
+
+### Interpretation
+- the enhanced harness and operator-focused subset are ready, but live subset validation is blocked until the local service is started as part of Phase 3 service-up preparation.

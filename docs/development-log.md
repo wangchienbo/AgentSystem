@@ -123,6 +123,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Live operator-subset attempt confirmed the next real blocker is service-up readiness
+
+### Summary
+Tried to advance from static validation into the first real operator-focused subset run. The harness reached its connectivity gate correctly, but the local service was down, so the run stopped before scenario execution. This cleanly identifies the next dependency as service-up preparation rather than more harness editing.
+
+### What Was Done
+- Ran the canonical operator-focused subset:
+  - `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://localhost:80 --scenarios S12,S25,S36,S41,S50 --delay 0 --timeout 20 --output /tmp/agentsystem_e2e_operator_subset.json`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked live subset validation as blocked by service-down state
+- Updated `docs/testing.md` and `docs/testing-detail.md`
+  - recorded the exact command and the connection-refused result
+
+### Validation / Observed Result
+- harness launch succeeded up to the connectivity check
+- live execution did not start because `http://localhost:80` was unreachable
+- observed error: `[Errno 111] Connection refused`
+
+### Notes
+This is still useful progress because it proves the next gating item is no longer scenario design or harness structure. The next concrete dependency is Phase 3 style service-up readiness.
+
+
 ## 2026-05-06: Canonical operator-focused subset defined for the next live harness run
 
 ### Summary

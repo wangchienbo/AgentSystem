@@ -161,11 +161,12 @@ Status: [x] initial verdict-oriented reporting landed
   - `history_expectation_checks`
 
 ### 3.6 Validate enhanced harness
-Status: [x] initial static validation landed
+Status: [x] initial static validation landed, [!] live subset blocked by service-down state
 - verified the refreshed operator-heavy harness still compiles (`python3 -m py_compile ...`)
 - verified CLI usage/help still renders with the expected subset/run/output flags
-- exact live service subset execution remains a later step under Phase 3 service-up baseline prep
 - canonical operator-focused subset for the next live run is now defined as: `S12,S25,S36,S41,S50`
+- attempted live subset execution against `http://localhost:80`, but the service was unreachable (`[Errno 111] Connection refused`)
+- exact live subset execution now depends on completing Phase 3 service-up preparation or manually starting the service first
 
 **Exit criteria**
 - 50x20 suite is realistic enough to serve as migration baseline

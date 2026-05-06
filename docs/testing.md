@@ -707,3 +707,4 @@ The test suite should grow with the architecture, but remain grounded in determi
 - Enhanced the 50x20 harness report output so each scenario now emits an explicit verdict plus compact reasons, and the JSON artifact carries history expectation checks/failures for before/after migration comparison.
 - Performed initial static harness validation with `python3 -m py_compile` and `--help` rendering after the recent operator-scenario and verdict/report changes.
 - Defined the canonical operator-focused live subset for the next harness run as: `S12,S25,S36,S41,S50`.
+- Attempted the canonical operator-focused live subset run against `http://localhost:80` with `S12,S25,S36,S41,S50`, but the service was down (`[Errno 111] Connection refused`), so live subset evidence remains blocked on service-up preparation.
