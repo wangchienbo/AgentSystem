@@ -1036,3 +1036,20 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - the remaining failure mode is broader than one isolated scenario session
 - before adding more behavioral fixes, the next bounded step should ensure acquire/release diagnostics are emitted at the active log level during rerun, or otherwise capture the same state through warning/error-level observability
+
+## 2026-05-06 - Promote concurrency diagnostics to active log level
+
+### Target
+- `app/services/rate_limiter.py`
+
+### Changes
+- promoted successful acquire logging from `info` to `warning`
+- promoted release logging from `info` to `warning`
+- blocked acquire logging remains at `warning`
+- this ensures the next subset rerun emits acquire/release/blocked state in the current service log configuration
+
+### Validation
+- `python3 -m py_compile app/services/rate_limiter.py`
+- direct smoke check now visibly emits:
+  - `RateLimiter acquire: ...`
+  - `RateLimiter release: ...`

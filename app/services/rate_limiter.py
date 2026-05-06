@@ -78,7 +78,7 @@ class RateLimiter:
 
             state.concurrent_queries += 1
             state.query_timestamps.append(current_time)
-            logger.info(
+            logger.warning(
                 "RateLimiter acquire: session=%s concurrent=%s query_timestamps=%s",
                 session_id,
                 state.concurrent_queries,
@@ -126,7 +126,7 @@ class RateLimiter:
         with self._lock:
             state = self._session_states[session_id]
             state.concurrent_queries = max(0, state.concurrent_queries - 1)
-            logger.info(
+            logger.warning(
                 "RateLimiter release: session=%s concurrent=%s query_timestamps=%s",
                 session_id,
                 state.concurrent_queries,

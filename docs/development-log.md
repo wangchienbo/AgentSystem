@@ -123,6 +123,29 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Concurrency diagnostics promoted to the active service log level
+
+### Summary
+The previous rerun showed that the new rate-limiter instrumentation existed but did not appear in the subset log slice because acquire/release events were still logged at `info`. Promoted the critical concurrency diagnostics to `warning` so the next rerun will emit the full acquire, release, and blocked state in the current service log configuration.
+
+### What Was Done
+- Updated `app/services/rate_limiter.py`
+  - changed successful acquire logging from `info` to `warning`
+  - changed release logging from `info` to `warning`
+  - left blocked acquire logging at `warning`
+- Updated `docs/testing-detail.md`
+  - recorded the log-level promotion and visible smoke-check evidence
+
+### Validation
+- `python3 -m py_compile app/services/rate_limiter.py`
+- direct smoke check now visibly emits:
+  - `RateLimiter acquire: ...`
+  - `RateLimiter release: ...`
+
+### Notes
+This is a small observability adjustment, but it unlocks the next rerun. We now have a realistic path to seeing the entire concurrency curve for the problematic logical sessions in the normal subset log output.
+
+
 ## 2026-05-06: Diagnostic rerun showed concurrency saturation across multiple logical sessions
 
 ### Summary
