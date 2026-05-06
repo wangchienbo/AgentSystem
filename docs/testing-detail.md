@@ -984,3 +984,20 @@ This is an initial static validation pass for the refreshed harness. Live subset
   - first acquire returns `(True, None)`
   - concurrent state increments to `1`
   - release brings the counter back to `0`
+
+## 2026-05-06 - Post-atomic-acquire rerun observation
+
+### Commands
+- restarted `.venv` uvicorn service
+- reran operator subset with:
+  - `--wait-ready-seconds 60`
+  - `--delay 1`
+
+### Observed result
+- live log still shows repeated:
+  - `Concurrent query limit exceeded (5/5)`
+- the output report did not advance to a new passing summary during the observed run window
+
+### Interpretation
+- the atomic acquire fix was necessary, but it was not sufficient to eliminate the operator-subset concurrency failure signature
+- the next investigation should move from acquire/release mechanics to identifying why the same logical session (`session_user_skill_01`) accumulates or overlaps requests at runtime

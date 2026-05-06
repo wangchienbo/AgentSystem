@@ -123,6 +123,26 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Atomic acquire landed, but the operator subset still saturates one logical session
+
+### Summary
+Reran the operator-heavy subset after the atomic session-slot acquisition fix. The expected startup and descriptor issues stayed out of the way, but the live log still showed repeated `Concurrent query limit exceeded (5/5)` on `session_user_skill_01`. That means the race between permission check and reservation is no longer the whole story. The next investigation has to focus on why one logical session is still overlapping requests deeply enough to saturate the cap.
+
+### What Was Done
+- restarted the `.venv` uvicorn service
+- reran the operator-focused subset with:
+  - `--wait-ready-seconds 60`
+  - `--delay 1`
+- inspected `/tmp/agentsystem_phase3_subset.log`
+- observed the same dominant signature still repeating:
+  - `Concurrent query limit exceeded (5/5)`
+- updated `docs/testing-detail.md`
+  - recorded the post-atomic-acquire rerun outcome
+
+### Notes
+This is still useful narrowing. We now have evidence that the remaining blocker is not just a non-atomic admission race. Something higher in the runtime path is causing `session_user_skill_01` to keep stacking or retaining work under the same logical session.
+
+
 ## 2026-05-06: Session rate-limit acquire is now atomic
 
 ### Summary
