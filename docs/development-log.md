@@ -123,6 +123,26 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Canonical repo-coupled uvicorn path proved service-up viability
+
+### Summary
+Validated the exact start command hinted by the new readiness surface. The local HTTP service booted successfully under a bounded timeout run, which means the current repo-coupled startup path is viable and the remaining blocker for live subset validation is operational bring-up, not a broken server entrypoint.
+
+### What Was Done
+- Ran:
+  - `PYTHONPATH=/root/project/AgentSystem timeout 20s python3 -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port 80`
+- Observed successful runtime boot markers:
+  - `Application startup complete.`
+  - `Uvicorn running on http://0.0.0.0:80`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded the bounded startup validation under Phase 3.1
+- Updated `docs/testing-detail.md`
+  - captured the exact command and observed boot markers
+
+### Notes
+I'm glad we proved this concretely. It narrows the uncertainty a lot: the current start path works, so the next live subset run can proceed as an operational sequencing step instead of another startup-debugging exercise.
+
+
 ## 2026-05-06: Readiness checks now surface the canonical current start command
 
 ### Summary

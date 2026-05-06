@@ -181,6 +181,7 @@ Status: [x] initial static validation landed, [!] live subset blocked by service
 Status: [x] first service-readiness doctor slice landed
 - `agentsystem status` / `agentsystem doctor` now explicitly report config-file presence and local `http://localhost:80/api/status` reachability
 - the readiness surface now also exposes a canonical `suggested_start_command` for the current repo-coupled runtime path
+- validated that the canonical repo-coupled uvicorn start path can boot the service successfully (`application startup complete`, `Uvicorn running on http://0.0.0.0:80`) under a bounded timeout run
 - this gives Phase 3 service-up prep a concrete control-plane check before attempting long live subset or full baseline runs
 
 ### 4.2 Execute full pre-migration baseline

@@ -822,3 +822,18 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - results:
   - test suite: `7 passed`
   - doctor output includes the canonical start-command hint
+
+## 2026-05-06 - Canonical repo-coupled uvicorn startup validation
+
+### Command
+- `PYTHONPATH=/root/project/AgentSystem timeout 20s python3 -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port 80`
+
+### Observed output summary
+- runtime boot completed successfully
+- observed markers:
+  - `Application startup complete.`
+  - `Uvicorn running on http://0.0.0.0:80`
+  - graceful shutdown after timeout wrapper
+
+### Interpretation
+- the current repo-coupled start path is runnable and can bring the local service up; the earlier blocked subset run was caused by the service not being started, not by a broken uvicorn startup path.
