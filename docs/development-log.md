@@ -123,6 +123,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Warning-level rerun still showed stale-looking signatures, so process/log generation must be verified next
+
+### Summary
+After promoting the rate-limiter diagnostics to `warning`, reran the ready-gated subset again. The captured log still showed the old gateway-level block signature and even resurfaced the old `strategy_overview` dispatch error, but it did not show the newly promoted `RateLimiter acquire/release/...` warnings. That makes the next blocker less about business logic and more about ensuring the intended restarted server generation is actually the one serving the rerun and writing the inspected log.
+
+### What Was Done
+- restarted the `.venv` uvicorn service
+- reran the operator-focused subset with ready-state wait and delay
+- inspected the latest `/tmp/agentsystem_phase3_subset.log`
+- updated `docs/testing-detail.md`
+  - recorded that the promoted diagnostics still did not appear in the observed log slice and that stale-looking signatures resurfaced
+
+### Notes
+This is frustrating, but it is still a real narrowing step. If the inspected process generation is not the same code generation we just changed, then further runtime diagnosis from that log will be misleading. The next bounded move should verify server generation identity and log ownership before another behavioral fix.
+
+
 ## 2026-05-06: Concurrency diagnostics promoted to the active service log level
 
 ### Summary

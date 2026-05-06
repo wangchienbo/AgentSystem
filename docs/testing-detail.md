@@ -1053,3 +1053,21 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - direct smoke check now visibly emits:
   - `RateLimiter acquire: ...`
   - `RateLimiter release: ...`
+
+## 2026-05-06 - Warning-level diagnostic rerun observation
+
+### Commands
+- restarted `.venv` uvicorn service
+- reran operator subset with ready-state wait and delay
+- inspected the latest `/tmp/agentsystem_phase3_subset.log`
+
+### Observed result
+- log still prominently shows the old gateway-level block signature:
+  - `Rate limit blocked: session=... Concurrent query limit exceeded (5/5)`
+- the promoted warning-level `RateLimiter acquire/release/...` diagnostics still did not appear in the captured log slice
+- the same slice also still includes:
+  - `Invocation dispatch error: method strategy_overview not declared by asset:self_iteration_center:v1`
+
+### Interpretation
+- the rerun log suggests the effective service process/log capture path is still not reflecting the newest rate-limiter diagnostics consistently
+- before making more product-path fixes, the next bounded step should verify that the intended restarted server process is actually the one serving the subset run and that the captured log file belongs to that exact process generation
