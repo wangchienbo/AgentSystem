@@ -123,6 +123,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-06: Post-budget-widening rerun exposed a new deeper blocker, raw tool-call markup leaking into direct responses
+
+### Summary
+Reran the operator subset in a fresh generation after widening the operator-heavy turn budget. The observed slice no longer hit the previous immediate max-turn ceiling. Instead, a new deeper issue surfaced: one direct response leaked raw tool-call markup fragments such as `<tool_call>` and `<function=call_asset_method>` back into the assistant output.
+
+### What Was Done
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator-focused subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `695845`
+- updated `docs/testing-detail.md`
+  - recorded the deeper response-shape issue after the widened budget
+
+### Notes
+This is useful progress. The widened budget appears to have helped with the earlier ceiling in the observed slice, which let the next deeper defect become visible. The new target is response-shape correctness around tool-call output handling.
+
+
 ## 2026-05-06: Operator-heavy routes now get a wider turn budget
 
 ### Summary

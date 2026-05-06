@@ -1196,3 +1196,21 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - direct checks confirmed:
   - standard-install / app-delivery phrasing now returns `8`
   - generic greeting still returns `6`
+
+## 2026-05-06 - Post-budget-widening clean-generation observation
+
+### Commands
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `695845`
+
+### Observed result
+- early acquire/release behavior remained healthy
+- the first user turn in the observed slice completed directly without falling into a max-turn loop
+- subsequent operator-heavy turns went deeper, but a new issue surfaced:
+  - one turn returned a malformed direct response containing raw tool-call markup fragments such as `<tool_call>` / `<function=call_asset_method>`
+- the same slice also shows continued exploratory asset/tool selection on follow-up turns
+
+### Interpretation
+- widening the operator-heavy turn budget helped avoid the earlier immediate `Reached max turns (6)` ceiling in the observed slice
+- the next exposed blocker is now response-shape / tool-call rendering correctness, not the old early turn-budget ceiling
