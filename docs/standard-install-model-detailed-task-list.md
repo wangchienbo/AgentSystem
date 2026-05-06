@@ -14,19 +14,35 @@ Convert AgentSystem from repo-coupled runtime into a standard install model with
 ## 1. Phase 0 - Close existing unfinished task list first
 
 ### 1.1 Inventory unfinished current work
-- inspect current Phase Q / follow-up task docs
-- inspect recent commits after Wave 5/6/7 completion notes
-- identify items marked complete in docs but still partially implemented or weakly validated
-- identify any open gaps in change execution summary / acceptance plan / validation map chain
-- produce a compact unresolved-items list
+Status: [x] first merged unresolved-items pass landed
+- inspected current Phase Q / follow-up task docs
+- inspected recent commits after Wave 5/6/7 completion notes
+- identified items marked complete in docs but still partially implemented or weakly validated
+- identified open gaps in change execution summary / acceptance plan / validation map chain
+- produced a compact unresolved-items list and merged it into this task list
+
+Current merged unresolved items from older task lists and follow-up waves:
+- [ ] close remaining Phase R Wave 5 open slice items:
+  - derive changed-file intent from actual repo inspection plus task-list hints more directly
+  - reduce reliance on the single-work-item fallback for multi-command acceptance evidence mapping
+  - decide whether compact changed-file/result summaries should surface into a lighter operator-facing read model
+- [ ] verify there is no remaining HTTP compatibility drift between `/api/chat`, `/api/action`, gateway action payloads, and service-up consumers
+- [ ] close any remaining startup path cleanup/output cleanup deltas discovered while stabilizing long-run baseline execution
+- [ ] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts
+- [ ] explicitly track older closure-upgrade items that were conceptually merged but not yet fully closed:
+  - query/read fast-path for cheap count/status/list requests
+  - closure scoring split beyond raw response success
+  - run isolation metadata for long E2E analysis (`run_id`, `scenario_id`)
 
 ### 1.2 Close code-level loose ends
+Status: [ ] pending
 - finish any partially landed workflow/action/acceptance chain improvements
 - close any pending HTTP compatibility deltas
 - close any remaining path-cleanup/output-cleanup items discovered during service startup
 - verify no repo-root hard dependency remains in runnable code paths
 
 ### 1.3 Close validation and docs for old work
+Status: [ ] pending
 - run focused regression for remaining unfinished old tasks
 - update testing docs if any old task lacked evidence
 - update development log with final closure notes for these items
@@ -122,6 +138,7 @@ Status: [x] first install-model-sensitive scenario refresh landed
 - added natural-language turns covering status / doctor / runtime-layout / assets / restart / migrate-runtime / baseline-regression reasoning
 
 ### 3.4 Add scenario-end expectation checks
+Status: [x] already present in harness baseline contract, doc tracking refreshed
 - pull `/api/history/{session_id}` after each scenario
 - verify user turn count
 - verify assistant reply count
@@ -131,13 +148,19 @@ Status: [x] first install-model-sensitive scenario refresh landed
 - add room for scenario-specific expectation extensions later
 
 ### 3.5 Improve report output
+Status: [ ] pending
 - include scenario-end expectation pass/fail
 - include history validation failure reasons
 - include per-scenario verdict suitable for before/after diff
 - store structured report artifacts for baseline comparison
+- explicitly add fields for later closure-quality layering where possible:
+  - `scenario_id`
+  - run-level correlation metadata
+  - separation between transport/response success and richer closure interpretation when extended later
 
 ### 3.6 Validate enhanced harness
-- run small scenario subset first
+Status: [ ] pending
+- run small scenario subset first against the refreshed operator-heavy suite
 - fix harness bugs
 - update docs with exact usage and report paths
 - commit enhanced regression harness

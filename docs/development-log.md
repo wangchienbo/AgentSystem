@@ -9521,7 +9521,28 @@ tests/unit/test_rate_limiter.py::TestRateLimiter - 8 passed
 
 ---
 
-## Previous Entries
+## 2026-05-06: Standard-install task list and regression plan enriched with merged unresolved items
+
+### Summary
+Refreshed the current install-model planning docs so older closure-upgrade residue, current Phase R open slices, and the immediate pre-migration baseline queue are explicitly merged into the active task list instead of remaining only as conversational context.
+
+### What Was Done
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked the first unresolved-items inventory pass as landed
+  - merged remaining follow-up items from older task lists and current Phase R Wave 5 into Phase 0
+  - explicitly tracked still-open items around query/read fast-path, closure scoring, and E2E run-isolation metadata
+  - refreshed Phase 2 harness tasks with current operator-heavy baseline expectations and richer report-output goals
+- Updated `docs/install-model-regression-plan.md`
+  - recorded the distinction between the historical 2026-05-03 full 50x20 run and the not-yet-executed operator-strengthened pre-migration baseline
+  - added direct execution queue notes for the next baseline-closure steps
+  - captured suggested report-field enrichment for later scenario/run correlation
+
+### Validation
+- documentation/tasklist refinement only; no runtime behavior changed
+
+### Notes
+This update is important because the current workstream is no longer just “add install-model docs”. It now has an explicit merged queue from prior closure-upgrade work into the install-model baseline and migration path.
+
 
 ### 2026-04-22: Phase H+ Context Consumption in Lifecycle Commands
 - Modified `handle_start_app()` and `handle_stop_app()` to consume `context_hints`
