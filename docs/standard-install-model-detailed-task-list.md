@@ -28,7 +28,9 @@ Current merged unresolved items from older task lists and follow-up waves:
   - decide whether compact changed-file/result summaries should surface into a lighter operator-facing read model
 - [ ] verify there is no remaining HTTP compatibility drift between `/api/chat`, `/api/action`, gateway action payloads, and service-up consumers
   - [x] fixed multi-worker cookie session rehydration so `/login` → `/api/chat` no longer fails with `401 Not authenticated` when requests land on different uvicorn workers
-  - [ ] resolve the remaining provider/model mismatch surfaced by live `/api/chat` validation under the current 1seey config (`gpt-5.4` rejected as `model_not_found` in qwen group)
+  - [x] aligned the active 1seey model name with the user-channel provider config (`qwen3.6-plus` instead of `gpt-5.4`)
+  - [x] added a lightweight direct-answer fast path so obvious no-tool prompts no longer pay the native tool-calling route or trigger upstream 1seey tool-call 504s during basic service-up checks
+  - [ ] verify remaining tool-required routes still behave acceptably under the current 1seey upstream timeout profile
 - [ ] close any remaining startup path cleanup/output cleanup deltas discovered while stabilizing long-run baseline execution
   - [x] widened startup-script kill target and added port-free wait so repeated `start_phase3_subset_server.sh` restarts no longer race on `Address already in use`
 - [ ] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts

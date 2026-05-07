@@ -39,6 +39,7 @@ import json
 import logging
 import re
 from datetime import UTC, datetime
+from pathlib import Path
 
 from typing import Any
 
@@ -413,6 +414,11 @@ class ToolCallingInterpreter:
         if fast_path:
             return fast_path
 
+        # Tier 2.6: lightweight direct-answer fast path for obvious no-tool prompts
+        direct_answer = self._try_lightweight_direct_answer_fast_path(message)
+        if direct_answer:
+            return direct_answer
+
         if is_script_like_request(message):
             return self._run_script_first_route(message, user_id, session_id, available_apps)
 
@@ -494,6 +500,29 @@ class ToolCallingInterpreter:
             source="continuation_resume",
             requires_clarification=False,
         )
+
+    def _try_lightweight_direct_answer_fast_path(self, message: str) -> InterpretedCommand | None:
+        normalized = (message or "").strip()
+        if not normalized:
+            return None
+
+        no_tool_markers = (
+            "只回复",
+            "只回答",
+            "直接回答",
+            "一句话回答",
+            "不要调用工具",
+            "不用工具",
+        )
+        if any(marker in normalized for marker in no_tool_markers):
+            return InterpretedCommand(
+                intent="direct_response",
+                raw_input=message,
+                confidence=0.95,
+                parameters={},
+                source="lightweight_direct_answer_fast_path",
+            )
+        return None
 
     def _load_governor_text(self, relative_path: str) -> str:
         try:

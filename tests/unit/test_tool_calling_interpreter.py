@@ -121,6 +121,20 @@ def test_deterministic_prestep_records_telemetry_when_available() -> None:
     assert interpreter._telemetry_service.record_step.called is True
 
 
+def test_lightweight_direct_answer_fast_path_bypasses_tool_engine() -> None:
+    interpreter, execute_turns = _build_interpreter()
+
+    command = interpreter.interpret(
+        message="请只回复: ok",
+        user_id="u1",
+        session_id="sess-direct",
+        available_apps=[],
+    )
+
+    assert command.intent == "direct_response"
+    execute_turns.assert_not_called()
+
+
 def test_persistence_script_route_uses_deterministic_prestep_when_shell_succeeds() -> None:
     interpreter, execute_turns = _build_interpreter()
     execute_turns.return_value = ToolCallingResult(final_text="已基于脚本结果完成汇总", tool_calls=[])

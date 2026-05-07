@@ -10326,6 +10326,33 @@ This update is important because the current workstream is no longer just “add
 - 66 unit tests passing for LightBrain gateway/interpreter
 - Context hints now flow from interpreter through to workers and presenters
 
+## 2026-05-07: 1seey model alignment and lightweight direct-answer fast path
+
+### Summary
+Continued the Phase 0 HTTP/service-up closure after the multi-worker auth fix. The next live blocker was no longer session drift, but a provider mismatch and unnecessary native tool-calling pressure on obvious no-tool prompts under the 1seey route.
+
+### Fix Details
+**1. Aligned AgentSystem with the user-channel 1seey model config**
+- Verified the agent-side provider definition in `/root/.openclaw/openclaw.json`
+- Confirmed 1seey exposes `qwen3.6-plus`, not `gpt-5.4`
+- Updated the active AgentSystem config in `~/.config/agentsystem/config.yaml` so the 1seey route uses `qwen3.6-plus`
+
+**2. Added a lightweight direct-answer fast path before native tool calling**
+- Issue: obvious no-tool prompts such as `请只回复: ok` were still entering the full tool-calling interpreter path
+- Impact: on 1seey this basic service-up check could trigger expensive native tool-calling requests and upstream `504 Gateway Timeout`
+- Fix: `ToolCallingInterpreter.interpret()` now short-circuits obvious no-tool prompts (`只回复`, `只回答`, `直接回答`, `一句话回答`, `不要调用工具`, `不用工具`) into `direct_response` before the tool engine runs
+- Result: simple service-up prompts no longer pay the full tool route or depend on upstream tool-calling stability
+
+### Verification
+- Unit tests:
+  - `./.venv/bin/python -m pytest tests/unit/test_tool_calling_interpreter.py -k "lightweight_direct_answer_fast_path or script_route_uses_deterministic_prestep" -q`
+  - `./.venv/bin/python -m pytest tests/unit/test_http_test_server.py -k "rehydrate or compatible_workflow_contract_metadata" -q`
+  - Result: `2 passed` and `3 passed`
+- Live HTTP validation after restart:
+  - `POST /login` -> `200`, `session_id=session_tester`
+  - `POST /api/chat` with `请只回复: ok` -> `200`, `success=true`, `latency_ms=141`
+  - Response body returned immediately instead of entering the previous 1seey tool-calling 504 path
+
 ## 2026-05-07: Multi-worker HTTP session rehydration and startup restart cleanup
 
 ### Summary
