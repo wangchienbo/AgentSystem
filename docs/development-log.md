@@ -10326,7 +10326,32 @@ This update is important because the current workstream is no longer just “add
 - 66 unit tests passing for LightBrain gateway/interpreter
 - Context hints now flow from interpreter through to workers and presenters
 
-## 2026-04-22: E2E Clarification Fix
+## 2026-05-07: Multi-worker HTTP session rehydration and startup restart cleanup
+
+### Summary
+Closed two Phase 0 stabilization gaps discovered while validating the standard-install baseline on the real HTTP service.
+
+### Fix Details
+**1. Multi-worker auth drift on `/login` -> `/api/chat`**
+- Issue: after switching uvicorn to 4 workers, login and chat requests could land on different workers
+- Root cause: `get_current_user()` required `session_id` to already exist in the worker-local `user_sessions` dict
+- Fix: `app/system/http_test_server.py` now rehydrates a stable session record from the `session_id` cookie when local worker memory is empty, and seeds empty conversation history on demand
+- Result: real login + chat no longer fails with `401 Not authenticated` purely because requests hit different workers
+
+**2. Startup restart race in `start_phase3_subset_server.sh`**
+- Issue: repeated restarts could fail with `Address already in use`
+- Root cause: the script only killed one exact uvicorn command shape and did not wait for port 80 to become free before rebind
+- Fix: widened the kill pattern to `uvicorn app.system.http_test_server:app` and added a bounded port-free wait loop before startup
+- Result: back-to-back restart calls now converge instead of leaving the service down
+
+### Verification
+- Unit tests: `./.venv/bin/python -m pytest tests/unit/test_http_test_server.py -k "rehydrate or compatible_workflow_contract_metadata" -q`
+  - Result: `3 passed`
+- Live service validation:
+  - `POST /login` -> `200` with `session_id=session_tester`
+  - `POST /api/chat` after rehydrated cookie -> request reaches model layer and returns provider error instead of auth error
+  - Remaining blocker: current 1seey config rejects `gpt-5.4` with `503 model_not_found`, so the next closure item is model/provider alignment rather than HTTP/session drift
+
 
 ### Summary
 Fixed E2E test failure where clarification requests were being sent to bridge instead of waiting for user input.

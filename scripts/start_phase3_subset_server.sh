@@ -12,12 +12,21 @@ export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 : > "$LOG_PATH"
 printf '=== %s ===\n' "$MARKER" >> "$LOG_PATH"
 
-pkill -f "$PROJECT_DIR/.venv/bin/python3 -m uvicorn app.system.http_test_server:app" 2>/dev/null || true
+pkill -f "uvicorn app.system.http_test_server:app" 2>/dev/null || true
+
+for _ in $(seq 1 30); do
+  if ! ss -tln 2>/dev/null | grep -q ":${PORT} "; then
+    break
+  fi
+  sleep 1
+done
+
+WORKERS="${WORKERS:-4}"
 
 if [ -x "$PROJECT_DIR/.venv/bin/python3" ]; then
-  nohup "$PROJECT_DIR/.venv/bin/python3" -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port "$PORT" >> "$LOG_PATH" 2>&1 &
+  nohup "$PROJECT_DIR/.venv/bin/python3" -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" --timeout-keep-alive 120 >> "$LOG_PATH" 2>&1 &
 else
-  nohup python3 -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port "$PORT" >> "$LOG_PATH" 2>&1 &
+  nohup python3 -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" --timeout-keep-alive 120 >> "$LOG_PATH" 2>&1 &
 fi
 
 SERVER_PID=$!

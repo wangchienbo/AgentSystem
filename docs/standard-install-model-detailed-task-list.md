@@ -27,7 +27,10 @@ Current merged unresolved items from older task lists and follow-up waves:
   - reduce reliance on the single-work-item fallback for multi-command acceptance evidence mapping
   - decide whether compact changed-file/result summaries should surface into a lighter operator-facing read model
 - [ ] verify there is no remaining HTTP compatibility drift between `/api/chat`, `/api/action`, gateway action payloads, and service-up consumers
+  - [x] fixed multi-worker cookie session rehydration so `/login` → `/api/chat` no longer fails with `401 Not authenticated` when requests land on different uvicorn workers
+  - [ ] resolve the remaining provider/model mismatch surfaced by live `/api/chat` validation under the current 1seey config (`gpt-5.4` rejected as `model_not_found` in qwen group)
 - [ ] close any remaining startup path cleanup/output cleanup deltas discovered while stabilizing long-run baseline execution
+  - [x] widened startup-script kill target and added port-free wait so repeated `start_phase3_subset_server.sh` restarts no longer race on `Address already in use`
 - [ ] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts
 - [ ] explicitly track older closure-upgrade items that were conceptually merged but not yet fully closed:
   - query/read fast-path for cheap count/status/list requests

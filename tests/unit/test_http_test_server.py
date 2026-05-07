@@ -131,7 +131,48 @@ def test_api_chat_response_prefixes_verification_required_mode() -> None:
     assert data["structured_answer"]["self_model"]["answer_mode"] == "verification_required"
 
 
-def test_api_chat_exposes_compatible_workflow_contract_metadata() -> None:
+def test_login_cookie_can_rehydrate_session_when_worker_local_state_is_missing() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    fresh_client = TestClient(app)
+
+    login_response = fresh_client.post("/login", json={"username": "tester"})
+
+    assert login_response.status_code == 200
+    assert login_response.json()["session_id"] == "session_tester"
+
+    user_sessions.clear()
+
+    status_response = fresh_client.get("/api/history/session_tester")
+
+    assert status_response.status_code == 200
+    assert "session_tester" in user_sessions
+    assert user_sessions["session_tester"]["username"] == "tester"
+
+
+def test_api_chat_accepts_rehydrated_cookie_session() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    fresh_client = TestClient(app)
+
+    login_response = fresh_client.post("/login", json={"username": "tester"})
+    assert login_response.status_code == 200
+
+    user_sessions.clear()
+
+    from unittest.mock import AsyncMock, patch
+    from app.models.chat import ChatMessageResponse
+
+    fake_reply = ChatMessageResponse(type="text", content="ok", session_id="session_tester")
+
+    with patch("app.system.http_test_server.gateway.receive_message", new=AsyncMock(return_value=fake_reply)):
+        response = fresh_client.post("/api/chat", json={"message": "ping"})
+
+    assert response.status_code == 200
+    assert response.json()["response"] == "ok"
+    assert user_sessions["session_tester"]["username"] == "tester"
+
+
     user_sessions.clear()
     conversation_history.clear()
     user_sessions["session_tester"] = {

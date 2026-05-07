@@ -381,9 +381,22 @@ class ChatRequest(BaseModel):
 
 async def get_current_user(request: Request):
     session_id = request.cookies.get("session_id")
-    if not session_id or session_id not in user_sessions:
+    if not session_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return user_sessions[session_id]
+    existing = user_sessions.get(session_id)
+    if existing:
+        return existing
+
+    username = session_id[len("session_"):] if session_id.startswith("session_") and len(session_id) > len("session_") else "anonymous"
+    hydrated = {
+        "username": username,
+        "session_id": session_id,
+        "login_time": datetime.now().isoformat(),
+        "last_active": datetime.now().isoformat(),
+    }
+    user_sessions[session_id] = hydrated
+    conversation_history.setdefault(session_id, [])
+    return hydrated
 
 
 @app.get("/", response_class=FileResponse)
