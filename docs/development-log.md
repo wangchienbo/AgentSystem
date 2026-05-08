@@ -10326,6 +10326,31 @@ This update is important because the current workstream is no longer just “add
 - 66 unit tests passing for LightBrain gateway/interpreter
 - Context hints now flow from interpreter through to workers and presenters
 
+## 2026-05-08: Stabilized Phase 3 operator baseline path around gateway fallback leakage and service startup consistency
+
+### Summary
+Continued Phase 3 pre-migration baseline repair work by tightening three deterministic failure points in the operator-subset live path: duplicated gateway tool registration drift, raw bad-tool fallback leakage into user-facing replies, and multi-worker startup noise during subset reruns.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - removed the later duplicate gateway-side `call_asset_method` override so the earlier normalized handler remains authoritative
+  - kept fixed tool registration for `find_tool`, `ask_clarification`, and `unclear`
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - hardened `_apply_execution_fact_provenance(...)`
+  - suppress raw model final text containing bad-tool markers such as `Tool not found`, `does not exists`, and `does not exist`
+  - prevents these strings from leaking into user-visible fallback replies when the upstream model returns hallucinated plain text instead of proper tool calls
+- Updated `scripts/start_phase3_subset_server.sh`
+  - defaulted subset startup to `WORKERS=1` for cleaner Phase 3 baseline reruns
+  - preserves the earlier restart hardening while reducing multi-worker noise during focused operator scenario diagnosis
+
+### Validation
+- `python3 -m compileall app/bootstrap/runtime.py app/system/gateway/tool_calling_interpreter.py scripts/start_phase3_subset_server.sh`
+- `pytest -q tests/unit/test_tool_calling_interpreter.py`
+  - result: `22 passed`
+
+### Notes
+This slice does not fully solve upstream `chat_with_tools` instability from 1seey. Its purpose is to remove deterministic local pollution first so the next operator-subset rerun yields a cleaner signal: remaining failures should more clearly separate into provider 504/timeout behavior versus real product defects.
+
 ## 2026-05-08: Hardened streamed tool-call SSE aggregation to match OpenAI-style delta semantics
 
 ### Summary

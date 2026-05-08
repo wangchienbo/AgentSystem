@@ -1008,6 +1008,14 @@ PY"""
     def _apply_execution_fact_provenance(self, raw_input: str, result: Any) -> str:
         """Temporary pass-through until a tool-agnostic governance module is introduced."""
         final_text = (getattr(result, "final_text", "") or "").strip()
+        lowered = final_text.lower()
+        bad_tool_markers = (
+            "tool not found",
+            "does not exists",
+            "does not exist",
+        )
+        if any(marker in lowered for marker in bad_tool_markers):
+            return ""
         if "<tool_call>" in final_text or "<function=" in final_text:
             tool_calls = getattr(result, "tool_calls", []) or []
             if tool_calls:

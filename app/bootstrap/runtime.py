@@ -1042,6 +1042,25 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     for tool_name, handler in AGENTSYSTEM_INTERNAL_TOOL_HANDLERS.items():
         tool_calling_engine.register_tool(tool_name, handler)
 
+    def _find_tool_handler(query: str) -> dict[str, object]:
+        found = hot_tool_manager.discover_and_add("global", query)
+        return {"success": True, "tools": found, "query": query}
+
+    def _ask_clarification_handler(question: str, pending_intent: str = "unknown", missing_param: str = "unknown", suggested_values: list[str] | None = None) -> dict[str, object]:
+        return {
+            "question": question,
+            "pending_intent": pending_intent,
+            "missing_param": missing_param,
+            "suggested_values": suggested_values or [],
+        }
+
+    def _unclear_handler(reply: str = "我没理解你的意思,换个说法试试?") -> dict[str, object]:
+        return {"reply": reply}
+
+    tool_calling_engine.register_tool("find_tool", _find_tool_handler)
+    tool_calling_engine.register_tool("ask_clarification", _ask_clarification_handler)
+    tool_calling_engine.register_tool("unclear", _unclear_handler)
+
     for tool_def in FIXED_TOOLS:
         hot_tool_manager.register_tool(tool_def, fixed=True)
 

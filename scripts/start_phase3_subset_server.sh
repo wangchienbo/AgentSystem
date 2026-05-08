@@ -21,7 +21,7 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
-WORKERS="${WORKERS:-4}"
+WORKERS="${WORKERS:-1}"
 
 if [ -x "$PROJECT_DIR/.venv/bin/python3" ]; then
   nohup "$PROJECT_DIR/.venv/bin/python3" -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" --timeout-keep-alive 120 >> "$LOG_PATH" 2>&1 &
