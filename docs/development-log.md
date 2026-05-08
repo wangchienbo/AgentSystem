@@ -10326,6 +10326,26 @@ This update is important because the current workstream is no longer just “add
 - 66 unit tests passing for LightBrain gateway/interpreter
 - Context hints now flow from interpreter through to workers and presenters
 
+## 2026-05-08: Increased operator-heavy gateway turn budget to reduce premature truncation in Phase 3 live baseline
+
+### Summary
+After removing the deterministic prompt/handler and raw bad-tool leakage issues, the remaining Phase 3 operator-subset blocker shifted to loop convergence. Several operator-heavy live scenarios were still ending with `[Reached max turns]` before producing a usable final reply. The next smallest stabilization step was to relax the gateway turn budget specifically for operator-oriented requests.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - adjusted `choose_turn_budget(...)`
+  - preserved introspection requests at `8` turns
+  - preserved script-like requests at `10` turns
+  - increased operator-heavy requests from `8` to `12` turns
+
+### Validation
+- `python3 -m compileall app/system/gateway/tool_calling_interpreter.py`
+- `pytest -q tests/unit/test_tool_calling_interpreter.py`
+  - result: `22 passed`
+
+### Notes
+This is intentionally a narrow live-baseline stabilization change, not a final policy answer. The next step is to rerun `S12` in isolation so we can measure whether the remaining issue is mostly turn-budget pressure or continued provider/tool-selection inefficiency.
+
 ## 2026-05-08: Stabilized Phase 3 operator baseline path around gateway fallback leakage and service startup consistency
 
 ### Summary

@@ -293,7 +293,7 @@ def choose_turn_budget(message: str) -> int:
     if is_script_like_request(message):
         return 10
     if any(keyword in text for keyword in operator_heavy_keywords):
-        return 8
+        return 12
     return 6
 
 
