@@ -10326,6 +10326,26 @@ This update is important because the current workstream is no longer just “add
 - 66 unit tests passing for LightBrain gateway/interpreter
 - Context hints now flow from interpreter through to workers and presenters
 
+## 2026-05-08: Removed lightweight direct-answer fast path to keep gateway behavior on the unified interpreter path
+
+### Summary
+Backed out the short-lived lightweight direct-answer fast path that had been added before native tool calling. The gateway now keeps obvious "just answer" prompts on the same unified interpreter route instead of introducing a separate pre-tool shortcut branch.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - removed the pre-tool `lightweight direct-answer fast path` branch from `ToolCallingInterpreter.interpret()`
+  - removed `_try_lightweight_direct_answer_fast_path(...)`
+- Updated `tests/unit/test_tool_calling_interpreter.py`
+  - removed the unit test that asserted bypass behavior for the deleted fast path
+
+### Validation
+- `pytest -q tests/unit/test_tool_calling_interpreter.py`
+  - result: `22 passed`
+- `python3 -m compileall app/system/gateway/tool_calling_interpreter.py`
+
+### Notes
+This keeps the gateway behavior simpler and avoids carrying a special-case shortcut path that diverges from the main interpreter execution model.
+
 ## 2026-05-07: 1seey model alignment and lightweight direct-answer fast path
 
 ### Summary
