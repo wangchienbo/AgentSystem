@@ -65,8 +65,9 @@ def _safe_json(response: httpx.Response) -> dict:
 
 def _parse_sse_json_text(raw_text: str) -> dict:
     chunks: list[str] = []
-    tool_calls: list[dict[str, Any]] = []
+    tool_call_map: dict[int, dict[str, Any]] = {}
     finish_reason = "stop"
+
     for line in raw_text.splitlines():
         if not line.startswith("data: "):
             continue
@@ -83,6 +84,7 @@ def _parse_sse_json_text(raw_text: str) -> dict:
         choice0 = choices[0] or {}
         delta = choice0.get("delta") or {}
         finish_reason = choice0.get("finish_reason") or finish_reason
+
         content = delta.get("content")
         if isinstance(content, str) and content:
             chunks.append(content)
@@ -92,10 +94,37 @@ def _parse_sse_json_text(raw_text: str) -> dict:
                     text_part = item.get("text")
                     if isinstance(text_part, str) and text_part:
                         chunks.append(text_part)
+
         tc = delta.get("tool_calls")
         if isinstance(tc, list):
-            tool_calls.extend(x for x in tc if isinstance(x, dict))
+            for item in tc:
+                if not isinstance(item, dict):
+                    continue
+                idx = item.get("index", 0)
+                if not isinstance(idx, int):
+                    try:
+                        idx = int(idx)
+                    except Exception:
+                        idx = 0
+                current = tool_call_map.setdefault(idx, {
+                    "id": "",
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                })
+                if item.get("id"):
+                    current["id"] = item["id"]
+                if item.get("type"):
+                    current["type"] = item["type"]
+                fn = item.get("function") or {}
+                if isinstance(fn, dict):
+                    if isinstance(fn.get("name"), str) and fn.get("name"):
+                        current.setdefault("function", {}).update({"name": fn["name"]})
+                    if isinstance(fn.get("arguments"), str) and fn.get("arguments"):
+                        existing = str(current.setdefault("function", {}).get("arguments", ""))
+                        current["function"]["arguments"] = existing + fn["arguments"]
+
     text = "".join(chunks)
+    tool_calls = [tool_call_map[idx] for idx in sorted(tool_call_map.keys())]
     return {
         "choices": [{"message": {"content": text, "tool_calls": tool_calls}, "finish_reason": finish_reason}],
         "usage": {},

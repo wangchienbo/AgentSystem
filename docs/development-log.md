@@ -10326,6 +10326,95 @@ This update is important because the current workstream is no longer just “add
 - 66 unit tests passing for LightBrain gateway/interpreter
 - Context hints now flow from interpreter through to workers and presenters
 
+## 2026-05-08: Hardened streamed tool-call SSE aggregation to match OpenAI-style delta semantics
+
+### Summary
+While debugging Phase 3 live baseline instability, it became clear that the local SSE parser for chat completions was too naive for OpenAI-style streamed tool calls. It simply appended raw `delta.tool_calls` items instead of merging them by `index` and incrementally reconstructing `function.arguments`. That would break any upstream provider returning tool calls in standard streamed chunks.
+
+### What Was Done
+- Updated `app/ai/model_client.py`
+  - rewrote `_parse_sse_json_text(...)` to aggregate streamed `delta.tool_calls`
+  - merge tool-call fragments by `index`
+  - preserve `id`, `type`, and `function.name`
+  - incrementally concatenate `function.arguments` across chunks
+  - emit a normalized final `message.tool_calls` array equivalent to the non-streaming OpenAI shape
+- Added focused unit tests in `tests/unit/test_model_client_stream_tool_calls.py`
+  - verifies single streamed tool call with split argument chunks
+  - verifies multiple concurrent tool calls are aggregated independently by index
+
+### Validation
+- `python3 -m compileall app/ai/model_client.py`
+- `pytest -q tests/unit/test_model_client_stream_tool_calls.py`
+  - result: `2 passed`
+- `pytest -q tests/unit/test_tool_calling_interpreter.py`
+  - result: `22 passed`
+
+### Notes
+Current `chat_with_tools(...)` still prefers non-streaming mode for compatibility, but this parser hardening removes a correctness gap in the streaming fallback path and aligns local assumptions with standard OpenAI streamed tool-call semantics.
+
+## 2026-05-08: Suppressed raw `Tool xxx does not exists.` leak in gateway user-facing fallback path
+
+### Summary
+Even after tool registration cleanup, the live Phase 3 S12 run still surfaced raw fallback strings like `Tool call_asset_method does not exists.` in user-visible responses. The deeper issue is that the gateway currently trusts arbitrary model final text when no tool call is returned, then wraps it with the light-verification prefix. That means provider hallucinations about missing tools leak directly to users.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - hardened `_apply_execution_fact_provenance(...)`
+  - if final text contains known bad-tool markers such as `Tool not found`, `does not exists`, or `does not exist`, the interpreter now suppresses that raw text instead of forwarding it into the user-facing fallback response path
+- This does not solve the upstream tool-calling reliability issue itself, but it prevents the deterministic bad fallback text from polluting Phase 3 baseline user responses
+
+### Validation
+- `python3 -m compileall app/system/gateway/tool_calling_interpreter.py`
+
+### Notes
+This is a containment fix. The remaining core issues are still:
+1. provider-side `chat_with_tools` instability (504 / occasional 400)
+2. model returning plain-text claims about tools instead of proper tool calls
+Those need separate routing / retry / prompt-surface hardening work after the leak is blocked.
+
+## 2026-05-08: Removed duplicate gateway override that reintroduced bad `Tool xxx does not exists.` fallback
+
+### Summary
+The first Phase 3 stabilization attempt correctly registered the missing gateway handlers, but live S12 still produced `Tool call_asset_method does not exists.` and similar strings. Root cause was a later duplicate registration block in `app/bootstrap/runtime.py` that overwrote the earlier working `call_asset_method` handler with a gateway-specific lambda returning `.__dict__`, while also preserving the broader bad-fallback behavior in live chat paths. Removing that duplicate override restored the intended single handler path.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - removed the later duplicate `call_asset_method` override in the HotToolManager/bootstrap section
+  - kept `find_tool`, `ask_clarification`, and `unclear` registration there
+  - preserved the earlier normalized `call_asset_method` handler that returns `{success, data, error}`
+- Kept the Phase 3 subset server default at one worker for cleaner baseline validation while isolating upstream timeout noise
+
+### Validation
+- `python3 -m compileall app/bootstrap/runtime.py`
+- previous direct runtime inspection already confirmed the engine tool table contains:
+  - `exec_shell`, `read_file`, `write_file`, `edit_file`, `list_files`, `search_files`
+  - `find_tool`, `call_asset_method`, `ask_clarification`, `unclear`
+
+### Notes
+The remaining failures in the latest S12 rerun split into two buckets:
+1. deterministic bad-fallback text (`Tool xxx does not exists.`), now traced to the duplicate gateway override path and removed
+2. real upstream `chat_with_tools` 504/timeouts from 1seey, which still need separate handling after the deterministic fallback is cleared
+
+## 2026-05-08: Registered fixed gateway tool handlers to align prompt exposure with executable tool surface
+
+### Summary
+While advancing the standard-install Phase 3 baseline, the operator-focused live subset exposed a deterministic gateway bug: several tools were shown to the model in the prompt (`call_asset_method`, `find_tool`, `ask_clarification`, `unclear`) but had no matching handlers registered in `ToolCallingEngine`. This caused user-visible fallback text like `Tool call_asset_method does not exists.` and polluted the baseline signal.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - registered executable handlers for `find_tool`, `ask_clarification`, and `unclear`
+  - registered `call_asset_method` through `asset_tool_executor.execute(...)`
+  - kept the fixed hot-tool exposure and executable tool registration aligned so exposed fixed tools are now callable
+
+### Validation
+- `python3 -m compileall app/bootstrap/runtime.py`
+- `pytest -q tests/unit/test_tool_calling_interpreter.py`
+  - result: `22 passed`
+- started a focused live rerun for scenario `S12` against `http://localhost:80` to verify the previous `Tool xxx does not exists.` failure mode is removed
+
+### Notes
+This is a Phase 3 baseline-stabilization fix. It removes a local deterministic defect first so the next live rerun can surface the remaining true blockers more cleanly, especially upstream 1seey `chat_with_tools` timeout behavior.
+
 ## 2026-05-08: Removed lightweight direct-answer fast path to keep gateway behavior on the unified interpreter path
 
 ### Summary
