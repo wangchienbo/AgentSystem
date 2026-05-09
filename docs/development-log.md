@@ -148,6 +148,29 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Refreshed the Phase 0 unresolved-items summary so the task list matches the actual operator-heavy validation state
+
+### Summary
+By this point, the operator-heavy live subset work had moved well beyond the original broad note about upstream timeout/convergence handling. Multiple bounded local hardening steps had already landed, and the true remaining blocker had narrowed to unstable provider behavior preventing the final clean validation window. I updated the task list summary itself so the Phase 0 closure section accurately reflects the current state instead of leaving an underspecified stale note.
+
+### What Was Done
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - expanded the unresolved-item note under the current `1seey + GLM-5.1 timeout profile` closure line
+  - recorded the local hardening layers already landed:
+    - operator-heavy guidance hardening
+    - tool-surface narrowing
+    - repeated `call_asset_method` loop guard
+    - post-loop-guard answer shaping
+    - stale subset-server cleanup hardening
+    - early tool-route retry/timeout patience hardening
+  - clarified that the current remaining blocker is provider-side instability (`504` / read timeout), not local route wandering or local HTTP drift
+- Updated `docs/testing-detail.md`
+  - added a task-list closure note mirroring the refreshed state
+
+### Notes
+This keeps the active task list aligned with reality, which matters because the user explicitly asked to continue by task-list order rather than by ad-hoc memory of the previous reruns.
+
+
 ## 2026-05-10: Patience hardening reached the live path, but upstream 504s still blocked clean validation
 
 ### Summary

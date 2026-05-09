@@ -34,6 +34,14 @@ Current merged unresolved items from older task lists and follow-up waves:
     - added an explicit `tool_required_probe` to `tests/scripts/e2e_self_iteration_service_up.py`
     - bounded live rerun now passes ready/login/basic-chat but stalls after entering the real upstream `chat_with_tools` path for the tool-required probe
     - remaining closure item is upstream tool-calling timeout/convergence handling, not local HTTP contract drift
+    - follow-up live subset work confirmed a phased local convergence hardening path landed:
+      - operator-heavy guidance hardening
+      - operator-heavy tool-surface narrowing
+      - repeated `call_asset_method` loop guard
+      - post-loop-guard answer shaping
+      - stale subset-server cleanup hardening
+      - early tool-route retry/timeout patience hardening
+    - current remaining blocker is no longer local route wandering, but unstable upstream provider behavior (`504` / read timeout) preventing a clean final validation window for the operator-heavy subset
 - [ ] close any remaining startup path cleanup/output cleanup deltas discovered while stabilizing long-run baseline execution
   - [x] widened startup-script kill target and added port-free wait so repeated `start_phase3_subset_server.sh` restarts no longer race on `Address already in use`
 - [ ] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts

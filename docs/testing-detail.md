@@ -1474,3 +1474,18 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - the patience hardening was wired correctly and reached the live path
 - the remaining blocker for this rerun attempt was still upstream 504 behavior, not a fresh local regression in the operator-heavy convergence fixes
+
+## 2026-05-10 - Task-list closure note for remaining tool-required route validation
+
+### Summary
+- local convergence hardening for the operator-heavy subset is now layered and live:
+  - guidance hardening
+  - tool-surface narrowing
+  - repeated `call_asset_method` loop guard
+  - post-loop-guard answer shaping
+  - stale subset-server cleanup hardening
+  - early tool-route patience hardening
+- the current remaining blocker for the unresolved tool-required validation item is upstream provider instability (`504` / read timeout), not newly observed local HTTP drift or unconstrained local wandering
+
+### Task-list impact
+- refreshed `docs/standard-install-model-detailed-task-list.md` so the unresolved-item summary reflects the current state of Phase 0 closure work
