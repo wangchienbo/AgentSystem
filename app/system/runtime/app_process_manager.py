@@ -84,7 +84,7 @@ class AppProcessManager:
         if env:
             full_env.update(env)
 
-        work_dir = cwd or os.getcwd()
+        work_dir = str((Path(cwd).expanduser() if cwd else self._data_dir).resolve())
 
         try:
             proc = subprocess.Popen(

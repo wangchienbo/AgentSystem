@@ -1507,3 +1507,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
 - `python3 -m pytest tests/unit/test_cli.py -q`
   - `7 passed`
+
+## 2026-05-10 - Runtime subprocess default cwd repo-root dependency tightening
+
+### Targets
+- `app/system/runtime/app_process_manager.py`
+- `app/system/workers/app_mgmt.py`
+
+### Trigger
+- continuing the Phase 0 repo-root dependency closure work surfaced that subprocess launch paths still defaulted `cwd` to `os.getcwd()`, which silently ties runtime behavior to the current repo checkout location
+
+### Changes
+- `AppProcessManager.start_app_process(...)`
+  - default subprocess `cwd` now resolves to `self._data_dir` when no explicit `cwd` is provided
+- `AppManagementWorker._launch_subprocess(...)`
+  - default subprocess `cwd` now resolves to `AGENTSYSTEM_DATA_DIR` (falling back to `data`) when no explicit `cwd` is provided
+  - added `Path` import for normalized path resolution
+
+### Validation
+- `python3 -m py_compile app/system/runtime/app_process_manager.py app/system/workers/app_mgmt.py`
+- direct check confirmed default resolved cwd now points at the runtime data root rather than the current shell cwd

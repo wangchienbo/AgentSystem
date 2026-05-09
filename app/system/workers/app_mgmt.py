@@ -9,6 +9,7 @@ import logging
 import os
 import signal
 import subprocess
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -190,7 +191,8 @@ class AppManagementWorker:
         cmd = entry_point
         env = {**os.environ}
         env.update(params.get("env", {}))
-        cwd = params.get("cwd", os.getcwd())
+        runtime_data_dir = Path(os.environ.get("AGENTSYSTEM_DATA_DIR", "data"))
+        cwd = str((Path(params.get("cwd") or runtime_data_dir).expanduser()).resolve())
         try:
             proc = subprocess.Popen(
                 shlex.split(cmd) if " " in cmd else [cmd],

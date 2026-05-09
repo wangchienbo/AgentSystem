@@ -148,6 +148,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Tightened default subprocess cwd handling so runtime launch paths stop inheriting repo checkout cwd implicitly
+
+### Summary
+Continuing the Phase 0 repo-root dependency closure work, I inspected the runtime subprocess launch paths and found another concrete implicit repo-root assumption: when no explicit `cwd` was provided, both the app process manager and app-management worker fell back to `os.getcwd()`. That means runtime behavior quietly depended on whatever directory the server happened to be launched from, which is exactly the kind of hidden repo-coupling that will break during installed-runtime migration. I replaced those defaults with runtime-data-root-based paths.
+
+### What Was Done
+- Updated `app/system/runtime/app_process_manager.py`
+  - `start_app_process(...)` now resolves default subprocess `cwd` to `self._data_dir` when no explicit `cwd` is provided
+- Updated `app/system/workers/app_mgmt.py`
+  - `_launch_subprocess(...)` now resolves default subprocess `cwd` from `AGENTSYSTEM_DATA_DIR` (falling back to `data`) instead of inheriting `os.getcwd()`
+  - added `Path` import for normalized path resolution
+- Updated `docs/testing-detail.md`
+  - recorded the runtime subprocess cwd tightening and validation evidence
+
+### Validation
+- `python3 -m py_compile app/system/runtime/app_process_manager.py app/system/workers/app_mgmt.py`
+- direct check confirmed the default resolved cwd now points at the runtime data root rather than the current shell cwd
+
+### Notes
+This closes another concrete repo-root dependency surfaced while working through the current Phase 0 unresolved item. It is a more meaningful runtime-facing fix than the previous test-contract cleanup because it changes actual subprocess behavior, not just assertions.
+
+
 ## 2026-05-10: Closed a concrete repo-root assumption in the CLI runtime-layout/test contract
 
 ### Summary
