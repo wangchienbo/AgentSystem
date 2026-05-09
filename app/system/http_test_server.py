@@ -66,9 +66,25 @@ def _build_http_response_contract(llm_resp: object) -> dict[str, object]:
             response["context_view"] = data.get("context_view")
     return response
 
-from app.system.regression_governance_policy import build_governance_rollout_operator_summary
+def _build_http_success_response(
+    *,
+    llm_resp: object,
+    session_id: str,
+    response_text: str,
+    structured_answer: object | None,
+    latency_ms: int,
+) -> dict[str, object]:
+    response_contract = _build_http_response_contract(llm_resp)
+    return {
+        "success": True,
+        "response": response_text,
+        "structured_answer": structured_answer.model_dump() if structured_answer else None,
+        "session_id": session_id,
+        "latency_ms": latency_ms,
+        **response_contract,
+    }
 
-logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 RUNTIME_TRACE_BUILD = "2026-04-30-observe-1"
@@ -538,15 +554,13 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
                 structured_answer=structured_answer.model_dump() if structured_answer else None,
             )
         )
-        response_contract = _build_http_response_contract(llm_resp)
-        return {
-            "success": True,
-            "response": response_text,
-            "structured_answer": structured_answer.model_dump() if structured_answer else None,
-            "session_id": session_id,
-            "latency_ms": latency_ms,
-            **response_contract,
-        }
+        return _build_http_success_response(
+            llm_resp=llm_resp,
+            session_id=session_id,
+            response_text=response_text,
+            structured_answer=structured_answer,
+            latency_ms=latency_ms,
+        )
     except Exception as e:
         finished_at = datetime.now()
         latency_ms = int((finished_at - started_at).total_seconds() * 1000)
@@ -674,15 +688,13 @@ async def api_action(req: ActionRequest, user: dict = Depends(get_current_user))
             "content": response_text,
             "timestamp": finished_at.isoformat(),
         })
-        response_contract = _build_http_response_contract(llm_resp)
-        return {
-            "success": True,
-            "response": response_text,
-            "structured_answer": structured_answer.model_dump() if structured_answer else None,
-            "session_id": session_id,
-            "latency_ms": latency_ms,
-            **response_contract,
-        }
+        return _build_http_success_response(
+            llm_resp=llm_resp,
+            session_id=session_id,
+            response_text=response_text,
+            structured_answer=structured_answer,
+            latency_ms=latency_ms,
+        )
     except Exception as e:
         logger.exception("LLM action failed")
         error_text = str(e)
