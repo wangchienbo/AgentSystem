@@ -763,7 +763,7 @@ def main():
     else:
         print(f"  ❌ 服务不可达: {ready_detail}")
         print(f"  请先启动 AgentSystem 服务:")
-        print(f"    cd <repo-root> && bash start_web_server.sh")
+        print(f"    在项目目录执行: bash start_web_server.sh")
         sys.exit(1)
 
     # Run tests

@@ -148,6 +148,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Tightened human-facing validation guidance so it no longer teaches repo-root-coupled startup phrasing
+
+### Summary
+Continuing the same Phase 0 repo-root dependency cleanup, I also swept the validation scripts for softer but still persistent repo-root assumptions. Several E2E/testing helpers still told operators to run startup commands through `cd <repo-root> ...`. That does not change runtime code directly, but it does keep reinforcing the old repo-coupled mental model in the validation workflow. I rewrote those instructions to use project-directory phrasing instead.
+
+### What Was Done
+- Updated `tests/scripts/e2e_detailed_tests.py`
+- Updated `tests/scripts/e2e_interactive_tests.sh`
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - replaced `cd <repo-root> ...` guidance with `在项目目录执行 ...`
+  - preserved the same startup commands while removing the hardcoded repo-root phrasing
+- Updated `docs/testing-detail.md`
+  - recorded the validation-guidance cleanup and verification evidence
+
+### Validation
+- `python3 -m py_compile tests/scripts/e2e_detailed_tests.py tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `bash -n tests/scripts/e2e_interactive_tests.sh`
+
+### Notes
+This is a lighter closure slice than the runtime/workspace fixes, but it still matters because the validation path should stop teaching operators that repo-root coupling is the expected normal state.
+
+
 ## 2026-05-10: Tightened pipeline executor default workspace so orchestration no longer inherits repo launch cwd implicitly
 
 ### Summary

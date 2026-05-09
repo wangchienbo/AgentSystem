@@ -1547,3 +1547,21 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - direct check confirmed:
   - without env override, default workspace resolves to the runtime data root
   - with `AGENTSYSTEM_DATA_DIR=/tmp/agentsystem-runtime-data`, both executors adopt that runtime path
+
+## 2026-05-10 - Validation script startup guidance repo-root assumption tightening
+
+### Targets
+- `tests/scripts/e2e_detailed_tests.py`
+- `tests/scripts/e2e_interactive_tests.sh`
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+### Trigger
+- continuing the Phase 0 repo-root dependency cleanup surfaced that several validation scripts still told operators to run commands via `cd <repo-root> ...`, which preserved an unnecessary repo-root assumption in the human-facing validation path
+
+### Changes
+- rewrote startup guidance strings to say "在项目目录执行 ..." instead of embedding `cd <repo-root>` examples
+- preserved the same startup commands while removing the hardcoded repo-root phrasing from validation instructions
+
+### Validation
+- `python3 -m py_compile tests/scripts/e2e_detailed_tests.py tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `bash -n tests/scripts/e2e_interactive_tests.sh`

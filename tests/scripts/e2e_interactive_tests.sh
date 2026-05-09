@@ -3,7 +3,7 @@
 # AgentSystem 端到端 HTTP 交互测试指令集
 # ===========================================================================
 # 用法:
-#   1. 启动服务: cd <repo-root> && python3 -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+#   1. 启动服务: 在项目目录执行 `python3 -m uvicorn app.api.main:app --host 0.0.0.0 --port 8000`
 #   2. 运行测试: bash tests/scripts/e2e_interactive_tests.sh
 #
 # 基础 URL（可通过环境变量覆盖）
