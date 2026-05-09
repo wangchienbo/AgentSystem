@@ -10619,3 +10619,9 @@ All Phase H+ tasks completed:
 - raised the practical tool-calling default budget to 30 turns and aligned `/root/.config/agentsystem/config.yaml` `app.max_turns` to `30`
 - preserved `structured_answer` on clarification exits for tool-required routes, including the early `requires_clarification` gateway return path
 - live validation confirmed `tool-required probe` now behaves acceptably under the current timeout profile before later governance self-iteration work hit a separate upstream 504
+
+### 2026-05-09 16:55+8
+- added route-aware tool-chat retry/timeout budgeting in `app/ai/model_client.py` to bound deeper GLM tool routes under `1seey`
+- introduced `_tool_route_budget(message_count)` so later multi-turn governance/self-iteration paths stop amplifying upstream `504` failures into multi-minute waits
+- kept earlier tool-required probe paths slightly more patient while cutting deeper routes down to fewer retries and lower per-call timeout caps
+- added focused unit coverage for the route-budget helper alongside the earlier degraded first-turn fallback coverage

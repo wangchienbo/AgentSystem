@@ -145,6 +145,21 @@ def _safe_chat_completion_payload(response: httpx.Response) -> dict:
     )
 
 
+def _tool_route_budget(message_count: int) -> tuple[int, float]:
+    """Return (max_attempts, timeout_seconds_cap) for tool-chat routes.
+
+    Keep early short routes a bit more patient, but bound later deeper routes so
+    governance self-iteration does not amplify a single upstream 504 into minutes.
+    """
+    if message_count >= 8:
+        return 1, 45.0
+    if message_count >= 6:
+        return 2, 50.0
+    if message_count >= 4:
+        return 2, 55.0
+    return 3, 60.0
+
+
 class OpenAIResponsesClient:
     def __init__(self, config: ModelConfig, api_key: str) -> None:
         self._config = config
@@ -332,16 +347,20 @@ class OpenAIResponsesClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        with httpx.Client(timeout=self._config.timeout_seconds) as client:
+        tool_route_max_attempts, tool_route_timeout_cap = _tool_route_budget(len(messages))
+        effective_timeout_seconds = min(self._config.timeout_seconds, tool_route_timeout_cap)
+        with httpx.Client(timeout=_build_timeout(effective_timeout_seconds)) as client:
             tool_names = [tool.get("function", {}).get("name") for tool in tools]
             logger.info(
-                "ModelClient.chat_with_tools model=%s tool_names=%s message_count=%s",
+                "ModelClient.chat_with_tools model=%s tool_names=%s message_count=%s max_attempts=%s timeout_cap=%s",
                 model_name,
                 tool_names,
                 len(messages),
+                tool_route_max_attempts,
+                effective_timeout_seconds,
             )
             last_error: Exception | None = None
-            max_attempts = 4
+            max_attempts = tool_route_max_attempts
             transient_statuses = {502, 503, 504}
             for attempt in range(max_attempts):
                 try:

@@ -1276,3 +1276,8 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - verified `PYTHONPATH=/root/project/AgentSystem python3 -m scripts.model_probe` returns `MODEL_PROBE_OK` after routing `request()/probe()` via `chat/completions` for `wire_api=openai-completions`
 - verified `tool-required probe` no longer fails with `[Reached max turns (6)]` and now preserves `tool_required` structured-answer semantics through clarification exits
 - latest live service-up run advanced past `tool-required probe`, `draft continuation path`, `restart-bounded continuation recovery`, and `draft apply action` before a later governance self-iteration cycle hit an upstream `504` on turn 4
+
+### 2026-05-09 route-aware tool-chat budgeting
+- verified `_tool_route_budget()` returns tighter `(max_attempts, timeout_cap)` pairs as tool-route message history deepens
+- verified targeted tool-calling engine tests still pass after introducing bounded retry/timeout policy for deeper GLM tool routes
+- next live target remains the later governance self-iteration cycle that previously hit `1seey` `504` on turn 4

@@ -19,7 +19,7 @@ Usage:
         system_prompt="你是监控分析助手...",
         user_message="CPU 使用率异常",
         tools=[...],  # tool definitions
-        max_turns=100,
+        max_turns=30,
     )
 """
 from __future__ import annotations

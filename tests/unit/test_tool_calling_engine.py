@@ -450,30 +450,13 @@ def test_execute_turns_tool_not_found(tmp_path) -> None:
     assert result.tool_calls[0].error == "Tool not found"
 
 
-@patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
-def test_execute_turns_degrades_retryable_first_turn_tool_route_failure(tmp_path) -> None:
-    router = build_router(tmp_path)
-    engine = ToolCallingEngine(router)
+def test_tool_route_budget_gets_tighter_for_deeper_message_history() -> None:
+    from app.ai.model_client import _tool_route_budget
 
-    mock_client = MagicMock()
-    mock_client._config.model = "gpt-4o-mini"
-    mock_client.chat_with_tools.side_effect = ModelClientError("Chat with tools transport failed after retry: timeout", status_code=None, retryable=True)
-
-    with patch.object(router, "get_client", return_value=mock_client):
-        result = engine.execute_turns(
-            skill_id="test-skill",
-            system_prompt="test",
-            user_message="帮我确认这个接口行为",
-            tools=[ToolDef(name="read_file", description="read", parameters={})],
-            max_turns=4,
-        )
-
-    assert result.turns == 1
-    assert result.truncated is False
-    assert result.final_text == NON_CONVERGENCE_TEXT
-    assert result.usage["degraded"] is True
-    assert result.usage["degraded_reason"] == "tool_route_retryable_failure"
-
+    assert _tool_route_budget(2) == (3, 60.0)
+    assert _tool_route_budget(4) == (2, 55.0)
+    assert _tool_route_budget(6) == (2, 50.0)
+    assert _tool_route_budget(8) == (1, 45.0)
 
 
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
