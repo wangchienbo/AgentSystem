@@ -148,6 +148,21 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Fresh validation of post-loop-guard answer shaping was interrupted by upstream model transport timeout
+
+### Summary
+I immediately followed the answer-shaping change with another clean-generation rerun. The route entered the expected operator-heavy path correctly, but the live slice was interrupted before the first tool-selection cycle could complete because the upstream model layer hit a transport read timeout. This means the new answer-shaping behavior still needs one clean live validation pass; the current failed attempt does not indicate a new local regression.
+
+### What Was Done
+- restarted the subset server cleanly and reran the operator-focused subset
+- inspected the fresh generation tied to server PID `1947449`
+- updated `docs/testing-detail.md`
+  - recorded the upstream timeout and the fact that local route setup still looked correct before the stall
+
+### Notes
+This rerun failure is important to record because it prevents a false conclusion. At this point the dominant issue for this attempt was model transport instability (`The read operation timed out`), not a fresh tool-path or answer-shaping regression inside AgentSystem.
+
+
 ## 2026-05-10: Added post-loop-guard answer shaping for operator-facing closure
 
 ### Summary

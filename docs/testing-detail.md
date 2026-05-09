@@ -1414,3 +1414,20 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Validation
 - `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+
+## 2026-05-10 - Post-answer-shaping rerun surfaced upstream model transport instability
+
+### Commands
+- restarted via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `1947449`
+
+### Observed result
+- the rerun entered the expected operator-heavy path with the narrowed tool surface intact
+- before the first tool-selection cycle could complete, the upstream model layer stalled and logged:
+  - `ModelClient.chat_with_tools transient transport failure model=GLM-5.1 attempt=1 error=The read operation timed out retry_in=0.75s`
+- this prevented the new answer-shaping path from being cleanly evaluated in the observed slice
+
+### Interpretation
+- current blocker for this specific rerun attempt was external model transport instability, not a newly observed local logic regression
+- the post-loop-guard answer-shaping fix still needs a clean live validation pass once the upstream timeout noise subsides
