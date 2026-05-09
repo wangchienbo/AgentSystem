@@ -32,6 +32,13 @@ from typing import Any
 import httpx
 
 
+def _default_workspace() -> str:
+    runtime_data_dir = os.environ.get("AGENTSYSTEM_DATA_DIR")
+    if runtime_data_dir:
+        return str(Path(runtime_data_dir).expanduser().resolve())
+    return str(Path("data").resolve())
+
+
 # ===========================================================================
 # Constants
 # ===========================================================================
@@ -163,7 +170,7 @@ class BaseExecutor:
     """Base class for all executors."""
 
     def __init__(self, workspace: str | None = None, timeout: int = DEFAULT_TIMEOUT):
-        self.workspace = workspace or os.getcwd()
+        self.workspace = workspace or _default_workspace()
         self.timeout = timeout
 
     async def execute(self, step: PipelineStep) -> ExecutionResult:
@@ -446,7 +453,7 @@ class PipelineExecutor:
         workspace: str | None = None,
         model_client=None,
     ):
-        self.workspace = workspace or os.getcwd()
+        self.workspace = workspace or _default_workspace()
         self.model_client = model_client
         self.executors: dict[ExecutorType, BaseExecutor] = {
             ExecutorType.SHELL: ShellExecutor(self.workspace),

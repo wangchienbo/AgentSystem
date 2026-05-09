@@ -1527,3 +1527,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Validation
 - `python3 -m py_compile app/system/runtime/app_process_manager.py app/system/workers/app_mgmt.py`
 - direct check confirmed default resolved cwd now points at the runtime data root rather than the current shell cwd
+
+## 2026-05-10 - Pipeline executor default workspace repo-root dependency tightening
+
+### Target
+- `app/orchestration/pipeline_executor.py`
+
+### Trigger
+- continuing the Phase 0 repo-root dependency closure scan surfaced that both `BaseExecutor` and `PipelineExecutor` still defaulted their workspace to `os.getcwd()`, which would silently couple pipeline execution to the launch directory of the runtime
+
+### Changes
+- added `_default_workspace()`
+  - prefers `AGENTSYSTEM_DATA_DIR` when present
+  - otherwise falls back to resolved `data`
+- updated `BaseExecutor` and `PipelineExecutor` to use `_default_workspace()` instead of `os.getcwd()` when no explicit workspace is provided
+
+### Validation
+- `python3 -m py_compile app/orchestration/pipeline_executor.py`
+- direct check confirmed:
+  - without env override, default workspace resolves to the runtime data root
+  - with `AGENTSYSTEM_DATA_DIR=/tmp/agentsystem-runtime-data`, both executors adopt that runtime path

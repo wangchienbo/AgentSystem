@@ -148,6 +148,31 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Tightened pipeline executor default workspace so orchestration no longer inherits repo launch cwd implicitly
+
+### Summary
+Continuing the same Phase 0 repo-root dependency closure pass, I inspected the orchestration layer and found another concrete implicit repo-root assumption: both `BaseExecutor` and `PipelineExecutor` defaulted their workspace to `os.getcwd()`. That means shell/python/API/LLM pipeline steps would quietly bind to whatever directory the runtime was launched from. For installed-runtime migration, that is the wrong default. I replaced it with a runtime-data-root-based workspace policy.
+
+### What Was Done
+- Updated `app/orchestration/pipeline_executor.py`
+  - added `_default_workspace()`
+    - prefers `AGENTSYSTEM_DATA_DIR` when present
+    - otherwise falls back to resolved `data`
+  - updated `BaseExecutor` to use `_default_workspace()` when no explicit workspace is provided
+  - updated `PipelineExecutor` to use `_default_workspace()` when no explicit workspace is provided
+- Updated `docs/testing-detail.md`
+  - recorded the pipeline workspace tightening and validation evidence
+
+### Validation
+- `python3 -m py_compile app/orchestration/pipeline_executor.py`
+- direct check confirmed:
+  - default workspace resolves to the runtime data root when no env override is present
+  - both executors adopt `AGENTSYSTEM_DATA_DIR` when it is explicitly set
+
+### Notes
+This is another real runtime-facing closure step under the current Phase 0 repo-root dependency item. Together with the subprocess cwd fixes, it further reduces silent dependence on the source checkout location.
+
+
 ## 2026-05-10: Tightened default subprocess cwd handling so runtime launch paths stop inheriting repo checkout cwd implicitly
 
 ### Summary
