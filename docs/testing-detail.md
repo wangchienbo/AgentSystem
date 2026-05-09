@@ -1325,3 +1325,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
 - direct check confirmed operator-route narrowing keeps only:
   - `['call_asset_method', 'exec_shell', 'read_file', 'ask_clarification', 'unclear']`
+
+## 2026-05-10 - Post-operator-tool-narrowing clean-generation observation
+
+### Commands
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `1929048`
+
+### Observed result
+- operator-heavy tool exposure was successfully narrowed in the live path:
+  - `prompt_tools=['exec_shell', 'read_file', 'call_asset_method', 'ask_clarification', 'unclear']`
+  - `exec_tools=['exec_shell', 'read_file', 'call_asset_method', 'ask_clarification', 'unclear']`
+- the earlier `find_tool` wandering disappeared from the observed slice
+- the path still failed to converge quickly enough because the model repeatedly selected `call_asset_method` across turns 1-6 without transitioning to a direct answer
+- this confirms the primary remaining wandering pattern is now repeated asset-method exploration rather than broad tool discovery or filesystem drift
+
+### Interpretation
+- narrowing the tool surface worked as intended and removed `find_tool` from the live operator-heavy path
+- the remaining blocker is now a deeper `call_asset_method` loop inside the narrowed route
+- the next bounded improvement should target stop conditions or repeated-tool-loop suppression for consecutive identical asset-method exploration

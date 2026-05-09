@@ -148,6 +148,27 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Tool narrowing removed find_tool drift, leaving a repeated call_asset_method loop as the next blocker
+
+### Summary
+Reran the operator subset after narrowing the operator-heavy tool surface. The live path now correctly exposes only the reduced tool set, and `find_tool` wandering disappeared from the observed slice. That is a real improvement. However, the route still did not converge fast enough because the model repeatedly selected `call_asset_method` across turns 1-6 without transitioning into a direct answer. The dominant remaining issue is now a repeated asset-method loop, not broad discovery drift.
+
+### What Was Done
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator-focused subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `1929048`
+- updated `docs/testing-detail.md`
+  - recorded that narrowed live exposure removed `find_tool` from the operator-heavy slice
+  - recorded that repeated `call_asset_method` remained as the next blocker
+
+### Notes
+This is good narrowing progress. We have now peeled away two layers of wandering:
+1. filesystem drift was reduced by guidance hardening
+2. discovery-tool drift was removed by tool-surface narrowing
+
+What remains is a more specific repeated asset-method loop. The next bounded fix should target repeated identical tool-call suppression or stronger stop/answer promotion once asset evidence is already sufficient.
+
+
 ## 2026-05-10: Operator-heavy routes now use a narrowed tool surface
 
 ### Summary
