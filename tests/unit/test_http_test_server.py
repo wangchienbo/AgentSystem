@@ -645,7 +645,35 @@ def test_api_action_runs_real_acceptance_with_distinct_multi_command_work_item_b
     assert all(isinstance(v, str) and v for v in prompts.values())
 
 
-def test_fixed_prompt_matrix_runs_through_real_testclient_adapter() -> None:
+def test_api_action_error_shape_matches_chat_contract() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from unittest.mock import AsyncMock, patch
+
+    with patch("app.system.http_test_server.gateway.execute_action", new=AsyncMock(side_effect=RuntimeError("boom"))):
+        response = client.post(
+            "/api/action",
+            json={"action_id": "workflow-action:run_acceptance:app_demo", "action_params": {"intent": "run_acceptance", "app_id": "app_demo"}},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is False
+    assert data["error"] == "LLM action failed: boom"
+    assert data["error_type"] == "RuntimeError"
+    assert data["session_id"] == "session_tester"
+    assert isinstance(data["latency_ms"], int)
+
+
     user_sessions.clear()
     conversation_history.clear()
     user_sessions["session_tester"] = {

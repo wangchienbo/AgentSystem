@@ -685,7 +685,15 @@ async def api_action(req: ActionRequest, user: dict = Depends(get_current_user))
         }
     except Exception as e:
         logger.exception("LLM action failed")
-        return {"success": False, "error": f"LLM action failed: {str(e)}"}
+        error_text = str(e)
+        error_type = type(e).__name__
+        return {
+            "success": False,
+            "error": f"LLM action failed: {error_text}",
+            "error_type": error_type,
+            "session_id": session_id,
+            "latency_ms": int((datetime.now() - started_at).total_seconds() * 1000),
+        }
 
 
 # ---------- 旧的状态与登出接口继续保留 ----------
