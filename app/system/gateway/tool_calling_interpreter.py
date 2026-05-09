@@ -1051,6 +1051,17 @@ PY"""
                 if unique_names:
                     return f"已完成内部工具分析，涉及: {', '.join(unique_names)}。正在基于这些结果整理最终结论。"
             return "已完成内部工具分析，正在整理最终结论。"
+        tool_calls = getattr(result, "tool_calls", []) or []
+        if tool_calls and any(
+            getattr(call, "tool_name", "") == "call_asset_method"
+            and isinstance(getattr(call, "args", None), dict)
+            and getattr(call, "args", {}).get("loop_guard")
+            for call in tool_calls
+        ):
+            return (
+                "基于当前资产查询结果，我先给出收敛结论: 现有证据不足以直接确认目标 App/资产状态是否已完全达标。"
+                "如果继续推进，最小下一步应是补一次针对目标对象的定向状态核验，然后立即返回明确结论，避免继续泛化探索。"
+            )
         return final_text
 
     def _build_structured_answer(self, raw_input: str, result: Any, final_text: str, confidence: float) -> StructuredAnswer:

@@ -1398,3 +1398,19 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - engine-level repeated-tool suppression is effective at breaking the pathological `call_asset_method` loop
 - the dominant remaining issue is no longer looping itself, but weak answer synthesis after the guard-induced stop
 - the next bounded improvement should strengthen post-guard answer promotion so the model converts gathered evidence into a tighter operator-facing conclusion instead of retreating into generic uncertainty
+
+## 2026-05-10 - Post-loop-guard answer shaping hardening
+
+### Target
+- `app/system/gateway/tool_calling_interpreter.py`
+
+### Changes
+- extended `_apply_execution_fact_provenance(...)` to detect the synthetic loop-guard tool call marker
+- when the tool-call trail includes `call_asset_method` with `{"loop_guard": true}` the interpreter now rewrites weak post-stop output into a tighter operator-facing convergence summary
+- the rewritten summary explicitly states:
+  - current evidence is insufficient for full confirmation
+  - the route should stop broad exploration
+  - the smallest next step is one targeted verification before returning a final conclusion
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`

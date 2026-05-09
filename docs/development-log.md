@@ -148,6 +148,29 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Added post-loop-guard answer shaping for operator-facing closure
+
+### Summary
+Once the repeated asset-method loop was broken, the next remaining weakness was the quality of the final direct response. The model was stopping, but often retreating into vague uncertainty. To tighten that last step without reopening the loop, I hardened the interpreter's final-text shaping so that when the synthetic loop guard has fired, weak post-stop output is rewritten into a more operator-facing convergence summary.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - extended `_apply_execution_fact_provenance(...)`
+  - when tool-call history includes `call_asset_method` with `{"loop_guard": true}`, the interpreter now rewrites the final answer into a tighter convergence summary
+  - the rewritten summary explicitly states:
+    - current evidence is insufficient for full confirmation
+    - broad exploration should stop here
+    - the smallest next step is one targeted verification before returning a final conclusion
+- Updated `docs/testing-detail.md`
+  - recorded the post-loop-guard answer-shaping hardening and validation evidence
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+
+### Notes
+This fix intentionally targets the post-stop layer only. The loop guard remains responsible for stopping pathological repetition; the interpreter now makes the resulting answer more useful for operator-heavy scenarios.
+
+
 ## 2026-05-10: Loop guard successfully broke the repeated asset-method cycle, revealing a weaker post-stop answer synthesis issue
 
 ### Summary
