@@ -1358,3 +1358,22 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Validation
 - `python3 -m py_compile app/ai/tool_calling_engine.py`
+
+## 2026-05-10 - Phase3 subset launcher stale-port cleanup hardening
+
+### Target
+- `scripts/start_phase3_subset_server.sh`
+
+### Trigger
+- a fresh rerun attempt failed with `ERROR: [Errno 98] ... address already in use`
+- live inspection showed port 80 was still held by prior subset server PID `1929048`
+- the existing cleanup only killed the bare `uvicorn app.system.http_test_server:app` pattern and missed the actual `python3 -m uvicorn ...` launch form
+
+### Changes
+- extended the launcher cleanup patterns to also kill:
+  - `python3 -m uvicorn app.system.http_test_server:app`
+  - `.venv/bin/python3 -m uvicorn app.system.http_test_server:app`
+
+### Validation
+- `bash -n scripts/start_phase3_subset_server.sh`
+- direct source check confirmed all three cleanup patterns are present

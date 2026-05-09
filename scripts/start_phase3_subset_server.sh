@@ -13,6 +13,8 @@ export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 printf '=== %s ===\n' "$MARKER" >> "$LOG_PATH"
 
 pkill -f "uvicorn app.system.http_test_server:app" 2>/dev/null || true
+pkill -f "python3 -m uvicorn app.system.http_test_server:app" 2>/dev/null || true
+pkill -f ".venv/bin/python3 -m uvicorn app.system.http_test_server:app" 2>/dev/null || true
 
 for _ in $(seq 1 30); do
   if ! ss -tln 2>/dev/null | grep -q ":${PORT} "; then

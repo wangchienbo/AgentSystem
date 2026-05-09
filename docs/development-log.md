@@ -148,6 +148,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Hardened the Phase3 subset launcher to clean up stale uvicorn port holders
+
+### Summary
+While attempting the next clean-generation rerun after the repeated-asset-loop guard, the new subset server failed to bind to port 80 because the previous subset server process was still alive. Live inspection showed that the launcher cleanup was too narrow: it only killed the bare `uvicorn app.system.http_test_server:app` pattern, but the actual server had been started as `python3 -m uvicorn ...`. This was a real launcher gap, so I fixed it before continuing reruns.
+
+### What Was Done
+- Updated `scripts/start_phase3_subset_server.sh`
+  - kept the existing cleanup pattern for bare `uvicorn ...`
+  - added cleanup patterns for:
+    - `python3 -m uvicorn app.system.http_test_server:app`
+    - `.venv/bin/python3 -m uvicorn app.system.http_test_server:app`
+- Updated `docs/testing-detail.md`
+  - recorded the stale-port failure and the launcher hardening
+
+### Validation
+- `bash -n scripts/start_phase3_subset_server.sh`
+- direct source check confirmed all three cleanup patterns are present
+
+### Notes
+This was discovered during the same Phase 3 live subset workstream, so it belongs to the current task-list path. It removes another source of dirty-generation contamination and makes the dedicated subset launcher more trustworthy for repeated reruns.
+
+
 ## 2026-05-10: Added a repeated call_asset_method loop guard in the tool engine
 
 ### Summary
