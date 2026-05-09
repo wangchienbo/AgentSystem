@@ -148,6 +148,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Patience hardening reached the live path, but upstream 504s still blocked clean validation
+
+### Summary
+I immediately reran the operator subset after widening the early tool-route retry/timeout budget. The live logs confirmed the new patience budget was active on the first operator-heavy tool turn, but the request still received an upstream `504 Gateway Timeout` before the local answer-shaping path could be meaningfully assessed. This confirms the retry-budget change is live, while also confirming that the remaining validation blocker is still provider-side instability.
+
+### What Was Done
+- restarted the subset server cleanly and reran the operator-focused subset
+- inspected the fresh generation tied to server PID `1954599`
+- updated `docs/testing-detail.md`
+  - recorded that the widened budget appeared in live logs
+  - recorded that the first upstream tool-chat call still hit 504 before local convergence logic could be assessed
+
+### Notes
+This is an important negative result. It shows the local hardening is actually in effect, but the current blocker has not shifted back into AgentSystem logic. The critical path is still waiting on a clean provider window for trustworthy validation.
+
+
 ## 2026-05-10: Made early tool routes more patient so upstream timeout noise is less likely to spoil clean validation
 
 ### Summary

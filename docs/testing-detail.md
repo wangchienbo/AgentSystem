@@ -1455,3 +1455,22 @@ This is an initial static validation pass for the refreshed harness. Live subset
   - `4 -> (3, 60.0)`
   - `6 -> (2, 50.0)`
   - `8 -> (1, 45.0)`
+
+## 2026-05-10 - Patience-hardened rerun still hit upstream 504 on the very first tool turn
+
+### Commands
+- restarted via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `1954599`
+
+### Observed result
+- the widened early tool-route budget was active in live execution:
+  - `message_count=2 max_attempts=4 timeout_cap=75.0`
+- despite the higher patience budget, the first upstream tool-chat call still returned:
+  - `HTTP/1.1 504 Gateway Timeout`
+  - `transient server failure ... attempt=1 status=504 retry_in=1.5s`
+- this means the latest retry/timeout hardening is live, but the current validation attempt was still dominated by upstream provider instability before local answer-shaping could be assessed
+
+### Interpretation
+- the patience hardening was wired correctly and reached the live path
+- the remaining blocker for this rerun attempt was still upstream 504 behavior, not a fresh local regression in the operator-heavy convergence fixes
