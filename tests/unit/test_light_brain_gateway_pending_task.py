@@ -692,10 +692,6 @@ def test_execute_run_acceptance_maps_multiple_commands_to_distinct_work_items(tm
     assert response.data["acceptance_result"]["evidence"]["change_execution_summary"]["work_item_ids_touched"] == ["work-1", "work-2"]
 
 
-def test_execute_run_acceptance_records_failed_result(tmp_path: Path):
-    updated = pending_store.get_latest_open_task("u1")
-    assert updated is None or updated.status == "completed"
-
 
 def test_execute_run_acceptance_records_failed_result(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
