@@ -148,6 +148,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Closed a concrete repo-root assumption in the CLI runtime-layout/test contract
+
+### Summary
+After refreshing the task list, I continued in Phase 0 order and moved to the next unresolved closure item about implicit repo-root dependency. A quick inspection surfaced an immediate concrete target: the CLI runtime-layout tests were still effectively anchored to `/root/project/AgentSystem` through their expected layout assertions. The runtime layout function itself already derived from the detected repo root, so I tightened the contract by removing the stale hardcoded path expectation and validating the dynamic repo-root behavior directly.
+
+### What Was Done
+- Updated `app/cli.py`
+  - replaced the stale hardcoded layout-constant pattern with a relative `DEFAULT_LAYOUT_DIRS` map built from the detected repo root
+- Updated `tests/unit/test_cli.py`
+  - changed repo-root/layout assertions to compare against dynamic `REPO_ROOT` instead of the literal `/root/project/AgentSystem`
+- Updated `docs/testing-detail.md`
+  - recorded the repo-root-dependency tightening and validation evidence
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`
+
+### Notes
+This does not finish the broader "no runnable path still has an implicit repo-root dependency" item by itself, but it closes one concrete surfaced dependency and keeps the task-list-order closure work moving with committed evidence.
+
+
 ## 2026-05-10: Refreshed the Phase 0 unresolved-items summary so the task list matches the actual operator-heavy validation state
 
 ### Summary

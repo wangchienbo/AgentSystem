@@ -8,13 +8,12 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 
-RUNTIME_LAYOUT_KEYS = {
-    "repo_root": "/root/project/AgentSystem",
-    "config_dir": "/root/project/AgentSystem/config",
-    "data_dir": "/root/project/AgentSystem/data",
-    "logs_dir": "/root/project/AgentSystem/logs",
-    "installed_dir": "/root/project/AgentSystem/installed",
-    "build_dir": "/root/project/AgentSystem/build",
+DEFAULT_LAYOUT_DIRS = {
+    "config_dir": "config",
+    "data_dir": "data",
+    "logs_dir": "logs",
+    "installed_dir": "installed",
+    "build_dir": "build",
 }
 
 
@@ -61,14 +60,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _runtime_layout(repo_root: Path) -> dict[str, object]:
-    return {
-        "repo_root": str(repo_root),
-        "config_dir": str(repo_root / "config"),
-        "data_dir": str(repo_root / "data"),
-        "logs_dir": str(repo_root / "logs"),
-        "installed_dir": str(repo_root / "installed"),
-        "build_dir": str(repo_root / "build"),
-    }
+    layout: dict[str, object] = {"repo_root": str(repo_root)}
+    for key, rel in DEFAULT_LAYOUT_DIRS.items():
+        layout[key] = str(repo_root / rel)
+    return layout
 
 
 def _config_file() -> Path:

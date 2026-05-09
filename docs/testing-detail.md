@@ -1489,3 +1489,21 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Task-list impact
 - refreshed `docs/standard-install-model-detailed-task-list.md` so the unresolved-item summary reflects the current state of Phase 0 closure work
+
+## 2026-05-10 - CLI runtime-layout repo-root dependency tightening
+
+### Target
+- `app/cli.py`
+- `tests/unit/test_cli.py`
+
+### Trigger
+- while continuing Phase 0 unresolved-item closure in task-list order, repo-root dependency inspection surfaced that the CLI tests were still effectively anchored to `/root/project/AgentSystem` in their expected layout assertions
+
+### Changes
+- replaced the stale hardcoded layout constant pattern with a relative `DEFAULT_LAYOUT_DIRS` map assembled from the detected repo root
+- updated CLI unit tests to assert against `REPO_ROOT` dynamically instead of the literal `/root/project/AgentSystem` path
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`
