@@ -51,10 +51,16 @@ def _build_http_response_contract(llm_resp: object) -> dict[str, object]:
     if isinstance(data, dict):
         pending_task = data.get("pending_task")
         continuation_decision = data.get("continuation_decision")
-        if pending_task is not None or continuation_decision is not None:
+        implementation_plan = data.get("implementation_plan")
+        acceptance_plan = data.get("acceptance_plan")
+        acceptance_result = data.get("acceptance_result")
+        if any(item is not None for item in (pending_task, continuation_decision, implementation_plan, acceptance_plan, acceptance_result)):
             response["workflow_contract"] = {
                 "pending_task": pending_task,
                 "continuation_decision": continuation_decision,
+                "implementation_plan": implementation_plan,
+                "acceptance_plan": acceptance_plan,
+                "acceptance_result": acceptance_result,
             }
         if data.get("context_view") is not None:
             response["context_view"] = data.get("context_view")

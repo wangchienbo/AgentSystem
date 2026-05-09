@@ -320,6 +320,9 @@ def test_api_action_exposes_implementation_and_acceptance_payloads() -> None:
     data = response.json()
     assert data["data"]["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
     assert data["data"]["acceptance_result"]["status"] == "passed"
+    assert data["workflow_contract"]["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
+    assert data["workflow_contract"]["acceptance_plan"]["test_probe_commands"] == ["pytest tests/unit/test_light_brain_gateway_pending_task.py -q"]
+    assert data["workflow_contract"]["acceptance_result"]["status"] == "passed"
     assert data["context_view"] == {"stable": [], "pending": []}
 
 
