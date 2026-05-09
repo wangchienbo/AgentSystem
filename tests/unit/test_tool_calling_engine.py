@@ -9,7 +9,9 @@ from app.services.tool_calling_engine import (
     ToolCallRecord,
     ToolCallingResult,
     ToolDef,
+    NON_CONVERGENCE_TEXT,
 )
+from app.services.model_client import ModelClientError
 from app.services.model_router import ModelRouter
 
 
@@ -448,9 +450,31 @@ def test_execute_turns_tool_not_found(tmp_path) -> None:
     assert result.tool_calls[0].error == "Tool not found"
 
 
-# ===========================================================================
-# execute_turns — max turns truncation
-# ===========================================================================
+@patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+def test_execute_turns_degrades_retryable_first_turn_tool_route_failure(tmp_path) -> None:
+    router = build_router(tmp_path)
+    engine = ToolCallingEngine(router)
+
+    mock_client = MagicMock()
+    mock_client._config.model = "gpt-4o-mini"
+    mock_client.chat_with_tools.side_effect = ModelClientError("Chat with tools transport failed after retry: timeout", status_code=None, retryable=True)
+
+    with patch.object(router, "get_client", return_value=mock_client):
+        result = engine.execute_turns(
+            skill_id="test-skill",
+            system_prompt="test",
+            user_message="帮我确认这个接口行为",
+            tools=[ToolDef(name="read_file", description="read", parameters={})],
+            max_turns=4,
+        )
+
+    assert result.turns == 1
+    assert result.truncated is False
+    assert result.final_text == NON_CONVERGENCE_TEXT
+    assert result.usage["degraded"] is True
+    assert result.usage["degraded_reason"] == "tool_route_retryable_failure"
+
+
 
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
 def test_execute_turns_truncates_at_max_turns(tmp_path) -> None:
@@ -559,3 +583,4 @@ def test_get_client_by_name_missing_api_key(tmp_path) -> None:
 
     with pytest.raises(ToolCallingEngineError, match="Missing OPENAI_API_KEY"):
         engine._get_client_by_name("gpt-5.4")
+from app.ai.model_client import ModelClientError

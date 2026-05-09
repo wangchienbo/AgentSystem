@@ -38,6 +38,9 @@ MAX_TOOL_RESULT_CHARS = 800
 
 from app.services.model_router import ModelRouter, ModelRouterError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
+
+
+NON_CONVERGENCE_TEXT = "当前工具链路未在限定时间内收敛。我先给你保守结论: 需要轻量验证，或改走更窄的探针继续确认。"
 from app.models.telemetry import StepTelemetryRecord
 
 
@@ -252,13 +255,35 @@ class ToolCallingEngine:
                 session_id,
                 [tool.get("function", {}).get("name") for tool in tool_defs],
             )
-            response, usage = client.chat_with_tools(
-                messages=messages,
-                tools=tool_defs,
-                model=model_name,
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
+            try:
+                response, usage = client.chat_with_tools(
+                    messages=messages,
+                    tools=tool_defs,
+                    model=model_name,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except ModelClientError as exc:
+                if turn == 0 and getattr(exc, "retryable", False):
+                    logger.warning(
+                        "ToolCallingEngine degraded non-convergent tool route session=%s turn=%s error=%s",
+                        session_id,
+                        turn + 1,
+                        exc,
+                    )
+                    total_usage["model"] = model_name
+                    total_usage["turns"] = turn + 1
+                    total_usage["degraded"] = True
+                    total_usage["degraded_reason"] = "tool_route_retryable_failure"
+                    return ToolCallingResult(
+                        final_text=NON_CONVERGENCE_TEXT,
+                        tool_calls=call_records,
+                        evidence_items=evidence_items,
+                        turns=turn + 1,
+                        truncated=False,
+                        usage=total_usage,
+                    )
+                raise
             total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
             total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
             total_usage["total_tokens"] += usage.get("total_tokens", 0)
