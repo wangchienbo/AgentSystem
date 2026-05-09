@@ -1,4 +1,29 @@
-## 2026-05-05: Phase R detailed task list created from the proposal seed
+## 2026-05-09: Closed the remaining Wave 5 changed-file intent and evidence-mapping slice
+
+### Summary
+Finished the remaining Phase R Wave 5 open slice by normalizing repo-derived target modules into bounded repo-relative changed-file intent, tightening acceptance evidence mapping so the single-work-item fallback is only a last resort, and explicitly closing the compact operator-facing summary decision.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - normalized absolute repo target-module hints into repo-relative changed-file intent before building the implementation bundle
+  - kept task-list module hints in the same normalized path contract
+  - deduplicated `matched_work_item_ids` per acceptance command and only applied the single-work-item fallback after validation-map lookup fails
+- Updated `tests/unit/test_light_brain_gateway_pending_task.py`
+  - added focused coverage for absolute repo-path normalization into changed-file intent
+  - kept acceptance mapping validation scoped to the changed gateway behavior
+- Updated `docs/phase-r-detailed-task-list.md`
+  - marked the Wave 5 open slice closed and recorded the final closure notes
+- Updated `docs/phase-r-proposal-seed.md`
+  - refreshed the proposal seed so it reflects the now-closed slice and the chosen compact read model posture
+
+### Validation
+- `pytest tests/unit/test_light_brain_gateway_pending_task.py -q`
+- result: `24 passed`
+
+### Notes
+This closes the currently documented Wave 5 open slice without widening scope into new runtime surfaces.
+
+
 
 ### Summary
 Converted the Phase R seed from a directional note into an implementation-oriented detailed task list, so continued work can follow bounded waves instead of ad hoc follow-up steps.

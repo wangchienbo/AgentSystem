@@ -102,6 +102,11 @@ Immediate open slice within this wave:
 - improve multi-command evidence-to-work-item mapping beyond the current single-work-item fallback
 - evaluate whether a compact operator-facing changed-file/result summary read model is warranted
 
+Current closure state:
+- changed-file intent now normalizes repo-inspected absolute module paths into repo-relative intent records before implementation bundling
+- multi-command evidence mapping now deduplicates mapped work-item ids per command and only falls back to the single-work-item shortcut when validation-map lookup yields nothing
+- the compact operator-facing `change_execution_summary` read model remains the accepted lightweight surfacing choice on both acceptance evidence and top-level `acceptance_plan`
+
 ## Entry criteria
 
 Phase R should start only if the team agrees to treat Phase Q as closed and avoid reopening its foundation scope except for bug fixes.

@@ -512,6 +512,60 @@ def test_execute_implement_app_change_derives_changed_file_intent_from_task_list
     assert response.data["implementation_plan"]["validation_map"][0]["changed_file_paths"] == ["tests/unit/test_http_test_server.py"]
 
 
+def test_execute_implement_app_change_normalizes_repo_absolute_target_modules(tmp_path: Path):
+    runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
+    from app.system.runtime.pending_task_store import PendingTaskStore
+    pending_store = PendingTaskStore(runtime_store)
+    gateway = LightBrainGateway(
+        memory=LightBrainMemory(),
+        interpreter=_Interpreter(),
+        pending_task_store=pending_store,
+    )
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    abs_module = repo_root / "app/system/gateway/light_brain_gateway.py"
+    task = PendingTaskRecord(
+        task_id="pt-impl-abs",
+        user_id="u1",
+        session_id="sess-1",
+        intent="create_app",
+        status="ready_to_execute",
+        current_stage="implementation_pending",
+        stage_status="in_progress",
+        target_ref={"app_id": "app_repo_abs"},
+        repo_context={
+            "active_repo_path": str(repo_root),
+            "primary_readme_path": str(repo_root / "README.md"),
+            "key_docs": [],
+            "target_modules": [str(abs_module)],
+        },
+        acceptance_plan={
+            "test_probe_commands": [],
+            "http_runtime_verification_points": [],
+            "success_criteria": [],
+            "results": [],
+        },
+        next_recommended_action={"type": "implement_app_change", "app_id": "app_repo_abs"},
+    )
+    pending_store.upsert_task(task)
+
+    response = asyncio.run(
+        gateway.execute_action(
+            user_id="u1",
+            session_id="sess-1",
+            action_id="workflow-action:implement_app_change:app_repo_abs",
+            action_params={"intent": "implement_app_change", "app_id": "app_repo_abs"},
+        )
+    )
+
+    assert response.type == "progress"
+    assert response.data is not None
+    assert response.data["implementation_plan"]["repo_path"] == str(repo_root)
+    assert response.data["implementation_plan"]["target_files"] == ["app/system/gateway/light_brain_gateway.py"]
+    assert response.data["implementation_plan"]["changed_files_intent"][0]["path"] == "app/system/gateway/light_brain_gateway.py"
+    assert response.data["implementation_plan"]["validation_map"][0]["changed_file_paths"] == ["app/system/gateway/light_brain_gateway.py"]
+
+
 def test_execute_run_acceptance_records_passed_result(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     from app.system.runtime.pending_task_store import PendingTaskStore

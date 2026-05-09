@@ -126,14 +126,12 @@ Status: [x] first slice landed
 - real HTTP coverage now also includes distinct multi-command work-item binding and compact `change_execution_summary` assertions
 
 ### 11.3 Next open slice
-Status: [ ] pending
+Status: [x] completed
 - derive bounded changed-file intent from actual repo inspection plus task-list hints instead of only direct module carry-forward
 - allow acceptance evidence to map multiple commands back to distinct work-item ids without relying on the single-work-item fallback
 - decide whether a lightweight changed-file/result summary should also surface into a compact operator-facing read model
 
-First progress already landed:
-- changed-file intent now derives source hints from both `repo_context.target_modules` and `task_list.module`
-- multi-command acceptance evidence can now be covered and verified against distinct `mapped_work_item_id` entries
-- gateway acceptance evidence now exposes a compact `change_execution_summary` with changed-file count, changed files, and touched work-item ids
-- the same compact change-execution summary is now also promoted onto the top-level `acceptance_plan`
-- implementation `validation_map` entries now also carry bounded `changed_file_paths` so command probes can point back to concrete changed-file intent slices
+Closure notes:
+- `implement_app_change` now normalizes absolute repo-target module paths into repo-relative changed-file intent before building the implementation bundle
+- `run_acceptance` now deduplicates mapped work-item ids per command and treats the single-work-item fallback as a last resort only after validation-map lookup fails
+- compact operator-facing `change_execution_summary` remains the chosen lightweight read model and continues to surface on both acceptance evidence and top-level `acceptance_plan`

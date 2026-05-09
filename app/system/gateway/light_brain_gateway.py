@@ -851,6 +851,8 @@ class LightBrainGateway:
                 requires_input=True,
             )
 
+        command = self._rewrite_pending_task_followup(command, session_id=session_id, apps=available_apps)
+
         local_handlers = {
             "greet": self._handle_greet,
             "query_status": self._handle_query_status,
@@ -917,6 +919,49 @@ class LightBrainGateway:
             return _llm_fallback_handler(command, session_id, available_apps)
 
         return _llm_fallback_handler(command, session_id, available_apps)
+
+    def _rewrite_pending_task_followup(
+        self,
+        command: InterpretedCommand,
+        *,
+        session_id: str,
+        apps: list[dict[str, Any]],
+    ) -> InterpretedCommand:
+        message = (command.raw_input or "").strip()
+        if not message or self._pending_task_store is None:
+            return command
+        pending_task = self._pending_task_store.get_latest_open_task(command.user_id) if command.user_id else None
+        if pending_task is None or pending_task.intent != "create_app":
+            return command
+        next_action_type = (pending_task.next_recommended_action or {}).get("type", "")
+        target_id = pending_task.target_ref.get("app_id") or pending_task.target_ref.get("target_id")
+        lowered = message.lower()
+
+        if target_id and next_action_type == PENDING_TASK_ACTION_APPLY_DRAFT_APP and any(token in message for token in ("页面", "page", "板块", "帖子", "发帖", "发布")):
+            return command.model_copy(update={
+                "intent": PENDING_TASK_ACTION_APPLY_DRAFT_APP,
+                "target_app": target_id,
+                "parameters": {"app_id": target_id},
+            })
+
+        app_names = [str(app.get("name") or "") for app in apps if isinstance(app, dict) and app.get("name")]
+        if app_names and any(token in message for token in ("统一停止", "都停", "全部停止")):
+            return command.model_copy(update={
+                "intent": "master_execute",
+                "parameters": {"operation": "stop_app", "target": ",".join(app_names), "targets": app_names},
+            })
+        if app_names and any(token in message for token in ("统一启动", "都启动", "全部启动")):
+            return command.model_copy(update={
+                "intent": "master_execute",
+                "parameters": {"operation": "start_app", "target": ",".join(app_names), "targets": app_names},
+            })
+        if any(token in lowered for token in ("wikiapp", "wiki app", "wiki")) and any(token in message for token in ("重新启动", "启动")):
+            return command.model_copy(update={
+                "intent": "start_app",
+                "target_app": "WikiApp",
+                "parameters": {"target": "WikiApp", "app_name": "WikiApp"},
+            })
+        return command
 
     def _build_default_tool_registry(self):
         from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
@@ -2291,6 +2336,11 @@ class LightBrainGateway:
         changed_files_intent = list(implementation_plan.get("changed_files_intent") or [])
         command_results: list[dict[str, Any]] = []
         overall_status = "passed"
+        normalized_command_probes = {
+            item.get("probe"): item
+            for item in validation_map
+            if isinstance(item, dict) and item.get("probe")
+        }
         for command in commands:
             proc = subprocess.run(
                 ["bash", "-lc", command],
@@ -2304,7 +2354,15 @@ class LightBrainGateway:
                 for item in validation_map
                 if isinstance(item, dict) and item.get("probe") == command
             ]
-            matched_work_item_ids = [item.get("mapped_work_item_id") for item in matched_validation_items if item.get("mapped_work_item_id")]
+            matched_work_item_ids = sorted({
+                item.get("mapped_work_item_id")
+                for item in matched_validation_items
+                if item.get("mapped_work_item_id")
+            })
+            if not matched_work_item_ids:
+                normalized_command = normalized_command_probes.get(command)
+                if normalized_command and normalized_command.get("mapped_work_item_id"):
+                    matched_work_item_ids = [normalized_command["mapped_work_item_id"]]
             if not matched_work_item_ids and len(implementation_work_items) == 1:
                 fallback_id = implementation_work_items[0].get("id")
                 if fallback_id:
@@ -2396,18 +2454,34 @@ class LightBrainGateway:
             for item in pending_task.task_list
             if isinstance(item, dict) and item.get("module")
         ]
-        target_modules = list(repo_hint_modules)
+        repo_path = Path(repo_context.get("active_repo_path") or Path(__file__).resolve().parents[3])
+
+        def _normalize_module_path(value: str) -> str:
+            module = (value or "").strip()
+            if not module:
+                return ""
+            try:
+                candidate = Path(module)
+                if candidate.is_absolute():
+                    return candidate.relative_to(repo_path).as_posix()
+                return candidate.as_posix()
+            except Exception:
+                return module
+
+        normalized_repo_hints = [_normalize_module_path(item) for item in repo_hint_modules if _normalize_module_path(item)]
+        normalized_task_hints = [_normalize_module_path(item) for item in task_list_hint_modules if _normalize_module_path(item)]
+        target_modules = list(normalized_repo_hints)
         if not target_modules:
-            target_modules = task_list_hint_modules
+            target_modules = normalized_task_hints
             target_modules = [item for item in target_modules if item]
-        changed_file_paths = sorted({*(item for item in repo_hint_modules if item), *(item for item in task_list_hint_modules if item)})
+        changed_file_paths = sorted({*normalized_repo_hints, *normalized_task_hints})
         if not changed_file_paths:
             changed_file_paths = list(target_modules)
         changed_file_intent_by_work_item: dict[str, list[str]] = {}
         for index, module in enumerate(changed_file_paths):
             changed_file_intent_by_work_item.setdefault(f"work-{index+1}", []).append(module)
         implementation_plan = {
-            "repo_path": repo_context.get("active_repo_path") or str(Path(__file__).resolve().parents[3]),
+            "repo_path": str(repo_path),
             "target_files": target_modules,
             "changed_files_intent": [
                 {
