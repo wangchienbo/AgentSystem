@@ -399,7 +399,7 @@ def test_build_structured_answer_falls_back_when_json_is_invalid() -> None:
     assert command.structured_answer.claim.text == '{"claim":'
     assert "结构化结果缺失或无效" in command.structured_answer.unverified_points[0]
     assert command.structured_answer.self_model.answer_mode == "verification_required"
-    assert command.structured_answer.self_model.verification_mode == "required"
+    assert command.structured_answer.self_model.verification_mode == "light"
 
 
 def test_build_structured_answer_normalizes_unknown_grade_and_clamps_confidence() -> None:
@@ -422,19 +422,30 @@ def test_build_structured_answer_normalizes_unknown_grade_and_clamps_confidence(
     assert command.structured_answer.self_model.answer_mode == "verification_required"
 
 
-def test_build_structured_answer_sets_tool_mode_for_excerpt_level_introspection() -> None:
+def test_clarification_pending_preserves_tool_required_structured_answer_for_introspection() -> None:
     interpreter, _ = _build_interpreter()
     result = ToolCallingResult(
-        final_text=json.dumps({
-            "claim": {"text": "已确认默认值是 json", "evidence_grade": "excerpt", "confidence": 0.88},
-            "evidence": [{"grade": "excerpt", "source_type": "read_file", "source_ref": "a.py", "snippet": "persistence_mode='json'"}],
-            "unverified_points": ["尚未验证环境覆盖"],
-        }, ensure_ascii=False),
-        tool_calls=[],
+        final_text="",
+        tool_calls=[
+            ToolCallRecord(
+                tool_name="ask_clarification",
+                args={
+                    "question": "您想确认哪个接口的行为？",
+                    "pending_intent": "inspect_api",
+                    "missing_param": "asset_id",
+                    "suggested_values": [],
+                },
+                result={"success": True},
+            )
+        ],
     )
 
-    command = interpreter._process_result(result, "请确认代码默认值")
+    command = interpreter._process_result(result, "帮我确认这个接口行为")
 
+    assert command.intent == "clarification_pending"
     assert command.structured_answer is not None
     assert command.structured_answer.self_model.answer_mode == "tool_required"
     assert command.structured_answer.self_model.verification_mode == "light"
+    assert command.structured_answer.text == "您想确认哪个接口的行为？"
+
+

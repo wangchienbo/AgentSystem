@@ -151,7 +151,27 @@ class OpenAIResponsesClient:
         self._api_key = api_key
 
     def request(self, input_payload, *, extra_payload: dict | None = None) -> dict:
-        url = self._config.base_url.rstrip("/") + "/v1/responses"
+        wire_api = (self._config.wire_api or "").strip().lower()
+        if wire_api == "openai-completions":
+            text, usage = self.chat(
+                [{"role": "user", "content": str(input_payload)}],
+                model=self._config.model,
+                max_tokens=(extra_payload or {}).get("max_tokens", 500),
+                temperature=(extra_payload or {}).get("temperature", 0.7),
+                stream=False,
+            )
+            return {
+                "object": "chat.completion",
+                "model": self._config.model,
+                "choices": [{"message": {"role": "assistant", "content": text}}],
+                "usage": usage,
+            }
+
+        base = self._config.base_url.rstrip("/")
+        if base.endswith("/v1"):
+            url = base + "/responses"
+        else:
+            url = base + "/v1/responses"
         payload = {
             "model": self._config.model,
             "input": input_payload,
@@ -418,7 +438,7 @@ class OpenAIResponsesClient:
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        max_turns: int = 100,
+        max_turns: int = 30,
     ) -> tuple[str, dict]:
         """Multi-turn tool calling loop.
         Load max_turns from global config if not provided.
@@ -432,9 +452,9 @@ class OpenAIResponsesClient:
                 from app.ai.model_config_loader import DEFAULT_MODEL_CONFIG_PATH
                 cfg = yaml.safe_load(DEFAULT_MODEL_CONFIG_PATH.read_text(encoding="utf-8")) or {}
                 app_cfg = cfg.get("app", {}) or {}
-                max_turns = app_cfg.get("max_turns", 10)
+                max_turns = app_cfg.get("max_turns", 30)
             except Exception:
-                max_turns = 10
+                max_turns = 30
 
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},

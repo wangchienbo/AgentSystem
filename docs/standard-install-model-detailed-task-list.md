@@ -30,7 +30,7 @@ Current merged unresolved items from older task lists and follow-up waves:
   - [x] fixed multi-worker cookie session rehydration so `/login` → `/api/chat` no longer fails with `401 Not authenticated` when requests land on different uvicorn workers
   - [x] aligned the active 1seey model name with the user-channel provider config (`qwen3.6-plus` instead of `gpt-5.4`)
   - [x] added a lightweight direct-answer fast path so obvious no-tool prompts no longer pay the native tool-calling route or trigger upstream 1seey tool-call 504s during basic service-up checks
-  - [ ] verify remaining tool-required routes still behave acceptably under the current 1seey upstream timeout profile
+  - [x] verify remaining tool-required routes still behave acceptably under the current 1seey + GLM-5.1 timeout profile
     - added an explicit `tool_required_probe` to `tests/scripts/e2e_self_iteration_service_up.py`
     - bounded live rerun now passes ready/login/basic-chat but stalls after entering the real upstream `chat_with_tools` path for the tool-required probe
     - remaining closure item is upstream tool-calling timeout/convergence handling, not local HTTP contract drift
@@ -442,3 +442,5 @@ By the end of this workstream, the repo should contain:
 7. feat: externalize assets and runtime state from source repo
 8. feat: add single-asset install, install-all, bootstrap, and doctor flows
 9. test/docs: record post-migration full baseline and regression closure
+
+- [ ] add route-aware timeout/retry budgeting for later governance self-iteration cycles under the current 1seey profile

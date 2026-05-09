@@ -10611,3 +10611,11 @@ All Phase H+ tasks completed:
 - [x] 74 unit tests passing
 - [x] Git commits recorded
 
+
+
+### 2026-05-09 14:40+8
+- fixed AgentSystem provider alignment to keep `1seey + GLM-5.1 + /v1/chat/completions` as the active model path
+- routed `OpenAIResponsesClient.request()/probe()` through `/chat/completions` when `wire_api=openai-completions`
+- raised the practical tool-calling default budget to 30 turns and aligned `/root/.config/agentsystem/config.yaml` `app.max_turns` to `30`
+- preserved `structured_answer` on clarification exits for tool-required routes, including the early `requires_clarification` gateway return path
+- live validation confirmed `tool-required probe` now behaves acceptably under the current timeout profile before later governance self-iteration work hit a separate upstream 504

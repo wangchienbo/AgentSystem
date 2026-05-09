@@ -849,6 +849,7 @@ class LightBrainGateway:
                 session_id=session_id,
                 actions=command.suggested_actions,
                 requires_input=True,
+                structured_answer=getattr(command, "structured_answer", None),
             )
 
         command = self._rewrite_pending_task_followup(command, session_id=session_id, apps=available_apps)

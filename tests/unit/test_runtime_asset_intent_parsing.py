@@ -51,7 +51,11 @@ def test_light_brain_runtime_asset_intent_set_no_longer_requires_legacy_list_or_
 
 def test_choose_turn_budget_returns_default_for_general_messages() -> None:
     assert choose_turn_budget("你好") == 6
-    assert choose_turn_budget("帮我创建一个app") == 6
+
+
+def test_choose_turn_budget_returns_higher_for_operator_heavy_messages() -> None:
+    assert choose_turn_budget("帮我创建一个app") == 30
+    assert choose_turn_budget("帮我确认这个接口行为") == 30
 
 
 def test_choose_turn_budget_returns_higher_for_introspection() -> None:

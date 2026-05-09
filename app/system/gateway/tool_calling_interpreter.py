@@ -58,7 +58,8 @@ REPO_INTROSPECTION_BRANCH_PATH = "docs/tool-loop-governor-branches/repo-introspe
 SCRIPT_FIRST_BRANCH_PATH = "docs/tool-loop-governor-branches/script-first-strategy.md"
 
 INTROSPECTION_KEYWORDS = (
-    "代码", "源码", "仓库", "持久化", "sqlite", "mysql", "json", "字段", "表结构", "默认值", "文件里"
+    "代码", "源码", "仓库", "持久化", "sqlite", "mysql", "json", "字段", "表结构", "默认值", "文件里",
+    "接口行为", "接口", "asset", "方法", "调用链"
 )
 
 PATH_PATTERN = re.compile(r"([A-Za-z0-9_./-]+\.(?:py|md|yaml|yml|json|toml|ini))")
@@ -287,13 +288,15 @@ def choose_turn_budget(message: str) -> int:
         "创建",
         "状态",
         "运行",
+        "接口行为",
+        "确认这个接口行为",
     )
+    if any(keyword in text for keyword in operator_heavy_keywords):
+        return 30
     if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
         return 8
     if is_script_like_request(message):
         return 10
-    if any(keyword in text for keyword in operator_heavy_keywords):
-        return 12
     return 6
 
 
@@ -968,19 +971,29 @@ PY"""
                 missing_param=tool_args.get("missing_param", "unknown"),
                 suggested=tool_args.get("suggested_values", []),
             )
+            question = tool_args.get("question", "需要更多信息")
+            structured_answer = None
+            if self._is_code_introspection_query(raw_input):
+                structured_answer = self._build_structured_answer(raw_input, result, question, 0.8)
+                if structured_answer is not None:
+                    structured_answer.self_model.capability_state = "tool_required"
+                    structured_answer.self_model.tool_dependence_state = "required"
+                    structured_answer.self_model.answer_mode = "tool_required"
+                    structured_answer.self_model.verification_mode = "light"
             return InterpretedCommand(
                 intent="clarification_pending",
                 raw_input=raw_input,
                 confidence=0.8,
                 parameters={
-                    "question": tool_args.get("question", "需要更多信息"),
+                    "question": question,
                     "pending_intent": tool_args.get("pending_intent"),
                     "missing_param": tool_args.get("missing_param"),
                     "suggested_values": tool_args.get("suggested_values", []),
                 },
                 source="llm_clarification",
                 requires_clarification=True,
-                clarification_question=tool_args.get("question"),
+                clarification_question=question,
+                structured_answer=structured_answer,
             )
 
         if tool_name == "unclear":

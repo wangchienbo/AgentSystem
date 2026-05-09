@@ -1269,3 +1269,10 @@ This is an initial static validation pass for the refreshed harness. Live subset
   - standard-install phrasing returns operator-heavy guidance
   - generic greeting returns default guidance
   - non-convergent history triggers convergence escalation
+
+
+### 2026-05-09 1seey + GLM-5.1 tool-required route validation
+- verified direct provider path with `https://ai.1seey.com/v1/chat/completions` and model `GLM-5.1`
+- verified `PYTHONPATH=/root/project/AgentSystem python3 -m scripts.model_probe` returns `MODEL_PROBE_OK` after routing `request()/probe()` via `chat/completions` for `wire_api=openai-completions`
+- verified `tool-required probe` no longer fails with `[Reached max turns (6)]` and now preserves `tool_required` structured-answer semantics through clarification exits
+- latest live service-up run advanced past `tool-required probe`, `draft continuation path`, `restart-bounded continuation recovery`, and `draft apply action` before a later governance self-iteration cycle hit an upstream `504` on turn 4
