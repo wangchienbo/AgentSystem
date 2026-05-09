@@ -281,7 +281,6 @@ def is_script_like_request(message: str) -> bool:
 def choose_turn_budget(message: str) -> int:
     text = (message or "").lower()
     operator_heavy_keywords = (
-        "app",
         "标准安装",
         "安装链路",
         "交付",
@@ -290,6 +289,10 @@ def choose_turn_budget(message: str) -> int:
         "运行",
         "接口行为",
         "确认这个接口行为",
+        "api handler",
+        "request/response",
+        "request response",
+        "handler 和 request/response 流程",
     )
     if any(keyword in text for keyword in operator_heavy_keywords):
         return 30
@@ -1124,12 +1127,11 @@ PY"""
         if is_introspection:
             capability_state = "tool_required"
             tool_dependence_state = "required"
+            answer_mode = "tool_required"
             if claim_grade in ("none", "hint"):
-                answer_mode = "verification_required"
                 verification_mode = "required"
                 uncertainty_state = "需先观测或验证"
             else:
-                answer_mode = "tool_required"
                 verification_mode = "light" if claim_grade == "excerpt" else "none"
         elif parsed_unverified:
             answer_mode = "clarification_required" if parsed_confidence < 0.5 else "verification_required"
