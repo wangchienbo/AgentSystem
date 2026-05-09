@@ -148,6 +148,24 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Loop guard successfully broke the repeated asset-method cycle, revealing a weaker post-stop answer synthesis issue
+
+### Summary
+After clearing the stale port-holder and rerunning on a fresh generation, the new repeated `call_asset_method` loop guard worked as intended. On the third consecutive asset-method selection, the engine triggered the guard and the following model turn stopped tool calling instead of continuing toward max-turn exhaustion. That is a meaningful convergence win. The remaining issue is now narrower: the model exits the loop but falls back to a cautious, underpowered summary instead of producing a stronger operator-facing closure.
+
+### What Was Done
+- killed stale PID `1929048` that had still been holding port 80
+- restarted the subset server cleanly and reran the operator-focused subset
+- inspected the fresh generation tied to server PID `1940980`
+- updated `docs/testing-detail.md`
+  - recorded that the loop guard fired at the third consecutive `call_asset_method`
+  - recorded that the next turn stopped tool calling and produced a direct response
+  - recorded that answer quality after the stop remains weaker than desired
+
+### Notes
+This is real progress. The route no longer burns itself out in a repeated asset-method loop. The next bounded fix should focus on post-guard answer shaping, not on further tool-loop suppression.
+
+
 ## 2026-05-10: Hardened the Phase3 subset launcher to clean up stale uvicorn port holders
 
 ### Summary

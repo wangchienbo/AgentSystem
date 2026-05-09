@@ -1377,3 +1377,24 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Validation
 - `bash -n scripts/start_phase3_subset_server.sh`
 - direct source check confirmed all three cleanup patterns are present
+
+## 2026-05-10 - Post-loop-guard clean-generation observation
+
+### Commands
+- killed stale PID `1929048` that had been contaminating port 80
+- restarted via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `1940980`
+
+### Observed result
+- the repeated asset-method loop guard fired as intended:
+  - `ToolCallingEngine loop guard triggered session=session_user_lifecycle_07 turn=3 tool=call_asset_method consecutive=3`
+- after the guard fired, the next model turn stopped tool calling:
+  - `returned_tool_calls=[] finish_reason=stop`
+- the route transitioned from unbounded repeated tool use into a direct response instead of continuing to max turns
+- however, the resulting answer quality was still weak: it stopped with a cautious summary (`目前我无法直接确认...`) rather than producing the stronger operator-facing closure expected by the scenario
+
+### Interpretation
+- engine-level repeated-tool suppression is effective at breaking the pathological `call_asset_method` loop
+- the dominant remaining issue is no longer looping itself, but weak answer synthesis after the guard-induced stop
+- the next bounded improvement should strengthen post-guard answer promotion so the model converts gathered evidence into a tighter operator-facing conclusion instead of retreating into generic uncertainty
