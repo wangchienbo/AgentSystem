@@ -1345,3 +1345,16 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - narrowing the tool surface worked as intended and removed `find_tool` from the live operator-heavy path
 - the remaining blocker is now a deeper `call_asset_method` loop inside the narrowed route
 - the next bounded improvement should target stop conditions or repeated-tool-loop suppression for consecutive identical asset-method exploration
+
+## 2026-05-10 - Repeated call_asset_method loop guard
+
+### Target
+- `app/ai/tool_calling_engine.py`
+
+### Changes
+- added a consecutive tool-call tracker inside the multi-turn tool loop
+- when `call_asset_method` is selected 3 consecutive turns, the engine now injects a loop-guard tool result instead of executing another identical asset-method step
+- the injected guard explicitly tells the model to stop calling tools and answer directly unless one final missing fact is truly required
+
+### Validation
+- `python3 -m py_compile app/ai/tool_calling_engine.py`

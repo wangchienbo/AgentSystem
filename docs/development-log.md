@@ -148,6 +148,28 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Added a repeated call_asset_method loop guard in the tool engine
+
+### Summary
+After the post-narrowing rerun showed that the remaining blocker was no longer broad wandering but a repeated `call_asset_method` loop, the next bounded fix moved down one layer into the tool engine. The engine now tracks consecutive tool selections and blocks the third consecutive `call_asset_method` step by injecting a loop-guard result that pushes the model to answer directly unless one final missing fact is truly necessary.
+
+### What Was Done
+- Updated `app/ai/tool_calling_engine.py`
+  - added consecutive tool-call tracking inside the multi-turn loop
+  - when `call_asset_method` is selected 3 turns in a row, the engine now:
+    - logs a loop-guard warning
+    - injects a synthetic tool result instead of executing another identical asset-method step
+    - tells the model to stop tool calling and answer directly unless one final missing fact is required
+- Updated `docs/testing-detail.md`
+  - recorded the repeated-tool-loop guard and validation evidence
+
+### Validation
+- `python3 -m py_compile app/ai/tool_calling_engine.py`
+
+### Notes
+This is the next bounded escalation after tool-surface narrowing. It does not remove `call_asset_method`; it only suppresses pathological consecutive reuse when the route is clearly not converging.
+
+
 ## 2026-05-10: Tool narrowing removed find_tool drift, leaving a repeated call_asset_method loop as the next blocker
 
 ### Summary

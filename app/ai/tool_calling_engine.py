@@ -248,6 +248,9 @@ class ToolCallingEngine:
         if max_turns is None:
             max_turns = 8
 
+        consecutive_tool_name = None
+        consecutive_tool_count = 0
+
         for turn in range(max_turns):
             logger.info(
                 "ToolCallingEngine turn=%s session=%s payload_tools=%s",
@@ -348,6 +351,33 @@ class ToolCallingEngine:
                 tool_name = tc.get("function", {}).get("name", "")
                 tool_args_str = tc.get("function", {}).get("arguments", "{}")
                 tool_call_id = tc.get("id", "")
+
+                if tool_name == consecutive_tool_name:
+                    consecutive_tool_count += 1
+                else:
+                    consecutive_tool_name = tool_name
+                    consecutive_tool_count = 1
+
+                if tool_name == "call_asset_method" and consecutive_tool_count >= 3:
+                    logger.warning(
+                        "ToolCallingEngine loop guard triggered session=%s turn=%s tool=%s consecutive=%s",
+                        session_id,
+                        turn + 1,
+                        tool_name,
+                        consecutive_tool_count,
+                    )
+                    guard_result = (
+                        "[loop-guard] 已连续多次调用 call_asset_method。"
+                        "如果现有资产结果已经足够，请立即停止工具调用并直接回答；"
+                        "只有在缺少明确关键事实时，才允许再补一次调用。"
+                    )
+                    call_records.append(ToolCallRecord(tool_name=tool_name, args={"loop_guard": True}, result=guard_result))
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": guard_result,
+                    })
+                    break
 
                 try:
                     tool_args = json.loads(tool_args_str)
