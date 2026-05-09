@@ -148,6 +148,34 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Made early tool routes more patient so upstream timeout noise is less likely to spoil clean validation
+
+### Summary
+The next blocker on this Phase 3 validation path was no longer a local logic loop but early upstream transport timeout noise interrupting shallow tool-chat turns before the latest answer-shaping fix could be evaluated. To reduce that external interference without reopening long-tail runaway latency, I widened the retry/timeout budget only for the earliest tool-route stages and kept deeper routes bounded.
+
+### What Was Done
+- Updated `app/ai/model_client.py`
+  - widened `_tool_route_budget(...)` for earlier tool-chat turns
+  - `message_count < 4` now uses `(4 attempts, 75.0s cap)`
+  - `message_count >= 4` now uses `(3 attempts, 60.0s cap)`
+  - kept deeper routes bounded:
+    - `message_count >= 6` -> `(2, 50.0)`
+    - `message_count >= 8` -> `(1, 45.0)`
+- Updated `docs/testing-detail.md`
+  - recorded the patience hardening and direct budget validation
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py`
+- direct budget check confirmed:
+  - `2 -> (4, 75.0)`
+  - `4 -> (3, 60.0)`
+  - `6 -> (2, 50.0)`
+  - `8 -> (1, 45.0)`
+
+### Notes
+This is still aligned with the current task-list path because the immediate need is a trustworthy clean rerun of the operator-heavy subset. The change is intentionally front-loaded: it gives early validation turns more patience while preserving the stronger latency bounds on deeper non-convergent routes.
+
+
 ## 2026-05-10: Fresh validation of post-loop-guard answer shaping was interrupted by upstream model transport timeout
 
 ### Summary

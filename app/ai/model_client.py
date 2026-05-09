@@ -156,8 +156,8 @@ def _tool_route_budget(message_count: int) -> tuple[int, float]:
     if message_count >= 6:
         return 2, 50.0
     if message_count >= 4:
-        return 2, 55.0
-    return 3, 60.0
+        return 3, 60.0
+    return 4, 75.0
 
 
 class OpenAIResponsesClient:

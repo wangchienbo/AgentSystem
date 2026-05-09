@@ -1431,3 +1431,27 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - current blocker for this specific rerun attempt was external model transport instability, not a newly observed local logic regression
 - the post-loop-guard answer-shaping fix still needs a clean live validation pass once the upstream timeout noise subsides
+
+## 2026-05-10 - Early tool-route patience hardening for upstream timeout noise
+
+### Target
+- `app/ai/model_client.py`
+
+### Trigger
+- clean rerun attempts for the operator-heavy subset were still being interrupted by early upstream read timeouts before the new post-loop-guard answer shaping could be evaluated
+
+### Changes
+- widened `_tool_route_budget(...)` for earlier / shallower tool-chat turns:
+  - `message_count < 4` now uses `(4 attempts, 75.0s cap)`
+  - `message_count >= 4` now uses `(3 attempts, 60.0s cap)`
+- deeper routes remain bounded:
+  - `message_count >= 6` -> `(2, 50.0)`
+  - `message_count >= 8` -> `(1, 45.0)`
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py`
+- direct check confirmed:
+  - `2 -> (4, 75.0)`
+  - `4 -> (3, 60.0)`
+  - `6 -> (2, 50.0)`
+  - `8 -> (1, 45.0)`
