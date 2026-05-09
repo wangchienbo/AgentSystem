@@ -148,6 +148,22 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Convergence guidance reduced filesystem drift, but operator-heavy routes still wander across discovery tools
+
+### Summary
+Reran the operator subset in a fresh generation after adding operator-heavy convergence guidance. The observed slice still did not converge quickly enough, but the wandering pattern changed: the earlier filesystem-heavy drift (`list_files` / `read_file`) was reduced, while repeated `find_tool` plus `call_asset_method` exploration remained. That means guidance alone helped somewhat, but the next deeper fix needs to narrow the tool surface itself.
+
+### What Was Done
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator-focused subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `1922482`
+- updated `docs/testing-detail.md`
+  - recorded that filesystem wandering reduced while discovery-tool wandering remained
+
+### Notes
+This is still useful progress. We now have evidence that the guidance-layer change affected tool choice, but not enough. The next bounded move should target operator-heavy tool exposure directly, especially `find_tool`, rather than only adjusting prompt guidance.
+
+
 ## 2026-05-06: Added operator-heavy convergence guidance to reduce tool-path wandering
 
 ### Summary

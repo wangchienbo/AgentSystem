@@ -1281,3 +1281,22 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - verified `_tool_route_budget()` returns tighter `(max_attempts, timeout_cap)` pairs as tool-route message history deepens
 - verified targeted tool-calling engine tests still pass after introducing bounded retry/timeout policy for deeper GLM tool routes
 - next live target remains the later governance self-iteration cycle that previously hit `1seey` `504` on turn 4
+
+## 2026-05-10 - Post-convergence-guidance clean-generation observation
+
+### Commands
+- started the server via `scripts/start_phase3_subset_server.sh /tmp/agentsystem_phase3_subset.log`
+- reran the operator subset with ready-state wait and delay
+- inspected the fresh generation tied to server PID `1922482`
+
+### Observed result
+- early acquire/release behavior remained healthy
+- the operator-heavy path still wandered, but the pattern shifted:
+  - repeated `find_tool`
+  - repeated `call_asset_method`
+- the earlier filesystem-heavy drift (`list_files` / `read_file`) was reduced in the observed slice
+- the remaining budget was still consumed without converging to a direct answer in the inspected turns
+
+### Interpretation
+- the added convergence guidance helped suppress some filesystem wandering, but it was not sufficient to stop higher-level tool-selection drift
+- the next bounded improvement should narrow the tool surface for operator-heavy routes, especially to reduce repeated `find_tool` exploration when the problem is already within known asset/app surfaces
