@@ -1300,3 +1300,28 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Interpretation
 - the added convergence guidance helped suppress some filesystem wandering, but it was not sufficient to stop higher-level tool-selection drift
 - the next bounded improvement should narrow the tool surface for operator-heavy routes, especially to reduce repeated `find_tool` exploration when the problem is already within known asset/app surfaces
+
+## 2026-05-10 - Operator-heavy tool-surface narrowing
+
+### Target
+- `app/system/gateway/tool_calling_interpreter.py`
+
+### Changes
+- added `narrow_tools_for_operator_route(...)`
+- operator-heavy routes now expose a narrowed tool surface:
+  - `call_asset_method`
+  - `exec_shell`
+  - `read_file`
+  - `ask_clarification`
+  - `unclear`
+- specifically removed broad discovery / filesystem drift tools from this path, including:
+  - `find_tool`
+  - `list_files`
+  - `search_files`
+  - `write_file`
+  - `edit_file`
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+- direct check confirmed operator-route narrowing keeps only:
+  - `['call_asset_method', 'exec_shell', 'read_file', 'ask_clarification', 'unclear']`

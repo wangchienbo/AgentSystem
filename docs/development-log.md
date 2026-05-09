@@ -148,6 +148,38 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Operator-heavy routes now use a narrowed tool surface
+
+### Summary
+After the post-guidance rerun showed that discovery-tool wandering (`find_tool` + repeated `call_asset_method`) remained the dominant blocker, the next bounded fix was to narrow the tool surface for operator-heavy routes directly. Instead of only relying on prompt guidance, those routes now expose a smaller set focused on asset queries, minimal file reads, and shell fallback.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - added `narrow_tools_for_operator_route(...)`
+  - operator-heavy routes now expose only:
+    - `call_asset_method`
+    - `exec_shell`
+    - `read_file`
+    - `ask_clarification`
+    - `unclear`
+  - removed broad discovery / filesystem-drift tools from this route, including:
+    - `find_tool`
+    - `list_files`
+    - `search_files`
+    - `write_file`
+    - `edit_file`
+- Updated `docs/testing-detail.md`
+  - recorded the narrowed tool surface and direct validation evidence
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py`
+- direct check confirmed operator-route narrowing keeps only:
+  - `['call_asset_method', 'exec_shell', 'read_file', 'ask_clarification', 'unclear']`
+
+### Notes
+This is the next logical escalation after guidance-only tuning. It is intentionally bounded to operator-heavy routes so the general tool surface remains unchanged while this problematic path is forced to converge more directly.
+
+
 ## 2026-05-10: Convergence guidance reduced filesystem drift, but operator-heavy routes still wander across discovery tools
 
 ### Summary

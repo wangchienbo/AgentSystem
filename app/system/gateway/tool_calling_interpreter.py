@@ -307,6 +307,10 @@ def narrow_tools_for_script_route(tools: list[ToolDef]) -> list[ToolDef]:
     allowed = {"exec_shell", "read_file", "write_file", "edit_file", "ask_clarification", "unclear"}
     narrowed = [tool for tool in tools if tool.name in allowed]
     return narrowed or tools
+def narrow_tools_for_operator_route(tools: list[ToolDef]) -> list[ToolDef]:
+    allowed = {"call_asset_method", "exec_shell", "read_file", "ask_clarification", "unclear"}
+    narrowed = [tool for tool in tools if tool.name in allowed]
+    return narrowed or tools
 
 
 
@@ -797,6 +801,8 @@ PY"""
 
         if is_script_like_request(message):
             prompt_tool_defs = narrow_tools_for_script_route(prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
+        elif any(keyword in message.lower() for keyword in ("app", "标准安装", "安装链路", "交付", "创建", "状态", "运行", "安装", "注册", "部署")):
+            prompt_tool_defs = narrow_tools_for_operator_route(prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
         else:
             prompt_tool_defs = prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
 
@@ -821,6 +827,8 @@ PY"""
         all_tools = registry_tools + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
         if is_script_like_request(message):
             all_tools = narrow_tools_for_script_route(all_tools)
+        elif any(keyword in message.lower() for keyword in ("app", "标准安装", "安装链路", "交付", "创建", "状态", "运行", "安装", "注册", "部署")):
+            all_tools = narrow_tools_for_operator_route(all_tools)
         else:
             pass  # No narrowing for general routes
 
