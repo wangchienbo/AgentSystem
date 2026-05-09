@@ -10505,6 +10505,36 @@ Backed out the short-lived lightweight direct-answer fast path that had been add
 ### Notes
 This keeps the gateway behavior simpler and avoids carrying a special-case shortcut path that diverges from the main interpreter execution model.
 
+## 2026-05-09: service-up tool-required probe for 1seey timeout-profile closure
+
+### Summary
+Continued the remaining Phase 0 HTTP/service-up closure by extending the bounded self-iteration service-up script with an explicit probe for tool-required chat routes under the current 1seey upstream timeout profile.
+
+### What Was Done
+- Updated `tests/scripts/e2e_self_iteration_service_up.py`
+  - added `tool_required_probe(client)`
+  - sends a real `/api/chat` request with a tool-required style prompt (`帮我确认这个接口行为`)
+  - requires `success=true` and a non-empty response body
+  - rejects degraded responses containing `[Reached max turns ...]`
+  - requires `structured_answer.self_model.answer_mode == "tool_required"`
+  - verifies `verification_mode` remains in the expected bounded set
+- Wired the probe into the main service-up flow between the basic chat probe and the draft continuation probe
+
+### Validation
+- `python3 -m py_compile tests/scripts/e2e_self_iteration_service_up.py`
+- lightweight structural check confirmed:
+  - `def tool_required_probe` exists
+  - `tool_required_probe(client)` is invoked from the main flow
+  - the guard for `[Reached max turns` is present
+- bounded live run:
+  - `START_SERVER=1 BASE_URL=http://127.0.0.1:8765 timeout 180 python3 tests/scripts/e2e_self_iteration_service_up.py`
+  - passed: server ready, login, nightly schedule registration, basic chat probe
+  - blocked at: `tool-required probe`
+  - server log showed the request entering `ToolCallingEngine` and `ModelClient.chat_with_tools(model=qwen3.6-plus, ...)`, then stalling in the upstream tool-calling path without a timely bounded result in the observed slice
+
+### Notes
+This does not yet prove full live stability against every upstream provider fluctuation. What it does close is the observability gap in the standard-install task list: the service-up path now explicitly checks that tool-required routes do not silently regress into empty replies or obvious turn-ceiling failure text, and the first bounded live rerun now isolates a concrete remaining blocker in the upstream tool-calling path rather than in local HTTP/session compatibility.
+
 ## 2026-05-07: 1seey model alignment and lightweight direct-answer fast path
 
 ### Summary

@@ -95,8 +95,8 @@
 - workflow hook、app-side write、governance observation write 进入共享上下文
 - continuation recovery 的 pending-task-first + Context Center fallback
 - `/api/chat` 与 `/api/action` 的 `workflow_contract` / `context_view` 兼容输出
-- HTTP acceptance 对 recent working memory 与 continuation recovery payload 的验证
-- service-up E2E 脚本已扩展 context-view / restart-style recovery 探针，完整跑绿仍受外部模型可用性影响
+- service-up 自迭代脚本现在额外检查 tool-required 路由在当前 upstream timeout profile 下不会退化为空响应或 `[Reached max turns ...]`，并保持 `structured_answer.self_model.answer_mode == tool_required`
+- service-up E2E 脚本已扩展 context-view / restart-style recovery / tool-required route 探针，完整跑绿仍受外部模型可用性影响
 
 结果：
 - focused Context Center / workflow / HTTP slice 已按波次分别通过
