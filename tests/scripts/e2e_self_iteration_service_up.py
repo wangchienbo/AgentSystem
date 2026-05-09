@@ -176,6 +176,28 @@ def chat_probe(client: SessionClient) -> None:
     ok("chat interaction works")
 
 
+def tool_required_probe(client: SessionClient) -> None:
+    stage("tool-required probe")
+    resp = client.post("/api/chat", json_body={"message": "帮我确认这个接口行为"})
+    if resp.status_code != 200:
+        fail(f"tool-required status={resp.status_code}", resp.text)
+    data = resp.json()
+    if not data.get("success"):
+        fail("tool-required probe returned success=false", data)
+    text = str(data.get("response") or data.get("content") or "")
+    if not text:
+        fail("tool-required probe returned empty response", data)
+    if "[Reached max turns" in text:
+        fail("tool-required probe hit max-turn ceiling", data)
+    structured = data.get("structured_answer") or {}
+    self_model = structured.get("self_model") or {}
+    if self_model.get("answer_mode") != "tool_required":
+        fail("tool-required probe did not preserve tool_required answer_mode", data)
+    if self_model.get("verification_mode") not in {"light", "required", "evidence_required", "tool_required"}:
+        fail("tool-required probe returned unexpected verification mode", data)
+    ok("tool-required route behaves acceptably under current timeout profile")
+
+
 def draft_activation_probe(client: SessionClient) -> None:
     stage("draft continuation path")
 
@@ -311,6 +333,7 @@ def main() -> None:
     login(client)
     ensure_schedule(client)
     chat_probe(client)
+    tool_required_probe(client)
     draft_activation_probe(client)
     result = run_self_iteration_cycle(client)
     verify_cycle_payload(result)
