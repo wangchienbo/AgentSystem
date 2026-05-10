@@ -148,6 +148,38 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Decoupled the Phase 3 subset startup helper from repo-root cwd/PYTHONPATH assumptions
+
+### Summary
+I kept pushing on the remaining startup-path cleanup slice and found one more concrete helper that still encoded the old repo-coupled runtime model: `scripts/start_phase3_subset_server.sh`. Even after the broader runtime and CLI decoupling work, this helper was still doing `cd "$PROJECT_DIR"` and exporting `PYTHONPATH="$PROJECT_DIR:..."` before launching uvicorn. I rewired it to match the newer runtime pattern by using explicit app-dir and runtime-data-dir configuration instead of repo-root cwd inheritance.
+
+### What Was Done
+- Updated `scripts/start_phase3_subset_server.sh`
+  - removed `cd "$PROJECT_DIR"`
+  - removed explicit `PYTHONPATH` export
+  - added `RUNTIME_DATA_DIR="${AGENTSYSTEM_DATA_DIR:-$PROJECT_DIR/data}"`
+  - uvicorn launch now uses:
+    - `env AGENTSYSTEM_DATA_DIR="$RUNTIME_DATA_DIR"`
+    - `--app-dir "$PROJECT_DIR"`
+  - preserved the earlier restart-hardening fixes:
+    - broader `pkill` cleanup
+    - port-free wait before restart
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded this under the startup-path cleanup slice
+- Updated `docs/testing-detail.md`
+  - recorded validation evidence
+
+### Validation
+- `bash -n scripts/start_phase3_subset_server.sh`
+- grep confirmation shows:
+  - `AGENTSYSTEM_DATA_DIR`
+  - `--app-dir`
+  - no remaining startup-path `PYTHONPATH` export or repo-root `cd`
+
+### Notes
+This is a good catch because `start_phase3_subset_server.sh` is exactly the kind of helper that can quietly preserve the old runtime mental model even after the main entrypoints have been cleaned up.
+
+
 ## 2026-05-10: Consolidated the old-work closure evidence into one focused regression bundle
 
 ### Summary

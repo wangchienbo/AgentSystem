@@ -45,6 +45,7 @@ Current merged unresolved items from older task lists and follow-up waves:
     - current remaining blocker is no longer local route wandering, but unstable upstream provider behavior (`504` / read timeout) preventing a clean final validation window for the operator-heavy subset
 - [ ] close any remaining startup path cleanup/output cleanup deltas discovered while stabilizing long-run baseline execution
   - [x] widened startup-script kill target and added port-free wait so repeated `start_phase3_subset_server.sh` restarts no longer race on `Address already in use`
+  - [x] decoupled `start_phase3_subset_server.sh` from repo-root `cd` / `PYTHONPATH` startup assumptions by switching to `--app-dir` plus `AGENTSYSTEM_DATA_DIR`
 - [ ] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts
   - [x] runtime subprocess default cwd no longer inherits repo-root process cwd
   - [x] pipeline executor default workspace no longer inherits repo-root process cwd

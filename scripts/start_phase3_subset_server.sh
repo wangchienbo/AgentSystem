@@ -2,13 +2,12 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+RUNTIME_DATA_DIR="${AGENTSYSTEM_DATA_DIR:-$PROJECT_DIR/data}"
 LOG_PATH="${1:-/tmp/agentsystem_phase3_subset.log}"
 PORT="${PORT:-80}"
 MARKER="phase3-subset-start $(date -Iseconds) pid=$$"
 
-cd "$PROJECT_DIR"
-export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
-
+mkdir -p "$RUNTIME_DATA_DIR"
 : > "$LOG_PATH"
 printf '=== %s ===\n' "$MARKER" >> "$LOG_PATH"
 
@@ -26,9 +25,9 @@ done
 WORKERS="${WORKERS:-1}"
 
 if [ -x "$PROJECT_DIR/.venv/bin/python3" ]; then
-  nohup "$PROJECT_DIR/.venv/bin/python3" -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" --timeout-keep-alive 120 >> "$LOG_PATH" 2>&1 &
+  nohup env AGENTSYSTEM_DATA_DIR="$RUNTIME_DATA_DIR" "$PROJECT_DIR/.venv/bin/python3" -m uvicorn app.system.http_test_server:app --app-dir "$PROJECT_DIR" --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" --timeout-keep-alive 120 >> "$LOG_PATH" 2>&1 &
 else
-  nohup python3 -m uvicorn app.system.http_test_server:app --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" --timeout-keep-alive 120 >> "$LOG_PATH" 2>&1 &
+  nohup env AGENTSYSTEM_DATA_DIR="$RUNTIME_DATA_DIR" python3 -m uvicorn app.system.http_test_server:app --app-dir "$PROJECT_DIR" --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" --timeout-keep-alive 120 >> "$LOG_PATH" 2>&1 &
 fi
 
 SERVER_PID=$!

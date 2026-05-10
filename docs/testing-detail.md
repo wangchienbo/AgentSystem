@@ -1794,3 +1794,29 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Outcome
 - this focused regression bundle is sufficient to mark the validation/docs sub-phase as landed for old-work closure, even though broader install-model implementation phases remain ahead
+
+## 2026-05-10 - Phase 3 subset startup script no longer relies on repo-root cwd/PYTHONPATH
+
+### Targets
+- `scripts/start_phase3_subset_server.sh`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- even after the broader repo-root decoupling work, the Phase 3 subset startup helper still encoded the old startup pattern with `cd "$PROJECT_DIR"` and `PYTHONPATH="$PROJECT_DIR:..."`
+- this kept one of the active startup/service-up helpers tied to repo-root runtime assumptions
+
+### Changes
+- removed `cd "$PROJECT_DIR"`
+- removed explicit `PYTHONPATH` export
+- added `RUNTIME_DATA_DIR="${AGENTSYSTEM_DATA_DIR:-$PROJECT_DIR/data}"`
+- launch now uses:
+  - `env AGENTSYSTEM_DATA_DIR="$RUNTIME_DATA_DIR"`
+  - `--app-dir "$PROJECT_DIR"`
+- keeps the earlier restart-hardening behavior (`pkill` + port-free wait) intact
+
+### Validation
+- `bash -n scripts/start_phase3_subset_server.sh`
+- grep confirmation shows:
+  - `AGENTSYSTEM_DATA_DIR`
+  - `--app-dir`
+  - no remaining startup-path `PYTHONPATH` export or repo-root `cd`
