@@ -1767,3 +1767,30 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Note
 - this is intentionally a bounded static confirmation pass, not a proof that every future runtime shape is install-model clean
 - it does strengthen the current Phase 0 status by showing that the previously identified obvious repo-root runnable-path signatures are no longer present in the main app/test/script/startup surfaces
+
+## 2026-05-10 - Focused old-work closure regression bundle
+
+### Targets
+- `tests/unit/test_cli.py`
+- `tests/unit/test_http_test_server.py`
+- `tests/unit/test_light_brain_gateway_acceptance_binding.py`
+- `tests/unit/test_tool_calling_interpreter.py`
+- `tests/unit/test_pending_task_orchestrator.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after multiple Phase 0 closure slices were landed and individually documented, section `1.3 Close validation and docs for old work` still needed one explicit focused regression bundle showing that the old-work closure evidence was now consolidated rather than scattered only across separate commits
+
+### Validation
+- `python3 -m pytest tests/unit/test_cli.py tests/unit/test_http_test_server.py tests/unit/test_light_brain_gateway_acceptance_binding.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_pending_task_orchestrator.py -q`
+  - `85 passed`
+
+### Coverage bundle
+- CLI control-plane contract and repo-root decoupled startup guidance
+- `/api/chat` and `/api/action` workflow/acceptance payload compatibility
+- acceptance-plan evidence binding and compact change-execution-summary surfacing
+- cheap-query fast-path and interpreter boundary behavior
+- pending-task orchestrator acceptance-plan/result persistence
+
+### Outcome
+- this focused regression bundle is sufficient to mark the validation/docs sub-phase as landed for old-work closure, even though broader install-model implementation phases remain ahead

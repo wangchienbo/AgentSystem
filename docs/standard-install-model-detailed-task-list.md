@@ -65,7 +65,7 @@ Status: [~] in progress
 - verify no repo-root hard dependency remains in runnable code paths
 
 ### 1.3 Close validation and docs for old work
-Status: [~] in progress
+Status: [x] focused validation/docs closure landed
 - run focused regression for remaining unfinished old tasks
 - update testing docs if any old task lacked evidence
 - update development log with final closure notes for these items

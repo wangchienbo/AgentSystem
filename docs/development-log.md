@@ -148,6 +148,37 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Consolidated the old-work closure evidence into one focused regression bundle
+
+### Summary
+I continued Phase 0 by packaging the already-landed closure slices into one explicit focused regression bundle. By this point, the repo-root cleanup, HTTP/action compatibility evidence, acceptance-binding closure, CLI contract tightening, cheap-query fast path, and pending-task acceptance persistence work had each been validated in their own rounds. What was still missing in the detailed task list was one consolidated validation marker proving that section `1.3 Close validation and docs for old work` had actually reached a stable evidence checkpoint rather than being supported only by scattered notes.
+
+### What Was Done
+- Ran a focused old-work closure regression bundle across:
+  - `tests/unit/test_cli.py`
+  - `tests/unit/test_http_test_server.py`
+  - `tests/unit/test_light_brain_gateway_acceptance_binding.py`
+  - `tests/unit/test_tool_calling_interpreter.py`
+  - `tests/unit/test_pending_task_orchestrator.py`
+- Reconfirmed bundled coverage for:
+  - CLI control-plane contract and repo-root-decoupled startup guidance
+  - `/api/chat` and `/api/action` workflow/acceptance payload compatibility
+  - acceptance-plan evidence binding and compact `change_execution_summary`
+  - cheap-query fast-path boundaries
+  - pending-task orchestrator acceptance-plan/result persistence
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked section `1.3 Close validation and docs for old work` as focused validation/docs closure landed
+- Updated `docs/testing-detail.md`
+  - recorded the focused regression bundle and outcome
+
+### Validation
+- `python3 -m pytest tests/unit/test_cli.py tests/unit/test_http_test_server.py tests/unit/test_light_brain_gateway_acceptance_binding.py tests/unit/test_tool_calling_interpreter.py tests/unit/test_pending_task_orchestrator.py -q`
+  - `85 passed`
+
+### Notes
+This does not mean the whole install-model transition is finished. It does mean the old-work closure track now has one explicit consolidated validation checkpoint, which is what section `1.3` needed before the task list can move more cleanly toward the next phase.
+
+
 ## 2026-05-10: Added a bounded static confirmation pass for remaining repo-root runnable-path coupling
 
 ### Summary
