@@ -1741,3 +1741,29 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Note
 - this strengthens the evidence that the current remaining blocker on the unresolved service-up closure item is external provider instability during live operator-heavy runs, not a newly observed local HTTP/action compatibility regression
+
+## 2026-05-10 - Bounded grep sweep for remaining repo-root runnable-path coupling
+
+### Targets
+- `app/`
+- `tests/`
+- `scripts/`
+- top-level startup shell surfaces
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after landing the runtime cwd, pipeline workspace, service-up probe, and CLI start-contract decoupling fixes, the remaining Phase 0 repo-root dependency item still needed a fresh bounded scan for obvious leftover runnable-path patterns
+
+### Validation
+- bounded grep sweep for the main legacy signatures:
+  - `cd {repo_root}`
+  - `PYTHONPATH=.*repo_root`
+  - `ROOT_DIR = Path(__file__)`
+  - `cwd=str(ROOT_DIR)`
+  - `os.getcwd()`
+- result:
+  - `NO_MATCHES`
+
+### Note
+- this is intentionally a bounded static confirmation pass, not a proof that every future runtime shape is install-model clean
+- it does strengthen the current Phase 0 status by showing that the previously identified obvious repo-root runnable-path signatures are no longer present in the main app/test/script/startup surfaces

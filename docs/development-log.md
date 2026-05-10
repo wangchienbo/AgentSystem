@@ -148,6 +148,38 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Added a bounded static confirmation pass for remaining repo-root runnable-path coupling
+
+### Summary
+I continued Phase 0 by doing a fresh bounded scan for the most obvious remaining repo-root runnable-path signatures across the main app, tests, scripts, and startup surfaces. After the earlier runtime cwd, pipeline workspace, service-up probe, and CLI start-contract fixes, this was the next low-cost way to verify that the old coupling patterns had actually been scrubbed from the primary execution surfaces instead of only being partially moved around.
+
+### What Was Done
+- Ran a bounded grep sweep across:
+  - `app/`
+  - `tests/`
+  - `scripts/`
+  - top-level startup shell surfaces
+- Checked for the main legacy signatures:
+  - `cd {repo_root}`
+  - `PYTHONPATH=.*repo_root`
+  - `ROOT_DIR = Path(__file__)`
+  - `cwd=str(ROOT_DIR)`
+  - `os.getcwd()`
+- Result:
+  - `NO_MATCHES`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded this bounded static confirmation under the remaining repo-root dependency item
+- Updated `docs/testing-detail.md`
+  - recorded the scan evidence
+
+### Validation
+- bounded grep sweep returned:
+  - `NO_MATCHES`
+
+### Notes
+This is intentionally not a full formal proof that every runtime path is permanently install-model-clean. What it does provide is a current static confirmation that the concrete legacy coupling patterns already identified during Phase 0 are no longer obviously present in the main runnable surfaces.
+
+
 ## 2026-05-10: Refreshed the focused local HTTP/action compatibility regression snapshot
 
 ### Summary

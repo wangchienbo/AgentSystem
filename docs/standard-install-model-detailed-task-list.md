@@ -51,6 +51,7 @@ Current merged unresolved items from older task lists and follow-up waves:
   - [x] validation guidance no longer teaches repo-root-coupled startup phrasing
   - [x] service-up probe scripts now launch uvicorn from runtime data dir with explicit import path instead of repo-root cwd
   - [x] CLI suggested start command now uses `--app-dir` plus `AGENTSYSTEM_DATA_DIR` instead of `cd <repo-root> && PYTHONPATH=...`
+  - [x] current bounded grep sweep across runnable app/tests/scripts surfaces found no remaining obvious `repo_root cwd` / `ROOT_DIR cwd` / `PYTHONPATH=<repo_root>` / `os.getcwd()` style hits
 - [ ] explicitly track older closure-upgrade items that were conceptually merged but not yet fully closed:
   - [x] query/read fast-path for cheap count/status/list requests
   - [x] closure scoring split beyond raw response success
