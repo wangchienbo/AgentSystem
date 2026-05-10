@@ -1923,3 +1923,21 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - marked the startup-path cleanup item as closed
 - marked the runnable-path repo-root dependency item as closed
 - narrowed section `1.2` to the remaining live HTTP/provider closure window rather than broad path-cleanup uncertainty
+
+## 2026-05-10 - Phase 0 remainder reclassification after closure-upgrade and helper-path cleanup
+
+### Targets
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after the closure-upgrade items, startup/helper cleanup, runnable-path sweeps, and focused local HTTP regressions had all landed, the detailed task list still described some resolved buckets as generically open
+
+### Changes
+- marked the older closure-upgrade bucket as closed because all three tracked sub-items are now landed
+- expanded section `1.2` so the remaining code-level loose-end state is described explicitly:
+  - local HTTP/action contract evidence is green
+  - startup/helper/path-cleanup sweeps are green
+  - the remaining unresolved window is live upstream tool-calling/provider stability during operator-heavy service-up validation
+
+### Note
+- this is a task-list truthfulness update, not a claim that the live provider-window blocker itself is solved

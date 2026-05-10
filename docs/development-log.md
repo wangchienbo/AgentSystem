@@ -148,6 +148,26 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Tightened the Phase 0 remainder description so the task list matches the actual blocker shape
+
+### Summary
+I used the latest closure evidence to tighten the task list language itself one more time. By now, the older closure-upgrade bucket is fully landed, the startup/helper cleanup bucket is closed, the runnable-path repo-root dependency bucket is closed, and the focused local HTTP/action regressions are green. What remained was that section `1.2` still read a bit too generically. I updated it so the document now states the actual remaining shape: the unresolved live upstream tool-calling/provider stability window during operator-heavy service-up validation.
+
+### What Was Done
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked the older closure-upgrade bucket as closed
+  - expanded section `1.2` with explicit remainder notes:
+    - local HTTP/action contract evidence is green
+    - startup/helper/path-cleanup sweeps are green
+    - runnable-path repo-root sweeps are green
+    - the remaining unresolved closure window is live upstream tool-calling/provider stability
+- Updated `docs/testing-detail.md`
+  - recorded the reclassification rationale
+
+### Notes
+This is another task-list truthfulness pass, not a fake completion claim. The point is that the document now points at the real blocker instead of leaving several already-closed local buckets sounding half-open.
+
+
 ## 2026-05-10: Reclassified the remaining Phase 0 loose-ends state after the shell/helper sweep hit zero simple repo-coupling matches
 
 ### Summary

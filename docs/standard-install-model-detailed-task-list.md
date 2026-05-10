@@ -56,7 +56,7 @@ Current merged unresolved items from older task lists and follow-up waves:
   - [x] service-up probe scripts now launch uvicorn from runtime data dir with explicit import path instead of repo-root cwd
   - [x] CLI suggested start command now uses `--app-dir` plus `AGENTSYSTEM_DATA_DIR` instead of `cd <repo-root> && PYTHONPATH=...`
   - [x] current bounded grep sweep across runnable app/tests/scripts surfaces found no remaining obvious `repo_root cwd` / `ROOT_DIR cwd` / `PYTHONPATH=<repo_root>` / `os.getcwd()` style hits
-- [ ] explicitly track older closure-upgrade items that were conceptually merged but not yet fully closed:
+- [x] explicitly track older closure-upgrade items that were conceptually merged but not yet fully closed:
   - [x] query/read fast-path for cheap count/status/list requests
   - [x] closure scoring split beyond raw response success
   - [x] run isolation metadata for long E2E analysis (`run_id`, `scenario_id`)
@@ -65,8 +65,12 @@ Current merged unresolved items from older task lists and follow-up waves:
 Status: [~] in progress, narrowed to remaining live HTTP/provider closure window
 - finish any partially landed workflow/action/acceptance chain improvements
 - close any pending HTTP compatibility deltas
+  - local contract/path drift evidence is green
+  - remaining unresolved closure is live upstream tool-calling/provider stability during operator-heavy service-up validation
 - close any remaining path-cleanup/output-cleanup items discovered during service startup
+  - current bounded helper/startup sweeps are clean
 - verify no repo-root hard dependency remains in runnable code paths
+  - current bounded runnable-path and shell/helper sweeps are clean
 
 ### 1.3 Close validation and docs for old work
 Status: [x] focused validation/docs closure landed
