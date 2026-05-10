@@ -1820,3 +1820,28 @@ This is an initial static validation pass for the refreshed harness. Live subset
   - `AGENTSYSTEM_DATA_DIR`
   - `--app-dir`
   - no remaining startup-path `PYTHONPATH` export or repo-root `cd`
+
+## 2026-05-10 - Compatibility shell wrappers no longer export repo-root PYTHONPATH
+
+### Targets
+- `start_server.sh`
+- `start_web_server.sh`
+- `stop_server.sh`
+- `tests/unit/test_cli.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- the previous repo-root coupling sweep still found the top-level compatibility wrappers exporting `PYTHONPATH="$PROJECT_DIR:..."`
+- even though they were only delegating into the Python CLI, they still preserved the old repo-root import pattern at the wrapper layer
+
+### Changes
+- removed `PYTHONPATH` export from all three wrappers
+- wrappers now invoke `app/cli.py` directly via:
+  - `"$PROJECT_DIR/.venv/bin/python3" "$PROJECT_DIR/app/cli.py" ...`
+  - or `python3 "$PROJECT_DIR/app/cli.py" ...`
+- updated CLI wrapper tests accordingly
+
+### Validation
+- `bash -n start_server.sh start_web_server.sh stop_server.sh`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`

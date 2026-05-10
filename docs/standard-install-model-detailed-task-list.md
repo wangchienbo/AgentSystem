@@ -46,6 +46,7 @@ Current merged unresolved items from older task lists and follow-up waves:
 - [ ] close any remaining startup path cleanup/output cleanup deltas discovered while stabilizing long-run baseline execution
   - [x] widened startup-script kill target and added port-free wait so repeated `start_phase3_subset_server.sh` restarts no longer race on `Address already in use`
   - [x] decoupled `start_phase3_subset_server.sh` from repo-root `cd` / `PYTHONPATH` startup assumptions by switching to `--app-dir` plus `AGENTSYSTEM_DATA_DIR`
+  - [x] compatibility wrappers (`start_server.sh`, `start_web_server.sh`, `stop_server.sh`) now invoke `app/cli.py` directly instead of exporting repo-root `PYTHONPATH`
 - [ ] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts
   - [x] runtime subprocess default cwd no longer inherits repo-root process cwd
   - [x] pipeline executor default workspace no longer inherits repo-root process cwd

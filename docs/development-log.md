@@ -148,6 +148,35 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Removed repo-root PYTHONPATH export from the top-level compatibility wrappers
+
+### Summary
+I kept following the startup-path loose ends and the next residual repo-coupled layer turned out to be the top-level compatibility wrappers themselves. `start_server.sh`, `start_web_server.sh`, and `stop_server.sh` were already only delegating into the Python CLI, but they still did that by exporting `PYTHONPATH="$PROJECT_DIR:..."` first. That meant the repo-root import pattern was still being preserved at the wrapper layer. I switched them to invoke `app/cli.py` directly so the wrappers no longer need repo-root `PYTHONPATH` mutation.
+
+### What Was Done
+- Updated `start_server.sh`
+- Updated `start_web_server.sh`
+- Updated `stop_server.sh`
+  - removed `PYTHONPATH` export
+  - now invoke:
+    - `"$PROJECT_DIR/.venv/bin/python3" "$PROJECT_DIR/app/cli.py" ...`
+    - or `python3 "$PROJECT_DIR/app/cli.py" ...`
+- Updated `tests/unit/test_cli.py`
+  - refreshed wrapper assertions to match the direct `app/cli.py` invocation shape
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded this closure slice under startup path cleanup
+- Updated `docs/testing-detail.md`
+  - recorded validation evidence
+
+### Validation
+- `bash -n start_server.sh start_web_server.sh stop_server.sh`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`
+
+### Notes
+This is another small but worthwhile cleanup, because compatibility wrappers are exactly the kind of place where old runtime assumptions can survive long after the primary code paths have moved on.
+
+
 ## 2026-05-10: Decoupled the Phase 3 subset startup helper from repo-root cwd/PYTHONPATH assumptions
 
 ### Summary

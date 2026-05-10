@@ -4,10 +4,9 @@
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 
 if [ -f "$PROJECT_DIR/.venv/bin/python3" ]; then
-  exec "$PROJECT_DIR/.venv/bin/python3" -m app.cli start "$@"
+  exec "$PROJECT_DIR/.venv/bin/python3" "$PROJECT_DIR/app/cli.py" start "$@"
 fi
 
-exec python3 -m app.cli start "$@"
+exec python3 "$PROJECT_DIR/app/cli.py" start "$@"

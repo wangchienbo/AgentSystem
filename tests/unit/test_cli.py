@@ -67,9 +67,9 @@ def test_repo_shell_wrappers_delegate_to_python_cli() -> None:
     start_wrapper = (REPO_ROOT / "start_server.sh").read_text(encoding="utf-8")
     stop_wrapper = (REPO_ROOT / "stop_server.sh").read_text(encoding="utf-8")
     start_web_wrapper = (REPO_ROOT / "start_web_server.sh").read_text(encoding="utf-8")
-    assert "-m app.cli start" in start_wrapper
-    assert "-m app.cli stop" in stop_wrapper
-    assert "-m app.cli start" in start_web_wrapper
+    assert "app/cli.py\" start" in start_wrapper
+    assert "app/cli.py\" stop" in stop_wrapper
+    assert "app/cli.py\" start" in start_web_wrapper
 
 
 def test_run_cli_supports_assets_install_command() -> None:
