@@ -1671,3 +1671,28 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Validation
 - `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+## 2026-05-10 - CLI suggested start command no longer teaches repo-root runtime cwd coupling
+
+### Targets
+- `app/cli.py`
+- `tests/unit/test_cli.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- even after tightening runtime subprocesses, pipeline workspaces, and service-up probes, the CLI control-plane suggestion still taught a repo-root-coupled launch shape: `cd <repo-root> && PYTHONPATH=<repo-root> ...`
+- this was still directly relevant to the active Phase 0 closure item around runnable-path repo-root dependency
+
+### Changes
+- changed `_start_command(...)` so the suggested launch path now uses:
+  - `--app-dir <repo_root>` for import resolution
+  - `AGENTSYSTEM_DATA_DIR=<repo_root/data>` for runtime data placement
+  - no `cd <repo-root>` requirement
+  - no inline `PYTHONPATH=<repo_root>` requirement
+- updated CLI tests to assert the new contract
+- refreshed the detailed task list notes to record the new closure slice under the repo-root dependency item and to mark the three older closure-upgrade bullets as landed
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`

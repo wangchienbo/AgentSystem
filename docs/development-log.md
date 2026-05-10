@@ -148,6 +148,38 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Removed repo-root-coupled cwd assumptions from the CLI suggested start contract
+
+### Summary
+I continued the same Phase 0 repo-root dependency closure sweep by moving back into the CLI control-plane surface. Even after previous runtime, pipeline, validation, and service-up probe fixes, the CLI's own suggested start command was still teaching a repo-root-coupled launch shape: `cd <repo-root> && PYTHONPATH=<repo-root> ...`. That meant the operator-facing control plane still encoded the old runtime model. I rewired the suggested start contract to use explicit import/runtime-dir arguments instead of relying on repo-root cwd inheritance.
+
+### What Was Done
+- Updated `app/cli.py`
+  - changed `_start_command(...)` to emit a launch command that uses:
+    - `--app-dir <repo_root>` for import resolution
+    - `AGENTSYSTEM_DATA_DIR=<repo_root/data>` for runtime data placement
+    - no `cd <repo-root>` prefix
+    - no inline `PYTHONPATH=<repo_root>` dependency
+- Updated `tests/unit/test_cli.py`
+  - replaced the old repo-coupled command expectation with assertions for:
+    - `--app-dir`
+    - `AGENTSYSTEM_DATA_DIR=`
+    - the uvicorn module target
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded this CLI start-contract tightening under the repo-root dependency closure item
+  - marked the three older closure-upgrade bullets as landed
+- Updated `docs/testing-detail.md`
+  - recorded the CLI-side runtime-decoupling evidence
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`
+
+### Notes
+This does not fully close the whole repo-root dependency item yet, but it removes another operator-visible runnable-path coupling from the control plane itself, which matters before Phase 1 / install-model migration can be considered clean.
+
+
 ## 2026-05-10: Split user-level E2E closure scoring beyond raw response success
 
 ### Summary

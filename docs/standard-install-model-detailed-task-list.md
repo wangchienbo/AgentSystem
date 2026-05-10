@@ -45,10 +45,15 @@ Current merged unresolved items from older task lists and follow-up waves:
 - [ ] close any remaining startup path cleanup/output cleanup deltas discovered while stabilizing long-run baseline execution
   - [x] widened startup-script kill target and added port-free wait so repeated `start_phase3_subset_server.sh` restarts no longer race on `Address already in use`
 - [ ] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts
+  - [x] runtime subprocess default cwd no longer inherits repo-root process cwd
+  - [x] pipeline executor default workspace no longer inherits repo-root process cwd
+  - [x] validation guidance no longer teaches repo-root-coupled startup phrasing
+  - [x] service-up probe scripts now launch uvicorn from runtime data dir with explicit import path instead of repo-root cwd
+  - [x] CLI suggested start command now uses `--app-dir` plus `AGENTSYSTEM_DATA_DIR` instead of `cd <repo-root> && PYTHONPATH=...`
 - [ ] explicitly track older closure-upgrade items that were conceptually merged but not yet fully closed:
-  - query/read fast-path for cheap count/status/list requests
-  - closure scoring split beyond raw response success
-  - run isolation metadata for long E2E analysis (`run_id`, `scenario_id`)
+  - [x] query/read fast-path for cheap count/status/list requests
+  - [x] closure scoring split beyond raw response success
+  - [x] run isolation metadata for long E2E analysis (`run_id`, `scenario_id`)
 
 ### 1.2 Close code-level loose ends
 Status: [ ] pending

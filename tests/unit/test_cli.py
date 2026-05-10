@@ -37,7 +37,9 @@ def test_run_cli_returns_not_implemented_contract_for_start() -> None:
     assert result.exit_code == 2
     assert result.details["status"] == "not_implemented"
     assert "next_step" in result.details
-    assert ".venv/bin/python3 -m uvicorn app.system.http_test_server:app" in str(result.details["suggested_start_command"])
+    assert "--app-dir" in str(result.details["suggested_start_command"])
+    assert "AGENTSYSTEM_DATA_DIR=" in str(result.details["suggested_start_command"])
+    assert "-m uvicorn app.system.http_test_server:app" in str(result.details["suggested_start_command"])
 
 
 def test_run_cli_returns_runtime_layout_contract() -> None:
