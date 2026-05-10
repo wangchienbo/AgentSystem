@@ -136,6 +136,7 @@ Status: [x] initial contract landed
 Status: [x] initial skeleton landed
 - added a python CLI entrypoint (`app.cli`) instead of relying only on repo shell scripts
 - wired a planned command surface for top-level runtime/install commands and `assets` subcommands
+- `assets list` / `assets discover` now expose a live builtin-asset inventory contract from the source-repo transition view
 - current command handlers return explicit planned status details so the control plane contract exists before deeper service binding
 - legacy `start_server.sh` / `stop_server.sh` now act as compatibility wrappers that delegate into the Python CLI
 - legacy `start_web_server.sh` now also delegates into the same Python CLI start path instead of carrying a separate startup surface

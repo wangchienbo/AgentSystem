@@ -82,6 +82,28 @@ def test_repo_shell_wrappers_delegate_to_python_cli() -> None:
     assert "app/cli.py\" start" in start_web_wrapper
 
 
+def test_run_cli_supports_assets_list_command() -> None:
+    result = run_cli(["assets", "list"])
+    assert result.command == "assets.list"
+    assert result.details["status"] == "ok"
+    assert result.details["operation_scope"] == "source_repo_asset_inventory_view"
+    assert isinstance(result.details["asset_count"], int)
+    assets = result.details["assets"]
+    assert isinstance(assets, list)
+    assert assets
+    first = assets[0]
+    assert "asset_id" in first
+    assert "runtime_adapter" in first
+
+
+def test_run_cli_supports_assets_discover_command() -> None:
+    result = run_cli(["assets", "discover"])
+    assert result.command == "assets.discover"
+    assert result.details["status"] == "ok"
+    assert result.details["operation_scope"] == "source_repo_asset_inventory_view"
+    assert result.details["asset_count"] == len(result.details["assets"])
+
+
 def test_run_cli_supports_assets_install_command() -> None:
     result = run_cli(["assets", "install", "asset.demo"])
     assert result.command == "assets.install"

@@ -148,6 +148,38 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Landed the first live asset-inventory slice in the CLI
+
+### Summary
+I finally moved one small part of the Phase 1 CLI from pure placeholder behavior into a real, live response path. Instead of keeping all `assets` subcommands in `planned` status, I wired `assets list` and `assets discover` to return a builtin asset inventory derived from `SYSTEM_SKILL_SPECS`. This is a safe first real behavior slice because it stays read-only, uses already-available registry metadata, and strengthens the operator control plane without prematurely binding install behavior.
+
+### What Was Done
+- Updated `app/cli.py`
+  - added a builtin asset inventory helper sourced from `SYSTEM_SKILL_SPECS`
+  - `agentsystem assets list` now returns a live inventory contract
+  - `agentsystem assets discover` now returns the same live inventory contract
+  - both commands expose:
+    - `status = ok`
+    - `operation_scope = source_repo_asset_inventory_view`
+    - `asset_count`
+    - `assets`
+- Updated `tests/unit/test_cli.py`
+  - added focused tests for `assets list` and `assets discover`
+  - kept `assets install` explicitly in planned status
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that `assets list` / `assets discover` are now live inventory surfaces rather than skeleton-only placeholders
+- Updated `docs/testing-detail.md`
+  - captured validation evidence
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `9 passed`
+
+### Notes
+This is the first Phase 1 step in this slice that clearly crosses from contract-shaping into real read-path behavior. It is still intentionally conservative, but that is the right way to start wiring the CLI: inventory first, mutation later.
+
+
 ## 2026-05-10: Added explicit failure semantics to the CLI health commands
 
 ### Summary

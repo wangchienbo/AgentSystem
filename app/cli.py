@@ -7,6 +7,8 @@ from typing import Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from app.skills.system_skill_registry import SYSTEM_SKILL_SPECS
+
 
 DEFAULT_LAYOUT_DIRS = {
     "config_dir": "config",
@@ -58,6 +60,22 @@ def build_parser() -> argparse.ArgumentParser:
     assets_subparsers.add_parser("install-all")
 
     return parser
+
+
+def _builtin_asset_records() -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for skill_id, spec in sorted(SYSTEM_SKILL_SPECS.items()):
+        manifest = spec["manifest"]
+        records.append(
+            {
+                "asset_id": skill_id,
+                "name": spec["name"],
+                "origin": "builtin",
+                "runtime_adapter": manifest.runtime_adapter,
+                "version": spec["version"],
+            }
+        )
+    return records
 
 
 def _runtime_layout(repo_root: Path) -> dict[str, object]:
@@ -157,6 +175,18 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
     repo_root = _repo_root()
     if args.command == "assets":
         asset_command = getattr(args, "assets_command", None)
+        if asset_command in {"list", "discover"}:
+            assets = _builtin_asset_records()
+            return CLIResult(
+                command=f"assets.{asset_command}",
+                details={
+                    "status": "ok",
+                    "operation_scope": "source_repo_asset_inventory_view",
+                    "asset_count": len(assets),
+                    "assets": assets,
+                    "repo_root": str(repo_root),
+                },
+            )
         if asset_command == "install":
             return CLIResult(
                 command="assets.install",

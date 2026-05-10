@@ -2030,3 +2030,28 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
 - `python3 -m pytest tests/unit/test_cli.py -q`
   - `7 passed`
+
+## 2026-05-10 - First live asset inventory slice landed in the CLI
+
+### Targets
+- `app/cli.py`
+- `tests/unit/test_cli.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after strengthening the health/status contracts, the next safe move from the Phase 1 command surface was to convert one of the `assets` subcommands from pure placeholder status into a small real behavior slice
+
+### Changes
+- `assets list` and `assets discover` now return a live builtin-asset inventory derived from `SYSTEM_SKILL_SPECS`
+- both commands expose:
+  - `status = ok`
+  - `operation_scope = source_repo_asset_inventory_view`
+  - `asset_count`
+  - `assets`
+- `assets install` remains planned for now
+- task list updated to reflect that `assets list` / `assets discover` are no longer skeleton-only surfaces
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `9 passed`
