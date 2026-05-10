@@ -14,8 +14,9 @@ import requests
 
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8765").rstrip("/")
 USERNAME = "e2e-draft-probe"
-ROOT_DIR = Path(__file__).resolve().parents[2]
-SERVER_LOG = ROOT_DIR / "data" / "e2e_draft_probe.log"
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+RUNTIME_DATA_DIR = Path(os.environ.get("AGENTSYSTEM_DATA_DIR", str(PROJECT_DIR / "data"))).expanduser().resolve()
+SERVER_LOG = RUNTIME_DATA_DIR / "e2e_draft_probe.log"
 
 GREEN = "\033[0;32m"
 RED = "\033[0;31m"
@@ -57,7 +58,7 @@ def cleanup_server() -> None:
 
 
 def kill_port() -> None:
-    subprocess.run("fuser -k 8765/tcp >/dev/null 2>&1 || true", shell=True, cwd=str(ROOT_DIR), check=False)
+    subprocess.run("fuser -k 8765/tcp >/dev/null 2>&1 || true", shell=True, check=False)
 
 
 def ensure_server_ready(timeout_seconds: int = 30) -> None:
@@ -80,6 +81,7 @@ def start_server() -> None:
     kill_port()
     SERVER_LOG.parent.mkdir(parents=True, exist_ok=True)
     _SERVER_LOG_HANDLE = SERVER_LOG.open("w", encoding="utf-8")
+    env = {**os.environ, "PYTHONPATH": str(PROJECT_DIR), "AGENTSYSTEM_DATA_DIR": str(RUNTIME_DATA_DIR)}
     _SERVER_PROCESS = subprocess.Popen(
         [
             sys.executable,
@@ -91,10 +93,11 @@ def start_server() -> None:
             "--port",
             "8765",
         ],
-        cwd=str(ROOT_DIR),
+        cwd=str(RUNTIME_DATA_DIR),
         stdout=_SERVER_LOG_HANDLE,
         stderr=subprocess.STDOUT,
         text=True,
+        env=env,
     )
     atexit.register(cleanup_server)
     ensure_server_ready()

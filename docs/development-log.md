@@ -148,6 +148,32 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Service-up probe scripts now launch uvicorn from runtime data dir instead of inheriting repo-root cwd
+
+### Summary
+Continuing the same Phase 0 repo-root dependency closure pass, I moved from runtime code into the higher-value service-up probe scripts. Both `e2e_self_iteration_service_up.py` and `e2e_draft_creation_probe.py` were still launching uvicorn with `cwd=str(ROOT_DIR)`, which meant these probe flows preserved a real runnable-path dependency on the source checkout location. I reworked them so they still import the repo code via `PYTHONPATH`, but run from the runtime data directory instead of the repo root.
+
+### What Was Done
+- Updated `tests/scripts/e2e_self_iteration_service_up.py`
+- Updated `tests/scripts/e2e_draft_creation_probe.py`
+  - replaced `ROOT_DIR`-anchored runtime assumptions with:
+    - `PROJECT_DIR` for import resolution
+    - `RUNTIME_DATA_DIR` for working directory and log placement
+  - uvicorn subprocesses now launch with:
+    - `cwd=str(RUNTIME_DATA_DIR)`
+    - `PYTHONPATH=<project_dir>`
+    - `AGENTSYSTEM_DATA_DIR=<runtime_data_dir>`
+  - removed the unnecessary repo-root `cwd` from the draft probe's `fuser` cleanup helper
+- Updated `docs/testing-detail.md`
+  - recorded the probe-script runtime-dir tightening and validation evidence
+
+### Validation
+- `python3 -m py_compile tests/scripts/e2e_self_iteration_service_up.py tests/scripts/e2e_draft_creation_probe.py`
+
+### Notes
+This is a stronger closure slice than the previous guidance cleanup because these scripts actually launch the service. They now keep repo code importable without teaching or requiring repo-root cwd as the runtime execution base.
+
+
 ## 2026-05-10: Tightened human-facing validation guidance so it no longer teaches repo-root-coupled startup phrasing
 
 ### Summary

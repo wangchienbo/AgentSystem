@@ -1565,3 +1565,25 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Validation
 - `python3 -m py_compile tests/scripts/e2e_detailed_tests.py tests/e2e/test_50_scenarios_20_turns_user_level.py`
 - `bash -n tests/scripts/e2e_interactive_tests.sh`
+
+## 2026-05-10 - Service-up probe scripts stop requiring repo-root cwd for uvicorn launch
+
+### Targets
+- `tests/scripts/e2e_self_iteration_service_up.py`
+- `tests/scripts/e2e_draft_creation_probe.py`
+
+### Trigger
+- continuing the Phase 0 repo-root dependency closure work surfaced that these service-up probe scripts still launched uvicorn with `cwd=str(ROOT_DIR)`, which preserved a runnable-path dependency on the repo checkout directory
+
+### Changes
+- replaced `ROOT_DIR`-anchored runtime assumptions with:
+  - `PROJECT_DIR` for import resolution
+  - `RUNTIME_DATA_DIR` for runtime working directory and log location
+- uvicorn subprocesses now launch with:
+  - `cwd=str(RUNTIME_DATA_DIR)`
+  - `PYTHONPATH=<project_dir>`
+  - `AGENTSYSTEM_DATA_DIR=<runtime_data_dir>`
+- removed the unnecessary `cwd=str(ROOT_DIR)` from the `fuser` port-kill helper in the draft probe script
+
+### Validation
+- `python3 -m py_compile tests/scripts/e2e_self_iteration_service_up.py tests/scripts/e2e_draft_creation_probe.py`
