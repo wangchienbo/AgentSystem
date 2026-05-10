@@ -148,6 +148,32 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Fixed the E2E harness localhost transport path to ignore ambient proxy settings
+
+### Summary
+While pushing into Phase 3 live baseline execution, I hit a misleading failure mode: plain shell `curl` could reach `http://localhost:80/api/status`, but the Python/httpx readiness gate inside the user-level E2E harness reported `服务不可达: timed out`. That was a bad sign because it meant the baseline harness itself could misclassify local service readiness before we even got to real product failures. I fixed that by forcing the harness to bypass ambient proxy settings for localhost traffic.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - changed `_wait_for_service(...)` to use `httpx.Client(..., trust_env=False)`
+  - changed `E2EClient` to use `httpx.Client(..., trust_env=False)` for all login/chat/history traffic
+- Added `tests/unit/test_user_level_e2e_harness.py`
+  - verifies the readiness probe disables env-proxy inheritance
+  - verifies the main E2E client also disables env-proxy inheritance
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded the harness-side localhost transport fix in the Phase 3 service-up preparation notes
+- Updated `docs/testing-detail.md`
+  - captured the root cause and validation evidence
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_harness.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_harness.py -q`
+  - `2 passed`
+
+### Notes
+This does not solve the separate upstream model/tool-calling timeout risk that later appears inside `/api/chat`, but it removes a false local-transport blocker from the Phase 3 baseline path. That means the next subset rerun should now fail or pass for more truthful reasons.
+
+
 ## 2026-05-10: Landed the first live asset-inventory slice in the CLI
 
 ### Summary

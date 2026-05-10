@@ -473,7 +473,7 @@ class E2EClient:
 
     def __init__(self, base_url: str, timeout: float = 120.0):
         self.base_url = base_url.rstrip("/")
-        self.client = httpx.Client(timeout=timeout, follow_redirects=False)
+        self.client = httpx.Client(timeout=timeout, follow_redirects=False, trust_env=False)
         self._session_map: dict[str, str] = {}  # user_id -> session_id (cookie)
 
     def login(self, username: str) -> str:
@@ -606,7 +606,7 @@ def _wait_for_service(base_url: str, timeout_seconds: float = 30.0) -> tuple[boo
     last_error = "service did not become ready"
     while time.monotonic() < deadline:
         try:
-            with httpx.Client(timeout=5.0) as hc:
+            with httpx.Client(timeout=5.0, trust_env=False) as hc:
                 resp = hc.get(f"{base_url}/api/status")
                 if resp.status_code < 500:
                     return True, f"HTTP {resp.status_code}"

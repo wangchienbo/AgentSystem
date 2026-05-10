@@ -228,6 +228,7 @@ Status: [x] first service-readiness doctor slice landed
 - validated that the canonical repo-coupled uvicorn start path can boot the service successfully (`application startup complete`, `Uvicorn running on http://0.0.0.0:80`) under a bounded timeout run
 - first live operator-subset run surfaced a concrete startup/runtime dependency gap: `python-multipart` is required by `/login` form parsing and was missing from the system-python install path
 - after retry/concurrency hardening, an immediate rerun attempt hit a service-readiness timing issue (`/api/chat` server process had previously booted, but the fresh subset launch saw `服务不可达: timed out` at the harness connectivity gate), so the next rerun should explicitly wait for ready state before firing the subset
+- harness readiness probes now disable env-proxy inheritance (`trust_env=False`) so localhost baseline runs do not mis-route `/api/status` or `/api/chat` through ambient proxy settings
 - this gives Phase 3 service-up prep a concrete control-plane check before attempting long live subset or full baseline runs
 
 ### 4.2 Execute full pre-migration baseline

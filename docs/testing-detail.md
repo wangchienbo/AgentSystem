@@ -2055,3 +2055,29 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
 - `python3 -m pytest tests/unit/test_cli.py -q`
   - `9 passed`
+
+## 2026-05-10 - E2E harness localhost preflight now ignores ambient proxy settings
+
+### Targets
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `tests/unit/test_user_level_e2e_harness.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- Phase 3 live subset attempts showed a confusing mismatch: shell `curl http://localhost:80/api/status` succeeded, but the Python/httpx readiness gate in the E2E harness reported `服务不可达: timed out`
+- this pointed to the harness inheriting ambient proxy settings during localhost readiness and chat calls, which is exactly the wrong behavior for repo-local baseline validation
+
+### Changes
+- changed the harness readiness probe to construct `httpx.Client(..., trust_env=False)`
+- changed `E2EClient` to construct its long-lived `httpx.Client(..., trust_env=False)`
+- added focused unit tests covering both constructor sites
+- updated the task list notes for Phase 3 service-up preparation
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_harness.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_harness.py -q`
+  - `2 passed`
+
+### Notes
+- this does not remove upstream model-call timeout risk inside `/api/chat`
+- it does remove a false-negative local-readiness failure mode, so the next live subset rerun can more cleanly distinguish local harness transport problems from real model/runtime instability
