@@ -2208,3 +2208,30 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Notes
 - this is not a full provider-stability fix
 - it is a runtime-facing mitigation that should make degraded tool-call turns collapse faster and surface fallback behavior sooner instead of spending multiple minutes inside retry amplification
+
+## 2026-05-10 - Gateway prompt history window tightened for short operator/status turns
+
+### Targets
+- `app/system/gateway/tool_calling_interpreter.py`
+- `tests/unit/test_tool_calling_interpreter_context.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- the captured `/tmp/agentsystem_chat_with_tools_payload.json` showed the tool-calling system prompt was carrying repeated fallback-heavy recent dialogue into later short status queries
+- for the current `S41` failure class, that kind of history bloat is low-value context and may increase the chance that a simple second-turn operator question gets routed through an unnecessarily heavy prompt
+
+### Changes
+- tightened `build_session_context(...)` history inclusion for gateway tool-call prompts:
+  - recent-history window reduced to the last 4 messages
+  - total recent-history character budget reduced from `2000` to `800`
+- added a focused unit test proving that older dialogue is dropped and the prompt stays bounded
+- updated Phase 3/4 task-list notes to record this as the first prompt-shape mitigation in the repair loop
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py tests/unit/test_tool_calling_interpreter_context.py`
+- `python3 -m pytest tests/unit/test_tool_calling_interpreter_context.py -q`
+  - `1 passed`
+
+### Notes
+- this does not change the fundamental session history stored by the product
+- it only narrows how much recent conversation is re-exposed inside the gateway tool-calling prompt for short live operator/status turns

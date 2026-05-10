@@ -148,6 +148,33 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Tightened gateway prompt history for short operator/status turns after confirming fallback-heavy context bloat
+
+### Summary
+I kept moving from diagnosis into repair. The captured tool-calling payload made one thing pretty clear: later short operator questions were not arriving with a clean prompt. They were dragging along repeated fallback-heavy recent dialogue from earlier attempts, which is exactly the kind of low-value context that can make a simple status question heavier than it needs to be. I tightened the gateway prompt history window so these short live operator/status turns carry less baggage.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - tightened `build_session_context(...)` recent-history inclusion for gateway tool-call prompts
+  - history window is now limited to the last 4 messages
+  - total history character budget reduced from `2000` to `800`
+- Added `tests/unit/test_tool_calling_interpreter_context.py`
+  - verifies that older dialogue falls out of the prompt context
+  - verifies the bounded recent-history window stays compact
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - section `4.4` now records this as the first prompt-shape mitigation inside the repair loop
+- Updated `docs/testing-detail.md`
+  - recorded the payload evidence and validation
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py tests/unit/test_tool_calling_interpreter_context.py`
+- `python3 -m pytest tests/unit/test_tool_calling_interpreter_context.py -q`
+  - `1 passed`
+
+### Notes
+This does not alter the product's stored conversation history. It only narrows how much recent conversation is re-exposed inside the gateway tool-calling prompt for short live operator/status queries. That is the right first prompt-shape mitigation for the current `S41` failure class.
+
+
 ## 2026-05-10: Tightened tool-route retry budgets after confirming upstream 504 amplification on the Phase 3 path
 
 ### Summary

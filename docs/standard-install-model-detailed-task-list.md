@@ -253,10 +253,10 @@ Status: [~] first concrete live failure pattern captured
 - next reruns should use bounded fail-fast settings first, then decide whether the remaining blocker is model timeout tuning, request-shape reduction, or server-side runtime repair
 
 ### 4.4 Repair and re-run until baseline is trustworthy
-- fix real product issues surfaced by the baseline
-- re-run affected scenarios first
-- if needed rerun the full suite once stabilized
-- produce final pre-migration baseline report
+Status: [~] first prompt-shape mitigation landed
+- Phase 3 log evidence showed repeated fallback turns were accumulating into the gateway prompt context for later operator/status probes
+- the gateway tool-calling interpreter now caps recent-history prompt inclusion more aggressively (last 4 messages, ~800 chars budget) so short operator/status queries are less likely to inherit bloated fallback-heavy context
+- next rerun should check whether the `S41` second-turn timeout remains as severe once retry amplification and prompt-history bloat are both reduced
 
 ### 4.5 Freeze baseline evidence
 - save report path and summary in testing docs

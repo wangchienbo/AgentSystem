@@ -171,10 +171,12 @@ def build_session_context(
 
     if history:
         lines.append("【最近对话】")
-        # Phase H+: Cap total context to avoid gateway timeouts
-        total_budget = 2000  # chars
+        # Keep gateway tool-route context intentionally tight so repeated
+        # fallback exchanges do not bloat short operator/status queries.
+        total_budget = 800  # chars
         used = 0
-        for msg in reversed(history):
+        recent_history = list(reversed(history[-4:]))
+        for msg in recent_history:
             role = msg.get("role", "")
             content = msg.get("content", "")[:120]
             line = f"  {role}: {content}"
