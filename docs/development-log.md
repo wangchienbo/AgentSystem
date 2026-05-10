@@ -148,6 +148,42 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Added fail-fast controls to the user-level E2E harness after capturing the first truthful live timeout pattern
+
+### Summary
+After fixing the localhost transport path, I reran a bounded live subset against `S41`. This time the harness passed readiness and reached real `/api/chat` execution, which was good news because it meant we were finally testing the right thing. The bad news was that the run showed a new concrete pattern: turn `01/20` succeeded quickly, then later turns fell into repeated 45-second timeouts. At that point, letting the harness grind through all remaining turns would mostly waste time without producing proportionally better evidence. I added a fail-fast control so Phase 3 reruns can stop early once a pathological timeout streak is obvious.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - added `--max-consecutive-failures`
+  - `run_scenario(...)` now tracks consecutive failed turns
+  - a scenario can now abort early once the configured consecutive-failure ceiling is reached
+  - scenario JSON output now records:
+    - `aborted_early`
+    - `abort_reason`
+- Added `tests/unit/test_user_level_e2e_fail_fast.py`
+  - verifies that a repeated-timeout scenario aborts early at the configured threshold
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - section `4.2` now reflects that the live rerun path is tighter, while full 50x20 remains pending
+  - section `4.3` now records the first concrete live failure pattern: repeated `/api/chat` timeouts after an initial successful turn
+- Updated `docs/testing-detail.md`
+  - recorded validation and live evidence
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_harness.py tests/unit/test_user_level_e2e_fail_fast.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_harness.py tests/unit/test_user_level_e2e_fail_fast.py -q`
+  - `3 passed`
+
+### Live Evidence
+- bounded rerun reached service readiness successfully (`HTTP 200`)
+- bounded rerun on `S41` showed:
+  - `01/20` succeeded quickly
+  - `02/20` and later turns hit repeated `Timeout after 45.0s`
+
+### Notes
+This is not the underlying timeout fix yet, but it is the right Phase 3 support move. We now have a more truthful failure classification and a cheaper rerun tool for narrowing the real blocker.
+
+
 ## 2026-05-10: Fixed the E2E harness localhost transport path to ignore ambient proxy settings
 
 ### Summary

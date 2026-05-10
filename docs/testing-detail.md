@@ -2081,3 +2081,39 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Notes
 - this does not remove upstream model-call timeout risk inside `/api/chat`
 - it does remove a false-negative local-readiness failure mode, so the next live subset rerun can more cleanly distinguish local harness transport problems from real model/runtime instability
+
+## 2026-05-10 - E2E harness can now fail fast on pathological timeout streaks
+
+### Targets
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `tests/unit/test_user_level_e2e_fail_fast.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after the localhost transport fix, a bounded live rerun against `S41` reached `/api/chat` successfully on the first turn, then fell into repeated per-turn timeouts
+- without an early-abort control, this kind of pathological streak wastes large chunks of Phase 3 runtime while adding very little new diagnostic value
+
+### Changes
+- added `--max-consecutive-failures` to the user-level E2E harness
+- `run_scenario(...)` now tracks consecutive failed turns and can abort a scenario early when the configured threshold is reached
+- scenario results and JSON report output now persist:
+  - `aborted_early`
+  - `abort_reason`
+- updated the Phase 3 task list notes for baseline execution and failure analysis
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_harness.py tests/unit/test_user_level_e2e_fail_fast.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_harness.py tests/unit/test_user_level_e2e_fail_fast.py -q`
+  - `3 passed`
+
+### Live evidence
+- bounded rerun command:
+  - `PYTHONUNBUFFERED=1 timeout 180 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --scenarios S41 --delay 1 --timeout 45 --wait-ready-seconds 5 --output /tmp/e2e_single_s41.json`
+- observed behavior:
+  - readiness gate passed (`HTTP 200`)
+  - turn `01/20` succeeded quickly
+  - subsequent turns hit repeated `Timeout after 45.0s`
+
+### Notes
+- this change does not fix the underlying `/api/chat` timeout issue
+- it does make Phase 3 reruns cheaper and more honest by stopping once the run is clearly in a pathological failure mode

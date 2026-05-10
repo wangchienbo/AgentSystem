@@ -232,15 +232,18 @@ Status: [x] first service-readiness doctor slice landed
 - this gives Phase 3 service-up prep a concrete control-plane check before attempting long live subset or full baseline runs
 
 ### 4.2 Execute full pre-migration baseline
-- run 50 scenarios × 20 turns with 3s delay
-- capture report artifact
-- capture service logs if needed
-- summarize overall scenario pass/fail picture
+Status: [~] live rerun path tightened, full 50x20 still pending
+- after the localhost proxy-inheritance fix, a bounded rerun against `S41` now reaches live `/api/chat` execution instead of failing at the readiness gate
+- observed concrete runtime behavior on the rerun: turn `01/20` returned quickly, then turns `02+` hit repeated per-turn timeouts under live operator/status workflow load
+- harness now supports `--max-consecutive-failures` to abort pathological timeout streaks early and preserve faster failure evidence during Phase 3 reruns
+- full 50x20 baseline is still deferred until the repeated live chat timeout pattern is reduced enough to make the run economically trustworthy
 
 ### 4.3 Analyze failures
-- classify failures by harness issue / model instability / real product bug / session continuity bug / lifecycle bug
-- identify highest-value blockers first
-- define minimal fixes required for a trustworthy baseline
+Status: [~] first concrete live failure pattern captured
+- current highest-signal failure pattern is no longer localhost readiness misrouting
+- current highest-signal failure pattern is repeated `/api/chat` timeout under live operator workflow load after an initial successful turn
+- failure class currently looks closer to upstream model/runtime instability than to basic harness transport failure
+- next reruns should use bounded fail-fast settings first, then decide whether the remaining blocker is model timeout tuning, request-shape reduction, or server-side runtime repair
 
 ### 4.4 Repair and re-run until baseline is trustworthy
 - fix real product issues surfaced by the baseline

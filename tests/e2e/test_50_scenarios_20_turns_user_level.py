@@ -458,6 +458,8 @@ class ScenarioResult:
     total_ms: float = 0.0
     expectation: ScenarioExpectationResult | None = None
     closure_summary: dict[str, Any] | None = None
+    aborted_early: bool = False
+    abort_reason: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -677,6 +679,7 @@ def run_scenario(
     delay: float,
     turn_timeout: float = 120.0,
     run_id: str | None = None,
+    max_consecutive_failures: int = 0,
 ) -> ScenarioResult:
     user_id = scenario["user_id"]
     result = ScenarioResult(
@@ -687,6 +690,7 @@ def run_scenario(
     )
 
     current_session: str | None = None
+    consecutive_failures = 0
 
     for idx, message in enumerate(scenario["turns"]):
         # Skip empty messages (S31 has some intentional empty/whitespace inputs)
@@ -770,14 +774,22 @@ def run_scenario(
         result.turns.append(tr)
         if tr.ok:
             result.total_ok += 1
+            consecutive_failures = 0
         else:
             result.total_fail += 1
+            consecutive_failures += 1
         result.total_ms += tr.elapsed_ms
 
         # Progress indicator
         status = "✅" if tr.ok else "❌"
         preview = tr.content_preview[:60] if tr.content_preview else (tr.error[:60] if tr.error else "")
         print(f"    [{idx+1:02d}/20] {status} {elapsed/1000:.1f}s | {preview}")
+
+        if max_consecutive_failures > 0 and consecutive_failures >= max_consecutive_failures:
+            result.aborted_early = True
+            result.abort_reason = f"consecutive_failures={consecutive_failures}"
+            print(f"    [abort] ⏹️ reached max consecutive failures: {consecutive_failures}")
+            break
 
         # Delay between turns to avoid vLLM overload
         if delay > 0 and idx < len(scenario["turns"]) - 1:
@@ -811,6 +823,7 @@ def main():
     parser.add_argument("--output", default="/tmp/agentsystem_e2e_user_level_report.json", help="Report output path")
     parser.add_argument("--run-id", default=f"e2e-user-level-{uuid4().hex[:12]}", help="Run identifier for correlating chat logs and scenario traces")
     parser.add_argument("--wait-ready-seconds", type=float, default=30.0, help="How long to wait for /api/status readiness before running (default: 30)")
+    parser.add_argument("--max-consecutive-failures", type=int, default=0, help="Abort a scenario early after this many consecutive failed turns (default: disabled)")
     args = parser.parse_args()
 
     # Filter scenarios
@@ -858,7 +871,14 @@ def main():
     for idx, scenario in enumerate(selected):
         t0 = time.monotonic()
         print(f"\n  [{idx+1:03d}/{len(selected):03d}] {scenario['id']} {scenario['name']} ({scenario['user_id']})")
-        sr = run_scenario(client, scenario, delay=args.delay, turn_timeout=args.timeout, run_id=args.run_id)
+        sr = run_scenario(
+            client,
+            scenario,
+            delay=args.delay,
+            turn_timeout=args.timeout,
+            run_id=args.run_id,
+            max_consecutive_failures=args.max_consecutive_failures,
+        )
         elapsed = time.monotonic() - t0
 
         verdict, reasons = _scenario_verdict(sr)
@@ -944,6 +964,8 @@ def main():
                 "history_expectation_failures": r.expectation.failures if r.expectation else [],
                 "history_expectation_checks": r.expectation.checks if r.expectation else [],
                 "closure_summary": r.closure_summary or {},
+                "aborted_early": r.aborted_early,
+                "abort_reason": r.abort_reason,
                 "turns": [
                     {
                         "turn": t.turn_index,
