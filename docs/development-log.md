@@ -148,6 +148,34 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Refreshed the focused local HTTP/action compatibility regression snapshot
+
+### Summary
+I continued Phase 0 by refreshing the focused local regression net around the current HTTP/action compatibility surfaces. The remaining unresolved bullet in the install-model task list is no longer about obvious local contract drift, but the task list still needed fresh evidence that the local `/api/chat`, `/api/action`, acceptance binding, and interpreter boundaries remain green while the live operator-heavy closure window stays blocked by upstream provider instability. I reran the core local suites and folded the result back into the detailed task list.
+
+### What Was Done
+- Re-ran focused local regression across:
+  - `tests/unit/test_http_test_server.py`
+  - `tests/unit/test_light_brain_gateway_acceptance_binding.py`
+  - `tests/unit/test_tool_calling_interpreter.py`
+- Reconfirmed coverage for:
+  - `/api/chat` response payload contract
+  - `/api/action` workflow and acceptance payload propagation
+  - acceptance-plan evidence binding and compact `change_execution_summary`
+  - cheap-query fast-path boundaries versus heavier tool routes
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - added a fresh focused-local-regression note (`66 passed`) under the unresolved HTTP compatibility bullet
+- Updated `docs/testing-detail.md`
+  - recorded the refreshed local regression evidence
+
+### Validation
+- `python3 -m pytest tests/unit/test_http_test_server.py tests/unit/test_light_brain_gateway_acceptance_binding.py tests/unit/test_tool_calling_interpreter.py -q`
+  - `66 passed`
+
+### Notes
+This is intentionally a bounded local-evidence pass, not a claim that the live operator-heavy service-up window is fully closed. What it does strengthen is the diagnosis: at the current state, local contract drift is not what is keeping that item open.
+
+
 ## 2026-05-10: Revalidated and closed the remaining Phase R Wave 5 open-slice bullets in the detailed install-model task list
 
 ### Summary

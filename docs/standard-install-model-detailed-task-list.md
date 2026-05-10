@@ -30,6 +30,7 @@ Current merged unresolved items from older task lists and follow-up waves:
   - [x] fixed multi-worker cookie session rehydration so `/login` → `/api/chat` no longer fails with `401 Not authenticated` when requests land on different uvicorn workers
   - [x] aligned the active 1seey model name with the user-channel provider config (`qwen3.6-plus` instead of `gpt-5.4`)
   - [x] added a lightweight direct-answer fast path so obvious no-tool prompts no longer pay the native tool-calling route or trigger upstream 1seey tool-call 504s during basic service-up checks
+  - [x] focused local regression remains green for the current HTTP/action/acceptance surfaces (`66 passed` across `test_http_test_server`, `test_light_brain_gateway_acceptance_binding`, `test_tool_calling_interpreter`)
   - [x] verify remaining tool-required routes still behave acceptably under the current 1seey + GLM-5.1 timeout profile
     - added an explicit `tool_required_probe` to `tests/scripts/e2e_self_iteration_service_up.py`
     - bounded live rerun now passes ready/login/basic-chat but stalls after entering the real upstream `chat_with_tools` path for the tool-required probe

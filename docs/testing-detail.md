@@ -1717,3 +1717,27 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - multi-command acceptance evidence binds distinct `matched_work_item_ids` without defaulting immediately to a single-work-item fallback
 - compact operator-facing `change_execution_summary` remains surfaced on both acceptance evidence and top-level `acceptance_plan`
 - task-list status was updated to mark the remaining Wave 5 open-slice bullets as closed and to move old-work validation/docs phases into active in-progress state
+
+## 2026-05-10 - Focused local rerun for current HTTP/action compatibility surfaces
+
+### Targets
+- `tests/unit/test_http_test_server.py`
+- `tests/unit/test_light_brain_gateway_acceptance_binding.py`
+- `tests/unit/test_tool_calling_interpreter.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after closing several Phase 0 sub-slices, the remaining HTTP-compatibility bullet still needed an up-to-date local regression snapshot that isolates local contract health from the still-open upstream provider instability window
+
+### Validation
+- `python3 -m pytest tests/unit/test_http_test_server.py tests/unit/test_light_brain_gateway_acceptance_binding.py tests/unit/test_tool_calling_interpreter.py -q`
+  - `66 passed`
+
+### Coverage reconfirmed
+- `/api/chat` response contract and structured-answer surfacing
+- `/api/action` continuation / acceptance / workflow payload propagation
+- acceptance-plan evidence binding and compact change-execution summary surfacing
+- cheap query fast-path behavior and tool-route fallback boundaries
+
+### Note
+- this strengthens the evidence that the current remaining blocker on the unresolved service-up closure item is external provider instability during live operator-heavy runs, not a newly observed local HTTP/action compatibility regression
