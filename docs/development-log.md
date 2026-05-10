@@ -148,6 +148,33 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Tightened tool-route retry budgets after confirming upstream 504 amplification on the Phase 3 path
+
+### Summary
+I pushed one step closer to an actual runtime fix. After the bounded `S41` probes, I read the live server log and got the key detail we needed: the second-turn stall is dominated by repeated upstream `504 Gateway Timeout` responses on the tool-calling `/v1/chat/completions` path. That means the server was not just “slow”, it was amplifying a degraded upstream provider turn by retrying long enough to stretch one user turn across several minutes. I tightened the tool-route retry budgets so these degraded paths fail faster and surface fallback behavior sooner.
+
+### What Was Done
+- Updated `app/ai/model_client.py`
+  - tightened `_tool_route_budget(...)`:
+    - `message_count < 4` → `(3 attempts, 60s cap)`
+    - `message_count >= 4` → `(2 attempts, 55s cap)`
+    - `message_count >= 6` → `(2 attempts, 50s cap)`
+    - `message_count >= 8` → `(1 attempt, 45s cap)`
+- This brings implementation back in line with the existing unit-test expectations and reduces multi-minute retry amplification on short tool-call routes
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the current highest-signal failure evidence points to upstream `504` amplification rather than local readiness failure
+- Updated `docs/testing-detail.md`
+  - captured the log evidence and mitigation rationale
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py tests/unit/test_tool_calling_engine.py`
+- `python3 -m pytest tests/unit/test_tool_calling_engine.py -q`
+  - `14 passed`
+
+### Notes
+This is not the final fix for provider instability, but it is the first runtime-side mitigation in this Phase 3 line that should materially improve user-facing behavior. A bad upstream streak should now collapse earlier instead of consuming several minutes inside one turn.
+
+
 ## 2026-05-10: Used the new bounded controls on S41 and tightened report semantics around planned vs executed turns
 
 ### Summary

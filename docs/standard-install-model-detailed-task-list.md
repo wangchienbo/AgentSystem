@@ -246,6 +246,8 @@ Status: [~] first concrete live failure pattern captured
 - current highest-signal failure pattern is no longer localhost readiness misrouting
 - current highest-signal failure pattern is repeated `/api/chat` timeout under live operator workflow load after an initial successful turn
 - bounded probing now localizes the onset window to `turn 02` on `S41` under the current live service state
+- server logs show the second-turn stall is dominated by repeated upstream `504 Gateway Timeout` responses on the tool-calling route (`/v1/chat/completions`), not by local readiness failure
+- tool-route retry budgets have now been tightened so short histories fail faster instead of stretching a single degraded upstream call across several minutes
 - failure class currently looks closer to upstream model/runtime instability than to basic harness transport failure
 - harness now also supports `--max-turns-per-scenario` so Phase 3 can isolate whether failures begin only after turn/context buildup instead of committing immediately to full 20-turn replay
 - next reruns should use bounded fail-fast settings first, then decide whether the remaining blocker is model timeout tuning, request-shape reduction, or server-side runtime repair

@@ -148,16 +148,17 @@ def _safe_chat_completion_payload(response: httpx.Response) -> dict:
 def _tool_route_budget(message_count: int) -> tuple[int, float]:
     """Return (max_attempts, timeout_seconds_cap) for tool-chat routes.
 
-    Keep early short routes a bit more patient, but bound later deeper routes so
-    governance self-iteration does not amplify a single upstream 504 into minutes.
+    Keep short routes somewhat patient, but avoid turning upstream 504 streaks
+    into multi-minute single-turn stalls. Deeper histories get progressively
+    tighter budgets so degraded paths fail faster and surface fallback output.
     """
     if message_count >= 8:
         return 1, 45.0
     if message_count >= 6:
         return 2, 50.0
     if message_count >= 4:
-        return 3, 60.0
-    return 4, 75.0
+        return 2, 55.0
+    return 3, 60.0
 
 
 class OpenAIResponsesClient:

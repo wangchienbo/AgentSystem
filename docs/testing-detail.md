@@ -2179,3 +2179,32 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_fail_fast.py`
 - `python3 -m pytest tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
   - `4 passed`
+
+## 2026-05-10 - Tightened tool-route retry budgets after Phase 3 log evidence showed upstream 504 amplification
+
+### Targets
+- `app/ai/model_client.py`
+- `tests/unit/test_tool_calling_engine.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- bounded `S41` live probes plus `/tmp/agentsystem_phase3.log` showed the second-turn stall was not a local readiness failure
+- the dominant pattern was repeated upstream `504 Gateway Timeout` responses on the tool-calling route (`/v1/chat/completions`), with the server retrying enough times to stretch one degraded turn across several minutes
+
+### Changes
+- tightened `_tool_route_budget(...)` in `app/ai/model_client.py`
+  - `message_count < 4` now uses `(3 attempts, 60s cap)`
+  - `message_count >= 4` now uses `(2 attempts, 55s cap)`
+  - `message_count >= 6` remains `(2 attempts, 50s cap)`
+  - `message_count >= 8` remains `(1 attempt, 45s cap)`
+- this aligns the implementation with the existing unit-test expectations and reduces how long early degraded tool routes can monopolize a live user turn
+- updated the Phase 3 failure-analysis notes to reflect the upstream-504 finding
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py tests/unit/test_tool_calling_engine.py`
+- `python3 -m pytest tests/unit/test_tool_calling_engine.py -q`
+  - `14 passed`
+
+### Notes
+- this is not a full provider-stability fix
+- it is a runtime-facing mitigation that should make degraded tool-call turns collapse faster and surface fallback behavior sooner instead of spending multiple minutes inside retry amplification
