@@ -18,6 +18,7 @@ from app.system.gateway.tool_calling_interpreter import (
     is_script_like_request,
     narrow_tools_for_script_route,
 )
+from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
 
 
 class DummyRouter(ModelRouter):
@@ -73,6 +74,19 @@ def test_script_route_tool_narrowing_keeps_exec_shell_and_core_file_tools() -> N
     assert "exec_shell" in names
     assert "read_file" in names
     assert "search_files" not in names
+
+
+def test_cheap_query_fast_path_bypasses_llm_for_list_and_status_requests() -> None:
+    interpreter, execute_turns = _build_interpreter()
+    command = interpreter.interpret(
+        message="看看我有哪些 app 在运行",
+        user_id="u1",
+        session_id="sess-cheap-query",
+        available_apps=[],
+    )
+    assert command.intent in {"list_apps", "query_app", "query_status"}
+    assert command.source == "cheap_query_fast_path"
+    assert execute_turns.called is False
 
 
 
@@ -398,8 +412,8 @@ def test_build_structured_answer_falls_back_when_json_is_invalid() -> None:
     assert command.structured_answer is not None
     assert command.structured_answer.claim.text == '{"claim":'
     assert "结构化结果缺失或无效" in command.structured_answer.unverified_points[0]
-    assert command.structured_answer.self_model.answer_mode == "verification_required"
-    assert command.structured_answer.self_model.verification_mode == "light"
+    assert command.structured_answer.self_model.answer_mode == "tool_required"
+    assert command.structured_answer.self_model.verification_mode == "required"
 
 
 def test_build_structured_answer_normalizes_unknown_grade_and_clamps_confidence() -> None:
@@ -419,7 +433,7 @@ def test_build_structured_answer_normalizes_unknown_grade_and_clamps_confidence(
     assert command.structured_answer.claim.evidence_grade == "none"
     assert command.structured_answer.claim.confidence == 1.0
     assert command.structured_answer.evidence[0]["grade"] == "none"
-    assert command.structured_answer.self_model.answer_mode == "verification_required"
+    assert command.structured_answer.self_model.answer_mode == "tool_required"
 
 
 def test_clarification_pending_preserves_tool_required_structured_answer_for_introspection() -> None:

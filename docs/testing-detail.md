@@ -1587,3 +1587,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Validation
 - `python3 -m py_compile tests/scripts/e2e_self_iteration_service_up.py tests/scripts/e2e_draft_creation_probe.py`
+
+## 2026-05-10 - Cheap query/read fast path for list/query/status requests
+
+### Targets
+- `app/system/gateway/tool_calling_interpreter.py`
+- `tests/unit/test_tool_calling_interpreter.py`
+
+### Trigger
+- the Phase 0 merged unresolved items still explicitly listed `query/read fast-path for cheap count/status/list requests`
+
+### Changes
+- added `_try_cheap_query_fast_path(...)` before the file-introspection and full tool-calling LLM tiers
+- cheap requests matching rule-based `list_apps` / `query_app` / `query_status` now bypass the tool-calling LLM route and return immediately from the light-brain rule interpreter
+- tagged these commands with source `cheap_query_fast_path`
+- refreshed unit expectations around current structured-answer self-model defaults while adding coverage for the new fast path
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py tests/unit/test_tool_calling_interpreter.py`
+- `python3 -m pytest tests/unit/test_tool_calling_interpreter.py -q`
+  - `23 passed`

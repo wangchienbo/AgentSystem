@@ -413,6 +413,16 @@ class ToolCallingInterpreter:
                 message, pending, user_id, session_id, available_apps
             )
 
+        # Tier 2.4: cheap query/read fast path
+        cheap_query = self._try_cheap_query_fast_path(
+            message=message,
+            user_id=user_id,
+            session_id=session_id,
+            available_apps=available_apps,
+        )
+        if cheap_query:
+            return cheap_query
+
         # Tier 2.5: explicit file-path introspection fast path
         fast_path = self._try_explicit_file_read_fast_path(
             message=message,
@@ -520,6 +530,22 @@ class ToolCallingInterpreter:
         if any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取")):
             return self._load_governor_text(SCRIPT_FIRST_BRANCH_PATH)
         return ""
+    def _try_cheap_query_fast_path(
+        self,
+        message: str,
+        user_id: str,
+        session_id: str,
+        available_apps: list[dict[str, Any]],
+    ) -> InterpretedCommand | None:
+        """Bypass tool-calling LLM for cheap list/query/status requests."""
+        from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
+
+        interpreter = LightBrainInterpreter()
+        command = interpreter.interpret(message, user_id=user_id, available_apps=available_apps)
+        if command.intent not in {"list_apps", "query_app", "query_status"}:
+            return None
+        command = command.model_copy(update={"raw_input": message, "source": "cheap_query_fast_path"})
+        return command
 
 
     def _try_explicit_file_read_fast_path(

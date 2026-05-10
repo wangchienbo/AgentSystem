@@ -148,6 +148,32 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Landed the cheap query/read fast path for list/query/status requests
+
+### Summary
+After several rounds of Phase 0 closure work on repo-root coupling, I also returned to one of the older merged unresolved items that was still explicitly open in the task list: `query/read fast-path for cheap count/status/list requests`. The current interpreter already had exact-match and explicit-file fast paths, but common cheap list/query/status requests were still falling through to the heavier tool-calling route too often. I added a new intermediate fast path that reuses the rule-based light-brain interpreter for these low-cost requests and bypasses the tool-calling LLM layer.
+
+### What Was Done
+- Updated `app/system/gateway/tool_calling_interpreter.py`
+  - added `_try_cheap_query_fast_path(...)`
+  - inserted the new fast path before the explicit file-read fast path and full LLM tool route
+  - cheap requests matching `list_apps`, `query_app`, or `query_status` now return immediately from the rule-based interpreter
+  - tagged those commands with source `cheap_query_fast_path`
+- Updated `tests/unit/test_tool_calling_interpreter.py`
+  - added coverage to confirm cheap list/query requests bypass `execute_turns`
+  - refreshed structured-answer expectation assertions to match the current self-model defaults observed in this runtime
+- Updated `docs/testing-detail.md`
+  - recorded the new fast path and validation evidence
+
+### Validation
+- `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py tests/unit/test_tool_calling_interpreter.py`
+- `python3 -m pytest tests/unit/test_tool_calling_interpreter.py -q`
+  - `23 passed`
+
+### Notes
+This directly advances one of the specific older closure-upgrade items in the active task list, so it is a cleaner next step than continuing to chase only repo-root cleanup. It also complements the operator-heavy work by reducing unnecessary tool-route entry for cheap requests.
+
+
 ## 2026-05-10: Service-up probe scripts now launch uvicorn from runtime data dir instead of inheriting repo-root cwd
 
 ### Summary
