@@ -148,6 +148,40 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Reclassified the remaining Phase 0 loose-ends state after the shell/helper sweep hit zero simple repo-coupling matches
+
+### Summary
+I finished the latest helper-surface sweep and used it to tighten the Phase 0 status model itself. After the recent startup helper, wrapper, full-E2E helper, and grouped test runner cleanups, the final bounded shell-surface grep came back with no remaining simple repo-coupling hits. That gave enough evidence to stop treating startup-path cleanup and runnable-path repo-root dependency as still-open broad uncertainties. I updated the detailed task list so section `1.2` now more honestly reflects the remaining work: the live HTTP/provider closure window, not general path cleanup.
+
+### What Was Done
+- Re-ran a bounded shell/helper sweep across:
+  - `start_*.sh`
+  - `stop_*.sh`
+  - `scripts/`
+  - `run_*.sh`
+- Checked for the remaining simple legacy signatures:
+  - `export PYTHONPATH=`
+  - `cd "$ROOT"`
+  - `cd "$PROJECT_DIR"`
+  - `PYTHONPATH=$ROOT`
+  - `PYTHONPATH=$PROJECT_DIR`
+- Result:
+  - no matches
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked the startup-path cleanup item as closed
+  - marked the runnable-path repo-root dependency item as closed
+  - narrowed section `1.2` status text to the remaining live HTTP/provider closure window
+- Updated `docs/testing-detail.md`
+  - recorded the final bounded sweep evidence
+
+### Validation
+- bounded shell/helper grep returned:
+  - no matches
+
+### Notes
+This is another status-accuracy pass rather than a new runtime feature. It matters because Phase 0 is now much closer to a true narrowed remainder set instead of a broad grab-bag of old cleanup concerns.
+
+
 ## 2026-05-10: Removed repo-root `cd` from the grouped pytest runner helper
 
 ### Summary

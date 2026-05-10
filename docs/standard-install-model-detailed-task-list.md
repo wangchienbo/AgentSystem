@@ -43,13 +43,13 @@ Current merged unresolved items from older task lists and follow-up waves:
       - stale subset-server cleanup hardening
       - early tool-route retry/timeout patience hardening
     - current remaining blocker is no longer local route wandering, but unstable upstream provider behavior (`504` / read timeout) preventing a clean final validation window for the operator-heavy subset
-- [ ] close any remaining startup path cleanup/output cleanup deltas discovered while stabilizing long-run baseline execution
+- [x] close any remaining startup path cleanup/output cleanup deltas discovered while stabilizing long-run baseline execution
   - [x] widened startup-script kill target and added port-free wait so repeated `start_phase3_subset_server.sh` restarts no longer race on `Address already in use`
   - [x] decoupled `start_phase3_subset_server.sh` from repo-root `cd` / `PYTHONPATH` startup assumptions by switching to `--app-dir` plus `AGENTSYSTEM_DATA_DIR`
   - [x] compatibility wrappers (`start_server.sh`, `start_web_server.sh`, `stop_server.sh`) now invoke `app/cli.py` directly instead of exporting repo-root `PYTHONPATH`
   - [x] full-E2E helper scripts (`run_full_e2e_bg.sh`, `run_full_e2e_detached.sh`) now invoke the test file directly instead of `cd` + repo-root `PYTHONPATH` + module execution
   - [x] grouped pytest runner helper (`scripts/run_test_groups.sh`) now calls the venv python directly with absolute test paths instead of `cd`-into-root execution
-- [ ] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts
+- [x] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts
   - [x] runtime subprocess default cwd no longer inherits repo-root process cwd
   - [x] pipeline executor default workspace no longer inherits repo-root process cwd
   - [x] validation guidance no longer teaches repo-root-coupled startup phrasing
@@ -62,7 +62,7 @@ Current merged unresolved items from older task lists and follow-up waves:
   - [x] run isolation metadata for long E2E analysis (`run_id`, `scenario_id`)
 
 ### 1.2 Close code-level loose ends
-Status: [~] in progress
+Status: [~] in progress, narrowed to remaining live HTTP/provider closure window
 - finish any partially landed workflow/action/acceptance chain improvements
 - close any pending HTTP compatibility deltas
 - close any remaining path-cleanup/output-cleanup items discovered during service startup

@@ -1896,3 +1896,30 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - grep confirmation found no remaining:
   - `cd "$ROOT"`
   - `PYTHONPATH`
+
+## 2026-05-10 - Startup/helper repo-coupling sweep reached zero remaining simple shell-pattern hits
+
+### Targets
+- `start_*.sh`
+- `stop_*.sh`
+- `scripts/`
+- `run_*.sh`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after the wrapper, subset-helper, full-E2E-helper, and grouped-test-runner cleanups, one final bounded shell-surface sweep was needed before reclassifying the startup-path and runnable-path task-list items
+
+### Validation
+- bounded grep for:
+  - `export PYTHONPATH=`
+  - `cd "$ROOT"`
+  - `cd "$PROJECT_DIR"`
+  - `PYTHONPATH=$ROOT`
+  - `PYTHONPATH=$PROJECT_DIR`
+- result:
+  - no matches
+
+### Outcome
+- marked the startup-path cleanup item as closed
+- marked the runnable-path repo-root dependency item as closed
+- narrowed section `1.2` to the remaining live HTTP/provider closure window rather than broad path-cleanup uncertainty
