@@ -148,6 +148,50 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Added run-isolation metadata plumbing for long E2E analysis (`run_id`, `scenario_id`)
+
+### Summary
+I moved to the next explicit active task-list closure item after the cheap query fast path: `run isolation metadata for long E2E analysis (run_id, scenario_id)`. The core gap was that the user-level E2E runner could exercise long multi-scenario sessions, but the server-side chat logs and live observation records did not consistently carry a shared run identifier plus scenario correlation metadata. I added end-to-end metadata plumbing so long E2E runs can now be segmented and forensically filtered by run and scenario.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - added `_extract_run_metadata(...)`
+  - `/api/chat` now reads optional `payload.run_id` and `payload.scenario_id`
+  - when present, those fields are attached to:
+    - `conversation_history`
+    - persisted session chat logs via `_append_chat_log(...)`
+    - live chat observation persistence calls
+- Updated `app/system/chat_observation.py`
+  - `build_chat_observation_probe(...)` now accepts `metadata`
+  - live observation probes can carry `run_id` / `scenario_id`
+  - `persist_chat_observation(...)` now reuses the E2E-provided `run_id` when present instead of always generating a detached observation-only id
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - added `--run-id`
+  - generates a default run id when omitted
+  - each `/api/chat` request now includes `{run_id, scenario_id}` in `payload`
+  - startup summary now prints the active run id for operator correlation
+- Updated `tests/unit/test_http_test_server.py`
+  - added coverage asserting `run_id` / `scenario_id` reach:
+    - chat-log persistence payloads
+    - live observation probes
+    - in-memory conversation history records
+- Also fixed a missing import in `app/system/http_test_server.py`
+  - `build_governance_rollout_operator_summary`
+  - this surfaced during validation because unrelated nightly-governance endpoint tests were failing
+- Updated `docs/testing-detail.md`
+  - recorded the run-isolation slice and validation evidence
+
+### Validation
+- `python3 -m py_compile app/system/http_test_server.py app/system/chat_observation.py tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_http_test_server.py`
+- `python3 -m pytest tests/unit/test_http_test_server.py -q`
+  - `37 passed`
+
+### Notes
+This directly advances both of the earlier Phase 5 goals that were still hanging around in the closure-upgrade backlog:
+- test-generated session logs now have a `run_id`
+- scenario-to-log correlation now has `scenario_id` attached at the request/log/observation level
+
+
 ## 2026-05-10: Landed the cheap query/read fast path for list/query/status requests
 
 ### Summary

@@ -1607,3 +1607,35 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile app/system/gateway/tool_calling_interpreter.py tests/unit/test_tool_calling_interpreter.py`
 - `python3 -m pytest tests/unit/test_tool_calling_interpreter.py -q`
   - `23 passed`
+
+## 2026-05-10 - Run isolation metadata for long E2E analysis (`run_id`, `scenario_id`)
+
+### Targets
+- `app/system/http_test_server.py`
+- `app/system/chat_observation.py`
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `tests/unit/test_http_test_server.py`
+
+### Trigger
+- the remaining active task-list closure item explicitly called for `run isolation metadata for long E2E analysis (run_id, scenario_id)`
+- older closure-upgrade notes also required test-generated session logs to carry `run_id` and scenario-to-log correlation metadata
+
+### Changes
+- added `_extract_run_metadata(...)` to the HTTP test server and plumbed optional `payload.run_id` / `payload.scenario_id` through `/api/chat`
+- when present, `run_id` / `scenario_id` are now attached to:
+  - in-memory `conversation_history` records
+  - persisted session chat logs via `_append_chat_log(...)`
+  - live chat observation probes via `build_chat_observation_probe(...)`
+- `persist_chat_observation(...)` now reuses the E2E-provided `run_id` instead of always generating a detached observation run id
+- updated the 50-scenario user-level E2E runner to:
+  - accept `--run-id`
+  - generate a default run id when not provided
+  - send `{run_id, scenario_id}` in each `/api/chat` request payload
+  - print the selected run id at startup for operator correlation
+- added server-level unit coverage asserting that `run_id` / `scenario_id` reach chat logs, conversation history, and live chat observation persistence
+- while validating this slice, fixed a missing HTTP test server import for `build_governance_rollout_operator_summary`, which was breaking unrelated nightly-governance endpoint tests
+
+### Validation
+- `python3 -m py_compile app/system/http_test_server.py app/system/chat_observation.py tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_http_test_server.py`
+- `python3 -m pytest tests/unit/test_http_test_server.py -q`
+  - `37 passed`

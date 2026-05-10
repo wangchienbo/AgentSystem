@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pathlib
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -1603,6 +1604,45 @@ def test_governance_nightly_trigger_contract_keeps_cycle_and_rollout_fields_toge
     assert data["governance_rollout"]["preflight"]["render_badge"] == "AUTO | Primary tier auto-apply allowed"
     assert "code=tier.primary_auto_apply" in data["governance_rollout"]["preflight"]["render_operator_note"]
 
+
+
+def test_api_chat_attaches_run_metadata_to_logs_and_observations() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    from app.models.chat import ChatMessageResponse
+
+    fake_reply = ChatMessageResponse(type="text", content="ok", session_id="session_tester")
+
+    with patch("app.system.http_test_server.gateway.receive_message", new=AsyncMock(return_value=fake_reply)), \
+         patch("app.system.http_test_server._append_chat_log") as append_log_mock, \
+         patch("app.system.http_test_server.persist_chat_observation") as persist_mock:
+        response = client.post(
+            "/api/chat",
+            json={
+                "message": "run metadata test",
+                "payload": {"run_id": "run-e2e-1", "scenario_id": "S01"},
+            },
+        )
+
+    assert response.status_code == 200
+    assert append_log_mock.call_count == 1
+    log_event = append_log_mock.call_args.args[1]
+    assert log_event["run_id"] == "run-e2e-1"
+    assert log_event["scenario_id"] == "S01"
+    probe = persist_mock.call_args.kwargs["probe"]
+    assert probe["run_id"] == "run-e2e-1"
+    assert probe["scenario_id"] == "S01"
+    assert persist_mock.call_args.kwargs["run_id"] == "run-e2e-1"
+    assert conversation_history["session_tester"][0]["metadata"]["scenario_id"] == "S01"
 
 
 def test_api_chat_persists_live_chat_observation() -> None:

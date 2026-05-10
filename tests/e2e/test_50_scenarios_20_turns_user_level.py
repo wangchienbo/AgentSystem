@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 try:
     import httpx
@@ -485,7 +486,13 @@ class E2EClient:
         self._session_map[username] = sid
         return sid
 
-    def send_message(self, user_id: str, message: str, session_id: str | None = None) -> dict[str, Any]:
+    def send_message(
+        self,
+        user_id: str,
+        message: str,
+        session_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Send a chat message via /api/chat. Returns parsed JSON.
 
         The auth cookie (session_id) is managed automatically by httpx's
@@ -503,6 +510,7 @@ class E2EClient:
         payload = {
             "message": message,
             "session_id": body_sid,
+            "payload": payload or None,
         }
 
         resp = self.client.post(
@@ -609,6 +617,7 @@ def run_scenario(
     scenario: dict,
     delay: float,
     turn_timeout: float = 120.0,
+    run_id: str | None = None,
 ) -> ScenarioResult:
     user_id = scenario["user_id"]
     result = ScenarioResult(
@@ -635,7 +644,12 @@ def run_scenario(
 
         t0 = time.monotonic()
         try:
-            data = client.send_message(user_id, message, session_id=current_session)
+            data = client.send_message(
+                user_id,
+                message,
+                session_id=current_session,
+                payload={"run_id": run_id, "scenario_id": scenario["id"]} if run_id else {"scenario_id": scenario["id"]},
+            )
             elapsed = (time.monotonic() - t0) * 1000
 
             content = data.get("content", "")[:200]
@@ -728,6 +742,7 @@ def main():
     parser.add_argument("--scenarios", default="", help="Comma-separated scenario IDs to run (e.g. S01,S02)")
     parser.add_argument("--range", default="", help="Scenario range (e.g. 1-10)")
     parser.add_argument("--output", default="/tmp/agentsystem_e2e_user_level_report.json", help="Report output path")
+    parser.add_argument("--run-id", default=f"e2e-user-level-{uuid4().hex[:12]}", help="Run identifier for correlating chat logs and scenario traces")
     parser.add_argument("--wait-ready-seconds", type=float, default=30.0, help="How long to wait for /api/status readiness before running (default: 30)")
     args = parser.parse_args()
 
@@ -748,6 +763,7 @@ def main():
     print(f"  50 场景 × 20 轮 用户级 E2E 测试")
     print(f"{'='*70}")
     print(f"  目标服务:   {args.base_url}")
+    print(f"  Run ID:     {args.run_id}")
     print(f"  场景数量:   {len(selected)}")
     print(f"  总轮次:     {total_turns}")
     print(f"  轮次延迟:   {args.delay}s")
@@ -775,7 +791,7 @@ def main():
     for idx, scenario in enumerate(selected):
         t0 = time.monotonic()
         print(f"\n  [{idx+1:03d}/{len(selected):03d}] {scenario['id']} {scenario['name']} ({scenario['user_id']})")
-        sr = run_scenario(client, scenario, delay=args.delay, turn_timeout=args.timeout)
+        sr = run_scenario(client, scenario, delay=args.delay, turn_timeout=args.timeout, run_id=args.run_id)
         elapsed = time.monotonic() - t0
 
         verdict, reasons = _scenario_verdict(sr)

@@ -31,7 +31,7 @@ def _classify_topic(message: str) -> str:
     return "live_chat"
 
 
-def build_chat_observation_probe(*, request: str, response: str | None, success: bool, latency_ms: int, session_id: str, structured_answer: dict[str, Any] | None = None, error_type: str | None = None) -> dict[str, Any]:
+def build_chat_observation_probe(*, request: str, response: str | None, success: bool, latency_ms: int, session_id: str, structured_answer: dict[str, Any] | None = None, error_type: str | None = None, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     structured_answer = structured_answer or {}
     self_model = structured_answer.get("self_model") or {}
     answer_mode = str(self_model.get("answer_mode") or ("direct" if success else "verification_required"))
@@ -74,6 +74,7 @@ def build_chat_observation_probe(*, request: str, response: str | None, success:
         "tool_result": tool_result,
         "tool_error": tool_error,
         "user_feedback": user_feedback,
+        **(metadata or {}),
     }
     probe["failure_stage"] = classify_failure_stage(probe)
     probe["signal"] = classify_signal(probe, probe["failure_stage"])

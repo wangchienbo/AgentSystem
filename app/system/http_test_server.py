@@ -27,6 +27,7 @@ from app.models.chat import ChatMessageRequest
 from app.models.scheduling import ScheduleRecord
 from app.services.regression_nightly_control import RegressionNightlyControlService
 from app.system.chat_observation import build_chat_observation_probe, persist_chat_observation
+from app.system.regression_governance_policy import build_governance_rollout_operator_summary
 from app.system.chat_regression import (
     build_multi_run_comparison,
     build_run_summary,
@@ -401,6 +402,19 @@ class ChatRequest(BaseModel):
     payload: dict[str, Any] | None = None
 
 
+def _extract_run_metadata(payload: dict[str, Any] | None) -> dict[str, str] | None:
+    if not isinstance(payload, dict):
+        return None
+    run_id = str(payload.get("run_id") or "").strip()
+    scenario_id = str(payload.get("scenario_id") or "").strip()
+    metadata: dict[str, str] = {}
+    if run_id:
+        metadata["run_id"] = run_id
+    if scenario_id:
+        metadata["scenario_id"] = scenario_id
+    return metadata or None
+
+
 async def get_current_user(request: Request):
     session_id = request.cookies.get("session_id")
     if not session_id:
@@ -505,6 +519,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
     user_sessions[session_id]["last_active"] = started_at.isoformat()
 
     try:
+        run_metadata = _extract_run_metadata(req.payload)
         # Build ChatMessageRequest for LightBrain gateway
         augmented_message = _augment_user_message(req.message, session_id)
         chat_req = ChatMessageRequest(
@@ -528,11 +543,13 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
             "role": "user",
             "content": req.message,
             "timestamp": started_at.isoformat(),
+            **({"metadata": run_metadata} if run_metadata else {}),
         })
         conversation_history.setdefault(session_id, []).append({
             "role": "assistant",
             "content": response_text,
             "timestamp": finished_at.isoformat(),
+            **({"metadata": run_metadata} if run_metadata else {}),
         })
         _append_chat_log(session_id, {
             "timestamp": finished_at.isoformat(),
@@ -543,6 +560,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
             "success": True,
             "error_type": None,
             "latency_ms": latency_ms,
+            **(run_metadata or {}),
         })
         persist_chat_observation(
             probe=build_chat_observation_probe(
@@ -552,7 +570,9 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
                 latency_ms=latency_ms,
                 session_id=session_id,
                 structured_answer=structured_answer.model_dump() if structured_answer else None,
-            )
+                metadata=run_metadata,
+            ),
+            run_id=(run_metadata or {}).get("run_id"),
         )
         return _build_http_success_response(
             llm_resp=llm_resp,
