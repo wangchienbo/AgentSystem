@@ -148,6 +148,34 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Strengthened the CLI contracts with explicit operation-scope metadata
+
+### Summary
+After normalizing the Phase 1 sections, I made the next small but real CLI contract improvement. The existing responses already told the user whether a command was `ok`, `needs_attention`, or `not_implemented`, but they still did not state clearly enough whether a command was reporting on the current source-repo transition layout or representing a future installed-runtime control action. I added explicit operation-scope metadata so that distinction is now part of the CLI contract itself.
+
+### What Was Done
+- Updated `app/cli.py`
+  - `status` / `doctor` now expose:
+    - `operation_scope = source_repo_health_view`
+  - `runtime-layout` now exposes:
+    - `layout_mode = transition_repo_anchored`
+    - `operation_scope = source_repo_layout_view`
+  - not-yet-wired runtime/install commands now expose:
+    - `operation_scope = installed_runtime_target_not_yet_wired`
+- Updated `tests/unit/test_cli.py`
+  - added assertions for the new contract fields across `status`, `doctor`, `runtime-layout`, and `start`
+- Updated `docs/testing-detail.md`
+  - recorded the contract-shape improvement and validation evidence
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`
+
+### Notes
+This is still a modest control-plane step, but it moves the CLI closer to a contract that can survive the install-model transition cleanly because it now tells the operator what kind of surface they are looking at, not just whether it returned data.
+
+
 ## 2026-05-10: Normalized the Phase 1 CLI command-surface and contract sections so they match the current implementation state
 
 ### Summary

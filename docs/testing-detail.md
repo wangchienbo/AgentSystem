@@ -1985,3 +1985,25 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Outcome
 - the Phase 1 task-list sections now better match the actual current CLI maturity instead of mixing planning bullets with already-landed contract work
+
+## 2026-05-10 - CLI contracts now expose explicit operation-scope metadata
+
+### Targets
+- `app/cli.py`
+- `tests/unit/test_cli.py`
+
+### Trigger
+- after normalizing the Phase 1 task sections, the next useful contract improvement was to make the CLI responses state more explicitly whether a command is showing source-repo transition state or targeting a future installed-runtime control action
+
+### Changes
+- added explicit `operation_scope` metadata to CLI result contracts:
+  - `source_repo_health_view` for `status` / `doctor`
+  - `source_repo_layout_view` for `runtime-layout`
+  - `installed_runtime_target_not_yet_wired` for not-yet-implemented runtime/install commands
+- added `layout_mode=transition_repo_anchored` to the runtime-layout response
+- refreshed focused CLI tests accordingly
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`

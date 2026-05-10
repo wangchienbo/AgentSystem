@@ -31,6 +31,7 @@ def _planned_command_result(command: str, repo_root: Path) -> CLIResult:
         details={
             "status": "not_implemented",
             "repo_root": str(repo_root),
+            "operation_scope": "installed_runtime_target_not_yet_wired",
             "next_step": "use status/doctor to inspect readiness before wiring live runtime control",
             "suggested_start_command": _start_command(repo_root),
         },
@@ -60,7 +61,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _runtime_layout(repo_root: Path) -> dict[str, object]:
-    layout: dict[str, object] = {"repo_root": str(repo_root)}
+    layout: dict[str, object] = {
+        "repo_root": str(repo_root),
+        "layout_mode": "transition_repo_anchored",
+        "operation_scope": "source_repo_layout_view",
+    }
     for key, rel in DEFAULT_LAYOUT_DIRS.items():
         layout[key] = str(repo_root / rel)
     return layout
@@ -124,6 +129,7 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
         "suggested_start_command": _start_command(repo_root),
         **service,
         **layout,
+        "operation_scope": "source_repo_health_view",
     }
 
 

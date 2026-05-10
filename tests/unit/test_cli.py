@@ -27,6 +27,7 @@ def test_run_cli_returns_status_contract_for_top_level_command() -> None:
     assert result.command == "status"
     assert result.details["status"] in {"ok", "needs_attention"}
     assert str(result.details["repo_root"]) == str(REPO_ROOT)
+    assert result.details["operation_scope"] == "source_repo_health_view"
     assert "service_reachable" in result.details
     assert "config_file" in result.details
 
@@ -36,6 +37,7 @@ def test_run_cli_returns_not_implemented_contract_for_start() -> None:
     assert result.command == "start"
     assert result.exit_code == 2
     assert result.details["status"] == "not_implemented"
+    assert result.details["operation_scope"] == "installed_runtime_target_not_yet_wired"
     assert "next_step" in result.details
     assert "--app-dir" in str(result.details["suggested_start_command"])
     assert "AGENTSYSTEM_DATA_DIR=" in str(result.details["suggested_start_command"])
@@ -46,6 +48,8 @@ def test_run_cli_returns_runtime_layout_contract() -> None:
     result = run_cli(["runtime-layout"])
     assert result.command == "runtime-layout"
     assert result.details["status"] == "ok"
+    assert result.details["layout_mode"] == "transition_repo_anchored"
+    assert result.details["operation_scope"] == "source_repo_layout_view"
     assert str(result.details["config_dir"]) == str(REPO_ROOT / "config")
     assert str(result.details["installed_dir"]) == str(REPO_ROOT / "installed")
 
@@ -54,6 +58,7 @@ def test_run_cli_returns_doctor_checks() -> None:
     result = run_cli(["doctor"])
     assert result.command == "doctor"
     assert result.details["status"] in {"ok", "needs_attention"}
+    assert result.details["operation_scope"] == "source_repo_health_view"
     checks = result.details["checks"]
     assert isinstance(checks, dict)
     assert "config_dir" in checks
