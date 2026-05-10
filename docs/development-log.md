@@ -148,6 +148,35 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Decoupled the full-E2E helper scripts from repo-root cwd/PYTHONPATH module launches
+
+### Summary
+I kept going through the remaining startup/helper surfaces and found that the two full-E2E helper scripts were still using the old repo-coupled execution shape: `cd "$ROOT"`, `export PYTHONPATH="$ROOT"`, and `python -m tests.e2e...`. These are exactly the scripts that sit closest to the long-run baseline validation path, so leaving them in the old shape would preserve the wrong runtime model for one of the most important operator-facing flows. I switched them to execute the E2E test file directly instead.
+
+### What Was Done
+- Updated `run_full_e2e_bg.sh`
+- Updated `run_full_e2e_detached.sh`
+  - removed repo-root `cd`
+  - removed repo-root `PYTHONPATH` export
+  - replaced module launch with direct file execution of:
+    - `"$ROOT/tests/e2e/test_50_scenarios_20_turns_user_level.py"`
+  - kept the existing base URL, delay, timeout, and log-routing behavior unchanged
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded the full-E2E helper cleanup under the startup-path slice
+- Updated `docs/testing-detail.md`
+  - recorded validation evidence
+
+### Validation
+- `bash -n run_full_e2e_bg.sh run_full_e2e_detached.sh`
+- grep confirmation found no remaining:
+  - `PYTHONPATH`
+  - `cd "$ROOT"`
+  - `-m tests.e2e`
+
+### Notes
+This one matters more than it looks, because these helpers are tied directly to the long-run baseline flow that the install-model transition is supposed to preserve. Cleaning them up removes another operator-visible path that would otherwise keep teaching repo-coupled execution.
+
+
 ## 2026-05-10: Removed repo-root PYTHONPATH export from the top-level compatibility wrappers
 
 ### Summary

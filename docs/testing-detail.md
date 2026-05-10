@@ -1845,3 +1845,31 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `bash -n start_server.sh start_web_server.sh stop_server.sh`
 - `python3 -m pytest tests/unit/test_cli.py -q`
   - `7 passed`
+
+## 2026-05-10 - Full E2E helper scripts no longer rely on repo-root cwd/PYTHONPATH module launches
+
+### Targets
+- `run_full_e2e_bg.sh`
+- `run_full_e2e_detached.sh`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after cleaning the subset-start and CLI-wrapper surfaces, the repo-coupling sweep still found the two full-E2E helper scripts using:
+  - `cd "$ROOT"`
+  - `export PYTHONPATH="$ROOT"`
+  - `python -m tests.e2e...`
+- this preserved the old repo-root execution shape for long-run baseline helpers
+
+### Changes
+- removed repo-root `cd`
+- removed repo-root `PYTHONPATH` export
+- replaced `-m tests.e2e.test_50_scenarios_20_turns_user_level` with direct execution of:
+  - `"$ROOT/tests/e2e/test_50_scenarios_20_turns_user_level.py"`
+- kept existing logging/timeout arguments unchanged
+
+### Validation
+- `bash -n run_full_e2e_bg.sh run_full_e2e_detached.sh`
+- grep confirmation found no remaining:
+  - `PYTHONPATH`
+  - `cd "$ROOT"`
+  - `-m tests.e2e`
