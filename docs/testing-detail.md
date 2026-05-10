@@ -1941,3 +1941,31 @@ This is an initial static validation pass for the refreshed harness. Live subset
 
 ### Note
 - this is a task-list truthfulness update, not a claim that the live provider-window blocker itself is solved
+
+## 2026-05-10 - Initial CLI/script surface inventory for Phase 1
+
+### Targets
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Inventory snapshot
+- top-level shell surfaces:
+  - `start_server.sh`
+  - `start_web_server.sh`
+  - `stop_server.sh`
+  - `run_full_e2e_bg.sh`
+  - `run_full_e2e_detached.sh`
+  - `task_push.sh`
+- helper scripts:
+  - `scripts/start_phase3_subset_server.sh`
+  - `scripts/run_test_groups.sh`
+  - `scripts/model_probe.py`
+- python entrypoints relevant to install-model control-plane planning:
+  - `app/cli.py`
+  - `app/system/http_test_server.py`
+  - `app/runtime/app_bootstrap.py`
+  - `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+### Outcome
+- recorded Phase `2.1` as landed in the detailed task list
+- confirmed the main operator control plane is now consolidated into `app/cli.py`
+- confirmed the remaining gap is not missing surface discovery, but wiring the planned runtime/install commands to real service/install behavior

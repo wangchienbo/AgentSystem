@@ -89,9 +89,17 @@ Status: [x] focused validation/docs closure landed
 ## 2. Phase 1 - Define and strengthen CLI control plane first
 
 ### 2.1 Inventory current CLI / script surfaces
-- inspect current shell scripts and python entrypoints
-- map existing capabilities for start / stop / status / test / install / bootstrap / asset ops
-- identify missing operator actions needed for install-model migration
+Status: [x] initial inventory landed
+- inspected current shell wrappers and helper scripts:
+  - top-level: `start_server.sh`, `start_web_server.sh`, `stop_server.sh`, `run_full_e2e_bg.sh`, `run_full_e2e_detached.sh`, `task_push.sh`
+  - helpers: `scripts/start_phase3_subset_server.sh`, `scripts/run_test_groups.sh`, `scripts/model_probe.py`
+- confirmed the primary operator control plane now centers on `app/cli.py`
+- confirmed compatibility shell wrappers now delegate into `app/cli.py` rather than carrying separate runtime logic
+- identified adjacent python entrypoints still relevant to install-model planning:
+  - `app/system/http_test_server.py`
+  - `app/runtime/app_bootstrap.py`
+  - user-level E2E harness entrypoint in `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- current operator-facing gaps still align with the planned command surface: runtime start/stop/restart/install/bootstrap/migrate-runtime are present as contract stubs but not yet wired to real service/install behavior
 
 ### 2.2 Define target CLI command surface
 - define `agentsystem start`

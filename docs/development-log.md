@@ -148,6 +148,40 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Landed the initial Phase 1 CLI/script surface inventory
+
+### Summary
+With Phase 0 now narrowed mostly to the live provider closure window, I started moving the task list forward into Phase 1 by landing the initial CLI/script surface inventory. The point here was not to invent a new control plane from scratch, but to accurately record what operator-facing shells and Python entrypoints already exist, which ones have already been consolidated behind `app/cli.py`, and where the real install-model gap still sits.
+
+### What Was Done
+- inventoried current shell surfaces:
+  - top-level wrappers and helpers:
+    - `start_server.sh`
+    - `start_web_server.sh`
+    - `stop_server.sh`
+    - `run_full_e2e_bg.sh`
+    - `run_full_e2e_detached.sh`
+    - `task_push.sh`
+  - helper scripts:
+    - `scripts/start_phase3_subset_server.sh`
+    - `scripts/run_test_groups.sh`
+    - `scripts/model_probe.py`
+- inventoried adjacent Python entrypoints relevant to install-model planning:
+  - `app/cli.py`
+  - `app/system/http_test_server.py`
+  - `app/runtime/app_bootstrap.py`
+  - `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked section `2.1` as landed
+  - recorded that the primary operator control plane now centers on `app/cli.py`
+  - noted that the remaining Phase 1 gap is real command wiring, not missing surface discovery
+- Updated `docs/testing-detail.md`
+  - captured the inventory snapshot
+
+### Notes
+This is a documentation/control-plane inventory step, but it is the right next move once the Phase 0 remainder has been narrowed. It means the task list is now genuinely transitioning from cleanup into install-model control-plane work instead of pretending that transition already happened.
+
+
 ## 2026-05-10: Tightened the Phase 0 remainder description so the task list matches the actual blocker shape
 
 ### Summary
