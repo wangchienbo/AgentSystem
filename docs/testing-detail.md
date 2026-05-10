@@ -1696,3 +1696,24 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
 - `python3 -m pytest tests/unit/test_cli.py -q`
   - `7 passed`
+
+## 2026-05-10 - Focused closure rerun for remaining Phase R Wave 5 acceptance-binding slice
+
+### Targets
+- `tests/unit/test_light_brain_gateway_acceptance_binding.py`
+- `tests/unit/test_http_test_server.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- the detailed install-model task list still carried the old Phase R Wave 5 open-slice bullets as unresolved even though the implementation and earlier notes now indicated they had landed
+- before marking those bullets closed, a focused rerun was needed on the acceptance-binding and real HTTP coverage that prove the slice end to end
+
+### Validation
+- `python3 -m pytest tests/unit/test_light_brain_gateway_acceptance_binding.py tests/unit/test_http_test_server.py -q`
+  - `43 passed`
+
+### Closure confirmed
+- changed-file intent is derived and surfaced from richer repo/task-list sourcing
+- multi-command acceptance evidence binds distinct `matched_work_item_ids` without defaulting immediately to a single-work-item fallback
+- compact operator-facing `change_execution_summary` remains surfaced on both acceptance evidence and top-level `acceptance_plan`
+- task-list status was updated to mark the remaining Wave 5 open-slice bullets as closed and to move old-work validation/docs phases into active in-progress state

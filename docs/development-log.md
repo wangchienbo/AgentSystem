@@ -148,6 +148,33 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Revalidated and closed the remaining Phase R Wave 5 open-slice bullets in the detailed install-model task list
+
+### Summary
+After the last few implementation rounds, the detailed install-model task list was still carrying the old Phase R Wave 5 open-slice bullets as unresolved, even though the underlying code and prior development-log notes already indicated that changed-file intent sourcing, multi-command acceptance evidence binding, and the compact `change_execution_summary` read model had landed. I did a focused rerun on the exact acceptance-binding and live HTTP coverage that prove this slice, then updated the detailed task list so it no longer misstates those items as open.
+
+### What Was Done
+- Re-ran focused regression for the Wave 5 acceptance-binding slice:
+  - `tests/unit/test_light_brain_gateway_acceptance_binding.py`
+  - `tests/unit/test_http_test_server.py`
+- Confirmed the active implementation still proves:
+  - richer changed-file intent sourcing from repo/task-list signals
+  - distinct multi-command `matched_work_item_ids` binding
+  - compact `change_execution_summary` surfacing on acceptance evidence and top-level `acceptance_plan`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked the remaining Phase R Wave 5 open-slice bullets as closed
+  - moved Phase 0 subsections `1.2` and `1.3` from fully pending to in-progress so the doc matches current reality
+- Updated `docs/testing-detail.md`
+  - recorded the focused rerun evidence
+
+### Validation
+- `python3 -m pytest tests/unit/test_light_brain_gateway_acceptance_binding.py tests/unit/test_http_test_server.py -q`
+  - `43 passed`
+
+### Notes
+This round was intentionally a closure-and-evidence pass rather than new feature implementation. It matters because the detailed task list is now being used as the live driver for the install-model transition, so stale open bullets would otherwise distort the true remaining work.
+
+
 ## 2026-05-10: Removed repo-root-coupled cwd assumptions from the CLI suggested start contract
 
 ### Summary

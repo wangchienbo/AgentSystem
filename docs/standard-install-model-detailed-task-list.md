@@ -22,10 +22,10 @@ Status: [x] first merged unresolved-items pass landed
 - produced a compact unresolved-items list and merged it into this task list
 
 Current merged unresolved items from older task lists and follow-up waves:
-- [ ] close remaining Phase R Wave 5 open slice items:
-  - derive changed-file intent from actual repo inspection plus task-list hints more directly
-  - reduce reliance on the single-work-item fallback for multi-command acceptance evidence mapping
-  - decide whether compact changed-file/result summaries should surface into a lighter operator-facing read model
+- [x] close remaining Phase R Wave 5 open slice items:
+  - [x] derive changed-file intent from actual repo inspection plus task-list hints more directly
+  - [x] reduce reliance on the single-work-item fallback for multi-command acceptance evidence mapping
+  - [x] decide whether compact changed-file/result summaries should surface into a lighter operator-facing read model
 - [ ] verify there is no remaining HTTP compatibility drift between `/api/chat`, `/api/action`, gateway action payloads, and service-up consumers
   - [x] fixed multi-worker cookie session rehydration so `/login` → `/api/chat` no longer fails with `401 Not authenticated` when requests land on different uvicorn workers
   - [x] aligned the active 1seey model name with the user-channel provider config (`qwen3.6-plus` instead of `gpt-5.4`)
@@ -56,14 +56,14 @@ Current merged unresolved items from older task lists and follow-up waves:
   - [x] run isolation metadata for long E2E analysis (`run_id`, `scenario_id`)
 
 ### 1.2 Close code-level loose ends
-Status: [ ] pending
+Status: [~] in progress
 - finish any partially landed workflow/action/acceptance chain improvements
 - close any pending HTTP compatibility deltas
 - close any remaining path-cleanup/output-cleanup items discovered during service startup
 - verify no repo-root hard dependency remains in runnable code paths
 
 ### 1.3 Close validation and docs for old work
-Status: [ ] pending
+Status: [~] in progress
 - run focused regression for remaining unfinished old tasks
 - update testing docs if any old task lacked evidence
 - update development log with final closure notes for these items
