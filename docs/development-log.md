@@ -148,6 +148,27 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Normalized the Phase 1 CLI command-surface and contract sections so they match the current implementation state
+
+### Summary
+Once Phase 1 had officially started, the next cleanup I made was inside the task list structure itself. Sections `2.2` and `2.3` were still split between planning-style bullets and already-landed behavior/contract reality, and `2.3` even existed twice. I normalized those sections so the task list now reflects the actual current CLI maturity: the command surface is defined, the parser surface exists, some commands already expose live contracts, and the remaining gap is deeper service/install wiring.
+
+### What Was Done
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked section `2.2` as landed
+  - rewrote `2.2` into an explicit current command-surface summary
+  - collapsed the duplicate `2.3 Define CLI behavior contracts` headings into one concrete status section
+  - clarified the current maturity split between:
+    - command names/parser surface already present
+    - commands with live contract behavior (`status`, `doctor`, `runtime-layout`)
+    - commands still waiting on deeper service/install wiring (`start`, `stop`, `restart`, `install`, `bootstrap`, `migrate-runtime`)
+- Updated `docs/testing-detail.md`
+  - recorded the normalization rationale
+
+### Notes
+This is another control-plane truthfulness pass, but it is useful now because Phase 1 is no longer hypothetical. The task list should describe the CLI exactly as it currently exists, otherwise the next implementation steps are harder to prioritize cleanly.
+
+
 ## 2026-05-10: Landed the initial Phase 1 CLI/script surface inventory
 
 ### Summary

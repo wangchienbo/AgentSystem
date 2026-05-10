@@ -102,30 +102,32 @@ Status: [x] initial inventory landed
 - current operator-facing gaps still align with the planned command surface: runtime start/stop/restart/install/bootstrap/migrate-runtime are present as contract stubs but not yet wired to real service/install behavior
 
 ### 2.2 Define target CLI command surface
-- define `agentsystem start`
-- define `agentsystem stop`
-- define `agentsystem restart`
-- define `agentsystem status`
-- define `agentsystem install`
-- define `agentsystem bootstrap`
-- define `agentsystem doctor`
-- define `agentsystem assets list`
-- define `agentsystem assets discover`
-- define `agentsystem assets install <asset_id>`
-- define `agentsystem assets install-all`
-- define `agentsystem runtime layout`
-- define `agentsystem migrate-runtime`
-
-### 2.3 Define CLI behavior contracts
-- define output contract for status/doctor commands
-- define failure contract for missing config / missing runtime dirs / missing assets
-- define dry-run or inspect behavior where useful
-- define which commands operate on source repo vs installed runtime
+Status: [x] initial target surface landed
+- defined top-level commands:
+  - `agentsystem start`
+  - `agentsystem stop`
+  - `agentsystem restart`
+  - `agentsystem status`
+  - `agentsystem install`
+  - `agentsystem bootstrap`
+  - `agentsystem doctor`
+  - `agentsystem runtime-layout`
+  - `agentsystem migrate-runtime`
+- defined asset subcommands:
+  - `agentsystem assets list`
+  - `agentsystem assets discover`
+  - `agentsystem assets install <asset_id>`
+  - `agentsystem assets install-all`
+- current implementation status is intentionally split:
+  - command names and parser surface exist
+  - `status` / `doctor` / `runtime-layout` have live contract behavior
+  - runtime/install/migrate commands still need deeper service/install wiring
 
 ### 2.3 Define CLI behavior contracts
 Status: [x] initial contract landed
 - `status` / `doctor` now return a compact runtime-layout health contract with directory existence checks
 - `status` / `doctor` now surface config-file presence and local service reachability
+- `runtime-layout` now exposes the current repo-anchored runtime layout contract used during transition planning
 - not-yet-wired runtime control commands (`start` / `stop` / `restart` / `install` / `bootstrap` / `migrate-runtime`) now return an explicit `not_implemented` contract with exit code `2`
 - deeper failure and dry-run semantics remain future work
 

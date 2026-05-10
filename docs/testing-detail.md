@@ -1969,3 +1969,19 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - recorded Phase `2.1` as landed in the detailed task list
 - confirmed the main operator control plane is now consolidated into `app/cli.py`
 - confirmed the remaining gap is not missing surface discovery, but wiring the planned runtime/install commands to real service/install behavior
+
+## 2026-05-10 - Phase 1 CLI target-surface and contract sections normalized
+
+### Targets
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Changes
+- marked section `2.2` as landed now that the command surface is explicitly defined and the parser surface already exists
+- collapsed the duplicate `2.3 Define CLI behavior contracts` headings into one concrete status section
+- clarified the split between:
+  - commands whose names/parser surface already exist
+  - commands that already expose live contract behavior (`status`, `doctor`, `runtime-layout`)
+  - commands still awaiting deeper service/install wiring (`start`, `stop`, `restart`, `install`, `bootstrap`, `migrate-runtime`)
+
+### Outcome
+- the Phase 1 task-list sections now better match the actual current CLI maturity instead of mixing planning bullets with already-landed contract work
