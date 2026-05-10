@@ -148,6 +148,41 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Split user-level E2E closure scoring beyond raw response success
+
+### Summary
+I continued straight into the next explicit active task-list item: `closure scoring split beyond raw response success`. The user-level 50-scenario E2E runner was still mostly collapsing turn quality into `ok` / `fail`, which was too coarse for forensic closure analysis. A response can be technically successful at the transport layer while still being empty, too short to be useful, fallback-like, or lacking any workflow-success hint. I added richer per-turn and per-scenario closure signals so the E2E report can now distinguish these cases instead of burying them inside one binary success field.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - extended `TurnResult` with `closure_signals`
+  - extended `ScenarioResult` with `closure_summary`
+  - added `_evaluate_turn_closure(...)`
+    - computes split signals for:
+      - `raw_ok`
+      - `empty_response`
+      - `very_short_response`
+      - `informative_length_ok`
+      - `fallback_like`
+      - `workflow_success_hint`
+      - derived `closure_score`
+  - added `_summarize_scenario_closure(...)`
+    - aggregates average closure score and counts for key signal classes across the full scenario
+  - success, HTTP error, timeout, and generic exception turn paths now all populate closure signals instead of relying only on `ok`
+  - failed-scenario console output now prints closure-summary hints
+  - persisted JSON report now includes:
+    - per-turn `closure_signals`
+    - per-scenario `closure_summary`
+- Updated `docs/testing-detail.md`
+  - recorded the scoring split and validation evidence
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+### Notes
+This does not yet claim semantic task completion in the strong sense, but it closes an important observability gap: now the E2E runner can distinguish raw transport success from low-information or fallback-shaped replies, which is exactly the direction the active closure-upgrade item was asking for.
+
+
 ## 2026-05-10: Added run-isolation metadata plumbing for long E2E analysis (`run_id`, `scenario_id`)
 
 ### Summary

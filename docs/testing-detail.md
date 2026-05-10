@@ -1639,3 +1639,35 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile app/system/http_test_server.py app/system/chat_observation.py tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_http_test_server.py`
 - `python3 -m pytest tests/unit/test_http_test_server.py -q`
   - `37 passed`
+
+## 2026-05-10 - Closure scoring split beyond raw response success in user-level E2E reports
+
+### Targets
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+
+### Trigger
+- the active detailed task list still explicitly called for `closure scoring split beyond raw response success`
+- current user-level E2E reporting mostly collapsed turn quality into raw `ok/fail`, which hid useful distinctions like empty responses, short low-information replies, fallback-like answers, and workflow-success hints
+
+### Changes
+- added per-turn `closure_signals` to the user-level E2E runner
+- closure signals now separate:
+  - `raw_ok`
+  - `empty_response`
+  - `very_short_response`
+  - `informative_length_ok`
+  - `fallback_like`
+  - `workflow_success_hint`
+  - derived `closure_score`
+- added per-scenario `closure_summary` aggregation with:
+  - average closure score
+  - empty-response turn count
+  - very-short-response turn count
+  - fallback-like turn count
+  - workflow-success-hint turn count
+  - raw-ok turn count
+- failure-detail console output now prints closure-summary hints for failed scenarios
+- persisted JSON report now includes both per-turn `closure_signals` and per-scenario `closure_summary`
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py`

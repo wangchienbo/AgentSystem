@@ -434,6 +434,7 @@ class TurnResult:
     http_status: int = 0
     session_id: str = ""
     full_response: str = ""
+    closure_signals: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -456,6 +457,7 @@ class ScenarioResult:
     total_error: int = 0   # HTTP/network errors (not counted as business fail)
     total_ms: float = 0.0
     expectation: ScenarioExpectationResult | None = None
+    closure_summary: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -541,6 +543,63 @@ class E2EClient:
 # ---------------------------------------------------------------------------
 # Test runner
 # ---------------------------------------------------------------------------
+
+def _evaluate_turn_closure(*, ok: bool, response_text: str, error_text: str = "") -> dict[str, Any]:
+    text = (response_text or "").strip()
+    lower = text.lower()
+    empty_response = not text
+    very_short_response = bool(text) and len(text) < 8
+    fallback_markers = ["无法", "不能", "抱歉", "请先", "需要", "澄清", "进一步验证", "稍后"]
+    fallback_like = any(marker in text for marker in fallback_markers)
+    workflow_markers = ["已", "完成", "成功", "处理", "创建", "启动", "更新", "可以", "如下"]
+    workflow_success_hint = ok and any(marker in text for marker in workflow_markers)
+    informative_length_ok = len(text) >= 20
+    score = 0.0
+    if ok:
+        score += 0.35
+    if not empty_response:
+        score += 0.20
+    if informative_length_ok:
+        score += 0.20
+    if workflow_success_hint:
+        score += 0.15
+    if not fallback_like:
+        score += 0.10
+    score = max(0.0, min(1.0, round(score, 2)))
+    return {
+        "raw_ok": ok,
+        "empty_response": empty_response,
+        "very_short_response": very_short_response,
+        "informative_length_ok": informative_length_ok,
+        "fallback_like": fallback_like,
+        "workflow_success_hint": workflow_success_hint,
+        "closure_score": score,
+        "error_present": bool(error_text),
+        "response_length": len(text),
+        "response_excerpt": text[:120],
+    }
+
+
+def _summarize_scenario_closure(result: ScenarioResult) -> dict[str, Any]:
+    signals = [t.closure_signals for t in result.turns if t.closure_signals]
+    if not signals:
+        return {
+            "avg_closure_score": 0.0,
+            "empty_response_turns": 0,
+            "very_short_response_turns": 0,
+            "fallback_like_turns": 0,
+            "workflow_success_hint_turns": 0,
+            "raw_ok_turns": result.total_ok,
+        }
+    return {
+        "avg_closure_score": round(sum(float(s.get("closure_score", 0.0)) for s in signals) / len(signals), 2),
+        "empty_response_turns": sum(1 for s in signals if s.get("empty_response")),
+        "very_short_response_turns": sum(1 for s in signals if s.get("very_short_response")),
+        "fallback_like_turns": sum(1 for s in signals if s.get("fallback_like")),
+        "workflow_success_hint_turns": sum(1 for s in signals if s.get("workflow_success_hint")),
+        "raw_ok_turns": sum(1 for s in signals if s.get("raw_ok")),
+    }
+
 
 def _wait_for_service(base_url: str, timeout_seconds: float = 30.0) -> tuple[bool, str]:
     deadline = time.monotonic() + timeout_seconds
@@ -668,6 +727,10 @@ def run_scenario(
                 http_status=200,
                 session_id=sid,
                 full_response=data.get("response", "") or "",
+                closure_signals=_evaluate_turn_closure(
+                    ok=bool(ok),
+                    response_text=(data.get("response", "") or data.get("content", "") or ""),
+                ),
             )
         except httpx.HTTPStatusError as exc:
             elapsed = (time.monotonic() - t0) * 1000
@@ -678,6 +741,7 @@ def run_scenario(
                 error=f"HTTP {exc.response.status_code}: {exc.response.text[:200]}",
                 elapsed_ms=elapsed,
                 http_status=exc.response.status_code,
+                closure_signals=_evaluate_turn_closure(ok=False, response_text="", error_text=exc.response.text[:200]),
             )
             result.total_error += 1
         except httpx.TimeoutException:
@@ -688,6 +752,7 @@ def run_scenario(
                 ok=False,
                 error=f"Timeout after {turn_timeout}s",
                 elapsed_ms=elapsed,
+                closure_signals=_evaluate_turn_closure(ok=False, response_text="", error_text=f"Timeout after {turn_timeout}s"),
             )
             result.total_error += 1
         except Exception as exc:
@@ -698,6 +763,7 @@ def run_scenario(
                 ok=False,
                 error=f"{type(exc).__name__}: {exc}",
                 elapsed_ms=elapsed,
+                closure_signals=_evaluate_turn_closure(ok=False, response_text="", error_text=f"{type(exc).__name__}: {exc}"),
             )
             result.total_error += 1
 
@@ -731,6 +797,7 @@ def run_scenario(
             result.total_fail += 1
             result.total_error += 1
 
+    result.closure_summary = _summarize_scenario_closure(result)
     return result
 
 
@@ -837,6 +904,13 @@ def main():
             verdict, reasons = _scenario_verdict(r)
             print(f"\n    {r.scenario_id} {r.name} ({r.user_id}): verdict={verdict}, reason={' ; '.join(reasons[:3])}")
             print(f"      turns={r.total_ok}ok/{r.total_fail}fail, errors={r.total_error}")
+            if r.closure_summary:
+                print(
+                    f"      closure_score={r.closure_summary.get('avg_closure_score')} "
+                    f"empty={r.closure_summary.get('empty_response_turns')} "
+                    f"short={r.closure_summary.get('very_short_response_turns')} "
+                    f"fallback={r.closure_summary.get('fallback_like_turns')}"
+                )
             for t in r.turns:
                 if not t.ok:
                     msg_preview = t.message[:50] if t.message else "(empty)"
@@ -869,6 +943,7 @@ def main():
                 "history_expectation_ok": r.expectation.ok if r.expectation else None,
                 "history_expectation_failures": r.expectation.failures if r.expectation else [],
                 "history_expectation_checks": r.expectation.checks if r.expectation else [],
+                "closure_summary": r.closure_summary or {},
                 "turns": [
                     {
                         "turn": t.turn_index,
@@ -878,6 +953,7 @@ def main():
                         "error": t.error[:200] if t.error else "",
                         "elapsed_s": round(t.elapsed_ms / 1000, 1),
                         "session_id": t.session_id,
+                        "closure_signals": t.closure_signals,
                     }
                     for t in r.turns
                 ],
