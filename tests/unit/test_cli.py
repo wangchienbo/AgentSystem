@@ -28,6 +28,8 @@ def test_run_cli_returns_status_contract_for_top_level_command() -> None:
     assert result.details["status"] in {"ok", "needs_attention"}
     assert str(result.details["repo_root"]) == str(REPO_ROOT)
     assert result.details["operation_scope"] == "source_repo_health_view"
+    assert result.details["status_reason"] in {"all_transition_checks_passed", "missing_transition_prerequisites"}
+    assert isinstance(result.details["missing_checks"], list)
     assert "service_reachable" in result.details
     assert "config_file" in result.details
 
@@ -59,12 +61,15 @@ def test_run_cli_returns_doctor_checks() -> None:
     assert result.command == "doctor"
     assert result.details["status"] in {"ok", "needs_attention"}
     assert result.details["operation_scope"] == "source_repo_health_view"
+    assert result.details["status_reason"] in {"all_transition_checks_passed", "missing_transition_prerequisites"}
+    assert isinstance(result.details["missing_checks"], list)
     checks = result.details["checks"]
     assert isinstance(checks, dict)
     assert "config_dir" in checks
     assert "data_dir" in checks
     assert "config_file" in checks
     assert "service_reachable" in checks
+    assert isinstance(result.details["next_actions"], list)
     assert "suggested_start_command" in result.details
 
 

@@ -148,6 +148,34 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Added explicit failure semantics to the CLI health commands
+
+### Summary
+I kept pushing the Phase 1 CLI contracts forward by making the health-oriented commands more operator-useful. After adding operation-scope metadata, the next obvious gap was that `status` and `doctor` could still say `needs_attention` without telling the operator clearly why or what to do next. I extended those contracts with explicit failure-semantics fields so the commands now describe missing prerequisites and suggested follow-up actions directly.
+
+### What Was Done
+- Updated `app/cli.py`
+  - `status` / `doctor` now expose:
+    - `status_reason`
+    - `missing_checks`
+    - `next_actions`
+  - the health-check aggregation now skips non-check metadata keys from the runtime-layout contract
+- Updated `tests/unit/test_cli.py`
+  - added assertions covering the new failure-semantics fields
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the initial CLI contract now includes explicit failure semantics for `status` / `doctor`
+- Updated `docs/testing-detail.md`
+  - recorded validation evidence
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`
+
+### Notes
+This is still a bounded contract enhancement rather than real runtime command wiring, but it meaningfully improves the operator control plane because the CLI now explains the health gap instead of only classifying it.
+
+
 ## 2026-05-10: Strengthened the CLI contracts with explicit operation-scope metadata
 
 ### Summary

@@ -2007,3 +2007,26 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
 - `python3 -m pytest tests/unit/test_cli.py -q`
   - `7 passed`
+
+## 2026-05-10 - CLI health commands now expose explicit failure semantics
+
+### Targets
+- `app/cli.py`
+- `tests/unit/test_cli.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after adding operation-scope metadata, the next useful contract improvement for `status` / `doctor` was to expose why the command is unhealthy and what the operator should do next, rather than only returning `needs_attention`
+
+### Changes
+- `status` / `doctor` now expose:
+  - `status_reason`
+  - `missing_checks`
+  - `next_actions`
+- health checks now explicitly skip non-check metadata keys from the runtime-layout contract
+- task list contract notes updated to reflect the landed failure-semantics slice
+
+### Validation
+- `python3 -m py_compile app/cli.py tests/unit/test_cli.py`
+- `python3 -m pytest tests/unit/test_cli.py -q`
+  - `7 passed`

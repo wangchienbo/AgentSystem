@@ -127,9 +127,10 @@ Status: [x] initial target surface landed
 Status: [x] initial contract landed
 - `status` / `doctor` now return a compact runtime-layout health contract with directory existence checks
 - `status` / `doctor` now surface config-file presence and local service reachability
+- `status` / `doctor` now also expose explicit failure-semantics fields (`status_reason`, `missing_checks`, `next_actions`)
 - `runtime-layout` now exposes the current repo-anchored runtime layout contract used during transition planning
 - not-yet-wired runtime control commands (`start` / `stop` / `restart` / `install` / `bootstrap` / `migrate-runtime`) now return an explicit `not_implemented` contract with exit code `2`
-- deeper failure and dry-run semantics remain future work
+- deeper dry-run semantics remain future work
 
 ### 2.4 Implement missing CLI skeletons
 Status: [x] initial skeleton landed

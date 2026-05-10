@@ -117,16 +117,29 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
     checks = {
         key: Path(str(value)).exists()
         for key, value in layout.items()
-        if key != "repo_root"
+        if key not in {"repo_root", "layout_mode", "operation_scope"}
     }
     checks["config_file"] = config_file.exists()
     service = _service_health()
     checks["service_reachable"] = bool(service["service_reachable"])
+    missing_checks = [name for name, ok in checks.items() if not ok]
+    status = "ok" if not missing_checks else "needs_attention"
+    next_actions: list[str] = []
+    if not checks["config_file"]:
+        next_actions.append(f"create config file at {config_file}")
+    if not checks["service_reachable"]:
+        next_actions.append(f"start local HTTP service via: {_start_command(repo_root)}")
+    for key in ["config_dir", "data_dir", "logs_dir", "installed_dir", "build_dir"]:
+        if not checks.get(key):
+            next_actions.append(f"create runtime directory: {layout[key]}")
     return {
-        "status": "ok" if all(checks.values()) else "needs_attention",
+        "status": status,
+        "status_reason": "all_transition_checks_passed" if status == "ok" else "missing_transition_prerequisites",
+        "missing_checks": missing_checks,
         "checks": checks,
         "config_file": str(config_file),
         "suggested_start_command": _start_command(repo_root),
+        "next_actions": next_actions,
         **service,
         **layout,
         "operation_scope": "source_repo_health_view",
