@@ -11,6 +11,22 @@ class _AlwaysTimeoutClient:
         return []
 
 
+class _AlwaysOkClient:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def send_message(self, user_id: str, message: str, session_id: str | None = None, payload=None):
+        self.calls.append(message)
+        return {"ok": True, "session_id": "session_ok", "response": f"echo:{message}", "content": f"echo:{message}"}
+
+    def get_history(self, session_id: str):
+        return [
+            {"role": "user", "content": msg} for msg in self.calls
+        ] + [
+            {"role": "assistant", "content": f"echo:{msg}"} for msg in self.calls
+        ]
+
+
 def test_run_scenario_aborts_after_max_consecutive_failures() -> None:
     scenario = {
         "id": "SXX",
@@ -32,3 +48,25 @@ def test_run_scenario_aborts_after_max_consecutive_failures() -> None:
     assert len(result.turns) == 2
     assert result.total_fail == 2
     assert result.total_error == 2
+
+
+def test_run_scenario_respects_max_turns_limit() -> None:
+    scenario = {
+        "id": "SYY",
+        "name": "bounded scenario",
+        "user_id": "user_ok",
+        "turns": ["one", "two", "three", "four"],
+    }
+
+    client = _AlwaysOkClient()
+    result = harness.run_scenario(
+        client,
+        scenario,
+        delay=0,
+        max_turns=2,
+    )
+
+    assert client.calls == ["one", "two"]
+    assert len(result.turns) == 2
+    assert result.total_ok == 2
+    assert result.total_turns == 4

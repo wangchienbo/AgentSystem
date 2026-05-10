@@ -680,6 +680,7 @@ def run_scenario(
     turn_timeout: float = 120.0,
     run_id: str | None = None,
     max_consecutive_failures: int = 0,
+    max_turns: int | None = None,
 ) -> ScenarioResult:
     user_id = scenario["user_id"]
     result = ScenarioResult(
@@ -691,8 +692,9 @@ def run_scenario(
 
     current_session: str | None = None
     consecutive_failures = 0
+    scenario_turns = scenario["turns"][:max_turns] if max_turns and max_turns > 0 else scenario["turns"]
 
-    for idx, message in enumerate(scenario["turns"]):
+    for idx, message in enumerate(scenario_turns):
         # Skip empty messages (S31 has some intentional empty/whitespace inputs)
         if not message.strip() and scenario["id"] == "S31":
             tr = TurnResult(
@@ -792,7 +794,7 @@ def run_scenario(
             break
 
         # Delay between turns to avoid vLLM overload
-        if delay > 0 and idx < len(scenario["turns"]) - 1:
+        if delay > 0 and idx < len(scenario_turns) - 1:
             time.sleep(delay)
 
     if current_session:
@@ -824,6 +826,7 @@ def main():
     parser.add_argument("--run-id", default=f"e2e-user-level-{uuid4().hex[:12]}", help="Run identifier for correlating chat logs and scenario traces")
     parser.add_argument("--wait-ready-seconds", type=float, default=30.0, help="How long to wait for /api/status readiness before running (default: 30)")
     parser.add_argument("--max-consecutive-failures", type=int, default=0, help="Abort a scenario early after this many consecutive failed turns (default: disabled)")
+    parser.add_argument("--max-turns-per-scenario", type=int, default=0, help="Limit how many turns to execute per scenario for bounded diagnostics (default: full scenario)")
     args = parser.parse_args()
 
     # Filter scenarios
@@ -878,6 +881,7 @@ def main():
             turn_timeout=args.timeout,
             run_id=args.run_id,
             max_consecutive_failures=args.max_consecutive_failures,
+            max_turns=(args.max_turns_per_scenario or None),
         )
         elapsed = time.monotonic() - t0
 
@@ -943,6 +947,8 @@ def main():
         "base_url": args.base_url,
         "delay_seconds": args.delay,
         "timeout_seconds": args.timeout,
+        "max_turns_per_scenario": args.max_turns_per_scenario,
+        "max_consecutive_failures": args.max_consecutive_failures,
         "total_scenarios": total_scenarios,
         "scenarios_all_ok": scenarios_all_ok,
         "scenarios_with_fail": scenarios_with_fail,

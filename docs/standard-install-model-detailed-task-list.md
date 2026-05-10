@@ -243,6 +243,7 @@ Status: [~] first concrete live failure pattern captured
 - current highest-signal failure pattern is no longer localhost readiness misrouting
 - current highest-signal failure pattern is repeated `/api/chat` timeout under live operator workflow load after an initial successful turn
 - failure class currently looks closer to upstream model/runtime instability than to basic harness transport failure
+- harness now also supports `--max-turns-per-scenario` so Phase 3 can isolate whether failures begin only after turn/context buildup instead of committing immediately to full 20-turn replay
 - next reruns should use bounded fail-fast settings first, then decide whether the remaining blocker is model timeout tuning, request-shape reduction, or server-side runtime repair
 
 ### 4.4 Repair and re-run until baseline is trustworthy

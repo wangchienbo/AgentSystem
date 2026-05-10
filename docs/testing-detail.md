@@ -2117,3 +2117,32 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Notes
 - this change does not fix the underlying `/api/chat` timeout issue
 - it does make Phase 3 reruns cheaper and more honest by stopping once the run is clearly in a pathological failure mode
+
+## 2026-05-10 - Added per-scenario turn caps for bounded Phase 3 diagnostics
+
+### Targets
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `tests/unit/test_user_level_e2e_fail_fast.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- Phase 3 analysis now strongly suggests that the live timeout pattern may depend on turn progression or context buildup, because bounded evidence showed turn `01/20` can succeed while later turns time out
+- we needed a cleaner way to probe `turn 1 only`, `turn 1-2`, `turn 1-3`, etc. without editing scenario data or launching a full 20-turn replay every time
+
+### Changes
+- added `--max-turns-per-scenario` to the user-level E2E harness
+- `run_scenario(...)` now accepts `max_turns` and slices the scenario turn list for bounded diagnostics
+- report metadata now records:
+  - `max_turns_per_scenario`
+  - `max_consecutive_failures`
+- extended fail-fast tests to cover bounded-turn execution
+- updated Phase 3 failure-analysis notes in the task list
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_fail_fast.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `4 passed`
+
+### Notes
+- this does not reduce the eventual need for full 20-turn and full 50-scenario baselines
+- it does make the current Phase 3 diagnostic loop much tighter, especially for isolating whether timeout onset tracks with conversation depth

@@ -148,6 +148,35 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Added bounded turn caps to the user-level E2E harness for Phase 3 timeout isolation
+
+### Summary
+I kept working inside the Phase 3 analysis loop. We already knew the first truthful live pattern: `S41` can get through readiness, complete turn `01/20`, then start timing out on later turns. That strongly suggests the failure may correlate with turn progression, context buildup, or some later-stage tool-calling branch rather than pure cold-start reachability. To make that diagnosable without constantly replaying all 20 turns, I added a bounded turn-cap control to the harness.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - added `--max-turns-per-scenario`
+  - `run_scenario(...)` now accepts `max_turns`
+  - bounded diagnostic runs can now execute only the first N turns of each scenario
+  - top-level report metadata now records:
+    - `max_turns_per_scenario`
+    - `max_consecutive_failures`
+- Updated `tests/unit/test_user_level_e2e_fail_fast.py`
+  - added coverage proving the scenario runner respects the bounded turn limit
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded bounded turn probing as part of the Phase 3 failure-analysis toolset
+- Updated `docs/testing-detail.md`
+  - captured the rationale and validation evidence
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_fail_fast.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `4 passed`
+
+### Notes
+This is another diagnostic-enablement step rather than the underlying `/api/chat` timeout fix, but it is useful now because it lets Phase 3 ask a sharper question: does the timeout onset begin immediately, after session continuity is established, or only after prompt/context accumulation crosses some threshold?
+
+
 ## 2026-05-10: Added fail-fast controls to the user-level E2E harness after capturing the first truthful live timeout pattern
 
 ### Summary
