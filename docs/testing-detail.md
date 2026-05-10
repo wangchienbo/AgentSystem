@@ -2146,3 +2146,36 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Notes
 - this does not reduce the eventual need for full 20-turn and full 50-scenario baselines
 - it does make the current Phase 3 diagnostic loop much tighter, especially for isolating whether timeout onset tracks with conversation depth
+
+## 2026-05-10 - Bounded S41 probe confirmed timeout onset at turn 02 and report semantics were tightened
+
+### Targets
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after adding bounded-turn and fail-fast controls, the next useful action was to actually use them against `S41` to narrow the timeout onset window
+- the first bounded probe showed that the harness report still described the run in terms of full 20-turn totals even when only a subset of turns had been executed, which made Phase 3 evidence harder to read cleanly
+
+### Bounded live probe
+- command:
+  - `PYTHONUNBUFFERED=1 timeout 150 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --scenarios S41 --delay 0.5 --timeout 45 --wait-ready-seconds 5 --max-turns-per-scenario 2 --max-consecutive-failures 1 --output /tmp/e2e_s41_turn2_probe.json`
+- observed behavior:
+  - readiness gate passed (`HTTP 200`)
+  - `01/20` succeeded quickly
+  - `02/20` timed out after `45.0s`
+  - scenario aborted immediately after the first consecutive failure threshold was hit
+
+### Changes
+- tightened report/banner semantics for bounded runs:
+  - startup banner now distinguishes `计划轮次` vs `执行轮次`
+  - summary now distinguishes `计划轮次`, `执行预算轮次`, and `实际执行轮次`
+  - JSON report now stores:
+    - `planned_total_turns`
+    - `executed_turn_budget`
+- task list updated to record that the current live timeout onset window is localized to turn `02` on `S41`
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_fail_fast.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `4 passed`

@@ -234,7 +234,10 @@ Status: [x] first service-readiness doctor slice landed
 ### 4.2 Execute full pre-migration baseline
 Status: [~] live rerun path tightened, full 50x20 still pending
 - after the localhost proxy-inheritance fix, a bounded rerun against `S41` now reaches live `/api/chat` execution instead of failing at the readiness gate
-- observed concrete runtime behavior on the rerun: turn `01/20` returned quickly, then turns `02+` hit repeated per-turn timeouts under live operator/status workflow load
+- bounded `S41` probe with `--max-turns-per-scenario 2 --max-consecutive-failures 1` confirmed the timeout onset window more tightly:
+  - turn `01/20` succeeds quickly
+  - turn `02/20` times out after `45.0s`
+  - subsequent scenario execution can be aborted immediately for cheaper evidence capture
 - harness now supports `--max-consecutive-failures` to abort pathological timeout streaks early and preserve faster failure evidence during Phase 3 reruns
 - full 50x20 baseline is still deferred until the repeated live chat timeout pattern is reduced enough to make the run economically trustworthy
 
@@ -242,6 +245,7 @@ Status: [~] live rerun path tightened, full 50x20 still pending
 Status: [~] first concrete live failure pattern captured
 - current highest-signal failure pattern is no longer localhost readiness misrouting
 - current highest-signal failure pattern is repeated `/api/chat` timeout under live operator workflow load after an initial successful turn
+- bounded probing now localizes the onset window to `turn 02` on `S41` under the current live service state
 - failure class currently looks closer to upstream model/runtime instability than to basic harness transport failure
 - harness now also supports `--max-turns-per-scenario` so Phase 3 can isolate whether failures begin only after turn/context buildup instead of committing immediately to full 20-turn replay
 - next reruns should use bounded fail-fast settings first, then decide whether the remaining blocker is model timeout tuning, request-shape reduction, or server-side runtime repair

@@ -148,6 +148,42 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Used the new bounded controls on S41 and tightened report semantics around planned vs executed turns
+
+### Summary
+I used the new Phase 3 diagnostic controls immediately on `S41`, which paid off. The bounded probe confirmed that the current live timeout onset window is very early: turn `01/20` succeeds, turn `02/20` times out, and the scenario can be aborted right there. While doing that, I also noticed the harness report still described bounded diagnostic runs with full 20-turn language, which made the evidence noisier than it needed to be. I cleaned up those report semantics so bounded runs now describe planned vs budgeted vs actually executed turns more truthfully.
+
+### What Was Done
+- Ran a bounded live probe against `S41`
+  - readiness passed (`HTTP 200`)
+  - turn `01/20` succeeded quickly
+  - turn `02/20` timed out after `45.0s`
+  - scenario aborted immediately via fail-fast threshold
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - startup banner now distinguishes:
+    - `计划轮次`
+    - `执行轮次`
+  - summary now distinguishes:
+    - `计划轮次`
+    - `执行预算轮次`
+    - `实际执行轮次`
+  - JSON report now records:
+    - `planned_total_turns`
+    - `executed_turn_budget`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the current timeout onset window on `S41` is localized to turn `02`
+- Updated `docs/testing-detail.md`
+  - captured the bounded live probe and the report-contract cleanup
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_fail_fast.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `4 passed`
+
+### Notes
+This is a useful tightening step. The failure is now more concretely framed: we are not dealing with a late-run collapse after deep context buildup, at least for this path. Under current live conditions, the regression can already appear by the second turn.
+
+
 ## 2026-05-10: Added bounded turn caps to the user-level E2E harness for Phase 3 timeout isolation
 
 ### Summary

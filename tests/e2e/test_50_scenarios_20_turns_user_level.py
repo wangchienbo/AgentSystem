@@ -840,7 +840,9 @@ def main():
         selected = [s for s in SCENARIOS if lo <= int(s["id"][1:]) <= hi]
 
     total_turns = len(selected) * 20
-    est_minutes = total_turns * (args.delay + 5) / 60  # rough: delay + avg LLM time
+    effective_turns_per_scenario = args.max_turns_per_scenario if args.max_turns_per_scenario > 0 else 20
+    planned_executed_turns = sum(min(len(s["turns"]), effective_turns_per_scenario) for s in selected)
+    est_minutes = planned_executed_turns * (args.delay + 5) / 60  # rough: delay + avg LLM time
 
     print(f"{'='*70}")
     print(f"  50 场景 × 20 轮 用户级 E2E 测试")
@@ -848,7 +850,8 @@ def main():
     print(f"  目标服务:   {args.base_url}")
     print(f"  Run ID:     {args.run_id}")
     print(f"  场景数量:   {len(selected)}")
-    print(f"  总轮次:     {total_turns}")
+    print(f"  计划轮次:   {total_turns}")
+    print(f"  执行轮次:   {planned_executed_turns}")
     print(f"  轮次延迟:   {args.delay}s")
     print(f"  超时:       {args.timeout}s")
     print(f"  预计耗时:   ~{est_minutes:.0f} 分钟")
@@ -898,13 +901,13 @@ def main():
 
     # Summary
     print(f"\n{'='*70}")
-    print(f"  E2E 用户级测试报告 — {len(all_results)} 场景 × 20 轮 = {len(all_results)*20} 轮")
+    print(f"  E2E 用户级测试报告 — {len(all_results)} 场景 × 20 轮 = {len(all_results)*20} 计划轮")
     print(f"{'='*70}")
 
     total_scenarios = len(all_results)
     scenarios_all_ok = sum(1 for r in all_results if r.total_fail == 0)
     scenarios_with_fail = total_scenarios - scenarios_all_ok
-    total_turns_run = sum(r.total_turns for r in all_results)
+    total_turns_run = sum(len(r.turns) for r in all_results)
     total_ok = sum(r.total_ok for r in all_results)
     total_fail = sum(r.total_fail for r in all_results)
     total_errors = sum(r.total_error for r in all_results)
@@ -914,7 +917,9 @@ def main():
     print(f"  总耗时:         {grand_elapsed/60:.1f} 分钟 ({grand_elapsed:.0f}s)")
     print(f"  场景全通过:     {scenarios_all_ok}/{total_scenarios} ({scenarios_all_ok/total_scenarios*100:.0f}%)")
     print(f"  场景有失败:     {scenarios_with_fail}/{total_scenarios}")
-    print(f"  总轮次:         {total_turns_run}")
+    print(f"  计划轮次:       {total_turns}")
+    print(f"  执行预算轮次:   {planned_executed_turns}")
+    print(f"  实际执行轮次:   {total_turns_run}")
     print(f"  成功轮次:       {total_ok} ({pass_rate:.1f}%)")
     print(f"  失败轮次:       {total_fail}")
     print(f"  网络/服务错误:  {total_errors}")
@@ -950,6 +955,8 @@ def main():
         "max_turns_per_scenario": args.max_turns_per_scenario,
         "max_consecutive_failures": args.max_consecutive_failures,
         "total_scenarios": total_scenarios,
+        "planned_total_turns": total_turns,
+        "executed_turn_budget": planned_executed_turns,
         "scenarios_all_ok": scenarios_all_ok,
         "scenarios_with_fail": scenarios_with_fail,
         "total_turns": total_turns_run,
