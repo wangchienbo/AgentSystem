@@ -1873,3 +1873,26 @@ This is an initial static validation pass for the refreshed harness. Live subset
   - `PYTHONPATH`
   - `cd "$ROOT"`
   - `-m tests.e2e`
+
+## 2026-05-10 - Grouped pytest runner helper no longer depends on repo-root `cd`
+
+### Targets
+- `scripts/run_test_groups.sh`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after cleaning several startup and E2E helper surfaces, the sweep still found `scripts/run_test_groups.sh` using `cd "$ROOT"` and a shell-string pytest command shape
+- this preserved another helper-level dependency on repo-root execution context
+
+### Changes
+- removed `cd "$ROOT"`
+- changed the pytest launcher from a shell string to a direct interpreter path:
+  - `PYTEST="$ROOT/.venv/bin/python"`
+  - `"$PYTEST" -m pytest -q "$@"`
+- kept the grouped test selection unchanged
+
+### Validation
+- `bash -n scripts/run_test_groups.sh`
+- grep confirmation found no remaining:
+  - `cd "$ROOT"`
+  - `PYTHONPATH`

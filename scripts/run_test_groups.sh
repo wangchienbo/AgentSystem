@@ -2,15 +2,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PYTEST="$ROOT/.venv/bin/python -m pytest -q"
-
-cd "$ROOT"
+PYTEST="$ROOT/.venv/bin/python"
 
 run_group() {
   local name="$1"
   shift
   echo "==> GROUP: $name"
-  $PYTEST "$@"
+  "$PYTEST" -m pytest -q "$@"
   echo
 }
 

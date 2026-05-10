@@ -48,6 +48,7 @@ Current merged unresolved items from older task lists and follow-up waves:
   - [x] decoupled `start_phase3_subset_server.sh` from repo-root `cd` / `PYTHONPATH` startup assumptions by switching to `--app-dir` plus `AGENTSYSTEM_DATA_DIR`
   - [x] compatibility wrappers (`start_server.sh`, `start_web_server.sh`, `stop_server.sh`) now invoke `app/cli.py` directly instead of exporting repo-root `PYTHONPATH`
   - [x] full-E2E helper scripts (`run_full_e2e_bg.sh`, `run_full_e2e_detached.sh`) now invoke the test file directly instead of `cd` + repo-root `PYTHONPATH` + module execution
+  - [x] grouped pytest runner helper (`scripts/run_test_groups.sh`) now calls the venv python directly with absolute test paths instead of `cd`-into-root execution
 - [ ] confirm no runnable path still has an implicit repo-root dependency once installed-runtime migration starts
   - [x] runtime subprocess default cwd no longer inherits repo-root process cwd
   - [x] pipeline executor default workspace no longer inherits repo-root process cwd

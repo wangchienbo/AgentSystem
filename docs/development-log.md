@@ -148,6 +148,33 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-10: Removed repo-root `cd` from the grouped pytest runner helper
+
+### Summary
+I kept sweeping the remaining helper surfaces and found one more repo-root execution assumption in `scripts/run_test_groups.sh`. It was still doing `cd "$ROOT"` before running grouped pytest commands. That is less serious than a runtime server entrypoint, but it still keeps one of the operator/developer helper surfaces anchored to repo-root execution context. I rewired it so it calls the venv python directly with `-m pytest` and absolute test paths, without first changing directory.
+
+### What Was Done
+- Updated `scripts/run_test_groups.sh`
+  - removed `cd "$ROOT"`
+  - changed the pytest launcher from a shell string to a direct interpreter path:
+    - `PYTEST="$ROOT/.venv/bin/python"`
+    - `"$PYTEST" -m pytest -q "$@"`
+  - preserved the grouped test buckets and selected test paths unchanged
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded this under the startup/helper cleanup slice
+- Updated `docs/testing-detail.md`
+  - recorded validation evidence
+
+### Validation
+- `bash -n scripts/run_test_groups.sh`
+- grep confirmation found no remaining:
+  - `cd "$ROOT"`
+  - `PYTHONPATH`
+
+### Notes
+This is another small helper-layer cleanup, but at this point these are exactly the places worth finishing, because they are the ones most likely to silently keep the old repo-coupled habits alive.
+
+
 ## 2026-05-10: Decoupled the full-E2E helper scripts from repo-root cwd/PYTHONPATH module launches
 
 ### Summary
