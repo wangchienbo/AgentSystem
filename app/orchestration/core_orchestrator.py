@@ -112,7 +112,7 @@ class CoreOrchestrator:
         # 7. Discover and register installed skills
         from app.services.skill_registry_service import SkillRegistryService
         skill_registry = SkillRegistryService(
-            installed_dir="installed",
+            installed_dir=str(self.asset_center._installed_dir),
             rpc_service=self.skill_rpc,
             tool_registry=self.tool_registry,
         )

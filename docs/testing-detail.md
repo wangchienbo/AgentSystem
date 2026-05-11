@@ -2778,3 +2778,10 @@ Started the first live-code move for installed asset externalization by teaching
 
 ### Notes
 This is intentionally a narrow first seam. `AssetCenter` is now install-model-aware by default, but bootstrap still passes repo-local installed/build roots so startup and built-in asset behavior remain unchanged until the next Phase 6 slice deliberately flips those callers.
+
+### Additional Slice C2 adoption in non-bootstrap caller paths
+- `SkillRegistryService` default installed root now resolves through the shared install-model path contract
+- `CoreOrchestrator` now uses `AssetCenter`'s installed-root choice when wiring `SkillRegistryService`, instead of hardcoding `installed/`
+- validation extension:
+  - `pytest -q tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+  - result: `35 passed`

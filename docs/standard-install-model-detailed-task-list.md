@@ -657,3 +657,5 @@ Status: [~] first live-code adoption landed
 - this establishes the first live-code seam for Slice C2 without yet forcing the bootstrap/runtime path flip
 - validation:
   - `pytest -q tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py` -> `33 passed`
+- `SkillRegistryService` now also defaults to the install-model installed asset root when explicit overrides are not provided
+- `CoreOrchestrator` now threads its `AssetCenter` installed-root choice into `SkillRegistryService`, removing one more hardcoded `installed/` caller seam from the non-bootstrap path

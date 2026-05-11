@@ -1,7 +1,7 @@
 """Skill Registry Service — bridges Skill RPC definitions into the Unified Tool Registry.
 
 This service:
-1. Loads skill manifests from installed/ directories
+1. Loads skill manifests from install-model installed asset directories
 2. Converts each skill into a ToolEntry
 3. Registers them in the UnifiedToolRegistry
 4. Handles skill lifecycle (load/unload/reload)
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from app.models.tool_entry import ToolEntry, ToolType, ToolVisibility, ToolParameter
+from app.runtime_paths import resolve_runtime_paths
 from app.services.skill_rpc import SkillRpcService
 from app.services.unified_tool_registry import UnifiedToolRegistry
 
@@ -25,11 +26,11 @@ class SkillRegistryService:
 
     def __init__(
         self,
-        installed_dir: str = "installed",
+        installed_dir: str | None = None,
         rpc_service: SkillRpcService | None = None,
         tool_registry: UnifiedToolRegistry | None = None,
     ) -> None:
-        self._installed_dir = Path(installed_dir)
+        self._installed_dir = Path(installed_dir) if installed_dir else resolve_runtime_paths().installed_assets_dir
         self._rpc_service = rpc_service
         self._tool_registry = tool_registry
         self._registered_skills: set[str] = set()

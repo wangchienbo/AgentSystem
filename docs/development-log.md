@@ -12413,3 +12413,22 @@ I began the first actual code move for installed asset externalization. Instead 
 
 ### Notes
 This is the right first step for Slice C2. The asset-management service now knows the install-model roots, while bootstrap remains intentionally pinned to repo-installed/build paths until a later round flips those callers under controlled validation.
+
+## 2026-05-12: Extended Slice C2 into non-bootstrap installed-root callers
+
+### Summary
+After making `AssetCenter` install-model-aware by default, I pushed the next safe caller adoption step in non-bootstrap paths. I updated `SkillRegistryService` so it defaults to the install-model installed asset root, and I removed the hardcoded `installed/` seam inside `CoreOrchestrator` by threading through the `AssetCenter` root choice.
+
+### What Was Done
+- Updated `app/skills/skill_registry_service.py`
+  - default installed root -> resolved install-model installed-assets dir
+- Updated `app/orchestration/core_orchestrator.py`
+  - `SkillRegistryService` now receives `AssetCenter`'s installed root instead of a hardcoded `installed/`
+- Added `tests/unit/test_installed_asset_root_adoption.py`
+
+### Validation
+- `pytest -q tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `35 passed`
+
+### Notes
+This is still intentionally outside bootstrap. The current startup path remains explicitly pinned to repo-installed/build roots, but the non-bootstrap service graph now carries install-model installed-root semantics more consistently.
