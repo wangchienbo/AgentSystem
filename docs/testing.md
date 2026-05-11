@@ -50,8 +50,11 @@ Used for API and service combinations such as:
 ### 2.2.1 Model smoke tests
 Used for lightweight client-level validation such as:
 - OpenAI-compatible `/v1/responses` request construction
+- OpenAI-compatible `/v1/chat/completions` request construction for providers configured with `wire_api=openai-completions`
 - JSON response normalization
+- compatibility fallback for choice payload variants such as `message.content`, `message.reasoning_content`, `delta.content`, and `delta.tool_calls`
 - `text/event-stream` preview handling for probe-style calls
+- streaming delta-content assembly for chat-completions style providers
 - retryable 5xx error mapping
 - requirement-intent routing coverage for app / skill / demo-first / abstract-clarify scenarios
 - requirement clarification / extraction / readiness coverage for lightweight structured intake

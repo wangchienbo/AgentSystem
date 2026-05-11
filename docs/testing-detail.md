@@ -229,7 +229,26 @@ requires_openai_auth = true
 当前仓库内现有测试入口：
 - `scripts/model_probe.py`：最小外部连通性探针
 - `tests/e2e/test_external_model_api_flow.py`：通过内置 skill runtime 验证外部模型 API 流程
-- `tests/unit/test_model_client_smoke.py`：客户端级 smoke tests，覆盖 JSON / SSE / 5xx 错误映射
+- `tests/unit/test_model_client_smoke.py`：客户端级 smoke tests，覆盖 JSON / SSE / 5xx 错误映射，以及 `wire_api=openai-completions` provider 的兼容回退（`delta.content`、`reasoning_content`、`delta.tool_calls`、streaming delta content）
+
+### 4.1 OpenAI-compatible provider compatibility notes
+目标：验证在切换到不同 OpenAI-compatible provider 时，模型客户端不会把单一响应 shape 当作唯一真相。
+
+当前已覆盖的兼容回退：
+- `/v1/chat/completions` 路径拼接在 `base_url` 带或不带 `/v1` 时都能成立
+- 非流式响应可从以下字段回退抽取文本：
+  - `choices[0].message.content`
+  - `choices[0].message.reasoning_content`
+  - `choices[0].delta.content`
+- tool-calling 响应可从以下字段回退抽取工具调用：
+  - `choices[0].message.tool_calls`
+  - `choices[0].delta.tool_calls`
+- 流式 `chat/completions` 响应可按 delta content 连续拼装文本
+
+当前 focused 验证：
+- `python3 -m pytest tests/unit/test_model_client_smoke.py -q`
+- 真实连通性探针：`PYTHONPATH=/root/project/AgentSystem python3 scripts/model_probe.py`
+- 当前 probe 结论：切换到 DeepSeek 后已返回 `MODEL_PROBE_OK`
 
 ---
 

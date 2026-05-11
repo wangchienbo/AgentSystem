@@ -131,6 +131,112 @@ def _parse_sse_json_text(raw_text: str) -> dict:
     }
 
 
+def _chat_completions_url(base_url: str) -> str:
+    base = base_url.rstrip("/")
+    if base.endswith("/v1"):
+        return base + "/chat/completions"
+    return base + "/v1/chat/completions"
+
+
+def _responses_url(base_url: str) -> str:
+    base = base_url.rstrip("/")
+    if base.endswith("/v1"):
+        return base + "/responses"
+    return base + "/v1/responses"
+
+
+def _extract_message_text_from_choice(choice: dict[str, Any]) -> str:
+    if not isinstance(choice, dict):
+        return ""
+
+    message = choice.get("message") or {}
+    if isinstance(message, dict):
+        content = message.get("content")
+        if isinstance(content, str) and content:
+            return content
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, dict):
+                    text_part = item.get("text") or item.get("content")
+                    if isinstance(text_part, str) and text_part:
+                        parts.append(text_part)
+            if parts:
+                return "".join(parts)
+        reasoning_content = message.get("reasoning_content")
+        if isinstance(reasoning_content, str) and reasoning_content:
+            return reasoning_content
+
+    delta = choice.get("delta") or {}
+    if isinstance(delta, dict):
+        delta_content = delta.get("content")
+        if isinstance(delta_content, str) and delta_content:
+            return delta_content
+        if isinstance(delta_content, list):
+            parts: list[str] = []
+            for item in delta_content:
+                if isinstance(item, dict):
+                    text_part = item.get("text") or item.get("content")
+                    if isinstance(text_part, str) and text_part:
+                        parts.append(text_part)
+            if parts:
+                return "".join(parts)
+        reasoning_content = delta.get("reasoning_content")
+        if isinstance(reasoning_content, str) and reasoning_content:
+            return reasoning_content
+
+    return ""
+
+
+def _extract_tool_calls_from_choice(choice: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(choice, dict):
+        return []
+    message = choice.get("message") or {}
+    if isinstance(message, dict):
+        tool_calls = message.get("tool_calls")
+        if isinstance(tool_calls, list):
+            return [tc for tc in tool_calls if isinstance(tc, dict)]
+    delta = choice.get("delta") or {}
+    if isinstance(delta, dict):
+        tool_calls = delta.get("tool_calls")
+        if isinstance(tool_calls, list):
+            return [tc for tc in tool_calls if isinstance(tc, dict)]
+    return []
+
+
+def _build_message_from_choice(choice: dict[str, Any]) -> dict[str, Any]:
+    message = choice.get("message") if isinstance(choice, dict) else None
+    if isinstance(message, dict):
+        normalized = dict(message)
+    else:
+        normalized = {"role": "assistant"}
+    normalized["content"] = _extract_message_text_from_choice(choice)
+    tool_calls = _extract_tool_calls_from_choice(choice)
+    if tool_calls:
+        normalized["tool_calls"] = tool_calls
+    return normalized
+
+
+def _build_usage_info(usage: dict[str, Any], *, model_name: str) -> dict[str, Any]:
+    return {
+        "model": model_name,
+        "prompt_tokens": usage.get("prompt_tokens", 0),
+        "completion_tokens": usage.get("completion_tokens", 0),
+        "total_tokens": usage.get("total_tokens", 0),
+    }
+
+
+def _normalize_choice_payload(data: dict[str, Any], *, model_name: str) -> tuple[dict[str, Any], dict[str, Any], str, list[dict[str, Any]], str]:
+    choices = data.get("choices") or []
+    choice0 = choices[0] if choices else {}
+    message = _build_message_from_choice(choice0)
+    text = message.get("content", "") or ""
+    tool_calls = message.get("tool_calls", []) if isinstance(message.get("tool_calls"), list) else []
+    usage = _build_usage_info(data.get("usage") or {}, model_name=model_name)
+    finish_reason = choice0.get("finish_reason", "") if isinstance(choice0, dict) else ""
+    return choice0, message, text, tool_calls, finish_reason
+
+
 def _safe_chat_completion_payload(response: httpx.Response) -> dict:
     content_type = (response.headers.get("content-type", "") or "").lower()
     if "application/json" in content_type:
@@ -183,11 +289,7 @@ class OpenAIResponsesClient:
                 "usage": usage,
             }
 
-        base = self._config.base_url.rstrip("/")
-        if base.endswith("/v1"):
-            url = base + "/responses"
-        else:
-            url = base + "/v1/responses"
+        url = _responses_url(self._config.base_url)
         payload = {
             "model": self._config.model,
             "input": input_payload,
@@ -245,12 +347,7 @@ class OpenAIResponsesClient:
     ) -> tuple[str, dict]:
         """Send a chat completion request and return the assistant's text response."""
         model_name = model or self._config.model
-        # Handle base_url that may or may not end with /v1
-        base = self._config.base_url.rstrip("/")
-        if base.endswith("/v1"):
-            url = base + "/chat/completions"
-        else:
-            url = base + "/v1/chat/completions"
+        url = _chat_completions_url(self._config.base_url)
         payload: dict = {
             "model": model_name,
             "messages": messages,
@@ -272,15 +369,10 @@ class OpenAIResponsesClient:
                         status_code=response.status_code,
                         retryable=response.status_code >= 500,
                     )
-                data = _safe_json(response)
-                text = data.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
-                usage = data.get("usage", {}) or {}
-                return text, {
-                    "prompt_tokens": usage.get("prompt_tokens", 0),
-                    "completion_tokens": usage.get("completion_tokens", 0),
-                    "total_tokens": usage.get("total_tokens", 0),
-                    "model": model_name,
-                }
+                data = _safe_chat_completion_payload(response)
+                _choice0, _message, text, _tool_calls, _finish_reason = _normalize_choice_payload(data, model_name=model_name)
+                usage = _build_usage_info(data.get("usage") or {}, model_name=model_name)
+                return text, usage
             with client.stream("POST", url, json=payload, headers=headers) as response:
                 if response.status_code >= 400:
                     body = response.read().decode(errors="replace")[:300]
@@ -330,12 +422,7 @@ class OpenAIResponsesClient:
         Returns (response_dict, usage_info).
         """
         model_name = model or self._config.model
-        # Handle base_url that may or may not end with /v1
-        base = self._config.base_url.rstrip("/")
-        if base.endswith("/v1"):
-            url = base + "/chat/completions"
-        else:
-            url = base + "/v1/chat/completions"
+        url = _chat_completions_url(self._config.base_url)
         payload: dict = {
             "model": model_name,
             "messages": messages,
@@ -424,29 +511,21 @@ class OpenAIResponsesClient:
                 retryable=response.status_code >= 500,
             )
         data = _safe_chat_completion_payload(response)
-        choice = data.get("choices", [{}])[0]
-        message = choice.get("message", {})
-        usage = data.get("usage", {})
-        text = message.get("content", "") or ""
-        tool_calls = message.get("tool_calls", [])
+        choice, message, text, tool_calls, finish_reason = _normalize_choice_payload(data, model_name=model_name)
+        usage = _build_usage_info(data.get("usage") or {}, model_name=model_name)
         logger.info(
             "ModelClient.chat_with_tools response model=%s returned_tool_calls=%s finish_reason=%s",
             model_name,
             [tc.get("function", {}).get("name") for tc in tool_calls],
-            choice.get("finish_reason", ""),
+            finish_reason,
         )
 
         return {
             "message": message,
             "text": text,
             "tool_calls": tool_calls,
-            "finish_reason": choice.get("finish_reason", ""),
-        }, {
-            "model": model_name,
-            "prompt_tokens": usage.get("prompt_tokens", 0),
-            "completion_tokens": usage.get("completion_tokens", 0),
-            "total_tokens": usage.get("total_tokens", 0),
-        }
+            "finish_reason": finish_reason,
+        }, usage
 
     def chat_turns(
         self,

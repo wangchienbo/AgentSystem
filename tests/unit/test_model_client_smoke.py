@@ -20,6 +20,21 @@ class _FakeResponse:
         return self._body
 
 
+class _FakeStreamResponse(_FakeResponse):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self.text.encode()
+
+    def iter_lines(self):
+        for line in self.text.splitlines():
+            yield line
+
+
 class _FakeClient:
     def __init__(self, response: _FakeResponse, captured: dict[str, object]) -> None:
         self._response = response
@@ -32,6 +47,13 @@ class _FakeClient:
         return None
 
     def post(self, url: str, json: dict, headers: dict):
+        self._captured["url"] = url
+        self._captured["json"] = json
+        self._captured["headers"] = headers
+        return self._response
+
+    def stream(self, method: str, url: str, json: dict, headers: dict):
+        self._captured["method"] = method
         self._captured["url"] = url
         self._captured["json"] = json
         self._captured["headers"] = headers
@@ -107,6 +129,143 @@ def test_probe_returns_stream_preview_for_sse_response(monkeypatch, model_config
     assert result["status_code"] == 200
     assert result["content_type"] == "text/event-stream"
     assert "MODEL_" in result["stream_preview"]
+
+
+def test_probe_openai_completions_non_stream_falls_back_to_delta_content(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    model_config = ModelConfig(
+        base_url="https://example.test/v1",
+        model="deepseek-v4-pro",
+        timeout_seconds=12,
+        wire_api="openai-completions",
+    )
+    response = _FakeResponse(
+        status_code=200,
+        content_type="application/json; charset=utf-8",
+        body={
+            "id": "chatcmpl-123",
+            "object": "chat.completion",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"content": "MODEL_PROBE_OK"},
+                    "finish_reason": "stop",
+                    "message": {"role": "assistant", "content": ""},
+                }
+            ],
+            "usage": {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18},
+        },
+    )
+
+    monkeypatch.setattr(httpx, "Client", lambda *args, **kwargs: _FakeClient(response, captured))
+    client = OpenAIResponsesClient(config=model_config, api_key="sk-test")
+
+    result = client.probe("Return only MODEL_PROBE_OK")
+
+    assert result["choices"][0]["message"]["content"] == "MODEL_PROBE_OK"
+    assert result["usage"]["total_tokens"] == 18
+
+
+def test_probe_openai_completions_non_stream_falls_back_to_reasoning_content(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    model_config = ModelConfig(
+        base_url="https://example.test/v1",
+        model="qwen3.6-plus",
+        timeout_seconds=12,
+        wire_api="openai-completions",
+    )
+    response = _FakeResponse(
+        status_code=200,
+        content_type="application/json; charset=utf-8",
+        body={
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "", "reasoning_content": "QWEN_REASONING_OK"},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        },
+    )
+
+    monkeypatch.setattr(httpx, "Client", lambda *args, **kwargs: _FakeClient(response, captured))
+    client = OpenAIResponsesClient(config=model_config, api_key="sk-test")
+
+    text, usage = client.chat([{"role": "user", "content": "ping"}], stream=False)
+
+    assert text == "QWEN_REASONING_OK"
+    assert usage["total_tokens"] == 15
+
+
+def test_chat_with_tools_openai_completions_falls_back_to_delta_tool_calls(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    model_config = ModelConfig(
+        base_url="https://example.test/v1",
+        model="deepseek-v4-pro",
+        timeout_seconds=12,
+        wire_api="openai-completions",
+    )
+    response = _FakeResponse(
+        status_code=200,
+        content_type="application/json; charset=utf-8",
+        body={
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {"name": "read_file", "arguments": '{"path":"README.md"}'},
+                            }
+                        ]
+                    },
+                    "finish_reason": "tool_calls",
+                    "message": {"role": "assistant", "content": ""},
+                }
+            ],
+            "usage": {"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20},
+        },
+    )
+
+    monkeypatch.setattr(httpx, "Client", lambda *args, **kwargs: _FakeClient(response, captured))
+    client = OpenAIResponsesClient(config=model_config, api_key="sk-test")
+
+    result, usage = client.chat_with_tools(
+        messages=[{"role": "user", "content": "read readme"}],
+        tools=[{"type": "function", "function": {"name": "read_file", "parameters": {}}}],
+    )
+
+    assert result["tool_calls"][0]["function"]["name"] == "read_file"
+    assert result["finish_reason"] == "tool_calls"
+    assert usage["total_tokens"] == 20
+
+
+def test_chat_streaming_openai_completions_reads_delta_content(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    model_config = ModelConfig(
+        base_url="https://example.test/v1",
+        model="glm-5.1",
+        timeout_seconds=12,
+        wire_api="openai-completions",
+    )
+    stream_text = "\n".join([
+        'data: {"choices":[{"delta":{"content":"MODEL_"}}]}',
+        'data: {"choices":[{"delta":{"content":"PROBE_OK"}}],"usage":{"prompt_tokens":11,"completion_tokens":9}}',
+        'data: [DONE]',
+    ])
+    response = _FakeStreamResponse(status_code=200, content_type="text/event-stream", body=stream_text, text=stream_text)
+
+    monkeypatch.setattr(httpx, "Client", lambda *args, **kwargs: _FakeClient(response, captured))
+    client = OpenAIResponsesClient(config=model_config, api_key="sk-test")
+
+    text, usage = client.chat([{"role": "user", "content": "ping"}], stream=True)
+
+    assert text == "MODEL_PROBE_OK"
+    assert usage["prompt_tokens"] == 11
+    assert usage["completion_tokens"] == 9
 
 
 def test_probe_raises_retryable_error_for_server_failure(monkeypatch, model_config: ModelConfig) -> None:

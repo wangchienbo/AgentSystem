@@ -1,4 +1,41 @@
-## 2026-05-09: Closed the remaining Wave 5 changed-file intent and evidence-mapping slice
+## 2026-05-11: Hardened OpenAI-compatible model response normalization for DeepSeek-style chat-completions providers
+
+### Summary
+Closed the immediate DeepSeek compatibility gap by teaching the shared model client to normalize more than one chat-completions response shape instead of assuming a single canonical `message.content` contract. This made the live model probe succeed again after switching AgentSystem to a DeepSeek-backed OpenAI-compatible provider.
+
+### What Was Done
+- Updated `app/ai/model_client.py`
+  - centralized `/v1/responses` and `/v1/chat/completions` URL construction helpers
+  - added shared choice/message normalization helpers for OpenAI-compatible chat-completions payloads
+  - added fallback extraction for assistant text from:
+    - `message.content`
+    - `message.reasoning_content`
+    - `delta.content`
+  - added fallback extraction for tool calls from:
+    - `message.tool_calls`
+    - `delta.tool_calls`
+  - reused the same normalization path across `probe`, `chat`, and `chat_with_tools`
+- Updated `tests/unit/test_model_client_smoke.py`
+  - added coverage for non-stream chat-completions payloads that only expose `delta.content`
+  - added coverage for providers that surface answer text in `reasoning_content`
+  - added coverage for tool-calling payloads that only expose `delta.tool_calls`
+  - added coverage for streaming chat-completions delta text assembly
+- Updated `docs/testing.md`
+  - recorded the broader OpenAI-compatible provider compatibility expectations in the model smoke-test layer
+- Updated `docs/testing-detail.md`
+  - documented the exact fallback fields and the focused validation entrypoints used for this compatibility slice
+
+### Validation
+- `python3 -m pytest tests/unit/test_model_client_smoke.py -q`
+- result: `8 passed`
+- previously validated live probe:
+  - `PYTHONPATH=/root/project/AgentSystem python3 scripts/model_probe.py`
+  - returned `MODEL_PROBE_OK`
+
+### Notes
+This closes the immediate DeepSeek cutover issue, but it is still a bounded compatibility hardening step, not a claim that every future OpenAI-compatible provider will match both response and tool-calling request contracts perfectly.
+
+
 
 ### Summary
 Finished the remaining Phase R Wave 5 open slice by normalizing repo-derived target modules into bounded repo-relative changed-file intent, tightening acceptance evidence mapping so the single-work-item fallback is only a last resort, and explicitly closing the compact operator-facing summary decision.
