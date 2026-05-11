@@ -185,6 +185,37 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Extended the repaired bounded live baseline again, S46-S49 also passed cleanly
+
+### Summary
+I kept widening the repaired bounded baseline instead of jumping straight back to the full 50-scenario run. After `S41-S45` passed, I moved to the adjacent cross-interaction slice `S46-S49`. This was a useful stress step because these scenarios mix multi-user behavior, rapid requests, mixed instruction styles, and longer carry-over patterns. The result stayed clean: all four scenarios passed in the bounded 5-turn window, all executed turns succeeded, no transport/service errors occurred, and all history checks passed.
+
+### What Was Done
+- Ran a widened bounded live rerun over:
+  - `S46`
+  - `S47`
+  - `S48`
+  - `S49`
+- Command used:
+  - `tests/e2e/test_50_scenarios_20_turns_user_level.py --scenarios S46,S47,S48,S49 --max-turns-per-scenario 5 --max-consecutive-failures 1 ...`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the adjacent cross-interaction slice also clears the repaired bounded 5-turn live rerun
+- Updated `docs/testing-detail.md`
+  - captured the command, report path, and pass summary
+
+### Validation
+- bounded multi-scenario live rerun results:
+  - `4/4` scenarios passed
+  - `20/20` executed turns succeeded
+  - `0` transport/service errors
+  - all scenario-end history checks passed
+- report:
+  - `/tmp/e2e_cross_subset_turn5_probe.json`
+
+### Notes
+At this point, the repaired bounded evidence is no longer limited to one scenario or even one cluster. We now have clean bounded pass signals across `S41-S49`, spanning both the system/operator and cross-interaction slices.
+
+
 ## 2026-05-11: Expanded the repaired live probe from S41 to S41-S45 and cleared the bounded five-scenario system/operator subset
 
 ### Summary

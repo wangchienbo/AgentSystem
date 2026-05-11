@@ -253,7 +253,7 @@ Status: [~] first concrete live failure pattern captured
 - next reruns should use bounded fail-fast settings first, then decide whether the remaining blocker is model timeout tuning, request-shape reduction, or server-side runtime repair
 
 ### 4.4 Repair and re-run until baseline is trustworthy
-Status: [~] bounded live repair loop now clears the system/operator subset through 5 turns
+Status: [~] bounded live repair loop now clears both the system/operator subset and the adjacent cross-interaction subset through 5 turns
 - Phase 3 log evidence showed repeated fallback turns were accumulating into the gateway prompt context for later operator/status probes
 - the gateway tool-calling interpreter now caps recent-history prompt inclusion more aggressively (last 4 messages, ~800 chars budget) so short operator/status queries are less likely to inherit bloated fallback-heavy context
 - after restarting onto the live budget-aware runtime, bounded `S41` rerun (`--max-turns-per-scenario 2 --max-consecutive-failures 1`) improved materially:
@@ -275,7 +275,12 @@ Status: [~] bounded live repair loop now clears the system/operator subset throu
   - all `25/25` executed turns succeeded
   - no transport/service errors occurred
   - all scenario-end history checks passed
-- next rerun should move from the repaired system/operator subset into the next adjacent subset or a broader bounded baseline slice before retrying the full 50-scenario run
+- widened again to the adjacent cross-interaction subset `S46-S49` with the same bounded 5-turn window
+  - all `4/4` scenarios passed
+  - all `20/20` executed turns succeeded
+  - no transport/service errors occurred
+  - all scenario-end history checks passed
+- next rerun should merge these repaired slices into a broader bounded baseline slice, then decide whether the evidence is strong enough to return to the full 50-scenario run
 
 ### 4.5 Freeze baseline evidence
 - save report path and summary in testing docs

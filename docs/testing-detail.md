@@ -2420,3 +2420,28 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Outcome
 - this is the first bounded multi-scenario confirmation that the repaired operator/system path is not just a single `S41` outlier
 - current evidence supports treating `S41-S45` as a repaired bounded subset and moving outward to the next adjacent slice before a full 50-scenario retry
+
+## 2026-05-11 - Widened bounded live rerun again to cross-interaction subset S46-S49, all 4 scenarios passed
+
+### Targets
+- `docs/standard-install-model-detailed-task-list.md`
+- `docs/testing-detail.md`
+- `docs/development-log.md`
+
+### Trigger
+- after the repaired bounded system/operator subset `S41-S45` passed, the next adjacent slice in the task list was the cross-interaction cluster `S46-S49`
+- this checks whether the repair stack still holds when scenario patterns mix multiple users, rapid requests, mixed intent styles, and longer conversational carry-over
+
+### Live rerun
+- command:
+  - `PYTHONUNBUFFERED=1 timeout 420 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --scenarios S46,S47,S48,S49 --delay 0.5 --timeout 45 --wait-ready-seconds 5 --max-turns-per-scenario 5 --max-consecutive-failures 1 --output /tmp/e2e_cross_subset_turn5_probe.json`
+- observed behavior:
+  - `4/4` scenarios passed
+  - `20/20` executed turns succeeded
+  - no transport/service errors occurred
+  - all scenario-end history checks passed
+
+### Outcome
+- bounded repaired behavior now extends beyond the system/operator slice into the adjacent cross-interaction slice
+- current repaired bounded evidence covers `S41-S49` with clean pass results across both subsets
+- next useful move is to merge repaired slices into a broader bounded baseline window before retrying the full 50-scenario run
