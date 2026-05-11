@@ -8,6 +8,7 @@ from app.models.app_instance import AppInstance, AppStatus
 from app.models.runtime import LifecycleEvent, LifecycleTransitionResult
 from app.models.upgrade_log import UpgradeLogEvent
 from app.services.runtime_state_store import RuntimeStateStore
+from app.services.upgrade_log_service import UpgradeLogService
 
 
 class LifecycleError(ValueError):
@@ -244,7 +245,7 @@ class AppLifecycleService:
     ) -> None:
         """Append an archive/unarchive event to the upgrade log."""
         try:
-            upgrade_log_base = Path("data/runtime/upgrade_logs")
+            upgrade_log_base = UpgradeLogService().base_path
             upgrade_log_base.mkdir(parents=True, exist_ok=True)
             stream_path = upgrade_log_base / "lifecycle"
             stream_path.mkdir(parents=True, exist_ok=True)

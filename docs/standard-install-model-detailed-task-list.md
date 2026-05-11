@@ -599,3 +599,15 @@ Status: [x] first adoption wave landed
 - updated isolated API test helper to provide an explicit temporary config contract for model-router-dependent runtime tests
 - validation:
   - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py` -> `55 passed`
+
+### 5.9 Continue second migration slice: expand resolver adoption across remaining mutable-state defaults
+Status: [x] second adoption wave landed
+- migrated additional repo-local mutable-state defaults behind the shared resolver for:
+  - `PersistenceService`
+  - `PipelineExecutor` default workspace resolution
+  - lifecycle archive-event upgrade-log path
+  - bootstrap runtime assembly defaults for `RuntimeStateStore` and `AppDataStore`
+- intentionally kept `AssetCenter` installed/build roots repo-anchored for now because asset-root separation is still part of the later asset-lifecycle migration slice, and switching it early broke current startup assumptions
+- intentionally kept bootstrap `RuntimeCenter` on its existing repo-backed file to avoid changing system-asset startup semantics before the asset/runtime migration seam is explicitly handled
+- validation:
+  - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py` -> `62 passed`

@@ -12279,3 +12279,27 @@ After landing the shared runtime path resolver, I pushed the next migration step
 
 ### Notes
 This is the right pacing for Slice B. The resolver now influences live runtime service defaults, but the migration still respects explicit path injection. The next wave can continue with remaining services that still assume repo-local `data/...` defaults, especially bootstrap-time assembly and any persistence helpers not yet moved.
+
+## 2026-05-12: Landed the second default-path adoption wave and drew the asset-boundary line explicitly
+
+### Summary
+I continued Slice B by moving another group of repo-local mutable-state defaults behind the shared runtime path resolver. While doing this, I hit a real startup-regression edge when trying to pull asset/runtime-center persistence paths forward too early. I corrected course and documented the boundary explicitly: mutable-state resolver adoption can continue now, but asset install/build roots and bootstrap runtime-center persistence need their own later migration seam.
+
+### What Was Done
+- Updated:
+  - `PersistenceService` default persistence root -> resolved state/persistence dir
+  - `PipelineExecutor` default workspace -> resolved data dir unless `AGENTSYSTEM_DATA_DIR` is explicitly set
+  - lifecycle archive-event logging -> `UpgradeLogService` path contract
+  - bootstrap runtime defaults for `RuntimeStateStore` and `AppDataStore` -> resolved state/data roots when no explicit override is passed
+- Added `tests/unit/test_runtime_path_adoption_wave2.py`
+- Updated isolated API test helper environment setup so runtime-path-based tests stay hermetic
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py`
+- result: `62 passed`
+
+### Notes
+Important migration boundary learned this round:
+- do migrate mutable runtime state defaults behind the shared resolver now
+- do not yet migrate `AssetCenter` installed/build roots or bootstrap `RuntimeCenter` persistence path as part of generic Slice B cleanup
+- those asset/runtime-center paths are entangled with startup registration assumptions and belong in a later asset-lifecycle / runtime-registry migration slice

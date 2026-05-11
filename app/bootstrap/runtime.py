@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 from app.services.app_catalog import AppCatalogService
 from app.services.system_skills.app_config import AppConfigService
@@ -78,6 +79,7 @@ from app.models.maoxuan_skill import MaoxuanSkillRequest
 from app.models.memory_skill import MemorySkillRequest
 from app.services.system_skills.maoxuan import MaoxuanSkillService
 from app.services.system_skills.memory import MemorySkillService
+from app.runtime_paths import resolve_runtime_paths
 from app.services.interactive_app import InteractiveAppService
 from app.services.interactive_app_workflow import InteractiveAppWorkflow
 from app.services.user_service import UserService
@@ -348,8 +350,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     app_profile_resolver = AppProfileResolverService(skill_control=skill_control)
     experience_store = ExperienceStore()
     demonstration_extractor = DemonstrationExtractor()
-    runtime_store = RuntimeStateStore(base_dir=runtime_store_base_dir or "data/runtime")
-    app_data_store = AppDataStore(base_dir=app_data_base_dir or "data/namespaces", store=runtime_store)
+    _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    runtime_paths = resolve_runtime_paths(Path(_project_root))
+    runtime_store = RuntimeStateStore(base_dir=runtime_store_base_dir or str(runtime_paths.state_dir / "runtime"))
+    app_data_store = AppDataStore(base_dir=app_data_base_dir or str(runtime_paths.data_dir / "namespaces"), store=runtime_store)
     app_data_store.ensure_skill_asset_namespace()
     app_config_service = AppConfigService(data_store=app_data_store, store=runtime_store)
     system_state_service = SystemStateService(data_store=app_data_store, store=runtime_store)
@@ -525,12 +529,13 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.system.self_iteration_asset_service import SelfIterationAssetService
     from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    runtime_paths = resolve_runtime_paths(Path(_project_root))
     system_catalog = SystemCatalog()
     asset_center = AssetCenter(
         source_dir=os.path.join(_project_root, "source"),
         installed_dir=os.path.join(_project_root, "installed"),
         build_dir=os.path.join(_project_root, "build"),
-        data_dir=os.path.join(_project_root, "data"),
+        data_dir=str(runtime_paths.data_dir),
     )
     runtime_center = RuntimeCenter(data_file=os.path.join(_project_root, "data", "runtime_center.json"))
     self_iteration_asset_service = SelfIterationAssetService(refinement_memory)

@@ -2664,3 +2664,23 @@ Implemented the first adoption wave for Slice B by moving several runtime and pe
 
 ### Notes
 This wave intentionally focused on constructor defaults. Explicit injected temp paths still take priority so existing tests and isolated runtime assembly continue to work. Remaining migration work can continue service-by-service until repo-local mutable state defaults are fully removed from production codepaths.
+
+## 2026-05-12 - Runtime/persistence default-path adoption wave 2
+
+### Scope
+Expanded Slice B into more remaining mutable-state defaults while deliberately not crossing into asset-root migration too early.
+
+### Code touched
+- `app/persistence/persistence_service.py`
+- `app/orchestration/pipeline_executor.py`
+- `app/system/runtime/lifecycle.py`
+- `app/bootstrap/runtime.py`
+- `tests/unit/test_runtime_path_adoption_wave2.py`
+- `tests/unit/api_test_helper.py`
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py`
+- result: `62 passed`
+
+### Notes
+This wave moved more mutable runtime defaults under the shared resolver, but explicitly stopped short of migrating `AssetCenter` installed/build roots and bootstrap `RuntimeCenter` persistence semantics. Those paths participate in asset-lifecycle and startup-asset assumptions that should be handled in a later, dedicated slice rather than folded into general persistence cleanup.

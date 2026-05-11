@@ -66,7 +66,8 @@ model:
         + "\n",
         encoding="utf-8",
     )
-    os.environ.setdefault("AGENTSYSTEM_CONFIG_DIR", str(config_dir))
+    os.environ["AGENTSYSTEM_HOME"] = str(tmp_path / "agentsystem-home")
+    os.environ["AGENTSYSTEM_CONFIG_DIR"] = str(config_dir)
     os.environ.setdefault("OPENAI_API_KEY", "test-key")
     model_router_module.DEFAULT_CONFIG_PATH = config_dir / "config.yaml"
 

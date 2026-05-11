@@ -18,6 +18,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,8 +80,9 @@ class PersistenceService:
     STATE_FILE = "agent_state.json"
 
     def __init__(self, data_dir: str | None = None) -> None:
-        base = data_dir or os.environ.get("AGENTSYSTEM_PERSISTENCE_DIR", "data/persistence")
-        self._data_dir = Path(base)
+        base = data_dir or os.environ.get("AGENTSYSTEM_PERSISTENCE_DIR")
+        resolved_base = Path(base) if base else resolve_runtime_paths().state_dir / "persistence"
+        self._data_dir = resolved_base
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._state_file = self._data_dir / self.STATE_FILE
         self._last_save: datetime | None = None

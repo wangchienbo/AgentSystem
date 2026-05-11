@@ -31,12 +31,14 @@ from typing import Any
 
 import httpx
 
+from app.runtime_paths import resolve_runtime_paths
+
 
 def _default_workspace() -> str:
     runtime_data_dir = os.environ.get("AGENTSYSTEM_DATA_DIR")
     if runtime_data_dir:
         return str(Path(runtime_data_dir).expanduser().resolve())
-    return str(Path("data").resolve())
+    return str(resolve_runtime_paths().data_dir.resolve())
 
 
 # ===========================================================================
