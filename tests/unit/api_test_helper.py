@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.core.errors import map_domain_error
 
+from app.ai import model_router as model_router_module
 from app.bootstrap.runtime import build_runtime
 from app.bootstrap.skills import bootstrap_builtin_skills
 from app.bootstrap.catalog import bootstrap_demo_catalog
@@ -41,6 +43,33 @@ from app.services.core_skill_toolchain import (
 
 
 def create_isolated_test_client(tmp_path: Path) -> TestClient:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "config.yaml").write_text(
+        """
+models:
+  cheap:
+    provider: openai_compatible
+    base_url: https://example.com/v1
+    model: cheap-model
+    api_key_env: OPENAI_API_KEY
+routing:
+  callers:
+    default:
+      default_model: cheap
+model:
+  provider: openai_compatible
+  base_url: https://example.com/v1
+  model: cheap-model
+  api_key_env: OPENAI_API_KEY
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    os.environ.setdefault("AGENTSYSTEM_CONFIG_DIR", str(config_dir))
+    os.environ.setdefault("OPENAI_API_KEY", "test-key")
+    model_router_module.DEFAULT_CONFIG_PATH = config_dir / "config.yaml"
+
     app = FastAPI(title="AgentSystem App OS", version="0.1.0-test")
     services = build_runtime(
         runtime_store_base_dir=str(tmp_path / "runtime"),

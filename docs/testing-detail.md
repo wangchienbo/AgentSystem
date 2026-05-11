@@ -2642,3 +2642,25 @@ Implemented the first install-model migration slice by introducing a shared runt
 
 ### Notes
 This slice does not yet migrate all runtime writers off repo-local `data/...` defaults. It establishes the shared path contract first so later slices can replace those defaults incrementally instead of scattering path logic across subsystems.
+
+## 2026-05-12 - Runtime/persistence default-path adoption wave
+
+### Scope
+Implemented the first adoption wave for Slice B by moving several runtime and persistence services off repo-local default paths and onto the shared runtime path resolver.
+
+### Code touched
+- `app/persistence/runtime_state_store.py`
+- `app/system/runtime/app_data_store.py`
+- `app/persistence/upgrade_log_service.py`
+- `app/system/catalog/runtime_center.py`
+- `app/system/catalog/resource_center.py`
+- `app/system/runtime/config_center.py`
+- `tests/unit/test_runtime_path_adoption.py`
+- `tests/unit/api_test_helper.py`
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py`
+- result: `55 passed`
+
+### Notes
+This wave intentionally focused on constructor defaults. Explicit injected temp paths still take priority so existing tests and isolated runtime assembly continue to work. Remaining migration work can continue service-by-service until repo-local mutable state defaults are fully removed from production codepaths.

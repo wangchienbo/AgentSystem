@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from app.runtime_paths import resolve_runtime_paths
+
 
 # ============================================================
 # Data models
@@ -58,11 +60,11 @@ class ConfigCenterService:
     - _skill_templates: skill_id → SkillTemplateConfig
     - _app_bindings: (app_id, skill_id) → AppSkillBinding
 
-    Persists to: data/config_center.json
+    Persists to: resolved data dir / `config_center.json`
     """
 
     def __init__(self, data_dir: str | None = None) -> None:
-        self._data_dir = Path(data_dir) if data_dir else Path("data")
+        self._data_dir = Path(data_dir) if data_dir else resolve_runtime_paths().data_dir
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._skill_templates: dict[str, SkillTemplateConfig] = {}
         self._app_bindings: dict[tuple[str, str], AppSkillBinding] = {}

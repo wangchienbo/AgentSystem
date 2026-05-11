@@ -584,3 +584,18 @@ Status: [x] initial resolver landed
 - added focused unit coverage for resolver defaults, env overrides, CLI layout/doctor integration, and model-config default path wiring
 - validation:
   - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_cli.py tests/unit/test_model_config.py` -> `15 passed`
+
+### 5.8 Implement second migration slice: move first runtime/persistence defaults behind resolver
+Status: [x] first adoption wave landed
+- migrated default runtime/persistence roots for:
+  - `RuntimeStateStore`
+  - `AppDataStore`
+  - `UpgradeLogService`
+  - `RuntimeCenter`
+  - `ResourceCenter`
+  - `ConfigCenterService`
+- these services now resolve install-model defaults from `app/runtime_paths.py` instead of repo-local `data/...` literals when no explicit path override is provided
+- preserved explicit constructor overrides so focused tests and isolated runtimes can still pass custom temp paths
+- updated isolated API test helper to provide an explicit temporary config contract for model-router-dependent runtime tests
+- validation:
+  - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py` -> `55 passed`

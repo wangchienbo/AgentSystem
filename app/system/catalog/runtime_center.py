@@ -11,13 +11,15 @@ from app.system.invocation.invocation_envelope import InvocationRequestEnvelope,
 
 from app.models.asset_contract import AssetDescriptor, AssetKind, AssetState, AssetType, is_valid_asset_state_transition
 from app.models.context import SessionNode
+from app.runtime_paths import resolve_runtime_paths
 
 
 class RuntimeCenter:
     """Runtime source of truth for live assets and session entities under Phase H."""
 
-    def __init__(self, data_file: str = "data/runtime_center.json") -> None:
-        self._data_file = Path(data_file)
+    def __init__(self, data_file: str | None = None) -> None:
+        resolved_data_file = Path(data_file) if data_file else resolve_runtime_paths().state_dir / "runtime_center.json"
+        self._data_file = resolved_data_file
         self._lock = threading.RLock()
         self._entries: dict[str, AssetDescriptor] = {}
         self._service_refs: dict[str, Any] = {}

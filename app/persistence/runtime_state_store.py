@@ -7,10 +7,13 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.runtime_paths import resolve_runtime_paths
+
 
 class RuntimeStateStore:
-    def __init__(self, base_dir: str = "data/runtime") -> None:
-        self.base_path = Path(base_dir)
+    def __init__(self, base_dir: str | None = None) -> None:
+        resolved_base_dir = Path(base_dir) if base_dir else resolve_runtime_paths().state_dir / "runtime"
+        self.base_path = resolved_base_dir
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     def save_collection(self, name: str, items: list[BaseModel]) -> None:

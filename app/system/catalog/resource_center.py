@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.runtime_paths import resolve_runtime_paths
+
 
 @dataclass
 class ResourceInstance:
@@ -51,7 +53,7 @@ class ResourceCenterConfig:
     This is critical: the resource center must know how to find and manage
     resources BEFORE any LLM calls happen.
     """
-    resource_store_path: str = "data/resources.json"
+    resource_store_path: str = "resources.json"
     max_instances_per_app: int = 10
     default_timeout_seconds: int = 300
     persistence_mode: str = "json"  # "json" | "sqlite"
@@ -73,10 +75,10 @@ class ResourceCenter:
     def __init__(
         self,
         config: ResourceCenterConfig | None = None,
-        data_dir: str = "data",
+        data_dir: str | None = None,
     ) -> None:
         self._config = config or ResourceCenterConfig()
-        self._data_dir = Path(data_dir)
+        self._data_dir = Path(data_dir) if data_dir else resolve_runtime_paths().data_dir
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._instances: dict[str, ResourceInstance] = {}
         self._load()

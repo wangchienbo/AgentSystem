@@ -12254,3 +12254,28 @@ I started the first real migration code slice after the architecture and invento
 
 ### Notes
 This is intentionally the narrowest high-leverage migration slice. The next migration slice should move runtime/persistence defaults behind this resolver so mutable state no longer defaults to repo-local `data/...` paths.
+
+## 2026-05-12: Implemented the first default-path adoption wave for Slice B
+
+### Summary
+After landing the shared runtime path resolver, I pushed the next migration step into real runtime services. Instead of attempting a broad rewrite, I moved a first wave of runtime and persistence constructor defaults behind the resolver while preserving explicit path injection for tests and isolated assembly. This keeps the migration incremental and low-risk.
+
+### What Was Done
+- Updated default-path behavior for:
+  - `RuntimeStateStore`
+  - `AppDataStore`
+  - `UpgradeLogService`
+  - `RuntimeCenter`
+  - `ResourceCenter`
+  - `ConfigCenterService`
+- These services now derive default runtime roots from `app/runtime_paths.py` when no explicit path is passed
+- Preserved explicit constructor overrides so existing temp-path tests and runtime bootstrap overrides still work
+- Added `tests/unit/test_runtime_path_adoption.py` to verify resolver adoption for the first wave
+- Updated `tests/unit/api_test_helper.py` so isolated runtime API tests provide an explicit temporary config file for `ModelRouter`
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py`
+- result: `55 passed`
+
+### Notes
+This is the right pacing for Slice B. The resolver now influences live runtime service defaults, but the migration still respects explicit path injection. The next wave can continue with remaining services that still assume repo-local `data/...` defaults, especially bootstrap-time assembly and any persistence helpers not yet moved.

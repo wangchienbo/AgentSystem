@@ -5,11 +5,13 @@ from datetime import datetime
 from pathlib import Path
 
 from app.models.upgrade_log import UpgradeLogEvent
+from app.runtime_paths import resolve_runtime_paths
 
 
 class UpgradeLogService:
-    def __init__(self, base_dir: str = "data/runtime/upgrade_logs") -> None:
-        self.base_path = Path(base_dir)
+    def __init__(self, base_dir: str | None = None) -> None:
+        resolved_base_dir = Path(base_dir) if base_dir else resolve_runtime_paths().state_dir / "runtime" / "upgrade_logs"
+        self.base_path = resolved_base_dir
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     def append_event(self, stream: str, event: UpgradeLogEvent) -> Path:

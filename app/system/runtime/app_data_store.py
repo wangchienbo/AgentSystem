@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.models.data_record import DataNamespace, DataRecord
+from app.runtime_paths import resolve_runtime_paths
 from app.services.runtime_state_store import RuntimeStateStore
 
 
@@ -11,8 +12,9 @@ class AppDataStoreError(ValueError):
 
 
 class AppDataStore:
-    def __init__(self, base_dir: str = "data/namespaces", store: RuntimeStateStore | None = None) -> None:
-        self.base_path = Path(base_dir)
+    def __init__(self, base_dir: str | None = None, store: RuntimeStateStore | None = None) -> None:
+        resolved_base_dir = Path(base_dir) if base_dir else resolve_runtime_paths().data_dir / "namespaces"
+        self.base_path = resolved_base_dir
         self.base_path.mkdir(parents=True, exist_ok=True)
         self._namespaces: dict[str, DataNamespace] = {}
         self._records: dict[str, list[DataRecord]] = {}
