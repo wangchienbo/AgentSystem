@@ -21,7 +21,7 @@ def test_describe_phase6_asset_bootstrap_binding_reports_transition_contract(tmp
     assert binding["binding_mode"] == "repo_pinned_assets_with_install_model_data"
 
 
-def test_describe_phase6_asset_bootstrap_binding_preview_reports_install_model_asset_roots(tmp_path: Path, monkeypatch) -> None:
+def test_describe_phase6_asset_bootstrap_binding_live_mode_reports_install_model_asset_roots(tmp_path: Path, monkeypatch) -> None:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     monkeypatch.setenv("AGENTSYSTEM_HOME", str(tmp_path / "agentsystem-home"))

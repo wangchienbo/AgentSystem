@@ -2826,3 +2826,15 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
 - validation extension:
   - `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
   - result: `47 passed`
+
+### Slice C2 first live bootstrap flip
+- `app/bootstrap/runtime.py` now boots Phase 6 asset wiring from the install-model installed/build roots
+- retained unchanged:
+  - repo `source/`
+  - repo `data/runtime_center.json`
+- `app/cli.py` now reports:
+  - live `bootstrap_asset_binding` -> install-model installed/build roots
+  - `bootstrap_asset_binding_preview` -> prior repo-pinned asset binding as rollback/reference view
+- validation extension:
+  - `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+  - result: `47 passed`

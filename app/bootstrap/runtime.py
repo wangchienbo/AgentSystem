@@ -556,7 +556,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.system.self_iteration_asset_service import SelfIterationAssetService
     from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    bootstrap_binding = describe_phase6_asset_bootstrap_binding(_project_root)
+    bootstrap_binding = describe_phase6_asset_bootstrap_binding(
+        _project_root,
+        installed_assets_mode="install-model-preview",
+    )
     system_catalog = SystemCatalog()
     asset_center = AssetCenter(
         source_dir=bootstrap_binding["source_dir"],

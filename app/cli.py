@@ -85,13 +85,13 @@ def _runtime_layout(repo_root: Path) -> dict[str, object]:
             "build_artifacts": str(runtime_paths.build_dir),
             "legacy_repo_installed": str(runtime_paths.legacy_repo_installed_dir),
             "legacy_repo_build": str(runtime_paths.legacy_repo_build_dir),
-            "bootstrap_status": "repo_pinned_during_transition",
+            "bootstrap_status": "install_model_asset_roots_live_repo_source_retained",
         },
-        "bootstrap_asset_binding": describe_phase6_asset_bootstrap_binding(repo_root),
-        "bootstrap_asset_binding_preview": describe_phase6_asset_bootstrap_binding(
+        "bootstrap_asset_binding": describe_phase6_asset_bootstrap_binding(
             repo_root,
             installed_assets_mode="install-model-preview",
         ),
+        "bootstrap_asset_binding_preview": describe_phase6_asset_bootstrap_binding(repo_root),
     }
 
 

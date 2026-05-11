@@ -61,15 +61,17 @@ def test_run_cli_returns_runtime_layout_contract() -> None:
     assert isinstance(transition, dict)
     assert transition["installed_runtime_assets"] == str(expected.installed_assets_dir)
     assert transition["legacy_repo_installed"] == str(REPO_ROOT / "installed")
+    assert transition["bootstrap_status"] == "install_model_asset_roots_live_repo_source_retained"
     bootstrap_binding = result.details["bootstrap_asset_binding"]
     assert isinstance(bootstrap_binding, dict)
-    assert bootstrap_binding["installed_dir"] == str(REPO_ROOT / "installed")
-    assert bootstrap_binding["binding_mode"] == "repo_pinned_assets_with_install_model_data"
+    assert bootstrap_binding["installed_dir"] == str(expected.installed_assets_dir)
+    assert bootstrap_binding["build_dir"] == str(expected.build_dir)
+    assert bootstrap_binding["binding_mode"] == "install_model_asset_preview_with_repo_source"
     bootstrap_preview = result.details["bootstrap_asset_binding_preview"]
     assert isinstance(bootstrap_preview, dict)
-    assert bootstrap_preview["installed_dir"] == str(expected.installed_assets_dir)
-    assert bootstrap_preview["build_dir"] == str(expected.build_dir)
-    assert bootstrap_preview["binding_mode"] == "install_model_asset_preview_with_repo_source"
+    assert bootstrap_preview["installed_dir"] == str(REPO_ROOT / "installed")
+    assert bootstrap_preview["build_dir"] == str(REPO_ROOT / "build")
+    assert bootstrap_preview["binding_mode"] == "repo_pinned_assets_with_install_model_data"
 
 
 def test_run_cli_returns_doctor_checks() -> None:

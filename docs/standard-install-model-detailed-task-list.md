@@ -663,3 +663,4 @@ Status: [~] first live-code adoption landed
 - bootstrap asset wiring is now described through a dedicated helper contract, and CLI `runtime-layout` exposes that binding so the repo-pinned asset roots vs install-model data root split is explicit before any bootstrap flip
 - bootstrap binding contract now supports an explicit `install-model-preview` mode so Slice C2 can inspect the first candidate installed/build root flip without changing live bootstrap behavior
 - added isolated bootstrap-runtime test coverage that proves the current binding still boots under injected config/home while differing from the install-model-preview asset roots only at the intended installed/build seam
+- Slice C2 first live bootstrap flip landed: runtime bootstrap now uses install-model installed/build roots while retaining repo source assets and repo runtime-registry persistence; CLI keeps the old repo-pinned binding as the explicit preview/rollback reference

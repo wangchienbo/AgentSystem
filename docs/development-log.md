@@ -12518,3 +12518,24 @@ Before flipping bootstrap behavior, I added isolated test support that can boot 
 
 ### Notes
 This was the missing test seam before attempting the first live bootstrap flip. We now have isolated evidence that bootstrap still comes up under injected runtime paths and that the preview contract is narrow enough to review precisely.
+
+## 2026-05-12: Landed the first live bootstrap flip for Slice C2
+
+### Summary
+I completed the first real bootstrap behavior change in Phase 6 Slice C2. Runtime bootstrap now uses the install-model installed/build roots live, while intentionally keeping repo-authored source assets and repo runtime-registry persistence unchanged. The CLI was updated so the live binding is shown as the current contract and the prior repo-pinned asset binding remains visible as the preview/rollback reference.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - runtime bootstrap asset-center wiring now uses `installed_assets_mode="install-model-preview"`
+- Updated `app/cli.py`
+  - `asset_root_transition.bootstrap_status` now reflects that install-model asset roots are live
+  - `bootstrap_asset_binding` now shows the live install-model installed/build binding
+  - `bootstrap_asset_binding_preview` now shows the previous repo-pinned binding for comparison
+- Updated bootstrap/CLI isolation tests to reflect the live flip
+
+### Validation
+- `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `47 passed`
+
+### Notes
+This is intentionally only the first flip. Source assets remain repo-authored and runtime-registry persistence remains repo-local. That keeps the changed surface narrow and aligned with the Phase 6 sequencing decisions.
