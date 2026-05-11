@@ -2742,3 +2742,23 @@ After confirming Slice B generic mutable-default cleanup is effectively closed, 
 
 ### Validation
 - planning/documentation only in this round; no new runtime codepaths changed
+
+## 2026-05-12 - Phase 6 Slice C1 decision artifact
+
+### Scope
+Converted the Phase 6 planning seam into a concrete Slice C1 decision artifact so later asset-separation code changes can follow an explicit root map instead of re-deriving policy case by case.
+
+### Artifacts added
+- `docs/phase-6-slice-c1-root-map.md`
+
+### Decision outcome
+- repo-authored path definitions are treated as packaged built-in control-plane assets under the install model
+- source/build/installed/runtime-registry roots are explicitly separated in the root map
+- `RuntimeCenter` persistence migration is intentionally deferred until built-in asset bootstrap semantics are rewritten explicitly
+- recommended next implementation order:
+  - Slice C2 externalize installed asset root
+  - Slice C3 package built-in control-plane assets
+  - Slice C4 externalize runtime registry persistence
+
+### Validation
+- documentation-only round; no new runtime behavior changed

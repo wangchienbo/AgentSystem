@@ -443,14 +443,22 @@ Status: [ ] blocked on asset root map
 - ensure runtime does not depend on repo build directories
 
 ### 7.4 Decide treatment of source assets
-Status: [x] initial policy-plan draft landed
+Status: [x] Slice C1 decision artifact landed
 - added `docs/phase-6-asset-control-plane-separation-plan.md`
-- documented remaining repo-anchored seams:
-  - repo-authored path-definition assets
-  - `AssetCenter` installed/build roots
-  - bootstrap `RuntimeCenter` persistence seam
-  - legacy compatibility in `skill_asset_service.py`
-- recommended next slice: treat repo-authored path definitions as packaged built-in control-plane assets first, then classify source/build/installed/runtime-registry roots before moving live asset paths
+- added `docs/phase-6-slice-c1-root-map.md`
+- decided that repo-authored path definitions should be treated as packaged built-in control-plane assets under the install model
+- published the initial root map for:
+  - development source assets
+  - build/package outputs
+  - installed runtime assets
+  - built-in control-plane assets
+  - runtime registry persistence
+  - mutable runtime data/state/log roots
+- documented that `RuntimeCenter` persistence migration is intentionally deferred until built-in asset bootstrap semantics are explicitly rewritten
+- recommended next follow-on implementation slices:
+  - Slice C2 externalize installed asset root
+  - Slice C3 package built-in control-plane assets
+  - Slice C4 externalize runtime registry persistence
 
 ### 7.5 Add migration/bootstrap helpers
 Status: [ ] not started

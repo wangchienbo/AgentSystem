@@ -12369,3 +12369,26 @@ After the last Slice B rescan, the remaining repo-anchored path hits were no lon
 
 ### Notes
 This is the right handoff point. The next change should not be another broad grep cleanup. It should be a deliberate Phase 6 Slice C1 that decides how repo-authored control-plane assets are packaged and where source/build/installed/runtime-registry roots each belong under the install model.
+
+## 2026-05-12: Landed the Phase 6 Slice C1 decision artifact and root map
+
+### Summary
+After moving the workstream into Phase 6 planning, I narrowed that plan into a concrete Slice C1 decision artifact. The important outcome is that the remaining repo-anchored asset/control-plane behavior is no longer just described as a problem area. It now has a written policy decision and a root map that later implementation slices can target directly.
+
+### What Was Done
+- Added `docs/phase-6-slice-c1-root-map.md`
+- decided that repo-authored path definitions should be treated as packaged built-in control-plane assets
+- published the initial root map for:
+  - development source assets
+  - build/package outputs
+  - installed runtime assets
+  - built-in control-plane assets
+  - runtime registry persistence
+  - mutable runtime data/state/log roots
+- clarified that `RuntimeCenter` persistence migration is deferred until built-in asset bootstrap semantics are rewritten deliberately
+- updated `docs/standard-install-model-detailed-task-list.md`
+  - expanded 7.4 from a draft planning note into an explicit Slice C1 decision artifact
+  - recorded the recommended follow-on slices C2/C3/C4
+
+### Notes
+This is the last planning-style step before the next meaningful live-code move. The next round should stop drafting policy and start the narrowest Phase 6 implementation move, which is externalizing the installed asset root while preserving current built-in bootstrap semantics.
