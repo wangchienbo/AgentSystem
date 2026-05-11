@@ -2367,3 +2367,32 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - restarted the local service and re-ran bounded `S41` with `--max-turns-per-scenario 5`
   - turns that previously appeared as silent empties now surface explicit `LLM request failed: ... 429 ...`
   - scenario-end history now fails for the honest reason: visible error markers remain in the conversation
+
+## 2026-05-11 - Tool-route 429 now degrades to conservative fallback, bounded S41 5-turn probe passes cleanly
+
+### Targets
+- `app/ai/model_client.py`
+- `tests/unit/test_model_client_tool_route_budget.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after surfacing visible `/api/chat` errors, the remaining bounded `S41` defect was honest but still undesirable: provider `429` pressure was visible to users and failed the user-level baseline
+- the existing `ToolCallingEngine` already had a turn-0 degradation path for retryable tool-route failures; the missing piece was that `429` responses were not marked retryable
+
+### Changes
+- updated `app/ai/model_client.py`
+  - `chat_with_tools(...)` now marks `429` failures as `retryable=True`
+- this lets `ToolCallingEngine.execute_turns(...)` degrade first-turn tool-route `429` pressure into the existing conservative non-convergence text instead of surfacing raw provider failure text
+- added focused unit coverage proving `429` is now classified as retryable for tool routes
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py tests/unit/test_model_client_tool_route_budget.py`
+- `python3 -m pytest tests/unit/test_model_client_tool_route_budget.py tests/unit/test_http_test_server.py::test_api_chat_error_returns_visible_response_and_history_entry tests/unit/test_user_level_e2e_response_visibility.py tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `9 passed`
+- restarted the local service
+- reran bounded `S41` with `--max-turns-per-scenario 5`
+  - turns `01-05/20` all succeeded
+  - no transport/service errors occurred
+  - scenario-end history checks passed
+  - status/operator turns under provider pressure degraded to the conservative visible fallback text
+- report: `/tmp/e2e_s41_turn5_probe_429degrade.json`

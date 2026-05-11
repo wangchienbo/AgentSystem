@@ -185,6 +185,36 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Reclassified tool-route 429 as retryable degradation and cleared the bounded S41 five-turn live probe
+
+### Summary
+This was the first full bounded repair win for the operator/status path. After making chat errors visible, the remaining honest defect was that upstream `429` pressure still failed the user-level baseline. The important insight was that the engine already had a decent degraded-response path for retryable first-turn tool-route failures, but `429` had not been marked retryable. I changed that, restarted the service, and reran the bounded live `S41` probe. The result was clean: all five turns passed, history checks passed, and provider pressure degraded into conservative visible fallback text instead of failing the scenario.
+
+### What Was Done
+- Updated `app/ai/model_client.py`
+  - `chat_with_tools(...)` now marks `429` responses as `retryable=True`
+- Added `tests/unit/test_model_client_tool_route_budget.py`
+  - verifies that tool-route `429` failures are classified as retryable
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that bounded `S41` now passes through five turns on the repaired runtime
+- Updated `docs/testing-detail.md`
+  - captured the patch, restart, rerun command, and passing report
+
+### Validation
+- `python3 -m py_compile app/ai/model_client.py tests/unit/test_model_client_tool_route_budget.py`
+- `python3 -m pytest tests/unit/test_model_client_tool_route_budget.py tests/unit/test_http_test_server.py::test_api_chat_error_returns_visible_response_and_history_entry tests/unit/test_user_level_e2e_response_visibility.py tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `9 passed`
+- restarted the local service
+- reran bounded `S41` (`--max-turns-per-scenario 5`)
+  - turns `01-05/20` all succeeded
+  - no transport/service errors occurred
+  - scenario-end history checks passed
+  - provider `429` pressure degraded into the conservative non-convergence reply instead of raw error text
+
+### Notes
+This is the strongest repair signal so far in Phase 4. The bounded operator/status path is no longer just “less broken”, it now clears the five-turn live `S41` probe cleanly.
+
+
 ## 2026-05-11: Made the HTTP chat error path user-visible so bounded E2E no longer hides upstream failures as empty replies
 
 ### Summary

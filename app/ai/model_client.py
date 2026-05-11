@@ -517,7 +517,7 @@ class OpenAIResponsesClient:
             raise ModelClientError(
                 f"Chat with tools failed: {response.status_code} {response.text[:300]} | payload_dump={debug_path}",
                 status_code=response.status_code,
-                retryable=response.status_code >= 500,
+                retryable=response.status_code >= 500 or response.status_code == 429,
             )
         data = _safe_chat_completion_payload(response)
         choice, message, text, tool_calls, finish_reason = _normalize_choice_payload(data, model_name=model_name)

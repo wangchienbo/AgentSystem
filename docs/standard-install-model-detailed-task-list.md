@@ -253,7 +253,7 @@ Status: [~] first concrete live failure pattern captured
 - next reruns should use bounded fail-fast settings first, then decide whether the remaining blocker is model timeout tuning, request-shape reduction, or server-side runtime repair
 
 ### 4.4 Repair and re-run until baseline is trustworthy
-Status: [~] first prompt-shape mitigation landed
+Status: [~] bounded live repair loop now clears S41 through 5 turns
 - Phase 3 log evidence showed repeated fallback turns were accumulating into the gateway prompt context for later operator/status probes
 - the gateway tool-calling interpreter now caps recent-history prompt inclusion more aggressively (last 4 messages, ~800 chars budget) so short operator/status queries are less likely to inherit bloated fallback-heavy context
 - after restarting onto the live budget-aware runtime, bounded `S41` rerun (`--max-turns-per-scenario 2 --max-consecutive-failures 1`) improved materially:
@@ -263,9 +263,14 @@ Status: [~] first prompt-shape mitigation landed
 - a deeper bounded `S41` rerun (`--max-turns-per-scenario 5`) then showed all first five turns succeeding with no transport/service errors; the remaining mismatch came from reusing the same scenario user/session across prior probes
 - harness scenario users are now isolated by `run_id`, so future bounded reruns do not inherit stale session history from earlier diagnostics
 - bounded history expectations now follow the executed-turn count instead of the full scenario design length, so future diagnostic reruns fail only for relevant reasons
-- latest bounded 5-turn rerun with run-id isolation revealed a more honest remaining issue: some turns returned `ok=true` but with empty visible response text, so the harness now classifies empty user-visible responses as failures instead of counting them as successes
-- after restarting the service with the visible-error patch, the same bounded 5-turn rerun no longer produced silent empty replies; failing turns now surface explicit `LLM request failed: ... 429 ...` text, and scenario-end history correctly flags those error markers as the current remaining defect
-- next rerun should check whether the two-turn improvement extends to slightly deeper bounded windows (`3-5` turns) before retrying broader subset/full baseline work
+- silent empty replies are now treated as failures, and `/api/chat` error paths now surface visible assistant text instead of returning blank success-like responses
+- tool-route `429` responses are now treated as retryable degradation signals, allowing turn-0 tool-calling failures to fall back to the existing non-convergence text instead of surfacing raw upstream errors
+- after restarting the service with the 429 degradation patch, bounded `S41` rerun (`--max-turns-per-scenario 5`) passed cleanly:
+  - turns `01-05/20` all succeeded
+  - no transport/service errors occurred
+  - scenario-end history checks passed
+  - operator/status turns that hit provider pressure now degrade to the conservative visible fallback text instead of failing the user-visible baseline
+- next rerun should widen from single-scenario `S41` to a broader operator/status subset before attempting the full baseline again
 
 ### 4.5 Freeze baseline evidence
 - save report path and summary in testing docs
