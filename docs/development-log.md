@@ -12171,3 +12171,26 @@ All Phase H+ tasks completed:
 - introduced `_tool_route_budget(message_count)` so later multi-turn governance/self-iteration paths stop amplifying upstream `504` failures into multi-minute waits
 - kept earlier tool-required probe paths slightly more patient while cutting deeper routes down to fewer retries and lower per-call timeout caps
 - added focused unit coverage for the route-budget helper alongside the earlier degraded first-turn fallback coverage
+
+## 2026-05-12: Wrote the pre-migration standard install model architecture baseline
+
+### Summary
+With the bounded full-suite baseline frozen, I moved the task list into the architecture-definition phase instead of touching migration code too early. I wrote the first full install-model architecture document so the migration has an explicit target shape before any path-moving or runtime rewiring starts.
+
+### What Was Done
+- Added `docs/standard-install-model-architecture.md`
+- Documented:
+  - runtime separation model
+  - source repo vs installed runtime vs mutable runtime data responsibilities
+  - target directory layout under `AGENTSYSTEM_HOME`
+  - environment/config resolution contract
+  - asset lifecycle classes and boundaries
+  - migration intent from the current repo-coupled model
+  - operator-facing install model notes
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked `5.1` through `5.6` as documented/completed for the architecture-definition phase
+
+### Notes
+This is the right place to pause before code migration. We now have both sides of the transition documented:
+- the frozen bounded pre-migration truth set
+- the target install-model architecture the migration is supposed to reach

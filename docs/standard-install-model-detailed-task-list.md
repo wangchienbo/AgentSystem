@@ -340,44 +340,49 @@ Status: [x] bounded full-suite evidence frozen
 ## 5. Phase 4 - Define standard install model architecture
 
 ### 5.1 Define runtime separation model
-- define source repo responsibilities
-- define installed code responsibilities
-- define runtime data responsibilities
-- define config/state/log/cache boundaries
-- define what is forbidden inside the source repo at runtime
+Status: [x] target model documented
+- defined source repo responsibilities
+- defined installed code responsibilities
+- defined runtime data responsibilities
+- defined config/state/log/cache boundaries
+- documented what is forbidden inside the source repo at runtime
 
 ### 5.2 Define target directory layout
-- config directory
-- data directory
-- runtime/state directory
-- cache directory
-- installed asset directory
-- source asset development directory
-- build artifact directory
-- logs directory
+Status: [x] target layout documented
+- defined config directory
+- defined data directory
+- defined runtime/state directory
+- defined cache directory
+- defined installed asset directory
+- defined source asset development directory boundary
+- defined build artifact and logs directories
 
 ### 5.3 Define environment/config resolution contract
-- support `AGENTSYSTEM_HOME`
-- support `AGENTSYSTEM_DATA_DIR`
-- define defaults using home/XDG-like layout
-- eliminate remaining implicit repo-based runtime assumptions
+Status: [x] resolution contract documented
+- documented `AGENTSYSTEM_HOME`
+- documented dedicated path override env vars including `AGENTSYSTEM_DATA_DIR`
+- defined home-based default layout
+- documented resolution order and repo-coupled compatibility fallback limits
 
 ### 5.4 Define asset lifecycle under the new model
-- distinguish built-in system assets
-- distinguish packaged assets
-- distinguish user-installed assets
-- distinguish runtime-registered assets
-- define discover/build/install/register/invoke/uninstall/rollback boundaries
+Status: [x] lifecycle boundaries documented
+- distinguished built-in system assets
+- distinguished packaged assets
+- distinguished user-installed assets
+- distinguished runtime-registered assets
+- defined discover/build/install/register/invoke/uninstall/rollback boundaries
 
 ### 5.5 Define migration plan from current repo-coupled model
-- how current `source/`, `build/`, `installed/`, `data/` semantics map to new locations
-- how existing runtime state migrates
-- how compatibility wrappers behave during transition
-- how to preserve existing tests during the transition
+Status: [x] migration intent documented
+- mapped current `source/`, `build/`, `installed/`, `data/` semantics toward target roots
+- documented runtime state migration concerns
+- documented compatibility wrapper behavior during transition
+- documented test-preservation strategy using the frozen bounded baseline
 
 ### 5.6 Document architecture before code migration
-- write a detailed design doc
-- write operator-facing install model notes
+Status: [x] initial architecture doc landed
+- added `docs/standard-install-model-architecture.md`
+- documented runtime separation model, directory layout, env/config resolution, asset lifecycle, migration intent, and operator-facing notes before code migration begins
 - update system/testing docs with migration assumptions
 
 **Exit criteria**
