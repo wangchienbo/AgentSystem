@@ -649,3 +649,11 @@ Status: [x] safe mutable-default tail substantially closed
 - this means Slice B's remaining unresolved items are now mostly migration-boundary items rather than straightforward default-path cleanup
 - validation:
   - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py tests/unit/test_execution_chain_integration.py` -> `77 passed`
+
+### 7.2 Externalize installed assets
+Status: [~] first live-code adoption landed
+- `AssetCenter` default roots now resolve installed/build/data locations from the shared install-model path contract when explicit overrides are not provided
+- bootstrap still intentionally passes repo-anchored installed/build roots during transition so built-in startup semantics remain stable while Phase 6 proceeds slice-by-slice
+- this establishes the first live-code seam for Slice C2 without yet forcing the bootstrap/runtime path flip
+- validation:
+  - `pytest -q tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py` -> `33 passed`

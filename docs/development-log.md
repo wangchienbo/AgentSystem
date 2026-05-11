@@ -12392,3 +12392,24 @@ After moving the workstream into Phase 6 planning, I narrowed that plan into a c
 
 ### Notes
 This is the last planning-style step before the next meaningful live-code move. The next round should stop drafting policy and start the narrowest Phase 6 implementation move, which is externalizing the installed asset root while preserving current built-in bootstrap semantics.
+
+## 2026-05-12: Started Phase 6 Slice C2 with the first installed-asset-root live-code seam
+
+### Summary
+I began the first actual code move for installed asset externalization. Instead of flipping bootstrap immediately, I made `AssetCenter` itself install-model-aware by default and preserved explicit bootstrap overrides for the current repo-based startup behavior. This keeps the change narrow, testable, and consistent with the Slice C2 strategy.
+
+### What Was Done
+- Updated `app/system/catalog/asset_center.py`
+  - default installed asset root -> resolved install-model installed-assets dir
+  - default build root -> resolved install-model build dir
+  - default data root -> resolved install-model data dir
+  - explicit constructor overrides still take priority
+- Added `tests/unit/test_asset_center_install_model_roots.py`
+- Revalidated asset-center/registry-adjacent tests plus prior runtime-path adoption coverage
+
+### Validation
+- `pytest -q tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `33 passed`
+
+### Notes
+This is the right first step for Slice C2. The asset-management service now knows the install-model roots, while bootstrap remains intentionally pinned to repo-installed/build paths until a later round flips those callers under controlled validation.

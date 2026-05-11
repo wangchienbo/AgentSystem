@@ -2762,3 +2762,19 @@ Converted the Phase 6 planning seam into a concrete Slice C1 decision artifact s
 
 ### Validation
 - documentation-only round; no new runtime behavior changed
+
+## 2026-05-12 - Phase 6 Slice C2 first live-code seam
+
+### Scope
+Started the first live-code move for installed asset externalization by teaching `AssetCenter` to default to install-model roots while preserving the current bootstrap compatibility wiring.
+
+### Code touched
+- `app/system/catalog/asset_center.py`
+- `tests/unit/test_asset_center_install_model_roots.py`
+
+### Validation
+- `pytest -q tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `33 passed`
+
+### Notes
+This is intentionally a narrow first seam. `AssetCenter` is now install-model-aware by default, but bootstrap still passes repo-local installed/build roots so startup and built-in asset behavior remain unchanged until the next Phase 6 slice deliberately flips those callers.

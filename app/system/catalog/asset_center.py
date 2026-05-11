@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from app.runtime_paths import resolve_runtime_paths
 from app.system.invocation.invocation_compliance import InvocationComplianceValidator
 
 logger = logging.getLogger(__name__)
@@ -88,14 +89,15 @@ class AssetCenter:
     def __init__(
         self,
         source_dir: str = "source",
-        installed_dir: str = "installed",
-        build_dir: str = "build",
-        data_dir: str = "data",
+        installed_dir: str | None = None,
+        build_dir: str | None = None,
+        data_dir: str | None = None,
     ) -> None:
+        runtime_paths = resolve_runtime_paths()
         self._source_dir = Path(source_dir)
-        self._installed_dir = Path(installed_dir)
-        self._build_dir = Path(build_dir)
-        self._data_dir = Path(data_dir)
+        self._installed_dir = Path(installed_dir) if installed_dir else runtime_paths.installed_assets_dir
+        self._build_dir = Path(build_dir) if build_dir else runtime_paths.build_dir
+        self._data_dir = Path(data_dir) if data_dir else runtime_paths.data_dir
         self._registry: dict[str, AssetDefinition] = {}
         self._build_history: dict[str, list[AssetBuildRecord]] = {}
         self._load_registry()
