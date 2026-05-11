@@ -2702,3 +2702,22 @@ Closed another safe portion of Slice B by moving several remaining helper defaul
 
 ### Notes
 `PathStore` now has an install-model-aware default, but bootstrap still explicitly points it at the repo-owned path asset directory. That is intentional for now because path definitions are still treated as authored control-plane assets rather than migrated runtime-installed assets.
+
+## 2026-05-12 - Slice B tail rescan and closure signal
+
+### Scope
+Performed another grep-guided tail rescan and migrated the remaining straightforward mutable-state default found in `CoreOrchestrator`, then classified what is left as intentional migration-boundary behavior rather than generic default-path debt.
+
+### Code touched
+- `app/orchestration/core_orchestrator.py`
+- `tests/unit/test_runtime_path_adoption_wave4.py`
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py tests/unit/test_execution_chain_integration.py`
+- result: `77 passed`
+
+### Notes
+At this point, the remaining repo-anchored path occurrences are predominantly deliberate:
+- repo-authored path assets still pinned during bootstrap
+- compatibility logic that still recognizes legacy `data/...` references during transition
+This is a good stopping point for generic mutable-default cleanup.

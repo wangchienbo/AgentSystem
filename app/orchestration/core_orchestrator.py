@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.runtime_paths import resolve_runtime_paths
 from app.services.skill_rpc import SkillRpcService
 from app.services.unified_tool_registry import UnifiedToolRegistry
 from app.services.contract_linter import ContractLinter
@@ -43,8 +44,8 @@ class CoreOrchestrator:
         result = await orchestrator.process_user_message(session_id, user_id, message)
     """
 
-    def __init__(self, data_dir: str = "data") -> None:
-        self._data_dir = data_dir
+    def __init__(self, data_dir: str | None = None) -> None:
+        self._data_dir = data_dir or str(resolve_runtime_paths().data_dir)
 
         # Phase B components
         self.skill_rpc = SkillRpcService()
@@ -66,12 +67,12 @@ class CoreOrchestrator:
         )
 
         # Phase E components
-        self.asset_center = AssetCenter(data_dir=data_dir)
-        self.resource_center = ResourceCenter(data_dir=data_dir)
-        self.config_center = ConfigCenterService(data_dir=data_dir)
+        self.asset_center = AssetCenter(data_dir=self._data_dir)
+        self.resource_center = ResourceCenter(data_dir=self._data_dir)
+        self.config_center = ConfigCenterService(data_dir=self._data_dir)
 
         # Phase D components
-        self.master_control = MasterControlService(data_dir=data_dir)
+        self.master_control = MasterControlService(data_dir=self._data_dir)
         self.execution_monitor = ExecutionMonitor()
         self.intent_router = IntentRouter(
             execution_monitor=self.execution_monitor,

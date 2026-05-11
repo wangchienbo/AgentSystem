@@ -621,3 +621,14 @@ Status: [x] third adoption wave landed
 - bootstrap still intentionally pins `PathStore` to the repo-curated path-definition directory, because those YAML path assets remain part of the repo-owned authored control plane during this migration stage
 - validation:
   - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py tests/unit/test_execution_chain_integration.py` -> `76 passed`
+
+### 5.11 Re-scan Slice B tail and close the remaining safe mutable-state defaults
+Status: [x] safe mutable-default tail substantially closed
+- migrated `CoreOrchestrator` default `data_dir` to the shared runtime resolver
+- re-scan result:
+  - remaining repo-anchored paths are now primarily intentional boundaries, not accidental mutable-state defaults
+  - `bootstrap/runtime.py` still explicitly pins repo-owned path-definition assets via `PathStore(paths_dir=...)`
+  - asset/control-plane path normalization inside `skill_asset_service.py` still intentionally understands legacy `data/...` references during transition
+- this means Slice B's remaining unresolved items are now mostly migration-boundary items rather than straightforward default-path cleanup
+- validation:
+  - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py tests/unit/test_execution_chain_integration.py` -> `77 passed`

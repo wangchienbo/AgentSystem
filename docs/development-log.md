@@ -12323,3 +12323,23 @@ I continued the Slice B tail-close by moving three more safe helper defaults beh
 
 ### Notes
 This wave further shrinks the repo-local mutable-default surface area without prematurely migrating repo-authored path assets. The remaining meaningful migration boundary is now even clearer: helper/storage defaults can keep moving, but authored asset/control-plane roots should wait for the later asset-lifecycle separation slice.
+
+## 2026-05-12: Re-scanned the Slice B tail and confirmed the cleanup boundary
+
+### Summary
+I ran another targeted rescan for repo-local mutable defaults and found one last straightforward adopter: `CoreOrchestrator`'s default `data_dir`. After moving that behind the shared resolver and rerunning the focused validation set, the remaining hits are no longer generic cleanup work. They are intentional migration-boundary cases tied to repo-authored path assets or legacy-reference compatibility.
+
+### What Was Done
+- Updated `CoreOrchestrator` so its default `data_dir` resolves from the shared runtime path contract
+- Added `tests/unit/test_runtime_path_adoption_wave4.py`
+- Re-scanned remaining `data/...` style hits and classified the survivors
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py tests/unit/test_execution_chain_integration.py`
+- result: `77 passed`
+
+### Notes
+This is the clearest closure signal yet for Slice B. The remaining repo-anchored path usage is now dominated by intentional boundaries:
+- bootstrap pinning of repo-owned path-definition assets
+- transition compatibility logic in skill-asset path normalization
+That means the next meaningful workstream should shift from generic resolver adoption to the dedicated asset/control-plane separation slice.
