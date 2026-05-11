@@ -256,7 +256,12 @@ Status: [~] first concrete live failure pattern captured
 Status: [~] first prompt-shape mitigation landed
 - Phase 3 log evidence showed repeated fallback turns were accumulating into the gateway prompt context for later operator/status probes
 - the gateway tool-calling interpreter now caps recent-history prompt inclusion more aggressively (last 4 messages, ~800 chars budget) so short operator/status queries are less likely to inherit bloated fallback-heavy context
-- next rerun should check whether the `S41` second-turn timeout remains as severe once retry amplification and prompt-history bloat are both reduced
+- after restarting onto the live budget-aware runtime, bounded `S41` rerun (`--max-turns-per-scenario 2 --max-consecutive-failures 1`) improved materially:
+  - turn `01/20` succeeded
+  - turn `02/20` also succeeded in ~`1.0s`
+  - remaining failure was only that scenario-end history expectations were still comparing against full 20-turn totals during a bounded 2-turn diagnostic
+- bounded history expectations now follow the executed-turn count instead of the full scenario design length, so future diagnostic reruns fail only for relevant reasons
+- next rerun should check whether the two-turn improvement extends to slightly deeper bounded windows (`3-5` turns) before retrying broader subset/full baseline work
 
 ### 4.5 Freeze baseline evidence
 - save report path and summary in testing docs

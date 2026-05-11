@@ -626,12 +626,14 @@ def _evaluate_scenario_history(scenario: dict, history: list[dict[str, Any]], re
     user_messages = [item for item in history if item.get("role") == "user"]
     assistant_messages = [item for item in history if item.get("role") == "assistant"]
 
-    if len(user_messages) != result.total_turns:
-        failures.append(f"expected {result.total_turns} user turns, got {len(user_messages)}")
+    expected_turns = len(result.turns)
+
+    if len(user_messages) != expected_turns:
+        failures.append(f"expected {expected_turns} user turns, got {len(user_messages)}")
     else:
         checks.append(f"user turn count matched: {len(user_messages)}")
 
-    if len(assistant_messages) < max(1, result.total_turns - 2):
+    if len(assistant_messages) < max(1, expected_turns - 2):
         failures.append(f"assistant replies too few: {len(assistant_messages)}")
     else:
         checks.append(f"assistant replies acceptable: {len(assistant_messages)}")

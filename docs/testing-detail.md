@@ -2254,3 +2254,33 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Notes
 - this does not change the fundamental session history stored by the product
 - it only narrows how much recent conversation is re-exposed inside the gateway tool-calling prompt for short live operator/status turns
+
+## 2026-05-11 - Live budget-aware S41 rerun cleared the turn-02 timeout, then bounded-history expectations were corrected
+
+### Targets
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `tests/unit/test_user_level_e2e_history_expectations.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after confirming `/api/status` exposed the new `tool_route_budget`, the next necessary step was a fresh bounded live rerun against `S41` on the actually restarted runtime
+- the rerun materially improved: both bounded turns succeeded, but the harness still failed the run because scenario-end history expectations were comparing a 2-turn diagnostic run against the full 20-turn scenario design
+
+### Live rerun
+- command:
+  - `PYTHONUNBUFFERED=1 timeout 150 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --scenarios S41 --delay 0.5 --timeout 45 --wait-ready-seconds 5 --max-turns-per-scenario 2 --max-consecutive-failures 1 --output /tmp/e2e_s41_turn2_probe_livebudget.json`
+- observed behavior:
+  - readiness gate passed (`HTTP 200`)
+  - `01/20` succeeded
+  - `02/20` also succeeded in roughly `1.0s`
+  - remaining failure was only bounded-history expectation mismatch
+
+### Changes
+- `_evaluate_scenario_history(...)` now compares history counts against `len(result.turns)` for bounded diagnostic runs rather than always against the full scenario design length
+- added a focused unit test covering bounded history expectations
+- updated the Phase 4 repair notes to reflect that the turn-02 timeout cleared on the restarted live runtime
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_history_expectations.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `5 passed`

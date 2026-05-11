@@ -185,6 +185,35 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Re-ran S41 on the restarted live budget-aware runtime and corrected bounded-history expectations
+
+### Summary
+This was a good turn. After confirming that `/api/status` now exposed the new live `tool_route_budget`, I reran the bounded `S41` probe against the actually restarted runtime. The result improved materially: turn `01/20` succeeded, turn `02/20` also succeeded quickly, and the only remaining failure was a harness artifact, not a live transport/runtime failure. The artifact was that bounded 2-turn diagnostics were still being judged against the full 20-turn history expectation. I fixed that so bounded reruns now fail only for relevant reasons.
+
+### What Was Done
+- Ran a fresh bounded live rerun against `S41` on the restarted runtime
+  - readiness passed (`HTTP 200`)
+  - turn `01/20` succeeded
+  - turn `02/20` succeeded in about `1.0s`
+  - no transport/service errors occurred in the 2-turn window
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - `_evaluate_scenario_history(...)` now compares against the executed turn count (`len(result.turns)`) for bounded diagnostics
+- Added `tests/unit/test_user_level_e2e_history_expectations.py`
+  - verifies bounded 2-turn reruns are not incorrectly judged against full 20-turn history totals
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the restarted live runtime cleared the `S41` turn-02 timeout in the bounded 2-turn window
+- Updated `docs/testing-detail.md`
+  - captured the rerun command, outcome, and expectation-fix rationale
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_history_expectations.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `5 passed`
+
+### Notes
+This is the first strong evidence in the repair loop that the mitigation stack is doing real work. We still have not proven broader stability, but the original “turn 02 immediately times out” failure shape no longer reproduces on the restarted runtime in the bounded 2-turn `S41` probe.
+
+
 ## 2026-05-10: Tightened gateway prompt history for short operator/status turns after confirming fallback-heavy context bloat
 
 ### Summary
