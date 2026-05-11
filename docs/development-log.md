@@ -12452,3 +12452,24 @@ I continued Phase 6 Slice C2 by improving operator visibility instead of forcing
 
 ### Notes
 This is an operator-facing transition aid. It makes the current split state explicit: install-model roots are the target, while bootstrap remains repo-pinned during the controlled migration window.
+
+## 2026-05-12: Extracted bootstrap asset-binding contract for Slice C2
+
+### Summary
+I moved one step closer to the bootstrap boundary without flipping bootstrap behavior. I extracted the current Phase 6 bootstrap asset/data root wiring into a dedicated helper contract and surfaced it through the CLI runtime-layout view. This makes the current bootstrap split explicit and gives the next Slice C2 round a concrete seam to change deliberately.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - added `describe_phase6_asset_bootstrap_binding(...)`
+  - switched runtime bootstrap asset-center/runtime-center wiring to consume the helper contract
+- Updated `app/cli.py`
+  - `runtime-layout` now includes `bootstrap_asset_binding`
+- Added `tests/unit/test_bootstrap_asset_binding.py`
+- Extended `tests/unit/test_cli.py` assertions for the bootstrap binding block
+
+### Validation
+- `pytest -q tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `45 passed`
+
+### Notes
+Behavior is intentionally unchanged. Bootstrap still uses repo-pinned source/installed/build roots and install-model data dir. The important gain is that the contract is now centralized and visible, which reduces risk for the eventual controlled bootstrap flip.

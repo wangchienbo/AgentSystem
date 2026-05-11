@@ -2797,3 +2797,11 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
 - validation extension:
   - `pytest -q tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
   - result: `44 passed`
+
+### Slice C2 bootstrap-boundary inspection hardening
+- added `describe_phase6_asset_bootstrap_binding(...)` in `app/bootstrap/runtime.py`
+- runtime bootstrap now consumes that helper instead of inlining asset/data root wiring
+- CLI `runtime-layout` now exposes `bootstrap_asset_binding` so operators can inspect the current bootstrap contract directly
+- validation extension:
+  - `pytest -q tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+  - result: `45 passed`

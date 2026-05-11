@@ -61,6 +61,10 @@ def test_run_cli_returns_runtime_layout_contract() -> None:
     assert isinstance(transition, dict)
     assert transition["installed_runtime_assets"] == str(expected.installed_assets_dir)
     assert transition["legacy_repo_installed"] == str(REPO_ROOT / "installed")
+    bootstrap_binding = result.details["bootstrap_asset_binding"]
+    assert isinstance(bootstrap_binding, dict)
+    assert bootstrap_binding["installed_dir"] == str(REPO_ROOT / "installed")
+    assert bootstrap_binding["binding_mode"] == "repo_pinned_assets_with_install_model_data"
 
 
 def test_run_cli_returns_doctor_checks() -> None:

@@ -7,6 +7,7 @@ from typing import Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from app.bootstrap.runtime import describe_phase6_asset_bootstrap_binding
 from app.runtime_paths import resolve_runtime_paths
 from app.skills.system_skill_registry import SYSTEM_SKILL_SPECS
 
@@ -86,6 +87,7 @@ def _runtime_layout(repo_root: Path) -> dict[str, object]:
             "legacy_repo_build": str(runtime_paths.legacy_repo_build_dir),
             "bootstrap_status": "repo_pinned_during_transition",
         },
+        "bootstrap_asset_binding": describe_phase6_asset_bootstrap_binding(repo_root),
     }
 
 
@@ -139,6 +141,7 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
             "legacy_repo_installed_dir",
             "legacy_repo_build_dir",
             "asset_root_transition",
+            "bootstrap_asset_binding",
         }
     }
     service = _service_health()

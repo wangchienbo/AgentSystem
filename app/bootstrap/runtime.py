@@ -80,6 +80,19 @@ from app.models.memory_skill import MemorySkillRequest
 from app.services.system_skills.maoxuan import MaoxuanSkillService
 from app.services.system_skills.memory import MemorySkillService
 from app.runtime_paths import resolve_runtime_paths
+
+
+def describe_phase6_asset_bootstrap_binding(project_root: str | Path | None = None) -> dict[str, str]:
+    root = Path(project_root) if project_root is not None else Path(__file__).resolve().parents[2]
+    runtime_paths = resolve_runtime_paths(root)
+    return {
+        "source_dir": str(root / "source"),
+        "installed_dir": str(root / "installed"),
+        "build_dir": str(root / "build"),
+        "data_dir": str(runtime_paths.data_dir),
+        "runtime_registry_file": str(root / "data" / "runtime_center.json"),
+        "binding_mode": "repo_pinned_assets_with_install_model_data",
+    }
 from app.services.interactive_app import InteractiveAppService
 from app.services.interactive_app_workflow import InteractiveAppWorkflow
 from app.services.user_service import UserService
@@ -529,15 +542,15 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.system.self_iteration_asset_service import SelfIterationAssetService
     from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    runtime_paths = resolve_runtime_paths(Path(_project_root))
+    bootstrap_binding = describe_phase6_asset_bootstrap_binding(_project_root)
     system_catalog = SystemCatalog()
     asset_center = AssetCenter(
-        source_dir=os.path.join(_project_root, "source"),
-        installed_dir=os.path.join(_project_root, "installed"),
-        build_dir=os.path.join(_project_root, "build"),
-        data_dir=str(runtime_paths.data_dir),
+        source_dir=bootstrap_binding["source_dir"],
+        installed_dir=bootstrap_binding["installed_dir"],
+        build_dir=bootstrap_binding["build_dir"],
+        data_dir=bootstrap_binding["data_dir"],
     )
-    runtime_center = RuntimeCenter(data_file=os.path.join(_project_root, "data", "runtime_center.json"))
+    runtime_center = RuntimeCenter(data_file=bootstrap_binding["runtime_registry_file"])
     self_iteration_asset_service = SelfIterationAssetService(refinement_memory)
     self_iteration_asset_protocol = AssetRegistrationProtocol()
     startup_orchestrator = StartupOrchestrator()
