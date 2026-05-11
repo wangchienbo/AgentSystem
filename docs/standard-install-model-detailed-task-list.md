@@ -263,6 +263,7 @@ Status: [~] first prompt-shape mitigation landed
 - a deeper bounded `S41` rerun (`--max-turns-per-scenario 5`) then showed all first five turns succeeding with no transport/service errors; the remaining mismatch came from reusing the same scenario user/session across prior probes
 - harness scenario users are now isolated by `run_id`, so future bounded reruns do not inherit stale session history from earlier diagnostics
 - bounded history expectations now follow the executed-turn count instead of the full scenario design length, so future diagnostic reruns fail only for relevant reasons
+- latest bounded 5-turn rerun with run-id isolation revealed a more honest remaining issue: some turns returned `ok=true` but with empty visible response text, so the harness now classifies empty user-visible responses as failures instead of counting them as successes
 - next rerun should check whether the two-turn improvement extends to slightly deeper bounded windows (`3-5` turns) before retrying broader subset/full baseline work
 
 ### 4.5 Freeze baseline evidence

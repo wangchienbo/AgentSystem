@@ -185,6 +185,33 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Tightened user-level E2E success semantics so silent empty replies no longer count as passing turns
+
+### Summary
+I pushed one layer deeper on the bounded `S41` repair path. After isolating scenario users by `run_id`, the 5-turn rerun still was not a clean pass, but this time the issue was more honest: several turns were being counted as successful even though both `response` and `content` were empty. That is not acceptable for a user-level baseline, because an empty visible reply is functionally a failed turn from the user's point of view. I tightened the harness so silent empty replies are now counted as failures instead of hidden greens.
+
+### What Was Done
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - a turn now counts as `ok` only if:
+    - `ok` is truthy
+    - `type != error`
+    - there is non-empty visible response text in `response` or `content`
+- Added `tests/unit/test_user_level_e2e_response_visibility.py`
+  - verifies that empty visible responses are marked as failures
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the current remaining issue in the bounded repaired path is silent empty replies, not transport failure
+- Updated `docs/testing-detail.md`
+  - captured the rerun evidence and the tightened success contract
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_response_visibility.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_response_visibility.py tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `7 passed`
+
+### Notes
+This is a good tightening, even though it uncovers a less pleasant truth. The repaired path is no longer mainly about timeouts in the bounded `S41` window. The more accurate remaining defect is that some operator/status turns still return an empty user-visible reply.
+
+
 ## 2026-05-11: Extended the restarted S41 bounded probe to five turns and removed stale session contamination between reruns
 
 ### Summary

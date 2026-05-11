@@ -726,8 +726,10 @@ def run_scenario(
             )
             elapsed = (time.monotonic() - t0) * 1000
 
-            content = data.get("content", "")[:200]
-            ok = data.get("ok", True) or data.get("type") != "error"
+            response_text = (data.get("response", "") or data.get("content", "") or "")
+            content = response_text[:200]
+            has_visible_response = bool(response_text.strip())
+            ok = bool(data.get("ok", True)) and data.get("type") != "error" and has_visible_response
             sid = data.get("session_id", "")
             if sid:
                 current_session = sid
@@ -741,10 +743,10 @@ def run_scenario(
                 elapsed_ms=elapsed,
                 http_status=200,
                 session_id=sid,
-                full_response=data.get("response", "") or "",
+                full_response=response_text,
                 closure_signals=_evaluate_turn_closure(
                     ok=bool(ok),
-                    response_text=(data.get("response", "") or data.get("content", "") or ""),
+                    response_text=response_text,
                 ),
             )
         except httpx.HTTPStatusError as exc:

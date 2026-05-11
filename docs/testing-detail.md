@@ -2315,3 +2315,28 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_history_expectations.py`
 - `python3 -m pytest tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
   - `6 passed`
+
+## 2026-05-11 - Bounded 5-turn rerun exposed silent empty responses, harness now counts them as failures
+
+### Targets
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `tests/unit/test_user_level_e2e_response_visibility.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after run-id isolation removed stale session contamination, the bounded 5-turn `S41` rerun still did not produce a clean pass
+- inspection of `/tmp/e2e_s41_turn5_probe_isolated.json` showed the deeper issue: several turns were being counted as `ok=True` even though both `response` and `content` were empty, which is not an acceptable user-visible success condition for the user-level baseline
+
+### Changes
+- tightened turn success classification in `run_scenario(...)`
+  - a turn now counts as `ok` only when:
+    - `ok` is truthy
+    - `type != error`
+    - there is non-empty visible response text in `response` or `content`
+- added a focused unit test proving that empty visible responses are marked as failures
+- updated Phase 4 repair notes to record that silent empty replies are now treated as a real remaining issue instead of a hidden green result
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_response_visibility.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_response_visibility.py tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `7 passed`
