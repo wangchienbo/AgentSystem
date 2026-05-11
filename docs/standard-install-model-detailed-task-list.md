@@ -425,32 +425,41 @@ Status: [x] initial architecture doc landed
 ## 7. Phase 6 - Move assets, build, and runtime state out of source repo
 
 ### 7.1 Externalize runtime state directories
-- move runtime persistence out of repo
-- move context center state out of repo
-- move logs out of repo
-- move registry/state snapshots out of repo
+Status: [~] prerequisites largely prepared
+- Slice A/B moved most mutable runtime-state defaults behind the shared runtime resolver
+- remaining repo-anchored items are now mostly intentional asset/control-plane boundaries, not generic mutable-state defaults
+- Phase 6 should now focus on asset/control-plane separation rather than more broad `data/...` default cleanup
 
 ### 7.2 Externalize installed assets
+Status: [ ] next major implementation seam
 - define installed asset root outside repo
 - ensure runtime uses installed asset root, not repo `installed/`
 - migrate asset resolution logic accordingly
 
 ### 7.3 Externalize build artifacts
+Status: [ ] blocked on asset root map
 - define build output root outside repo for runtime-relevant artifacts
 - keep repo build outputs only for developer convenience if needed
 - ensure runtime does not depend on repo build directories
 
 ### 7.4 Decide treatment of source assets
-- keep dev source assets in repo for editing
-- copy/sync/install them into external data area when installing assets
-- ensure runtime discover/install operations target externalized source/install roots
+Status: [x] initial policy-plan draft landed
+- added `docs/phase-6-asset-control-plane-separation-plan.md`
+- documented remaining repo-anchored seams:
+  - repo-authored path-definition assets
+  - `AssetCenter` installed/build roots
+  - bootstrap `RuntimeCenter` persistence seam
+  - legacy compatibility in `skill_asset_service.py`
+- recommended next slice: treat repo-authored path definitions as packaged built-in control-plane assets first, then classify source/build/installed/runtime-registry roots before moving live asset paths
 
 ### 7.5 Add migration/bootstrap helpers
+Status: [ ] not started
 - add commands to initialize runtime layout
 - add commands to migrate old repo-local runtime data if needed
 - add checks that warn when runtime is still pointing into repo
 
 ### 7.6 Validate runtime/asset separation
+Status: [ ] not started
 - run installed runtime with repo absent from cwd assumptions
 - verify assets still discover/install/run correctly
 - verify persistence paths now land outside repo

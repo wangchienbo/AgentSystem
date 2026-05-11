@@ -12343,3 +12343,29 @@ This is the clearest closure signal yet for Slice B. The remaining repo-anchored
 - bootstrap pinning of repo-owned path-definition assets
 - transition compatibility logic in skill-asset path normalization
 That means the next meaningful workstream should shift from generic resolver adoption to the dedicated asset/control-plane separation slice.
+
+## 2026-05-12: Transitioned from Slice B cleanup into explicit Phase 6 asset/control-plane planning
+
+### Summary
+After the last Slice B rescan, the remaining repo-anchored path hits were no longer generic mutable-default debt. Instead of continuing to nibble at them piecemeal, I turned them into a formal Phase 6 separation plan. This keeps the migration disciplined: mutable state cleanup is treated as largely complete, and the next workstream is framed as asset/control-plane separation with clear work packages.
+
+### What Was Done
+- Added `docs/phase-6-asset-control-plane-separation-plan.md`
+- documented the remaining intentional repo-anchored seams:
+  - repo-authored path-definition assets
+  - `AssetCenter` installed/build roots
+  - bootstrap `RuntimeCenter` persistence seam
+  - legacy compatibility path normalization in `skill_asset_service.py`
+- defined Phase 6 work packages:
+  - asset root classification
+  - control-plane asset treatment decision
+  - installed asset externalization
+  - runtime registry persistence externalization
+  - legacy metadata/path migration
+- updated `docs/standard-install-model-detailed-task-list.md`
+  - marked Phase 7.1 prerequisites as largely prepared
+  - recorded the new planning doc under 7.4
+  - clarified that the next meaningful seam is asset/control-plane separation rather than more generic default cleanup
+
+### Notes
+This is the right handoff point. The next change should not be another broad grep cleanup. It should be a deliberate Phase 6 Slice C1 that decides how repo-authored control-plane assets are packaged and where source/build/installed/runtime-registry roots each belong under the install model.

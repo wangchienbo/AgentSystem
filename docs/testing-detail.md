@@ -2721,3 +2721,24 @@ At this point, the remaining repo-anchored path occurrences are predominantly de
 - repo-authored path assets still pinned during bootstrap
 - compatibility logic that still recognizes legacy `data/...` references during transition
 This is a good stopping point for generic mutable-default cleanup.
+
+## 2026-05-12 - Phase 6 planning handoff after Slice B closure
+
+### Scope
+After confirming Slice B generic mutable-default cleanup is effectively closed, I converted the remaining repo-anchored behavior into an explicit Phase 6 planning document instead of forcing premature path rewrites.
+
+### Artifacts added
+- `docs/phase-6-asset-control-plane-separation-plan.md`
+
+### Planning outcome
+- classified the remaining repo-anchored seams into:
+  - repo-authored path-definition assets
+  - `AssetCenter` installed/build roots
+  - bootstrap `RuntimeCenter` persistence seam
+  - legacy compatibility in `skill_asset_service.py`
+- proposed the next Phase 6 work packages and recommended execution order
+- recommended the next implementation slice as:
+  - **Phase 6 Slice C1**: decide control-plane asset treatment and publish the concrete root map before moving live asset roots
+
+### Validation
+- planning/documentation only in this round; no new runtime codepaths changed
