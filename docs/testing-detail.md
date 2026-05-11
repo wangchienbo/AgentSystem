@@ -2574,3 +2574,29 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Outcome
 - repaired bounded evidence now cleanly covers the contiguous slice `S10-S49`
 - this is the broadest bounded live baseline window achieved so far and leaves only the final jump to the full 50-scenario suite
+
+## 2026-05-11 - Final bounded full-suite rerun passed cleanly, 50/50 scenarios green
+
+### Targets
+- `docs/standard-install-model-detailed-task-list.md`
+- `docs/testing-detail.md`
+- `docs/development-log.md`
+
+### Trigger
+- after `S10-S49` passed cleanly, the remaining task-list goal was the final bounded rerun across the full 50-scenario suite
+- before launching, service reachability was checked explicitly to avoid the earlier connection-refused startup hiccup
+
+### Live rerun
+- precheck:
+  - `curl -sf http://localhost:80/api/status`
+- command:
+  - `PYTHONUNBUFFERED=1 timeout 1800 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --delay 0.5 --timeout 45 --wait-ready-seconds 5 --max-turns-per-scenario 5 --max-consecutive-failures 1 --output /tmp/e2e_full_50_bounded_turn5_probe.json`
+- observed behavior:
+  - `50/50` scenarios passed
+  - `250/250` executed turns succeeded
+  - no transport/service errors occurred
+  - all scenario-end history checks passed
+
+### Outcome
+- the repaired bounded live baseline now clears the entire 50-scenario suite
+- this closes the bounded Phase 4 repair loop with full-suite evidence rather than partial-slice confidence only

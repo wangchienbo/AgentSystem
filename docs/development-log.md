@@ -185,6 +185,32 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Closed the bounded repair loop, the full 50-scenario live suite passed cleanly
+
+### Summary
+I took the final bounded jump after the contiguous `S10-S49` window passed, and the result held. With service reachability checked up front, the full 50-scenario bounded rerun completed cleanly. All scenarios passed, all executed turns succeeded, no transport/service errors occurred, and all history checks passed. That gives us full-suite bounded evidence, not just growing-slice confidence.
+
+### What Was Done
+- Confirmed service reachability before launch
+- Ran the final bounded full-suite live rerun over all 50 scenarios
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - marked the bounded Phase 4 repair loop as effectively closed with full-suite success
+- Updated `docs/testing-detail.md`
+  - captured the status precheck, final rerun command, report path, and clean-pass summary
+
+### Validation
+- final bounded full-suite live rerun results:
+  - `50/50` scenarios passed
+  - `250/250` executed turns succeeded
+  - `0` transport/service errors
+  - all scenario-end history checks passed
+- report:
+  - `/tmp/e2e_full_50_bounded_turn5_probe.json`
+
+### Notes
+This is the strongest result in the entire repair sequence. The bounded user-level live baseline now passes across the full suite, which means the Phase 4 repair loop has reached its intended confidence target.
+
+
 ## 2026-05-11: Expanded the bounded live baseline to S10-S49, and it stayed clean after restoring service availability
 
 ### Summary
