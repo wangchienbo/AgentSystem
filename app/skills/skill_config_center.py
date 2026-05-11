@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from app.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,8 +27,9 @@ class SkillConfigCenter:
     Priority: runtime set() > local YAML > defaults
     """
 
-    def __init__(self, config_file: str = "data/skill_config/registry.yaml") -> None:
-        self._config_file = Path(config_file)
+    def __init__(self, config_file: str | None = None) -> None:
+        resolved_config_file = Path(config_file) if config_file else resolve_runtime_paths().data_dir / "skill_config" / "registry.yaml"
+        self._config_file = resolved_config_file
         self._configs: dict[str, dict[str, Any]] = {}
         self._load_local()
 

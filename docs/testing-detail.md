@@ -2684,3 +2684,21 @@ Expanded Slice B into more remaining mutable-state defaults while deliberately n
 
 ### Notes
 This wave moved more mutable runtime defaults under the shared resolver, but explicitly stopped short of migrating `AssetCenter` installed/build roots and bootstrap `RuntimeCenter` persistence semantics. Those paths participate in asset-lifecycle and startup-asset assumptions that should be handled in a later, dedicated slice rather than folded into general persistence cleanup.
+
+## 2026-05-12 - Runtime/persistence default-path adoption wave 3
+
+### Scope
+Closed another safe portion of Slice B by moving several remaining helper defaults from repo-local `data/...` assumptions to the shared runtime resolver, without changing the repo-curated path-definition bootstrap seam.
+
+### Code touched
+- `app/skills/generated_callable_materializer.py`
+- `app/skills/skill_config_center.py`
+- `app/persistence/path_store.py`
+- `tests/unit/test_runtime_path_adoption_wave3.py`
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py tests/unit/test_execution_chain_integration.py`
+- result: `76 passed`
+
+### Notes
+`PathStore` now has an install-model-aware default, but bootstrap still explicitly points it at the repo-owned path asset directory. That is intentional for now because path definitions are still treated as authored control-plane assets rather than migrated runtime-installed assets.

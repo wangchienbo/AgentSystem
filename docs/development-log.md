@@ -12303,3 +12303,23 @@ Important migration boundary learned this round:
 - do migrate mutable runtime state defaults behind the shared resolver now
 - do not yet migrate `AssetCenter` installed/build roots or bootstrap `RuntimeCenter` persistence path as part of generic Slice B cleanup
 - those asset/runtime-center paths are entangled with startup registration assumptions and belong in a later asset-lifecycle / runtime-registry migration slice
+
+## 2026-05-12: Landed the third safe resolver-adoption wave and narrowed the remaining Slice B tail
+
+### Summary
+I continued the Slice B tail-close by moving three more safe helper defaults behind the shared runtime resolver: generated callables, skill config registry storage, and path-store default location. The key discipline this round was preserving the current bootstrap seam for repo-curated path definitions while still making the helper itself install-model aware by default.
+
+### What Was Done
+- Updated:
+  - `GeneratedCallableMaterializer` default base dir -> resolved data/generated_callable_skills
+  - `SkillConfigCenter` default registry file -> resolved data/skill_config/registry.yaml
+  - `PathStore` default paths dir -> resolved data/paths
+- Added `tests/unit/test_runtime_path_adoption_wave3.py`
+- Revalidated execution-chain integration alongside runtime-path adoption coverage
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py tests/unit/test_execution_chain_integration.py`
+- result: `76 passed`
+
+### Notes
+This wave further shrinks the repo-local mutable-default surface area without prematurely migrating repo-authored path assets. The remaining meaningful migration boundary is now even clearer: helper/storage defaults can keep moving, but authored asset/control-plane roots should wait for the later asset-lifecycle separation slice.

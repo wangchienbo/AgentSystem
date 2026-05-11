@@ -12,6 +12,8 @@ from typing import Any
 
 import yaml
 
+from app.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,8 +59,9 @@ class PathStore:
             ...
     """
 
-    def __init__(self, paths_dir: str = "data/paths") -> None:
-        self._paths_dir = Path(paths_dir)
+    def __init__(self, paths_dir: str | None = None) -> None:
+        resolved_paths_dir = Path(paths_dir) if paths_dir else resolve_runtime_paths().data_dir / "paths"
+        self._paths_dir = resolved_paths_dir
         self._paths_dir.mkdir(parents=True, exist_ok=True)
         self._paths: dict[str, PathTemplate] = {}
 

@@ -611,3 +611,13 @@ Status: [x] second adoption wave landed
 - intentionally kept bootstrap `RuntimeCenter` on its existing repo-backed file to avoid changing system-asset startup semantics before the asset/runtime migration seam is explicitly handled
 - validation:
   - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py` -> `62 passed`
+
+### 5.10 Continue Slice B tail-close: adopt resolver for remaining safe data-root helpers
+Status: [x] third adoption wave landed
+- migrated additional safe data-root defaults behind the shared resolver for:
+  - `GeneratedCallableMaterializer`
+  - `SkillConfigCenter`
+  - `PathStore`
+- bootstrap still intentionally pins `PathStore` to the repo-curated path-definition directory, because those YAML path assets remain part of the repo-owned authored control plane during this migration stage
+- validation:
+  - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py tests/unit/test_execution_chain_integration.py` -> `76 passed`

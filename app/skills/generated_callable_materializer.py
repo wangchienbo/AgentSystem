@@ -7,6 +7,7 @@ from types import ModuleType
 from typing import Callable
 
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
+from app.runtime_paths import resolve_runtime_paths
 
 
 class GeneratedCallableMaterializerError(ValueError):
@@ -14,8 +15,9 @@ class GeneratedCallableMaterializerError(ValueError):
 
 
 class GeneratedCallableMaterializer:
-    def __init__(self, base_dir: str = "data/generated_callable_skills") -> None:
-        self._base_path = Path(base_dir)
+    def __init__(self, base_dir: str | None = None) -> None:
+        resolved_base_dir = Path(base_dir) if base_dir else resolve_runtime_paths().data_dir / "generated_callable_skills"
+        self._base_path = resolved_base_dir
         self._base_path.mkdir(parents=True, exist_ok=True)
 
     def materialize_handler(self, *, skill_id: str, operation: str) -> str:
