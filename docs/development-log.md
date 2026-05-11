@@ -185,6 +185,33 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Expanded the bounded live baseline again to S20-S49, and it stayed clean
+
+### Summary
+I kept pushing the contiguous bounded baseline outward instead of jumping blindly to the full suite. After `S30-S49` passed cleanly, I widened the same bounded 5-turn live window to `S20-S49`. The result held across the added context and security scenarios: all thirty scenarios passed, all executed turns succeeded, no transport/service errors occurred, and all scenario-end history checks passed.
+
+### What Was Done
+- Re-ran a broader bounded live slice over:
+  - `S20-S29`
+  - `S30-S49`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the repaired bounded live window now covers `S20-S49`
+- Updated `docs/testing-detail.md`
+  - captured the rerun command, report path, and clean-pass summary
+
+### Validation
+- broader bounded live rerun results:
+  - `30/30` scenarios passed
+  - `150/150` executed turns succeeded
+  - `0` transport/service errors
+  - all scenario-end history checks passed
+- report:
+  - `/tmp/e2e_s20_s49_bounded_turn5_probe.json`
+
+### Notes
+This is now the broadest contiguous repaired bounded live window in the suite. We have moved beyond local recovery and into a meaningful large-slice baseline that materially reduces the risk of the next jump toward the full 50-scenario run.
+
+
 ## 2026-05-11: Re-ran the corrected broader bounded slice S30-S49, and it passed cleanly end-to-end
 
 ### Summary
