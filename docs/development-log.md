@@ -185,6 +185,34 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Expanded the bounded live baseline to S10-S49, and it stayed clean after restoring service availability
+
+### Summary
+I took the next contiguous bounded jump toward the full suite by adding `S10-S19` in front of the already-clean `S20-S49` window. The first attempt exposed an operational issue, not a product regression: the local AgentSystem service was simply down, so the suite could not start and returned connection refused. After restoring service availability, I reran the broadened bounded slice and it passed cleanly end-to-end. That means the repaired bounded live window now covers `S10-S49`.
+
+### What Was Done
+- Restored the local AgentSystem web service when the first suite start failed due to `connection refused`
+- Re-ran a broader bounded live slice over:
+  - `S10-S19`
+  - `S20-S49`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the repaired bounded live window now covers `S10-S49`
+- Updated `docs/testing-detail.md`
+  - captured the operational hiccup, rerun command, report path, and clean-pass summary
+
+### Validation
+- broader bounded live rerun results:
+  - `40/40` scenarios passed
+  - `200/200` executed turns succeeded
+  - `0` transport/service errors
+  - all scenario-end history checks passed
+- report:
+  - `/tmp/e2e_s10_s49_bounded_turn5_probe.json`
+
+### Notes
+This is now the broadest contiguous repaired bounded live window in the suite. Only the final jump to the full 50-scenario bounded run remains.
+
+
 ## 2026-05-11: Expanded the bounded live baseline again to S20-S49, and it stayed clean
 
 ### Summary

@@ -2549,3 +2549,28 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Outcome
 - repaired bounded evidence now cleanly covers the contiguous slice `S20-S49`
 - this is the broadest bounded live baseline window achieved so far and materially de-risks the next step toward the full suite
+
+## 2026-05-11 - Broadened bounded live slice again to S10-S49, all 40 scenarios passed
+
+### Targets
+- `docs/standard-install-model-detailed-task-list.md`
+- `docs/testing-detail.md`
+- `docs/development-log.md`
+
+### Trigger
+- after `S20-S49` passed cleanly, the next contiguous expansion toward the full suite was to include `S10-S19`
+- the first attempt revealed a practical ops issue rather than a product issue: the local service was down, so the suite could not start (`connection refused`)
+- after restoring the local service, the broadened bounded rerun was repeated immediately
+
+### Live rerun
+- command:
+  - `PYTHONUNBUFFERED=1 timeout 1500 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --scenarios S10,S11,S12,S13,S14,S15,S16,S17,S18,S19,S20,S21,S22,S23,S24,S25,S26,S27,S28,S29,S30,S31,S32,S33,S34,S35,S36,S37,S38,S39,S40,S41,S42,S43,S44,S45,S46,S47,S48,S49 --delay 0.5 --timeout 45 --wait-ready-seconds 5 --max-turns-per-scenario 5 --max-consecutive-failures 1 --output /tmp/e2e_s10_s49_bounded_turn5_probe.json`
+- observed behavior:
+  - `40/40` scenarios passed
+  - `200/200` executed turns succeeded
+  - no transport/service errors occurred
+  - all scenario-end history checks passed
+
+### Outcome
+- repaired bounded evidence now cleanly covers the contiguous slice `S10-S49`
+- this is the broadest bounded live baseline window achieved so far and leaves only the final jump to the full 50-scenario suite
