@@ -12473,3 +12473,26 @@ I moved one step closer to the bootstrap boundary without flipping bootstrap beh
 
 ### Notes
 Behavior is intentionally unchanged. Bootstrap still uses repo-pinned source/installed/build roots and install-model data dir. The important gain is that the contract is now centralized and visible, which reduces risk for the eventual controlled bootstrap flip.
+
+## 2026-05-12: Added controlled bootstrap flip preview for Slice C2
+
+### Summary
+I prepared the first bootstrap flip candidate without enabling it live. The bootstrap asset-binding contract now supports an explicit preview mode that swaps installed/build roots to install-model targets while preserving repo source and current runtime-registry semantics. The CLI surfaces both the live binding and the preview binding side by side.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - extended `describe_phase6_asset_bootstrap_binding(...)` with `installed_assets_mode`
+  - added `install-model-preview` contract mode
+- Updated `app/cli.py`
+  - `runtime-layout` now exposes `bootstrap_asset_binding_preview`
+- Updated `tests/unit/test_bootstrap_asset_binding.py`
+  - added preview-mode assertions
+- Updated `tests/unit/test_cli.py`
+  - added preview binding assertions
+
+### Validation
+- `pytest -q tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `46 passed`
+
+### Notes
+This is still a non-flipping step. The key gain is that the first candidate bootstrap change is now represented as a named contract mode instead of a thought experiment. That will make the eventual live switch smaller and easier to review.

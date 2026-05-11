@@ -661,3 +661,4 @@ Status: [~] first live-code adoption landed
 - `CoreOrchestrator` now threads its `AssetCenter` installed-root choice into `SkillRegistryService`, removing one more hardcoded `installed/` caller seam from the non-bootstrap path
 - CLI `runtime-layout` now exposes an `asset_root_transition` block so operators can see both install-model target roots and legacy repo-pinned roots while Slice C2 remains in transition
 - bootstrap asset wiring is now described through a dedicated helper contract, and CLI `runtime-layout` exposes that binding so the repo-pinned asset roots vs install-model data root split is explicit before any bootstrap flip
+- bootstrap binding contract now supports an explicit `install-model-preview` mode so Slice C2 can inspect the first candidate installed/build root flip without changing live bootstrap behavior

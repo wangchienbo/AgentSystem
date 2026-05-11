@@ -82,16 +82,30 @@ from app.services.system_skills.memory import MemorySkillService
 from app.runtime_paths import resolve_runtime_paths
 
 
-def describe_phase6_asset_bootstrap_binding(project_root: str | Path | None = None) -> dict[str, str]:
+def describe_phase6_asset_bootstrap_binding(
+    project_root: str | Path | None = None,
+    *,
+    installed_assets_mode: str = "current",
+) -> dict[str, str]:
     root = Path(project_root) if project_root is not None else Path(__file__).resolve().parents[2]
     runtime_paths = resolve_runtime_paths(root)
+    if installed_assets_mode == "current":
+        installed_dir = root / "installed"
+        build_dir = root / "build"
+        binding_mode = "repo_pinned_assets_with_install_model_data"
+    elif installed_assets_mode == "install-model-preview":
+        installed_dir = runtime_paths.installed_assets_dir
+        build_dir = runtime_paths.build_dir
+        binding_mode = "install_model_asset_preview_with_repo_source"
+    else:
+        raise ValueError(f"Unsupported installed_assets_mode: {installed_assets_mode}")
     return {
         "source_dir": str(root / "source"),
-        "installed_dir": str(root / "installed"),
-        "build_dir": str(root / "build"),
+        "installed_dir": str(installed_dir),
+        "build_dir": str(build_dir),
         "data_dir": str(runtime_paths.data_dir),
         "runtime_registry_file": str(root / "data" / "runtime_center.json"),
-        "binding_mode": "repo_pinned_assets_with_install_model_data",
+        "binding_mode": binding_mode,
     }
 from app.services.interactive_app import InteractiveAppService
 from app.services.interactive_app_workflow import InteractiveAppWorkflow
