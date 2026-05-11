@@ -267,6 +267,15 @@ def _tool_route_budget(message_count: int) -> tuple[int, float]:
     return 3, 60.0
 
 
+def describe_tool_route_budget() -> list[dict[str, float | int]]:
+    return [
+        {"min_message_count": 0, "max_message_count": 3, "max_attempts": 3, "timeout_cap_seconds": 60.0},
+        {"min_message_count": 4, "max_message_count": 5, "max_attempts": 2, "timeout_cap_seconds": 55.0},
+        {"min_message_count": 6, "max_message_count": 7, "max_attempts": 2, "timeout_cap_seconds": 50.0},
+        {"min_message_count": 8, "max_message_count": -1, "max_attempts": 1, "timeout_cap_seconds": 45.0},
+    ]
+
+
 class OpenAIResponsesClient:
     def __init__(self, config: ModelConfig, api_key: str) -> None:
         self._config = config

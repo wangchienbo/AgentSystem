@@ -451,12 +451,18 @@ def test_execute_turns_tool_not_found(tmp_path) -> None:
 
 
 def test_tool_route_budget_gets_tighter_for_deeper_message_history() -> None:
-    from app.ai.model_client import _tool_route_budget
+    from app.ai.model_client import _tool_route_budget, describe_tool_route_budget
 
     assert _tool_route_budget(2) == (3, 60.0)
     assert _tool_route_budget(4) == (2, 55.0)
     assert _tool_route_budget(6) == (2, 50.0)
     assert _tool_route_budget(8) == (1, 45.0)
+    assert describe_tool_route_budget() == [
+        {"min_message_count": 0, "max_message_count": 3, "max_attempts": 3, "timeout_cap_seconds": 60.0},
+        {"min_message_count": 4, "max_message_count": 5, "max_attempts": 2, "timeout_cap_seconds": 55.0},
+        {"min_message_count": 6, "max_message_count": 7, "max_attempts": 2, "timeout_cap_seconds": 50.0},
+        {"min_message_count": 8, "max_message_count": -1, "max_attempts": 1, "timeout_cap_seconds": 45.0},
+    ]
 
 
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})

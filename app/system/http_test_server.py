@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from app.ai.model_client import describe_tool_route_budget
 from app.bootstrap.runtime import build_runtime
 from app.models.app_instance import AppInstance
 from app.models.chat import ChatMessageRequest
@@ -736,6 +737,7 @@ async def api_status():
         "timestamp": datetime.now().isoformat(),
         "active_sessions": len(user_sessions),
         "build_marker": RUNTIME_TRACE_BUILD,
+        "tool_route_budget": describe_tool_route_budget(),
     }
 
 
