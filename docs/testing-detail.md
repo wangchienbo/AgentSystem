@@ -2340,3 +2340,30 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_response_visibility.py`
 - `python3 -m pytest tests/unit/test_user_level_e2e_response_visibility.py tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
   - `7 passed`
+
+## 2026-05-11 - API chat error path now emits visible assistant text instead of silent empty replies
+
+### Targets
+- `app/system/http_test_server.py`
+- `tests/unit/test_http_test_server.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- log inspection of the isolated bounded `S41` rerun showed repeated upstream `429 Too Many Requests` failures inside `gateway.receive_message(...)`
+- the HTTP server was already catching those exceptions, but its error response did not populate `response`/`content` and did not append an assistant error message into conversation history, which is why user-level E2E was seeing silent empty replies
+
+### Changes
+- updated `/api/chat` exception handling so failures now:
+  - create a visible assistant error text: `LLM request failed: ...`
+  - append that assistant error message into `conversation_history`
+  - persist the visible error text into chat logs and observations
+  - return `response` and `content` fields in the HTTP JSON body even when `success=false`
+- added focused unit coverage for this error-path contract
+
+### Validation
+- `python3 -m py_compile app/system/http_test_server.py tests/unit/test_http_test_server.py`
+- `python3 -m pytest tests/unit/test_http_test_server.py::test_api_chat_error_returns_visible_response_and_history_entry tests/unit/test_user_level_e2e_response_visibility.py tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `8 passed`
+- restarted the local service and re-ran bounded `S41` with `--max-turns-per-scenario 5`
+  - turns that previously appeared as silent empties now surface explicit `LLM request failed: ... 429 ...`
+  - scenario-end history now fails for the honest reason: visible error markers remain in the conversation

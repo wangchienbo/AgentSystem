@@ -264,6 +264,7 @@ Status: [~] first prompt-shape mitigation landed
 - harness scenario users are now isolated by `run_id`, so future bounded reruns do not inherit stale session history from earlier diagnostics
 - bounded history expectations now follow the executed-turn count instead of the full scenario design length, so future diagnostic reruns fail only for relevant reasons
 - latest bounded 5-turn rerun with run-id isolation revealed a more honest remaining issue: some turns returned `ok=true` but with empty visible response text, so the harness now classifies empty user-visible responses as failures instead of counting them as successes
+- after restarting the service with the visible-error patch, the same bounded 5-turn rerun no longer produced silent empty replies; failing turns now surface explicit `LLM request failed: ... 429 ...` text, and scenario-end history correctly flags those error markers as the current remaining defect
 - next rerun should check whether the two-turn improvement extends to slightly deeper bounded windows (`3-5` turns) before retrying broader subset/full baseline work
 
 ### 4.5 Freeze baseline evidence

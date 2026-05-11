@@ -185,6 +185,38 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Made the HTTP chat error path user-visible so bounded E2E no longer hides upstream failures as empty replies
+
+### Summary
+I traced the current bounded `S41` defect one level deeper and found the actual product-side contract gap. The problem was not only in the harness. When `gateway.receive_message(...)` failed upstream, `/api/chat` caught the exception but returned no visible assistant text and also did not append an assistant-side error entry into history. That made real upstream `429` failures look like silent empty replies. I fixed the HTTP layer so these failures are now surfaced honestly to the user and to the E2E harness.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - `/api/chat` exception handling now builds a visible assistant message: `LLM request failed: ...`
+  - appends that assistant error message into `conversation_history`
+  - writes the visible error text into chat logs and observation records
+  - returns `response` and `content` fields even when `success=false`
+- Added `tests/unit/test_http_test_server.py`
+  - focused coverage for visible error response plus assistant history entry on failure
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the repaired path no longer hides upstream failures as empty replies
+- Updated `docs/testing-detail.md`
+  - captured the log evidence, error-path fix, restart, and rerun outcome
+
+### Validation
+- `python3 -m py_compile app/system/http_test_server.py tests/unit/test_http_test_server.py`
+- `python3 -m pytest tests/unit/test_http_test_server.py::test_api_chat_error_returns_visible_response_and_history_entry tests/unit/test_user_level_e2e_response_visibility.py tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `8 passed`
+- restarted the local service
+- reran bounded `S41` (`--max-turns-per-scenario 5`)
+  - silent empty replies disappeared
+  - failing turns now show explicit `LLM request failed: ... 429 ...`
+  - history checks now fail for the honest reason: visible error markers remain in the conversation
+
+### Notes
+This is a solid repair step. The bounded path is still not clean, but the remaining problem is now accurately surfaced as upstream `429` pressure rather than being hidden behind empty assistant turns.
+
+
 ## 2026-05-11: Tightened user-level E2E success semantics so silent empty replies no longer count as passing turns
 
 ### Summary

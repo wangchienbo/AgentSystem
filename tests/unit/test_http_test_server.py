@@ -209,6 +209,34 @@ def test_api_chat_accepts_rehydrated_cookie_session() -> None:
     assert data["context_view"] == {"stable_count": 2, "pending_count": 1}
 
 
+def test_api_chat_error_returns_visible_response_and_history_entry() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+    user_sessions["session_tester"] = {
+        "username": "tester",
+        "session_id": "session_tester",
+        "login_time": "2026-04-26T00:00:00",
+        "last_active": "2026-04-26T00:00:00",
+    }
+    conversation_history["session_tester"] = []
+    client.cookies.set("session_id", "session_tester")
+
+    with patch(
+        "app.system.http_test_server.gateway.receive_message",
+        new=AsyncMock(side_effect=RuntimeError("upstream 429")),
+    ):
+        response = client.post("/api/chat", json={"message": "ping"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is False
+    assert data["response"] == "LLM request failed: upstream 429"
+    assert data["content"] == "LLM request failed: upstream 429"
+    history = conversation_history["session_tester"]
+    assert history[-1]["role"] == "assistant"
+    assert history[-1]["content"] == "LLM request failed: upstream 429"
+
+
 def test_api_chat_exposes_recent_working_memory_view() -> None:
     user_sessions.clear()
     conversation_history.clear()
@@ -221,7 +249,6 @@ def test_api_chat_exposes_recent_working_memory_view() -> None:
     conversation_history["session_tester"] = []
     client.cookies.set("session_id", "session_tester")
 
-    from unittest.mock import AsyncMock, patch
     from app.models.chat import ChatMessageResponse
 
     fake_reply = ChatMessageResponse(

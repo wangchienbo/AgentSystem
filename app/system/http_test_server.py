@@ -588,17 +588,23 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
         error_text = str(e)
         error_type = type(e).__name__
         logger.exception("Error processing message")
+        visible_error = f"LLM request failed: {error_text}"
         conversation_history.setdefault(session_id, []).append({
             "role": "user",
             "content": req.message,
             "timestamp": started_at.isoformat(),
+        })
+        conversation_history.setdefault(session_id, []).append({
+            "role": "assistant",
+            "content": visible_error,
+            "timestamp": finished_at.isoformat(),
         })
         _append_chat_log(session_id, {
             "timestamp": finished_at.isoformat(),
             "session_id": session_id,
             "username": user.get("username", "anonymous"),
             "request": req.message,
-            "response": None,
+            "response": visible_error,
             "success": False,
             "error": error_text,
             "error_type": error_type,
@@ -607,7 +613,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
         persist_chat_observation(
             probe=build_chat_observation_probe(
                 request=req.message,
-                response=error_text,
+                response=visible_error,
                 success=False,
                 latency_ms=latency_ms,
                 session_id=session_id,
@@ -615,7 +621,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
                 error_type=error_type,
             )
         )
-        return {"success": False, "error": f"LLM request failed: {error_text}", "error_type": error_type, "session_id": session_id, "latency_ms": latency_ms}
+        return {"success": False, "error": visible_error, "error_type": error_type, "session_id": session_id, "latency_ms": latency_ms, "response": visible_error, "content": visible_error}
 
 
 @app.post("/api/chat-regression/run")
