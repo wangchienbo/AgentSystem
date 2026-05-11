@@ -12496,3 +12496,25 @@ I prepared the first bootstrap flip candidate without enabling it live. The boot
 
 ### Notes
 This is still a non-flipping step. The key gain is that the first candidate bootstrap change is now represented as a named contract mode instead of a thought experiment. That will make the eventual live switch smaller and easier to review.
+
+## 2026-05-12: Added isolated bootstrap-runtime test seam before the first live flip
+
+### Summary
+Before flipping bootstrap behavior, I added isolated test support that can boot the runtime under injected config/home paths and verify the current-vs-preview binding delta explicitly. This closes an important validation gap: bootstrap tests no longer need to depend on host-level config placement just to prove the Slice C2 seam is stable.
+
+### What Was Done
+- Added `tests/unit/bootstrap_test_helper.py`
+  - provisions isolated `config.yaml`
+  - injects `AGENTSYSTEM_HOME` / `AGENTSYSTEM_CONFIG_DIR`
+  - calls `build_runtime(...)` in a host-independent way
+- Added `tests/unit/test_bootstrap_runtime_isolation.py`
+  - asserts isolated bootstrap reaches ready state
+  - asserts `current` vs `install-model-preview` bindings diverge only at the installed/build asset seam
+  - asserts runtime-registry binding remains unchanged
+
+### Validation
+- `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `47 passed`
+
+### Notes
+This was the missing test seam before attempting the first live bootstrap flip. We now have isolated evidence that bootstrap still comes up under injected runtime paths and that the preview contract is narrow enough to review precisely.

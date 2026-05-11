@@ -2817,3 +2817,12 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
 - validation extension:
   - `pytest -q tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
   - result: `46 passed`
+
+### Slice C2 isolated bootstrap test seam before live flip
+- added `tests/unit/bootstrap_test_helper.py` to build `build_runtime()` under injected config/home without relying on host-level `/root/.local/share/agentsystem/config/config.yaml`
+- added `tests/unit/test_bootstrap_runtime_isolation.py`
+  - verifies isolated bootstrap startup still reaches ready state
+  - verifies current bootstrap binding differs from preview binding only on the intended installed/build asset seam while runtime-registry binding remains unchanged
+- validation extension:
+  - `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+  - result: `47 passed`
