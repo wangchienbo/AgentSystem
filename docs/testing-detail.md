@@ -2445,3 +2445,28 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - bounded repaired behavior now extends beyond the system/operator slice into the adjacent cross-interaction slice
 - current repaired bounded evidence covers `S41-S49` with clean pass results across both subsets
 - next useful move is to merge repaired slices into a broader bounded baseline window before retrying the full 50-scenario run
+
+## 2026-05-11 - Merged repaired bounded slices into one combined S41-S49 rerun, all 9 scenarios passed
+
+### Targets
+- `docs/standard-install-model-detailed-task-list.md`
+- `docs/testing-detail.md`
+- `docs/development-log.md`
+
+### Trigger
+- after both repaired bounded subsets (`S41-S45` and `S46-S49`) passed independently, the next evidence step was to merge them into one larger bounded baseline window
+- this checks whether the repaired behavior remains stable when both slices run back-to-back in one live execution instead of as isolated batches
+
+### Live rerun
+- command:
+  - `PYTHONUNBUFFERED=1 timeout 600 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --scenarios S41,S42,S43,S44,S45,S46,S47,S48,S49 --delay 0.5 --timeout 45 --wait-ready-seconds 5 --max-turns-per-scenario 5 --max-consecutive-failures 1 --output /tmp/e2e_s41_s49_combined_turn5_probe.json`
+- observed behavior:
+  - `9/9` scenarios passed
+  - `45/45` executed turns succeeded
+  - no transport/service errors occurred
+  - all scenario-end history checks passed
+
+### Outcome
+- repaired bounded evidence now covers the combined contiguous slice `S41-S49` in a single live run
+- this is a stronger signal than separate subset passes because it confirms the repaired path remains stable across a larger chained baseline window
+- next useful decision is whether to widen once more into the next adjacent slice or to take a larger bounded jump toward the full 50-scenario suite

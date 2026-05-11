@@ -185,6 +185,42 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Merged the repaired bounded slices into one contiguous S41-S49 live rerun, and it stayed clean
+
+### Summary
+I combined the two repaired bounded slices into one larger live baseline window instead of keeping them as separate success stories. This is a stronger validation step because it asks whether the repaired behavior remains stable when the slices run back-to-back in one continuous execution. The result held: `S41-S49` passed cleanly in the bounded 5-turn window, all executed turns succeeded, no transport/service errors occurred, and all history checks passed.
+
+### What Was Done
+- Ran a combined bounded live rerun over:
+  - `S41`
+  - `S42`
+  - `S43`
+  - `S44`
+  - `S45`
+  - `S46`
+  - `S47`
+  - `S48`
+  - `S49`
+- Command used:
+  - `tests/e2e/test_50_scenarios_20_turns_user_level.py --scenarios S41,S42,S43,S44,S45,S46,S47,S48,S49 --max-turns-per-scenario 5 --max-consecutive-failures 1 ...`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the combined repaired bounded slice now clears in one live run
+- Updated `docs/testing-detail.md`
+  - captured the command, report path, and pass summary
+
+### Validation
+- bounded combined live rerun results:
+  - `9/9` scenarios passed
+  - `45/45` executed turns succeeded
+  - `0` transport/service errors
+  - all scenario-end history checks passed
+- report:
+  - `/tmp/e2e_s41_s49_combined_turn5_probe.json`
+
+### Notes
+This is the strongest bounded baseline signal so far. We now have one contiguous repaired live slice covering `S41-S49`, not just separate clusters that happened to pass individually.
+
+
 ## 2026-05-11: Extended the repaired bounded live baseline again, S46-S49 also passed cleanly
 
 ### Summary
