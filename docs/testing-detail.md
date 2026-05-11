@@ -2470,3 +2470,35 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - repaired bounded evidence now covers the combined contiguous slice `S41-S49` in a single live run
 - this is a stronger signal than separate subset passes because it confirms the repaired path remains stable across a larger chained baseline window
 - next useful decision is whether to widen once more into the next adjacent slice or to take a larger bounded jump toward the full 50-scenario suite
+
+## 2026-05-11 - Broadened bounded slice to S30-S49, uncovered and fixed one harness-only S31 history mismatch
+
+### Targets
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `tests/unit/test_user_level_e2e_history_expectations.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after `S41-S49` passed as one contiguous repaired bounded slice, the next useful move was a larger bounded jump to `S30-S49`
+- that broader run passed `19/20` scenarios; the only failure was `S31`, and inspection showed it was not a product/runtime regression but a harness accounting bug
+
+### Root cause
+- `S31` intentionally includes empty and whitespace-only turns
+- the harness already skips those synthetic inputs instead of issuing HTTP calls
+- scenario-end history expectations were still counting them as if they should appear in persisted `/api/history`, which caused `expected 5 user turns, got 3`
+
+### Changes
+- added `_history_counted_turns(...)` to filter out synthetic empty-input placeholder turns from persisted-history expectations
+- added focused unit coverage proving `S31` synthetic empty turns no longer inflate expected user-turn counts
+- reran bounded `S31` after the fix and confirmed scenario-end history checks pass cleanly
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_history_expectations.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `7 passed`
+- bounded rerun:
+  - `tests/e2e/test_50_scenarios_20_turns_user_level.py --scenarios S31 --max-turns-per-scenario 5 --max-consecutive-failures 1`
+  - scenario passed with history checks passing
+- reports:
+  - broad slice: `/tmp/e2e_s30_s49_bounded_turn5_probe.json`
+  - focused post-fix S31: `/tmp/e2e_s31_bounded_turn5_postfix.json`

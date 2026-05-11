@@ -619,6 +619,21 @@ def _wait_for_service(base_url: str, timeout_seconds: float = 30.0) -> tuple[boo
     return False, last_error
 
 
+def _history_counted_turns(result: ScenarioResult) -> list[TurnResult]:
+    counted: list[TurnResult] = []
+    for turn in result.turns:
+        if turn.session_id:
+            counted.append(turn)
+            continue
+        if turn.error:
+            counted.append(turn)
+            continue
+        if turn.content_preview == "(empty input — expected to handle gracefully)":
+            continue
+        counted.append(turn)
+    return counted
+
+
 def _evaluate_scenario_history(scenario: dict, history: list[dict[str, Any]], result: ScenarioResult) -> ScenarioExpectationResult:
     checks: list[str] = []
     failures: list[str] = []
@@ -626,7 +641,7 @@ def _evaluate_scenario_history(scenario: dict, history: list[dict[str, Any]], re
     user_messages = [item for item in history if item.get("role") == "user"]
     assistant_messages = [item for item in history if item.get("role") == "assistant"]
 
-    expected_turns = len(result.turns)
+    expected_turns = len(_history_counted_turns(result))
 
     if len(user_messages) != expected_turns:
         failures.append(f"expected {expected_turns} user turns, got {len(user_messages)}")

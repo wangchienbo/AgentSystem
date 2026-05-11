@@ -185,6 +185,40 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Broadened the bounded live baseline to S30-S49, then fixed the last remaining S31 harness-only history mismatch
+
+### Summary
+I took the next larger bounded jump after the combined `S41-S49` pass and expanded the live probe to `S30-S49`. That run was valuable because it almost fully held: `19/20` scenarios passed, and the only failure was `S31`. After inspection, that failure was not a runtime/product regression. It was a harness accounting issue around `S31`'s intentionally empty-input turns. Those turns are skipped from HTTP/history on purpose, but the persisted-history checker was still counting them as if they should appear. I fixed that expectation logic and confirmed `S31` passes cleanly afterward.
+
+### What Was Done
+- Ran a broader bounded live rerun over `S30-S49`
+- Inspected the only failing scenario, `S31`
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - added `_history_counted_turns(...)`
+  - synthetic empty-input placeholder turns no longer inflate persisted-history expectations
+- Updated `tests/unit/test_user_level_e2e_history_expectations.py`
+  - added focused coverage for `S31` synthetic empty-input accounting
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the broader slice surfaced a harness-only edge case, now fixed
+- Updated `docs/testing-detail.md`
+  - captured the broad rerun, root cause, patch, and focused post-fix rerun
+
+### Validation
+- broader bounded live rerun:
+  - `S30-S49`
+  - `19/20` scenarios passed before the harness fix
+  - only failure: `S31` history expectation mismatch
+- unit validation:
+  - `python3 -m pytest tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `7 passed`
+- focused post-fix bounded rerun:
+  - `S31` passed cleanly
+  - scenario-end history checks passed
+
+### Notes
+This is encouraging because the broader slice did not reveal a new runtime/product collapse. It surfaced one more expectation bug in the harness, and that bug is now fixed. The next meaningful step is to repeat the broader `S30-S49` bounded slice with the corrected harness and see whether the repaired baseline now holds end-to-end across the entire expanded window.
+
+
 ## 2026-05-11: Merged the repaired bounded slices into one contiguous S41-S49 live rerun, and it stayed clean
 
 ### Summary
