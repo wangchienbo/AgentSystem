@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.cli import build_parser, run_cli
+from app.runtime_paths import resolve_runtime_paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -24,14 +25,15 @@ def test_build_parser_supports_phase1_command_surface() -> None:
 
 def test_run_cli_returns_status_contract_for_top_level_command() -> None:
     result = run_cli(["status"])
+    expected = resolve_runtime_paths(REPO_ROOT)
     assert result.command == "status"
     assert result.details["status"] in {"ok", "needs_attention"}
     assert str(result.details["repo_root"]) == str(REPO_ROOT)
-    assert result.details["operation_scope"] == "source_repo_health_view"
+    assert result.details["operation_scope"] == "resolved_runtime_health_view"
     assert result.details["status_reason"] in {"all_transition_checks_passed", "missing_transition_prerequisites"}
     assert isinstance(result.details["missing_checks"], list)
     assert "service_reachable" in result.details
-    assert "config_file" in result.details
+    assert str(result.details["config_file"]) == str(expected.config_file)
 
 
 def test_run_cli_returns_not_implemented_contract_for_start() -> None:
@@ -48,25 +50,27 @@ def test_run_cli_returns_not_implemented_contract_for_start() -> None:
 
 def test_run_cli_returns_runtime_layout_contract() -> None:
     result = run_cli(["runtime-layout"])
+    expected = resolve_runtime_paths(REPO_ROOT)
     assert result.command == "runtime-layout"
     assert result.details["status"] == "ok"
-    assert result.details["layout_mode"] == "transition_repo_anchored"
-    assert result.details["operation_scope"] == "source_repo_layout_view"
-    assert str(result.details["config_dir"]) == str(REPO_ROOT / "config")
-    assert str(result.details["installed_dir"]) == str(REPO_ROOT / "installed")
+    assert result.details["layout_mode"] == "transition_install_model_ready"
+    assert result.details["operation_scope"] == "resolved_runtime_layout_view"
+    assert str(result.details["config_dir"]) == str(expected.config_dir)
+    assert str(result.details["installed_assets_dir"]) == str(expected.installed_assets_dir)
 
 
 def test_run_cli_returns_doctor_checks() -> None:
     result = run_cli(["doctor"])
     assert result.command == "doctor"
     assert result.details["status"] in {"ok", "needs_attention"}
-    assert result.details["operation_scope"] == "source_repo_health_view"
+    assert result.details["operation_scope"] == "resolved_runtime_health_view"
     assert result.details["status_reason"] in {"all_transition_checks_passed", "missing_transition_prerequisites"}
     assert isinstance(result.details["missing_checks"], list)
     checks = result.details["checks"]
     assert isinstance(checks, dict)
     assert "config_dir" in checks
     assert "data_dir" in checks
+    assert "state_dir" in checks
     assert "config_file" in checks
     assert "service_reachable" in checks
     assert isinstance(result.details["next_actions"], list)

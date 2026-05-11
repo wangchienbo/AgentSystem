@@ -7,9 +7,11 @@ from pathlib import Path
 import yaml
 
 from app.models.model_config import ModelConfig
+from app.runtime_paths import resolve_runtime_paths
 
-DEFAULT_AGENTSYSTEM_HOME = Path(os.getenv("AGENTSYSTEM_HOME", Path.home() / ".config" / "agentsystem"))
-DEFAULT_MODEL_CONFIG_PATH = DEFAULT_AGENTSYSTEM_HOME / "config.yaml"
+DEFAULT_RUNTIME_PATHS = resolve_runtime_paths()
+DEFAULT_AGENTSYSTEM_HOME = DEFAULT_RUNTIME_PATHS.home_dir
+DEFAULT_MODEL_CONFIG_PATH = DEFAULT_RUNTIME_PATHS.config_file
 LEGACY_MODEL_JSON_PATH = DEFAULT_AGENTSYSTEM_HOME / "model.local.json"
 LEGACY_MODEL_ENV_PATH = DEFAULT_AGENTSYSTEM_HOME / "model.local.env"
 

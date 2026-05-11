@@ -567,3 +567,20 @@ By the end of this workstream, the repo should contain:
 
 - [x] add bounded route-aware timeout/retry budgeting for deeper GLM tool routes so later governance self-iteration paths do not amplify `1seey` `504` responses into multi-minute waits
 - [ ] rerun live governance self-iteration validation after the route-aware timeout/retry change
+
+### 5.7 Implement first migration slice: shared runtime path resolver
+Status: [x] initial resolver landed
+- added `app/runtime_paths.py` as the shared runtime layout resolver
+- resolver now defines:
+  - `AGENTSYSTEM_HOME`
+  - `AGENTSYSTEM_CONFIG_DIR`
+  - `AGENTSYSTEM_DATA_DIR`
+  - `AGENTSYSTEM_STATE_DIR`
+  - `AGENTSYSTEM_CACHE_DIR`
+  - `AGENTSYSTEM_LOG_DIR`
+  - `AGENTSYSTEM_ASSET_DIR`
+- CLI `runtime-layout` / `doctor` / planned command surfaces now report resolved install-model paths instead of only repo-anchored directory literals
+- `app/ai/model_config_loader.py` now resolves its default config path from the shared runtime path contract
+- added focused unit coverage for resolver defaults, env overrides, CLI layout/doctor integration, and model-config default path wiring
+- validation:
+  - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_cli.py tests/unit/test_model_config.py` -> `15 passed`

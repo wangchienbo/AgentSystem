@@ -12217,3 +12217,40 @@ After writing the target install-model architecture, I took the next useful step
 
 ### Notes
 This is the point where the workstream shifts from architecture definition to migration implementation planning. The next code change should now be surgical: introduce a shared runtime path resolver instead of scattering path edits across unrelated subsystems.
+
+## 2026-05-12: Implemented Slice A of the install-model migration, shared runtime path resolver
+
+### Summary
+I started the first real migration code slice after the architecture and inventory phases. Instead of editing many runtime stores at once, I introduced a shared runtime path resolver and wired the CLI plus model-config default path to the same contract. This turns the install-model path design into executable code without yet risking broad persistence behavior changes.
+
+### What Was Done
+- Added `app/runtime_paths.py`
+  - centralizes runtime home/layout resolution
+  - supports:
+    - `AGENTSYSTEM_HOME`
+    - `AGENTSYSTEM_CONFIG_DIR`
+    - `AGENTSYSTEM_DATA_DIR`
+    - `AGENTSYSTEM_STATE_DIR`
+    - `AGENTSYSTEM_CACHE_DIR`
+    - `AGENTSYSTEM_LOG_DIR`
+    - `AGENTSYSTEM_ASSET_DIR`
+  - defines resolved roots for config/data/state/cache/logs/installed-assets/build artifacts
+  - preserves repo-root visibility for legacy compatibility reporting
+- Updated `app/cli.py`
+  - `runtime-layout` now returns resolved install-model paths
+  - `doctor` now checks resolved runtime roots instead of only repo-local directories
+  - planned command responses now expose the resolved home dir context
+  - start-command suggestion now uses resolved `AGENTSYSTEM_DATA_DIR`
+- Updated `app/ai/model_config_loader.py`
+  - default config path now comes from the shared runtime path resolver
+- Added/updated tests:
+  - `tests/unit/test_runtime_paths.py`
+  - `tests/unit/test_cli.py`
+  - `tests/unit/test_model_config.py`
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_cli.py tests/unit/test_model_config.py`
+- result: `15 passed`
+
+### Notes
+This is intentionally the narrowest high-leverage migration slice. The next migration slice should move runtime/persistence defaults behind this resolver so mutable state no longer defaults to repo-local `data/...` paths.

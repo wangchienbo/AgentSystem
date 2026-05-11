@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.services.model_config_loader import ModelConfigLoader
+from app.runtime_paths import resolve_runtime_paths
 
 
 def test_model_config_loader_from_yaml_file(tmp_path: Path) -> None:
@@ -38,3 +39,11 @@ def test_model_config_loader_from_env(monkeypatch) -> None:
 
     assert config.base_url == "https://crs.ruinique.com"
     assert config.model == "gpt-5.4"
+
+
+def test_model_config_loader_defaults_to_runtime_paths_config(monkeypatch) -> None:
+    monkeypatch.delenv("AGENTSYSTEM_HOME", raising=False)
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    loader = ModelConfigLoader()
+
+    assert loader._local_config_path == resolve_runtime_paths().config_file

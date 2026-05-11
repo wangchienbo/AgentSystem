@@ -2622,3 +2622,23 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `0` transport/service errors
 - all scenario-end history checks passed
 - this bounded full-suite result is the pre-install-model truth set for subsequent before/after comparison unless the acceptance contract is explicitly changed
+
+## 2026-05-12 - Shared runtime path resolver slice
+
+### Scope
+Implemented the first install-model migration slice by introducing a shared runtime path resolver and wiring the initial control-plane/config surfaces to it.
+
+### Code touched
+- `app/runtime_paths.py`
+- `app/cli.py`
+- `app/ai/model_config_loader.py`
+- `tests/unit/test_runtime_paths.py`
+- `tests/unit/test_cli.py`
+- `tests/unit/test_model_config.py`
+
+### Validation
+- `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_cli.py tests/unit/test_model_config.py`
+- result: `15 passed`
+
+### Notes
+This slice does not yet migrate all runtime writers off repo-local `data/...` defaults. It establishes the shared path contract first so later slices can replace those defaults incrementally instead of scattering path logic across subsystems.

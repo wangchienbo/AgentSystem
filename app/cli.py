@@ -7,16 +7,8 @@ from typing import Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
 
+from app.runtime_paths import resolve_runtime_paths
 from app.skills.system_skill_registry import SYSTEM_SKILL_SPECS
-
-
-DEFAULT_LAYOUT_DIRS = {
-    "config_dir": "config",
-    "data_dir": "data",
-    "logs_dir": "logs",
-    "installed_dir": "installed",
-    "build_dir": "build",
-}
 
 
 @dataclass(frozen=True)
@@ -27,6 +19,7 @@ class CLIResult:
 
 
 def _planned_command_result(command: str, repo_root: Path) -> CLIResult:
+    runtime_paths = resolve_runtime_paths(repo_root)
     return CLIResult(
         command=command,
         exit_code=2,
@@ -36,6 +29,7 @@ def _planned_command_result(command: str, repo_root: Path) -> CLIResult:
             "operation_scope": "installed_runtime_target_not_yet_wired",
             "next_step": "use status/doctor to inspect readiness before wiring live runtime control",
             "suggested_start_command": _start_command(repo_root),
+            "home_dir": str(runtime_paths.home_dir),
         },
     )
 
@@ -79,18 +73,13 @@ def _builtin_asset_records() -> list[dict[str, object]]:
 
 
 def _runtime_layout(repo_root: Path) -> dict[str, object]:
-    layout: dict[str, object] = {
+    runtime_paths = resolve_runtime_paths(repo_root)
+    return {
         "repo_root": str(repo_root),
-        "layout_mode": "transition_repo_anchored",
-        "operation_scope": "source_repo_layout_view",
+        "layout_mode": "transition_install_model_ready",
+        "operation_scope": "resolved_runtime_layout_view",
+        **runtime_paths.as_dict(),
     }
-    for key, rel in DEFAULT_LAYOUT_DIRS.items():
-        layout[key] = str(repo_root / rel)
-    return layout
-
-
-def _config_file() -> Path:
-    return Path.home() / ".config" / "agentsystem" / "config.yaml"
 
 
 def _service_health(port: int = 80) -> dict[str, object]:
@@ -119,7 +108,8 @@ def _service_health(port: int = 80) -> dict[str, object]:
 def _start_command(repo_root: Path, port: int = 80) -> str:
     python_bin = repo_root / ".venv" / "bin" / "python3"
     app_dir = repo_root
-    runtime_dir = repo_root / DEFAULT_LAYOUT_DIRS["data_dir"]
+    runtime_paths = resolve_runtime_paths(repo_root)
+    runtime_dir = runtime_paths.data_dir
     base = str(python_bin) if python_bin.exists() else "python3"
     return (
         f"mkdir -p {runtime_dir} && "
@@ -131,23 +121,37 @@ def _start_command(repo_root: Path, port: int = 80) -> str:
 
 def _doctor_status(repo_root: Path) -> dict[str, object]:
     layout = _runtime_layout(repo_root)
-    config_file = _config_file()
     checks = {
         key: Path(str(value)).exists()
         for key, value in layout.items()
-        if key not in {"repo_root", "layout_mode", "operation_scope"}
+        if key
+        not in {
+            "repo_root",
+            "layout_mode",
+            "operation_scope",
+            "legacy_repo_installed_dir",
+            "legacy_repo_build_dir",
+        }
     }
-    checks["config_file"] = config_file.exists()
     service = _service_health()
     checks["service_reachable"] = bool(service["service_reachable"])
     missing_checks = [name for name, ok in checks.items() if not ok]
     status = "ok" if not missing_checks else "needs_attention"
     next_actions: list[str] = []
     if not checks["config_file"]:
-        next_actions.append(f"create config file at {config_file}")
+        next_actions.append(f"create config file at {layout['config_file']}")
     if not checks["service_reachable"]:
         next_actions.append(f"start local HTTP service via: {_start_command(repo_root)}")
-    for key in ["config_dir", "data_dir", "logs_dir", "installed_dir", "build_dir"]:
+    for key in [
+        "home_dir",
+        "config_dir",
+        "data_dir",
+        "state_dir",
+        "cache_dir",
+        "logs_dir",
+        "installed_assets_dir",
+        "build_dir",
+    ]:
         if not checks.get(key):
             next_actions.append(f"create runtime directory: {layout[key]}")
     return {
@@ -155,12 +159,11 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
         "status_reason": "all_transition_checks_passed" if status == "ok" else "missing_transition_prerequisites",
         "missing_checks": missing_checks,
         "checks": checks,
-        "config_file": str(config_file),
         "suggested_start_command": _start_command(repo_root),
         "next_actions": next_actions,
         **service,
         **layout,
-        "operation_scope": "source_repo_health_view",
+        "operation_scope": "resolved_runtime_health_view",
     }
 
 
