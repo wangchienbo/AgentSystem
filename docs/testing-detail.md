@@ -2396,3 +2396,27 @@ This is an initial static validation pass for the refreshed harness. Live subset
   - scenario-end history checks passed
   - status/operator turns under provider pressure degraded to the conservative visible fallback text
 - report: `/tmp/e2e_s41_turn5_probe_429degrade.json`
+
+## 2026-05-11 - Widened bounded live rerun from S41 to system/operator subset S41-S45, all 5 scenarios passed
+
+### Targets
+- `docs/standard-install-model-detailed-task-list.md`
+- `docs/testing-detail.md`
+- `docs/development-log.md`
+
+### Trigger
+- after `S41` alone cleared the repaired 5-turn bounded probe, the next task-list-aligned move was to test whether the same repair stack generalizes to the adjacent system/operator scenarios instead of staying at a single-scenario anecdote
+
+### Live rerun
+- command:
+  - `PYTHONUNBUFFERED=1 timeout 420 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --scenarios S41,S42,S43,S44,S45 --delay 0.5 --timeout 45 --wait-ready-seconds 5 --max-turns-per-scenario 5 --max-consecutive-failures 1 --output /tmp/e2e_system_subset_turn5_probe.json`
+- observed behavior:
+  - `5/5` scenarios passed
+  - `25/25` executed turns succeeded
+  - no transport/service errors occurred
+  - all scenario-end history checks passed
+  - provider pressure still degraded into the conservative visible fallback text where needed, without breaking the bounded user-level baseline
+
+### Outcome
+- this is the first bounded multi-scenario confirmation that the repaired operator/system path is not just a single `S41` outlier
+- current evidence supports treating `S41-S45` as a repaired bounded subset and moving outward to the next adjacent slice before a full 50-scenario retry

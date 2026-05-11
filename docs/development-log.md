@@ -185,6 +185,38 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Expanded the repaired live probe from S41 to S41-S45 and cleared the bounded five-scenario system/operator subset
+
+### Summary
+I widened the repaired live rerun from one scenario to the adjacent system/operator cluster. This was the right next step after the bounded `S41` win, because a single passing scenario is evidence, but not yet a trustworthy subset. The result was strong: `S41-S45` all passed in the bounded 5-turn window, all executed turns succeeded, no transport/service errors appeared, and all history checks passed. That means the repair stack is now showing multi-scenario generalization across the system/operator slice rather than only surviving one hand-picked case.
+
+### What Was Done
+- Ran a widened bounded live rerun over:
+  - `S41`
+  - `S42`
+  - `S43`
+  - `S44`
+  - `S45`
+- Command used:
+  - `tests/e2e/test_50_scenarios_20_turns_user_level.py --scenarios S41,S42,S43,S44,S45 --max-turns-per-scenario 5 --max-consecutive-failures 1 ...`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the repaired system/operator subset now clears bounded 5-turn live reruns
+- Updated `docs/testing-detail.md`
+  - captured the command, report path, and pass summary
+
+### Validation
+- bounded multi-scenario live rerun results:
+  - `5/5` scenarios passed
+  - `25/25` executed turns succeeded
+  - `0` transport/service errors
+  - all scenario-end history checks passed
+- report:
+  - `/tmp/e2e_system_subset_turn5_probe.json`
+
+### Notes
+This is the first good signal that the Phase 4 repair loop is starting to produce a genuinely reusable bounded baseline, not just a repaired anecdote. The next move should be to widen outward again, one adjacent slice at a time, before going back to the full 50-scenario run.
+
+
 ## 2026-05-11: Reclassified tool-route 429 as retryable degradation and cleared the bounded S41 five-turn live probe
 
 ### Summary
