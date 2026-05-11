@@ -79,6 +79,13 @@ def _runtime_layout(repo_root: Path) -> dict[str, object]:
         "layout_mode": "transition_install_model_ready",
         "operation_scope": "resolved_runtime_layout_view",
         **runtime_paths.as_dict(),
+        "asset_root_transition": {
+            "installed_runtime_assets": str(runtime_paths.installed_assets_dir),
+            "build_artifacts": str(runtime_paths.build_dir),
+            "legacy_repo_installed": str(runtime_paths.legacy_repo_installed_dir),
+            "legacy_repo_build": str(runtime_paths.legacy_repo_build_dir),
+            "bootstrap_status": "repo_pinned_during_transition",
+        },
     }
 
 
@@ -131,6 +138,7 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
             "operation_scope",
             "legacy_repo_installed_dir",
             "legacy_repo_build_dir",
+            "asset_root_transition",
         }
     }
     service = _service_health()

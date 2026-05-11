@@ -2785,3 +2785,15 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
 - validation extension:
   - `pytest -q tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
   - result: `35 passed`
+
+### Slice C2 operator-facing inspection enhancement
+- `app/cli.py` `runtime-layout` now exposes `asset_root_transition` with:
+  - `installed_runtime_assets`
+  - `build_artifacts`
+  - `legacy_repo_installed`
+  - `legacy_repo_build`
+  - `bootstrap_status`
+- this does not flip bootstrap behavior; it makes the transition state explicitly inspectable for operators and tests
+- validation extension:
+  - `pytest -q tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+  - result: `44 passed`

@@ -57,6 +57,10 @@ def test_run_cli_returns_runtime_layout_contract() -> None:
     assert result.details["operation_scope"] == "resolved_runtime_layout_view"
     assert str(result.details["config_dir"]) == str(expected.config_dir)
     assert str(result.details["installed_assets_dir"]) == str(expected.installed_assets_dir)
+    transition = result.details["asset_root_transition"]
+    assert isinstance(transition, dict)
+    assert transition["installed_runtime_assets"] == str(expected.installed_assets_dir)
+    assert transition["legacy_repo_installed"] == str(REPO_ROOT / "installed")
 
 
 def test_run_cli_returns_doctor_checks() -> None:

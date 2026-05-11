@@ -12432,3 +12432,23 @@ After making `AssetCenter` install-model-aware by default, I pushed the next saf
 
 ### Notes
 This is still intentionally outside bootstrap. The current startup path remains explicitly pinned to repo-installed/build roots, but the non-bootstrap service graph now carries install-model installed-root semantics more consistently.
+
+## 2026-05-12: Added Slice C2 operator-visible transition inspection
+
+### Summary
+I continued Phase 6 Slice C2 by improving operator visibility instead of forcing a bootstrap flip too early. The CLI `runtime-layout` output now surfaces an explicit `asset_root_transition` block, showing the install-model target roots alongside the still-active repo-pinned compatibility roots.
+
+### What Was Done
+- Updated `app/cli.py`
+  - extended `runtime-layout` output with `asset_root_transition`
+  - kept `doctor` checks stable by excluding this metadata block from filesystem existence probing
+- Updated `tests/unit/test_cli.py`
+  - added assertions for the new transition block
+- Revalidated prior Slice C2 adoption coverage plus CLI coverage
+
+### Validation
+- `pytest -q tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `44 passed`
+
+### Notes
+This is an operator-facing transition aid. It makes the current split state explicit: install-model roots are the target, while bootstrap remains repo-pinned during the controlled migration window.
