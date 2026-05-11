@@ -2600,3 +2600,25 @@ This is an initial static validation pass for the refreshed harness. Live subset
 ### Outcome
 - the repaired bounded live baseline now clears the entire 50-scenario suite
 - this closes the bounded Phase 4 repair loop with full-suite evidence rather than partial-slice confidence only
+
+## 2026-05-11 - Baseline evidence frozen after bounded full-suite green run
+
+### Frozen truth set
+- final full bounded suite report:
+  - `/tmp/e2e_full_50_bounded_turn5_probe.json`
+- key bounded progression reports:
+  - `/tmp/e2e_s41_turn5_probe_429degrade.json`
+  - `/tmp/e2e_system_subset_turn5_probe.json`
+  - `/tmp/e2e_cross_subset_turn5_probe.json`
+  - `/tmp/e2e_s41_s49_combined_turn5_probe.json`
+  - `/tmp/e2e_s30_s49_bounded_turn5_postfix.json`
+  - `/tmp/e2e_s20_s49_bounded_turn5_probe.json`
+  - `/tmp/e2e_s10_s49_bounded_turn5_probe.json`
+  - `/tmp/e2e_full_50_bounded_turn5_probe.json`
+
+### Frozen bounded baseline summary
+- `50/50` scenarios passed
+- `250/250` executed turns succeeded
+- `0` transport/service errors
+- all scenario-end history checks passed
+- this bounded full-suite result is the pre-install-model truth set for subsequent before/after comparison unless the acceptance contract is explicitly changed

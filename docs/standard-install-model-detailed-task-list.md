@@ -310,10 +310,26 @@ Status: [x] bounded live repair loop now clears the full 50-scenario suite throu
   - all scenario-end history checks passed
 
 ### 4.5 Freeze baseline evidence
-- save report path and summary in testing docs
-- update development log
-- record baseline as pre-install-model truth set
-- commit and push baseline evidence
+Status: [x] bounded full-suite evidence frozen
+- final bounded full-suite report captured at:
+  - `/tmp/e2e_full_50_bounded_turn5_probe.json`
+- final bounded full-suite outcome:
+  - `50/50` scenarios passed
+  - `250/250` executed turns succeeded
+  - `0` transport/service errors
+  - all scenario-end history checks passed
+- final bounded progression evidence is now recorded in sequence:
+  - `/tmp/e2e_s41_turn5_probe_429degrade.json`
+  - `/tmp/e2e_system_subset_turn5_probe.json`
+  - `/tmp/e2e_cross_subset_turn5_probe.json`
+  - `/tmp/e2e_s41_s49_combined_turn5_probe.json`
+  - `/tmp/e2e_s30_s49_bounded_turn5_postfix.json`
+  - `/tmp/e2e_s20_s49_bounded_turn5_probe.json`
+  - `/tmp/e2e_s10_s49_bounded_turn5_probe.json`
+  - `/tmp/e2e_full_50_bounded_turn5_probe.json`
+- baseline summary has been written into testing docs and development log
+- Phase 4 bounded repair loop can now be treated as the frozen pre-install-model truth set for later before/after comparison
+- any later comparison should keep the same bounded settings unless the acceptance contract is intentionally redefined
 
 **Exit criteria**
 - there is a credible full baseline before migration
