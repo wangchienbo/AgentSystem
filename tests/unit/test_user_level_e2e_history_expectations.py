@@ -26,3 +26,8 @@ def test_history_expectations_follow_executed_turn_count_for_bounded_runs() -> N
 
     assert expectation.ok is True
     assert any("user turn count matched: 2" in item for item in expectation.checks)
+
+
+def test_effective_user_id_isolated_by_run_id() -> None:
+    assert harness._effective_user_id("user_system_01", None) == "user_system_01"
+    assert harness._effective_user_id("user_system_01", "e2e-user-level-abc123") == "user_system_01__e2e-user-level-abc123"

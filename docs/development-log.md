@@ -185,6 +185,35 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Extended the restarted S41 bounded probe to five turns and removed stale session contamination between reruns
+
+### Summary
+I pushed the repaired runtime path a bit deeper. After the 2-turn bounded rerun cleared the old turn-02 timeout, I expanded the same live probe to a 5-turn window. That was encouraging: all first five turns succeeded with no transport/service errors. The remaining failure was not runtime instability, it was that repeated probes were still reusing the same scenario user/session identity, so `/api/history` included old messages from earlier diagnostics. I fixed that by isolating scenario users by `run_id`.
+
+### What Was Done
+- Ran a deeper bounded live rerun against `S41`
+  - readiness passed (`HTTP 200`)
+  - turns `01-05/20` all succeeded
+  - no transport/service errors occurred in the 5-turn window
+- Updated `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+  - added `_effective_user_id(...)`
+  - when `run_id` is present, scenario users are now isolated per run
+- Updated `tests/unit/test_user_level_e2e_history_expectations.py`
+  - added coverage for run-id-based scenario user isolation
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the 5-turn bounded `S41` rerun succeeded and that the remaining history mismatch was stale session contamination, now fixed
+- Updated `docs/testing-detail.md`
+  - captured the 5-turn rerun command, outcome, and isolation fix
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_history_expectations.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `6 passed`
+
+### Notes
+This is another meaningful step in the Phase 4 repair loop. The repaired live path is no longer just surviving two turns, it is now surviving a bounded five-turn operator/status window without transport errors. That is a much stronger signal than we had before.
+
+
 ## 2026-05-11: Re-ran S41 on the restarted live budget-aware runtime and corrected bounded-history expectations
 
 ### Summary

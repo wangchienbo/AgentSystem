@@ -2284,3 +2284,34 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_history_expectations.py`
 - `python3 -m pytest tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
   - `5 passed`
+
+## 2026-05-11 - Deepened S41 bounded probe to 5 turns and isolated scenario users by run id
+
+### Targets
+- `tests/e2e/test_50_scenarios_20_turns_user_level.py`
+- `tests/unit/test_user_level_e2e_history_expectations.py`
+- `docs/standard-install-model-detailed-task-list.md`
+
+### Trigger
+- after the 2-turn bounded rerun cleared the original turn-02 timeout, the next useful move was to extend the same live probe to a deeper 5-turn window
+- the 5-turn probe showed all five turns succeeding, but the scenario-end history count still mismatched because repeated probes were reusing the same scenario user/session identity across runs
+
+### Live rerun
+- command:
+  - `PYTHONUNBUFFERED=1 timeout 210 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --scenarios S41 --delay 0.5 --timeout 45 --wait-ready-seconds 5 --max-turns-per-scenario 5 --max-consecutive-failures 1 --output /tmp/e2e_s41_turn5_probe_livebudget.json`
+- observed behavior:
+  - readiness gate passed (`HTTP 200`)
+  - turns `01-05/20` all succeeded
+  - no transport/service errors occurred in the 5-turn window
+  - remaining failure was only stale-history contamination from prior probes using the same scenario user id
+
+### Changes
+- added `_effective_user_id(...)` so each run uses a run-id-isolated scenario user identity when `run_id` is present
+- this keeps bounded diagnostics from inheriting old `/api/history` records from earlier probes of the same scenario
+- added a focused unit test for run-id user isolation
+- updated Phase 4 repair notes to record the 5-turn live success window
+
+### Validation
+- `python3 -m py_compile tests/e2e/test_50_scenarios_20_turns_user_level.py tests/unit/test_user_level_e2e_history_expectations.py`
+- `python3 -m pytest tests/unit/test_user_level_e2e_history_expectations.py tests/unit/test_user_level_e2e_fail_fast.py tests/unit/test_user_level_e2e_harness.py -q`
+  - `6 passed`

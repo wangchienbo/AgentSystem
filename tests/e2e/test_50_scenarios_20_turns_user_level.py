@@ -675,6 +675,13 @@ def _scenario_verdict(result: ScenarioResult) -> tuple[str, list[str]]:
     return verdict, reasons
 
 
+def _effective_user_id(user_id: str, run_id: str | None) -> str:
+    if not run_id:
+        return user_id
+    safe_run = "".join(ch for ch in run_id if ch.isalnum() or ch in {"-", "_"})
+    return f"{user_id}__{safe_run}"
+
+
 def run_scenario(
     client: E2EClient,
     scenario: dict,
@@ -684,7 +691,7 @@ def run_scenario(
     max_consecutive_failures: int = 0,
     max_turns: int | None = None,
 ) -> ScenarioResult:
-    user_id = scenario["user_id"]
+    user_id = _effective_user_id(scenario["user_id"], run_id)
     result = ScenarioResult(
         scenario_id=scenario["id"],
         name=scenario["name"],

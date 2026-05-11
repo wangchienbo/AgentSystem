@@ -260,6 +260,8 @@ Status: [~] first prompt-shape mitigation landed
   - turn `01/20` succeeded
   - turn `02/20` also succeeded in ~`1.0s`
   - remaining failure was only that scenario-end history expectations were still comparing against full 20-turn totals during a bounded 2-turn diagnostic
+- a deeper bounded `S41` rerun (`--max-turns-per-scenario 5`) then showed all first five turns succeeding with no transport/service errors; the remaining mismatch came from reusing the same scenario user/session across prior probes
+- harness scenario users are now isolated by `run_id`, so future bounded reruns do not inherit stale session history from earlier diagnostics
 - bounded history expectations now follow the executed-turn count instead of the full scenario design length, so future diagnostic reruns fail only for relevant reasons
 - next rerun should check whether the two-turn improvement extends to slightly deeper bounded windows (`3-5` turns) before retrying broader subset/full baseline work
 
