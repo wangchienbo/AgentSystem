@@ -253,7 +253,7 @@ Status: [~] first concrete live failure pattern captured
 - next reruns should use bounded fail-fast settings first, then decide whether the remaining blocker is model timeout tuning, request-shape reduction, or server-side runtime repair
 
 ### 4.4 Repair and re-run until baseline is trustworthy
-Status: [~] bounded live repair loop now clears the combined S41-S49 slice through 5 turns, and broader expansion found one remaining harness-only edge case that is now fixed
+Status: [~] bounded live repair loop now clears the broadened S30-S49 slice through 5 turns
 - Phase 3 log evidence showed repeated fallback turns were accumulating into the gateway prompt context for later operator/status probes
 - the gateway tool-calling interpreter now caps recent-history prompt inclusion more aggressively (last 4 messages, ~800 chars budget) so short operator/status queries are less likely to inherit bloated fallback-heavy context
 - after restarting onto the live budget-aware runtime, bounded `S41` rerun (`--max-turns-per-scenario 2 --max-consecutive-failures 1`) improved materially:
@@ -286,11 +286,14 @@ Status: [~] bounded live repair loop now clears the combined S41-S49 slice throu
   - no transport/service errors occurred
   - all scenario-end history checks passed
 - widened the bounded baseline further to `S30-S49`
-  - `19/20` scenarios passed
-  - the only remaining failure was `S31`, and it was a harness-only expectation mismatch because synthetic empty-input turns are intentionally skipped from HTTP/history
-- history expectation logic now ignores those synthetic empty-input placeholders when counting expected persisted user turns
-- post-fix bounded rerun of `S31` passed cleanly with scenario-end history checks passing
-- next rerun should repeat the broader `S30-S49` bounded slice with the corrected harness, then judge whether the evidence is strong enough for an even larger bounded jump or the full 50-scenario suite
+  - first rerun reached `19/20` because `S31` exposed a harness-only synthetic-empty-input history mismatch
+  - that expectation bug is now fixed
+- reran the corrected broader bounded slice `S30-S49`
+  - all `20/20` scenarios passed
+  - all `100/100` executed turns succeeded
+  - no transport/service errors occurred
+  - all scenario-end history checks passed
+- next rerun should decide whether to widen once more beyond `S49` or make a larger bounded jump toward the full 50-scenario suite
 
 ### 4.5 Freeze baseline evidence
 - save report path and summary in testing docs

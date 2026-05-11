@@ -2502,3 +2502,26 @@ This is an initial static validation pass for the refreshed harness. Live subset
 - reports:
   - broad slice: `/tmp/e2e_s30_s49_bounded_turn5_probe.json`
   - focused post-fix S31: `/tmp/e2e_s31_bounded_turn5_postfix.json`
+
+## 2026-05-11 - Re-ran corrected broader bounded slice S30-S49, all 20 scenarios passed
+
+### Targets
+- `docs/standard-install-model-detailed-task-list.md`
+- `docs/testing-detail.md`
+- `docs/development-log.md`
+
+### Trigger
+- after fixing the synthetic-empty-input history accounting bug surfaced by `S31`, the next required step was to repeat the broader bounded slice instead of treating the focused `S31` rerun as sufficient evidence
+
+### Live rerun
+- command:
+  - `PYTHONUNBUFFERED=1 timeout 900 .venv/bin/python3 tests/e2e/test_50_scenarios_20_turns_user_level.py --base-url http://localhost:80 --scenarios S30,S31,S32,S33,S34,S35,S36,S37,S38,S39,S40,S41,S42,S43,S44,S45,S46,S47,S48,S49 --delay 0.5 --timeout 45 --wait-ready-seconds 5 --max-turns-per-scenario 5 --max-consecutive-failures 1 --output /tmp/e2e_s30_s49_bounded_turn5_postfix.json`
+- observed behavior:
+  - `20/20` scenarios passed
+  - `100/100` executed turns succeeded
+  - no transport/service errors occurred
+  - all scenario-end history checks passed
+
+### Outcome
+- repaired bounded evidence now cleanly covers the broader contiguous slice `S30-S49`
+- this is the strongest bounded baseline window achieved so far and materially increases confidence before the next expansion toward the full suite

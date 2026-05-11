@@ -185,6 +185,51 @@ Refreshed the remaining detail/planning docs so they explicitly reflect the new 
 This keeps the remaining Phase R detail/planning docs aligned with the latest acceptance-summary unification work.
 
 
+## 2026-05-11: Re-ran the corrected broader bounded slice S30-S49, and it passed cleanly end-to-end
+
+### Summary
+I closed the loop on the broader bounded expansion instead of stopping at the focused `S31` confirmation. After fixing the synthetic-empty-input history accounting bug, I reran the full broadened slice `S30-S49`. This time it stayed clean end-to-end: all twenty scenarios passed, all executed turns succeeded, no transport/service errors occurred, and all scenario-end history checks passed.
+
+### What Was Done
+- Re-ran the corrected bounded live slice over:
+  - `S30`
+  - `S31`
+  - `S32`
+  - `S33`
+  - `S34`
+  - `S35`
+  - `S36`
+  - `S37`
+  - `S38`
+  - `S39`
+  - `S40`
+  - `S41`
+  - `S42`
+  - `S43`
+  - `S44`
+  - `S45`
+  - `S46`
+  - `S47`
+  - `S48`
+  - `S49`
+- Updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded that the corrected broader bounded slice now clears cleanly in one live run
+- Updated `docs/testing-detail.md`
+  - captured the rerun command, report path, and clean-pass summary
+
+### Validation
+- broader bounded live rerun results:
+  - `20/20` scenarios passed
+  - `100/100` executed turns succeeded
+  - `0` transport/service errors
+  - all scenario-end history checks passed
+- report:
+  - `/tmp/e2e_s30_s49_bounded_turn5_postfix.json`
+
+### Notes
+This is the strongest bounded baseline result so far. We now have one contiguous repaired bounded live window covering `S30-S49`, with both product/runtime behavior and harness expectations aligned.
+
+
 ## 2026-05-11: Broadened the bounded live baseline to S30-S49, then fixed the last remaining S31 harness-only history mismatch
 
 ### Summary
