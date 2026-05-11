@@ -12194,3 +12194,26 @@ With the bounded full-suite baseline frozen, I moved the task list into the arch
 This is the right place to pause before code migration. We now have both sides of the transition documented:
 - the frozen bounded pre-migration truth set
 - the target install-model architecture the migration is supposed to reach
+
+## 2026-05-12: Converted the install-model architecture into a concrete migration-prep inventory
+
+### Summary
+After writing the target install-model architecture, I took the next useful step before code migration: turning the abstract target into a concrete inventory of repo-coupled assumptions and a recommended implementation order. This gives the migration a practical entry seam instead of forcing the first code slice to rediscover path coupling ad hoc.
+
+### What Was Done
+- Added `docs/standard-install-model-migration-prep.md`
+- inventoried high-signal repo-coupled assumptions across:
+  - source/build/installed asset paths
+  - data/runtime state paths
+  - config resolution behavior
+  - CLI/runtime-layout operator surfaces
+- proposed the first migration implementation slices:
+  - Slice A: shared runtime path resolver
+  - Slice B: move runtime/persistence defaults behind resolver
+  - Slice C: split development asset roots from installed asset roots
+  - Slice D: align CLI/operator surfaces with the real resolver
+- updated `docs/standard-install-model-detailed-task-list.md`
+  - recorded the migration-prep inventory and the recommendation that Slice A is the next implementation step
+
+### Notes
+This is the point where the workstream shifts from architecture definition to migration implementation planning. The next code change should now be surgical: introduce a shared runtime path resolver instead of scattering path edits across unrelated subsystems.

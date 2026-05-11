@@ -383,6 +383,8 @@ Status: [x] migration intent documented
 Status: [x] initial architecture doc landed
 - added `docs/standard-install-model-architecture.md`
 - documented runtime separation model, directory layout, env/config resolution, asset lifecycle, migration intent, and operator-facing notes before code migration begins
+- added `docs/standard-install-model-migration-prep.md`
+- documented the concrete repo-coupled path-assumption inventory and recommended the first implementation slices, with Slice A (shared runtime path resolver) as the next migration step
 - update system/testing docs with migration assumptions
 
 **Exit criteria**
