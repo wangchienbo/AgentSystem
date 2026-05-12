@@ -12951,7 +12951,27 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
-## 2026-05-12: Closed HTTP compatibility drift with full live governance rerun
+## 2026-05-12: Closed build-artifact externalization validation gap
+
+### Summary
+I continued the standard-install task list in order and closed the next pending item, Phase 6 section 7.3 on build-artifact externalization. The code path itself was already largely migrated, but the task list still lacked explicit closure evidence showing that live bootstrap/runtime construction uses the install-model build root instead of repo `build/`.
+
+### What Was Done
+- Updated `tests/unit/test_bootstrap_runtime_isolation.py`
+  - extended the bootstrap isolation assertion set to verify:
+    - live bootstrap binding uses `runtime_paths.build_dir`
+    - legacy preview binding still exposes repo `build/`
+    - the two build roots remain distinct during transition inspection
+    - the constructed `AssetCenter` instance is actually pinned to the install-model build root
+- Updated task/docs closure records for Phase 6 section 7.3
+
+### Validation
+- `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_cli.py`
+- result: `13 passed`
+
+### Notes
+This closes the remaining evidence gap for build-artifact externalization without changing the already-correct runtime path contract. Repo `build/` remains only a legacy/preview surface for transition visibility, while live runtime build outputs stay under `AGENTSYSTEM_HOME/artifacts/build/`.
+
 
 ### Summary
 I continued the next open standard-install task-list item and finished closing the remaining HTTP compatibility drift between `/api/chat`, `/api/action`, gateway action payloads, and the service-up governance consumer chain. The final closure required more than the earlier timeout-profile work: once the live rerun could reach deeper stages, it exposed several installed-runtime and regression-log compatibility bugs that only showed up in a true service-up cycle.

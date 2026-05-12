@@ -2999,15 +2999,9 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Slice C3 live governance rerun closure
-- `tests/scripts/e2e_self_iteration_service_up.py` now resolves installed-runtime config from the shared runtime paths and seeds it from legacy `~/.config/agentsystem/config.yaml` when the migrated config file is absent
-- fixed live-service blockers uncovered during the rerun chain:
-  - restored `describe_tool_route_budget` import for `/api/status`
-  - persisted regression evidence with JSON-safe payloads
-  - filtered non-run JSONL sidecars from regression run listing/latest selection so `evidence.jsonl` no longer masks the newest real run
-  - hardened topic-trend aggregation to skip malformed summary rows without `run_id`
+### Slice C4 build-artifact root externalization validation
+- confirmed live bootstrap/runtime construction keeps runtime-relevant build outputs on the install-model path contract (`AGENTSYSTEM_HOME/artifacts/build/`) while repo `build/` remains only a transition/preview surface
+- extended bootstrap isolation coverage to assert both the live install-model build root and the legacy preview build root are surfaced distinctly during Phase 6 transition inspection
 - validation:
-  - `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py tests/unit/test_regression_nightly_control.py`
-  - result: `118 passed`
-  - `START_SERVER=1 BASE_URL=http://127.0.0.1:8765 timeout 180 python3 tests/scripts/e2e_self_iteration_service_up.py`
-  - result: `SELF-ITERATION SERVICE-UP E2E PASSED`
+  - `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_cli.py`
+  - result: `13 passed`

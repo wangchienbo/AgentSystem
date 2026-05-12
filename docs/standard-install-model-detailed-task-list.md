@@ -444,10 +444,14 @@ Status: [x] Slice C2 landed, Slice C3 next
   - `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py` -> `47 passed`
 
 ### 7.3 Externalize build artifacts
-Status: [ ] blocked on asset root map
-- define build output root outside repo for runtime-relevant artifacts
-- keep repo build outputs only for developer convenience if needed
-- ensure runtime does not depend on repo build directories
+Status: [x] validation closure landed
+- confirmed runtime-relevant build outputs default to `AGENTSYSTEM_HOME/artifacts/build/` through the shared runtime path contract
+- confirmed `AssetCenter` live bootstrap wiring uses the install-model build root during runtime construction
+- kept repo `build/` only as a preview/legacy transition surface for operator inspection, not as the active runtime build dependency
+- ensured runtime-layout still shows both roots so operators can audit the transition without confusing the live path selection
+- validation:
+  - `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_cli.py`
+  - result: `13 passed`
 
 ### 7.4 Decide treatment of source assets
 Status: [x] Slice C1 decision artifact landed
