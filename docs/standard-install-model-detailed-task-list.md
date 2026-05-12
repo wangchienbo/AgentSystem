@@ -572,10 +572,17 @@ Status: [~] first structured comparison helper landed
   - result: `40 passed`
 
 ### 9.3 Repair migration regressions
-- prioritize true install-model regressions
-- fix runtime path, asset install, bootstrap, lifecycle, or session issues
-- rerun affected scenarios
-- rerun full suite if necessary
+Status: [~] first live post-migration regression repair landed
+- reproduced a post-migration bounded live failure where `/login` returned HTTP 500 because form parsing required `python-multipart`
+- patched `app/system/http_test_server.py` so `/login` falls back to manual `application/x-www-form-urlencoded` parsing when `python-multipart` is unavailable
+- validated the repair with:
+  - unit tests for JSON login and form login fallback
+  - bounded live rerun: `S50` with `--max-turns-per-scenario 5` now passes post-migration (`5/5` turns, history checks passed)
+- validation:
+  - `pytest -q tests/unit/test_http_test_server.py tests/unit/test_cli.py tests/unit/test_compare_user_level_reports.py`
+  - result: `56 passed`
+  - `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://127.0.0.1:80 --delay 0 --wait-ready-seconds 20 --scenarios S50 --max-turns-per-scenario 5 --output /tmp/e2e_s50_turn5_post_install_model_login_fix.json`
+  - result: `1/1 scenarios passed`, `5/5 turns passed`
 
 ### 9.4 Freeze post-migration evidence
 - save final after report

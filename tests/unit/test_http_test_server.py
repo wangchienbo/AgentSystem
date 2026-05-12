@@ -28,7 +28,24 @@ def test_login_accepts_json_payload_without_form_parser_dependency() -> None:
     assert "session_json_tester" in user_sessions
 
 
-def test_api_chat_accepts_new_explicit_session_id_after_login() -> None:
+def test_login_accepts_form_payload_without_python_multipart() -> None:
+    user_sessions.clear()
+    conversation_history.clear()
+
+    response = client.post(
+        "/login",
+        data={"username": "form_tester", "password": "ignored"},
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["session_id"] == "session_form_tester"
+    assert data["username"] == "form_tester"
+    assert "session_form_tester" in user_sessions
+
+
     user_sessions.clear()
     conversation_history.clear()
     user_sessions["session_tester"] = {

@@ -12951,6 +12951,29 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-13: Repaired bounded post-migration login regression
+
+### Summary
+I continued Phase 8 by taking the first real bounded post-migration live failure and fixing it. The immediate regression was not a deep install-model path issue, but a deployment-sensitivity bug in the HTTP test server: `/login` crashed with HTTP 500 when `python-multipart` was not installed and the request arrived as form data.
+
+### What Was Done
+- Updated `app/system/http_test_server.py`
+  - kept JSON login behavior unchanged
+  - added a fallback path for `application/x-www-form-urlencoded` login bodies when `request.form()` cannot be used because `python-multipart` is unavailable
+  - the fallback now parses the raw request body directly and extracts `username` safely enough for the current test-server contract
+- Updated `tests/unit/test_http_test_server.py`
+  - added focused coverage proving form-based `/login` still succeeds without relying on `python-multipart`
+
+### Validation
+- `pytest -q tests/unit/test_http_test_server.py tests/unit/test_cli.py tests/unit/test_compare_user_level_reports.py`
+- result: `56 passed`
+- bounded live rerun:
+  - `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://127.0.0.1:80 --delay 0 --wait-ready-seconds 20 --scenarios S50 --max-turns-per-scenario 5 --output /tmp/e2e_s50_turn5_post_install_model_login_fix.json`
+  - result: `1/1 scenarios passed`, `5/5 turns passed`, scenario-end history checks passed
+
+### Notes
+This is a good catch because the failure mode only surfaced in the live user-level path. The full bounded post-migration suite still remains to be rerun, but the login crash that was poisoning the bounded after-run has now been removed.
+
 ## 2026-05-12: Added structured before/after baseline comparison helper
 
 ### Summary

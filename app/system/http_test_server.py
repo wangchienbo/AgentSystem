@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 import json
+from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -465,8 +466,13 @@ async def login(request: Request):
         if isinstance(payload, dict):
             username = payload.get("username", username)
     else:
-        form_data = await request.form()
-        username = form_data.get("username", username)
+        try:
+            form_data = await request.form()
+            username = form_data.get("username", username)
+        except AssertionError:
+            raw_body = (await request.body()).decode("utf-8", errors="ignore")
+            parsed = parse_qs(raw_body, keep_blank_values=True)
+            username = parsed.get("username", [username])[0]
     # 按用户名生成稳定的 session_id（同一用户每次登录都恢复同一会话）
     session_id = f"session_{username}"
     if session_id in user_sessions:

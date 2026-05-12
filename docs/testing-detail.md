@@ -2999,10 +2999,12 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Slice E1 before/after comparison helper
-- added `tests/e2e/compare_user_level_reports.py` to compare structured pre/post 50x20 JSON reports
-- comparison output now summarizes pass-rate deltas, scenario full-pass deltas, improved/regressed/unchanged scenario ids, added/removed scenarios, and per-scenario verdict counters
-- added unit coverage for improvement/regression detection and scenario-set drift handling
+### Slice E2 live post-migration login regression repair
+- reproduced a bounded post-migration live failure where `/login` crashed on form parsing when `python-multipart` was absent
+- patched the HTTP test server to fall back to manual urlencoded parsing for login requests
+- added unit coverage for form-login fallback and validated a bounded live `S50` rerun after the fix
 - validation:
-  - `pytest -q tests/unit/test_compare_user_level_reports.py tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
-  - result: `40 passed`
+  - `pytest -q tests/unit/test_http_test_server.py tests/unit/test_cli.py tests/unit/test_compare_user_level_reports.py`
+  - result: `56 passed`
+  - `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://127.0.0.1:80 --delay 0 --wait-ready-seconds 20 --scenarios S50 --max-turns-per-scenario 5 --output /tmp/e2e_s50_turn5_post_install_model_login_fix.json`
+  - result: `1/1 scenarios passed`, `5/5 turns passed`
