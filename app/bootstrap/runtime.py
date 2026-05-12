@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -120,8 +121,24 @@ def materialize_builtin_path_definitions(
     source_dir = root / "data" / "paths"
     destination = Path(target_dir) if target_dir is not None else runtime_paths.installed_assets_dir / "builtin_paths"
     destination.mkdir(parents=True, exist_ok=True)
+    copied_files: list[str] = []
     for yaml_file in list(source_dir.glob("*.yaml")) + list(source_dir.glob("*.yml")):
         shutil.copy2(yaml_file, destination / yaml_file.name)
+        copied_files.append(yaml_file.name)
+    (destination / "builtin_paths_manifest.json").write_text(
+        json.dumps(
+            {
+                "asset_id": "builtin.control_plane.paths",
+                "asset_type": "path",
+                "origin": "repo_authored_projection",
+                "source_dir": str(source_dir),
+                "projected_files": sorted(copied_files),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return destination
 from app.services.interactive_app import InteractiveAppService
 from app.services.interactive_app_workflow import InteractiveAppWorkflow

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from app.bootstrap.runtime import materialize_builtin_path_definitions
@@ -20,3 +21,7 @@ def test_materialize_builtin_path_definitions_projects_repo_paths_into_installed
     assert destination == runtime_paths.installed_assets_dir / "builtin_paths"
     assert (destination / "query_help.yaml").exists()
     assert (destination / "greet.yaml").exists()
+    manifest = json.loads((destination / "builtin_paths_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["asset_id"] == "builtin.control_plane.paths"
+    assert manifest["asset_type"] == "path"
+    assert manifest["projected_files"] == ["greet.yaml", "query_help.yaml"]
