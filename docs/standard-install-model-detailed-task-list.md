@@ -690,3 +690,4 @@ Status: [~] first live-code adoption landed
 - `UserService` default user-registry storage now resolves from install-model runtime paths instead of repo-local `data/users/...`, continuing durable identity/state separation from the source checkout
 - `MemorySkillService` and `InteractiveAppWorkflow` default storage/workflow roots now also resolve from install-model runtime paths, continuing the removal of repo-local `data/...` durable-state defaults from interactive-user flows
 - `app.runtime.app_bootstrap` and `AppProcessManager` now default to install-model runtime data paths, and bootstrap now ensures the target runtime data directory exists before writing runtime registry state
+- context-center storage path defaults now resolve from install-model runtime data paths as well, reducing another repo-root `data/...` assumption inside cross-session context persistence helpers

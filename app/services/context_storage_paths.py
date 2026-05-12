@@ -3,9 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.runtime_paths import resolve_runtime_paths
+
 
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATA_DIR = DEFAULT_REPO_ROOT / "data"
+DEFAULT_DATA_DIR = resolve_runtime_paths().data_dir
 DEFAULT_LOGS_DIR = DEFAULT_REPO_ROOT / "logs"
 DEFAULT_SCRIPTS_DIR = DEFAULT_REPO_ROOT / "scripts"
 DEFAULT_CONTEXT_CENTER_DIR = DEFAULT_DATA_DIR / "context_center"
@@ -23,8 +25,8 @@ class ContextStoragePaths:
     buffer_dir: Path
 
 
-def build_context_storage_paths(base_dir: str | Path = DEFAULT_CONTEXT_CENTER_DIR) -> ContextStoragePaths:
-    base = Path(base_dir)
+def build_context_storage_paths(base_dir: str | Path | None = None) -> ContextStoragePaths:
+    base = Path(base_dir) if base_dir is not None else resolve_runtime_paths().data_dir / "context_center"
     return ContextStoragePaths(
         base_dir=base,
         detail_dir=base / "detail",

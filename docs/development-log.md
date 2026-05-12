@@ -12805,3 +12805,21 @@ I continued the Phase 6 runtime-state externalization pass by moving both `app.r
 
 ### Notes
 This was a useful tightening pass. The runtime app bootstrap path is now aligned with install-model storage and no longer assumes the runtime data directory was pre-created elsewhere.
+
+## 2026-05-12: Externalized context storage path defaults
+
+### Summary
+I continued the Phase 6 runtime-state externalization pass by moving context-center storage path defaults off repo-root `data/context_center` assumptions and onto install-model runtime paths. This extends the same separation to cross-session context detail, summary, and buffer persistence.
+
+### What Was Done
+- Updated `app/services/context_storage_paths.py`
+  - `build_context_storage_paths()` now defaults to `resolve_runtime_paths().data_dir / context_center`
+- Added `tests/unit/test_context_storage_paths_defaults.py`
+  - verifies the default context-center base path resolves to install-model runtime data
+
+### Validation
+- `pytest -q tests/unit/test_context_storage_paths_defaults.py tests/unit/test_app_bootstrap_defaults.py tests/unit/test_app_process_manager_paths.py tests/unit/test_memory_skill_paths.py tests/unit/test_interactive_app_workflow_paths.py tests/unit/test_user_service_paths.py tests/unit/test_interactive_app_paths.py tests/unit/test_pipeline_service_paths.py tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `64 passed`
+
+### Notes
+This keeps the context-center persistence helpers aligned with the same runtime storage contract now used across the other externalized services and bootstrap surfaces.
