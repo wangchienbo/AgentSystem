@@ -5,6 +5,7 @@ App loads them at startup into memory for keyed execution.
 """
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -65,6 +66,12 @@ class PathStore:
         self._paths_dir.mkdir(parents=True, exist_ok=True)
         self._paths: dict[str, PathTemplate] = {}
         self._readonly = (self._paths_dir / "builtin_paths_manifest.json").exists()
+
+    def bundle_manifest(self) -> dict[str, Any] | None:
+        manifest_path = self._paths_dir / "builtin_paths_manifest.json"
+        if not manifest_path.exists():
+            return None
+        return json.loads(manifest_path.read_text(encoding="utf-8"))
 
     # -- Loading --------------------------------------------------------------
 

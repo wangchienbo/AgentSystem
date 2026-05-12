@@ -17,6 +17,7 @@ def test_packaged_builtin_path_store_is_read_only_for_save(tmp_path: Path) -> No
     )
     store = PathStore(paths_dir=str(paths_dir))
 
+    assert store.bundle_manifest() == {"asset_id": "builtin.control_plane.paths"}
     with pytest.raises(PathStoreError, match="read-only"):
         store.save(PathTemplate(path_id="demo.path", name="Demo Path"))
 

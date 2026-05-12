@@ -12632,3 +12632,21 @@ I extended the Slice C3 built-in path packaging work from projection mechanics i
 
 ### Notes
 This is an important semantic line for Slice C3. Once a built-in control-plane asset has been projected into the install-model bundle, runtime code should consume it as packaged state rather than editing it in place. Future writable overlays can be added separately if needed.
+
+## 2026-05-12: Exposed packaged built-in path manifest metadata through PathStore
+
+### Summary
+I kept pushing Slice C3 runtime semantics for packaged built-in path bundles. After making the projected bundle read-only, I added a small metadata access seam so runtime code can inspect the packaged manifest directly through `PathStore` without falling back to repo-authored source assumptions.
+
+### What Was Done
+- Updated `app/persistence/path_store.py`
+  - added `bundle_manifest()` to expose `builtin_paths_manifest.json` when the path directory is a packaged built-in bundle
+- Updated `tests/unit/test_packaged_path_store.py`
+  - verifies manifest visibility alongside read-only save/remove enforcement
+
+### Validation
+- `pytest -q tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `51 passed`
+
+### Notes
+This is a small seam, but it helps complete the packaged-asset story: projected built-in bundles are now both read-only and inspectable as packaged runtime assets.

@@ -681,3 +681,4 @@ Status: [~] first live-code adoption landed
 - builtin path projection manifest now carries per-file SHA-256 fingerprints, tightening the packaged identity contract beyond filename inventory and preparing for later projection drift checks or upgrade comparisons
 - builtin path projection now cleans stale projected YAML files that no longer exist in repo-authored source, making the packaged built-in control-plane asset projection converge toward the authored set instead of only ever accumulating files
 - packaged built-in path projections are now treated as read-only runtime assets: `PathStore` detects `builtin_paths_manifest.json` and blocks save/remove mutations against the projected install-model bundle
+- packaged built-in path bundles now expose manifest metadata through `PathStore.bundle_manifest()`, making the projected runtime bundle identity inspectable without reopening repo-authored source files directly
