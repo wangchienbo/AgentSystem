@@ -12669,3 +12669,23 @@ I continued refining the Slice C3 packaged path runtime seam. In addition to exp
 
 ### Notes
 This is another small but useful C3 seam. The packaged path bundle is now not only read-only and inspectable, but also self-identifying from the runtime API surface.
+
+## 2026-05-12: Externalized bootstrap runtime registry and fixed hidden core-asset registration dependency
+
+### Summary
+I continued Phase 6 / Slice C3 by moving the bootstrap runtime registry binding off repo `data/` and onto install-model state storage. That surfaced a hidden dependency: runtime startup had been implicitly relying on repo-carried runtime registry residue instead of explicitly registering the full core runtime asset set. I fixed that by wiring explicit core runtime asset registration into bootstrap.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - `runtime_registry_file` now points to `state/runtime_center.json`
+  - `_register_core_runtime_assets()` now explicitly registers the full `core_assets` list into `RuntimeCenter`
+- Updated bootstrap binding tests
+  - `tests/unit/test_bootstrap_asset_binding.py`
+  - `tests/unit/test_bootstrap_runtime_isolation.py`
+
+### Validation
+- `pytest -q tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `55 passed`
+
+### Notes
+This was a good catch. The registry-path externalization exposed that startup readiness for `asset:runtime_center:v1` had been masked by repo-pinned runtime registry state. The system now behaves correctly under isolated install-model state: core runtime assets are registered explicitly, and bootstrap no longer depends on repo-local residue.

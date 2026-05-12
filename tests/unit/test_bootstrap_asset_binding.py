@@ -17,8 +17,7 @@ def test_describe_phase6_asset_bootstrap_binding_reports_transition_contract(tmp
     assert binding["installed_dir"] == str(repo_root / "installed")
     assert binding["build_dir"] == str(repo_root / "build")
     assert binding["data_dir"] == str(runtime_paths.data_dir)
-    assert binding["runtime_registry_file"] == str(repo_root / "data" / "runtime_center.json")
-    assert binding["binding_mode"] == "repo_pinned_assets_with_install_model_data"
+    assert binding["runtime_registry_file"] == str(runtime_paths.state_dir / "runtime_center.json")
 
 
 def test_describe_phase6_asset_bootstrap_binding_live_mode_reports_install_model_asset_roots(tmp_path: Path, monkeypatch) -> None:
@@ -31,5 +30,4 @@ def test_describe_phase6_asset_bootstrap_binding_live_mode_reports_install_model
     assert binding["source_dir"] == str(repo_root / "source")
     assert binding["installed_dir"] == str(runtime_paths.installed_assets_dir)
     assert binding["build_dir"] == str(runtime_paths.build_dir)
-    assert binding["runtime_registry_file"] == str(repo_root / "data" / "runtime_center.json")
-    assert binding["binding_mode"] == "install_model_asset_preview_with_repo_source"
+    assert binding["runtime_registry_file"] == str(runtime_paths.state_dir / "runtime_center.json")

@@ -107,7 +107,7 @@ def describe_phase6_asset_bootstrap_binding(
         "installed_dir": str(installed_dir),
         "build_dir": str(build_dir),
         "data_dir": str(runtime_paths.data_dir),
-        "runtime_registry_file": str(root / "data" / "runtime_center.json"),
+        "runtime_registry_file": str(runtime_paths.state_dir / "runtime_center.json"),
         "binding_mode": binding_mode,
     }
 
@@ -740,6 +740,28 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 "call_asset_method": lambda asset_id, method, params=None: asset_tool_executor.execute("call_asset_method", {"asset_id": asset_id, "method": method, "params": params or {}}, "system").data,
             },
         }
+        for asset_id, service_name, description, service_ref, capabilities in core_assets:
+            runtime_center.register_asset(
+                AssetDescriptor(
+                    asset_id=asset_id,
+                    asset_type=AssetType.SERVICE,
+                    asset_kind=AssetKind.CORE_RUNTIME,
+                    version="1.0.0",
+                    owner_type="system",
+                    owner_id="system",
+                    source_of_truth="runtime",
+                    status=AssetState.ACTIVE,
+                    capabilities=capabilities,
+                    invoke_contract={"kind": "service", "service_name": service_name},
+                    health_contract={"heartbeat": False},
+                    name=service_name,
+                    description=description,
+                    tags=["phase-h", "core-runtime"],
+                    metadata={"python_type": type(service_ref).__name__},
+                ),
+                service_ref=service_ref,
+                method_mappings=method_map_by_name.get(service_name, {}),
+            )
         config_center_registered = self_iteration_asset_protocol.materialize(
             ConfigCenterAsset(config_center)
         )

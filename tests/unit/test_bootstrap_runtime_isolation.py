@@ -27,5 +27,5 @@ def test_build_runtime_keeps_current_bootstrap_binding_under_isolated_config(tmp
     assert binding["installed_dir"] == str(runtime_paths.installed_assets_dir)
     assert preview["installed_dir"].endswith("/installed")
     assert binding["installed_dir"] != preview["installed_dir"]
-    assert binding["runtime_registry_file"].endswith("/data/runtime_center.json")
+    assert binding["runtime_registry_file"].endswith("/state/runtime_center.json")
     assert preview["runtime_registry_file"] == binding["runtime_registry_file"]

@@ -683,3 +683,4 @@ Status: [~] first live-code adoption landed
 - packaged built-in path projections are now treated as read-only runtime assets: `PathStore` detects `builtin_paths_manifest.json` and blocks save/remove mutations against the projected install-model bundle
 - packaged built-in path bundles now expose manifest metadata through `PathStore.bundle_manifest()`, making the projected runtime bundle identity inspectable without reopening repo-authored source files directly
 - `PathStore` now exposes an explicit `is_packaged_bundle` flag alongside manifest access, making packaged-vs-mutable path storage semantics directly inspectable by runtime callers
+- bootstrap runtime registry binding now follows install-model state storage (`state/runtime_center.json`) instead of repo `data/`, and runtime bootstrap now explicitly registers the full core runtime asset set instead of relying on repo-carried legacy registry residue

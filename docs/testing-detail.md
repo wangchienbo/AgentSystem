@@ -2892,3 +2892,10 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
 - validation extension:
   - `pytest -q tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
   - result: `51 passed`
+
+### Slice C3 runtime registry externalization and explicit core asset registration
+- bootstrap asset binding now routes `runtime_registry_file` to install-model state storage: `state/runtime_center.json`
+- `_register_core_runtime_assets()` now explicitly registers the full core runtime asset set, preventing accidental reliance on legacy repo-carried runtime registry entries
+- validation extension:
+  - `pytest -q tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+  - result: `55 passed`
