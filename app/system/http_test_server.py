@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from app.ai.model_client import describe_tool_route_budget
+from app.runtime_paths import resolve_runtime_paths
 from app.bootstrap.runtime import build_runtime
 from app.models.app_instance import AppInstance
 from app.models.chat import ChatMessageRequest
@@ -316,7 +316,7 @@ def tick_regression_nightly_cycle(user_session_id: str) -> dict[str, Any]:
         "cycle": cycle_result,
         "nightly_status": refreshed,
     }
-CHAT_LOG_DIR = BASE_DIR / "data" / "chat_logs"
+CHAT_LOG_DIR = resolve_runtime_paths().data_dir / "chat_logs"
 CHAT_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
