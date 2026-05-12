@@ -551,19 +551,18 @@ Status: [x] initial install lifecycle validation landed
 ## 9. Phase 8 - Run post-migration baseline and repair regressions
 
 ### 9.1 Execute full post-migration 50x20 baseline
-Status: [~] bounded operator subset after-run landed
+Status: [~] bounded full-suite after evidence now assembled in split runs
 - executed the canonical operator-sensitive post-migration subset: `S12,S25,S36,S41,S50`
-- run settings:
-  - `--max-turns-per-scenario 5`
-  - `--delay 0`
-  - `--wait-ready-seconds 20`
-- output report: `/tmp/e2e_post_migration_operator_subset_turn5.json`
-- bounded after-run result:
-  - `5/5` scenarios passed
-  - `25/25` executed turns passed
-  - `0` transport/service errors
-  - all scenario-end history checks passed
-- this does not yet close the full post-migration 50x20 baseline, but it establishes that the canonical operator-heavy subset now survives the install-model migration under the current bounded acceptance settings
+- executed bounded post-migration split runs for the full scenario set:
+  - `S01-S25` → `/tmp/e2e_post_migration_first25_turn5.json`
+  - `S26-S50` → `/tmp/e2e_post_migration_last25_turn5.json`
+- bounded after-run result summary:
+  - operator subset: `5/5` scenarios passed, `25/25` turns passed
+  - first 25: `25/25` scenarios passed, `125/125` turns passed
+  - last 25: `25/25` scenarios passed, `125/125` turns passed
+  - combined split full-set evidence: `50/50` scenarios passed, `250/250` executed turns passed, `0` transport/service errors
+- all scenario-end history checks passed across these bounded post-migration runs
+- this still stops short of a single monolithic 50-scenario after-run artifact, but the bounded full-suite after evidence is now available under the same turn-5 acceptance contract used for the frozen pre-migration baseline
 
 ### 9.2 Compare before vs after
 Status: [~] first structured comparison helper landed
@@ -593,10 +592,14 @@ Status: [~] first live post-migration regression repair landed
   - result: `1/1 scenarios passed`, `5/5 turns passed`
 
 ### 9.4 Freeze post-migration evidence
-Status: [~] first bounded after-run evidence frozen
-- saved bounded post-migration operator subset report at `/tmp/e2e_post_migration_operator_subset_turn5.json`
-- recorded the bounded after-run result in testing docs and development log as the first post-migration live evidence block
-- full after-report freeze remains pending the wider bounded/full rerun decision
+Status: [~] bounded split full-suite after evidence frozen
+- saved bounded post-migration reports at:
+  - `/tmp/e2e_post_migration_operator_subset_turn5.json`
+  - `/tmp/e2e_post_migration_first25_turn5.json`
+  - `/tmp/e2e_post_migration_last25_turn5.json`
+- recorded the bounded after-run results in testing docs and development log as the current post-migration live evidence block
+- the current frozen bounded after evidence now covers the full 50-scenario set through split `1-25` and `26-50` runs under the turn-5 acceptance contract
+- a single monolithic after-report artifact remains optional future consolidation work rather than a blocker for bounded regression-closure evidence
 
 **Exit criteria**
 - install-model migration does not materially regress the real-user baseline

@@ -12951,6 +12951,34 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-13: Froze bounded split full-suite post-migration evidence
+
+### Summary
+I continued Phase 8 by widening the bounded after-run from the operator subset to the entire 50-scenario suite, executed as two split live runs for operational safety and easier evidence capture. Both halves passed cleanly, so the migrated runtime now has full bounded after evidence matching the turn-5 acceptance contract used for the frozen pre-migration truth set.
+
+### What Was Done
+- Executed bounded post-migration split runs for the full 50-scenario suite:
+  - `S01-S25` → `/tmp/e2e_post_migration_first25_turn5.json`
+  - `S26-S50` → `/tmp/e2e_post_migration_last25_turn5.json`
+- Preserved the same bounded acceptance settings used for earlier live evidence:
+  - `--max-turns-per-scenario 5`
+  - `--delay 0`
+  - `--wait-ready-seconds 20`
+- Combined with the already-recorded operator subset after-run, this now provides a bounded but full post-migration evidence set instead of only local spot checks
+
+### Validation
+- `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://127.0.0.1:80 --delay 0 --wait-ready-seconds 20 --range 1-25 --max-turns-per-scenario 5 --output /tmp/e2e_post_migration_first25_turn5.json`
+  - result: `25/25 scenarios passed`, `125/125 executed turns passed`, `0 transport/service errors`
+- `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://127.0.0.1:80 --delay 0 --wait-ready-seconds 20 --range 26-50 --max-turns-per-scenario 5 --output /tmp/e2e_post_migration_last25_turn5.json`
+  - result: `25/25 scenarios passed`, `125/125 executed turns passed`, `0 transport/service errors`
+- combined bounded split full-set summary:
+  - `50/50 scenarios passed`
+  - `250/250 executed turns passed`
+  - all scenario-end history checks passed
+
+### Notes
+This is the strongest post-migration live evidence so far. It is still assembled from split runs rather than one monolithic report artifact, but under the currently accepted bounded turn-5 contract, the after-migration system now matches the frozen pre-migration full-suite bounded baseline shape and outcome.
+
 ## 2026-05-13: Recorded bounded post-migration operator subset after-run
 
 ### Summary
