@@ -12932,3 +12932,21 @@ I continued the Phase 6 runtime-path cleanup by fixing one of the last compatibi
 
 ### Notes
 This keeps backward compatibility for previously persisted asset indexes while preventing the compatibility layer itself from pulling the system back toward repo-local path semantics.
+
+## 2026-05-12: Aligned stale runtime-path guidance in module docs
+
+### Summary
+I continued the Phase 6 cleanup by removing outdated developer-facing `data/...` examples that no longer matched the install-model runtime-path implementation. This keeps code comments and usage snippets from reintroducing repo-local guidance after the storage behavior has already been externalized.
+
+### What Was Done
+- Updated `app/system/catalog/system_catalog.py`
+  - module storage header now refers to `<runtime-data>/...` instead of repo-local `data/...`
+- Updated `app/orchestration/core_orchestrator.py`
+  - usage snippet now shows `CoreOrchestrator()` instead of `CoreOrchestrator(data_dir="data")`
+
+### Validation
+- `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
+- result: `5 passed`
+
+### Notes
+This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.

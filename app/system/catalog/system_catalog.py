@@ -4,8 +4,8 @@ Persistent registry of installed/static assets. The catalog is persisted to disk
 so it survives restarts.
 
 Storage:
-  data/system_catalog.json  — system-level asset registry
-  data/users/{user_id}.json  — per-user asset registry (already via UserService)
+  <runtime-data>/system_catalog.json  — system-level asset registry
+  <runtime-data>/users/{user_id}.json  — per-user asset registry (already via UserService)
 """
 from __future__ import annotations
 

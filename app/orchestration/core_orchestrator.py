@@ -39,7 +39,7 @@ class CoreOrchestrator:
     """Wiring layer for all Phase B+E+D components.
 
     Usage:
-        orchestrator = CoreOrchestrator(data_dir="data")
+        orchestrator = CoreOrchestrator()
         await orchestrator.initialize()
         result = await orchestrator.process_user_message(session_id, user_id, message)
     """
