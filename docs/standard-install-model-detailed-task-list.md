@@ -431,10 +431,22 @@ Status: [~] prerequisites largely prepared
 - Phase 6 should now focus on asset/control-plane separation rather than more broad `data/...` default cleanup
 
 ### 7.2 Externalize installed assets
-Status: [ ] next major implementation seam
-- define installed asset root outside repo
-- ensure runtime uses installed asset root, not repo `installed/`
-- migrate asset resolution logic accordingly
+Status: [x] Slice C2 landed, Slice C3 next
+- `AssetCenter` default roots now resolve installed/build/data locations from the shared install-model path contract when explicit overrides are not provided
+- `SkillRegistryService` now also defaults to the install-model installed asset root when explicit overrides are not provided
+- `CoreOrchestrator` now threads its `AssetCenter` installed-root choice into `SkillRegistryService`, removing one more hardcoded `installed/` caller seam from the non-bootstrap path
+- CLI `runtime-layout` now exposes an `asset_root_transition` block so operators can inspect install-model target roots alongside legacy repo-pinned roots during migration
+- bootstrap asset wiring is now described through a dedicated helper contract, exposed through CLI runtime-layout for inspection
+- bootstrap binding contract added an explicit preview mode, then landed the first live bootstrap flip
+- current live Phase 6 asset wiring now uses:
+  - install-model `installed/` asset root
+  - install-model `build/` artifact root
+  - repo `source/` root retained for development
+  - repo `data/runtime_center.json` retained for runtime-registry persistence until Slice C4
+- remaining next slice is now:
+  - Slice C3 package built-in control-plane assets so installed execution no longer depends on repo-root path-definition loading
+- validation progression recorded in testing docs culminates in:
+  - `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py` -> `47 passed`
 
 ### 7.3 Externalize build artifacts
 Status: [ ] blocked on asset root map

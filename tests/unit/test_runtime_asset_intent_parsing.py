@@ -56,6 +56,7 @@ def test_choose_turn_budget_returns_default_for_general_messages() -> None:
 def test_choose_turn_budget_returns_higher_for_operator_heavy_messages() -> None:
     assert choose_turn_budget("帮我创建一个app") == 30
     assert choose_turn_budget("帮我确认这个接口行为") == 30
+    assert choose_turn_budget("请梳理 API handler 和 request/response 流程") == 30
 
 
 def test_choose_turn_budget_returns_higher_for_introspection() -> None:
