@@ -694,3 +694,4 @@ Status: [~] first live-code adoption landed
 - replay-regression sample storage now resolves dynamically from install-model runtime data paths instead of relying on import-time repo/data-derived constants, tightening another context/governance storage seam
 - AppManagementWorker subprocess launch now falls back to install-model runtime data paths when `AGENTSYSTEM_DATA_DIR` is unset, removing another residual repo-local `data` cwd assumption from app lifecycle control
 - HTTP test server chat log storage now resolves from install-model runtime data paths, continuing the last visible repo-local `data/...` cleanup in the web test surface
+- LightBrain gateway identity storage now resolves from install-model runtime data paths as well, removing another visible user-facing repo-local `data/lightbrain/...` assumption from the interaction surface

@@ -22,6 +22,7 @@ from app.models.chat import (
     TaskContinuationDecision,
 )
 from app.models.telemetry import InteractionTelemetryRecord
+from app.runtime_paths import resolve_runtime_paths
 from app.services.context_center import ContextCenter
 from app.models.context import SessionContextRecord, SessionLink, SessionNode
 from app.models.pending_task import (
@@ -1034,10 +1035,9 @@ class LightBrainGateway:
         return registry
 
     def _load_identity(self) -> None:
-        import os
-        identity_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "lightbrain", "identity.json")
-        os.makedirs(os.path.dirname(identity_path), exist_ok=True)
-        if os.path.exists(identity_path):
+        identity_path = resolve_runtime_paths().data_dir / "lightbrain" / "identity.json"
+        identity_path.parent.mkdir(parents=True, exist_ok=True)
+        if identity_path.exists():
             with open(identity_path) as f:
                 data = json.load(f)
                 self._name = data.get("name")

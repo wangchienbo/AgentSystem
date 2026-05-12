@@ -12877,3 +12877,21 @@ I continued the Phase 6 path cleanup on the HTTP test surface by moving chat-log
 
 ### Notes
 The HTTP test server is a visible runtime surface, so keeping its log storage on the same install-model runtime contract is important for consistency and non-root portability.
+
+## 2026-05-12: Externalized LightBrain gateway identity storage
+
+### Summary
+I continued the Phase 6 runtime-path cleanup by moving LightBrain gateway identity storage off repo-local `data/lightbrain/identity.json` and onto install-model runtime paths. This removes another user-facing interaction-surface assumption that had still been tied to source checkout layout.
+
+### What Was Done
+- Updated `app/system/gateway/light_brain_gateway.py`
+  - `_load_identity()` now reads/writes identity at `resolve_runtime_paths().data_dir / lightbrain / identity.json`
+- Added `tests/unit/test_light_brain_identity_paths.py`
+  - verifies gateway identity creation resolves to install-model runtime data
+
+### Validation
+- `pytest -q tests/unit/test_light_brain_identity_paths.py tests/unit/test_app_mgmt_runtime_paths.py tests/unit/test_replay_regression_sample_paths.py tests/unit/test_context_storage_paths_defaults.py tests/unit/test_app_bootstrap_defaults.py tests/unit/test_app_process_manager_paths.py tests/unit/test_memory_skill_paths.py tests/unit/test_interactive_app_workflow_paths.py tests/unit/test_user_service_paths.py tests/unit/test_interactive_app_paths.py tests/unit/test_pipeline_service_paths.py tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `67 passed`
+
+### Notes
+This keeps even the gateway's identity persistence aligned with the same install-model runtime storage contract already adopted across the rest of the system's durable state surfaces.
