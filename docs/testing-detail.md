@@ -2999,9 +2999,9 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Slice C5 bootstrap/migrate-runtime helper contracts
-- `agentsystem bootstrap` now creates the install-model runtime directory layout, seeds install-model config from the legacy user config when present, and reports repo-overlap warnings
-- `agentsystem migrate-runtime` now audits legacy repo-local runtime artifacts plus runtime-root overlap so operators can see migration blockers before deeper live-copy wiring lands
+### Slice C6 runtime/asset separation validation
+- added cwd-independent separation coverage to prove CLI runtime layout/bootstrap commands do not drift onto current working directory paths
+- added bootstrap runtime coverage to prove installed asset root, build artifact root, and runtime-center persistence all resolve outside the source repo and outside arbitrary caller cwd
 - validation:
-  - `pytest -q tests/unit/test_cli.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_runtime_paths.py`
-  - result: `16 passed`
+  - `pytest -q tests/unit/test_runtime_asset_separation.py tests/unit/test_cli.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_runtime_paths.py`
+  - result: `18 passed`

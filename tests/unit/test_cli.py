@@ -100,6 +100,7 @@ def test_run_cli_bootstrap_initializes_runtime_layout_and_seeds_legacy_config(mo
     legacy_config.write_text("models: {}\n", encoding="utf-8")
 
     monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
     monkeypatch.setattr(Path, "home", lambda: legacy_home)
 
     result = run_cli(["bootstrap"])
@@ -118,6 +119,7 @@ def test_run_cli_bootstrap_initializes_runtime_layout_and_seeds_legacy_config(mo
 def test_run_cli_migrate_runtime_reports_legacy_paths_and_repo_overlap(monkeypatch, tmp_path: Path) -> None:
     repo_runtime_home = REPO_ROOT / "tmp-runtime-home-test"
     monkeypatch.setenv("AGENTSYSTEM_HOME", str(repo_runtime_home))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
     legacy_runtime_center = REPO_ROOT / "data" / "runtime_center.json"
     legacy_runtime_center.parent.mkdir(parents=True, exist_ok=True)
     legacy_runtime_center.write_text("{}\n", encoding="utf-8")

@@ -483,10 +483,13 @@ Status: [x] initial helper commands landed
   - result: `16 passed`
 
 ### 7.6 Validate runtime/asset separation
-Status: [ ] not started
-- run installed runtime with repo absent from cwd assumptions
-- verify assets still discover/install/run correctly
-- verify persistence paths now land outside repo
+Status: [x] bounded separation validation landed
+- validated CLI runtime-layout/bootstrap behavior remains independent from the current shell cwd and does not drift onto cwd-local paths
+- validated bootstrap-built runtime still resolves installed assets, build artifacts, and runtime-center persistence onto install-model paths outside the source repo
+- confirmed repo `build/` / `installed/` remain only transition-preview surfaces and not the active live runtime roots in the tested bootstrap path
+- validation:
+  - `pytest -q tests/unit/test_runtime_asset_separation.py tests/unit/test_cli.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_runtime_paths.py`
+  - result: `18 passed`
 
 **Exit criteria**
 - real runtime assets and state are fully separated from source repo

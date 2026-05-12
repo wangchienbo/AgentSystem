@@ -12951,6 +12951,24 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-12: Landed bounded runtime/asset separation validation
+
+### Summary
+I continued the next standard-install task-list item in order and closed section 7.6 with bounded validation evidence. The gap here was not a missing migration primitive but missing explicit proof that the active bootstrap/runtime path no longer depends on the caller's cwd or repo-local runtime roots.
+
+### What Was Done
+- Added `tests/unit/test_runtime_asset_separation.py`
+  - verifies `agentsystem runtime-layout` and `agentsystem bootstrap` remain cwd-independent when invoked from an arbitrary directory outside the repo
+  - verifies bootstrap-built runtime still places installed assets, build outputs, and runtime-center persistence on install-model paths outside both the repo and the arbitrary caller cwd
+- Adjusted CLI tests to clear stale runtime-config env overrides so separation checks stay isolated and deterministic
+
+### Validation
+- `pytest -q tests/unit/test_runtime_asset_separation.py tests/unit/test_cli.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_runtime_paths.py`
+- result: `18 passed`
+
+### Notes
+This closes the current bounded validation requirement for Phase 6 section 7.6. Full live install-flow validation still belongs to the upcoming Phase 7 install/bootstrap work, but the tested bootstrap/runtime path can now be evidenced as repo-cwd independent with persistence and asset roots outside the source tree.
+
 ## 2026-05-12: Landed bootstrap and migrate-runtime helper contracts
 
 ### Summary
