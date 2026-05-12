@@ -3014,6 +3014,21 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - latest regression retrieval
 - conclusion: the earlier route-aware timeout/retry budgeting change now survives a fresh live governance self-iteration rerun under the current 1seey profile
 
+### Stronger-turn bounded after evidence
+- reran stronger-turn first-half bounded validation after stabilizing server lifetime:
+  - `/tmp/e2e_post_migration_first25_turn10_rerun.json`
+  - result: `25/25` scenarios passed, `250/250` turns passed, `0` transport/service errors
+- executed stronger-turn second-half bounded validation:
+  - `/tmp/e2e_post_migration_last25_turn10.json`
+  - result: `25/25` scenarios passed, `250/250` turns passed, `0` transport/service errors
+- targeted contamination check that isolated the earlier false negative:
+  - `/tmp/e2e_post_migration_s20_s25_turn10_rerun.json`
+  - result: `6/6` scenarios passed, `60/60` turns passed, `0` transport/service errors
+- stronger-turn combined summary:
+  - `50/50` scenarios passed
+  - `500/500` executed turns passed
+  - `0` transport/service errors
+
 ### Monolithic merged after artifact
 - added `tests/e2e/merge_user_level_reports.py` to merge split bounded after-run reports into one summary artifact
 - generated merged artifact:

@@ -12951,6 +12951,29 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-13: Extended bounded after evidence to full-suite 10-turn parity
+
+### Summary
+I continued beyond the original bounded turn-5 contract and established a stronger bounded after-evidence layer at 10 turns across the full 50-scenario suite. The first failed-looking first-half run was traced to server-lifetime contamination rather than a product-level install-model regression, then washed clean with stabilized reruns.
+
+### What Was Verified
+- targeted contamination check:
+  - `/tmp/e2e_post_migration_s20_s25_turn10_rerun.json`
+  - result: `6/6 scenarios passed`, `60/60 turns passed`, `0 transport/service errors`
+- stronger-turn first-half rerun:
+  - `/tmp/e2e_post_migration_first25_turn10_rerun.json`
+  - result: `25/25 scenarios passed`, `250/250 turns passed`, `0 transport/service errors`
+- stronger-turn second-half run:
+  - `/tmp/e2e_post_migration_last25_turn10.json`
+  - result: `25/25 scenarios passed`, `250/250 turns passed`, `0 transport/service errors`
+- stronger-turn full-suite bounded summary:
+  - `50/50 scenarios passed`
+  - `500/500 executed turns passed`
+  - `0 transport/service errors`
+
+### Notes
+This strengthens the install-model closure beyond the original bounded turn-5 parity claim. Under stabilized server-lifetime conditions, the migrated runtime now also shows full-suite bounded parity at a 10-turn budget.
+
 ## 2026-05-13: Added monolithic merged after artifact
 
 ### Summary

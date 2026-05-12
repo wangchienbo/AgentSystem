@@ -556,7 +556,10 @@ Status: [x] bounded full-suite after evidence assembled and accepted
 - executed bounded post-migration split runs for the full scenario set:
   - `S01-S25` → `/tmp/e2e_post_migration_first25_turn5.json`
   - `S26-S50` → `/tmp/e2e_post_migration_last25_turn5.json`
-- merged the split full-set reports into a monolithic summary artifact:
+- executed stronger-turn bounded split runs for the full scenario set after stabilizing server lifetime:
+  - `S01-S25` → `/tmp/e2e_post_migration_first25_turn10_rerun.json`
+  - `S26-S50` → `/tmp/e2e_post_migration_last25_turn10.json`
+- generated merged bounded 5-turn after artifact:
   - `/tmp/e2e_post_migration_full50_turn5_merged.json`
 - bounded after-run result summary:
   - operator subset: `5/5` scenarios passed, `25/25` turns passed
@@ -604,9 +607,13 @@ Status: [x] bounded regression-closure evidence frozen
   - `/tmp/e2e_post_migration_first25_turn5.json`
   - `/tmp/e2e_post_migration_last25_turn5.json`
   - `/tmp/e2e_post_migration_full50_turn5_merged.json`
-- recorded the bounded after-run results in testing docs and development log as the current post-migration live evidence block
-- bounded before/after summary now shows no material regression under the accepted turn-5 contract
-- this closes the current bounded post-migration regression-closure slice; a single monolithic after-report artifact remains optional consolidation work rather than an open blocker
+  - `/tmp/e2e_post_migration_s20_s25_turn10_rerun.json`
+  - `/tmp/e2e_post_migration_first25_turn10_rerun.json`
+  - `/tmp/e2e_post_migration_last25_turn10.json`
+- stronger-turn bounded summary now also holds under the stabilized server-lifetime condition:
+  - first 25 turn-10 rerun: `25/25` scenarios passed, `250/250` turns passed
+  - last 25 turn-10 run: `25/25` scenarios passed, `250/250` turns passed
+  - full-suite turn-10 bounded evidence: `50/50` scenarios passed, `500/500` executed turns passed, `0` transport/service errors
 
 **Exit criteria**
 - install-model migration does not materially regress the real-user baseline
