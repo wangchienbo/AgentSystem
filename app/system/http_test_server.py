@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from app.ai.model_client import describe_tool_route_budget
 from app.runtime_paths import resolve_runtime_paths
 from app.bootstrap.runtime import build_runtime
 from app.models.app_instance import AppInstance
@@ -643,17 +644,12 @@ async def api_chat_regression_run(user: dict = Depends(get_current_user)):
 
 @app.get("/api/chat-regression/latest")
 async def api_chat_regression_latest(user: dict = Depends(get_current_user)):
-    if not REGRESSION_LOG_DIR.exists():
+    rows = list_saved_runs(limit=1)
+    if not rows:
         return {"success": False, "error": "no regression runs found"}
-    files = sorted(REGRESSION_LOG_DIR.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
-    if not files:
-        return {"success": False, "error": "no regression runs found"}
-    latest = files[0]
-    lines = latest.read_text(encoding="utf-8").splitlines()
-    if not lines:
-        return {"success": False, "error": "latest regression file is empty"}
-    summary = json.loads(lines[0])
-    return {"success": True, "path": str(latest), "summary": summary}
+    latest = rows[0]
+    summary = latest.get("summary") or {}
+    return {"success": True, "path": latest.get("path"), "summary": summary}
 
 
 @app.get("/api/chat-regression/runs")

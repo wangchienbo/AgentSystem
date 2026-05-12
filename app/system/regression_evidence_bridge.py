@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -136,7 +137,7 @@ def promote_regression_evidence(
     )
     result = {
         "comparison": comparison,
-        "promoted_evidence": [e.model_dump() for e in evidence_list],
+        "promoted_evidence": [e.model_dump(mode="json") for e in evidence_list],
         "promoted_count": len(evidence_list),
     }
     # Persist to evidence log

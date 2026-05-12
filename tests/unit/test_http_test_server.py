@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
+from app.system.chat_regression import REGRESSION_LOG_DIR
 from app.system.http_test_server import app, user_sessions, conversation_history, refinement_rollout, gateway
 
 
@@ -823,7 +824,7 @@ def test_api_chat_regression_run_and_latest_endpoints() -> None:
     assert run_data["success"] is True
     assert run_data["run_id"] == "run-endpoint"
 
-    regression_dir = REPO_ROOT / "data/chat_regression"
+    regression_dir = REGRESSION_LOG_DIR
     regression_dir.mkdir(parents=True, exist_ok=True)
     latest_file = regression_dir / "run-endpoint.jsonl"
     latest_file.write_text("{\"kind\":\"summary\",\"run_id\":\"run-endpoint\",\"started_at\":\"2026-04-27T00:00:00Z\"}\n", encoding="utf-8")
@@ -847,7 +848,7 @@ def test_api_chat_regression_runs_and_detail_endpoints() -> None:
     conversation_history["session_tester"] = []
     client.cookies.set("session_id", "session_tester")
 
-    regression_dir = REPO_ROOT / "data/chat_regression"
+    regression_dir = REGRESSION_LOG_DIR
     regression_dir.mkdir(parents=True, exist_ok=True)
     run_path = regression_dir / "run-list.jsonl"
     run_path.write_text(

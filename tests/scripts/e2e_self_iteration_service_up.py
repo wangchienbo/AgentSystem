@@ -43,6 +43,7 @@ PASSWORD = "test123456"
 RUNTIME_DATA_DIR = resolve_runtime_paths(PROJECT_DIR).data_dir
 SERVER_LOG = RUNTIME_DATA_DIR / "e2e_self_iteration_service_up.log"
 CONFIG_PATH = resolve_runtime_paths(PROJECT_DIR).config_dir / "config.yaml"
+LEGACY_CONFIG_PATH = Path.home() / ".config" / "agentsystem" / "config.yaml"
 
 GREEN = "\033[0;32m"
 RED = "\033[0;31m"
@@ -87,14 +88,21 @@ def stage(msg: str) -> None:
 
 
 def ensure_runtime_config_ready() -> None:
-    if not CONFIG_PATH.exists():
-        fail(
-            "runtime config missing for live service-up validation",
-            {
-                "expected_config": str(CONFIG_PATH),
-                "hint": "create config.yaml with models and routing definitions before rerunning live governance validation",
-            },
-        )
+    if CONFIG_PATH.exists():
+        return
+    if LEGACY_CONFIG_PATH.exists():
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG_PATH.write_text(LEGACY_CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        ok(f"seeded installed-runtime config from legacy path: {LEGACY_CONFIG_PATH}")
+        return
+    fail(
+        "runtime config missing for live service-up validation",
+        {
+            "expected_config": str(CONFIG_PATH),
+            "legacy_fallback_checked": str(LEGACY_CONFIG_PATH),
+            "hint": "create config.yaml with models and routing definitions before rerunning live governance validation",
+        },
+    )
 
 
 def ensure_server_ready(timeout_seconds: int = 30) -> None:

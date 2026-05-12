@@ -135,14 +135,18 @@ def list_saved_runs(*, log_dir: Path | None = None, limit: int = 10) -> list[dic
     target_dir = log_dir or REGRESSION_LOG_DIR
     if not target_dir.exists():
         return []
-    files = sorted(target_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]
+    files = sorted(target_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
     rows: list[dict[str, Any]] = []
     for path in files:
         lines = path.read_text(encoding="utf-8").splitlines()
         if not lines:
             continue
         summary = json.loads(lines[0])
+        if not isinstance(summary, dict) or not summary.get("run_id"):
+            continue
         rows.append({"path": str(path), "summary": summary})
+        if len(rows) >= limit:
+            break
     return rows
 
 
@@ -202,7 +206,11 @@ def build_topic_trends(*, log_dir: Path | None = None, limit: int = 5) -> dict[s
     from collections import defaultdict
 
     runs = list_saved_runs(log_dir=log_dir, limit=limit)
-    run_ids = [row["summary"]["run_id"] for row in runs]
+    run_ids = [
+        summary["run_id"]
+        for row in runs
+        if isinstance((summary := row.get("summary")), dict) and summary.get("run_id")
+    ]
 
     # Collect per-topic probe data across runs
     topics_data: dict[str, list[dict]] = defaultdict(list)

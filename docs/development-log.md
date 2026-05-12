@@ -12951,22 +12951,31 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
-## 2026-05-12: Hardened live governance rerun preflight for installed-runtime config
+## 2026-05-12: Closed HTTP compatibility drift with full live governance rerun
 
 ### Summary
-I moved to the next unresolved task-list item, the live governance self-iteration rerun after the route-aware timeout/retry change. The rerun still cannot complete in this environment, but I found the first blocker was being reported poorly: the service-up probe kept timing out on readiness even though uvicorn was dying immediately because installed-runtime model config was missing.
+I continued the next open standard-install task-list item and finished closing the remaining HTTP compatibility drift between `/api/chat`, `/api/action`, gateway action payloads, and the service-up governance consumer chain. The final closure required more than the earlier timeout-profile work: once the live rerun could reach deeper stages, it exposed several installed-runtime and regression-log compatibility bugs that only showed up in a true service-up cycle.
 
 ### What Was Done
 - Updated `tests/scripts/e2e_self_iteration_service_up.py`
-  - switched runtime data/log path resolution to `resolve_runtime_paths(PROJECT_DIR)`
-  - added a preflight check for installed-runtime config at `/root/.local/share/agentsystem/config/config.yaml`
-  - the probe now fails fast with an explicit blocker message before trying to wait on a server that can never become ready
+  - resolves runtime paths through `resolve_runtime_paths(PROJECT_DIR)`
+  - seeds installed-runtime config from legacy `~/.config/agentsystem/config.yaml` when the migrated config is absent
+  - keeps the explicit tool-required probe and full governance self-iteration closure path
+- Updated `app/system/http_test_server.py`
+  - restored the missing `describe_tool_route_budget` import used by `/api/status`
+  - changed `/api/chat-regression/latest` to select real saved regression runs instead of blindly picking the newest JSONL file
+- Updated `app/system/regression_evidence_bridge.py`
+  - serializes promoted evidence in JSON mode so datetime fields no longer crash nightly governance cycles
+- Updated `app/system/chat_regression.py`
+  - filtered non-run JSONL sidecars like `evidence.jsonl` out of saved-run discovery
+  - hardened topic-trend aggregation to skip malformed summary rows without `run_id`
+- Updated unit tests for the installed-runtime regression log behavior and malformed-summary handling
 
 ### Validation
-- `python3 -m py_compile tests/scripts/e2e_self_iteration_service_up.py`
-- `START_SERVER=1 BASE_URL=http://127.0.0.1:8765 timeout 60 python3 tests/scripts/e2e_self_iteration_service_up.py`
-- result: explicit fast-fail blocker reported:
-  - missing `/root/.local/share/agentsystem/config/config.yaml`
+- `pytest -q tests/unit/test_chat_regression.py tests/unit/test_http_test_server.py tests/unit/test_regression_nightly_control.py`
+- result: `118 passed`
+- `START_SERVER=1 BASE_URL=http://127.0.0.1:8765 timeout 180 python3 tests/scripts/e2e_self_iteration_service_up.py`
+- result: `SELF-ITERATION SERVICE-UP E2E PASSED`
 
 ### Notes
-This does not close the live governance rerun item yet, but it does convert a vague timeout symptom into a concrete installed-runtime preflight failure, which is the right next step for getting the later rerun to be actionable and auditable.
+This closes the previously open HTTP compatibility drift item in the standard-install task list. The important part is that the closure now comes from a true installed-runtime, service-up, governance-triggered end-to-end rerun rather than only local endpoint/unit coverage.

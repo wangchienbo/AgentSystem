@@ -254,6 +254,23 @@ def test_build_topic_trends_groups_probes_by_topic(tmp_path: Path) -> None:
     assert storage_trend["answer_mode_counts"]["verification_required"] == 1
 
 
+def test_build_topic_trends_skips_runs_missing_summary_run_id(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.jsonl"
+    bad.write_text('{"kind":"summary","started_at":"2026-04-27T00:00:00Z"}\n', encoding="utf-8")
+
+    good_results = [
+        summarize_probe_payload("api", {"success": True, "response": "ok", "latency_ms": 12}),
+    ]
+    good_summary = build_run_summary(good_results, run_id="run-good", started_at="2026-04-27T00:00:00Z")
+    persist_run_results(good_results, good_summary, log_dir=tmp_path)
+
+    trends = build_topic_trends(log_dir=tmp_path, limit=5)
+
+    assert trends["run_count"] == 1
+    assert "api" in trends["topics"]
+    assert trends["topics"]["api"]["data_points"][0]["run_id"] == "run-good"
+
+
 def test_build_topic_trends_empty_on_no_runs(tmp_path: Path) -> None:
     trends = build_topic_trends(log_dir=tmp_path, limit=5)
     assert trends["run_count"] == 0
