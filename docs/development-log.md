@@ -12895,3 +12895,21 @@ I continued the Phase 6 runtime-path cleanup by moving LightBrain gateway identi
 
 ### Notes
 This keeps even the gateway's identity persistence aligned with the same install-model runtime storage contract already adopted across the rest of the system's durable state surfaces.
+
+## 2026-05-12: Externalized PipelineExecutor user workspace selection
+
+### Summary
+I continued the Phase 6 runtime-path cleanup by removing another nested repo-style fallback from user-isolated execution. `PipelineExecutor` user workspaces now resolve from install-model runtime data paths instead of being constructed by appending `data/users/...` beneath the caller workspace root.
+
+### What Was Done
+- Updated `app/orchestration/pipeline_executor.py`
+  - `execute_pipeline(..., user_id=...)` now resolves user workspaces under `resolve_runtime_paths().data_dir / users / <user_id> / workspace`
+- Added `tests/unit/test_pipeline_executor_workspace_paths.py`
+  - verifies executor workspaces switch to install-model runtime data paths for user-isolated execution
+
+### Validation
+- `pytest -q tests/unit/test_pipeline_executor_workspace_paths.py tests/unit/test_light_brain_identity_paths.py tests/unit/test_app_mgmt_runtime_paths.py tests/unit/test_replay_regression_sample_paths.py tests/unit/test_context_storage_paths_defaults.py tests/unit/test_app_bootstrap_defaults.py tests/unit/test_app_process_manager_paths.py tests/unit/test_memory_skill_paths.py tests/unit/test_interactive_app_workflow_paths.py tests/unit/test_user_service_paths.py tests/unit/test_interactive_app_paths.py tests/unit/test_pipeline_service_paths.py tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `68 passed`
+
+### Notes
+This closes another execution-path seam where user isolation still inherited repo-style path construction. User workspace resolution now follows the same install-model runtime storage contract as the rest of the externalized state surfaces.

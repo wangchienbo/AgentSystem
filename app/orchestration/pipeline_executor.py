@@ -479,7 +479,7 @@ class PipelineExecutor:
             List of execution results
         """
         if user_id:
-            user_workspace = os.path.join(self.workspace, "data", "users", user_id, "workspace")
+            user_workspace = str(resolve_runtime_paths().data_dir / "users" / user_id / "workspace")
             os.makedirs(user_workspace, exist_ok=True)
             for exec_type, executor in self.executors.items():
                 executor.workspace = user_workspace
