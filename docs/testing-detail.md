@@ -2999,9 +2999,10 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Slice D5 install lifecycle validation
-- added end-to-end unit coverage for clean bootstrap, incremental asset install, repeated bulk install, and post-lifecycle doctor/status verification
-- validated that install lifecycle state remains visible through required core-asset checks and installed asset inventory reporting
+### Slice E1 before/after comparison helper
+- added `tests/e2e/compare_user_level_reports.py` to compare structured pre/post 50x20 JSON reports
+- comparison output now summarizes pass-rate deltas, scenario full-pass deltas, improved/regressed/unchanged scenario ids, added/removed scenarios, and per-scenario verdict counters
+- added unit coverage for improvement/regression detection and scenario-set drift handling
 - validation:
-  - `pytest -q tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
-  - result: `38 passed`
+  - `pytest -q tests/unit/test_compare_user_level_reports.py tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+  - result: `40 passed`

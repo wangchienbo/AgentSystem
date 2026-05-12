@@ -558,12 +558,18 @@ Status: [x] initial install lifecycle validation landed
 - produce after-install-model report
 
 ### 9.2 Compare before vs after
-- compare scenario full-pass count
-- compare total turn success rate
-- compare session continuity behavior
-- compare lifecycle chain behavior
-- compare history/record integrity
-- compare obvious error markers
+Status: [~] first structured comparison helper landed
+- added `tests/e2e/compare_user_level_reports.py` to compare pre/post 50x20 JSON reports
+- comparison now summarizes:
+  - scenario full-pass delta
+  - pass-rate delta
+  - improved/regressed/unchanged scenario ids
+  - added/removed scenarios
+  - per-scenario verdict/ok/fail/error deltas
+- added focused unit coverage for improvement, regression, unchanged, added, and removed scenario cases
+- validation:
+  - `pytest -q tests/unit/test_compare_user_level_reports.py tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+  - result: `40 passed`
 
 ### 9.3 Repair migration regressions
 - prioritize true install-model regressions

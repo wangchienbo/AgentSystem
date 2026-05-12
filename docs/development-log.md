@@ -12951,6 +12951,29 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-12: Added structured before/after baseline comparison helper
+
+### Summary
+I continued into Phase 8 by landing the first reusable comparison slice for post-migration validation. Instead of waiting for a full after-run before building analysis tooling, the repo now has a dedicated comparator for the structured 50x20 JSON reports emitted by the user-level harness.
+
+### What Was Done
+- Added `tests/e2e/compare_user_level_reports.py`
+  - loads two structured 50x20 report JSON files
+  - compares pass-rate and scenario full-pass deltas
+  - classifies scenarios as improved, regressed, unchanged, added, or removed
+  - emits per-scenario verdict/ok/fail/error deltas
+  - returns a machine-readable `comparison_status` that flags regressions when any scenario meaningfully worsens
+- Added `tests/unit/test_compare_user_level_reports.py`
+  - validates improvement/regression classification
+  - validates added/removed/unchanged scenario handling
+
+### Validation
+- `pytest -q tests/unit/test_compare_user_level_reports.py tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+- result: `40 passed`
+
+### Notes
+This does not replace the pending live post-migration run, but it removes one blocker for Phase 8 by making before/after evidence comparable immediately once the after-report is generated.
+
 ## 2026-05-12: Validated install lifecycle
 
 ### Summary
