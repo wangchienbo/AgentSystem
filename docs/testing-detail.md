@@ -2999,15 +2999,18 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Slice E4 bounded split full-suite post-migration after evidence
-- executed bounded post-migration split runs covering the entire 50-scenario suite:
-  - `S01-S25` → `/tmp/e2e_post_migration_first25_turn5.json`
-  - `S26-S50` → `/tmp/e2e_post_migration_last25_turn5.json`
-- combined split-run result summary:
+### Bounded before/after regression summary
+- frozen pre-install-model bounded baseline:
   - `50/50` scenarios passed
   - `250/250` executed turns passed
   - `0` transport/service errors
-  - all scenario-end history checks passed
-- validation commands:
-  - `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://127.0.0.1:80 --delay 0 --wait-ready-seconds 20 --range 1-25 --max-turns-per-scenario 5 --output /tmp/e2e_post_migration_first25_turn5.json`
-  - `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://127.0.0.1:80 --delay 0 --wait-ready-seconds 20 --range 26-50 --max-turns-per-scenario 5 --output /tmp/e2e_post_migration_last25_turn5.json`
+- frozen post-install-model bounded baseline:
+  - `50/50` scenarios passed
+  - `250/250` executed turns passed
+  - `0` transport/service errors
+- bounded comparison deltas:
+  - scenario full-pass delta: `0`
+  - executed-turn success delta: `0`
+  - transport/service error delta: `0`
+- conclusion: under the accepted turn-5 bounded contract, no material regression is currently observed after the install-model migration
+

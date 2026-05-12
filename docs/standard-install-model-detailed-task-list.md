@@ -565,18 +565,22 @@ Status: [~] bounded full-suite after evidence now assembled in split runs
 - this still stops short of a single monolithic 50-scenario after-run artifact, but the bounded full-suite after evidence is now available under the same turn-5 acceptance contract used for the frozen pre-migration baseline
 
 ### 9.2 Compare before vs after
-Status: [~] first structured comparison helper landed
-- added `tests/e2e/compare_user_level_reports.py` to compare pre/post 50x20 JSON reports
-- comparison now summarizes:
-  - scenario full-pass delta
-  - pass-rate delta
-  - improved/regressed/unchanged scenario ids
-  - added/removed scenarios
-  - per-scenario verdict/ok/fail/error deltas
-- added focused unit coverage for improvement, regression, unchanged, added, and removed scenario cases
-- validation:
-  - `pytest -q tests/unit/test_compare_user_level_reports.py tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
-  - result: `40 passed`
+Status: [x] bounded baseline comparison summary recorded
+- frozen pre-install-model bounded baseline summary:
+  - `50/50` scenarios passed
+  - `250/250` executed turns passed
+  - `0` transport/service errors
+- frozen post-install-model bounded baseline summary:
+  - `50/50` scenarios passed
+  - `250/250` executed turns passed
+  - `0` transport/service errors
+- bounded before/after comparison conclusion:
+  - scenario full-pass delta: `0`
+  - executed-turn success delta: `0`
+  - transport/service error delta: `0`
+  - scenario-end history integrity: no regression observed
+  - operator-sensitive subset (`S12,S25,S36,S41,S50`) remained green post-migration after the `/login` parser repair
+- under the accepted turn-5 bounded contract, the install-model migration does not currently show a material regression relative to the frozen pre-migration truth set
 
 ### 9.3 Repair migration regressions
 Status: [~] first live post-migration regression repair landed
@@ -592,14 +596,14 @@ Status: [~] first live post-migration regression repair landed
   - result: `1/1 scenarios passed`, `5/5 turns passed`
 
 ### 9.4 Freeze post-migration evidence
-Status: [~] bounded split full-suite after evidence frozen
+Status: [x] bounded regression-closure evidence frozen
 - saved bounded post-migration reports at:
   - `/tmp/e2e_post_migration_operator_subset_turn5.json`
   - `/tmp/e2e_post_migration_first25_turn5.json`
   - `/tmp/e2e_post_migration_last25_turn5.json`
 - recorded the bounded after-run results in testing docs and development log as the current post-migration live evidence block
-- the current frozen bounded after evidence now covers the full 50-scenario set through split `1-25` and `26-50` runs under the turn-5 acceptance contract
-- a single monolithic after-report artifact remains optional future consolidation work rather than a blocker for bounded regression-closure evidence
+- bounded before/after summary now shows no material regression under the accepted turn-5 contract
+- this closes the current bounded post-migration regression-closure slice; a single monolithic after-report artifact remains optional consolidation work rather than an open blocker
 
 **Exit criteria**
 - install-model migration does not materially regress the real-user baseline

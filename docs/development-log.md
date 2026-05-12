@@ -12951,6 +12951,29 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-13: Closed the bounded before/after regression summary
+
+### Summary
+I finished the current Phase 8 bounded closure pass by recording the explicit before/after comparison summary, not just the raw post-migration artifacts. Under the accepted bounded turn-5 contract, the migrated install-model runtime now matches the frozen pre-migration truth set with no observed material regression.
+
+### What Was Recorded
+- Frozen pre-install-model bounded baseline:
+  - `50/50 scenarios passed`
+  - `250/250 executed turns passed`
+  - `0 transport/service errors`
+- Frozen post-install-model bounded baseline:
+  - `50/50 scenarios passed`
+  - `250/250 executed turns passed`
+  - `0 transport/service errors`
+- Comparison conclusion:
+  - scenario full-pass delta: `0`
+  - executed-turn success delta: `0`
+  - transport/service error delta: `0`
+  - no bounded scenario-end history regression observed
+
+### Notes
+This closes the current bounded regression-closure slice for the install-model migration. A future monolithic after-run artifact or wider 20-turn acceptance replay would still be useful optional strengthening work, but it is no longer required to claim bounded before/after parity under the currently accepted contract.
+
 ## 2026-05-13: Froze bounded split full-suite post-migration evidence
 
 ### Summary
