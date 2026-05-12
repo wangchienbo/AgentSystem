@@ -122,9 +122,14 @@ def materialize_builtin_path_definitions(
     source_dir = root / "data" / "paths"
     destination = Path(target_dir) if target_dir is not None else runtime_paths.installed_assets_dir / "builtin_paths"
     destination.mkdir(parents=True, exist_ok=True)
+    source_files = list(source_dir.glob("*.yaml")) + list(source_dir.glob("*.yml"))
+    source_names = {path.name for path in source_files}
+    for projected_file in list(destination.glob("*.yaml")) + list(destination.glob("*.yml")):
+        if projected_file.name not in source_names:
+            projected_file.unlink()
     copied_files: list[str] = []
     projected_entries: list[dict[str, str]] = []
-    for yaml_file in list(source_dir.glob("*.yaml")) + list(source_dir.glob("*.yml")):
+    for yaml_file in source_files:
         shutil.copy2(yaml_file, destination / yaml_file.name)
         copied_files.append(yaml_file.name)
         projected_entries.append(

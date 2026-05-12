@@ -27,3 +27,19 @@ def test_materialize_builtin_path_definitions_projects_repo_paths_into_installed
     assert manifest["projected_files"] == ["greet.yaml", "query_help.yaml"]
     assert [entry["name"] for entry in manifest["projected_entries"]] == ["greet.yaml", "query_help.yaml"]
     assert all(len(entry["sha256"]) == 64 for entry in manifest["projected_entries"])
+
+
+def test_materialize_builtin_path_definitions_removes_stale_projected_yaml(tmp_path: Path, monkeypatch) -> None:
+    repo_root = tmp_path / "repo"
+    source_paths = repo_root / "data" / "paths"
+    source_paths.mkdir(parents=True)
+    (source_paths / "query_help.yaml").write_text("path_id: query_help\nsteps: []\n", encoding="utf-8")
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(tmp_path / "agentsystem-home"))
+    destination = resolve_runtime_paths(repo_root).installed_assets_dir / "builtin_paths"
+    destination.mkdir(parents=True, exist_ok=True)
+    (destination / "stale.yaml").write_text("path_id: stale\nsteps: []\n", encoding="utf-8")
+
+    materialize_builtin_path_definitions(repo_root)
+
+    assert (destination / "query_help.yaml").exists()
+    assert not (destination / "stale.yaml").exists()

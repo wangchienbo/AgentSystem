@@ -12595,3 +12595,21 @@ I continued tightening the first Slice C3 packaged control-plane asset by adding
 
 ### Notes
 This moves the built-in path projection another step toward a proper packaged asset contract. It also sets up a future path for detecting projection drift or deciding whether reprojection is required during upgrades.
+
+## 2026-05-12: Made built-in path projection remove stale packaged files
+
+### Summary
+I kept refining the Slice C3 built-in path projection so it behaves more like a real packaged asset sync. Projection no longer only copies current authored YAML files into installed assets, it now also removes stale projected path files that have disappeared from the repo-authored source set.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - `materialize_builtin_path_definitions(...)` now removes stale projected YAML files before copying current source files
+- Updated `tests/unit/test_builtin_path_projection.py`
+  - added stale-file cleanup coverage
+
+### Validation
+- `pytest -q tests/unit/test_builtin_path_projection.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `49 passed`
+
+### Notes
+This makes the built-in path projection much safer as a long-lived packaged control-plane asset representation. It reduces the risk of obsolete path definitions lingering in installed assets after the authored source has moved on.
