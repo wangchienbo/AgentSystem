@@ -696,3 +696,4 @@ Status: [~] first live-code adoption landed
 - HTTP test server chat log storage now resolves from install-model runtime data paths, continuing the last visible repo-local `data/...` cleanup in the web test surface
 - LightBrain gateway identity storage now resolves from install-model runtime data paths as well, removing another visible user-facing repo-local `data/lightbrain/...` assumption from the interaction surface
 - PipelineExecutor user-isolated workspace selection now resolves from install-model runtime data paths instead of appending `data/users/...` under the caller workspace, removing another nested repo-style fallback from execution isolation
+- SkillAssetService legacy `data/...` index-entry remapping is now normalized through install-model runtime data paths, keeping old relative asset records compatible without reintroducing repo-local path assumptions during consistency checks

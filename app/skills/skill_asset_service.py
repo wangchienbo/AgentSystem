@@ -6,6 +6,7 @@ from pathlib import Path
 
 from app.models.skill_asset import SkillAssetConsistencyIssue, SkillAssetConsistencyResult, SkillAssetIndex, SkillAssetIndexEntry, SkillAssetMetadata
 from app.models.generated_skill import GeneratedSkillAsset, GeneratedSkillRequest
+from app.runtime_paths import resolve_runtime_paths
 
 PHASE_P_INVOCATION_DEFAULTS = {
     "invocation_contract_version": "phase-p-v1",
@@ -27,6 +28,14 @@ class SkillAssetService:
         self._index_path = self._assets_root / "index.json"
         self._assets_root.mkdir(parents=True, exist_ok=True)
         self._write_index(self._load_index())
+
+    def _resolve_index_path(self, raw_path: str | Path) -> Path:
+        path = Path(raw_path)
+        if path.is_absolute():
+            return path
+        if str(path).startswith("data/"):
+            return resolve_runtime_paths().data_dir / path.relative_to("data")
+        return self._base_dir / path
 
     def asset_slug(self, skill_id: str) -> str:
         return skill_id.replace('.', '_')
@@ -310,15 +319,9 @@ class SkillAssetService:
             if skill_id and item.skill_id != skill_id:
                 continue
             issues: list[SkillAssetConsistencyIssue] = []
-            base = Path(item.path)
-            if not base.is_absolute():
-                base = self._base_dir / base.relative_to("data") if str(base).startswith("data/") else self._base_dir / base
-            manifest_path = Path(item.manifest_path)
-            if not manifest_path.is_absolute():
-                manifest_path = self._base_dir / manifest_path.relative_to("data") if str(manifest_path).startswith("data/") else self._base_dir / manifest_path
-            metadata_path = Path(item.metadata_path)
-            if not metadata_path.is_absolute():
-                metadata_path = self._base_dir / metadata_path.relative_to("data") if str(metadata_path).startswith("data/") else self._base_dir / metadata_path
+            base = self._resolve_index_path(item.path)
+            manifest_path = self._resolve_index_path(item.manifest_path)
+            metadata_path = self._resolve_index_path(item.metadata_path)
             for path, label in [(base, "asset_dir"), (manifest_path, "manifest"), (metadata_path, "metadata")]:
                 if not path.exists():
                     issues.append(SkillAssetConsistencyIssue(kind="missing_file", message=f"Missing {label}", details={"path": str(path)}))

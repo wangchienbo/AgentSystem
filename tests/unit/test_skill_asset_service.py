@@ -72,6 +72,32 @@ def test_skill_asset_service_scaffold_entrypoint_and_readme_include_phase_p_hook
     assert core_dir.exists()
 
 
+def test_skill_asset_service_remaps_legacy_data_relative_paths_to_runtime_data_dir(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(tmp_path / "agentsystem-home"))
+    runtime_data_dir = tmp_path / "agentsystem-home" / "data"
+    service = SkillAssetService(str(runtime_data_dir))
+    asset, _metadata = service.create_asset_scaffold(
+        GeneratedSkillRequest(
+            skill_id="skill.test.legacyremap",
+            name="Legacy Remap Asset",
+            description="legacy remap candidate",
+        ),
+        status="candidate",
+    )
+
+    index_path = runtime_data_dir / "skill_assets" / "index.json"
+    index = json.loads(index_path.read_text())
+    index["assets"][0]["path"] = "data/skill_assets/candidates/executable/skill_test_legacyremap"
+    index["assets"][0]["manifest_path"] = "data/skill_assets/candidates/executable/skill_test_legacyremap/manifest.json"
+    index["assets"][0]["metadata_path"] = "data/skill_assets/candidates/executable/skill_test_legacyremap/metadata.json"
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+
+    results = service.check_consistency("skill.test.legacyremap")
+
+    assert len(results) == 1
+    assert results[0].ok is True
+
+
 def test_skill_asset_service_consistency_detects_missing_smoke_test(tmp_path: Path) -> None:
     service = SkillAssetService(str(tmp_path / "data"))
     asset, _metadata = service.create_asset_scaffold(
