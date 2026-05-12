@@ -551,7 +551,7 @@ Status: [x] initial install lifecycle validation landed
 ## 9. Phase 8 - Run post-migration baseline and repair regressions
 
 ### 9.1 Execute full post-migration 50x20 baseline
-Status: [~] bounded full-suite after evidence now assembled in split runs
+Status: [x] bounded full-suite after evidence assembled and accepted
 - executed the canonical operator-sensitive post-migration subset: `S12,S25,S36,S41,S50`
 - executed bounded post-migration split runs for the full scenario set:
   - `S01-S25` → `/tmp/e2e_post_migration_first25_turn5.json`
@@ -583,7 +583,7 @@ Status: [x] bounded baseline comparison summary recorded
 - under the accepted turn-5 bounded contract, the install-model migration does not currently show a material regression relative to the frozen pre-migration truth set
 
 ### 9.3 Repair migration regressions
-Status: [~] first live post-migration regression repair landed
+Status: [x] first bounded live post-migration regression repair closed
 - reproduced a post-migration bounded live failure where `/login` returned HTTP 500 because form parsing required `python-multipart`
 - patched `app/system/http_test_server.py` so `/login` falls back to manual `application/x-www-form-urlencoded` parsing when `python-multipart` is unavailable
 - validated the repair with:

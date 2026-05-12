@@ -12951,6 +12951,19 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-13: Marked bounded Phase 8 closure as complete
+
+### Summary
+After the bounded before/after summary was written down, I normalized the Phase 8 task-list statuses to match reality. Under the accepted bounded turn-5 contract, the post-migration full-suite evidence, regression repair, and regression-closure summary are now all complete rather than still in-progress.
+
+### What Was Updated
+- `docs/standard-install-model-detailed-task-list.md`
+  - marked `9.1 Execute full post-migration 50x20 baseline` as complete for the bounded accepted scope
+  - marked `9.3 Repair migration regressions` as complete for the currently observed bounded live regression class
+
+### Notes
+This does not imply that optional stronger evidence work is forbidden. It only means the current bounded acceptance slice is now fully closed and the task-list status should reflect that reality.
+
 ## 2026-05-13: Closed the bounded before/after regression summary
 
 ### Summary
