@@ -12951,6 +12951,29 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-13: Reran live governance self-iteration validation successfully
+
+### Summary
+I continued the remaining open closure items under the install-model task list and completed the last unchecked governance validation follow-up. The fresh live rerun of the self-iteration service-up script now passes end to end after the earlier route-aware timeout/retry budgeting changes.
+
+### Validation
+- `python3 tests/scripts/e2e_self_iteration_service_up.py`
+- result: `SELF-ITERATION SERVICE-UP E2E PASSED`
+
+### Covered stages
+- login
+- nightly schedule registration
+- chat probe
+- tool-required probe
+- draft continuation path
+- restart-bounded continuation recovery
+- draft apply action
+- governance self-iteration cycle
+- latest regression retrieval
+
+### Notes
+This closes the remaining unchecked governance rerun item under the current 1seey timeout-profile note and strengthens the post-change confidence beyond the bounded 50x20 baseline work.
+
 ## 2026-05-13: Pushed bounded Phase 8 closure to origin
 
 ### Summary

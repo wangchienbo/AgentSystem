@@ -2999,7 +2999,21 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Bounded before/after regression summary
+### 2026-05-13 live governance self-iteration rerun
+- reran `python3 tests/scripts/e2e_self_iteration_service_up.py`
+- result: `SELF-ITERATION SERVICE-UP E2E PASSED`
+- validated stages:
+  - login
+  - nightly schedule registration
+  - chat probe
+  - tool-required probe
+  - draft continuation path
+  - restart-bounded continuation recovery
+  - draft apply action
+  - governance self-iteration cycle
+  - latest regression retrieval
+- conclusion: the earlier route-aware timeout/retry budgeting change now survives a fresh live governance self-iteration rerun under the current 1seey profile
+
 - frozen pre-install-model bounded baseline:
   - `50/50` scenarios passed
   - `250/250` executed turns passed

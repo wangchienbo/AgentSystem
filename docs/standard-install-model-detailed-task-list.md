@@ -642,7 +642,7 @@ By the end of this workstream, the repo should contain:
 - [ ] add route-aware timeout/retry budgeting for later governance self-iteration cycles under the current 1seey profile
 
 - [x] add bounded route-aware timeout/retry budgeting for deeper GLM tool routes so later governance self-iteration paths do not amplify `1seey` `504` responses into multi-minute waits
-- [ ] rerun live governance self-iteration validation after the route-aware timeout/retry change
+- [x] rerun live governance self-iteration validation after the route-aware timeout/retry change
 
 ### 5.7 Implement first migration slice: shared runtime path resolver
 Status: [x] initial resolver landed
