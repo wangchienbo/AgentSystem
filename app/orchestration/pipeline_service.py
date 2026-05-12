@@ -16,6 +16,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from app.runtime_paths import resolve_runtime_paths
+
 
 class PipelineType(str, Enum):
     SYSTEM = "system"       # No user, system events
@@ -107,7 +109,7 @@ class PipelineService:
     """
 
     def __init__(self, data_dir: str | None = None) -> None:
-        base = data_dir or os.environ.get("AGENTSYSTEM_DATA_DIR", "data")
+        base = Path(data_dir) if data_dir else resolve_runtime_paths().data_dir
         self._base_dir = Path(base) / "pipelines"
         self._base_dir.mkdir(parents=True, exist_ok=True)
         self._records: dict[str, PipelineRecord] = {}
