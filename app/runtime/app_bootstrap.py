@@ -20,6 +20,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,11 +31,12 @@ def _now_iso() -> str:
 
 def run_app_bootstrap(
     app_instance_id: str,
-    data_dir: str = "data",
+    data_dir: str | None = None,
     heartbeat_interval: int = 30,
 ) -> None:
     """Run the app bootstrap: self-register + heartbeat loop."""
-    data_path = Path(data_dir)
+    data_path = Path(data_dir) if data_dir is not None else resolve_runtime_paths().data_dir
+    data_path.mkdir(parents=True, exist_ok=True)
     runtime_file = data_path / "runtime_center.json"
 
     # Self-register by writing to runtime_center.json
@@ -90,7 +93,7 @@ def run_app_bootstrap(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="App process bootstrap")
     parser.add_argument("--app-id", required=True, help="App instance ID")
-    parser.add_argument("--data-dir", default="data", help="Data directory path")
+    parser.add_argument("--data-dir", default=None, help="Data directory path")
     parser.add_argument("--heartbeat-interval", type=int, default=30, help="Heartbeat interval in seconds")
     args = parser.parse_args()
 

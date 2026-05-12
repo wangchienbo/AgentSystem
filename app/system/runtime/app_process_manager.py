@@ -27,6 +27,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,10 +53,10 @@ class AppProcessManager:
     def __init__(
         self,
         runtime_center: Any = None,
-        data_dir: str = "data",
+        data_dir: str | None = None,
     ) -> None:
         self._runtime_center = runtime_center
-        self._data_dir = Path(data_dir)
+        self._data_dir = Path(data_dir) if data_dir is not None else resolve_runtime_paths().data_dir
         self._processes: dict[str, AppProcessInfo] = {}
         self._procs: dict[str, subprocess.Popen] = {}
         self._lock = threading.RLock()
