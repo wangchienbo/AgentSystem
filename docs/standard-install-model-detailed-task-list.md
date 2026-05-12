@@ -551,11 +551,19 @@ Status: [x] initial install lifecycle validation landed
 ## 9. Phase 8 - Run post-migration baseline and repair regressions
 
 ### 9.1 Execute full post-migration 50x20 baseline
-- same 50 scenarios
-- same 20 turns
-- same 3 second delay
-- same history validation rules
-- produce after-install-model report
+Status: [~] bounded operator subset after-run landed
+- executed the canonical operator-sensitive post-migration subset: `S12,S25,S36,S41,S50`
+- run settings:
+  - `--max-turns-per-scenario 5`
+  - `--delay 0`
+  - `--wait-ready-seconds 20`
+- output report: `/tmp/e2e_post_migration_operator_subset_turn5.json`
+- bounded after-run result:
+  - `5/5` scenarios passed
+  - `25/25` executed turns passed
+  - `0` transport/service errors
+  - all scenario-end history checks passed
+- this does not yet close the full post-migration 50x20 baseline, but it establishes that the canonical operator-heavy subset now survives the install-model migration under the current bounded acceptance settings
 
 ### 9.2 Compare before vs after
 Status: [~] first structured comparison helper landed
@@ -585,10 +593,10 @@ Status: [~] first live post-migration regression repair landed
   - result: `1/1 scenarios passed`, `5/5 turns passed`
 
 ### 9.4 Freeze post-migration evidence
-- save final after report
-- update testing docs with before/after summary
-- update development log with migration validation evidence
-- commit and push final regression closure
+Status: [~] first bounded after-run evidence frozen
+- saved bounded post-migration operator subset report at `/tmp/e2e_post_migration_operator_subset_turn5.json`
+- recorded the bounded after-run result in testing docs and development log as the first post-migration live evidence block
+- full after-report freeze remains pending the wider bounded/full rerun decision
 
 **Exit criteria**
 - install-model migration does not materially regress the real-user baseline

@@ -12951,6 +12951,37 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-13: Recorded bounded post-migration operator subset after-run
+
+### Summary
+After repairing the login crash, I continued Phase 8 by running the canonical operator-heavy bounded after-run against the migrated runtime. This was the first meaningful multi-scenario post-migration live evidence block, and it cleared cleanly.
+
+### What Was Done
+- Started the HTTP test server on the migrated code path
+- Executed the canonical bounded operator subset:
+  - `S12`
+  - `S25`
+  - `S36`
+  - `S41`
+  - `S50`
+- Used the bounded settings already established for economical live verification:
+  - `--max-turns-per-scenario 5`
+  - `--delay 0`
+  - `--wait-ready-seconds 20`
+- Saved the after-run report to:
+  - `/tmp/e2e_post_migration_operator_subset_turn5.json`
+
+### Validation
+- `python3 -m tests.e2e.test_50_scenarios_20_turns_user_level --base-url http://127.0.0.1:80 --delay 0 --wait-ready-seconds 20 --scenarios S12,S25,S36,S41,S50 --max-turns-per-scenario 5 --output /tmp/e2e_post_migration_operator_subset_turn5.json`
+- result:
+  - `5/5 scenarios passed`
+  - `25/25 executed turns passed`
+  - `0 transport/service errors`
+  - all scenario-end history checks passed
+
+### Notes
+This does not yet replace the pending wider post-migration bounded/full suite, but it is strong evidence that the most install-model-sensitive operator conversations now survive the migration under the current bounded acceptance contract.
+
 ## 2026-05-13: Repaired bounded post-migration login regression
 
 ### Summary
