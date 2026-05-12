@@ -5,19 +5,16 @@ from pathlib import Path
 from typing import Iterable
 
 from app.models.governance_observation import ReplayRegressionSample
-from app.services.context_storage_paths import DEFAULT_REPLAY_REGRESSION_SAMPLES_DIR
+from app.runtime_paths import resolve_runtime_paths
+def _default_store_dir() -> Path:
+    return resolve_runtime_paths().data_dir / "replay_regression_samples"
 
 
-REPLAY_SAMPLE_STORE_DIR = DEFAULT_REPLAY_REGRESSION_SAMPLES_DIR
-ALLOWED_REPLAY_SOURCES = {"accepted_chat", "accepted_regression", "operator_curated", "production_trace_excerpt"}
-
-
-class ReplayRegressionSampleStoreError(ValueError):
     pass
 
 
 def _ensure_store_dir(store_dir: Path | None = None) -> Path:
-    target = store_dir or REPLAY_SAMPLE_STORE_DIR
+    target = store_dir or _default_store_dir()
     target.mkdir(parents=True, exist_ok=True)
     return target
 

@@ -12823,3 +12823,22 @@ I continued the Phase 6 runtime-state externalization pass by moving context-cen
 
 ### Notes
 This keeps the context-center persistence helpers aligned with the same runtime storage contract now used across the other externalized services and bootstrap surfaces.
+
+## 2026-05-12: Externalized replay-regression sample storage defaults
+
+### Summary
+I continued the Phase 6 runtime-state externalization pass by moving replay-regression sample storage off import-time repo/data-derived defaults and onto dynamic install-model runtime path resolution. This tightens another governance/context persistence seam so it follows the same runtime storage contract as the rest of the externalized services.
+
+### What Was Done
+- Updated `app/system/replay_regression_samples.py`
+  - replaced the import-time default store constant with dynamic runtime path resolution
+  - `_ensure_store_dir()` now defaults to `resolve_runtime_paths().data_dir / replay_regression_samples`
+- Added `tests/unit/test_replay_regression_sample_paths.py`
+  - verifies default replay-sample storage resolves to install-model runtime data
+
+### Validation
+- `pytest -q tests/unit/test_replay_regression_sample_paths.py tests/unit/test_context_storage_paths_defaults.py tests/unit/test_app_bootstrap_defaults.py tests/unit/test_app_process_manager_paths.py tests/unit/test_memory_skill_paths.py tests/unit/test_interactive_app_workflow_paths.py tests/unit/test_user_service_paths.py tests/unit/test_interactive_app_paths.py tests/unit/test_pipeline_service_paths.py tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `65 passed`
+
+### Notes
+This closes another import-time path-binding hole. Replay-regression sample storage now follows the active runtime path contract instead of freezing a repo/data-derived default too early.
