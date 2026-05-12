@@ -216,6 +216,48 @@ def test_run_cli_supports_assets_install_command(monkeypatch, tmp_path: Path) ->
     assert Path(str(result.details["installed_path"])).exists()
 
 
+def test_run_cli_supports_assets_install_all_command(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    for asset_id in ["asset.alpha", "asset.beta"]:
+        asset_dir = repo_root / "source" / asset_id
+        asset_dir.mkdir(parents=True)
+        (asset_dir / "entry.py").write_text(f"print('{asset_id}')\n", encoding="utf-8")
+        (asset_dir / "manifest.json").write_text(
+            f"""
+{{
+  "asset_id": "{asset_id}",
+  "asset_type": "skill",
+  "name": "{asset_id.replace('.', '_')}",
+  "version": "1.0.0",
+  "entry": "entry.py",
+  "owner": "test",
+  "owner_role": "qa",
+  "dependencies": [],
+  "source_path": "source/{asset_id}",
+  "description": "demo asset {asset_id}",
+  "metadata": {{}}
+}}
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(tmp_path / "agentsystem-home"))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
+
+    result = run_cli(["assets", "install-all"])
+
+    assert result.command == "assets.install-all"
+    assert result.details["status"] == "ok"
+    assert result.details["operation_scope"] == "bulk_asset_install_flow"
+    assert result.details["discovered_asset_count"] == 2
+    assert result.details["installed_asset_count"] == 2
+    results = result.details["results"]
+    assert isinstance(results, list)
+    assert {row["asset_id"] for row in results} == {"asset.alpha", "asset.beta"}
+    for row in results:
+        assert Path(str(row["build_output_path"])).exists()
+        assert Path(str(row["installed_path"])).exists()
 def test_run_cli_assets_install_reports_missing_asset(monkeypatch, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     (repo_root / "source").mkdir(parents=True)

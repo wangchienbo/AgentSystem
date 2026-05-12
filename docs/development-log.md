@@ -12951,6 +12951,27 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-12: Landed install-all flow
+
+### Summary
+I continued the next standard-install task-list item in order and landed the first bulk install flow for Phase 7 section 8.2. The CLI can now discover every valid source asset in the repo working tree and install them into the external install-model runtime layout in one pass.
+
+### What Was Done
+- Updated `app/cli.py`
+  - `agentsystem assets install-all` now instantiates `AssetCenter` against the repo `source/` tree plus install-model runtime roots
+  - discovers all valid source assets via `discover()`
+  - builds and installs each discovered asset in order
+  - returns structured batch results with per-asset install evidence including build hashes, build output paths, and installed paths
+- Updated `tests/unit/test_cli.py`
+  - added multi-asset bulk install coverage validating two discovered assets are built and installed into external runtime roots
+
+### Validation
+- `pytest -q tests/unit/test_cli.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+- result: `32 passed`
+
+### Notes
+This closes the initial install-all slice. Re-run safety/idempotence can still be strengthened later, but the repo-source discovery plus external bulk install flow is now wired end to end.
+
 ## 2026-05-12: Landed single-asset install flow
 
 ### Summary

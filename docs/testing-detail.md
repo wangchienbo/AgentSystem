@@ -2999,9 +2999,9 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Slice D1 single-asset install flow
-- `agentsystem assets install <asset_id>` now wires the source discovery → build → install chain through `AssetCenter` using install-model runtime roots for build and installed outputs
-- added CLI coverage for successful single-asset install and explicit missing-asset failure semantics
+### Slice D2 install-all flow
+- `agentsystem assets install-all` now wires repo-source discovery plus batch build/install execution through `AssetCenter`
+- added CLI coverage for multi-asset bulk install results with per-asset build and installed path evidence
 - validation:
   - `pytest -q tests/unit/test_cli.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
-  - result: `31 passed`
+  - result: `32 passed`

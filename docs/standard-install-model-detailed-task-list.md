@@ -509,10 +509,12 @@ Status: [x] initial single-asset flow landed
   - result: `31 passed`
 
 ### 8.2 Install-all flow
-- discover all intended installable assets
-- build/install them in controlled order
-- report per-asset success/failure
-- support re-run behavior safely
+Status: [x] initial bulk install flow landed
+- `agentsystem assets install-all` now discovers all valid source assets in the repo working tree and installs them in a controlled discovered order
+- the command now returns per-asset build/install evidence including build hashes and output/install paths
+- validation:
+  - `pytest -q tests/unit/test_cli.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+  - result: `32 passed`
 
 ### 8.3 Bootstrap flow
 - initialize directories

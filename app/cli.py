@@ -391,10 +391,42 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
                     "repo_root": str(repo_root),
                 },
             )
-        return CLIResult(
-            command=f"assets.{asset_command}",
-            details={"status": "planned", "repo_root": str(repo_root)},
-        )
+        if asset_command == "install-all":
+            runtime_paths = resolve_runtime_paths(repo_root)
+            asset_center = AssetCenter(
+                source_dir=str(repo_root / "source"),
+                installed_dir=str(runtime_paths.installed_assets_dir),
+                build_dir=str(runtime_paths.build_dir),
+                data_dir=str(runtime_paths.data_dir),
+            )
+            discovered = asset_center.discover()
+            installed_results: list[dict[str, object]] = []
+            for asset in discovered:
+                build_record = asset_center.build(asset.asset_id)
+                installed_version = asset_center.install(asset.asset_id, build_record.build_hash)
+                installed_results.append(
+                    {
+                        "asset_id": asset.asset_id,
+                        "asset_name": asset.name,
+                        "asset_type": asset.asset_type,
+                        "installed_version": installed_version,
+                        "build_hash": build_record.build_hash,
+                        "build_output_path": str(runtime_paths.build_dir / asset.asset_id / build_record.build_hash),
+                        "installed_path": str(runtime_paths.installed_assets_dir / asset.asset_id),
+                    }
+                )
+            return CLIResult(
+                command="assets.install-all",
+                details={
+                    "status": "ok",
+                    "operation_scope": "bulk_asset_install_flow",
+                    "repo_root": str(repo_root),
+                    "source_dir": str(repo_root / "source"),
+                    "discovered_asset_count": len(discovered),
+                    "installed_asset_count": len(installed_results),
+                    "results": installed_results,
+                },
+            )
 
     if args.command == "runtime-layout":
         return CLIResult(
