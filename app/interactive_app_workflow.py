@@ -13,10 +13,11 @@ All interaction goes through the LightBrain Gateway (master controller).
 from __future__ import annotations
 
 import json
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from app.runtime_paths import resolve_runtime_paths
 
 
 class InteractiveAppWorkflowError(ValueError):
@@ -40,7 +41,7 @@ class InteractiveAppWorkflow:
         self._app = interactive_app
         self._memory = memory_service
         self._llm = llm_responder
-        base = data_dir or os.environ.get("AGENTSYSTEM_DATA_DIR", "data")
+        base = Path(data_dir) if data_dir else resolve_runtime_paths().data_dir
         self._workflow_dir = Path(base) / "interactive_app" / "workflows"
         self._workflow_dir.mkdir(parents=True, exist_ok=True)
 

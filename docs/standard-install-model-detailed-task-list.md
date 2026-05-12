@@ -688,3 +688,4 @@ Status: [~] first live-code adoption landed
 - `PipelineService` default storage now also resolves from install-model runtime paths, removing another repo-local durable-state fallback from orchestration records
 - `InteractiveAppService` default per-user workspace/version/config storage now resolves from install-model runtime paths instead of repo-local `data/interactive_app/...`
 - `UserService` default user-registry storage now resolves from install-model runtime paths instead of repo-local `data/users/...`, continuing durable identity/state separation from the source checkout
+- `MemorySkillService` and `InteractiveAppWorkflow` default storage/workflow roots now also resolve from install-model runtime paths, continuing the removal of repo-local `data/...` durable-state defaults from interactive-user flows

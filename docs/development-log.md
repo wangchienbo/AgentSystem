@@ -12762,3 +12762,24 @@ I continued the Phase 6 durable-state externalization pass by moving `UserServic
 
 ### Notes
 User registry data is durable runtime identity state, not source content. Externalizing it removes another repo-local storage assumption from the standard-install path.
+
+## 2026-05-12: Externalized MemorySkillService and InteractiveAppWorkflow default paths
+
+### Summary
+I continued the Phase 6 durable-state externalization pass by moving both `MemorySkillService` and `InteractiveAppWorkflow` off repo-local `data/...` defaults and onto install-model runtime paths. This extends the same separation to interactive user-memory state and workflow execution records.
+
+### What Was Done
+- Updated `app/skills/system_skills/memory.py`
+  - `MemorySkillService()` now defaults to `resolve_runtime_paths().data_dir / memory / users`
+- Updated `app/interactive_app_workflow.py`
+  - `InteractiveAppWorkflow()` now defaults to `resolve_runtime_paths().data_dir / interactive_app / workflows`
+- Added tests:
+  - `tests/unit/test_memory_skill_paths.py`
+  - `tests/unit/test_interactive_app_workflow_paths.py`
+
+### Validation
+- `pytest -q tests/unit/test_memory_skill_paths.py tests/unit/test_interactive_app_workflow_paths.py tests/unit/test_user_service_paths.py tests/unit/test_interactive_app_paths.py tests/unit/test_pipeline_service_paths.py tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `61 passed`
+
+### Notes
+This keeps interactive per-user memory and self-modification workflow state aligned with the same runtime-storage contract as the other externalized services. The source checkout continues shrinking back toward authored content instead of live runtime state.
