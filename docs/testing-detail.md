@@ -3014,6 +3014,17 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - latest regression retrieval
 - conclusion: the earlier route-aware timeout/retry budgeting change now survives a fresh live governance self-iteration rerun under the current 1seey profile
 
+### Monolithic merged after artifact
+- added `tests/e2e/merge_user_level_reports.py` to merge split bounded after-run reports into one summary artifact
+- generated merged artifact:
+  - `/tmp/e2e_post_migration_full50_turn5_merged.json`
+- validation:
+  - `pytest -q tests/unit/test_merge_user_level_reports.py tests/unit/test_compare_user_level_reports.py`
+  - result: `3 passed`
+  - `python3 tests/e2e/merge_user_level_reports.py /tmp/e2e_post_migration_first25_turn5.json /tmp/e2e_post_migration_last25_turn5.json --output /tmp/e2e_post_migration_full50_turn5_merged.json`
+  - result: `total_scenarios=50`, `pass_rate_pct=100.0`
+
+### Bounded before/after regression summary
 - frozen pre-install-model bounded baseline:
   - `50/50` scenarios passed
   - `250/250` executed turns passed

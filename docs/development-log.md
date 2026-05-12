@@ -12951,6 +12951,28 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-13: Added monolithic merged after artifact
+
+### Summary
+I completed the recommended artifact tidy-up step by generating a monolithic merged summary artifact for the split bounded post-migration after runs. This does not replace the underlying split evidence, but it gives the workstream a cleaner single-file after artifact for audit and handoff.
+
+### What Was Added
+- `tests/e2e/merge_user_level_reports.py`
+  - merges split bounded after-run JSON reports into one summary artifact
+- `tests/unit/test_merge_user_level_reports.py`
+  - validates merged totals, labels, pass rate, and ordered scenario detail output
+- generated merged after artifact:
+  - `/tmp/e2e_post_migration_full50_turn5_merged.json`
+
+### Validation
+- `pytest -q tests/unit/test_merge_user_level_reports.py tests/unit/test_compare_user_level_reports.py`
+- result: `3 passed`
+- `python3 tests/e2e/merge_user_level_reports.py /tmp/e2e_post_migration_first25_turn5.json /tmp/e2e_post_migration_last25_turn5.json --output /tmp/e2e_post_migration_full50_turn5_merged.json`
+- result: `total_scenarios=50`, `pass_rate_pct=100.0`
+
+### Notes
+The migrated runtime already had bounded parity evidence. This step improves packaging quality by giving that evidence a monolithic summary artifact without rerunning the whole suite.
+
 ## 2026-05-13: Wrote the standard install model completion summary
 
 ### Summary

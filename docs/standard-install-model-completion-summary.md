@@ -51,6 +51,7 @@ A bounded live post-migration regression was reproduced and fixed:
 - `/tmp/e2e_post_migration_operator_subset_turn5.json`
 - `/tmp/e2e_post_migration_first25_turn5.json`
 - `/tmp/e2e_post_migration_last25_turn5.json`
+- `/tmp/e2e_post_migration_full50_turn5_merged.json`
 - `/tmp/e2e_s50_turn5_post_install_model_login_fix.json`
 
 ## Remote Delivery Status
