@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 from pathlib import Path
 
 from app.services.app_catalog import AppCatalogService
@@ -107,6 +108,21 @@ def describe_phase6_asset_bootstrap_binding(
         "runtime_registry_file": str(root / "data" / "runtime_center.json"),
         "binding_mode": binding_mode,
     }
+
+
+def materialize_builtin_path_definitions(
+    project_root: str | Path | None = None,
+    *,
+    target_dir: str | Path | None = None,
+) -> Path:
+    root = Path(project_root) if project_root is not None else Path(__file__).resolve().parents[2]
+    runtime_paths = resolve_runtime_paths(root)
+    source_dir = root / "data" / "paths"
+    destination = Path(target_dir) if target_dir is not None else runtime_paths.installed_assets_dir / "builtin_paths"
+    destination.mkdir(parents=True, exist_ok=True)
+    for yaml_file in list(source_dir.glob("*.yaml")) + list(source_dir.glob("*.yml")):
+        shutil.copy2(yaml_file, destination / yaml_file.name)
+    return destination
 from app.services.interactive_app import InteractiveAppService
 from app.services.interactive_app_workflow import InteractiveAppWorkflow
 from app.services.user_service import UserService
@@ -819,7 +835,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     # Use absolute path for PathStore so it finds YAML definitions reliably
     # __file__ = app/bootstrap/runtime.py, go up 3 levels to get AgentSystem project root
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    g1g2_path_store = PathStore(paths_dir=os.path.join(_project_root, "data", "paths"))
+    builtin_paths_dir = materialize_builtin_path_definitions(_project_root)
+    g1g2_path_store = PathStore(paths_dir=str(builtin_paths_dir))
     # Pre-load path definitions from YAML files
     g1g2_path_store.load_all()
     # -- Dynamic Path Composer --------------------------------------------------

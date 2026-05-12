@@ -12539,3 +12539,23 @@ I completed the first real bootstrap behavior change in Phase 6 Slice C2. Runtim
 
 ### Notes
 This is intentionally only the first flip. Source assets remain repo-authored and runtime-registry persistence remains repo-local. That keeps the changed surface narrow and aligned with the Phase 6 sequencing decisions.
+
+## 2026-05-12: Started Slice C3 by projecting built-in path definitions into installed assets
+
+### Summary
+After the Slice C2 live bootstrap flip, I started Slice C3 with the narrowest built-in control-plane asset seam: path definitions. Bootstrap no longer points `PathStore` directly at repo `data/paths/` at runtime. Instead, it materializes those authored YAML files into an install-model built-in package location under installed assets, then loads from that projected location.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - added `materialize_builtin_path_definitions(...)`
+  - bootstrap now copies repo `data/paths/*.yaml` into `installed_assets_dir/builtin_paths/`
+  - `PathStore` now loads from that projected install-model location
+- Added `tests/unit/test_builtin_path_projection.py`
+  - verifies built-in YAML path definitions are projected into installed assets
+
+### Validation
+- `pytest -q tests/unit/test_builtin_path_projection.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `48 passed`
+
+### Notes
+This is not the full built-in control-plane packaging story yet. It is the first concrete seam proving that repo-authored control-plane assets can be projected into install-model installed assets and consumed from there at runtime.
