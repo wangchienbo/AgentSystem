@@ -686,3 +686,4 @@ Status: [~] first live-code adoption landed
 - bootstrap runtime registry binding now follows install-model state storage (`state/runtime_center.json`) instead of repo `data/`, and runtime bootstrap now explicitly registers the full core runtime asset set instead of relying on repo-carried legacy registry residue
 - `SystemCatalog` default persistence now resolves from install-model runtime paths instead of repo-local `data/`, further separating durable catalog state from source checkout assumptions
 - `PipelineService` default storage now also resolves from install-model runtime paths, removing another repo-local durable-state fallback from orchestration records
+- `InteractiveAppService` default per-user workspace/version/config storage now resolves from install-model runtime paths instead of repo-local `data/interactive_app/...`

@@ -12726,3 +12726,21 @@ I continued the Phase 6 state-externalization pass by moving `PipelineService` o
 
 ### Notes
 Pipeline execution history is durable runtime state, not source content. Binding it to install-model runtime paths is consistent with the broader Phase 6 separation between checkout content and live runtime storage.
+
+## 2026-05-12: Externalized InteractiveAppService default storage path
+
+### Summary
+I continued the Phase 6 durable-state externalization pass by moving `InteractiveAppService` off repo-local `data/interactive_app/...` defaults and onto install-model runtime paths. This brings per-user interactive app versions, workspace, and config storage under the same runtime path contract as the other externalized state services.
+
+### What Was Done
+- Updated `app/interactive_app.py`
+  - `InteractiveAppService()` now defaults to `resolve_runtime_paths().data_dir / interactive_app`
+- Added `tests/unit/test_interactive_app_paths.py`
+  - verifies the default interactive app storage root resolves to install-model runtime paths
+
+### Validation
+- `pytest -q tests/unit/test_interactive_app_paths.py tests/unit/test_pipeline_service_paths.py tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `58 passed`
+
+### Notes
+Interactive app per-user state is durable runtime storage, not source checkout content. Externalizing it removes another repo-local storage assumption from the standard-install path.
