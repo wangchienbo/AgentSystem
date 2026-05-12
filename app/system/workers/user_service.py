@@ -8,11 +8,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from app.runtime_paths import resolve_runtime_paths
 
 logger = logging.getLogger(__name__)
 
@@ -274,7 +275,7 @@ class UserService:
     """Multi-user management with password auth and Linux-style RBAC."""
 
     def __init__(self, data_dir: str | None = None) -> None:
-        base = data_dir or os.environ.get("AGENTSYSTEM_DATA_DIR", "data")
+        base = Path(data_dir) if data_dir else resolve_runtime_paths().data_dir
         self._users_dir = Path(base) / "users"
         self._users_dir.mkdir(parents=True, exist_ok=True)
         self._users: dict[str, UserRecord] = {}

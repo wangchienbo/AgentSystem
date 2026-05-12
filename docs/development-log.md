@@ -12744,3 +12744,21 @@ I continued the Phase 6 durable-state externalization pass by moving `Interactiv
 
 ### Notes
 Interactive app per-user state is durable runtime storage, not source checkout content. Externalizing it removes another repo-local storage assumption from the standard-install path.
+
+## 2026-05-12: Externalized UserService default storage path
+
+### Summary
+I continued the Phase 6 durable-state externalization pass by moving `UserService` off repo-local `data/users/...` defaults and onto install-model runtime paths. This keeps durable user identity and permission records aligned with the same runtime storage contract as the other externalized services.
+
+### What Was Done
+- Updated `app/system/workers/user_service.py`
+  - `UserService()` now defaults to `resolve_runtime_paths().data_dir / users`
+- Added `tests/unit/test_user_service_paths.py`
+  - verifies the default user registry storage root resolves to install-model runtime paths
+
+### Validation
+- `pytest -q tests/unit/test_user_service_paths.py tests/unit/test_interactive_app_paths.py tests/unit/test_pipeline_service_paths.py tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `59 passed`
+
+### Notes
+User registry data is durable runtime identity state, not source content. Externalizing it removes another repo-local storage assumption from the standard-install path.
