@@ -2999,9 +2999,9 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Slice C4 build-artifact root externalization validation
-- confirmed live bootstrap/runtime construction keeps runtime-relevant build outputs on the install-model path contract (`AGENTSYSTEM_HOME/artifacts/build/`) while repo `build/` remains only a transition/preview surface
-- extended bootstrap isolation coverage to assert both the live install-model build root and the legacy preview build root are surfaced distinctly during Phase 6 transition inspection
+### Slice C5 bootstrap/migrate-runtime helper contracts
+- `agentsystem bootstrap` now creates the install-model runtime directory layout, seeds install-model config from the legacy user config when present, and reports repo-overlap warnings
+- `agentsystem migrate-runtime` now audits legacy repo-local runtime artifacts plus runtime-root overlap so operators can see migration blockers before deeper live-copy wiring lands
 - validation:
-  - `pytest -q tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_cli.py`
-  - result: `13 passed`
+  - `pytest -q tests/unit/test_cli.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_runtime_paths.py`
+  - result: `16 passed`

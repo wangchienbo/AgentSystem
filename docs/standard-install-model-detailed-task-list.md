@@ -472,10 +472,15 @@ Status: [x] Slice C1 decision artifact landed
   - Slice C4 externalize runtime registry persistence
 
 ### 7.5 Add migration/bootstrap helpers
-Status: [ ] not started
-- add commands to initialize runtime layout
-- add commands to migrate old repo-local runtime data if needed
-- add checks that warn when runtime is still pointing into repo
+Status: [x] initial helper commands landed
+- `agentsystem bootstrap` now initializes the install-model runtime directory layout
+- `agentsystem bootstrap` now seeds `AGENTSYSTEM_HOME/config/config.yaml` from legacy `~/.config/agentsystem/config.yaml` when present
+- `agentsystem bootstrap` now reports repo-overlap warnings when any resolved runtime root still points into the source repo
+- `agentsystem migrate-runtime` now performs a bounded audit of legacy repo-local runtime artifacts and current runtime-root overlap risk
+- both commands now return explicit structured contracts instead of generic `not_implemented`
+- validation:
+  - `pytest -q tests/unit/test_cli.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_runtime_paths.py`
+  - result: `16 passed`
 
 ### 7.6 Validate runtime/asset separation
 Status: [ ] not started

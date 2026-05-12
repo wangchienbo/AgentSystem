@@ -12951,6 +12951,28 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-12: Landed bootstrap and migrate-runtime helper contracts
+
+### Summary
+I continued the next standard-install task-list item in order and implemented the first real helper contracts for Phase 6 section 7.5. Instead of leaving `bootstrap` and `migrate-runtime` as generic placeholders, the CLI now performs useful preparatory work and surfaces auditable migration warnings.
+
+### What Was Done
+- Updated `app/cli.py`
+  - `agentsystem bootstrap` now creates the install-model runtime directory layout
+  - seeds `AGENTSYSTEM_HOME/config/config.yaml` from legacy `~/.config/agentsystem/config.yaml` when available
+  - reports runtime-root overlap if any resolved runtime path still points inside the source repo
+  - `agentsystem migrate-runtime` now audits for repo-local legacy runtime artifacts such as repo `data/runtime_center.json`, legacy installed/build roots, and other residual runtime data locations
+  - both commands now return structured success contracts instead of `not_implemented`
+- Updated `tests/unit/test_cli.py`
+  - added coverage for bootstrap directory initialization, legacy config seeding, and migrate-runtime warning/audit behavior
+
+### Validation
+- `pytest -q tests/unit/test_cli.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_runtime_paths.py`
+- result: `16 passed`
+
+### Notes
+This does not yet perform full live data-copy migration, but it closes the helper-contract gap and gives operators a concrete initialization/audit surface before deeper migration wiring.
+
 ## 2026-05-12: Closed build-artifact externalization validation gap
 
 ### Summary

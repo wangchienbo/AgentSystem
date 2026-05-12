@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -35,8 +36,130 @@ def _planned_command_result(command: str, repo_root: Path) -> CLIResult:
     )
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+def _bootstrap_runtime_layout(repo_root: Path) -> CLIResult:
+    runtime_paths = resolve_runtime_paths(repo_root)
+    created_dirs: list[str] = []
+    existing_dirs: list[str] = []
+    for path in [
+        runtime_paths.home_dir,
+        runtime_paths.config_dir,
+        runtime_paths.data_dir,
+        runtime_paths.state_dir,
+        runtime_paths.cache_dir,
+        runtime_paths.logs_dir,
+        runtime_paths.installed_assets_dir,
+        runtime_paths.build_dir,
+    ]:
+        if path.exists():
+            existing_dirs.append(str(path))
+        else:
+            path.mkdir(parents=True, exist_ok=True)
+            created_dirs.append(str(path))
+
+    copied_files: list[str] = []
+    config_status = "existing"
+    legacy_config = Path.home() / ".config" / "agentsystem" / "config.yaml"
+    if not runtime_paths.config_file.exists() and legacy_config.exists():
+        runtime_paths.config_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(legacy_config, runtime_paths.config_file)
+        copied_files.append(str(runtime_paths.config_file))
+        config_status = "seeded_from_legacy"
+    elif runtime_paths.config_file.exists():
+        config_status = "existing"
+    else:
+        config_status = "missing"
+
+    repo_overlap = {
+        name: str(path)
+        for name, path in {
+            "config_dir": runtime_paths.config_dir,
+            "data_dir": runtime_paths.data_dir,
+            "state_dir": runtime_paths.state_dir,
+            "cache_dir": runtime_paths.cache_dir,
+            "logs_dir": runtime_paths.logs_dir,
+            "installed_assets_dir": runtime_paths.installed_assets_dir,
+            "build_dir": runtime_paths.build_dir,
+        }.items()
+        if repo_root == path or repo_root in path.parents
+    }
+
+    next_actions: list[str] = []
+    if config_status == "missing":
+        next_actions.append(f"create config file at {runtime_paths.config_file}")
+    if repo_overlap:
+        next_actions.append("move AGENTSYSTEM_* runtime roots outside repo before running installed-runtime migration")
+
+    return CLIResult(
+        command="bootstrap",
+        details={
+            "status": "ok",
+            "operation_scope": "runtime_layout_initialization",
+            "repo_root": str(repo_root),
+            "home_dir": str(runtime_paths.home_dir),
+            "config_file": str(runtime_paths.config_file),
+            "created_dirs": created_dirs,
+            "existing_dirs": existing_dirs,
+            "copied_files": copied_files,
+            "config_status": config_status,
+            "legacy_config_checked": str(legacy_config),
+            "repo_overlap": repo_overlap,
+            "next_actions": next_actions,
+        },
+    )
+
+
+def _migrate_runtime(repo_root: Path) -> CLIResult:
+    runtime_paths = resolve_runtime_paths(repo_root)
+    legacy_candidates = {
+        "legacy_repo_installed_dir": runtime_paths.legacy_repo_installed_dir,
+        "legacy_repo_build_dir": runtime_paths.legacy_repo_build_dir,
+        "legacy_repo_runtime_center": repo_root / "data" / "runtime_center.json",
+        "legacy_repo_chat_logs": repo_root / "data" / "chat_logs",
+        "legacy_repo_skill_assets": repo_root / "data" / "skill_assets",
+    }
+    found_legacy = {name: str(path) for name, path in legacy_candidates.items() if path.exists()}
+    repo_overlap = {
+        name: str(path)
+        for name, path in {
+            "config_dir": runtime_paths.config_dir,
+            "data_dir": runtime_paths.data_dir,
+            "state_dir": runtime_paths.state_dir,
+            "cache_dir": runtime_paths.cache_dir,
+            "logs_dir": runtime_paths.logs_dir,
+            "installed_assets_dir": runtime_paths.installed_assets_dir,
+            "build_dir": runtime_paths.build_dir,
+        }.items()
+        if repo_root == path or repo_root in path.parents
+    }
+
+    warnings: list[str] = []
+    if found_legacy:
+        warnings.append("legacy repo-local runtime artifacts still exist")
+    if repo_overlap:
+        warnings.append("runtime path environment still points inside repo")
+
+    next_actions: list[str] = []
+    if found_legacy:
+        next_actions.append("review legacy repo-local runtime artifacts before deleting or copying them")
+    if repo_overlap:
+        next_actions.append("reconfigure AGENTSYSTEM_* runtime roots to locations outside repo")
+    if not next_actions:
+        next_actions.append("runtime layout looks ready for deeper migrate-runtime wiring")
+
+    return CLIResult(
+        command="migrate-runtime",
+        details={
+            "status": "ok",
+            "operation_scope": "runtime_migration_audit",
+            "repo_root": str(repo_root),
+            "home_dir": str(runtime_paths.home_dir),
+            "found_legacy_paths": found_legacy,
+            "repo_overlap": repo_overlap,
+            "warnings": warnings,
+            "next_actions": next_actions,
+            "migration_status": "attention_needed" if (found_legacy or repo_overlap) else "ready_for_wiring",
+        },
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -57,7 +180,26 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
 def _builtin_asset_records() -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for skill_id, spec in sorted(SYSTEM_SKILL_SPECS.items()):
+        manifest = spec["manifest"]
+        records.append(
+            {
+                "asset_id": skill_id,
+                "name": spec["name"],
+                "origin": "builtin",
+                "runtime_adapter": manifest.runtime_adapter,
+                "version": spec["version"],
+            }
+        )
+    return records
+
+
     records: list[dict[str, object]] = []
     for skill_id, spec in sorted(SYSTEM_SKILL_SPECS.items()):
         manifest = spec["manifest"]
@@ -232,7 +374,13 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
             details=_doctor_status(repo_root),
         )
 
-    if args.command in {"start", "stop", "restart", "install", "bootstrap", "migrate-runtime"}:
+    if args.command == "bootstrap":
+        return _bootstrap_runtime_layout(repo_root)
+
+    if args.command == "migrate-runtime":
+        return _migrate_runtime(repo_root)
+
+    if args.command in {"start", "stop", "restart", "install"}:
         return _planned_command_result(args.command, repo_root)
 
     return CLIResult(
