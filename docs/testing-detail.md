@@ -2998,3 +2998,11 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
 - validation spot-check:
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
+
+### Slice C3 live governance rerun preflight hardening
+- `tests/scripts/e2e_self_iteration_service_up.py` now resolves runtime data paths via the shared resolver and performs an explicit installed-runtime config preflight before launching uvicorn
+- when `/root/.local/share/agentsystem/config/config.yaml` is absent, the probe now fails immediately with a concrete blocker instead of surfacing only a later `server did not become ready in time`
+- validation:
+  - `python3 -m py_compile tests/scripts/e2e_self_iteration_service_up.py`
+  - `START_SERVER=1 BASE_URL=http://127.0.0.1:8765 timeout 60 python3 tests/scripts/e2e_self_iteration_service_up.py`
+  - result: fast-fail blocker correctly reported for missing installed-runtime config

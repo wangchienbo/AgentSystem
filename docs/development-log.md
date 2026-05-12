@@ -12950,3 +12950,23 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
+
+## 2026-05-12: Hardened live governance rerun preflight for installed-runtime config
+
+### Summary
+I moved to the next unresolved task-list item, the live governance self-iteration rerun after the route-aware timeout/retry change. The rerun still cannot complete in this environment, but I found the first blocker was being reported poorly: the service-up probe kept timing out on readiness even though uvicorn was dying immediately because installed-runtime model config was missing.
+
+### What Was Done
+- Updated `tests/scripts/e2e_self_iteration_service_up.py`
+  - switched runtime data/log path resolution to `resolve_runtime_paths(PROJECT_DIR)`
+  - added a preflight check for installed-runtime config at `/root/.local/share/agentsystem/config/config.yaml`
+  - the probe now fails fast with an explicit blocker message before trying to wait on a server that can never become ready
+
+### Validation
+- `python3 -m py_compile tests/scripts/e2e_self_iteration_service_up.py`
+- `START_SERVER=1 BASE_URL=http://127.0.0.1:8765 timeout 60 python3 tests/scripts/e2e_self_iteration_service_up.py`
+- result: explicit fast-fail blocker reported:
+  - missing `/root/.local/share/agentsystem/config/config.yaml`
+
+### Notes
+This does not close the live governance rerun item yet, but it does convert a vague timeout symptom into a concrete installed-runtime preflight failure, which is the right next step for getting the later rerun to be actionable and auditable.

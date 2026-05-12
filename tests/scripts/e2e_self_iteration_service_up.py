@@ -30,13 +30,19 @@ from typing import Any
 
 import requests
 
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+from app.runtime_paths import resolve_runtime_paths
+
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8765").rstrip("/")
 START_SERVER = os.environ.get("START_SERVER", "1") != "0"
 USERNAME = "e2e-self-iteration"
 PASSWORD = "test123456"
-PROJECT_DIR = Path(__file__).resolve().parents[2]
-RUNTIME_DATA_DIR = Path(os.environ.get("AGENTSYSTEM_DATA_DIR", str(PROJECT_DIR / "data"))).expanduser().resolve()
+RUNTIME_DATA_DIR = resolve_runtime_paths(PROJECT_DIR).data_dir
 SERVER_LOG = RUNTIME_DATA_DIR / "e2e_self_iteration_service_up.log"
+CONFIG_PATH = resolve_runtime_paths(PROJECT_DIR).config_dir / "config.yaml"
 
 GREEN = "\033[0;32m"
 RED = "\033[0;31m"
@@ -80,6 +86,17 @@ def stage(msg: str) -> None:
     sys.stdout.flush()
 
 
+def ensure_runtime_config_ready() -> None:
+    if not CONFIG_PATH.exists():
+        fail(
+            "runtime config missing for live service-up validation",
+            {
+                "expected_config": str(CONFIG_PATH),
+                "hint": "create config.yaml with models and routing definitions before rerunning live governance validation",
+            },
+        )
+
+
 def ensure_server_ready(timeout_seconds: int = 30) -> None:
     deadline = time.time() + timeout_seconds
     last_error: Exception | None = None
@@ -114,6 +131,7 @@ def start_server_if_needed() -> None:
     if not START_SERVER:
         ensure_server_ready()
         return
+    ensure_runtime_config_ready()
     SERVER_LOG.parent.mkdir(parents=True, exist_ok=True)
     _SERVER_LOG_HANDLE = SERVER_LOG.open("w", encoding="utf-8")
     env = {**os.environ, "PYTHONPATH": str(PROJECT_DIR), "AGENTSYSTEM_DATA_DIR": str(RUNTIME_DATA_DIR)}
