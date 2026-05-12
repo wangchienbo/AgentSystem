@@ -322,6 +322,14 @@ def _start_command(repo_root: Path, port: int = 80) -> str:
 
 def _doctor_status(repo_root: Path) -> dict[str, object]:
     layout = _runtime_layout(repo_root)
+    runtime_paths = resolve_runtime_paths(repo_root)
+    runtime_registry_file = runtime_paths.state_dir / "runtime_center.json"
+    builtin_paths_manifest = runtime_paths.installed_assets_dir / "builtin_paths" / "builtin_paths_manifest.json"
+    installed_asset_dirs = sorted(path for path in runtime_paths.installed_assets_dir.iterdir() if path.is_dir()) if runtime_paths.installed_assets_dir.exists() else []
+    required_core_assets = {
+        "builtin_paths": builtin_paths_manifest.exists(),
+        "runtime_registry": runtime_registry_file.exists(),
+    }
     checks = {
         key: Path(str(value)).exists()
         for key, value in layout.items()
@@ -339,11 +347,16 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
     }
     service = _service_health()
     checks["service_reachable"] = bool(service["service_reachable"])
+    checks["runtime_registry_ready"] = required_core_assets["runtime_registry"]
+    checks["builtin_paths_ready"] = required_core_assets["builtin_paths"]
+    checks["installed_assets_present"] = bool(installed_asset_dirs)
     missing_checks = [name for name, ok in checks.items() if not ok]
     status = "ok" if not missing_checks else "needs_attention"
     next_actions: list[str] = []
     if not checks["config_file"]:
         next_actions.append(f"create config file at {layout['config_file']}")
+    if not checks["runtime_registry_ready"] or not checks["builtin_paths_ready"] or not checks["installed_assets_present"]:
+        next_actions.append("run agentsystem bootstrap to initialize install-model runtime assets and metadata")
     if not checks["service_reachable"]:
         next_actions.append(f"start local HTTP service via: {_start_command(repo_root)}")
     for key in [
@@ -363,6 +376,11 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
         "status_reason": "all_transition_checks_passed" if status == "ok" else "missing_transition_prerequisites",
         "missing_checks": missing_checks,
         "checks": checks,
+        "required_core_assets": required_core_assets,
+        "installed_asset_count": len(installed_asset_dirs),
+        "installed_asset_ids": [path.name for path in installed_asset_dirs],
+        "runtime_registry_file": str(runtime_registry_file),
+        "builtin_paths_manifest": str(builtin_paths_manifest),
         "suggested_start_command": _start_command(repo_root),
         "next_actions": next_actions,
         **service,

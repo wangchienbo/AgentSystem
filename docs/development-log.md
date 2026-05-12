@@ -12951,6 +12951,38 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-12: Landed doctor/status flow
+
+### Summary
+I continued the next standard-install task-list item in order and landed the first meaningful doctor/status flow for Phase 7 section 8.4. The operator health view now checks not only directory existence, but also whether bootstrap-generated runtime metadata and required built-in assets are actually present.
+
+### What Was Done
+- Updated `app/cli.py`
+  - `agentsystem status` / `agentsystem doctor` now check for:
+    - config presence
+    - runtime directory presence
+    - runtime registry file readiness
+    - built-in control-plane path manifest readiness
+    - installed asset presence
+    - basic localhost service reachability
+  - health output now includes:
+    - `required_core_assets`
+    - `installed_asset_count`
+    - `installed_asset_ids`
+    - `runtime_registry_file`
+    - `builtin_paths_manifest`
+  - when bootstrap-generated metadata or built-in assets are missing, the operator is now explicitly pointed back to `agentsystem bootstrap`
+- Updated `tests/unit/test_cli.py`
+  - added pre-bootstrap attention-state coverage
+  - added post-bootstrap doctor coverage validating runtime-registry, built-in path bundle, and installed asset inventory reporting
+
+### Validation
+- `pytest -q tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+- result: `37 passed`
+
+### Notes
+This closes the initial doctor/status slice. The health surface is still intentionally lightweight, but it now audits the practical bootstrap contract instead of only checking whether folders exist.
+
 ## 2026-05-12: Landed bootstrap flow
 
 ### Summary

@@ -525,11 +525,12 @@ Status: [x] initial bootstrap flow landed
   - result: `36 passed`
 
 ### 8.4 Doctor/status flow
-- verify config exists
-- verify runtime directories exist
-- verify installed package is healthy
-- verify required core assets are available
-- verify service readiness basics
+Status: [x] initial doctor/status flow landed
+- `agentsystem status` / `agentsystem doctor` now verify config presence, runtime directory presence, runtime registry metadata, built-in path bundle readiness, installed asset presence, and local service readiness basics
+- health output now reports required core-asset readiness plus installed asset inventory, and points operators back to `agentsystem bootstrap` when runtime metadata or built-in assets are missing
+- validation:
+  - `pytest -q tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+  - result: `37 passed`
 
 ### 8.5 Validate install lifecycle
 - test clean environment install

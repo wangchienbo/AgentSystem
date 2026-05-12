@@ -205,7 +205,71 @@ def test_repo_shell_wrappers_delegate_to_python_cli() -> None:
     assert "app/cli.py\" start" in start_web_wrapper
 
 
-def test_run_cli_supports_assets_list_command() -> None:
+def test_run_cli_status_reports_bootstrap_gaps(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    runtime_home = tmp_path / "agentsystem-home"
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
+
+    result = run_cli(["status"])
+
+    assert result.command == "status"
+    assert result.details["status"] == "needs_attention"
+    assert result.details["checks"]["runtime_registry_ready"] is False
+    assert result.details["checks"]["builtin_paths_ready"] is False
+    assert result.details["checks"]["installed_assets_present"] is False
+    assert "run agentsystem bootstrap to initialize install-model runtime assets and metadata" in result.details["next_actions"]
+
+
+
+def test_run_cli_doctor_reports_bootstrapped_runtime_assets(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    asset_dir = repo_root / "source" / "asset.doctor.demo"
+    asset_dir.mkdir(parents=True)
+    (asset_dir / "entry.py").write_text("print('doctor')\n", encoding="utf-8")
+    (asset_dir / "manifest.json").write_text(
+        """
+{
+  "asset_id": "asset.doctor.demo",
+  "asset_type": "skill",
+  "name": "asset_doctor_demo",
+  "version": "1.0.0",
+  "entry": "entry.py",
+  "owner": "test",
+  "owner_role": "qa",
+  "dependencies": [],
+  "source_path": "source/asset.doctor.demo",
+  "description": "doctor demo asset",
+  "metadata": {}
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    runtime_home = tmp_path / "agentsystem-home"
+    (runtime_home / "config").mkdir(parents=True)
+    (runtime_home / "config" / "config.yaml").write_text("models: {}\n", encoding="utf-8")
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
+
+    bootstrap_result = run_cli(["bootstrap"])
+    result = run_cli(["doctor"])
+
+    assert bootstrap_result.details["installed_asset_count"] == 1
+    assert result.command == "doctor"
+    assert result.details["required_core_assets"]["runtime_registry"] is True
+    assert result.details["required_core_assets"]["builtin_paths"] is True
+    assert result.details["checks"]["runtime_registry_ready"] is True
+    assert result.details["checks"]["builtin_paths_ready"] is True
+    assert result.details["checks"]["installed_assets_present"] is True
+    assert result.details["installed_asset_count"] >= 2
+    assert "builtin_paths" in result.details["installed_asset_ids"]
+    assert "asset.doctor.demo" in result.details["installed_asset_ids"]
+
+
     result = run_cli(["assets", "list"])
     assert result.command == "assets.list"
     assert result.details["status"] == "ok"
