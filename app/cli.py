@@ -8,7 +8,7 @@ from typing import Sequence
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from app.bootstrap.runtime import describe_phase6_asset_bootstrap_binding
+from app.bootstrap.runtime import describe_phase6_asset_bootstrap_binding, materialize_builtin_path_definitions
 from app.runtime_paths import resolve_runtime_paths
 from app.skills.system_skill_registry import SYSTEM_SKILL_SPECS
 from app.system.catalog.asset_center import AssetCenter
@@ -35,6 +35,37 @@ def _planned_command_result(command: str, repo_root: Path) -> CLIResult:
             "home_dir": str(runtime_paths.home_dir),
         },
     )
+
+
+def _install_all_assets(repo_root: Path) -> dict[str, object]:
+    runtime_paths = resolve_runtime_paths(repo_root)
+    asset_center = AssetCenter(
+        source_dir=str(repo_root / "source"),
+        installed_dir=str(runtime_paths.installed_assets_dir),
+        build_dir=str(runtime_paths.build_dir),
+        data_dir=str(runtime_paths.data_dir),
+    )
+    discovered = asset_center.discover()
+    installed_results: list[dict[str, object]] = []
+    for asset in discovered:
+        build_record = asset_center.build(asset.asset_id)
+        installed_version = asset_center.install(asset.asset_id, build_record.build_hash)
+        installed_results.append(
+            {
+                "asset_id": asset.asset_id,
+                "asset_name": asset.name,
+                "asset_type": asset.asset_type,
+                "installed_version": installed_version,
+                "build_hash": build_record.build_hash,
+                "build_output_path": str(runtime_paths.build_dir / asset.asset_id / build_record.build_hash),
+                "installed_path": str(runtime_paths.installed_assets_dir / asset.asset_id),
+            }
+        )
+    return {
+        "runtime_paths": runtime_paths,
+        "discovered": discovered,
+        "results": installed_results,
+    }
 
 
 def _bootstrap_runtime_layout(repo_root: Path) -> CLIResult:
@@ -90,6 +121,15 @@ def _bootstrap_runtime_layout(repo_root: Path) -> CLIResult:
     if repo_overlap:
         next_actions.append("move AGENTSYSTEM_* runtime roots outside repo before running installed-runtime migration")
 
+    builtin_paths_dir = materialize_builtin_path_definitions(repo_root)
+    install_summary = _install_all_assets(repo_root)
+    runtime_registry_file = runtime_paths.state_dir / "runtime_center.json"
+    runtime_registry_created = False
+    if not runtime_registry_file.exists():
+        runtime_registry_file.parent.mkdir(parents=True, exist_ok=True)
+        runtime_registry_file.write_text('{\n  "entries": {},\n  "sessions": {}\n}\n', encoding="utf-8")
+        runtime_registry_created = True
+
     return CLIResult(
         command="bootstrap",
         details={
@@ -104,6 +144,11 @@ def _bootstrap_runtime_layout(repo_root: Path) -> CLIResult:
             "config_status": config_status,
             "legacy_config_checked": str(legacy_config),
             "repo_overlap": repo_overlap,
+            "builtin_paths_dir": str(builtin_paths_dir),
+            "runtime_registry_file": str(runtime_registry_file),
+            "runtime_registry_created": runtime_registry_created,
+            "installed_asset_count": len(install_summary["results"]),
+            "installed_assets": install_summary["results"],
             "next_actions": next_actions,
         },
     )
@@ -392,29 +437,9 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
                 },
             )
         if asset_command == "install-all":
-            runtime_paths = resolve_runtime_paths(repo_root)
-            asset_center = AssetCenter(
-                source_dir=str(repo_root / "source"),
-                installed_dir=str(runtime_paths.installed_assets_dir),
-                build_dir=str(runtime_paths.build_dir),
-                data_dir=str(runtime_paths.data_dir),
-            )
-            discovered = asset_center.discover()
-            installed_results: list[dict[str, object]] = []
-            for asset in discovered:
-                build_record = asset_center.build(asset.asset_id)
-                installed_version = asset_center.install(asset.asset_id, build_record.build_hash)
-                installed_results.append(
-                    {
-                        "asset_id": asset.asset_id,
-                        "asset_name": asset.name,
-                        "asset_type": asset.asset_type,
-                        "installed_version": installed_version,
-                        "build_hash": build_record.build_hash,
-                        "build_output_path": str(runtime_paths.build_dir / asset.asset_id / build_record.build_hash),
-                        "installed_path": str(runtime_paths.installed_assets_dir / asset.asset_id),
-                    }
-                )
+            install_summary = _install_all_assets(repo_root)
+            discovered = install_summary["discovered"]
+            installed_results = install_summary["results"]
             return CLIResult(
                 command="assets.install-all",
                 details={

@@ -517,10 +517,12 @@ Status: [x] initial bulk install flow landed
   - result: `32 passed`
 
 ### 8.3 Bootstrap flow
-- initialize directories
-- initialize built-in/core assets
-- prepare default runtime metadata
-- document idempotent behavior
+Status: [x] initial bootstrap flow landed
+- `agentsystem bootstrap` now initializes runtime directories, projects built-in control-plane path definitions, installs discovered source assets into external runtime roots, and seeds a default runtime registry file when absent
+- rerun behavior is now bounded and idempotent for the current slice: repeated bootstrap calls preserve the runtime registry file and re-materialize/install the expected bootstrap assets without changing the contract shape
+- validation:
+  - `pytest -q tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+  - result: `36 passed`
 
 ### 8.4 Doctor/status flow
 - verify config exists

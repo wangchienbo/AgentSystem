@@ -12951,6 +12951,27 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-12: Landed bootstrap flow
+
+### Summary
+I continued the next standard-install task-list item in order and landed the first real bootstrap flow for Phase 7 section 8.3. The CLI bootstrap command now does more than create directories: it prepares the control-plane path bundle, installs the current source assets into external runtime roots, and seeds default runtime metadata.
+
+### What Was Done
+- Updated `app/cli.py`
+  - `agentsystem bootstrap` now materializes built-in control-plane path definitions into the external installed-asset area
+  - reuses the batch install helper to build/install discovered source assets into install-model runtime roots
+  - creates `runtime_center.json` with an empty `entries` / `sessions` structure when absent
+  - preserves idempotent bounded rerun behavior by leaving existing runtime-registry state in place on subsequent bootstrap calls
+- Updated `tests/unit/test_cli.py`
+  - added bootstrap flow coverage for built-in path projection, installed asset initialization, runtime registry seeding, and repeat-run contract behavior
+
+### Validation
+- `pytest -q tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+- result: `36 passed`
+
+### Notes
+This closes the initial bootstrap slice. It is still a bounded bootstrap contract, not the final full installer, but it now initializes the essential runtime layout, control-plane bundle, installed assets, and default registry metadata in one CLI path.
+
 ## 2026-05-12: Landed install-all flow
 
 ### Summary

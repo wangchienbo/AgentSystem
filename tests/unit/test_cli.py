@@ -116,6 +116,59 @@ def test_run_cli_bootstrap_initializes_runtime_layout_and_seeds_legacy_config(mo
     assert result.details["repo_overlap"] == {}
 
 
+def test_run_cli_bootstrap_initializes_builtin_assets_and_runtime_registry(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    asset_dir = repo_root / "source" / "asset.bootstrap.demo"
+    asset_dir.mkdir(parents=True)
+    (asset_dir / "entry.py").write_text("print('bootstrap')\n", encoding="utf-8")
+    (asset_dir / "manifest.json").write_text(
+        """
+{
+  "asset_id": "asset.bootstrap.demo",
+  "asset_type": "skill",
+  "name": "asset_bootstrap_demo",
+  "version": "1.0.0",
+  "entry": "entry.py",
+  "owner": "test",
+  "owner_role": "qa",
+  "dependencies": [],
+  "source_path": "source/asset.bootstrap.demo",
+  "description": "bootstrap demo asset",
+  "metadata": {}
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    runtime_home = tmp_path / "agentsystem-home"
+    legacy_home = tmp_path / "legacy-home"
+    legacy_config = legacy_home / ".config" / "agentsystem" / "config.yaml"
+    legacy_config.parent.mkdir(parents=True, exist_ok=True)
+    legacy_config.write_text("models: {}\n", encoding="utf-8")
+
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: legacy_home)
+    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
+
+    first = run_cli(["bootstrap"])
+    second = run_cli(["bootstrap"])
+
+    assert first.command == "bootstrap"
+    assert first.details["status"] == "ok"
+    assert first.details["config_status"] == "seeded_from_legacy"
+    assert first.details["installed_asset_count"] == 1
+    assert Path(str(first.details["builtin_paths_dir"])).exists()
+    runtime_registry_file = Path(str(first.details["runtime_registry_file"]))
+    assert runtime_registry_file.exists()
+    assert '"entries": {}' in runtime_registry_file.read_text(encoding="utf-8")
+    installed_assets = first.details["installed_assets"]
+    assert isinstance(installed_assets, list)
+    assert installed_assets[0]["asset_id"] == "asset.bootstrap.demo"
+
+    assert second.details["status"] == "ok"
+    assert second.details["installed_asset_count"] == 1
+    assert second.details["runtime_registry_created"] is False
 def test_run_cli_migrate_runtime_reports_legacy_paths_and_repo_overlap(monkeypatch, tmp_path: Path) -> None:
     repo_runtime_home = REPO_ROOT / "tmp-runtime-home-test"
     monkeypatch.setenv("AGENTSYSTEM_HOME", str(repo_runtime_home))
@@ -143,6 +196,7 @@ def test_run_cli_migrate_runtime_reports_legacy_paths_and_repo_overlap(monkeypat
     assert result.details["next_actions"]
 
 
+def test_repo_shell_wrappers_delegate_to_python_cli() -> None:
     start_wrapper = (REPO_ROOT / "start_server.sh").read_text(encoding="utf-8")
     stop_wrapper = (REPO_ROOT / "stop_server.sh").read_text(encoding="utf-8")
     start_web_wrapper = (REPO_ROOT / "start_web_server.sh").read_text(encoding="utf-8")
