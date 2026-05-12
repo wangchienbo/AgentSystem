@@ -12,6 +12,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from app.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 # Governance imports (Phase I)
@@ -191,7 +193,7 @@ class AppManagementWorker:
         cmd = entry_point
         env = {**os.environ}
         env.update(params.get("env", {}))
-        runtime_data_dir = Path(os.environ.get("AGENTSYSTEM_DATA_DIR", "data"))
+        runtime_data_dir = Path(os.environ.get("AGENTSYSTEM_DATA_DIR") or resolve_runtime_paths().data_dir)
         cwd = str((Path(params.get("cwd") or runtime_data_dir).expanduser()).resolve())
         try:
             proc = subprocess.Popen(

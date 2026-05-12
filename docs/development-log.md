@@ -12842,3 +12842,21 @@ I continued the Phase 6 runtime-state externalization pass by moving replay-regr
 
 ### Notes
 This closes another import-time path-binding hole. Replay-regression sample storage now follows the active runtime path contract instead of freezing a repo/data-derived default too early.
+
+## 2026-05-12: Externalized AppManagementWorker subprocess cwd fallback
+
+### Summary
+I continued the Phase 6 runtime-path cleanup by removing another residual repo-local `data` fallback from app lifecycle control. `AppManagementWorker` subprocess launch now falls back to install-model runtime data paths when `AGENTSYSTEM_DATA_DIR` is unset, instead of defaulting cwd to literal `data`.
+
+### What Was Done
+- Updated `app/system/workers/app_mgmt.py`
+  - `_launch_subprocess()` now falls back to `resolve_runtime_paths().data_dir` when the runtime data env var is missing
+- Added `tests/unit/test_app_mgmt_runtime_paths.py`
+  - verifies subprocess launch cwd resolves to install-model runtime data under missing-env conditions
+
+### Validation
+- `pytest -q tests/unit/test_app_mgmt_runtime_paths.py tests/unit/test_replay_regression_sample_paths.py tests/unit/test_context_storage_paths_defaults.py tests/unit/test_app_bootstrap_defaults.py tests/unit/test_app_process_manager_paths.py tests/unit/test_memory_skill_paths.py tests/unit/test_interactive_app_workflow_paths.py tests/unit/test_user_service_paths.py tests/unit/test_interactive_app_paths.py tests/unit/test_pipeline_service_paths.py tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `66 passed`
+
+### Notes
+This closes another small but real lifecycle seam. App subprocess cwd fallback is now aligned with the active runtime path contract instead of silently drifting back to a repo-local `data` assumption.

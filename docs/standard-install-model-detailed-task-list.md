@@ -692,3 +692,4 @@ Status: [~] first live-code adoption landed
 - `app.runtime.app_bootstrap` and `AppProcessManager` now default to install-model runtime data paths, and bootstrap now ensures the target runtime data directory exists before writing runtime registry state
 - context-center storage path defaults now resolve from install-model runtime data paths as well, reducing another repo-root `data/...` assumption inside cross-session context persistence helpers
 - replay-regression sample storage now resolves dynamically from install-model runtime data paths instead of relying on import-time repo/data-derived constants, tightening another context/governance storage seam
+- AppManagementWorker subprocess launch now falls back to install-model runtime data paths when `AGENTSYSTEM_DATA_DIR` is unset, removing another residual repo-local `data` cwd assumption from app lifecycle control
