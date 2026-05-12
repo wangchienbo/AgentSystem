@@ -12650,3 +12650,22 @@ I kept pushing Slice C3 runtime semantics for packaged built-in path bundles. Af
 
 ### Notes
 This is a small seam, but it helps complete the packaged-asset story: projected built-in bundles are now both read-only and inspectable as packaged runtime assets.
+
+## 2026-05-12: Exposed packaged-vs-mutable path store state explicitly
+
+### Summary
+I continued refining the Slice C3 packaged path runtime seam. In addition to exposing the packaged manifest, `PathStore` now exposes an explicit `is_packaged_bundle` flag so runtime callers can distinguish packaged built-in bundles from normal mutable path directories without re-deriving that state themselves.
+
+### What Was Done
+- Updated `app/persistence/path_store.py`
+  - added `is_packaged_bundle` property
+- Updated `tests/unit/test_packaged_path_store.py`
+  - verifies mutable-state reporting for non-packaged stores
+  - verifies packaged-state reporting for built-in projected bundles
+
+### Validation
+- `pytest -q tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `51 passed`
+
+### Notes
+This is another small but useful C3 seam. The packaged path bundle is now not only read-only and inspectable, but also self-identifying from the runtime API surface.

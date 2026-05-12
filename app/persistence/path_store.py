@@ -73,6 +73,10 @@ class PathStore:
             return None
         return json.loads(manifest_path.read_text(encoding="utf-8"))
 
+    @property
+    def is_packaged_bundle(self) -> bool:
+        return self._readonly
+
     # -- Loading --------------------------------------------------------------
 
     def load_all(self) -> dict[str, PathTemplate]:

@@ -8,7 +8,13 @@ import pytest
 from app.persistence.path_store import PathStore, PathStoreError, PathTemplate
 
 
-def test_packaged_builtin_path_store_is_read_only_for_save(tmp_path: Path) -> None:
+def test_non_packaged_path_store_reports_mutable_state(tmp_path: Path) -> None:
+    paths_dir = tmp_path / "paths"
+    paths_dir.mkdir(parents=True)
+    store = PathStore(paths_dir=str(paths_dir))
+
+    assert store.bundle_manifest() is None
+    assert store.is_packaged_bundle is False
     paths_dir = tmp_path / "builtin_paths"
     paths_dir.mkdir(parents=True)
     (paths_dir / "builtin_paths_manifest.json").write_text(
@@ -18,6 +24,7 @@ def test_packaged_builtin_path_store_is_read_only_for_save(tmp_path: Path) -> No
     store = PathStore(paths_dir=str(paths_dir))
 
     assert store.bundle_manifest() == {"asset_id": "builtin.control_plane.paths"}
+    assert store.is_packaged_bundle is True
     with pytest.raises(PathStoreError, match="read-only"):
         store.save(PathTemplate(path_id="demo.path", name="Demo Path"))
 
