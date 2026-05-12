@@ -2999,9 +2999,9 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Slice C6 runtime/asset separation validation
-- added cwd-independent separation coverage to prove CLI runtime layout/bootstrap commands do not drift onto current working directory paths
-- added bootstrap runtime coverage to prove installed asset root, build artifact root, and runtime-center persistence all resolve outside the source repo and outside arbitrary caller cwd
+### Slice D1 single-asset install flow
+- `agentsystem assets install <asset_id>` now wires the source discovery → build → install chain through `AssetCenter` using install-model runtime roots for build and installed outputs
+- added CLI coverage for successful single-asset install and explicit missing-asset failure semantics
 - validation:
-  - `pytest -q tests/unit/test_runtime_asset_separation.py tests/unit/test_cli.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_runtime_paths.py`
-  - result: `18 passed`
+  - `pytest -q tests/unit/test_cli.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+  - result: `31 passed`

@@ -12951,6 +12951,30 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-12: Landed single-asset install flow
+
+### Summary
+I continued the next standard-install task-list item in order and landed the first real install flow for Phase 7 section 8.1. The CLI can now install a single requested asset from repo source into the external install-model runtime layout instead of only exposing planned placeholder status.
+
+### What Was Done
+- Updated `app/cli.py`
+  - `agentsystem assets install <asset_id>` now instantiates `AssetCenter` against the repo `source/` tree plus install-model runtime roots
+  - runs `discover()` before install resolution so the source registry is populated from the working tree
+  - builds the requested asset into `AGENTSYSTEM_HOME/artifacts/build/...`
+  - installs the built asset into `AGENTSYSTEM_HOME/assets/installed/...`
+  - returns structured result details including build hash, build output path, installed path, and installed manifest path
+  - missing assets now return a structured `asset_not_found` error with non-zero exit status
+- Updated `tests/unit/test_cli.py`
+  - added a fixture-style repo stub to validate successful single-asset install wiring
+  - added explicit missing-asset error coverage
+
+### Validation
+- `pytest -q tests/unit/test_cli.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+- result: `31 passed`
+
+### Notes
+This closes the first single-asset install slice. It wires repo-source discovery, build, and external install roots together, while fuller install-all/bootstrap lifecycle orchestration remains for the next Phase 7 tasks.
+
 ## 2026-05-12: Landed bounded runtime/asset separation validation
 
 ### Summary

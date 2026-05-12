@@ -173,8 +173,60 @@ def test_run_cli_supports_assets_discover_command() -> None:
     assert result.details["asset_count"] == len(result.details["assets"])
 
 
-def test_run_cli_supports_assets_install_command() -> None:
+def test_run_cli_supports_assets_install_command(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    source_dir = repo_root / "source" / "asset.demo"
+    source_dir.mkdir(parents=True)
+    (source_dir / "entry.py").write_text("print('demo')\n", encoding="utf-8")
+    (source_dir / "manifest.json").write_text(
+        """
+{
+  "asset_id": "asset.demo",
+  "asset_type": "skill",
+  "name": "asset_demo",
+  "version": "1.0.0",
+  "entry": "entry.py",
+  "owner": "test",
+  "owner_role": "qa",
+  "dependencies": [],
+  "source_path": "source/asset.demo",
+  "description": "demo asset",
+  "metadata": {}
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    runtime_home = tmp_path / "agentsystem-home"
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
+
     result = run_cli(["assets", "install", "asset.demo"])
+
     assert result.command == "assets.install"
-    assert result.details["status"] == "planned"
+    assert result.details["status"] == "ok"
+    assert result.details["operation_scope"] == "single_asset_install_flow"
     assert result.details["asset_id"] == "asset.demo"
+    installed_manifest = Path(str(result.details["installed_manifest"]))
+    assert installed_manifest.exists()
+    installed_data = installed_manifest.read_text(encoding="utf-8")
+    assert '"asset_id": "asset.demo"' in installed_data
+    assert Path(str(result.details["build_output_path"])).exists()
+    assert Path(str(result.details["installed_path"])).exists()
+
+
+def test_run_cli_assets_install_reports_missing_asset(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    (repo_root / "source").mkdir(parents=True)
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(tmp_path / "agentsystem-home"))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
+
+    result = run_cli(["assets", "install", "asset.missing"])
+
+    assert result.command == "assets.install"
+    assert result.exit_code == 1
+    assert result.details["status"] == "error"
+    assert result.details["error"] == "asset_not_found"
+    assert result.details["asset_id"] == "asset.missing"

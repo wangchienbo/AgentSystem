@@ -11,6 +11,7 @@ from urllib.request import urlopen
 from app.bootstrap.runtime import describe_phase6_asset_bootstrap_binding
 from app.runtime_paths import resolve_runtime_paths
 from app.skills.system_skill_registry import SYSTEM_SKILL_SPECS
+from app.system.catalog.asset_center import AssetCenter
 
 
 @dataclass(frozen=True)
@@ -349,11 +350,44 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
                 },
             )
         if asset_command == "install":
+            runtime_paths = resolve_runtime_paths(repo_root)
+            asset_center = AssetCenter(
+                source_dir=str(repo_root / "source"),
+                installed_dir=str(runtime_paths.installed_assets_dir),
+                build_dir=str(runtime_paths.build_dir),
+                data_dir=str(runtime_paths.data_dir),
+            )
+            discovered = asset_center.discover()
+            asset = asset_center.get_asset(args.asset_id)
+            if asset is None:
+                return CLIResult(
+                    command="assets.install",
+                    exit_code=1,
+                    details={
+                        "status": "error",
+                        "error": "asset_not_found",
+                        "asset_id": args.asset_id,
+                        "discovered_asset_count": len(discovered),
+                        "repo_root": str(repo_root),
+                    },
+                )
+            build_record = asset_center.build(args.asset_id)
+            installed_version = asset_center.install(args.asset_id, build_record.build_hash)
+            installed_manifest = runtime_paths.installed_assets_dir / args.asset_id / "installed.json"
             return CLIResult(
                 command="assets.install",
                 details={
+                    "status": "ok",
+                    "operation_scope": "single_asset_install_flow",
                     "asset_id": args.asset_id,
-                    "status": "planned",
+                    "asset_name": asset.name,
+                    "asset_type": asset.asset_type,
+                    "installed_version": installed_version,
+                    "build_hash": build_record.build_hash,
+                    "source_dir": str(repo_root / "source"),
+                    "installed_path": str(runtime_paths.installed_assets_dir / args.asset_id),
+                    "build_output_path": str(runtime_paths.build_dir / args.asset_id / build_record.build_hash),
+                    "installed_manifest": str(installed_manifest),
                     "repo_root": str(repo_root),
                 },
             )

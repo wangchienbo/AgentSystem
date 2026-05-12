@@ -500,9 +500,13 @@ Status: [x] bounded separation validation landed
 ## 8. Phase 7 - Implement install flows
 
 ### 8.1 Single-asset install flow
-- install one asset from development source into external runtime layout
-- register/install metadata correctly
-- expose operator command for it
+Status: [x] initial single-asset flow landed
+- `agentsystem assets install <asset_id>` now discovers source assets from the repo working tree, builds the requested asset into the install-model build root, and installs it into the external installed-asset root
+- the command now returns structured install evidence including build hash, build output path, installed path, and installed manifest path
+- missing assets now return an explicit `asset_not_found` error contract with non-zero exit behavior
+- validation:
+  - `pytest -q tests/unit/test_cli.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+  - result: `31 passed`
 
 ### 8.2 Install-all flow
 - discover all intended installable assets
