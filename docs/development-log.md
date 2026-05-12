@@ -12951,6 +12951,30 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-13: Wrote the standard install model completion summary
+
+### Summary
+I finished the remaining closure pass by writing a dedicated completion-summary document for the install-model workstream and normalizing the last historical unchecked note in the task list. The repo now has a single place that states the bounded migration outcome, key deliverables, evidence artifacts, repair history, and optional next strengthening steps.
+
+### What Was Added
+- `docs/standard-install-model-completion-summary.md`
+  - bounded before/after outcome
+  - delivered runtime/control-plane/asset lifecycle changes
+  - regression evidence summary
+  - governance follow-up result
+  - important live repair note
+  - evidence artifact list
+  - remote delivery status
+  - optional next strengthening steps
+
+### Task List Normalization
+- marked the remaining route-aware timeout/retry budgeting note as complete because:
+  - the budgeting change was already landed
+  - the fresh live governance self-iteration rerun already passed after the change
+
+### Notes
+At this point the install-model bounded closure has both incremental logs and a dedicated final summary artifact.
+
 ## 2026-05-13: Reran live governance self-iteration validation successfully
 
 ### Summary
