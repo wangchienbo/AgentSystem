@@ -684,3 +684,4 @@ Status: [~] first live-code adoption landed
 - packaged built-in path bundles now expose manifest metadata through `PathStore.bundle_manifest()`, making the projected runtime bundle identity inspectable without reopening repo-authored source files directly
 - `PathStore` now exposes an explicit `is_packaged_bundle` flag alongside manifest access, making packaged-vs-mutable path storage semantics directly inspectable by runtime callers
 - bootstrap runtime registry binding now follows install-model state storage (`state/runtime_center.json`) instead of repo `data/`, and runtime bootstrap now explicitly registers the full core runtime asset set instead of relying on repo-carried legacy registry residue
+- `SystemCatalog` default persistence now resolves from install-model runtime paths instead of repo-local `data/`, further separating durable catalog state from source checkout assumptions

@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 from pathlib import Path
 from typing import Any
+
+from app.runtime_paths import resolve_runtime_paths
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,7 @@ class SystemCatalog:
     """
 
     def __init__(self, data_dir: str | None = None) -> None:
-        base = data_dir or os.environ.get("AGENTSYSTEM_DATA_DIR", "data")
+        base = Path(data_dir) if data_dir else resolve_runtime_paths().data_dir
         self._data_dir = Path(base)
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._catalog_path = self._data_dir / "system_catalog.json"

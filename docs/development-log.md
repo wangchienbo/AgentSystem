@@ -12689,3 +12689,22 @@ I continued Phase 6 / Slice C3 by moving the bootstrap runtime registry binding 
 
 ### Notes
 This was a good catch. The registry-path externalization exposed that startup readiness for `asset:runtime_center:v1` had been masked by repo-pinned runtime registry state. The system now behaves correctly under isolated install-model state: core runtime assets are registered explicitly, and bootstrap no longer depends on repo-local residue.
+
+## 2026-05-12: Externalized SystemCatalog default persistence path
+
+### Summary
+I continued the Phase 6 externalization pass by moving `SystemCatalog`'s default persistence binding off repo-local `data/` assumptions and onto install-model runtime paths. This keeps durable catalog state aligned with the same runtime path contract already adopted by other Phase 6 services.
+
+### What Was Done
+- Updated `app/system/catalog/system_catalog.py`
+  - `SystemCatalog()` now defaults to `resolve_runtime_paths().data_dir`
+  - removed repo-local `data/` fallback as the default persistence assumption
+- Added `tests/unit/test_system_catalog_paths.py`
+  - verifies default catalog persistence resolves to install-model runtime paths
+
+### Validation
+- `pytest -q tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+- result: `56 passed`
+
+### Notes
+This keeps shrinking repo-coupled bootstrap/storage behavior. `SystemCatalog` is durable state, not source content, so binding it to install-model runtime paths is the correct long-term contract.

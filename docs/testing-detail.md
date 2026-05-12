@@ -2899,3 +2899,10 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
 - validation extension:
   - `pytest -q tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
   - result: `55 passed`
+
+### Slice C3 system catalog path externalization
+- `SystemCatalog` now defaults to `resolve_runtime_paths().data_dir / system_catalog.json`
+- durable catalog metadata no longer falls back to repo-local `data/` when runtime paths are available
+- validation extension:
+  - `pytest -q tests/unit/test_system_catalog_paths.py tests/unit/test_registry_installer.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/test_runtime_center.py`
+  - result: `56 passed`
