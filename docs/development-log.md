@@ -12613,3 +12613,22 @@ I kept refining the Slice C3 built-in path projection so it behaves more like a 
 
 ### Notes
 This makes the built-in path projection much safer as a long-lived packaged control-plane asset representation. It reduces the risk of obsolete path definitions lingering in installed assets after the authored source has moved on.
+
+## 2026-05-12: Enforced read-only semantics for packaged built-in path bundles
+
+### Summary
+I extended the Slice C3 built-in path packaging work from projection mechanics into runtime semantics. Projected built-in path bundles are now treated as packaged runtime assets, not mutable working directories. `PathStore` detects the projection manifest and blocks in-place save/remove mutations against that bundle.
+
+### What Was Done
+- Updated `app/persistence/path_store.py`
+  - directories containing `builtin_paths_manifest.json` are now marked read-only
+  - `save(...)` and `remove(...)` raise `PathStoreError` for packaged built-in bundles
+- Added `tests/unit/test_packaged_path_store.py`
+  - verifies read-only enforcement for save/remove operations
+
+### Validation
+- `pytest -q tests/unit/test_packaged_path_store.py tests/unit/test_builtin_path_projection.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `51 passed`
+
+### Notes
+This is an important semantic line for Slice C3. Once a built-in control-plane asset has been projected into the install-model bundle, runtime code should consume it as packaged state rather than editing it in place. Future writable overlays can be added separately if needed.

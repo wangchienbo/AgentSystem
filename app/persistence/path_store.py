@@ -64,6 +64,7 @@ class PathStore:
         self._paths_dir = resolved_paths_dir
         self._paths_dir.mkdir(parents=True, exist_ok=True)
         self._paths: dict[str, PathTemplate] = {}
+        self._readonly = (self._paths_dir / "builtin_paths_manifest.json").exists()
 
     # -- Loading --------------------------------------------------------------
 
@@ -117,6 +118,8 @@ class PathStore:
 
     def save(self, path: PathTemplate) -> None:
         """Save a path definition to YAML file."""
+        if self._readonly:
+            raise PathStoreError(f"PathStore is read-only for packaged built-in paths: {self._paths_dir}")
         safe_id = path.path_id.replace(".", "_")
         yaml_file = self._paths_dir / f"{safe_id}.yaml"
 
@@ -168,6 +171,8 @@ class PathStore:
     def remove(self, path_id: str) -> bool:
         """Remove a path (file + memory)."""
         path = self._paths.pop(path_id, None)
+        if self._readonly:
+            raise PathStoreError(f"PathStore is read-only for packaged built-in paths: {self._paths_dir}")
         if path:
             safe_id = path_id.replace(".", "_")
             yaml_file = self._paths_dir / f"{safe_id}.yaml"
