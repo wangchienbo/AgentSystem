@@ -2999,9 +2999,9 @@ This is intentionally a narrow first seam. `AssetCenter` is now install-model-aw
   - `pytest -q tests/unit/test_system_catalog_paths.py tests/test_runtime_center.py`
   - result: `5 passed`
 
-### Slice D4 doctor/status flow
-- `agentsystem status` / `agentsystem doctor` now surface config/runtime directory checks, runtime-registry readiness, built-in path bundle readiness, installed asset inventory, and basic local service reachability
-- added CLI coverage for both pre-bootstrap attention state and post-bootstrap runtime-health inventory state
+### Slice D5 install lifecycle validation
+- added end-to-end unit coverage for clean bootstrap, incremental asset install, repeated bulk install, and post-lifecycle doctor/status verification
+- validated that install lifecycle state remains visible through required core-asset checks and installed asset inventory reporting
 - validation:
   - `pytest -q tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
-  - result: `37 passed`
+  - result: `38 passed`

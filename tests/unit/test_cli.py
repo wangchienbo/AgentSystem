@@ -8,6 +8,31 @@ from app.runtime_paths import resolve_runtime_paths
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _write_demo_asset(repo_root: Path, asset_id: str) -> None:
+    asset_dir = repo_root / "source" / asset_id
+    asset_dir.mkdir(parents=True, exist_ok=True)
+    (asset_dir / "entry.py").write_text(f"print('{asset_id}')\n", encoding="utf-8")
+    (asset_dir / "manifest.json").write_text(
+        f"""
+{{
+  "asset_id": "{asset_id}",
+  "asset_type": "skill",
+  "name": "{asset_id.replace('.', '_')}",
+  "version": "1.0.0",
+  "entry": "entry.py",
+  "owner": "test",
+  "owner_role": "qa",
+  "dependencies": [],
+  "source_path": "source/{asset_id}",
+  "description": "demo asset {asset_id}",
+  "metadata": {{}}
+}}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def test_build_parser_supports_phase1_command_surface() -> None:
     parser = build_parser()
     choices = parser._subparsers._group_actions[0].choices  # type: ignore[attr-defined]
@@ -376,6 +401,40 @@ def test_run_cli_supports_assets_install_all_command(monkeypatch, tmp_path: Path
     for row in results:
         assert Path(str(row["build_output_path"])).exists()
         assert Path(str(row["installed_path"])).exists()
+def test_install_lifecycle_supports_clean_bootstrap_incremental_install_and_idempotent_reinstall(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_demo_asset(repo_root, "asset.alpha")
+    runtime_home = tmp_path / "agentsystem-home"
+    (runtime_home / "config").mkdir(parents=True)
+    (runtime_home / "config" / "config.yaml").write_text("models: {}\n", encoding="utf-8")
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
+
+    bootstrap_result = run_cli(["bootstrap"])
+    status_after_bootstrap = run_cli(["status"])
+    doctor_after_bootstrap = run_cli(["doctor"])
+
+    assert bootstrap_result.details["installed_asset_count"] == 1
+    assert status_after_bootstrap.details["checks"]["runtime_registry_ready"] is True
+    assert status_after_bootstrap.details["checks"]["builtin_paths_ready"] is True
+    assert "asset.alpha" in doctor_after_bootstrap.details["installed_asset_ids"]
+
+    _write_demo_asset(repo_root, "asset.beta")
+    incremental_install = run_cli(["assets", "install", "asset.beta"])
+    install_all_first = run_cli(["assets", "install-all"])
+    install_all_second = run_cli(["assets", "install-all"])
+    final_doctor = run_cli(["doctor"])
+
+    assert incremental_install.details["asset_id"] == "asset.beta"
+    assert install_all_first.details["installed_asset_count"] == 2
+    assert install_all_second.details["installed_asset_count"] == 2
+    assert {row["asset_id"] for row in install_all_second.details["results"]} == {"asset.alpha", "asset.beta"}
+    assert final_doctor.details["required_core_assets"]["runtime_registry"] is True
+    assert final_doctor.details["required_core_assets"]["builtin_paths"] is True
+    assert {"builtin_paths", "asset.alpha", "asset.beta"}.issubset(set(final_doctor.details["installed_asset_ids"]))
+
+
 def test_run_cli_assets_install_reports_missing_asset(monkeypatch, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     (repo_root / "source").mkdir(parents=True)

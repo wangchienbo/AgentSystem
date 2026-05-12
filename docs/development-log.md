@@ -12951,6 +12951,28 @@ I continued the Phase 6 cleanup by removing outdated developer-facing `data/...`
 ### Notes
 This is a smaller cleanup slice, but it matters because stale examples can quietly pull future changes back toward source-tree storage assumptions even after the runtime contract has been corrected.
 
+## 2026-05-12: Validated install lifecycle
+
+### Summary
+I continued the next standard-install task-list item in order and completed the first install lifecycle validation slice for Phase 7 section 8.5. This round focused on proving that the current bootstrap plus asset-install flow behaves coherently across fresh install, incremental expansion, repeat bulk install, and post-install health inspection.
+
+### What Was Done
+- Updated `tests/unit/test_cli.py`
+  - added a lifecycle coverage path that validates:
+    - clean bootstrap on a fresh runtime home
+    - post-bootstrap `status` / `doctor` visibility
+    - incremental single-asset install after bootstrap
+    - repeated `assets install-all` behavior after the asset set expands
+    - final doctor inventory contains both installed assets plus the built-in path bundle
+- Added a small local helper for deterministic demo-asset creation inside CLI lifecycle tests
+
+### Validation
+- `pytest -q tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+- result: `38 passed`
+
+### Notes
+This closes the initial install lifecycle validation slice and also closes the current Phase 7 section 8 operator-flow tranche. The current evidence is still unit-level rather than a full packaged installer rehearsal, but the clean bootstrap, incremental install, bulk reinstall, and operator health surfaces are now covered together in one lifecycle path.
+
 ## 2026-05-12: Landed doctor/status flow
 
 ### Summary

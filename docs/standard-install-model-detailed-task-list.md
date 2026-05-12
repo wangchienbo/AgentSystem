@@ -533,11 +533,14 @@ Status: [x] initial doctor/status flow landed
   - result: `37 passed`
 
 ### 8.5 Validate install lifecycle
-- test clean environment install
-- test incremental asset install
-- test reinstall/install-all idempotence
-- test status/doctor output
-- commit install-flow phase
+Status: [x] initial install lifecycle validation landed
+- validated clean-environment bootstrap on a fresh runtime home
+- validated incremental single-asset install after bootstrap
+- validated `assets install-all` re-run behavior across an expanded asset set
+- validated `status` / `doctor` output after lifecycle steps, including required core assets and installed asset inventory
+- validation:
+  - `pytest -q tests/unit/test_cli.py tests/unit/test_builtin_path_projection.py tests/unit/test_registry_installer.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_runtime_paths.py`
+  - result: `38 passed`
 
 **Exit criteria**
 - new environment can be installed and bootstrapped without repo-coupled runtime behavior
