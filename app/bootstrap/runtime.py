@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -122,9 +123,16 @@ def materialize_builtin_path_definitions(
     destination = Path(target_dir) if target_dir is not None else runtime_paths.installed_assets_dir / "builtin_paths"
     destination.mkdir(parents=True, exist_ok=True)
     copied_files: list[str] = []
+    projected_entries: list[dict[str, str]] = []
     for yaml_file in list(source_dir.glob("*.yaml")) + list(source_dir.glob("*.yml")):
         shutil.copy2(yaml_file, destination / yaml_file.name)
         copied_files.append(yaml_file.name)
+        projected_entries.append(
+            {
+                "name": yaml_file.name,
+                "sha256": hashlib.sha256(yaml_file.read_bytes()).hexdigest(),
+            }
+        )
     (destination / "builtin_paths_manifest.json").write_text(
         json.dumps(
             {
@@ -133,6 +141,7 @@ def materialize_builtin_path_definitions(
                 "origin": "repo_authored_projection",
                 "source_dir": str(source_dir),
                 "projected_files": sorted(copied_files),
+                "projected_entries": sorted(projected_entries, key=lambda item: item["name"]),
             },
             ensure_ascii=False,
             indent=2,

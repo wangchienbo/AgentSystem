@@ -25,3 +25,5 @@ def test_materialize_builtin_path_definitions_projects_repo_paths_into_installed
     assert manifest["asset_id"] == "builtin.control_plane.paths"
     assert manifest["asset_type"] == "path"
     assert manifest["projected_files"] == ["greet.yaml", "query_help.yaml"]
+    assert [entry["name"] for entry in manifest["projected_entries"]] == ["greet.yaml", "query_help.yaml"]
+    assert all(len(entry["sha256"]) == 64 for entry in manifest["projected_entries"])

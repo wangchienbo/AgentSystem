@@ -12577,3 +12577,21 @@ I tightened the first Slice C3 built-in control-plane asset projection by adding
 
 ### Notes
 This keeps pushing Slice C3 from ad hoc projection toward actual packaged built-in control-plane assets. The next useful step is likely to apply the same identity/projection pattern to the next repo-bound control-plane asset class.
+
+## 2026-05-12: Added content fingerprints to built-in path projection manifest
+
+### Summary
+I continued tightening the first Slice C3 packaged control-plane asset by adding content fingerprints to the built-in path projection manifest. The projected bundle now records not only which authored path files were packaged, but also stable SHA-256 hashes for each projected file.
+
+### What Was Done
+- Updated `app/bootstrap/runtime.py`
+  - `builtin_paths_manifest.json` now includes `projected_entries` with per-file SHA-256 fingerprints
+- Updated `tests/unit/test_builtin_path_projection.py`
+  - verifies both projected file inventory and hash-record presence
+
+### Validation
+- `pytest -q tests/unit/test_builtin_path_projection.py tests/unit/test_bootstrap_runtime_isolation.py tests/unit/test_bootstrap_asset_binding.py tests/unit/test_cli.py tests/unit/test_installed_asset_root_adoption.py tests/unit/test_asset_center_install_model_roots.py tests/unit/test_asset_center_manifest_validation.py tests/unit/test_registry_installer.py tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py`
+- result: `48 passed`
+
+### Notes
+This moves the built-in path projection another step toward a proper packaged asset contract. It also sets up a future path for detecting projection drift or deciding whether reprojection is required during upgrades.
