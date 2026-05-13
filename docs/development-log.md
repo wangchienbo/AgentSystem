@@ -7,6 +7,8 @@ I moved 6.4 from theory into real installed-path evidence by creating a fresh ve
 - created installed target:
   - `python3 -m venv /tmp/agentsystem-installed-venv`
   - `/tmp/agentsystem-installed-venv/bin/pip install -e .`
+- discovered and fixed packaging gap:
+  - added `jinja2>=3.1.0` to `pyproject.toml` because installed-path launch imports `fastapi.templating.Jinja2Templates`
 - bootstrapped from non-repo cwd:
   - `AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem bootstrap`
 - launched from non-repo cwd:
@@ -16,6 +18,7 @@ I moved 6.4 from theory into real installed-path evidence by creating a fresh ve
   - `http://127.0.0.1:80/api/status` returned `200`
 
 ### Caveat Found
+- the first installed-path attempt exposed a missing package dependency (`jinja2`) rather than a repo-root import failure, and that dependency has now been added to `pyproject.toml`
 - the recorded PID had already gone stale by the time `status` re-checked process state
 - `stop` therefore reported `not_running` even though the HTTP endpoint remained reachable
 - conclusion: installed-path launch works, but lifecycle tracking is not yet fully closed for that run mode

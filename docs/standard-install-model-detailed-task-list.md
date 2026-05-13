@@ -421,8 +421,9 @@ Status: [x] lifecycle wrappers now target installed-runtime command surface
   - run focused installed-runtime smoke validation against the lifecycle-managed process
 
 ### 6.4 Validate installed-code execution
-Status: [~] installed-path bootstrap and smoke launch proven, managed-process tracking still imperfect
+Status: [~] installed-path bootstrap and smoke launch proven, dependency closure improved, managed-process tracking still imperfect
 - created a clean installed target at `/tmp/agentsystem-installed-venv` and installed the package with editable packaging from outside the runtime home
+- discovered and fixed an installed-path dependency gap: `jinja2` was required by `fastapi.templating` usage in `http_test_server` but was missing from `pyproject.toml`
 - bootstrapped the runtime from a non-repo cwd using:
   - `AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem bootstrap`
 - launched the service from a non-repo cwd using:
@@ -435,7 +436,7 @@ Status: [~] installed-path bootstrap and smoke launch proven, managed-process tr
   - `stop` therefore returned `not_running` while the HTTP endpoint was still live, so managed-process tracking is not fully closed yet
 - remaining required closure:
   - make lifecycle PID tracking robust for the installed-path server process
-  - rerun installed-path start/status/stop validation after that fix
+  - rerun installed-path start/status/stop validation after that fix, now with the dependency set aligned
   - then run at least one bounded user-facing regression slice against the installed-runtime launch path
 
 **Exit criteria**
