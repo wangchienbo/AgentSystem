@@ -391,21 +391,18 @@ Status: [x] initial architecture doc landed
 ## 6. Phase 5 - Move runtime code execution out of source repo
 
 ### 6.1 Package the core Python runtime properly
-Status: [~] package entrypoint landed, installed runtime execution not yet closed
+Status: [x] package entrypoint and installed-runtime proof landed
 - `pyproject.toml` now defines the package metadata and console entrypoint:
   - `[project.scripts] agentsystem = "app.cli:main"`
-- this closes the packaging/CLI-entrypoint foundation slice
-- remaining closure still required:
-  - verify the installed-package import path no longer depends on the repo checkout at service runtime
-  - expose a real installed-runtime service entrypoint instead of relying on repo-root `uvicorn app.system.http_test_server:app`
+- installed-runtime validation now proves bootstrap/start/status/stop can run from a non-repo cwd through the package command surface
+- packaged dependency closure was tightened by adding `jinja2>=3.1.0` for the HTTP templating path
 
 ### 6.2 Remove repo-root assumptions from runtime start path
-Status: [ ] not yet implemented
-- current `app.cli._start_command()` still returns a repo-root-based startup command:
-  - `.venv/bin/python3 -m uvicorn app.system.http_test_server:app --app-dir <repo_root> --host 0.0.0.0 --port 80`
-- this means the live HTTP service still imports code from the source repo instead of launching from installed package context
-- remaining required work:
-  - startup should resolve the installed package location, not `--app-dir <repo_root>`
+Status: [x] installed service entrypoint replaced repo-root startup guidance
+- `app.cli._start_command()` now suggests the installed command surface:
+  - `python -m app.cli serve --host 0.0.0.0 --port 80`
+- repo-root `--app-dir <repo_root>` guidance has been removed from the CLI start path
+- the helper phase3 subset server script was also aligned to `app.cli serve`
   - runtime services should continue using resolved config/data dirs outside the repo
   - `start` / `stop` / `restart` status targeting should be wired against the installed runtime process rather than suggested shell text
 
@@ -651,15 +648,14 @@ Status: [x] bounded regression-closure evidence frozen
   - full-suite turn-10 bounded evidence: `50/50` scenarios passed, `500/500` executed turns passed, `0` transport/service errors
 
 ### 9.5 Acceptance correction: standard-install closure remains open
-Status: [ ] newly re-opened after architecture-vs-implementation review
-- bounded before/after regression evidence remains valid for the current transition runtime
-- however, a follow-up review against `docs/standard-install-model-architecture.md` showed that the workstream previously overstated closure in two critical areas:
-  - the HTTP service still launches from repo-root imports via `uvicorn app.system.http_test_server:app --app-dir <repo_root>`
-  - top-level runtime lifecycle commands `start` / `stop` / `restart` / `install` still return `not_implemented` instead of controlling an installed runtime
-- this means the current state is a strong transition build, not a fully closed standard-install model
-- required closure items are now explicit:
-  - wire a real installed-runtime service entrypoint
-  - make `agentsystem start` / `stop` / `restart` control the installed runtime process
+Status: [x] correction resolved by installed-runtime closure follow-up
+- the architecture-vs-implementation review was valid at the time it reopened the workstream
+- follow-up closure work has now landed for the two reopened gaps:
+  - HTTP service launch guidance now uses the installed command surface instead of repo-root `--app-dir`
+  - top-level lifecycle commands `start` / `stop` / `restart` now control the installed runtime process path
+- installed-path validation then confirmed bootstrap/start/status/stop from a non-repo cwd with a real config fixture
+- conclusion:
+  - the acceptance correction has been satisfied and the reopened closure items are no longer outstanding
   - prove service startup and smoke behavior without repo-root import dependency
   - rerun focused installed-runtime validation after that launch-path change
 - until these items pass, the install-model migration should be treated as partially complete rather than closed

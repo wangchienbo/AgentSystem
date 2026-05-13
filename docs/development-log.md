@@ -1,3 +1,17 @@
+## 2026-05-13: Reconciled stale reopen markers after installed-runtime closure
+
+### Summary
+After the installed-runtime lifecycle proof landed, I cleaned up stale task-list markers that still described the runtime-code closure as open. This keeps the detailed task list aligned with the now-verified reality instead of leaving historical reopen text looking current.
+
+### What Was Updated
+- `docs/standard-install-model-detailed-task-list.md`
+  - marked 6.1 closed now that package entrypoint plus installed-path proof both exist
+  - marked 6.2 closed now that start guidance no longer uses repo-root `--app-dir`
+  - marked 9.5 resolved now that the reopen correction items have been satisfied by follow-up implementation and validation
+
+### Notes
+This was a documentation consistency pass, not a new runtime behavior change. It matters because the task list is the source of truth for whether the standard-install closure is still open.
+
 ## 2026-05-13: Closed installed-path lifecycle validation with a real config fixture
 
 ### Summary
