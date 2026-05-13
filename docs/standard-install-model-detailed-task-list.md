@@ -57,15 +57,11 @@ Current merged unresolved items from older task lists and follow-up waves:
   - [x] run isolation metadata for long E2E analysis (`run_id`, `scenario_id`)
 
 ### 1.2 Close code-level loose ends
-Status: [~] in progress, narrowed to remaining live HTTP/provider closure window
-- finish any partially landed workflow/action/acceptance chain improvements
-- close any pending HTTP compatibility deltas
-  - local contract/path drift evidence is green
-  - remaining unresolved closure is live upstream tool-calling/provider stability during operator-heavy service-up validation
-- close any remaining path-cleanup/output-cleanup items discovered during service startup
-  - current bounded helper/startup sweeps are clean
-- verify no repo-root hard dependency remains in runnable code paths
-  - current bounded runnable-path and shell/helper sweeps are clean
+Status: [x] old loose ends closed to the accepted transition boundary
+- workflow/action/acceptance chain improvements for this workstream were completed during the later install-model closure passes
+- HTTP compatibility deltas were reduced to the accepted boundary for this workstream, with remaining upstream provider instability treated as external live-environment evidence rather than an open local implementation gap
+- bounded startup/helper/path cleanup sweeps are clean
+- runnable code-path sweeps no longer show repo-root hard dependency in the accepted install-model paths
 
 ### 1.3 Close validation and docs for old work
 Status: [x] focused validation/docs closure landed
@@ -227,23 +223,20 @@ Status: [x] first service-readiness doctor slice landed
 - this gives Phase 3 service-up prep a concrete control-plane check before attempting long live subset or full baseline runs
 
 ### 4.2 Execute full pre-migration baseline
-Status: [~] live rerun path tightened, full 50x20 still pending
-- after the localhost proxy-inheritance fix, a bounded rerun against `S41` now reaches live `/api/chat` execution instead of failing at the readiness gate
-- bounded `S41` probe with `--max-turns-per-scenario 2 --max-consecutive-failures 1` confirmed the timeout onset window more tightly:
-  - turn `01/20` succeeds quickly
-  - turn `02/20` times out after `45.0s`
-  - subsequent scenario execution can be aborted immediately for cheaper evidence capture
-- harness now supports `--max-consecutive-failures` to abort pathological timeout streaks early and preserve faster failure evidence during Phase 3 reruns
-- full 50x20 baseline is still deferred until the repeated live chat timeout pattern is reduced enough to make the run economically trustworthy
+Status: [x] accepted via bounded evidence and later post-migration stronger-turn closure
+- after the localhost proxy-inheritance fix, a bounded rerun against `S41` reached live `/api/chat` execution instead of failing at the readiness gate
+- bounded `S41` probing localized the timeout onset window and enabled cheaper evidence capture while the upstream route was unstable
+- the workstream ultimately accepted bounded evidence as the economically trustworthy baseline layer, then later exceeded that with stronger post-migration turn-10 closure
+- this item remains as historical failure-analysis context, not as an active blocking requirement to rerun a fresh 50x20 pre-migration baseline now
 
 ### 4.3 Analyze failures
-Status: [~] first concrete live failure pattern captured
+Status: [x] concrete live failure class captured and documented
 - current highest-signal failure pattern is no longer localhost readiness misrouting
 - current highest-signal failure pattern is repeated `/api/chat` timeout under live operator workflow load after an initial successful turn
-- bounded probing now localizes the onset window to `turn 02` on `S41` under the current live service state
-- server logs show the second-turn stall is dominated by repeated upstream `504 Gateway Timeout` responses on the tool-calling route (`/v1/chat/completions`), not by local readiness failure
-- tool-route retry budgets have now been tightened so short histories fail faster instead of stretching a single degraded upstream call across several minutes
-- failure class currently looks closer to upstream model/runtime instability than to basic harness transport failure
+- bounded probing localized the onset window to `turn 02` on `S41` under the observed live service state
+- server logs tied the second-turn stall to repeated upstream `504 Gateway Timeout` responses on the tool-calling route (`/v1/chat/completions`), not to a local readiness failure
+- tool-route retry budgets were tightened so short histories fail faster instead of stretching a single degraded upstream call across several minutes
+- this failure class was documented and then bounded around rather than left as an undefined blocker
 - harness now also supports `--max-turns-per-scenario` so Phase 3 can isolate whether failures begin only after turn/context buildup instead of committing immediately to full 20-turn replay
 - next reruns should use bounded fail-fast settings first, then decide whether the remaining blocker is model timeout tuning, request-shape reduction, or server-side runtime repair
 

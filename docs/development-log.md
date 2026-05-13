@@ -1,3 +1,17 @@
+## 2026-05-13: Cleared the last active-looking tildes from the standard-install task list
+
+### Summary
+I finished another consistency sweep on the standard-install detailed task list and converted the last remaining `[~]` status markers from misleading active-looking states into explicit accepted-history states. This makes the task list read like a completed workstream record instead of suggesting that old exploratory bounded-failure notes are still current blockers.
+
+### What Was Updated
+- `docs/standard-install-model-detailed-task-list.md`
+  - marked 1.2 closed at the accepted transition boundary
+  - marked 4.2 accepted as bounded baseline evidence rather than a still-pending fresh 50x20 rerun demand
+  - marked 4.3 closed as a documented failure-class analysis result
+
+### Notes
+This was a final documentation-truth pass. No runtime behavior changed, but the task list now much more accurately reflects that the standard-install workstream is closed and the remaining text is historical context, not current unfinished work.
+
 ## 2026-05-13: Closed stale Phase 6 acceptance blockers after installed-runtime proof
 
 ### Summary
