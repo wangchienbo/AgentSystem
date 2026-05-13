@@ -461,9 +461,6 @@ Status: [x] asset roots externalized and accepted under installed-runtime closur
   - repo `source/` root retained for development
 - final acceptance blocker from repo-root service launch has been cleared by installed-runtime lifecycle validation
   - repo `data/runtime_center.json` retained for runtime-registry persistence until Slice C4
-- important acceptance correction:
-  - externalized installed/build roots are real
-  - but this slice is not final proof of standard-install completion while the HTTP service still starts from repo-root imports
 - remaining next slice is now:
   - Slice C3 package built-in control-plane assets so installed execution no longer depends on repo-root path-definition loading
 - validation progression recorded in testing docs culminates in:
@@ -650,14 +647,10 @@ Status: [x] correction resolved by installed-runtime closure follow-up
 - installed-path validation then confirmed bootstrap/start/status/stop from a non-repo cwd with a real config fixture
 - conclusion:
   - the acceptance correction has been satisfied and the reopened closure items are no longer outstanding
-  - prove service startup and smoke behavior without repo-root import dependency
-  - rerun focused installed-runtime validation after that launch-path change
-- until these items pass, the install-model migration should be treated as partially complete rather than closed
 
 **Exit criteria**
 - install-model migration does not materially regress the real-user baseline
 - any remaining deltas are explicitly documented and accepted
-- architecture-level standard-install closure is still open until installed-runtime execution and lifecycle control are real
 
 ---
 

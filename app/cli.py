@@ -649,25 +649,7 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
                 },
             )
 
-    if args.command == "runtime-layout":
-        return CLIResult(
-            command="runtime-layout",
-            details={"status": "ok", **_runtime_layout(repo_root)},
-        )
-
-    if args.command in {"status", "doctor"}:
-        return CLIResult(
-            command=args.command,
-            details=_doctor_status(repo_root),
-        )
-
-    if args.command == "bootstrap":
-        return _bootstrap_runtime_layout(repo_root)
-
-    if args.command == "migrate-runtime":
-        return _migrate_runtime(repo_root)
-
-    if args.command in {"start", "stop", "restart", "install"}:
+    if args.command == "install":
         return _planned_command_result(args.command, repo_root)
 
     return CLIResult(
