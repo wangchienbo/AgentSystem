@@ -1,3 +1,28 @@
+## 2026-05-13: Proved installed-path bootstrap and service launch from non-repo cwd
+
+### Summary
+I moved 6.4 from theory into real installed-path evidence by creating a fresh venv install, bootstrapping runtime assets from a non-repo cwd, and launching the HTTP service through the installed command path. The service did answer a smoke request successfully, but the validation also exposed that current PID tracking is not robust enough to stop the launched service reliably.
+
+### What Was Verified
+- created installed target:
+  - `python3 -m venv /tmp/agentsystem-installed-venv`
+  - `/tmp/agentsystem-installed-venv/bin/pip install -e .`
+- bootstrapped from non-repo cwd:
+  - `AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem bootstrap`
+- launched from non-repo cwd:
+  - `AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem start`
+- smoke checks:
+  - `agentsystem status` returned `status=ok`
+  - `http://127.0.0.1:80/api/status` returned `200`
+
+### Caveat Found
+- the recorded PID had already gone stale by the time `status` re-checked process state
+- `stop` therefore reported `not_running` even though the HTTP endpoint remained reachable
+- conclusion: installed-path launch works, but lifecycle tracking is not yet fully closed for that run mode
+
+### Notes
+This is meaningful progress for 6.4 because it proves startup and reachability without repo-root cwd assumptions. The remaining work is now sharply focused on robust process tracking and a final installed-path bounded regression rerun.
+
 ## 2026-05-13: Cleared the known phase3 helper script off repo-root uvicorn imports
 
 ### Summary

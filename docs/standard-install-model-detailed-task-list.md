@@ -421,17 +421,22 @@ Status: [x] lifecycle wrappers now target installed-runtime command surface
   - run focused installed-runtime smoke validation against the lifecycle-managed process
 
 ### 6.4 Validate installed-code execution
-Status: [~] installed lifecycle path partially unified, external-cwd validation still outstanding
-- cleaned the known phase3 subset helper entrypoint so it now launches `app.cli serve` instead of repo-root `uvicorn ... --app-dir`
-- updated `scripts/start_phase3_subset_server.sh` to use the installed-runtime command surface
-- validation:
-  - `bash -n scripts/start_phase3_subset_server.sh`
-  - inline assertion check confirmed `-m app.cli serve` is present and `--app-dir` is absent
-- remaining required validation still outstanding:
-  - install into venv or equivalent installed target
-  - launch from installed command path
-  - verify service startup without `cwd=<repo_root>` and without repo-root import assumptions
-  - run focused smoke checks and at least one bounded user-facing regression slice against the installed-runtime launch path
+Status: [~] installed-path bootstrap and smoke launch proven, managed-process tracking still imperfect
+- created a clean installed target at `/tmp/agentsystem-installed-venv` and installed the package with editable packaging from outside the runtime home
+- bootstrapped the runtime from a non-repo cwd using:
+  - `AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem bootstrap`
+- launched the service from a non-repo cwd using:
+  - `AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem start`
+- smoke validation from the installed-path run:
+  - `agentsystem status` reported `status=ok`
+  - `http://127.0.0.1:80/api/status` returned `200`
+- caveat discovered during validation:
+  - the service remained reachable, but the recorded PID was already stale by the time `status` rechecked it
+  - `stop` therefore returned `not_running` while the HTTP endpoint was still live, so managed-process tracking is not fully closed yet
+- remaining required closure:
+  - make lifecycle PID tracking robust for the installed-path server process
+  - rerun installed-path start/status/stop validation after that fix
+  - then run at least one bounded user-facing regression slice against the installed-runtime launch path
 
 **Exit criteria**
 - runtime code executes from installed package context
