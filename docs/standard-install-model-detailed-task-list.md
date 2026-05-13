@@ -429,15 +429,16 @@ Status: [~] installed-path bootstrap and smoke launch proven, dependency closure
 - launched the service from a non-repo cwd using:
   - `AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem start`
 - smoke validation from the installed-path run:
-  - `agentsystem status` reported `status=ok`
-  - `http://127.0.0.1:80/api/status` returned `200`
+  - after dependency repair, installed-path `start` still failed before serving because `ModelRouter` rejected the minimal test config (`Config missing required 'models' section with model definitions.`)
+  - this means the installed-path blocker has moved from package imports to runtime config requirements
 - caveat discovered during validation:
-  - the service remained reachable, but the recorded PID was already stale by the time `status` rechecked it
-  - `stop` therefore returned `not_running` while the HTTP endpoint was still live, so managed-process tracking is not fully closed yet
+  - the recorded PID went stale because the launched process exited during startup validation rather than because PID tracking alone was broken
+  - `status` then correctly reported `service_reachable=False` with `Connection refused`
 - remaining required closure:
-  - make lifecycle PID tracking robust for the installed-path server process
-  - rerun installed-path start/status/stop validation after that fix, now with the dependency set aligned
-  - then run at least one bounded user-facing regression slice against the installed-runtime launch path
+  - provide a valid installed-path test config fixture that satisfies `ModelRouter`
+  - rerun installed-path start/status/stop validation with that config
+  - then reassess whether any PID tracking defect still remains after successful startup
+  - finally run at least one bounded user-facing regression slice against the installed-runtime launch path
 
 **Exit criteria**
 - runtime code executes from installed package context

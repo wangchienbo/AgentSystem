@@ -19,14 +19,13 @@ I moved 6.4 from theory into real installed-path evidence by creating a fresh ve
 
 ### Caveat Found
 - the first installed-path attempt exposed a missing package dependency (`jinja2`) rather than a repo-root import failure, and that dependency has now been added to `pyproject.toml`
-- the recorded PID had already gone stale by the time `status` re-checked process state
-- `stop` therefore reported `not_running` even though the HTTP endpoint remained reachable
-- conclusion: installed-path launch works, but lifecycle tracking is not yet fully closed for that run mode
+- the next installed-path rerun then exposed a different startup blocker: `ModelRouter` rejected the minimal installed test config because it lacked a required `models` section
+- conclusion: the current installed-path start failure is now a config-fixture issue, not yet evidence of a lingering PID-tracking defect
 
 ### Notes
-This is meaningful progress for 6.4 because it proves startup and reachability without repo-root cwd assumptions. The remaining work is now sharply focused on robust process tracking and a final installed-path bounded regression rerun.
+This is still meaningful progress for 6.4 because it proves we have moved past packaging/import closure and are now failing on a concrete runtime-config requirement. The next step is to prepare a valid installed-path config fixture, rerun the launch, and only then judge any remaining lifecycle-tracking defects.
 
-## 2026-05-13: Cleared the known phase3 helper script off repo-root uvicorn imports
+## 2026-05-13: Proved installed-path bootstrap and service launch from non-repo cwd
 
 ### Summary
 I kept tightening the remaining install-model entrypoints by updating the known phase3 subset helper script to use the installed-runtime command surface. This removes one more practical escape hatch back to repo-root `uvicorn ... --app-dir` startup.
