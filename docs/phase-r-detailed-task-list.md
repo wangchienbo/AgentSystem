@@ -84,13 +84,16 @@ Status: [x] completed
 ## 8. Documentation Tasks
 
 ### 8.1 Update proposal seed snapshots
-- refresh `docs/phase-r-proposal-seed.md` when each wave materially lands
+Status: [x] completed
+- `docs/phase-r-proposal-seed.md` now reflects the bounded rollout arc as complete and points follow-up work toward extension rather than re-proving the first-wave chain
 
 ### 8.2 Update testing docs
-- keep `docs/testing.md` and `docs/testing-detail.md` aligned with richer execution truth and evidence coverage
+Status: [x] completed
+- `docs/testing.md` and `docs/testing-detail.md` retain the Phase R validation trail, including focused Wave 5 closure reruns and richer execution-evidence assertions
 
 ### 8.3 Update development log
-- append each completed wave with implementation and validation evidence
+Status: [x] completed
+- completed Phase R waves and their validation evidence have been recorded in `docs/development-log.md`
 
 ## 9. Suggested Commit Boundaries
 

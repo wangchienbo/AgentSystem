@@ -1,3 +1,22 @@
+## 2026-05-13: Closed remaining documentation-task ambiguity in the Phase R task list
+
+### Summary
+I audited the still-unstatused documentation section in the Phase R detailed task list and aligned it with the actual repository state. The proposal seed, testing trail, and development log already contain the corresponding Phase R rollout evidence, so the task-list documentation section is now explicitly marked complete instead of reading like an open checklist.
+
+### What Was Updated
+- `docs/phase-r-detailed-task-list.md`
+  - marked proposal-seed snapshot upkeep complete
+  - marked testing-doc upkeep complete
+  - marked development-log upkeep complete
+
+### Validation
+- confirmed `docs/phase-r-proposal-seed.md` already describes the first bounded rollout arc as complete and points to follow-up extension work
+- confirmed `docs/testing-detail.md` already records focused Phase R Wave 5 closure reruns and evidence-binding validation
+- confirmed `docs/development-log.md` already contains the completed implementation trail
+
+### Notes
+This is a source-of-truth cleanup pass only. It does not change runtime behavior, but it removes another place where a completed workstream still looked partially open.
+
 ## 2026-05-13: Cleared the last active-looking tildes from the standard-install task list
 
 ### Summary
