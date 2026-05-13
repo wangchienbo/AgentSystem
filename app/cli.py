@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -212,8 +214,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agentsystem", description="AgentSystem operator CLI")
     subparsers = parser.add_subparsers(dest="command")
 
-    for name in ["start", "stop", "restart", "status", "install", "bootstrap", "doctor", "runtime-layout", "migrate-runtime"]:
+    for name in ["start", "stop", "restart", "status", "install", "bootstrap", "doctor", "runtime-layout", "migrate-runtime", "serve"]:
         subparsers.add_parser(name)
+
+    serve = subparsers.choices["serve"]
+    serve.add_argument("--host", default="0.0.0.0")
+    serve.add_argument("--port", type=int, default=80)
 
     assets = subparsers.add_parser("assets")
     assets_subparsers = assets.add_subparsers(dest="assets_command")
@@ -306,18 +312,45 @@ def _service_health(port: int = 80) -> dict[str, object]:
         }
 
 
+def _installed_service_command(port: int = 80) -> list[str]:
+    return [
+        sys.executable,
+        "-m",
+        "app.cli",
+        "serve",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        str(port),
+    ]
+
+
+def _shell_join(parts: Sequence[str]) -> str:
+    return " ".join(str(part) for part in parts)
+
+
 def _start_command(repo_root: Path, port: int = 80) -> str:
-    python_bin = repo_root / ".venv" / "bin" / "python3"
-    app_dir = repo_root
     runtime_paths = resolve_runtime_paths(repo_root)
     runtime_dir = runtime_paths.data_dir
-    base = str(python_bin) if python_bin.exists() else "python3"
-    return (
-        f"mkdir -p {runtime_dir} && "
-        f"AGENTSYSTEM_DATA_DIR={runtime_dir} "
-        f"{base} -m uvicorn app.system.http_test_server:app "
-        f"--app-dir {app_dir} --host 0.0.0.0 --port {port}"
+    command = _installed_service_command(port)
+    return f"mkdir -p {runtime_dir} && AGENTSYSTEM_DATA_DIR={runtime_dir} {_shell_join(command)}"
+
+
+def _serve_command(host: str, port: int) -> CLIResult:
+    import uvicorn
+
+    uvicorn.run("app.system.http_test_server:app", host=host, port=port)
+    return CLIResult(
+        command="serve",
+        details={
+            "status": "stopped",
+            "operation_scope": "installed_runtime_service_entrypoint",
+            "host": host,
+            "port": port,
+        },
     )
+
+
 
 
 def _doctor_status(repo_root: Path) -> dict[str, object]:
@@ -398,6 +431,9 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
         return CLIResult(command="help", details={"message": "help displayed"})
 
     repo_root = _repo_root()
+    if args.command == "serve":
+        return _serve_command(host=args.host, port=args.port)
+
     if args.command == "assets":
         asset_command = getattr(args, "assets_command", None)
         if asset_command in {"list", "discover"}:

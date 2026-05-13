@@ -68,9 +68,16 @@ def test_run_cli_returns_not_implemented_contract_for_start() -> None:
     assert result.details["status"] == "not_implemented"
     assert result.details["operation_scope"] == "installed_runtime_target_not_yet_wired"
     assert "next_step" in result.details
-    assert "--app-dir" in str(result.details["suggested_start_command"])
-    assert "AGENTSYSTEM_DATA_DIR=" in str(result.details["suggested_start_command"])
-    assert "-m uvicorn app.system.http_test_server:app" in str(result.details["suggested_start_command"])
+    suggested = str(result.details["suggested_start_command"])
+    assert "AGENTSYSTEM_DATA_DIR=" in suggested
+    assert "-m app.cli serve" in suggested
+    assert "--app-dir" not in suggested
+
+
+def test_build_parser_includes_installed_service_entrypoint() -> None:
+    parser = build_parser()
+    choices = parser._subparsers._group_actions[0].choices  # type: ignore[attr-defined]
+    assert "serve" in choices
 
 
 def test_run_cli_returns_runtime_layout_contract() -> None:

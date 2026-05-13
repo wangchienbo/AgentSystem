@@ -1,4 +1,24 @@
-## 2026-05-11: Hardened OpenAI-compatible model response normalization for DeepSeek-style chat-completions providers
+## 2026-05-13: Installed service entrypoint replaced repo-root start suggestion
+
+### Summary
+I advanced the re-opened standard-install closure by removing the repo-root `--app-dir` launch suggestion from the CLI guidance path. The CLI now exposes an installed-runtime service entrypoint so the next lifecycle-control work can target a package-native command surface instead of a repo-root uvicorn import.
+
+### What Changed
+- updated `app/cli.py`
+  - added `serve` subcommand as the installed-runtime HTTP service entrypoint
+  - changed `_start_command()` to suggest `python -m app.cli serve --host 0.0.0.0 --port 80`
+  - removed the repo-root `uvicorn ... --app-dir <repo_root>` guidance from the suggested start path
+- updated `tests/unit/test_cli.py`
+  - added coverage for the new `serve` parser entry
+  - updated start-command assertions to require the package-native service command and forbid `--app-dir`
+
+### Validation
+- `pytest -q tests/unit/test_cli.py`
+- result: `17 passed`
+
+### Notes
+This closes the task-list item 6.2 guidance gap, but the lifecycle-control gap remains open until `start` / `stop` / `restart` manage a real installed runtime process and the installed-code path is validated outside repo-root cwd.
+
 
 ### Summary
 Closed the immediate DeepSeek compatibility gap by teaching the shared model client to normalize more than one chat-completions response shape instead of assuming a single canonical `message.content` contract. This made the live model probe succeed again after switching AgentSystem to a DeepSeek-backed OpenAI-compatible provider.
