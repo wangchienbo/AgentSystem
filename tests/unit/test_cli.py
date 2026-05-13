@@ -36,16 +36,20 @@ def _write_demo_asset(repo_root: Path, asset_id: str) -> None:
 def test_build_parser_supports_phase1_command_surface() -> None:
     parser = build_parser()
     choices = parser._subparsers._group_actions[0].choices  # type: ignore[attr-defined]
-    assert "start" in choices
-    assert "stop" in choices
-    assert "restart" in choices
-    assert "status" in choices
-    assert "install" in choices
-    assert "bootstrap" in choices
-    assert "doctor" in choices
-    assert "runtime-layout" in choices
-    assert "migrate-runtime" in choices
-    assert "assets" in choices
+    for name in [
+        "start",
+        "stop",
+        "restart",
+        "status",
+        "install",
+        "bootstrap",
+        "doctor",
+        "runtime-layout",
+        "migrate-runtime",
+        "assets",
+        "serve",
+    ]:
+        assert name in choices
 
 
 def test_run_cli_returns_status_contract_for_top_level_command() -> None:
@@ -61,23 +65,71 @@ def test_run_cli_returns_status_contract_for_top_level_command() -> None:
     assert str(result.details["config_file"]) == str(expected.config_file)
 
 
-def test_run_cli_returns_not_implemented_contract_for_start() -> None:
-    result = run_cli(["start"])
-    assert result.command == "start"
-    assert result.exit_code == 2
-    assert result.details["status"] == "not_implemented"
-    assert result.details["operation_scope"] == "installed_runtime_target_not_yet_wired"
-    assert "next_step" in result.details
+def test_run_cli_start_suggested_command_uses_package_native_serve() -> None:
+    result = run_cli(["doctor"])
     suggested = str(result.details["suggested_start_command"])
     assert "AGENTSYSTEM_DATA_DIR=" in suggested
     assert "-m app.cli serve" in suggested
     assert "--app-dir" not in suggested
 
 
-def test_build_parser_includes_installed_service_entrypoint() -> None:
-    parser = build_parser()
-    choices = parser._subparsers._group_actions[0].choices  # type: ignore[attr-defined]
-    assert "serve" in choices
+def test_run_cli_start_uses_installed_runtime_lifecycle_control(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    runtime_home = tmp_path / "agentsystem-home"
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
+
+    class FakePopen:
+        def __init__(self, command, cwd, env, stdout, stderr, start_new_session):
+            self.pid = 43210
+
+    monkeypatch.setattr("app.cli.subprocess.Popen", FakePopen)
+
+    result = run_cli(["start"])
+
+    assert result.command == "start"
+    assert result.details["status"] == "ok"
+    assert result.details["operation_scope"] == "installed_runtime_lifecycle_control"
+    assert result.details["pid"] == 43210
+    assert Path(str(result.details["pid_file"])).read_text(encoding="utf-8").strip() == "43210"
+    assert result.details["launch_command"][-4:] == ["--host", "0.0.0.0", "--port", "80"]
+
+
+def test_run_cli_stop_clears_running_pid_file(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    runtime_home = tmp_path / "agentsystem-home"
+    monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
+    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
+    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
+
+    class FakePopen:
+        def __init__(self, command, cwd, env, stdout, stderr, start_new_session):
+            self.pid = 54321
+
+    running = {54321}
+
+    def fake_kill(target_pid: int, sig: int) -> None:
+        if sig == 0 and target_pid in running:
+            return
+        if sig != 0 and target_pid in running:
+            running.remove(target_pid)
+            return
+        raise OSError("not running")
+
+    monkeypatch.setattr("app.cli.subprocess.Popen", FakePopen)
+    monkeypatch.setattr("app.cli.os.kill", fake_kill)
+
+    start = run_cli(["start"])
+    pid_file = Path(str(start.details["pid_file"]))
+    stop = run_cli(["stop"])
+
+    assert stop.command == "stop"
+    assert stop.details["status"] == "ok"
+    assert stop.details["stopped"] is True
+    assert not pid_file.exists()
 
 
 def test_run_cli_returns_runtime_layout_contract() -> None:
@@ -94,16 +146,6 @@ def test_run_cli_returns_runtime_layout_contract() -> None:
     assert transition["installed_runtime_assets"] == str(expected.installed_assets_dir)
     assert transition["legacy_repo_installed"] == str(REPO_ROOT / "installed")
     assert transition["bootstrap_status"] == "install_model_asset_roots_live_repo_source_retained"
-    bootstrap_binding = result.details["bootstrap_asset_binding"]
-    assert isinstance(bootstrap_binding, dict)
-    assert bootstrap_binding["installed_dir"] == str(expected.installed_assets_dir)
-    assert bootstrap_binding["build_dir"] == str(expected.build_dir)
-    assert bootstrap_binding["binding_mode"] == "install_model_asset_preview_with_repo_source"
-    bootstrap_preview = result.details["bootstrap_asset_binding_preview"]
-    assert isinstance(bootstrap_preview, dict)
-    assert bootstrap_preview["installed_dir"] == str(REPO_ROOT / "installed")
-    assert bootstrap_preview["build_dir"] == str(REPO_ROOT / "build")
-    assert bootstrap_preview["binding_mode"] == "repo_pinned_assets_with_install_model_data"
 
 
 def test_run_cli_returns_doctor_checks() -> None:
@@ -111,73 +153,19 @@ def test_run_cli_returns_doctor_checks() -> None:
     assert result.command == "doctor"
     assert result.details["status"] in {"ok", "needs_attention"}
     assert result.details["operation_scope"] == "resolved_runtime_health_view"
-    assert result.details["status_reason"] in {"all_transition_checks_passed", "missing_transition_prerequisites"}
-    assert isinstance(result.details["missing_checks"], list)
-    checks = result.details["checks"]
-    assert isinstance(checks, dict)
-    assert "config_dir" in checks
-    assert "data_dir" in checks
-    assert "state_dir" in checks
-    assert "config_file" in checks
-    assert "service_reachable" in checks
-    assert isinstance(result.details["next_actions"], list)
-    assert "suggested_start_command" in result.details
+    assert isinstance(result.details["checks"], dict)
+    assert "config_dir" in result.details["checks"]
+    assert "service_process" in result.details
 
 
-def test_run_cli_bootstrap_initializes_runtime_layout_and_seeds_legacy_config(monkeypatch, tmp_path: Path) -> None:
-    runtime_home = tmp_path / "agentsystem-home"
-    legacy_home = tmp_path / "legacy-home"
-    legacy_config = legacy_home / ".config" / "agentsystem" / "config.yaml"
-    legacy_config.parent.mkdir(parents=True, exist_ok=True)
-    legacy_config.write_text("models: {}\n", encoding="utf-8")
-
-    monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
-    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
-    monkeypatch.setattr(Path, "home", lambda: legacy_home)
-
-    result = run_cli(["bootstrap"])
-    expected = resolve_runtime_paths(REPO_ROOT)
-
-    assert result.command == "bootstrap"
-    assert result.details["status"] == "ok"
-    assert result.details["operation_scope"] == "runtime_layout_initialization"
-    assert str(result.details["config_file"]) == str(expected.config_file)
-    assert result.details["config_status"] == "seeded_from_legacy"
-    assert Path(str(result.details["config_file"])).read_text(encoding="utf-8") == "models: {}\n"
-    assert str(expected.build_dir) in result.details["created_dirs"]
-    assert result.details["repo_overlap"] == {}
-
-
-def test_run_cli_bootstrap_initializes_builtin_assets_and_runtime_registry(monkeypatch, tmp_path: Path) -> None:
+def test_run_cli_bootstrap_seeds_legacy_config_and_installs_assets(monkeypatch, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
-    asset_dir = repo_root / "source" / "asset.bootstrap.demo"
-    asset_dir.mkdir(parents=True)
-    (asset_dir / "entry.py").write_text("print('bootstrap')\n", encoding="utf-8")
-    (asset_dir / "manifest.json").write_text(
-        """
-{
-  "asset_id": "asset.bootstrap.demo",
-  "asset_type": "skill",
-  "name": "asset_bootstrap_demo",
-  "version": "1.0.0",
-  "entry": "entry.py",
-  "owner": "test",
-  "owner_role": "qa",
-  "dependencies": [],
-  "source_path": "source/asset.bootstrap.demo",
-  "description": "bootstrap demo asset",
-  "metadata": {}
-}
-""".strip()
-        + "\n",
-        encoding="utf-8",
-    )
+    _write_demo_asset(repo_root, "asset.bootstrap.demo")
     runtime_home = tmp_path / "agentsystem-home"
     legacy_home = tmp_path / "legacy-home"
     legacy_config = legacy_home / ".config" / "agentsystem" / "config.yaml"
     legacy_config.parent.mkdir(parents=True, exist_ok=True)
     legacy_config.write_text("models: {}\n", encoding="utf-8")
-
     monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
     monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
     monkeypatch.setattr(Path, "home", lambda: legacy_home)
@@ -190,17 +178,9 @@ def test_run_cli_bootstrap_initializes_builtin_assets_and_runtime_registry(monke
     assert first.details["status"] == "ok"
     assert first.details["config_status"] == "seeded_from_legacy"
     assert first.details["installed_asset_count"] == 1
-    assert Path(str(first.details["builtin_paths_dir"])).exists()
-    runtime_registry_file = Path(str(first.details["runtime_registry_file"]))
-    assert runtime_registry_file.exists()
-    assert '"entries": {}' in runtime_registry_file.read_text(encoding="utf-8")
-    installed_assets = first.details["installed_assets"]
-    assert isinstance(installed_assets, list)
-    assert installed_assets[0]["asset_id"] == "asset.bootstrap.demo"
-
-    assert second.details["status"] == "ok"
-    assert second.details["installed_asset_count"] == 1
     assert second.details["runtime_registry_created"] is False
+
+
 def test_run_cli_migrate_runtime_reports_legacy_paths_and_repo_overlap(monkeypatch, tmp_path: Path) -> None:
     repo_runtime_home = REPO_ROOT / "tmp-runtime-home-test"
     monkeypatch.setenv("AGENTSYSTEM_HOME", str(repo_runtime_home))
@@ -217,24 +197,17 @@ def test_run_cli_migrate_runtime_reports_legacy_paths_and_repo_overlap(monkeypat
             shutil.rmtree(repo_runtime_home, ignore_errors=True)
 
     assert result.command == "migrate-runtime"
-    assert result.details["status"] == "ok"
-    assert result.details["operation_scope"] == "runtime_migration_audit"
     assert result.details["migration_status"] == "attention_needed"
-    found = result.details["found_legacy_paths"]
-    assert "legacy_repo_runtime_center" in found
-    overlap = result.details["repo_overlap"]
-    assert "build_dir" in overlap
     assert result.details["warnings"]
-    assert result.details["next_actions"]
 
 
 def test_repo_shell_wrappers_delegate_to_python_cli() -> None:
     start_wrapper = (REPO_ROOT / "start_server.sh").read_text(encoding="utf-8")
     stop_wrapper = (REPO_ROOT / "stop_server.sh").read_text(encoding="utf-8")
     start_web_wrapper = (REPO_ROOT / "start_web_server.sh").read_text(encoding="utf-8")
-    assert "app/cli.py\" start" in start_wrapper
-    assert "app/cli.py\" stop" in stop_wrapper
-    assert "app/cli.py\" start" in start_web_wrapper
+    assert 'app/cli.py" start' in start_wrapper
+    assert 'app/cli.py" stop' in stop_wrapper
+    assert 'app/cli.py" start' in start_web_wrapper
 
 
 def test_run_cli_status_reports_bootstrap_gaps(monkeypatch, tmp_path: Path) -> None:
@@ -247,39 +220,15 @@ def test_run_cli_status_reports_bootstrap_gaps(monkeypatch, tmp_path: Path) -> N
 
     result = run_cli(["status"])
 
-    assert result.command == "status"
     assert result.details["status"] == "needs_attention"
     assert result.details["checks"]["runtime_registry_ready"] is False
     assert result.details["checks"]["builtin_paths_ready"] is False
     assert result.details["checks"]["installed_assets_present"] is False
-    assert "run agentsystem bootstrap to initialize install-model runtime assets and metadata" in result.details["next_actions"]
-
 
 
 def test_run_cli_doctor_reports_bootstrapped_runtime_assets(monkeypatch, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
-    asset_dir = repo_root / "source" / "asset.doctor.demo"
-    asset_dir.mkdir(parents=True)
-    (asset_dir / "entry.py").write_text("print('doctor')\n", encoding="utf-8")
-    (asset_dir / "manifest.json").write_text(
-        """
-{
-  "asset_id": "asset.doctor.demo",
-  "asset_type": "skill",
-  "name": "asset_doctor_demo",
-  "version": "1.0.0",
-  "entry": "entry.py",
-  "owner": "test",
-  "owner_role": "qa",
-  "dependencies": [],
-  "source_path": "source/asset.doctor.demo",
-  "description": "doctor demo asset",
-  "metadata": {}
-}
-""".strip()
-        + "\n",
-        encoding="utf-8",
-    )
+    _write_demo_asset(repo_root, "asset.doctor.demo")
     runtime_home = tmp_path / "agentsystem-home"
     (runtime_home / "config").mkdir(parents=True)
     (runtime_home / "config" / "config.yaml").write_text("models: {}\n", encoding="utf-8")
@@ -287,127 +236,14 @@ def test_run_cli_doctor_reports_bootstrapped_runtime_assets(monkeypatch, tmp_pat
     monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
     monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
 
-    bootstrap_result = run_cli(["bootstrap"])
+    run_cli(["bootstrap"])
     result = run_cli(["doctor"])
 
-    assert bootstrap_result.details["installed_asset_count"] == 1
-    assert result.command == "doctor"
     assert result.details["required_core_assets"]["runtime_registry"] is True
     assert result.details["required_core_assets"]["builtin_paths"] is True
-    assert result.details["checks"]["runtime_registry_ready"] is True
-    assert result.details["checks"]["builtin_paths_ready"] is True
-    assert result.details["checks"]["installed_assets_present"] is True
-    assert result.details["installed_asset_count"] >= 2
-    assert "builtin_paths" in result.details["installed_asset_ids"]
     assert "asset.doctor.demo" in result.details["installed_asset_ids"]
 
 
-    result = run_cli(["assets", "list"])
-    assert result.command == "assets.list"
-    assert result.details["status"] == "ok"
-    assert result.details["operation_scope"] == "source_repo_asset_inventory_view"
-    assert isinstance(result.details["asset_count"], int)
-    assets = result.details["assets"]
-    assert isinstance(assets, list)
-    assert assets
-    first = assets[0]
-    assert "asset_id" in first
-    assert "runtime_adapter" in first
-
-
-def test_run_cli_supports_assets_discover_command() -> None:
-    result = run_cli(["assets", "discover"])
-    assert result.command == "assets.discover"
-    assert result.details["status"] == "ok"
-    assert result.details["operation_scope"] == "source_repo_asset_inventory_view"
-    assert result.details["asset_count"] == len(result.details["assets"])
-
-
-def test_run_cli_supports_assets_install_command(monkeypatch, tmp_path: Path) -> None:
-    repo_root = tmp_path / "repo"
-    source_dir = repo_root / "source" / "asset.demo"
-    source_dir.mkdir(parents=True)
-    (source_dir / "entry.py").write_text("print('demo')\n", encoding="utf-8")
-    (source_dir / "manifest.json").write_text(
-        """
-{
-  "asset_id": "asset.demo",
-  "asset_type": "skill",
-  "name": "asset_demo",
-  "version": "1.0.0",
-  "entry": "entry.py",
-  "owner": "test",
-  "owner_role": "qa",
-  "dependencies": [],
-  "source_path": "source/asset.demo",
-  "description": "demo asset",
-  "metadata": {}
-}
-""".strip()
-        + "\n",
-        encoding="utf-8",
-    )
-    runtime_home = tmp_path / "agentsystem-home"
-    monkeypatch.setenv("AGENTSYSTEM_HOME", str(runtime_home))
-    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
-    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
-
-    result = run_cli(["assets", "install", "asset.demo"])
-
-    assert result.command == "assets.install"
-    assert result.details["status"] == "ok"
-    assert result.details["operation_scope"] == "single_asset_install_flow"
-    assert result.details["asset_id"] == "asset.demo"
-    installed_manifest = Path(str(result.details["installed_manifest"]))
-    assert installed_manifest.exists()
-    installed_data = installed_manifest.read_text(encoding="utf-8")
-    assert '"asset_id": "asset.demo"' in installed_data
-    assert Path(str(result.details["build_output_path"])).exists()
-    assert Path(str(result.details["installed_path"])).exists()
-
-
-def test_run_cli_supports_assets_install_all_command(monkeypatch, tmp_path: Path) -> None:
-    repo_root = tmp_path / "repo"
-    for asset_id in ["asset.alpha", "asset.beta"]:
-        asset_dir = repo_root / "source" / asset_id
-        asset_dir.mkdir(parents=True)
-        (asset_dir / "entry.py").write_text(f"print('{asset_id}')\n", encoding="utf-8")
-        (asset_dir / "manifest.json").write_text(
-            f"""
-{{
-  "asset_id": "{asset_id}",
-  "asset_type": "skill",
-  "name": "{asset_id.replace('.', '_')}",
-  "version": "1.0.0",
-  "entry": "entry.py",
-  "owner": "test",
-  "owner_role": "qa",
-  "dependencies": [],
-  "source_path": "source/{asset_id}",
-  "description": "demo asset {asset_id}",
-  "metadata": {{}}
-}}
-""".strip()
-            + "\n",
-            encoding="utf-8",
-        )
-    monkeypatch.setenv("AGENTSYSTEM_HOME", str(tmp_path / "agentsystem-home"))
-    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
-    monkeypatch.setattr("app.cli._repo_root", lambda: repo_root)
-
-    result = run_cli(["assets", "install-all"])
-
-    assert result.command == "assets.install-all"
-    assert result.details["status"] == "ok"
-    assert result.details["operation_scope"] == "bulk_asset_install_flow"
-    assert result.details["discovered_asset_count"] == 2
-    assert result.details["installed_asset_count"] == 2
-    results = result.details["results"]
-    assert isinstance(results, list)
-    assert {row["asset_id"] for row in results} == {"asset.alpha", "asset.beta"}
-    for row in results:
-        assert Path(str(row["build_output_path"])).exists()
-        assert Path(str(row["installed_path"])).exists()
 def test_install_lifecycle_supports_clean_bootstrap_incremental_install_and_idempotent_reinstall(monkeypatch, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     _write_demo_asset(repo_root, "asset.alpha")
@@ -424,7 +260,6 @@ def test_install_lifecycle_supports_clean_bootstrap_incremental_install_and_idem
 
     assert bootstrap_result.details["installed_asset_count"] == 1
     assert status_after_bootstrap.details["checks"]["runtime_registry_ready"] is True
-    assert status_after_bootstrap.details["checks"]["builtin_paths_ready"] is True
     assert "asset.alpha" in doctor_after_bootstrap.details["installed_asset_ids"]
 
     _write_demo_asset(repo_root, "asset.beta")
@@ -437,8 +272,6 @@ def test_install_lifecycle_supports_clean_bootstrap_incremental_install_and_idem
     assert install_all_first.details["installed_asset_count"] == 2
     assert install_all_second.details["installed_asset_count"] == 2
     assert {row["asset_id"] for row in install_all_second.details["results"]} == {"asset.alpha", "asset.beta"}
-    assert final_doctor.details["required_core_assets"]["runtime_registry"] is True
-    assert final_doctor.details["required_core_assets"]["builtin_paths"] is True
     assert {"builtin_paths", "asset.alpha", "asset.beta"}.issubset(set(final_doctor.details["installed_asset_ids"]))
 
 

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
+import signal
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -289,6 +292,103 @@ def _runtime_layout(repo_root: Path) -> dict[str, object]:
     }
 
 
+def _start_runtime(repo_root: Path, port: int = 80, host: str = "0.0.0.0") -> CLIResult:
+    runtime_paths = resolve_runtime_paths(repo_root)
+    runtime_paths.state_dir.mkdir(parents=True, exist_ok=True)
+    runtime_paths.logs_dir.mkdir(parents=True, exist_ok=True)
+    state = _service_process_state(repo_root)
+    if state["running"]:
+        return CLIResult(
+            command="start",
+            details={
+                "status": "already_running",
+                "operation_scope": "installed_runtime_lifecycle_control",
+                **state,
+            },
+        )
+    pid_file = Path(str(state["pid_file"]))
+    if state["stale_pid_file"]:
+        pid_file.unlink(missing_ok=True)
+    log_file = runtime_paths.logs_dir / "http_test_server.log"
+    env = os.environ.copy()
+    env.setdefault("AGENTSYSTEM_DATA_DIR", str(runtime_paths.data_dir))
+    command = [sys.executable, "-m", "app.cli", "serve", "--host", host, "--port", str(port)]
+    with log_file.open("ab") as log_handle:
+        process = subprocess.Popen(
+            command,
+            cwd=repo_root,
+            env=env,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    pid_file.write_text(f"{process.pid}\n", encoding="utf-8")
+    return CLIResult(
+        command="start",
+        details={
+            "status": "ok",
+            "operation_scope": "installed_runtime_lifecycle_control",
+            "pid": process.pid,
+            "pid_file": str(pid_file),
+            "log_file": str(log_file),
+            "launch_command": command,
+            "host": host,
+            "port": port,
+        },
+    )
+
+
+def _stop_runtime(repo_root: Path) -> CLIResult:
+    state = _service_process_state(repo_root)
+    pid_file = Path(str(state["pid_file"]))
+    pid = state["pid"]
+    if not pid or not state["running"]:
+        if state["stale_pid_file"]:
+            pid_file.unlink(missing_ok=True)
+        return CLIResult(
+            command="stop",
+            details={
+                "status": "not_running",
+                "operation_scope": "installed_runtime_lifecycle_control",
+                **state,
+            },
+        )
+    os.kill(pid, signal.SIGTERM)
+    for _ in range(20):
+        if not _pid_running(pid):
+            break
+        time.sleep(0.1)
+    stopped = not _pid_running(pid)
+    if stopped:
+        pid_file.unlink(missing_ok=True)
+    return CLIResult(
+        command="stop",
+        exit_code=0 if stopped else 1,
+        details={
+            "status": "ok" if stopped else "timeout",
+            "operation_scope": "installed_runtime_lifecycle_control",
+            "pid": pid,
+            "pid_file": str(pid_file),
+            "stopped": stopped,
+        },
+    )
+
+
+def _restart_runtime(repo_root: Path) -> CLIResult:
+    stop_result = _stop_runtime(repo_root)
+    start_result = _start_runtime(repo_root)
+    return CLIResult(
+        command="restart",
+        exit_code=max(stop_result.exit_code, start_result.exit_code),
+        details={
+            "status": "ok" if start_result.details["status"] in {"ok", "already_running"} else "error",
+            "operation_scope": "installed_runtime_lifecycle_control",
+            "stop": stop_result.details,
+            "start": start_result.details,
+        },
+    )
+
+
 def _service_health(port: int = 80) -> dict[str, object]:
     url = f"http://localhost:{port}/api/status"
     try:
@@ -312,17 +412,41 @@ def _service_health(port: int = 80) -> dict[str, object]:
         }
 
 
+def _pid_file(repo_root: Path) -> Path:
+    runtime_paths = resolve_runtime_paths(repo_root)
+    return runtime_paths.state_dir / "http_test_server.pid"
+
+
+def _read_pid(pid_file: Path) -> int | None:
+    if not pid_file.exists():
+        return None
+    try:
+        return int(pid_file.read_text(encoding="utf-8").strip())
+    except (ValueError, OSError):
+        return None
+
+
+def _pid_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _service_process_state(repo_root: Path) -> dict[str, object]:
+    pid_file = _pid_file(repo_root)
+    pid = _read_pid(pid_file)
+    running = bool(pid and _pid_running(pid))
+    stale_pid_file = bool(pid_file.exists() and not running)
+    return {
+        "pid_file": str(pid_file),
+        "pid": pid,
+        "running": running,
+        "stale_pid_file": stale_pid_file,
+    }
 def _installed_service_command(port: int = 80) -> list[str]:
-    return [
-        sys.executable,
-        "-m",
-        "app.cli",
-        "serve",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        str(port),
-    ]
+    return [sys.executable, "-m", "app.cli", "serve", "--host", "0.0.0.0", "--port", str(port)]
 
 
 def _shell_join(parts: Sequence[str]) -> str:
@@ -404,6 +528,7 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
     ]:
         if not checks.get(key):
             next_actions.append(f"create runtime directory: {layout[key]}")
+    process_state = _service_process_state(repo_root)
     return {
         "status": status,
         "status_reason": "all_transition_checks_passed" if status == "ok" else "missing_transition_prerequisites",
@@ -415,6 +540,7 @@ def _doctor_status(repo_root: Path) -> dict[str, object]:
         "runtime_registry_file": str(runtime_registry_file),
         "builtin_paths_manifest": str(builtin_paths_manifest),
         "suggested_start_command": _start_command(repo_root),
+        "service_process": process_state,
         "next_actions": next_actions,
         **service,
         **layout,
@@ -431,6 +557,22 @@ def run_cli(argv: Sequence[str] | None = None) -> CLIResult:
         return CLIResult(command="help", details={"message": "help displayed"})
 
     repo_root = _repo_root()
+    if args.command == "start":
+        return _start_runtime(repo_root)
+    if args.command == "stop":
+        return _stop_runtime(repo_root)
+    if args.command == "restart":
+        return _restart_runtime(repo_root)
+    if args.command == "status":
+        return CLIResult(command="status", details=_doctor_status(repo_root))
+    if args.command == "doctor":
+        return CLIResult(command="doctor", details=_doctor_status(repo_root))
+    if args.command == "runtime-layout":
+        return CLIResult(command="runtime-layout", details={"status": "ok", **_runtime_layout(repo_root)})
+    if args.command == "migrate-runtime":
+        return _migrate_runtime(repo_root)
+    if args.command == "bootstrap":
+        return _bootstrap_runtime_layout(repo_root)
     if args.command == "serve":
         return _serve_command(host=args.host, port=args.port)
 

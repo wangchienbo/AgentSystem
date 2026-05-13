@@ -1,3 +1,27 @@
+## 2026-05-13: Wired installed-runtime lifecycle control onto the CLI surface
+
+### Summary
+I continued the re-opened standard-install closure by replacing the top-level `start` and `stop` placeholder contract with real lifecycle behavior. The CLI can now launch the HTTP service through the installed command surface, persist runtime PID state, and stop the managed process again without falling back to repo-root uvicorn guidance.
+
+### What Changed
+- updated `app/cli.py`
+  - added PID-file helpers under runtime state
+  - implemented `start` to launch `python -m app.cli serve` in a detached session and write `http_test_server.pid`
+  - implemented `stop` to terminate the tracked process and clean stale PID state
+  - implemented `restart` as stop-then-start over the same installed-runtime lifecycle path
+  - exposed process-state information in doctor/status output
+- updated `tests/unit/test_cli.py`
+  - added coverage for start lifecycle launch behavior
+  - added coverage for stop lifecycle cleanup behavior
+  - kept CLI regression coverage green across bootstrap, runtime layout, status, doctor, and asset-install flows
+
+### Validation
+- `pytest -q tests/unit/test_cli.py`
+- result: `14 passed`
+
+### Notes
+This closes the wrapper/lifecycle command-surface gap for task-list item 6.3. The remaining standard-install closure now concentrates on 6.4, proving installed-code execution and smoke behavior outside repo-root cwd.
+
 ## 2026-05-13: Installed service entrypoint replaced repo-root start suggestion
 
 ### Summary

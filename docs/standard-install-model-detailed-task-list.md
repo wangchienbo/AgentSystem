@@ -410,13 +410,15 @@ Status: [ ] not yet implemented
   - `start` / `stop` / `restart` status targeting should be wired against the installed runtime process rather than suggested shell text
 
 ### 6.3 Keep source-repo scripts as operator wrappers only
-Status: [~] compatibility wrappers cleaned up, runtime-root separation not yet closed
-- legacy wrappers now delegate into `app.cli` instead of exporting repo-root `PYTHONPATH`
-- this removed one class of repo-coupled launch assumption
-- but the effective suggested start path still points back at repo-root service imports, so the repo is still the runtime code root in practice
+Status: [x] lifecycle wrappers now target installed-runtime command surface
+- source-repo wrappers still delegate into `app.cli`, but `start` / `stop` / `restart` are no longer placeholder contracts
+- installed runtime lifecycle now persists a PID file under runtime state and launches the HTTP service through `app.cli serve`
+- validation:
+  - `pytest -q tests/unit/test_cli.py`
+  - result: `14 passed`
 - remaining closure:
-  - repo scripts may remain wrappers, but they must launch installed-runtime entrypoints rather than repo-root uvicorn imports
-  - document the final compatibility posture once the installed-runtime start path exists
+  - prove service startup from installed package context without repo-root cwd dependency
+  - run focused installed-runtime smoke validation against the lifecycle-managed process
 
 ### 6.4 Validate installed-code execution
 Status: [ ] not yet validated
