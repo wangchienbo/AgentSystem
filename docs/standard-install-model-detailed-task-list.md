@@ -391,42 +391,61 @@ Status: [x] initial architecture doc landed
 ## 6. Phase 5 - Move runtime code execution out of source repo
 
 ### 6.1 Package the core Python runtime properly
-- ensure project package metadata supports installed execution
-- define console_scripts entrypoint(s)
-- verify installed-package imports do not depend on repo-relative execution
+Status: [~] package entrypoint landed, installed runtime execution not yet closed
+- `pyproject.toml` now defines the package metadata and console entrypoint:
+  - `[project.scripts] agentsystem = "app.cli:main"`
+- this closes the packaging/CLI-entrypoint foundation slice
+- remaining closure still required:
+  - verify the installed-package import path no longer depends on the repo checkout at service runtime
+  - expose a real installed-runtime service entrypoint instead of relying on repo-root `uvicorn app.system.http_test_server:app`
 
 ### 6.2 Remove repo-root assumptions from runtime start path
-- startup should resolve installed package location, not repo path
-- runtime services should use config/data dirs, not repo dirs
-- start/stop/status should target installed runtime
+Status: [ ] not yet implemented
+- current `app.cli._start_command()` still returns a repo-root-based startup command:
+  - `.venv/bin/python3 -m uvicorn app.system.http_test_server:app --app-dir <repo_root> --host 0.0.0.0 --port 80`
+- this means the live HTTP service still imports code from the source repo instead of launching from installed package context
+- remaining required work:
+  - startup should resolve the installed package location, not `--app-dir <repo_root>`
+  - runtime services should continue using resolved config/data dirs outside the repo
+  - `start` / `stop` / `restart` status targeting should be wired against the installed runtime process rather than suggested shell text
 
 ### 6.3 Keep source-repo scripts as operator wrappers only
-- repo scripts may call install/start commands
-- repo scripts must not directly become the runtime execution root
-- clarify compatibility behavior for developers
+Status: [~] compatibility wrappers cleaned up, runtime-root separation not yet closed
+- legacy wrappers now delegate into `app.cli` instead of exporting repo-root `PYTHONPATH`
+- this removed one class of repo-coupled launch assumption
+- but the effective suggested start path still points back at repo-root service imports, so the repo is still the runtime code root in practice
+- remaining closure:
+  - repo scripts may remain wrappers, but they must launch installed-runtime entrypoints rather than repo-root uvicorn imports
+  - document the final compatibility posture once the installed-runtime start path exists
 
 ### 6.4 Validate installed-code execution
-- install into venv
-- launch from installed command path
-- verify service comes up without requiring cwd=repo
-- run focused smoke checks
+Status: [ ] not yet validated
+- the workstream has strong evidence for externalized runtime data/state roots and bounded before/after behavior
+- but it does not yet have proof that the service can boot from installed package context without requiring the source repo as import root
+- required validation still outstanding:
+  - install into venv or equivalent installed target
+  - launch from installed command path
+  - verify service startup without `cwd=<repo_root>` and without `--app-dir <repo_root>`
+  - run focused smoke checks and at least one bounded user-facing regression slice against the installed-runtime launch path
 
 **Exit criteria**
 - runtime code executes from installed package context
 - source repo is no longer the required runtime code root
+- runtime lifecycle commands target the installed runtime instead of returning `not_implemented`
 
 ---
 
 ## 7. Phase 6 - Move assets, build, and runtime state out of source repo
 
 ### 7.1 Externalize runtime state directories
-Status: [~] prerequisites largely prepared
+Status: [~] prerequisites largely prepared, final runtime-code separation still pending
 - Slice A/B moved most mutable runtime-state defaults behind the shared runtime resolver
 - remaining repo-anchored items are now mostly intentional asset/control-plane boundaries, not generic mutable-state defaults
-- Phase 6 should now focus on asset/control-plane separation rather than more broad `data/...` default cleanup
+- however, this slice cannot be considered fully closed until the live service no longer imports code from the source repo at startup
+- Phase 6 should continue focusing on asset/control-plane separation while staying explicitly blocked on Phase 5 runtime-code closure for final acceptance
 
 ### 7.2 Externalize installed assets
-Status: [x] Slice C2 landed, Slice C3 next
+Status: [~] asset roots externalized, final acceptance still blocked by repo-root service launch
 - `AssetCenter` default roots now resolve installed/build/data locations from the shared install-model path contract when explicit overrides are not provided
 - `SkillRegistryService` now also defaults to the install-model installed asset root when explicit overrides are not provided
 - `CoreOrchestrator` now threads its `AssetCenter` installed-root choice into `SkillRegistryService`, removing one more hardcoded `installed/` caller seam from the non-bootstrap path
@@ -438,6 +457,9 @@ Status: [x] Slice C2 landed, Slice C3 next
   - install-model `build/` artifact root
   - repo `source/` root retained for development
   - repo `data/runtime_center.json` retained for runtime-registry persistence until Slice C4
+- important acceptance correction:
+  - externalized installed/build roots are real
+  - but this slice is not final proof of standard-install completion while the HTTP service still starts from repo-root imports
 - remaining next slice is now:
   - Slice C3 package built-in control-plane assets so installed execution no longer depends on repo-root path-definition loading
 - validation progression recorded in testing docs culminates in:
@@ -615,9 +637,24 @@ Status: [x] bounded regression-closure evidence frozen
   - last 25 turn-10 run: `25/25` scenarios passed, `250/250` turns passed
   - full-suite turn-10 bounded evidence: `50/50` scenarios passed, `500/500` executed turns passed, `0` transport/service errors
 
+### 9.5 Acceptance correction: standard-install closure remains open
+Status: [ ] newly re-opened after architecture-vs-implementation review
+- bounded before/after regression evidence remains valid for the current transition runtime
+- however, a follow-up review against `docs/standard-install-model-architecture.md` showed that the workstream previously overstated closure in two critical areas:
+  - the HTTP service still launches from repo-root imports via `uvicorn app.system.http_test_server:app --app-dir <repo_root>`
+  - top-level runtime lifecycle commands `start` / `stop` / `restart` / `install` still return `not_implemented` instead of controlling an installed runtime
+- this means the current state is a strong transition build, not a fully closed standard-install model
+- required closure items are now explicit:
+  - wire a real installed-runtime service entrypoint
+  - make `agentsystem start` / `stop` / `restart` control the installed runtime process
+  - prove service startup and smoke behavior without repo-root import dependency
+  - rerun focused installed-runtime validation after that launch-path change
+- until these items pass, the install-model migration should be treated as partially complete rather than closed
+
 **Exit criteria**
 - install-model migration does not materially regress the real-user baseline
 - any remaining deltas are explicitly documented and accepted
+- architecture-level standard-install closure is still open until installed-runtime execution and lifecycle control are real
 
 ---
 
