@@ -266,6 +266,8 @@ Status: [x] completed
 
 ### 5.6 Implement startup recovery before ready
 
+Status: [x] completed
+
 #### Tasks
 - on service startup:
   - read temporary durable buffer

@@ -1,3 +1,15 @@
+## 2026-05-13: Filled the last missing explicit status marker in the Phase Q task list
+
+### Summary
+I ran another detailed-task-list consistency audit and found one remaining formatting gap in `docs/phase-q-detailed-task-list.md`: section 5.6 had tasks and acceptance criteria but lacked the explicit `Status:` line that all surrounding sections already used. I marked it complete to match the already-landed implementation and test coverage.
+
+### What Was Updated
+- `docs/phase-q-detailed-task-list.md`
+  - added `Status: [x] completed` to `5.6 Implement startup recovery before ready`
+
+### Notes
+This was a documentation consistency repair only. No runtime behavior changed, but it removes the last obvious status-format inconsistency in the active detailed task lists.
+
 ## 2026-05-13: Closed remaining documentation-task ambiguity in the Phase R task list
 
 ### Summary
