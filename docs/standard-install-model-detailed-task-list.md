@@ -421,13 +421,16 @@ Status: [x] lifecycle wrappers now target installed-runtime command surface
   - run focused installed-runtime smoke validation against the lifecycle-managed process
 
 ### 6.4 Validate installed-code execution
-Status: [ ] not yet validated
-- the workstream has strong evidence for externalized runtime data/state roots and bounded before/after behavior
-- but it does not yet have proof that the service can boot from installed package context without requiring the source repo as import root
-- required validation still outstanding:
+Status: [~] installed lifecycle path partially unified, external-cwd validation still outstanding
+- cleaned the known phase3 subset helper entrypoint so it now launches `app.cli serve` instead of repo-root `uvicorn ... --app-dir`
+- updated `scripts/start_phase3_subset_server.sh` to use the installed-runtime command surface
+- validation:
+  - `bash -n scripts/start_phase3_subset_server.sh`
+  - inline assertion check confirmed `-m app.cli serve` is present and `--app-dir` is absent
+- remaining required validation still outstanding:
   - install into venv or equivalent installed target
   - launch from installed command path
-  - verify service startup without `cwd=<repo_root>` and without `--app-dir <repo_root>`
+  - verify service startup without `cwd=<repo_root>` and without repo-root import assumptions
   - run focused smoke checks and at least one bounded user-facing regression slice against the installed-runtime launch path
 
 **Exit criteria**

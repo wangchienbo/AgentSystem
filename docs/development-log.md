@@ -1,3 +1,23 @@
+## 2026-05-13: Cleared the known phase3 helper script off repo-root uvicorn imports
+
+### Summary
+I kept tightening the remaining install-model entrypoints by updating the known phase3 subset helper script to use the installed-runtime command surface. This removes one more practical escape hatch back to repo-root `uvicorn ... --app-dir` startup.
+
+### What Changed
+- updated `scripts/start_phase3_subset_server.sh`
+  - now launches `python -m app.cli serve --host 0.0.0.0 --port "$PORT"`
+  - removed `--app-dir "$PROJECT_DIR"`
+  - added stop-pattern cleanup for the new `app.cli serve` launch form before starting
+
+### Validation
+- `bash -n scripts/start_phase3_subset_server.sh`
+- inline assertion check confirmed:
+  - `-m app.cli serve` present
+  - `--app-dir` absent
+
+### Notes
+This is still not the final installed-code proof for 6.4, but it narrows the remaining gap by eliminating a confirmed repo-root startup residue from the operator helper layer.
+
 ## 2026-05-13: Wired installed-runtime lifecycle control onto the CLI surface
 
 ### Summary

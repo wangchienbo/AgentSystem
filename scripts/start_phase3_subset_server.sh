@@ -11,6 +11,8 @@ mkdir -p "$RUNTIME_DATA_DIR"
 : > "$LOG_PATH"
 printf '=== %s ===\n' "$MARKER" >> "$LOG_PATH"
 
+pkill -f "python3 -m app.cli serve --host 0.0.0.0 --port ${PORT}" 2>/dev/null || true
+pkill -f ".venv/bin/python3 -m app.cli serve --host 0.0.0.0 --port ${PORT}" 2>/dev/null || true
 pkill -f "uvicorn app.system.http_test_server:app" 2>/dev/null || true
 pkill -f "python3 -m uvicorn app.system.http_test_server:app" 2>/dev/null || true
 pkill -f ".venv/bin/python3 -m uvicorn app.system.http_test_server:app" 2>/dev/null || true
@@ -22,12 +24,10 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
-WORKERS="${WORKERS:-1}"
-
 if [ -x "$PROJECT_DIR/.venv/bin/python3" ]; then
-  nohup env AGENTSYSTEM_DATA_DIR="$RUNTIME_DATA_DIR" "$PROJECT_DIR/.venv/bin/python3" -m uvicorn app.system.http_test_server:app --app-dir "$PROJECT_DIR" --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" --timeout-keep-alive 120 >> "$LOG_PATH" 2>&1 &
+  nohup env AGENTSYSTEM_DATA_DIR="$RUNTIME_DATA_DIR" "$PROJECT_DIR/.venv/bin/python3" -m app.cli serve --host 0.0.0.0 --port "$PORT" >> "$LOG_PATH" 2>&1 &
 else
-  nohup env AGENTSYSTEM_DATA_DIR="$RUNTIME_DATA_DIR" python3 -m uvicorn app.system.http_test_server:app --app-dir "$PROJECT_DIR" --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" --timeout-keep-alive 120 >> "$LOG_PATH" 2>&1 &
+  nohup env AGENTSYSTEM_DATA_DIR="$RUNTIME_DATA_DIR" python3 -m app.cli serve --host 0.0.0.0 --port "$PORT" >> "$LOG_PATH" 2>&1 &
 fi
 
 SERVER_PID=$!
