@@ -448,14 +448,14 @@ Status: [x] installed-path startup lifecycle validated with a real config fixtur
 ## 7. Phase 6 - Move assets, build, and runtime state out of source repo
 
 ### 7.1 Externalize runtime state directories
-Status: [~] prerequisites largely prepared, final runtime-code separation still pending
+Status: [x] runtime-state externalization accepted under installed-runtime closure
 - Slice A/B moved most mutable runtime-state defaults behind the shared runtime resolver
-- remaining repo-anchored items are now mostly intentional asset/control-plane boundaries, not generic mutable-state defaults
-- however, this slice cannot be considered fully closed until the live service no longer imports code from the source repo at startup
-- Phase 6 should continue focusing on asset/control-plane separation while staying explicitly blocked on Phase 5 runtime-code closure for final acceptance
+- remaining repo-anchored items are now intentional asset/control-plane boundaries, not generic mutable-state defaults
+- installed-runtime validation now confirms the live service can bootstrap/start/status/stop from a non-repo cwd
+- this satisfies the former Phase 6 dependency on Phase 5 runtime-code separation for acceptance
 
 ### 7.2 Externalize installed assets
-Status: [~] asset roots externalized, final acceptance still blocked by repo-root service launch
+Status: [x] asset roots externalized and accepted under installed-runtime closure
 - `AssetCenter` default roots now resolve installed/build/data locations from the shared install-model path contract when explicit overrides are not provided
 - `SkillRegistryService` now also defaults to the install-model installed asset root when explicit overrides are not provided
 - `CoreOrchestrator` now threads its `AssetCenter` installed-root choice into `SkillRegistryService`, removing one more hardcoded `installed/` caller seam from the non-bootstrap path
@@ -466,6 +466,7 @@ Status: [~] asset roots externalized, final acceptance still blocked by repo-roo
   - install-model `installed/` asset root
   - install-model `build/` artifact root
   - repo `source/` root retained for development
+- final acceptance blocker from repo-root service launch has been cleared by installed-runtime lifecycle validation
   - repo `data/runtime_center.json` retained for runtime-registry persistence until Slice C4
 - important acceptance correction:
   - externalized installed/build roots are real
@@ -766,7 +767,7 @@ Status: [x] safe mutable-default tail substantially closed
   - `pytest -q tests/unit/test_runtime_paths.py tests/unit/test_runtime_path_adoption.py tests/unit/test_runtime_path_adoption_wave2.py tests/unit/test_runtime_path_adoption_wave3.py tests/unit/test_runtime_path_adoption_wave4.py tests/unit/test_cli.py tests/unit/test_model_config.py tests/unit/test_app_data_store.py tests/unit/test_upgrade_rollback.py tests/unit/test_persistence_e2e.py tests/unit/test_execution_chain_integration.py` -> `77 passed`
 
 ### 7.2 Externalize installed assets
-Status: [~] first live-code adoption landed
+Status: [x] first live-code adoption accepted and superseded by full installed-runtime closure
 - `AssetCenter` default roots now resolve installed/build/data locations from the shared install-model path contract when explicit overrides are not provided
 - bootstrap still intentionally passes repo-anchored installed/build roots during transition so built-in startup semantics remain stable while Phase 6 proceeds slice-by-slice
 - this establishes the first live-code seam for Slice C2 without yet forcing the bootstrap/runtime path flip

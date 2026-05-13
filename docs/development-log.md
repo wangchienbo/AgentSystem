@@ -1,3 +1,17 @@
+## 2026-05-13: Closed stale Phase 6 acceptance blockers after installed-runtime proof
+
+### Summary
+I did another consistency pass on the standard-install task list and closed the old Phase 6 asset/runtime-state acceptance blockers that were still phrased as waiting on runtime-code separation. Those blockers were historically correct, but they became stale once the installed-runtime lifecycle validation passed.
+
+### What Was Updated
+- `docs/standard-install-model-detailed-task-list.md`
+  - marked 7.1 accepted now that non-repo-cwd installed-runtime startup is proven
+  - marked 7.2 accepted now that the repo-root launch blocker is no longer outstanding
+  - updated the older 7.2 live-adoption marker to reflect that it has been superseded by the full installed-runtime closure
+
+### Notes
+This was another source-of-truth cleanup step. It does not add new behavior, but it prevents the task list from implying that already-cleared Phase 6 acceptance blockers are still active.
+
 ## 2026-05-13: Reconciled stale reopen markers after installed-runtime closure
 
 ### Summary
