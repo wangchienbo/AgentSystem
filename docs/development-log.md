@@ -1,3 +1,27 @@
+## 2026-05-13: Closed installed-path lifecycle validation with a real config fixture
+
+### Summary
+I completed the critical 6.4 validation loop by supplying a valid installed-runtime config fixture and rerunning the non-repo-cwd lifecycle checks. With the dependency gap and config-fixture gap both resolved, the installed command path now bootstraps, starts, answers health checks, reports itself as running, and stops cleanly.
+
+### What Was Verified
+- prepared installed-runtime config fixture at `/tmp/agentsystem-installed-home/config/config.yaml` with:
+  - `models`
+  - `routing`
+  - `model`
+- launched from non-repo cwd:
+  - `OPENAI_API_KEY=test-key AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem start`
+- validated running state:
+  - `OPENAI_API_KEY=test-key AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem status`
+  - result: `status=ok`, `service_process.running=True`, `service_reachable=True`
+- smoke check:
+  - `http://127.0.0.1:80/api/status` returned `200`
+- validated stop path:
+  - `OPENAI_API_KEY=test-key AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem stop`
+  - result: `status=ok`, `stopped=True`
+
+### Notes
+This closes the installed-code execution proof that had reopened the standard-install workstream. The runtime no longer needs repo-root cwd or repo-root `--app-dir` startup guidance to boot and answer health checks under the installed command surface.
+
 ## 2026-05-13: Proved installed-path bootstrap and service launch from non-repo cwd
 
 ### Summary

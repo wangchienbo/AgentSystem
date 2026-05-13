@@ -421,24 +421,25 @@ Status: [x] lifecycle wrappers now target installed-runtime command surface
   - run focused installed-runtime smoke validation against the lifecycle-managed process
 
 ### 6.4 Validate installed-code execution
-Status: [~] installed-path bootstrap and smoke launch proven, dependency closure improved, managed-process tracking still imperfect
+Status: [x] installed-path startup lifecycle validated with a real config fixture
 - created a clean installed target at `/tmp/agentsystem-installed-venv` and installed the package with editable packaging from outside the runtime home
-- discovered and fixed an installed-path dependency gap: `jinja2` was required by `fastapi.templating` usage in `http_test_server` but was missing from `pyproject.toml`
+- fixed installed-path dependency closure by adding `jinja2>=3.1.0` to `pyproject.toml`
+- supplied a valid installed-path test config fixture with `models`, `routing`, and `model` sections under `/tmp/agentsystem-installed-home/config/config.yaml`
 - bootstrapped the runtime from a non-repo cwd using:
   - `AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem bootstrap`
-- launched the service from a non-repo cwd using:
-  - `AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem start`
-- smoke validation from the installed-path run:
-  - after dependency repair, installed-path `start` still failed before serving because `ModelRouter` rejected the minimal test config (`Config missing required 'models' section with model definitions.`)
-  - this means the installed-path blocker has moved from package imports to runtime config requirements
-- caveat discovered during validation:
-  - the recorded PID went stale because the launched process exited during startup validation rather than because PID tracking alone was broken
-  - `status` then correctly reported `service_reachable=False` with `Connection refused`
-- remaining required closure:
-  - provide a valid installed-path test config fixture that satisfies `ModelRouter`
-  - rerun installed-path start/status/stop validation with that config
-  - then reassess whether any PID tracking defect still remains after successful startup
-  - finally run at least one bounded user-facing regression slice against the installed-runtime launch path
+- launched, checked, and stopped the service from a non-repo cwd using:
+  - `OPENAI_API_KEY=test-key AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem start`
+  - `OPENAI_API_KEY=test-key AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem status`
+  - `OPENAI_API_KEY=test-key AGENTSYSTEM_HOME=/tmp/agentsystem-installed-home /tmp/agentsystem-installed-venv/bin/agentsystem stop`
+- installed-path validation results:
+  - `status=ok`
+  - `service_process.running=True`
+  - `service_reachable=True`
+  - `http://127.0.0.1:80/api/status` returned `200`
+  - `stop` returned `status=ok`, `stopped=True`
+- conclusion:
+  - service startup no longer depends on repo-root cwd or `--app-dir <repo_root>`
+  - installed-path lifecycle control now works end-to-end when supplied with a valid config fixture
 
 **Exit criteria**
 - runtime code executes from installed package context
