@@ -162,7 +162,10 @@ class LightBrainGateway:
         # Tool registry for structured skill selection
         self._tool_registry = self._build_default_tool_registry()
 
-        # Built-in intent → handler mapping
+        # AppCommand recovery service (lazy init)
+        self._app_command_recovery: Any | None = None
+
+        # Built-in intent → handler mapping (defined below in class body)
         self._handlers: dict[str, Any] = {
             "greet": self._handle_greet,
             "query_status": self._handle_query_status,
@@ -964,6 +967,20 @@ class LightBrainGateway:
                 "parameters": {"target": "WikiApp", "app_name": "WikiApp"},
             })
         return command
+
+    def _get_app_command_recovery(self) -> Any | None:
+        """Lazy-init and return AppCommandRecoveryService."""
+        if self._app_command_recovery is not None:
+            return self._app_command_recovery
+        if self._app_application_service is None:
+            return None
+        from app.services.app_command_recovery_service import AppCommandRecoveryService
+        from app.services.app_command_service import AppCommandService
+        try:
+            self._app_command_recovery = AppCommandRecoveryService(AppCommandService())
+        except Exception:
+            self._app_command_recovery = None
+        return self._app_command_recovery
 
     def _build_default_tool_registry(self):
         from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
@@ -2729,6 +2746,31 @@ class LightBrainGateway:
         )
 
         from app.models.chat import InterpretedCommand
+
+        # App-domain: use recovery service for standardized command reconstruction
+        if self._app_application_service is not None and self._app_application_service.owns(intent):
+            recovery = self._get_app_command_recovery()
+            if recovery is not None:
+                from app.services.app_command_recovery_service import AppCommandRecoveryResult
+                recovery_result = recovery.recover_from_source(
+                    intent=intent,
+                    user_id=user_id,
+                    session_id=action_session_id,
+                    source="action_confirm",
+                    payload=action_params,
+                    last_command=self._memory.get_last_command(action_session_id),
+                    force_confirmed=True,
+                )
+                if recovery_result.command is not None:
+                    command = recovery_result.command
+                    command.raw_input = f"action:{action_id}"
+                    command = self._enrich_command(command, action_session_id, [])
+                    self._memory.record_command(action_session_id, command)
+                    result = await self._execute_command(command, action_session_id, [])
+                    self._after_reply(session_id=action_session_id, reply=result)
+                    self._auto_save()
+                    return result
+                # Fall through to default command construction if recovery fails
 
         command = InterpretedCommand(
             intent=intent,
