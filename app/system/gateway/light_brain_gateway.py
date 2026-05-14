@@ -165,6 +165,9 @@ class LightBrainGateway:
         # AppCommand recovery service (lazy init)
         self._app_command_recovery: Any | None = None
 
+        # Execution mode integrator (lazy init)
+        self._execution_mode_integrator: Any | None = None
+
         # Built-in intent → handler mapping (defined below in class body)
         self._handlers: dict[str, Any] = {
             "greet": self._handle_greet,
@@ -417,7 +420,39 @@ class LightBrainGateway:
             self._expand_controlled_retrievals(command)
 
         self._normalize_command_from_context(command)
+
+        # Inject execution mode context (authorization + task mode)
+        self._inject_execution_context(command, session_id)
+
         return command
+
+
+    def _inject_execution_context(
+        self,
+        command: InterpretedCommand,
+        session_id: str,
+    ) -> None:
+        """Inject authorization state and task mode classification into command context."""
+        user_id = command.user_id or ""
+        if not user_id:
+            return
+        integrator = self._get_execution_mode_integrator()
+        if integrator is None:
+            return
+        context = integrator.on_message_received(session_id, user_id, command.raw_input or "")
+        command.context["execution_context"] = context
+
+
+    def _get_execution_mode_integrator(self) -> Any | None:
+        """Lazy-init ExecutionModeIntegrator."""
+        if self._execution_mode_integrator is not None:
+            return self._execution_mode_integrator
+        try:
+            from app.services.execution_mode_integrator import ExecutionModeIntegrator
+            self._execution_mode_integrator = ExecutionModeIntegrator()
+        except Exception:
+            self._execution_mode_integrator = None
+        return self._execution_mode_integrator
 
     def _normalize_command_from_context(self, command: InterpretedCommand) -> None:
         parameters = dict(command.parameters or {})
