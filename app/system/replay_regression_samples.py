@@ -6,11 +6,18 @@ from typing import Iterable
 
 from app.models.governance_observation import ReplayRegressionSample
 from app.runtime_paths import resolve_runtime_paths
+
+
+class ReplayRegressionSampleStoreError(ValueError):
+    """Raised when replay regression sample storage operations fail."""
+    pass
+
+
+ALLOWED_REPLAY_SOURCES: set[str] = {"session", "curated", "operator_curated", "regression", "e2e"}
+
+
 def _default_store_dir() -> Path:
     return resolve_runtime_paths().data_dir / "replay_regression_samples"
-
-
-    pass
 
 
 def _ensure_store_dir(store_dir: Path | None = None) -> Path:
