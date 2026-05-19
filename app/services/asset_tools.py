@@ -140,7 +140,7 @@ class AssetToolExecutor:
         try:
             if tool_name == "list_assets":
                 return self._list_assets(arguments, caller_name)
-            if tool_name == "query_asset_info":
+            if tool_name in ("query_asset_info", "query_asset"):
                 return self._query_asset_info(arguments, caller_name)
             if tool_name == "call_asset_method":
                 return self._call_asset_method(arguments, caller_name)
@@ -168,7 +168,7 @@ class AssetToolExecutor:
         return ToolResult(success=True, data=items)
 
     def _query_asset_info(self, args: dict, caller_name: str) -> ToolResult:
-        asset_id = args.get("asset_id")
+        asset_id = args.get("asset_id") or args.get("keyword") or ""
         if not asset_id:
             return ToolResult(success=False, error="asset_id is required")
         if not hasattr(self._registry, "query_asset_info"):
@@ -190,6 +190,10 @@ class AssetToolExecutor:
             return ToolResult(success=False, error="Runtime asset call is not available")
         result = self._registry.call_asset_method(asset_id=asset_id, method=method, params=params)
         ok = bool(result.get("ok")) if isinstance(result, dict) else False
+        # Simplify for the model: extract the inner result data, skip envelope wrapping
+        inner = result.get("result") if isinstance(result, dict) else result
+        if ok and inner is not None:
+            return ToolResult(success=True, data=inner)
         return ToolResult(success=ok, data=result, error="" if ok else str(result.get("error", "asset method call failed")))
 
     def _query_asset_detail(self, args: dict, caller_name: str) -> ToolResult:

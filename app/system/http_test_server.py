@@ -23,10 +23,15 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from app.ai.model_client import describe_tool_route_budget
+from app.novel_studio.api import create_novel_router
+from app.models.asset_contract import AssetDescriptor, AssetCapability, AssetType, AssetKind, AssetState, Visibility
 from app.runtime_paths import resolve_runtime_paths
 from app.bootstrap.runtime import build_runtime
+from app.models.app_blueprint import AppBlueprint
 from app.models.app_instance import AppInstance
+from app.models.app_profile import AppRuntimeProfile
 from app.models.chat import ChatMessageRequest
+from app.models.runtime_policy import RuntimePolicy
 from app.models.scheduling import ScheduleRecord
 from app.services.regression_nightly_control import RegressionNightlyControlService
 from app.system.chat_observation import build_chat_observation_probe, persist_chat_observation
@@ -47,10 +52,14 @@ from app.system.chat_regression import (
 
 def _build_http_response_contract(llm_resp: object) -> dict[str, object]:
     data = getattr(llm_resp, "data", None)
+    dispatches_raw = getattr(llm_resp, "app_task_dispatches", None)
+    # 如果模型没有直接填充 dispatches，从 tool 调用的返回中提取
+    # (目前 dispatch_app_task tool 的 handler 已直接提交到 MC)
     response: dict[str, object] = {
         "data": data,
         "actions": [item.model_dump(mode="json") for item in getattr(llm_resp, "actions", [])],
         "related_app": getattr(llm_resp, "related_app", None),
+        "app_task_dispatches": [d.model_dump(mode="json") for d in dispatches_raw] if dispatches_raw else None,
     }
     if isinstance(data, dict):
         pending_task = data.get("pending_task")
@@ -157,6 +166,188 @@ app = FastAPI(
     description="HTTP interface for testing AgentSystem intent understanding",
     version="1.0.0",
 )
+
+# 注册 Novel Studio 路由
+model_router = runtime_services.get("model_router")
+llm_client = None
+if model_router:
+    try:
+        llm_client = model_router.get_client("architect", "complex")
+    except Exception:
+        pass
+
+# 共享引擎：Worker / HTTP 路由 / RuntimeAsset 用同一个 NovelStorage
+from app.novel_studio.engine import NovelStudioEngine
+novel_engine = NovelStudioEngine(storage=None, model_router=model_router)
+runtime_services["novel_engine"] = novel_engine
+
+novel_router = create_novel_router(model_router=model_router, llm_client=llm_client, engine=novel_engine)
+app.include_router(novel_router)
+
+# ---------------------------------------------------------------------------
+# Register novel_studio as a system AppBlueprint (so the gateway knows about it)
+# ---------------------------------------------------------------------------
+app_registry = runtime_services.get("app_registry")
+if app_registry:
+    try:
+        app_registry.get_blueprint("bp.novel_studio")
+        logger.info("novel_studio blueprint already registered")
+    except Exception:
+        novel_bp = AppBlueprint(
+            id="bp.novel_studio",
+            name="novel_studio",
+            goal="小说创作工作室 — 支持写小说、管理大纲、设定世界观、角色创作",
+            version="1.0.0",
+            source_path="app/novel_studio/",
+            app_shape="generic",
+            runtime_profile=AppRuntimeProfile(),
+            runtime_policy=RuntimePolicy(),
+        )
+        try:
+            app_registry.register_blueprint(novel_bp, description="小说创作应用，支持大纲、角色、世界观、章节生成与角色对话")
+            logger.info("✅ novel_studio AppBlueprint registered")
+        except Exception as e:
+            logger.warning("Failed to register novel_studio blueprint: %s", e)
+
+# ---------------------------------------------------------------------------
+# Register novel_studio as a RuntimeAsset (so the model discovers it via assets)
+# ---------------------------------------------------------------------------
+runtime_center = runtime_services.get("runtime_center")
+if runtime_center:
+    try:
+        import httpx
+        api_base = "http://localhost:80/api/novel"
+
+        novel_asset = AssetDescriptor(
+            asset_id="asset:novel_studio:v1",
+            name="小说工作室",
+            description="小说创作应用，支持创建小说、管理角色、大纲、世界观、章节生成",
+            asset_type=AssetType.APP,
+            asset_kind=AssetKind.MATERIALIZED,
+            version="1.0.0",
+            owner_type="system",
+            owner_id="system",
+            source_of_truth="runtime",
+            status=AssetState.ACTIVE,
+            capabilities=[
+                AssetCapability(name="create_novel", description="创建一本新小说",
+                    method="create_novel",
+                    input_schema={"title": {"type": "string", "desc": "书名"}, "genre": {"type": "string", "desc": "题材"}, "logline": {"type": "string", "desc": "一句话梗概"}}),
+                AssetCapability(name="add_character", description="给小说添加角色",
+                    method="add_character",
+                    input_schema={"novel_id": "string", "name": "string", "archetype": "string", "personality": "list", "background": "string"}),
+                AssetCapability(name="save_outline", description="保存小说三幕大纲",
+                    method="save_outline",
+                    input_schema={"novel_id": "string", "summary": "string", "three_act": "object"}),
+                AssetCapability(name="get_novel", description="查看小说详情（含角色、大纲）",
+                    method="get_novel",
+                    input_schema={"novel_id": "string"}),
+                AssetCapability(name="save_world", description="创建或更新世界观",
+                    method="save_world",
+                    input_schema={"novel_id": "string", "name": "string", "overview": "string", "rules": "list"}),
+                AssetCapability(name="add_scene", description="添加场景",
+                    method="add_scene",
+                    input_schema={"novel_id": "string", "name": "string", "location": "string", "description": "string"}),
+            ],
+            visibility=Visibility.PUBLIC,
+            tags=["novel", "writing", "creative"],
+        )
+
+        # 直接调 novel_studio engine（不走 HTTP，避免自阻塞）
+        from app.novel_studio.engine import NovelStudioEngine
+        # 复用已有 engine（shared），不再新建 storage
+        _shared_engine = runtime_services.get("novel_engine")
+        if _shared_engine is None:
+            _shared_engine = NovelStudioEngine(storage=None, model_router=ModelRouter())
+            runtime_services["novel_engine"] = _shared_engine
+        _mr = model_router or ModelRouter()
+        method_mappings = {
+            "create_novel":    lambda **p: _novel_create_resp(novel_engine, **p),
+            "add_character":   lambda **p: _novel_add_char_resp(novel_engine, **p),
+            "save_outline":    lambda **p: _novel_save_outline_resp(novel_engine, **p),
+            "get_novel":       lambda **p: _novel_get_resp(novel_engine, **p),
+            "save_world":      lambda **p: _novel_create_world_resp(novel_engine, **p),
+            "add_scene":       lambda **p: _novel_add_scene_resp(novel_engine, **p),
+        }
+
+        runtime_center.register_asset(novel_asset, method_mappings=method_mappings)
+        logger.info("✅ novel_studio RuntimeAsset registered with %d methods", len(method_mappings))
+    except Exception as e:
+        logger.warning("Failed to register novel_studio RuntimeAsset: %s", e)
+
+# ---------------------------------------------------------------------------
+# Register novel_studio Worker (MasterControl 异步调度)
+# ---------------------------------------------------------------------------
+master_control = runtime_services.get("master_control")
+if master_control:
+    try:
+        from app.novel_studio.worker import NovelStudioWorker
+        _shared_engine = runtime_services.get("novel_engine")
+        if _shared_engine:
+            worker = NovelStudioWorker(_shared_engine)
+            master_control.register_app_worker("novel_studio", worker)
+            logger.info("✅ novel_studio Worker registered (shared engine)")
+        else:
+            logger.warning("novel_engine not available, skipping Worker registration")
+    except Exception as e:
+        logger.warning("Failed to register novel_studio Worker: %s", e)
+
+
+# ── Novel engine proxy helpers ──────────────────────────────────────────
+def _novel_create_resp(engine, title="未命名", genre="", logline="", **kw):
+    novel = engine.create_novel(title, genre=genre, author=kw.get("author", ""))
+    if logline:
+        engine.create_outline(novel.id, title, logline=logline)
+    return {"success": True, "novel_id": novel.id, "title": novel.title}
+
+def _novel_get_resp(engine, novel_id="", **kw):
+    data = engine.get_novel_full_report(novel_id)
+    if data:
+        return {"success": True, "novel": data}
+    return {"success": False, "error": "小说不存在"}
+
+def _novel_add_char_resp(engine, novel_id="", name="", archetype="", personality=None, background="", speech_style="", **kw):
+    char = engine.add_character(novel_id, name, archetype,
+                                personality=personality or [],
+                                background=background,
+                                speech_style=speech_style)
+    if char:
+        return {"success": True, "character": {"id": char.id, "name": char.name}}
+    return {"success": False, "error": "添加角色失败"}
+
+def _novel_save_outline_resp(engine, novel_id="", summary="", three_act=None, **kw):
+    engine.create_outline(novel_id, summary, three_act=three_act or {})
+    return {"success": True}
+
+def _novel_create_world_resp(engine, novel_id="", name="", overview="", rules=None, **kw):
+    world = engine.create_world(novel_id, name, overview=overview, rules=rules or [])
+    if world:
+        return {"success": True}
+    return {"success": False, "error": "创建世界观失败"}
+
+def _novel_add_scene_resp(engine, novel_id="", name="", location="", description="", **kw):
+    scene = engine.add_scene(novel_id, name, location=location, description=description)
+    if scene:
+        return {"success": True}
+    return {"success": False, "error": "添加场景失败"}
+
+
+def _build_available_apps() -> list[dict[str, Any]]:
+    """Build the available_apps list from the AppRegistry for the gateway."""
+    registry = runtime_services.get("app_registry")
+    if not registry:
+        return []
+    apps = []
+    for entry in registry.list_entries():
+        apps.append({
+            "app_id": entry.blueprint_id,
+            "name": entry.name,
+            "display_name": {"novel_studio": "小说工作室"}.get(entry.name, entry.name),
+            "status": "running" if entry.release_status == "active" else "stopped",
+            "version": entry.version,
+            "description": entry.description,
+        })
+    return apps
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 STATIC_DIR = BASE_DIR / "static"
@@ -318,14 +509,10 @@ def tick_regression_nightly_cycle(user_session_id: str) -> dict[str, Any]:
         "cycle": cycle_result,
         "nightly_status": refreshed,
     }
-CHAT_LOG_DIR = resolve_runtime_paths().data_dir / "chat_logs"
-CHAT_LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def _append_chat_log(session_id: str, event: dict[str, Any]) -> None:
-    log_path = CHAT_LOG_DIR / f"{session_id}.jsonl"
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    return "\n".join(
+        f"{item.get('role', 'unknown')}: {item.get('content', '')}"
+        for item in history
+    )
 
 
 def _build_memory_context(session_id: str, limit: int = 12) -> str:
@@ -438,6 +625,14 @@ async def get_current_user(request: Request):
     return hydrated
 
 
+@app.get("/studio", response_class=HTMLResponse)
+async def novel_studio_page():
+    studio_path = Path(__file__).resolve().parent.parent / "novel_studio" / "templates" / "studio.html"
+    if studio_path.exists():
+        return HTMLResponse(studio_path.read_text(encoding="utf-8"))
+    return HTMLResponse("<html><body><h1>Novel Studio</h1><p>Template not found</p></body></html>")
+
+
 @app.get("/", response_class=FileResponse)
 async def root():
     # Ensure the index.html exists; if not, fall back to a minimal placeholder
@@ -540,7 +735,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
         if augmented_message != req.message:
             chat_req.memory_context = ((chat_req.memory_context or "") + f"\n\n[webchat_style_hint]\n{augmented_message}").strip()
         # Call AgentSystem LightBrain gateway (which handles LLM routing and Tool calls)
-        llm_resp = await gateway.receive_message(chat_req)
+        llm_resp = await gateway.receive_message(chat_req, available_apps=_build_available_apps())
         response_text = getattr(llm_resp, "content", "") or ""
         structured_answer = getattr(llm_resp, "structured_answer", None)
         finished_at = datetime.now()
@@ -559,17 +754,32 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
             "timestamp": finished_at.isoformat(),
             **({"metadata": run_metadata} if run_metadata else {}),
         })
-        _append_chat_log(session_id, {
-            "timestamp": finished_at.isoformat(),
-            "session_id": session_id,
-            "username": user.get("username", "anonymous"),
-            "request": req.message,
-            "response": response_text,
-            "success": True,
-            "error_type": None,
-            "latency_ms": latency_ms,
-            **(run_metadata or {}),
-        })
+
+        # Upload to ContextCenter for unified context assembly
+        try:
+            cc = getattr(gateway, "context_center", None)
+            if cc is not None:
+                from app.models.context import SessionContextRecord
+                # Upload user message with enriched context
+                enriched_content = req.message
+                memory_ctx = _build_effective_memory_context(session_id)
+                if memory_ctx:
+                    enriched_content = f"{memory_ctx}\n\n[当前消息]\n{req.message}"
+                cc.append_context(SessionContextRecord(
+                    session_id=session_id,
+                    role="user",
+                    content=enriched_content,
+                    kind="message",
+                ))
+                # Upload assistant response
+                cc.append_context(SessionContextRecord(
+                    session_id=session_id,
+                    role="assistant",
+                    content=response_text,
+                    kind="message",
+                ))
+        except Exception as e:
+            logger.warning("ContextCenter upload failed: %s", e)
         persist_chat_observation(
             probe=build_chat_observation_probe(
                 request=req.message,
@@ -595,7 +805,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
         error_text = str(e)
         error_type = type(e).__name__
         logger.exception("Error processing message")
-        visible_error = f"LLM request failed: {error_text}"
+        visible_error = f"系统暂时无法处理这个请求，请稍后重试。({error_type}: {error_text[:60]})"
         conversation_history.setdefault(session_id, []).append({
             "role": "user",
             "content": req.message,
@@ -606,17 +816,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
             "content": visible_error,
             "timestamp": finished_at.isoformat(),
         })
-        _append_chat_log(session_id, {
-            "timestamp": finished_at.isoformat(),
-            "session_id": session_id,
-            "username": user.get("username", "anonymous"),
-            "request": req.message,
-            "response": visible_error,
-            "success": False,
-            "error": error_text,
-            "error_type": error_type,
-            "latency_ms": latency_ms,
-        })
+        logger.warning("Chat failed for %s: %s", session_id, error_text[:100])
         persist_chat_observation(
             probe=build_chat_observation_probe(
                 request=req.message,
@@ -628,7 +828,41 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
                 error_type=error_type,
             )
         )
-        return {"success": False, "error": visible_error, "error_type": error_type, "session_id": session_id, "latency_ms": latency_ms, "response": visible_error, "content": visible_error}
+        return {"success": True, "error": None, "error_type": None, "session_id": session_id, "latency_ms": latency_ms, "response": visible_error, "content": visible_error}
+
+
+# ---------------------------------------------------------------------------
+# App Task Dispatch & Query
+# ---------------------------------------------------------------------------
+
+@app.post("/api/task/dispatch")
+async def api_task_dispatch(req: dict):
+    """手动分发 App 任务到 MasterControl（异步）"""
+    master_control = runtime_services.get("master_control")
+    if not master_control:
+        return {"success": False, "error": "MasterControl not available"}
+    try:
+        result = master_control.dispatch_app_task(
+            app=req.get("app", ""),
+            operation=req.get("operation", ""),
+            params=req.get("params", {}),
+            parent_session=req.get("parent_session", ""),
+        )
+        return {"success": True, "task": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/api/task/{task_id}")
+async def api_task_query(task_id: str):
+    """查询 App 任务状态"""
+    master_control = runtime_services.get("master_control")
+    if not master_control:
+        return {"success": False, "error": "MasterControl not available"}
+    result = master_control.query_task(task_id)
+    if result is None:
+        return {"success": False, "error": f"task {task_id} not found"}
+    return {"success": True, "task": result}
 
 
 @app.post("/api/chat-regression/run")

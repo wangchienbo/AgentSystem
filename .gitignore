@@ -19,3 +19,13 @@ build/
 installed/
 source/
 data/namespaces/
+
+# Runtime logs
+logs/
+
+# Memory & workspace
+memory/
+prompts/
+
+# Temporary docs
+改造执行指南.md

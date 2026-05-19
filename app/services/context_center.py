@@ -43,6 +43,36 @@ class ContextCenter:
             buffer_dir=self._durable_buffer.paths.buffer_dir,
             flush_session=self.flush_stable_pending_events,
         )
+        # 启动时把已持久化的 detail 事件加载回内存 _records
+        self._load_persisted_records()
+
+    def _load_persisted_records(self) -> None:
+        """启动时从磁盘 detail 目录加载已持久化的会话记录到内存 _records。"""
+        from pathlib import Path
+        detail_root = self._query_service.paths.detail_dir
+        if not detail_root.exists():
+            return
+        for session_dir in detail_root.iterdir():
+            if not session_dir.is_dir():
+                continue
+            try:
+                events = self._query_service.read_detail_events(
+                    session_id=session_dir.name, limit=200
+                )
+                if not events:
+                    continue
+                import json
+                for ev in events:
+                    record = SessionContextRecord(
+                        session_id=session_dir.name,
+                        role=ev.role,
+                        content=ev.message,
+                        kind="message",
+                        created_at=ev.timestamp,
+                    )
+                    self._records.setdefault(session_dir.name, []).append(record)
+            except Exception:
+                pass
 
     # Chapter 5 target-shaped APIs -------------------------------------------------
 

@@ -82,6 +82,7 @@ from app.models.maoxuan_skill import MaoxuanSkillRequest
 from app.models.memory_skill import MemorySkillRequest
 from app.services.system_skills.maoxuan import MaoxuanSkillService
 from app.services.system_skills.memory import MemorySkillService
+from app.services.context_center import ContextCenter
 from app.runtime_paths import resolve_runtime_paths
 
 
@@ -642,7 +643,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             ]),
             ("asset:runtime_center:v1", "runtime_center", "Runtime source of truth for live assets", runtime_center, [
                 AssetCapability(name="list assets", description="List runtime assets", method="list_assets", side_effect_level="read"),
-                AssetCapability(name="query asset info", description="Query one runtime asset", method="query_asset_info", side_effect_level="read"),
+                AssetCapability(name="query asset info", description="Query one runtime asset by ID", method="query_asset_info", side_effect_level="read"),
+                AssetCapability(name="query asset", description="Query one runtime asset by ID (alias)", method="query_asset", side_effect_level="read"),
                 AssetCapability(name="call asset method", description="Call a runtime asset capability through mapped entry", method="call_asset_method", side_effect_level="write", permission_hint="admin"),
             ]),
             ("asset:model_router:v1", "model_router", "Model routing and selection", model_router, [
@@ -653,6 +655,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             ]),
             ("asset:app_management_worker:v1", "app_management_worker", "App lifecycle and runtime worker", app_mgmt_worker, [
                 AssetCapability(name="list apps", description="List registered apps", method="list_apps", side_effect_level="read"),
+                AssetCapability(name="list all apps", description="List all registered apps without filter", method="list_all_apps", side_effect_level="read"),
                 AssetCapability(name="query app", description="Query one app record", method="query_app", side_effect_level="read"),
                 AssetCapability(name="start app", description="Start an app instance", method="start_app", side_effect_level="write"),
                 AssetCapability(name="stop app", description="Stop an app instance", method="stop_app", side_effect_level="write"),
@@ -687,7 +690,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             },
             "runtime_center": {
                 "list_assets": lambda filter_text=None: [a.model_dump(mode="json") for a in runtime_center.list_assets() if not filter_text or filter_text.lower() in json.dumps(a.model_dump(mode="json"), ensure_ascii=False).lower()],
-                "query_asset_info": lambda asset_id: runtime_center.query_asset_info(asset_id),
+                "query_asset_info": lambda asset_id=None, **kw: runtime_center.query_asset_info(asset_id or kw.get("asset_id", "")),
+                "query_asset": lambda asset_id=None, **kw: runtime_center.query_asset_info(asset_id or kw.get("asset_id", "")),
                 "call_asset_method": lambda asset_id, method, params=None: runtime_center.call_asset_method(asset_id=asset_id, method=method, params=params or {}),
             },
             "model_router": {
@@ -704,7 +708,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                 "create_app": lambda app_name, config=None: app_mgmt_worker.execute("create_app", app_name, {"config": config or {}}),
                 "modify_app": lambda app_name, modification: app_mgmt_worker.execute("modify_app", app_name, {"modification": modification}),
                 "list_apps": lambda status="all": app_mgmt_worker.execute("list_apps", "", {"status": status}),
-                "query_app": lambda app_name: app_mgmt_worker.execute("query_app", app_name, {}),
+                "list_all_apps": lambda: app_mgmt_worker.execute("list_all_apps", "", {}),
+                "query_app": lambda app_name=None, name=None, **kwargs: app_mgmt_worker.execute("query_app", name or app_name or "", {}),
                 "start_app": lambda app_name: app_mgmt_worker.execute("start_app", app_name, {}),
                 "stop_app": lambda app_name: app_mgmt_worker.execute("stop_app", app_name, {}),
                 "delete_app": lambda app_name: app_mgmt_worker.execute("delete_app", app_name, {}),
@@ -1027,6 +1032,98 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
 
     tool_calling_engine.register_tool("call_asset_method", _call_asset_method_handler)
 
+    # Register app task dispatch tool (交互层 → MasterControl 异步调度)
+    # 会话级上下文：记住用户当前操作的对象（如最近创建/使用的小说 ID）
+    _session_context: dict[str, dict] = {}
+    
+    def _get_session_novel_id(parent_session: str) -> str | None:
+        """从会话上下文提取当前小说 ID"""
+        ctx = _session_context.get(parent_session or "")
+        if ctx:
+            return ctx.get("novel_id")
+        return None
+
+    def _set_session_novel_id(parent_session: str, novel_id: str):
+        """记录当前小说 ID 到会话上下文"""
+        if parent_session:
+            _session_context.setdefault(parent_session, {})["novel_id"] = novel_id
+
+    def _dispatch_app_task_handler(app: str, operation: str, params: dict | None = None, parent_session: str = "") -> dict:
+        """Handler for dispatch_app_task tool."""
+        safe_params = dict(params or {})
+        
+        # 模型经常不填 params，全塞在 parent_session 里
+        # 从这里抢救一切能抢救的参数
+        if not safe_params.get("novel_id"):
+            if parent_session.startswith("novel_"):
+                safe_params["novel_id"] = parent_session
+            elif parent_session.startswith("t_"):
+                # 可能是上一轮的 task_id 被当成了 novel_id
+                pass  # 让 worker 用 _current_novel_id fallback
+            else:
+                ctx_nid = _get_session_novel_id(parent_session)
+                if ctx_nid:
+                    safe_params["novel_id"] = ctx_nid
+        
+        # 如果用户消息在 parent_session 里（模型经常把原文塞进去）
+        # 尝试从中提取信息
+        if not safe_params.get("name") and parent_session:
+            # 从 parent_session 提取中文名（常见场景：助词后跟人名）
+            import re
+            for prefix in ['叫', '名为', '名叫', '角色']:
+                idx = parent_session.find(prefix)
+                if idx >= 0:
+                    after = parent_session[idx+len(prefix):].strip()
+                    # 取到第一个非中文字符或助词前
+                    name_match = re.match(r'^([\u4e00-\u9fff]{2,4})', after)
+                    if name_match:
+                        safe_params["name"] = name_match.group(1)
+                        break
+        
+        result = master_control.dispatch_app_task(
+            app=app,
+            operation=operation,
+            params=params or {},
+            parent_session=parent_session,
+        )
+        return result
+
+    tool_calling_engine.register_tool("dispatch_app_task", _dispatch_app_task_handler)
+    tool_registry.register(ToolDefinition(
+        name="dispatch_app_task",
+        description="【写操作】将 App 的写入型任务分发到 MasterControl 异步执行。"
+                     "适用于创建、修改、删除等有副作用的操作 (create_novel, add_character, save_outline 等)。"
+                     "必须将用户提供的参数填入 params 对象中（如 title, genre, author 等）。"
+                     "工具立即返回 task_id，异步执行，后续可用 query_task 查询进度。"
+                     "同时向用户回复任务已安排及对应的 task_id。",
+        parameters=[
+            ToolParameter(name="app", type="string", description="目标 App 标识，如 novel_studio", required=True),
+            ToolParameter(name="operation", type="string", description="操作名，如 create_novel", required=True),
+            ToolParameter(name="params", type="object", description="操作参数，必须包含用户提供的所有信息。如创建小说: title, genre", required=True),
+            ToolParameter(name="parent_session", type="string", description="交互层 session_id", required=False),
+        ],
+        category="app_task",
+        priority=9,
+    ))
+
+    def _query_task_handler(task_id: str) -> dict:
+        """Handler for query_task tool."""
+        result = master_control.query_task(task_id)
+        if result is None:
+            return {"error": f"task {task_id} not found"}
+        return result
+
+    tool_calling_engine.register_tool("query_task", _query_task_handler)
+    tool_registry.register(ToolDefinition(
+        name="query_task",
+        description="查询 App 异步任务的执行状态。支持 poll 模式：若 status=pending/running 可稍后再查。",
+        parameters=[
+            ToolParameter(name="task_id", type="string", description="任务 ID", required=True),
+        ],
+        category="app_task",
+        priority=8,
+    ))
+
     # Register package management tools (source/ installed/ separation)
     for tool_def in make_all_package_tools():
         tool_registry.register(ToolDefinition(
@@ -1185,6 +1282,36 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             },
         })
 
+    # Register app task dispatch tools in hot_tool_manager for session visibility
+    hot_tool_manager.register_tool({
+        "name": "dispatch_app_task",
+        "description": "【写操作】将 App 的写入型任务分发到 MasterControl 异步执行。适用于创建、修改、删除等有副作用的操作。工具立即返回 task_id，异步执行。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "app": {"type": "string", "description": "目标 App 标识，如 novel_studio"},
+                "operation": {"type": "string", "description": "操作名，如 create_novel"},
+                "params": {"type": "object", "description": "操作参数"},
+                "parent_session": {"type": "string", "description": "交互层 session_id"},
+            },
+            "required": ["app", "operation"],
+        },
+    })
+    hot_tool_manager.register_tool({
+        "name": "query_task",
+        "description": "查询 App 异步任务的执行状态。支持 poll 模式：若 status=pending/running 可稍后再查。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "任务 ID"},
+            },
+            "required": ["task_id"],
+        },
+    })
+
+    # Initialize ContextCenter — unified context assembly hub
+    context_center = ContextCenter()
+
     # Initialize ToolCallingInterpreter with hot tool support + asset visibility
     tool_calling_interpreter = ToolCallingInterpreter(
         tool_registry=tool_registry,
@@ -1194,6 +1321,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         hot_tool_manager=hot_tool_manager,
         runtime_center=runtime_center,  # For asset visibility in prompt
         telemetry_service=telemetry_service,
+        context_center=context_center,  # Unified context assembly
     )
     def _interaction_detail_provider(asset_id: str) -> dict[str, object] | None:
         if hasattr(asset_center, "get_asset_detail"):
@@ -1341,6 +1469,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         config_center=config_center,  # Pass ConfigCenter for default app-skill binding
         master_control=master_control,  # Pass MasterControl for centralized execution
         telemetry_service=telemetry_service,
+        context_center=context_center,  # Phase H: unified context assembly
         # Phase 7.4: new interaction runtime injection
         interaction_orchestrator=interaction_orchestrator,
         invocation_dispatcher=invocation_dispatcher,
@@ -1433,6 +1562,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     g1g2_system_skill_meta: dict[str, Any] = {
         "greet": {"name": "greet", "description": "打招呼/问候"},
         "list_apps": {"name": "list_apps", "description": "查看 App 列表"},
+        "list_all_apps": {"name": "list_all_apps", "description": "列出所有 App（不带过滤）"},
         "query_status": {"name": "query_status", "description": "查询系统状态"},
         "query_help": {"name": "query_help", "description": "查看帮助"},
         "create_app": {"name": "create_app", "description": "创建 App"},

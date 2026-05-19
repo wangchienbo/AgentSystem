@@ -32,7 +32,11 @@ class EngineeringTaskType(str, Enum):
     SELF_ITERATE = "self_iterate"          # 自我迭代
     CODE_CHANGE = "code_change"            # 代码修改
     CONFIG_CHANGE = "config_change"        # 配置修改
-    REVIEW = "review"                       # 审查
+    REVIEW = "review"                      # 审查/复审
+    DEPLOY = "deploy"                      # 部署/发布
+    TROUBLESHOOT = "troubleshoot"          # 故障排查/问题诊断
+    QUERY = "query"                        # 信息查询
+    AUDIT = "audit"                        # 审计/安全检查
 
 
 # 轻量关键词提示（仅辅助，不做主判定）
@@ -115,6 +119,26 @@ def classify_engineering_task(text: str) -> TaskModeClassification:
         signals.append("intent:code_change")
         task_type = EngineeringTaskType.CODE_CHANGE
         confidence = max(confidence, 0.25)
+
+    if any(kw in text_lower for kw in ["部署", "发布", "上线", "deploy", "release"]):
+        signals.append("intent:deploy")
+        task_type = EngineeringTaskType.DEPLOY
+        confidence = max(confidence, 0.2)
+
+    if any(kw in text_lower for kw in ["诊断", "排查", "调试", "问题", "报错", "异常", "为什么", "troubleshoot", "debug"]):
+        signals.append("intent:troubleshoot")
+        task_type = EngineeringTaskType.TROUBLESHOOT
+        confidence = max(confidence, 0.2)
+
+    if any(kw in text_lower for kw in ["审计", "安全检查", "audit", "security check"]):
+        signals.append("intent:audit")
+        task_type = EngineeringTaskType.AUDIT
+        confidence = max(confidence, 0.15)
+
+    if any(kw in text_lower for kw in ["查询", "查看", "看看", "检查", "状态", "query", "status", "list"]):
+        signals.append("intent:query")
+        task_type = EngineeringTaskType.QUERY
+        confidence = max(confidence, 0.15)
 
     # 综合判定
     if not signals:

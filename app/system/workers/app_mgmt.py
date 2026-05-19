@@ -69,6 +69,7 @@ class AppManagementWorker:
             "pause_app": self._pause_app,
             "resume_app": self._resume_app,
             "list_apps": self._list_apps,
+            "list_all_apps": self._list_all_apps,
             "query_app": self._query_app,
             "modify_app": self._modify_app,
             "delete_app": self._delete_app,
@@ -320,28 +321,46 @@ class AppManagementWorker:
                 if getattr(entry, "status", None) != status_filter:
                     continue
             result.append({
-                "id": getattr(entry, "app_instance_id", str(entry)),
                 "blueprint_id": getattr(entry, "blueprint_id", ""),
+                "name": getattr(entry, "name", ""),
+                "version": getattr(entry, "version", ""),
                 "status": getattr(entry, "status", "unknown"),
-                "owner": getattr(entry, "owner_user_id", "system"),
+                "release_status": getattr(entry, "release_status", "active"),
+                "description": getattr(entry, "description", ""),
+                "app_shape": getattr(entry, "app_shape", "generic"),
             })
         return {"status": "success", "data": {"apps": result, "total": len(result)}}
+
+    def _list_all_apps(self, target: str, params: dict) -> dict:
+        """获取所有 app，不带过滤。"""
+        return self._list_apps(target, {"status": "all"})
 
     def _query_app(self, target: str, params: dict) -> dict:
         if not self._app_registry:
             return {"status": "error", "message": "AppRegistry 未加载"}
         lookup_target = target or params.get("target_app") or params.get("app_id") or ""
         entries = self._app_registry.list_entries()
+        # 匹配逻辑：支持 blueprint_id, name, app_instance_id 三种匹配
+        # 对于 blueprint_id 支持前缀匹配（"novel_studio" → "bp.novel_studio"）
         for entry in entries:
             bid = getattr(entry, "blueprint_id", "")
+            ename = getattr(entry, "name", "")
             iid = getattr(entry, "app_instance_id", "")
-            if lookup_target in (bid, iid):
+            if (
+                lookup_target in (bid, ename, iid)
+                or f"bp.{lookup_target}" == bid
+                or lookup_target == bid.replace("bp.", "", 1)
+            ):
                 return {
                     "status": "success",
                     "data": {
                         "blueprint_id": bid,
-                        "instance_id": iid,
+                        "name": ename,
+                        "version": getattr(entry, "version", ""),
                         "status": getattr(entry, "status", "unknown"),
+                        "release_status": getattr(entry, "release_status", "active"),
+                        "description": getattr(entry, "description", ""),
+                        "app_shape": getattr(entry, "app_shape", "generic"),
                         "owner": getattr(entry, "owner_user_id", "system"),
                         "context_hints": params.get("context_hints", []),
                         "related_session_ids": params.get("related_session_ids", []),

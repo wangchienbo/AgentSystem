@@ -127,6 +127,31 @@ SYSTEM_TOOLS: list[dict[str, Any]] = [
             "required": ["asset_id", "method"],
         },
     },
+    {
+        "name": "dispatch_app_task",
+        "description": "【写操作】将 App 的写入型任务分发到 MasterControl 异步执行。适用于创建、修改、删除等有副作用的操作。工具立即返回 task_id，异步执行。注意：必须将用户提供的所有参数（如标题、题材等）填入 params 参数中。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "app": {"type": "string", "description": "目标 App 标识，如 novel_studio"},
+                "operation": {"type": "string", "description": "操作名，如 create_novel"},
+                "params": {"type": "object", "description": "操作参数，必须包含用户提供的所有信息（如 title, genre 等）"},
+                "parent_session": {"type": "string", "description": "交互层 session_id"},
+            },
+            "required": ["app", "operation", "params"],
+        },
+    },
+    {
+        "name": "query_task",
+        "description": "查询 App 异步任务的执行状态。支持 poll 模式：若 status=pending/running 可稍后再查。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "任务 ID"},
+            },
+            "required": ["task_id"],
+        },
+    },
 ]
 
 

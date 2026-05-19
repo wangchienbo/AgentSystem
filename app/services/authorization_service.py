@@ -28,11 +28,46 @@ class AuthorizationService:
     3. 根据授权态生成执行决策
     4. 提供授权、撤销、过期清理能力
 
-    当前为内存实现，后续可接入持久化存储。
+    支持持久化（通过 RuntimeStateStore），重启不丢失授权态。
     """
 
-    def __init__(self) -> None:
+    STORAGE_KEY = "authorization_states"
+
+    def __init__(self, state_store: Any = None) -> None:
         self._states: dict[str, AuthorizationState] = {}
+        self._state_store = state_store
+        self._load_from_store()
+
+    # ── 持久化 ──
+
+    def _load_from_store(self) -> None:
+        """启动时从持久化存储恢复授权态。"""
+        if not self._state_store:
+            return
+        try:
+            raw = self._state_store.load_json(self.STORAGE_KEY, default={})
+            if not isinstance(raw, dict):
+                return
+            loaded = 0
+            for session_id, data in raw.items():
+                try:
+                    self._states[session_id] = AuthorizationState(**data)
+                    loaded += 1
+                except Exception as e:
+                    logger.warning("Failed to load auth state for %s: %s", session_id, e)
+            if loaded:
+                logger.info("Restored %d authorization states from store", loaded)
+        except Exception as e:
+            logger.warning("Failed to load authorization states: %s", e)
+
+    def _persist(self) -> None:
+        """持久化所有授权态到存储。"""
+        if not self._state_store:
+            return
+        try:
+            self._state_store.save_mapping(self.STORAGE_KEY, self._states)
+        except Exception as e:
+            logger.warning("Failed to persist authorization states: %s", e)
 
     # ── 读写 ──
 
@@ -49,6 +84,7 @@ class AuthorizationService:
     def save(self, state: AuthorizationState) -> None:
         """保存授权态。"""
         self._states[state.session_id] = state
+        self._persist()
         logger.info(
             "Authorization saved: session=%s level=%s modify=%s restart=%s bg=%s",
             state.session_id,
@@ -96,6 +132,7 @@ class AuthorizationService:
         state = self._states.get(session_id)
         if state:
             state.revoke()
+            self._persist()
             logger.info("Authorization revoked: session=%s", session_id)
 
     def consume(self, session_id: str) -> None:
@@ -183,9 +220,11 @@ class AuthorizationService:
         for sid in expired:
             del self._states[sid]
         if expired:
+            self._persist()
             logger.info("Cleaned %d expired authorization states", len(expired))
         return len(expired)
 
     def clear_session(self, session_id: str) -> None:
         """清除指定会话的授权态。"""
         self._states.pop(session_id, None)
+        self._persist()

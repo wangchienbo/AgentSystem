@@ -246,12 +246,33 @@ class ToolCallingEngine:
         interaction_id = interaction_id or f"toolcall:{session_id or 'unknown'}:{skill_id}:{abs(hash(user_message))}"
 
         if max_turns is None:
-            max_turns = 8
+            try:
+                from app.services.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
+                max_turns = TurnBudgetPolicy.decide(TaskModeBudget.EXECUTION)
+            except Exception:
+                max_turns = 30
 
         consecutive_tool_name = None
         consecutive_tool_count = 0
 
+        # 收敛提示阈值（turn≥CONVERGENCE_HINT_TURN 时注入）
+        try:
+            from app.services.turn_budget_policy import TurnBudgetPolicy
+            _convergence_turn = TurnBudgetPolicy.CONVERGENCE_HINT_TURN
+        except Exception:
+            _convergence_turn = 50
+
         for turn in range(max_turns):
+            # 到达收敛阈值时，注入阶段性收敛提示
+            if turn == _convergence_turn:
+                messages.append({
+                    "role": "system",
+                    "content": (
+                        f"[系统提示] 当前对话已执行 {turn} 轮工具调用，接近预算上限。"
+                        f"请立即整理已有信息，输出当前阶段性成果作为回复，不再调用工具。"
+                    ),
+                })
+
             logger.info(
                 "ToolCallingEngine turn=%s session=%s payload_tools=%s",
                 turn + 1,
@@ -266,6 +287,8 @@ class ToolCallingEngine:
                     max_tokens=max_tokens,
                     temperature=temperature,
                 )
+                if response is None:
+                    raise ModelClientError("chat_with_tools returned None", retryable=True)
             except ModelClientError as exc:
                 if turn == 0 and getattr(exc, "retryable", False):
                     logger.warning(
@@ -358,7 +381,7 @@ class ToolCallingEngine:
                     consecutive_tool_name = tool_name
                     consecutive_tool_count = 1
 
-                if tool_name == "call_asset_method" and consecutive_tool_count >= 3:
+                if tool_name == "call_asset_method" and consecutive_tool_count >= 5:
                     logger.warning(
                         "ToolCallingEngine loop guard triggered session=%s turn=%s tool=%s consecutive=%s",
                         session_id,
@@ -390,9 +413,11 @@ class ToolCallingEngine:
 
                 handler = handlers.get(tool_name)
                 if handler:
+                    logger.info("ToolCallingEngine calling tool session=%s turn=%s tool=%s args=%s", session_id, turn + 1, tool_name, json.dumps(tool_args, ensure_ascii=False)[:200])
                     try:
                         result = handler(**tool_args) if isinstance(tool_args, dict) else handler(tool_args)
                         result_str = self._sanitize_tool_result(tool_name, result)
+                        logger.info("ToolCallingEngine tool result session=%s turn=%s tool=%s result=%s", session_id, turn + 1, tool_name, result_str[:200])
                         call_records.append(ToolCallRecord(tool_name=tool_name, args=tool_args, result=result))
                         evidence_items.extend(self._build_evidence_items(tool_name, result))
                         if self._telemetry_service is not None:

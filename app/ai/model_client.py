@@ -259,20 +259,20 @@ def _tool_route_budget(message_count: int) -> tuple[int, float]:
     tighter budgets so degraded paths fail faster and surface fallback output.
     """
     if message_count >= 8:
-        return 1, 45.0
+        return 1, 600.0
     if message_count >= 6:
-        return 2, 50.0
+        return 2, 600.0
     if message_count >= 4:
-        return 2, 55.0
-    return 3, 60.0
+        return 2, 600.0
+    return 3, 600.0
 
 
 def describe_tool_route_budget() -> list[dict[str, float | int]]:
     return [
-        {"min_message_count": 0, "max_message_count": 3, "max_attempts": 3, "timeout_cap_seconds": 60.0},
-        {"min_message_count": 4, "max_message_count": 5, "max_attempts": 2, "timeout_cap_seconds": 55.0},
-        {"min_message_count": 6, "max_message_count": 7, "max_attempts": 2, "timeout_cap_seconds": 50.0},
-        {"min_message_count": 8, "max_message_count": -1, "max_attempts": 1, "timeout_cap_seconds": 45.0},
+        {"min_message_count": 0, "max_message_count": 3, "max_attempts": 3, "timeout_cap_seconds": 600.0},
+        {"min_message_count": 4, "max_message_count": 5, "max_attempts": 2, "timeout_cap_seconds": 600.0},
+        {"min_message_count": 6, "max_message_count": 7, "max_attempts": 2, "timeout_cap_seconds": 600.0},
+        {"min_message_count": 8, "max_message_count": -1, "max_attempts": 1, "timeout_cap_seconds": 600.0},
     ]
 
 
@@ -484,7 +484,51 @@ class OpenAIResponsesClient:
                         )
                         time.sleep(wait_seconds)
                         continue
-                    break
+
+                    # ── HTTP 响应有效，解析 & 空内容重试 ──
+                    if response.status_code >= 400:
+                        debug_path = Path('/tmp/agentsystem_chat_with_tools_payload.json')
+                        try:
+                            debug_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+                        except Exception:
+                            pass
+                        raise ModelClientError(
+                            f"Chat with tools failed: {response.status_code} {response.text[:300]} | payload_dump={debug_path}",
+                            status_code=response.status_code,
+                            retryable=response.status_code >= 500 or response.status_code == 429,
+                        )
+                    data = _safe_chat_completion_payload(response)
+                    choice, message, text, tool_calls, finish_reason = _normalize_choice_payload(data, model_name=model_name)
+                    usage = _build_usage_info(data.get("usage") or {}, model_name=model_name)
+                    logger.info(
+                        "ModelClient.chat_with_tools response model=%s returned_tool_calls=%s finish_reason=%s attempt=%s/%s",
+                        model_name,
+                        [tc.get("function", {}).get("name") for tc in tool_calls],
+                        finish_reason,
+                        attempt + 1,
+                        max_attempts,
+                    )
+
+                    # 模型返回空内容（无文字无工具调用）且还有重试次数时重试
+                    if not text and not tool_calls and attempt < max_attempts - 1:
+                        wait_seconds = 0.5 * (attempt + 1)
+                        logger.warning(
+                            "ModelClient.chat_with_tools empty_response model=%s attempt=%s/%s retry_in=%ss",
+                            model_name,
+                            attempt + 1,
+                            max_attempts,
+                            wait_seconds,
+                        )
+                        time.sleep(wait_seconds)
+                        continue
+
+                    return {
+                        "message": message,
+                        "text": text,
+                        "tool_calls": tool_calls,
+                        "finish_reason": finish_reason,
+                    }, usage
+
                 except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ReadError) as exc:
                     last_error = exc
                     if attempt >= max_attempts - 1:
@@ -502,39 +546,13 @@ class OpenAIResponsesClient:
                         wait_seconds,
                     )
                     time.sleep(wait_seconds)
-            else:
-                raise ModelClientError(
-                    f"Chat with tools transport failed: {last_error}",
-                    status_code=None,
-                    retryable=True,
-                )
-        if response.status_code >= 400:
-            debug_path = Path('/tmp/agentsystem_chat_with_tools_payload.json')
-            try:
-                debug_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-            except Exception:
-                pass
-            raise ModelClientError(
-                f"Chat with tools failed: {response.status_code} {response.text[:300]} | payload_dump={debug_path}",
-                status_code=response.status_code,
-                retryable=response.status_code >= 500 or response.status_code == 429,
-            )
-        data = _safe_chat_completion_payload(response)
-        choice, message, text, tool_calls, finish_reason = _normalize_choice_payload(data, model_name=model_name)
-        usage = _build_usage_info(data.get("usage") or {}, model_name=model_name)
-        logger.info(
-            "ModelClient.chat_with_tools response model=%s returned_tool_calls=%s finish_reason=%s",
-            model_name,
-            [tc.get("function", {}).get("name") for tc in tool_calls],
-            finish_reason,
-        )
 
-        return {
-            "message": message,
-            "text": text,
-            "tool_calls": tool_calls,
-            "finish_reason": finish_reason,
-        }, usage
+        # 所有尝试耗尽仍未返回（不应发生）
+        raise ModelClientError(
+            "Chat with tools exhausted all attempts without returning a response",
+            status_code=None,
+            retryable=True,
+        )
 
     def chat_turns(
         self,
@@ -557,10 +575,8 @@ class OpenAIResponsesClient:
         """
         if max_turns is None:
             try:
-                from app.ai.model_config_loader import DEFAULT_MODEL_CONFIG_PATH
-                cfg = yaml.safe_load(DEFAULT_MODEL_CONFIG_PATH.read_text(encoding="utf-8")) or {}
-                app_cfg = cfg.get("app", {}) or {}
-                max_turns = app_cfg.get("max_turns", 30)
+                from app.services.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
+                max_turns = TurnBudgetPolicy.decide(TaskModeBudget.EXECUTION)
             except Exception:
                 max_turns = 30
 
@@ -575,7 +591,24 @@ class OpenAIResponsesClient:
         }
         model_name = model or self._config.model
 
+        # 收敛提示阈值（turn≥CONVERGENCE_HINT_TURN 时注入）
+        try:
+            from app.services.turn_budget_policy import TurnBudgetPolicy
+            _convergence_turn = TurnBudgetPolicy.CONVERGENCE_HINT_TURN
+        except Exception:
+            _convergence_turn = 50
+
         for turn in range(max_turns):
+            # 到达收敛阈值时，注入阶段性收敛提示
+            if turn == _convergence_turn:
+                messages.append({
+                    "role": "system",
+                    "content": (
+                        f"[系统提示] 当前对话已执行 {turn} 轮工具调用，接近预算上限。"
+                        f"请立即整理已有信息，输出当前阶段性成果作为回复，不再调用工具。"
+                    ),
+                })
+
             response, usage = self.chat_with_tools(
                 messages=messages,
                 tools=tools,

@@ -262,7 +262,10 @@ class RuntimeCenter:
     def call_asset_method(self, asset_id: str, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         asset = self.get(asset_id)
         if asset is None:
-            return self._call_error(asset_id, method, params, f"asset {asset_id} not found", error_type="asset_not_found")
+            # 模型常猜错 asset_id，提示最接近的
+            similar = [aid for aid in self._entries if asset_id.replace("_worker", "") in aid or asset_id[:-3] in aid]
+            hint = f"，你是不是想说 {similar[0]}？" if similar else ""
+            return self._call_error(asset_id, method, params, f"asset {asset_id} not found{hint}", error_type="asset_not_found")
         allowed = {cap.method: cap for cap in asset.capabilities}
         if method not in allowed:
             return self._call_error(asset_id, method, params, f"method {method} not exposed by {asset_id}", error_type="method_not_exposed")

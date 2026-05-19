@@ -14,6 +14,7 @@ AppCommandName = Literal[
     "resume_app",
     "query_app",
     "list_apps",
+    "list_all_apps",
     "delete_app",
 ]
 

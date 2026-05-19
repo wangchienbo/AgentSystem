@@ -155,5 +155,7 @@ class PendingTaskRecord(BaseModel):
     next_recommended_action: dict[str, Any] | None = None
     artifacts: list[dict[str, Any]] = Field(default_factory=list)
     last_user_message: str = ""
+    error_message: str = ""  # 后台执行时的错误信息
+    completed_stages: list[str] = Field(default_factory=list)  # 已完成的阶段列表
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

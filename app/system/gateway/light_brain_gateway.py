@@ -25,6 +25,7 @@ from app.models.telemetry import InteractionTelemetryRecord
 from app.runtime_paths import resolve_runtime_paths
 from app.services.context_center import ContextCenter
 from app.models.context import SessionContextRecord, SessionLink, SessionNode
+from app.ai.model_client import ModelClientError
 from app.models.pending_task import (
     PENDING_TASK_ACTION_APPLY_DRAFT_APP,
     PENDING_TASK_ACTION_APPROVE_SOLUTION_DRAFT,
@@ -168,6 +169,12 @@ class LightBrainGateway:
         # Execution mode integrator (lazy init)
         self._execution_mode_integrator: Any | None = None
 
+        # P0-7: 意图提取层（lazy init）
+        self._intent_extractor: Any | None = None
+
+        # P1-2: 回放跟踪（session_id → set of task_ids）
+        self._replayed_tasks: dict[str, set[str]] = {}
+
         # Built-in intent → handler mapping (defined below in class body)
         self._handlers: dict[str, Any] = {
             "greet": self._handle_greet,
@@ -181,6 +188,11 @@ class LightBrainGateway:
             "show_self": self._handle_permission,
             "call_asset_method": self._handle_runtime_asset_tool,
         }
+
+    @property
+    def context_center(self) -> Any | None:
+        """Public accessor for ContextCenter (unified context assembly)."""
+        return self._context_center
 
     def set_app_registry(self, app_registry: Any) -> None:
         """Inject AppRegistry for local handlers."""
@@ -223,6 +235,16 @@ class LightBrainGateway:
         self._memory.record_user_message(session_id, request.message)
         self._mirror_session_node(session_id=session_id, user_id=request.user_id, channel=request.channel)
         self._append_context_record(session_id=session_id, role="user", content=request.message, kind="message")
+
+        # Task 2.1: 将调用方构建的 memory_context 注入上下文链路
+        if request.memory_context:
+            self._append_context_record(
+                session_id=session_id,
+                role="system",
+                content=f"[跨会话上下文]\n{request.memory_context}",
+                kind="memory_context",
+            )
+
         if pending_task is not None:
             self._append_context_record(
                 session_id=session_id,
@@ -245,6 +267,22 @@ class LightBrainGateway:
                 content=self._render_continuation_decision_note(continuation_decision),
                 kind="system_note",
             )
+
+        # P1-2: 结果回放 — 检测已完成任务并回放
+        if pending_task is None:
+            replay_task = self._get_latest_closed_task(request.user_id)
+            if replay_task is not None and not self.was_replayed(session_id, replay_task.task_id):
+                self.mark_replayed(session_id, replay_task.task_id)
+                logger.info(
+                    "Replaying task result: user=%s task=%s status=%s",
+                    request.user_id, replay_task.task_id, replay_task.status,
+                )
+                return ChatMessageResponse(
+                    type="replay",
+                    content=self._format_replay_content(replay_task),
+                    session_id=session_id,
+                    data={"pending_task": replay_task.model_dump(mode="json")},
+                )
 
         # Phase H+: Rate limit check
         allowed, block_reason = self._rate_limiter.try_acquire_session_slot(session_id)
@@ -310,28 +348,68 @@ class LightBrainGateway:
             if interaction_result is not None:
                 return self._build_interaction_response(session_id, request.message, interaction_result, _cmd_start_time)
 
+            # P0-7: 意图提取层 — 先结构化理解，再路由执行
+            intent_result = None
+            intent_extractor = self._get_intent_extractor()
+            if intent_extractor:
+                intent_result = intent_extractor.extract(
+                    request.message,
+                    context={"session_id": session_id},
+                )
+                # 根据提取的意图做预处理
+                from app.models.intent import AuthorizationSignal
+                if intent_result.implied_authorization != AuthorizationSignal.NONE:
+                    self._log_implied_authorization(
+                        session_id, request.user_id or "system", intent_result
+                    )
+
             # Phase 7.1: interpret intent using interpreter (legacy fallback)
             if hasattr(self._interpreter, "set_tool_registry"):
                 self._interpreter.set_tool_registry(self._tool_registry)
+
+            # 构建执行上下文（授权态 + 任务模式），传给 interpreter
+            exec_context: dict | None = None
+            integrator = self._get_execution_mode_integrator()
+            if integrator is not None:
+                exec_context = integrator.on_message_received(
+                    session_id, request.user_id or "system", request.message
+                )
+
             command = self._interpreter.interpret(
                 message=request.message,
                 available_apps=available_apps or [],
                 user_id=request.user_id or "system",
                 session_id=session_id,
+                exec_context=exec_context,  # ← 新增：传入执行上下文
             )
 
             # Phase 7.2: enrich command with tools and session state
             available_apps = available_apps or []
             command = self._enrich_command(command, session_id, available_apps)
             if pending_task is not None:
-                command.context["pending_task"] = pending_task.model_dump(mode="json")
+                command.context["pending_task"] = pending_task
             if continuation_decision is not None:
                 command.context["continuation_decision"] = continuation_decision.model_dump(mode="json")
             self._memory.record_command(session_id, command)
 
             # Phase 7.3: execute workflow and return reply
             interaction_id = f"lightbrain:{session_id}:{abs(hash(request.message))}"
-            result = await self._execute_command(command, session_id, available_apps)
+            try:
+                result = await self._execute_command(command, session_id, available_apps)
+            except ModelClientError as e:
+                logger.error("Model call failed: session=%s error=%s", session_id, e)
+                result = ChatMessageResponse(
+                    type="text",
+                    content=f"系统暂时无法处理这个请求，请稍后重试。({str(e)[:80]})",
+                    session_id=session_id,
+                )
+            except Exception as e:
+                logger.error("Unexpected error in _execute_command: session=%s error=%s", session_id, e, exc_info=True)
+                result = ChatMessageResponse(
+                    type="text",
+                    content="系统内部错误，请稍后重试。",
+                    session_id=session_id,
+                )
             self._after_reply(session_id=session_id, reply=result)
 
             if self._telemetry_service is not None:
@@ -432,7 +510,11 @@ class LightBrainGateway:
         command: InterpretedCommand,
         session_id: str,
     ) -> None:
-        """Inject authorization state and task mode classification into command context."""
+        """Inject authorization state and task mode classification into command context.
+        
+        Also applies behavior changes based on execution context:
+        - Authorized + engineering/background mode → reduce clarification
+        """
         user_id = command.user_id or ""
         if not user_id:
             return
@@ -442,17 +524,55 @@ class LightBrainGateway:
         context = integrator.on_message_received(session_id, user_id, command.raw_input or "")
         command.context["execution_context"] = context
 
+        # Apply execution mode behavior: reduce clarification for authorized engineering tasks
+        if command.requires_clarification:
+            auth = context.get("authorization", {})
+            task = context.get("task_mode", {})
+            if auth.get("is_authorized") and task.get("mode") in ("engineering", "background"):
+                command.requires_clarification = False
+                command.clarification_question = None
+
 
     def _get_execution_mode_integrator(self) -> Any | None:
-        """Lazy-init ExecutionModeIntegrator."""
+        """Lazy-init ExecutionModeIntegrator with persistence support."""
         if self._execution_mode_integrator is not None:
             return self._execution_mode_integrator
         try:
             from app.services.execution_mode_integrator import ExecutionModeIntegrator
+            from app.persistence.runtime_state_store import RuntimeStateStore
+            state_store = RuntimeStateStore()
             self._execution_mode_integrator = ExecutionModeIntegrator()
+            # 传入 state_store 启用持久化
+            if hasattr(self._execution_mode_integrator, 'auth_service') and hasattr(self._execution_mode_integrator.auth_service, '_state_store'):
+                self._execution_mode_integrator.auth_service._state_store = state_store
+                self._execution_mode_integrator.auth_service._load_from_store()
         except Exception:
             self._execution_mode_integrator = None
         return self._execution_mode_integrator
+
+    def _get_intent_extractor(self) -> Any | None:
+        """Lazy-init IntentExtractor."""
+        if self._intent_extractor is not None:
+            return self._intent_extractor
+        try:
+            from app.services.intent_extractor import IntentExtractor
+            self._intent_extractor = IntentExtractor()
+        except Exception:
+            self._intent_extractor = None
+        return self._intent_extractor
+
+    def _log_implied_authorization(
+        self, session_id: str, user_id: str, intent_result: Any
+    ) -> None:
+        """记录用户隐含授权信号到日志。"""
+        logger.info(
+            "Implied authorization detected: session=%s user=%s signal=%s action=%s target=%s",
+            session_id,
+            user_id,
+            intent_result.implied_authorization.value,
+            intent_result.action,
+            intent_result.target,
+        )
 
     def _normalize_command_from_context(self, command: InterpretedCommand) -> None:
         parameters = dict(command.parameters or {})
@@ -826,6 +946,15 @@ class LightBrainGateway:
         available_apps: list[dict[str, Any]],
     ) -> ChatMessageResponse:
         """Dispatch command to appropriate handler or skill."""
+        # P0-5: 检查是否该走工程任务路由
+        exec_ctx = command.context.get('execution_context', {})
+        task_mode = exec_ctx.get('task_mode', {}).get('mode', '')
+        pending = command.context.get('pending_task')
+        if task_mode in ('engineering', 'background') or pending:
+            return await self._handle_engineering_task(
+                command, session_id, pending
+            )
+
         # Bridge-side handler dispatch first
         bridge_eligible_intents = {
             "create_app", "start_app", "stop_app", "pause_app",
@@ -929,26 +1058,9 @@ class LightBrainGateway:
         def _llm_fallback_handler(command: InterpretedCommand, session_id: str, apps: list[dict]) -> ChatMessageResponse:
             text = command.parameters.get("text") or command.parameters.get("reply", "")
             structured_answer = getattr(command, "structured_answer", None)
-            self_model = getattr(structured_answer, "self_model", None) if structured_answer else None
-            answer_mode = getattr(self_model, "answer_mode", "direct") if self_model else "direct"
-            verification_mode = getattr(self_model, "verification_mode", "none") if self_model else "none"
-            unverified_points = getattr(structured_answer, "unverified_points", []) if structured_answer else []
 
-            if not text:
-                text = "我明白了。有什么我可以帮你的吗？"
-
-            if answer_mode == "clarification_required":
-                hint = unverified_points[0] if unverified_points else "当前信息还不够完整，需要你补充一个关键点。"
-                text = f"当前还不能直接下结论。{hint}"
-            elif answer_mode == "verification_required":
-                prefix = "当前结论仍需进一步验证。"
-                if verification_mode == "light":
-                    prefix = "当前结论建议做轻量验证。"
-                text = f"{prefix}{text}" if text else prefix
-            elif answer_mode == "tool_required" and verification_mode == "light":
-                text = f"以下结论基于当前工具证据，仍建议做轻量验证。{text}" if text else "以下结论基于当前工具证据，仍建议做轻量验证。"
-
-            return ChatMessageResponse(type="text", content=text, session_id=session_id, structured_answer=structured_answer)
+            # Pass through whatever the model produced — even if empty, let it through
+            return ChatMessageResponse(type="text", content=text or "", session_id=session_id, structured_answer=structured_answer)
 
         handler = local_handlers.get(command.intent)
         if handler:
@@ -1085,6 +1197,83 @@ class LightBrainGateway:
         ))
 
         return registry
+
+    async def _handle_engineering_task(
+        self,
+        command: InterpretedCommand,
+        session_id: str,
+        pending: PendingTaskRecord | None,
+    ) -> ChatMessageResponse:
+        """处理工程/后台任务路由。
+
+        1. 无 pending → 创建 PendingTaskRecord，启动编排
+        2. 有 pending → 走编排器推进
+        3. 根据 next_action 类型决定下一步
+        """
+        user_id = command.user_id or ""
+        raw_input = command.raw_input or ""
+
+        # 1. 无 pending → 创建新任务
+        if pending is None and self._pending_task_store:
+            pending = PendingTaskRecord(
+                task_id=f"eng_{session_id}_{int(datetime.now(UTC).timestamp())}",
+                user_id=user_id,
+                session_id=session_id,
+                intent=command.intent,
+                status="pending_input",
+                current_stage="solution_drafting",
+                stage_status="pending",
+                target_ref={"raw_intent": raw_input},
+            )
+            self._pending_task_store.upsert_task(pending)
+
+        # 2. 有 pending → 走编排器推进
+        if pending and self._pending_task_orchestrator:
+            pending = self._pending_task_orchestrator.advance_if_possible(pending)
+
+        if pending is None:
+            return ChatMessageResponse(
+                type="text",
+                content="无法创建工程任务。",
+                session_id=session_id,
+            )
+
+        # 3. 根据 next_action 决定返回
+        next_action = (pending.next_recommended_action or {}).get("type", "")
+
+        if next_action in ("implementation_running", "upgrade_running"):
+            # 需要执行 → 走 interpreter tool-calling（现有流程）
+            return ChatMessageResponse(
+                type="text",
+                content=f"正在执行工程任务阶段: {pending.current_stage}。请继续说明具体操作要求。",
+                session_id=session_id,
+                data={"pending_task": pending.model_dump(mode="json")},
+            )
+
+        if next_action in ("", "continue_draft_app_setup", "materialize_task_list"):
+            # 需要用户输入或等待 → 返回进度状态
+            return ChatMessageResponse(
+                type="progress",
+                content=f"工程任务进行中，当前阶段: {pending.current_stage}",
+                session_id=session_id,
+                data={"pending_task": pending.model_dump(mode="json")},
+            )
+
+        # 已完成或阻塞
+        if pending.status in ("completed", "abandoned"):
+            return ChatMessageResponse(
+                type="progress",
+                content=f"工程任务已完成: {pending.intent}",
+                session_id=session_id,
+                data={"pending_task": pending.model_dump(mode="json")},
+            )
+
+        return ChatMessageResponse(
+            type="progress",
+            content=f"工程任务状态: {pending.status}",
+            session_id=session_id,
+            data={"pending_task": pending.model_dump(mode="json")},
+        )
 
     def _load_identity(self) -> None:
         identity_path = resolve_runtime_paths().data_dir / "lightbrain" / "identity.json"
@@ -1943,6 +2132,64 @@ class LightBrainGateway:
         except Exception as e:
             logger.warning("Failed to load pending task for %s: %s", user_id, e)
             return None
+
+    # ── P1-2: 结果回放 ──
+
+    def _get_latest_closed_task(self, user_id: str | None) -> PendingTaskRecord | None:
+        """获取最近一条已关闭（completed/failed/abandoned）的任务。"""
+        if self._pending_task_store is None or not user_id:
+            return None
+        try:
+            return self._pending_task_store.get_latest_closed_task(user_id)
+        except Exception as e:
+            logger.warning("Failed to load closed task for %s: %s", user_id, e)
+            return None
+
+    def _format_replay_content(self, task: PendingTaskRecord) -> str:
+        """格式化回放消息内容。"""
+        status_emoji = {
+            "completed": "✅",
+            "failed": "❌",
+            "abandoned": "⏹️",
+        }.get(task.status, "🔄")
+
+        lines = [
+            f"{status_emoji} 你之前的任务已有结果",
+            "",
+            f"**任务**: {task.intent}",
+            f"**状态**: {task.status}",
+            f"**最终阶段**: {task.current_stage}",
+        ]
+
+        if task.status == "completed":
+            summary = (task.implementation_plan or {}).get("summary", "") if hasattr(task, "implementation_plan") and task.implementation_plan else ""
+            if summary:
+                lines.append(f"**摘要**: {summary}")
+
+            files = (task.implementation_plan or {}).get("implemented_files", []) if hasattr(task, "implementation_plan") and task.implementation_plan else []
+            if files:
+                lines.append(f"**变更文件**: {', '.join(files[:5])}")
+
+            accept = (task.acceptance_plan or {}).get("evidence_summary", {}) if hasattr(task, "acceptance_plan") and task.acceptance_plan else {}
+            if accept:
+                lines.append(f"**验收结果**: {accept}")
+
+        if task.error_message:
+            lines.append(f"**错误**: {task.error_message}")
+
+        return "\n".join(lines)
+
+    def was_replayed(self, session_id: str, task_id: str) -> bool:
+        """检查某任务是否已在某 session 中回放过。"""
+        return task_id in getattr(self, "_replayed_tasks", {}).get(session_id, set())
+
+    def mark_replayed(self, session_id: str, task_id: str) -> None:
+        """标记某任务已在某 session 中回放。"""
+        if not hasattr(self, "_replayed_tasks"):
+            self._replayed_tasks = {}
+        if session_id not in self._replayed_tasks:
+            self._replayed_tasks[session_id] = set()
+        self._replayed_tasks[session_id].add(task_id)
 
     def _build_continuation_decision(
         self,

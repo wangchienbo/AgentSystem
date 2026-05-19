@@ -114,15 +114,41 @@ SYSTEM_PROMPT_TEMPLATE = """你是 AgentSystem 的智能交互引擎。
 ## 当前分支策略
 {branch_guidance}
 
+{app_routing_rules}
+
 ## 最小执行纪律
 1. 每一轮优先选择一个最高价值工具,不要在同一轮规划大量工具
 2. 候选线索不是结论; 证据足够才回答
 3. 如果下一步明显依赖上一步输出,优先考虑脚本方案
 4. 每次工具调用后先判断: 还缺什么? 是否已够回答? 是否该转脚本?
 5. 对遍历、聚合、批量提取类任务,当普通文件工具连续多轮仍未收敛时,优先改用 `exec_shell` 编写并执行一次性本地脚本
-6. 证据已足够时立刻停止调用并回答; 不足时明确未解决问题
+6. 证据已足够时立刻停止调用并用中文回答; 不足时明确未解决问题
 7. 缺少必要参数时用 `ask_clarification`; 无法理解时用 `unclear`
+8. **每轮必须输出文本回复**——即使已经调用了工具，也必须在最后完整输出一段中文回答，不能只调工具不写回答。没有任何例外。
 """
+
+
+
+APP_ROUTING_RULES_TEMPLATE = """## App 任务路由
+当用户请求涉及 App（如 novel_studio）的功能时，按操作类型选择工具：
+
+**写操作**（创建/修改/删除/保存等有副作用）
+→ `dispatch_app_task(app, operation, params={{...}})`
+  params 必须包含用户提供的具体信息（如 title, genre, character_name 等）
+  工具立即返回 task_id
+  → 立即回复用户"已安排，task_id=xxx"，**禁止再调其他工具**
+
+**读操作**（查询/读取/列表等无副作用）
+→ `call_asset_method(asset_id, method, params={{...}})`
+  同步执行，直接返回结果
+
+**查进度**
+→ 用户主动问进度时用 `query_task(task_id)`
+
+**原则**：App 做的事不要自己用 exec_shell / read_file 去替它干
+"""
+
+
 
 
 def format_assets_for_prompt(assets: list[dict[str, Any]]) -> str:
@@ -147,9 +173,18 @@ def build_session_context(
     missing_param: str | None,
     available_apps: list[dict[str, Any]],
     available_assets: list[dict[str, Any]] | None = None,
+    session_id: str | None = None,
 ) -> str:
     """Build readable session context for prompt."""
     lines = []
+
+    # Continuation guidance: tell the model this is likely a continuation
+    if history:
+        lines.append("【对话延续性提示】")
+        lines.append("当前消息大概率是上一轮对话的延续。请先判断是否与上轮相关：")
+        lines.append("  - 若是延续，基于【最近对话】中的上下文作答，不要重复问已明确的事实")
+        lines.append("  - 若是新话题，忽略历史上下文并直接处理当前请求")
+        lines.append("")
 
     if pending_intent:
         lines.append(f"【等待完成】")
@@ -171,19 +206,11 @@ def build_session_context(
 
     if history:
         lines.append("【最近对话】")
-        # Keep gateway tool-route context intentionally tight so repeated
-        # fallback exchanges do not bloat short operator/status queries.
-        total_budget = 800  # chars
-        used = 0
-        recent_history = list(reversed(history[-4:]))
+        recent_history = list(reversed(history[-10:]))
         for msg in recent_history:
             role = msg.get("role", "")
-            content = msg.get("content", "")[:120]
-            line = f"  {role}: {content}"
-            if used + len(line) > total_budget:
-                break
-            lines.append(line)
-            used += len(line)
+            content = msg.get("content", "") or ""
+            lines.append(f"  {role}: {content}")
 
 
     return "\n".join(lines) if lines else "新会话,无历史上下文"
@@ -230,8 +257,10 @@ def build_turn_state_board(message: str, history: list[dict[str, Any]]) -> str:
     recent_user = [m.get("content", "") for m in history if m.get("role") == "user"][-2:]
     recent_assistant = [m.get("content", "") for m in history if m.get("role") == "assistant"][-1:]
     unresolved = message.strip()
-    known = " | ".join(x[:80] for x in recent_user) if recent_user else "(暂无明确既有证据)"
-    recent_reply = recent_assistant[0][:120] if recent_assistant else "(暂无近期回复)"
+    known_raw = " | ".join(x[:400] for x in recent_user) if recent_user else "(暂无明确既有证据)"
+    known = known_raw + (" ...[截断]" if any(len(x) > 400 for x in recent_user) else "")
+    recent_reply_raw = recent_assistant[0][:500] if recent_assistant else "(暂无近期回复)"
+    recent_reply = recent_reply_raw + ("...[截断]" if recent_assistant and len(recent_assistant[0]) > 300 else "")
     text = (message or "").lower()
     is_script_shape = is_script_like_request(message)
     operator_heavy_keywords = (
@@ -249,21 +278,21 @@ def build_turn_state_board(message: str, history: list[dict[str, Any]]) -> str:
     is_operator_heavy = any(keyword in text for keyword in operator_heavy_keywords)
     if any(keyword in text for keyword in INTROSPECTION_KEYWORDS):
         next_action = "优先选择一个最高价值的定位或读取动作，不要同轮规划多个工具"
-        stop_condition = "拿到能回答用户当前精度的直接证据后立即停止"
+        stop_condition = "拿到能回答用户当前精度的直接证据后立即用中文给出完整回答"
     elif is_script_shape:
         next_action = "优先判断是否应该转为脚本方案"
         stop_condition = "一旦脚本比碎片工具链更合适，就切换策略"
     elif is_operator_heavy:
         next_action = "优先通过 call_asset_method 查询 App 状态或资产信息；只在资产接口无法直接回答时才走文件系统探索"
-        stop_condition = "一旦能够基于资产查询结果或已有证据直接回答用户问题，立即停止工具调用"
+        stop_condition = "基于资产查询结果或已有证据直接回答用户问题，用中文输出完整结论后结束"
     else:
         next_action = "选择一个最高价值下一步动作"
-        stop_condition = "当前问题已可回答时立即停止"
+        stop_condition = "当前问题已可回答时立即用中文给出回答"
     escalation = ""
     if is_script_shape and any(marker in recent_reply for marker in ("[Reached max turns", "未完成", "继续搜索")):
         escalation = "\n- 升级规则: 近期已出现未收敛信号，本轮优先使用 exec_shell 执行一次性脚本聚合，而不是继续零碎搜索"
     if is_operator_heavy and any(marker in recent_reply for marker in ("[Reached max turns", "未完成", "tool_call", "call_asset_method")):
-        escalation = "\n- 收敛提醒: 近期已出现未收敛信号，本轮应优先给出基于已获取证据的明确结论，不要继续多轮工具探索"
+        escalation = "\n- 收敛提醒: 近期已出现未收敛信号，本轮应优先基于已有证据给出明确结论并用中文输出，不要继续多轮工具探索"
     return (
         "[当前状态板]\n"
         f"- 当前未解决问题: {unresolved}\n"
@@ -280,7 +309,25 @@ def is_script_like_request(message: str) -> bool:
     return any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取", "汇总"))
 
 
-def choose_turn_budget(message: str) -> int:
+def choose_turn_budget(message: str, exec_context: dict | None = None) -> int:
+    """Choose turn budget based on execution context or message keywords.
+
+    Priority:
+    1. exec_context 中读取 task_mode + authorization → TurnBudgetPolicy
+    2. fallback：关键词硬编码
+    """
+    # 优先从 execution context 读取
+    if exec_context:
+        try:
+            from app.services.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
+            mode_str = exec_context.get('task_mode', {}).get('mode', 'chat')
+            is_auth = exec_context.get('authorization', {}).get('is_authorized', False)
+            mode = TaskModeBudget(mode_str)
+            return TurnBudgetPolicy.decide(mode, is_auth)
+        except (ValueError, ImportError):
+            pass  # fallback 到关键词逻辑
+
+    # fallback：原有关键词逻辑
     text = (message or "").lower()
     operator_heavy_keywords = (
         "标准安装",
@@ -309,8 +356,14 @@ def narrow_tools_for_script_route(tools: list[ToolDef]) -> list[ToolDef]:
     allowed = {"exec_shell", "read_file", "write_file", "edit_file", "ask_clarification", "unclear"}
     narrowed = [tool for tool in tools if tool.name in allowed]
     return narrowed or tools
+
 def narrow_tools_for_operator_route(tools: list[ToolDef]) -> list[ToolDef]:
-    allowed = {"call_asset_method", "exec_shell", "read_file", "ask_clarification", "unclear"}
+    allowed = {"call_asset_method", "exec_shell", "read_file", "ask_clarification", "unclear",
+               "dispatch_app_task", "query_task"}
+    narrowed = [tool for tool in tools if tool.name in allowed]
+    return narrowed or tools
+    allowed = {"call_asset_method", "exec_shell", "read_file", "ask_clarification", "unclear",
+               "dispatch_app_task", "query_task"}
     narrowed = [tool for tool in tools if tool.name in allowed]
     return narrowed or tools
 
@@ -361,6 +414,30 @@ UNCLEAR_DEF = ToolDef(
     },
 )
 
+# 工程任务模式专用工具集（代码操作类）
+ENGINEERING_TOOLS = [
+    ToolDef(
+        name="exec_shell",
+        description="执行 shell 命令，用于代码修改、文件操作、服务管理等。直接执行，需要用户已授权。",
+        parameters={"type": "object", "properties": {"command": {"type": "string", "description": "要执行的 shell 命令"}}, "required": ["command"]},
+    ),
+    ToolDef(
+        name="read_file",
+        description="读取文件内容。",
+        parameters={"type": "object", "properties": {"file_path": {"type": "string", "description": "文件路径"}}, "required": ["file_path"]},
+    ),
+    ToolDef(
+        name="write_file",
+        description="写入或覆盖文件内容（工程任务用）。",
+        parameters={"type": "object", "properties": {"file_path": {"type": "string", "description": "文件路径"}, "content": {"type": "string", "description": "文件内容"}}, "required": ["file_path", "content"]},
+    ),
+    ToolDef(
+        name="edit_file",
+        description="查找替换编辑文件（工程任务用）。",
+        parameters={"type": "object", "properties": {"file_path": {"type": "string", "description": "文件路径"}, "old_text": {"type": "string", "description": "被替换的原文"}, "new_text": {"type": "string", "description": "替换后的新文本"}}, "required": ["file_path", "old_text", "new_text"]},
+    ),
+]
+
 
 # ─── Tool Calling Interpreter ───────────────────────────────────────────────
 
@@ -381,6 +458,7 @@ class ToolCallingInterpreter:
         hot_tool_manager: Any = None,
         runtime_center: Any = None,
         telemetry_service: Any = None,
+        context_center: Any = None,
     ) -> None:
         self._registry = tool_registry
         self._engine = tool_calling_engine
@@ -389,6 +467,8 @@ class ToolCallingInterpreter:
         self._hot_tool_manager = hot_tool_manager  # Phase E.2: hot tool support
         self._runtime_center = runtime_center  # For asset visibility in prompt
         self._telemetry_service = telemetry_service
+        self._context_center = context_center
+        self._current_exec_context: dict | None = None  # ← 新增
 
     def interpret(
         self,
@@ -396,6 +476,7 @@ class ToolCallingInterpreter:
         user_id: str,
         session_id: str,
         available_apps: list[dict[str, Any]],
+        exec_context: dict | None = None,  # ← 新增
     ) -> InterpretedCommand:
         """Interpret user message with tool-aware LLM fallback.
 
@@ -403,6 +484,9 @@ class ToolCallingInterpreter:
           1. Exact match → bypass LLM (greetings, help, status)
           2. Everything else → ToolCallingEngine with full context
         """
+        # 存储 exec_context 供子方法使用
+        self._current_exec_context = exec_context
+
         # Tier 1: Exact matches (zero cost)
         exact = self._try_exact_match(message)
         if exact:
@@ -436,11 +520,11 @@ class ToolCallingInterpreter:
             return fast_path
 
         if is_script_like_request(message):
-            return self._run_script_first_route(message, user_id, session_id, available_apps)
+            return self._run_script_first_route(message, user_id, session_id, available_apps, exec_context)
 
         # Tier 3: Full LLM tool calling
         return self._llm_interpret(
-            message, user_id, session_id, available_apps
+            message, user_id, session_id, available_apps, exec_context
         )
 
     # ── Tier 1: Exact matches ──────────────────────────────────────────────
@@ -741,6 +825,7 @@ PY"""
         user_id: str,
         session_id: str,
         available_apps: list[dict[str, Any]],
+        exec_context: dict | None = None,  # ← 新增（暂不使用，保持签名一致）
     ) -> InterpretedCommand:
         deterministic = self._run_deterministic_script_prestep(message, user_id, session_id)
         if deterministic:
@@ -754,6 +839,7 @@ PY"""
             missing_param=None,
             available_apps=available_apps,
             available_assets=None,
+            session_id=session_id,
         )
         if self._hot_tool_manager and session_id:
             hot_tools = self._hot_tool_manager.get_tools_for_session(session_id)
@@ -790,6 +876,7 @@ PY"""
         user_id: str,
         session_id: str,
         available_apps: list[dict[str, Any]],
+        exec_context: dict | None = None,  # ← 新增
     ) -> InterpretedCommand:
         """Full LLM interpretation with tool registry context."""
         # Get history
@@ -819,6 +906,7 @@ PY"""
             missing_param=None,
             available_apps=available_apps,
             available_assets=available_assets if available_assets else None,
+            session_id=session_id,
         )
         # Phase E.2: Use hot tools instead of full registry
         if self._hot_tool_manager and session_id:
@@ -834,16 +922,61 @@ PY"""
         else:
             prompt_tool_defs = prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
 
+        # P0-4: 工程/后台模式追加专用工具集
+        if self._current_exec_context:
+            task_mode = self._current_exec_context.get('task_mode', {}).get('mode', '')
+            if task_mode in ('engineering', 'background'):
+                # 追加工程工具，不去重以便 LLM 感知更多选项
+                prompt_tool_defs = prompt_tool_defs + ENGINEERING_TOOLS
+
         tools_desc = format_tools_for_prompt(prompt_tool_defs)
 
         branch_guidance = self._select_branch_guidance(message)
         turn_state_board = build_turn_state_board(message, history)
+
+        # L1：App 路由规则——仅当 dispatch_app_task 工具可用时注入
+        app_routing_rules = ""
+        tool_names = [t.name for t in prompt_tool_defs]
+        if "dispatch_app_task" in tool_names:
+            app_routing_rules = APP_ROUTING_RULES_TEMPLATE
+
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             session_context=session_ctx,
             tools_description=tools_desc,
             tool_loop_governor=self._load_governor_text(TOOL_LOOP_GOVERNOR_PATH),
             branch_guidance=(branch_guidance + "\n\n" + turn_state_board) if branch_guidance else turn_state_board,
+            app_routing_rules=app_routing_rules,
         )
+
+        # 从 execution context 注入授权状态 + 任务模式引导
+        if self._current_exec_context:
+            ec = self._current_exec_context
+            auth = ec.get('authorization', {})
+            task = ec.get('task_mode', {})
+
+            auth_block = ""
+            if auth.get('is_authorized'):
+                auth_block = (
+                    "\n\n## 当前授权状态\n"
+                    f"- 授权等级: {auth.get('level', 'none')}\n"
+                    f"- 允许修改: {'是' if auth.get('can_modify') else '否'}\n"
+                    f"- 允许重启: {'是' if auth.get('can_restart') else '否'}\n"
+                    f"- 允许后台继续: {'是' if auth.get('can_background_continue') else '否'}\n"
+                )
+                if task.get('mode') in ('engineering', 'background'):
+                    auth_block += (
+                        "\n### 执行指引\n"
+                        "用户已授权，优先执行而非澄清。\n"
+                        "确认用户意图后直接开始工作，不需要反复确认。\n"
+                    )
+
+            if task.get('mode') == 'engineering':
+                auth_block += "\n## 任务模式\n当前为工程任务模式。优先使用代码操作工具直接推进，减少问答循环。\n"
+            elif task.get('mode') == 'background':
+                auth_block += "\n## 任务模式\n当前为后台持续执行模式。自动推进任务，阶段性回报进展和结果摘要。\n"
+
+            if auth_block:
+                system_prompt += auth_block
 
         # Phase E.2: Use hot tools + find_tool as escape hatch
         # Restore hot_tool_manager usage
@@ -859,6 +992,12 @@ PY"""
             all_tools = narrow_tools_for_operator_route(all_tools)
         else:
             pass  # No narrowing for general routes
+
+        # P0-4: 工程/后台模式追加执行工具集（同样影响实际执行）
+        if self._current_exec_context:
+            task_mode = self._current_exec_context.get('task_mode', {}).get('mode', '')
+            if task_mode in ('engineering', 'background'):
+                all_tools = all_tools + ENGINEERING_TOOLS
 
         logger.info(
             "Gateway tool exposure for session=%s message=%r prompt_tools=%s exec_tools=%s",
@@ -876,7 +1015,7 @@ PY"""
                 system_prompt=system_prompt,
                 user_message=message,
                 tools=all_tools,
-                max_turns=choose_turn_budget(message),
+                max_turns=choose_turn_budget(message, exec_context),
                 asset_id="asset:light_brain_gateway:v1",
                 session_id=session_id,
                 user_id=user_id,
@@ -1046,7 +1185,7 @@ PY"""
 
         final_text = self._apply_execution_fact_provenance(raw_input=raw_input, result=result)
 
-        final_payload = final_text or f"已执行 {tool_name}"
+        final_payload = final_text
         structured_answer = self._build_structured_answer(raw_input, result, final_payload, 0.9)
         return InterpretedCommand(
             intent="direct_response",
@@ -1060,36 +1199,6 @@ PY"""
     def _apply_execution_fact_provenance(self, raw_input: str, result: Any) -> str:
         """Temporary pass-through until a tool-agnostic governance module is introduced."""
         final_text = (getattr(result, "final_text", "") or "").strip()
-        lowered = final_text.lower()
-        bad_tool_markers = (
-            "tool not found",
-            "does not exists",
-            "does not exist",
-        )
-        if any(marker in lowered for marker in bad_tool_markers):
-            return ""
-        if "<tool_call>" in final_text or "<function=" in final_text:
-            tool_calls = getattr(result, "tool_calls", []) or []
-            if tool_calls:
-                tool_names = [getattr(call, "tool_name", "tool") for call in tool_calls if getattr(call, "tool_name", None)]
-                unique_names = []
-                for name in tool_names:
-                    if name not in unique_names:
-                        unique_names.append(name)
-                if unique_names:
-                    return f"已完成内部工具分析，涉及: {', '.join(unique_names)}。正在基于这些结果整理最终结论。"
-            return "已完成内部工具分析，正在整理最终结论。"
-        tool_calls = getattr(result, "tool_calls", []) or []
-        if tool_calls and any(
-            getattr(call, "tool_name", "") == "call_asset_method"
-            and isinstance(getattr(call, "args", None), dict)
-            and getattr(call, "args", {}).get("loop_guard")
-            for call in tool_calls
-        ):
-            return (
-                "基于当前资产查询结果，我先给出收敛结论: 现有证据不足以直接确认目标 App/资产状态是否已完全达标。"
-                "如果继续推进，最小下一步应是补一次针对目标对象的定向状态核验，然后立即返回明确结论，避免继续泛化探索。"
-            )
         return final_text
 
     def _build_structured_answer(self, raw_input: str, result: Any, final_text: str, confidence: float) -> StructuredAnswer:
@@ -1209,15 +1318,28 @@ PY"""
     # ── Helpers ──────────────────────────────────────────────────────────
 
     def _get_history(self, session_id: str) -> list[dict[str, Any]]:
-        """Get recent message history for context."""
-        try:
-            if hasattr(self._memory, "get_recent_messages"):
-                return self._memory.get_recent_messages(session_id, limit=6)
-            session = self._memory.get_session(session_id)
-            if session:
-                return getattr(session, "messages", [])[-6:]
-        except Exception:
-            pass
+        """Get recent message history from ContextCenter.
+
+        Returns up to 20 most recent user/assistant exchanges.
+        ContextCenter loads persisted records from disk on startup,
+        so this works across restarts without needing memory fallbacks.
+        """
+        if self._context_center is not None:
+            try:
+                window = self._context_center.get_recent_context(session_id, limit=20)
+                records = [
+                    {"role": r.role, "content": r.content, "timestamp": str(r.created_at)}
+                    for r in window.records
+                    if r.kind == "message" and r.role in ("user", "assistant")
+                    and r.content.strip()  # 过滤空响应
+                ]
+                if records:
+                    return records
+            except Exception as e:
+                logger.debug("_get_history ContextCenter failed: %s", e)
+
+        return []
+
         return []
 
     def _store_pending(
@@ -1234,7 +1356,6 @@ PY"""
         if self._continuation:
             try:
                 from app.models.continuation import (
-                    ContinuationKind,
                     MissingParamSpec,
                     ContinuationResumeRequest,
                 )

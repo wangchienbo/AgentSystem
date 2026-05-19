@@ -241,6 +241,49 @@ class MasterControl:
 
         return None
 
+    # -- App Task Dispatch (异步 App 任务调度) --------------------------------
+
+    def register_app_worker(self, app_id: str, worker: AppWorkerProtocol) -> None:
+        """App 注册自己的异步 Worker"""
+        if not hasattr(self, '_task_dispatcher') or self._task_dispatcher is None:
+            self._task_dispatcher = TaskDispatcher()
+        self._task_dispatcher.register_app(app_id, worker)
+
+    def dispatch_app_task(self, app: str, operation: str,
+                          params: dict, parent_session: str = "") -> dict:
+        """分发 App 任务，异步执行，立即返回 task_id"""
+        if not hasattr(self, '_task_dispatcher') or self._task_dispatcher is None:
+            self._task_dispatcher = TaskDispatcher()
+        record = self._task_dispatcher.dispatch(app, operation, params, parent_session)
+        return {
+            "task_id": record.task_id,
+            "status": record.status,
+            "app": record.app,
+            "operation": record.operation,
+            "error": record.error or None,
+        }
+
+    def query_task(self, task_id: str) -> dict | None:
+        """查询任务状态"""
+        if not hasattr(self, '_task_dispatcher') or self._task_dispatcher is None:
+            return None
+        record = self._task_dispatcher.query(task_id)
+        if not record:
+            return None
+        return {
+            "task_id": record.task_id,
+            "app": record.app,
+            "operation": record.operation,
+            "status": record.status,
+            "result": record.result,
+            "error": record.error or None,
+            "parent_session": record.parent_session,
+            "progress_pct": getattr(record, 'progress_pct', 0),
+            "progress_msg": getattr(record, 'progress_msg', ''),
+            "created_at": record.created_at,
+            "updated_at": record.updated_at,
+        }
+
     # -- Suggestion Layer ---------------------------------------------------
 
     def suggest(self, user_id: str, category: str, problem: str, expectation: str = "") -> dict:
@@ -390,3 +433,135 @@ class MasterControl:
         # Keep last 1000 entries
         if len(self._audit_log) > 1000:
             self._audit_log = self._audit_log[-1000:]
+
+
+# ══════════════════════════════════════════════════════════════════
+# TaskDispatcher — App 任务异步调度
+# ══════════════════════════════════════════════════════════════════
+
+import threading
+import uuid
+from datetime import datetime
+
+
+@dataclass
+class TaskRecord:
+    """单个 App 任务的执行记录"""
+    task_id: str
+    app: str
+    operation: str
+    params: dict
+    status: str  # pending | running | done | failed
+    result: object = None
+    error: str = ""
+    parent_session: str = ""
+    progress_pct: int = 0       # 实时进度 0-100（由 App Worker 提供）
+    progress_msg: str = ""      # 实时进度描述
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class AppWorkerProtocol:
+    """App Worker 协议——可被 MasterControl 调度的 App 需实现此接口"""
+    
+    def execute(self, task_id: str, operation: str,
+                params: dict, callback: callable) -> None:
+        """在独立 session 中执行 task，完成时调 callback(task_id, status, result, error)"""
+        raise NotImplementedError
+    
+    def get_task(self, task_id: str) -> TaskRecord:
+        raise NotImplementedError
+    
+    def get_progress(self, task_id: str) -> dict:
+        """查询任务当前进度。
+        返回 dict: {"pct": int, "msg": str, "status": str}
+        App 最了解自己在做什么，进度由 App 实时提供。
+        """
+        raise NotImplementedError
+
+
+class TaskDispatcher:
+    """MasterControl 的 task 调度组件——管理异步 App 任务"""
+    
+    def __init__(self):
+        self._tasks: dict[str, TaskRecord] = {}
+        self._app_workers: dict[str, AppWorkerProtocol] = {}
+        self._lock = threading.Lock()
+    
+    def register_app(self, app_id: str, worker: AppWorkerProtocol) -> None:
+        """App 注册自己的 Worker"""
+        self._app_workers[app_id] = worker
+    
+    def generate_task_id(self) -> str:
+        return f"t_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    
+    def dispatch(self, app: str, operation: str,
+                 params: dict, parent_session: str = "") -> TaskRecord:
+        """分发任务到 App Worker，异步执行"""
+        task_id = self.generate_task_id()
+        now = datetime.now().isoformat()
+        
+        record = TaskRecord(
+            task_id=task_id, app=app, operation=operation,
+            params=params, status="pending",
+            parent_session=parent_session,
+            created_at=now, updated_at=now,
+        )
+        
+        with self._lock:
+            self._tasks[task_id] = record
+        
+        worker = self._app_workers.get(app)
+        if not worker:
+            record.status = "failed"
+            record.error = f"App {app} 未注册 Worker"
+            record.updated_at = datetime.now().isoformat()
+            return record
+        
+        # 异步执行
+        def _run():
+            try:
+                record.status = "running"
+                record.updated_at = datetime.now().isoformat()
+                worker.execute(task_id, operation, params, self._callback)
+            except Exception as e:
+                self._callback(task_id, "failed", error=str(e))
+        
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+        
+        return record
+    
+    def _callback(self, task_id: str, status: str,
+                  result: object = None, error: str = "") -> None:
+        """App Worker 完成任务后回调"""
+        with self._lock:
+            record = self._tasks.get(task_id)
+            if not record:
+                return
+            record.status = status
+            record.result = result
+            record.error = error
+            record.updated_at = datetime.now().isoformat()
+    
+    def query(self, task_id: str) -> TaskRecord | None:
+        with self._lock:
+            record = self._tasks.get(task_id)
+            if not record:
+                return None
+            import dataclasses
+            record_copy = dataclasses.replace(record)
+        
+        # 如果任务正在执行中，直接问 App Worker 当前进度
+        if record_copy.status == "running":
+            worker = self._app_workers.get(record_copy.app)
+            if worker:
+                try:
+                    progress = worker.get_progress(task_id)
+                    if progress:
+                        record_copy.progress_pct = progress.get("pct", 0)
+                        record_copy.progress_msg = progress.get("msg", "")
+                except Exception:
+                    pass
+        
+        return record_copy

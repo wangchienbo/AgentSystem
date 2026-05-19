@@ -71,6 +71,20 @@ class InlineItem(BaseModel):
     actions: list[ActionSuggestion] = Field(default_factory=list)
 
 
+class AppTaskDispatch(BaseModel):
+    """交互层识别到 app 任务时返回的 dispatch 指令。
+
+    交互层只识别 + 描述任务，不自己执行；
+    HTTP 层收到后异步 dispatch 到 MasterControl。
+    """
+    type: Literal["app_task"] = "app_task"
+    app: str = Field(..., description="目标 App 标识")
+    operation: str = Field(..., description="操作名")
+    params: dict[str, Any] = Field(default_factory=dict, description="操作参数")
+    parent_session: str = Field(default="", description="交互层 session_id")
+    task_id: str = Field(default="", description="由 HTTP 层生成，交互层不填")
+
+
 class TokenUsage(BaseModel):
     """Token usage metadata for a single interaction."""
     prompt_tokens: int = Field(default=0, ge=0)
@@ -92,6 +106,7 @@ class ChatMessageResponse(BaseModel):
     session_id: str = Field(..., description="Session this reply belongs to")
     structured_answer: StructuredAnswer | None = Field(default=None, description="Structured cognition/action answer contract")
     related_app: str | None = Field(default=None, description="App this reply references")
+    app_task_dispatches: list[AppTaskDispatch] = Field(default_factory=list, description="App 任务分发指令（交互层不执行）")
 
 
 class SessionSummary(BaseModel):
