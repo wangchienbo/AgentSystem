@@ -164,7 +164,12 @@ class AssetToolExecutor:
             payload = asset.model_dump(mode="json") if hasattr(asset, "model_dump") else asset
             if filter_text and filter_text not in json.dumps(payload, ensure_ascii=False).lower():
                 continue
-            items.append(payload)
+            # 精简输出：只保留 asset_id、描述和能力方法名列表
+            items.append({
+                "asset_id": payload.get("asset_id", ""),
+                "description": payload.get("description", ""),
+                "methods": [c.get("method", c.get("name")) for c in payload.get("capabilities", [])],
+            })
         return ToolResult(success=True, data=items)
 
     def _query_asset_info(self, args: dict, caller_name: str) -> ToolResult:

@@ -100,6 +100,13 @@ subordinate_skills:
   source: generated-local
   version: meta-app-v1
   lifecycle_status: active
+- subordinate_skill_id: development-constraints-control
+  category: structural
+  scope_id: development-constraints
+  purpose: Structural subordinate control for AI development constraints — skill layering, app design, context reading rules, code structure, and prohibitions
+  source: generated-local
+  version: recursive-init-v2
+  lifecycle_status: active
 - subordinate_skill_id: maoxuan-skill
   category: functional
   scope_id: system-skills

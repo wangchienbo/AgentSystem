@@ -1032,6 +1032,20 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
 
     tool_calling_engine.register_tool("call_asset_method", _call_asset_method_handler)
 
+    def _list_assets_handler(**kw) -> dict:
+        """Handler for list_assets tool."""
+        result = asset_tool_executor.execute("list_assets", kw or {}, "system")
+        return {"success": result.success, "data": result.data, "error": result.error}
+
+    def _query_asset_info_handler(asset_id: str = "", **kw) -> dict:
+        """Handler for query_asset_info tool."""
+        args = {"asset_id": asset_id or kw.get("asset_id", "")}
+        result = asset_tool_executor.execute("query_asset_info", args, "system")
+        return {"success": result.success, "data": result.data, "error": result.error}
+
+    tool_calling_engine.register_tool("list_assets", _list_assets_handler)
+    tool_calling_engine.register_tool("query_asset_info", _query_asset_info_handler)
+
     # Register app task dispatch tool (交互层 → MasterControl 异步调度)
     # 会话级上下文：记住用户当前操作的对象（如最近创建/使用的小说 ID）
     _session_context: dict[str, dict] = {}
@@ -1049,7 +1063,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             _session_context.setdefault(parent_session, {})["novel_id"] = novel_id
 
     def _dispatch_app_task_handler(app: str, operation: str, params: dict | None = None, parent_session: str = "") -> dict:
-        """Handler for dispatch_app_task tool."""
+        """Handler for dispatch_app_task tool. 查询操作同步返回结果，写操作异步返回 task_id。"""
         safe_params = dict(params or {})
         
         # 模型经常不填 params，全塞在 parent_session 里
@@ -1080,22 +1094,41 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                         safe_params["name"] = name_match.group(1)
                         break
         
+        # 查询类操作：同步等待结果，直接返回
+        _QUERY_OPS = {"list_novels", "get_novel", "get_stats", "export_text"}
+        if operation in _QUERY_OPS:
+            # 先下发任务
+            dispatch_result = master_control.dispatch_app_task(
+                app=app, operation=operation, params=params or {}, parent_session=parent_session,
+            )
+            tid = dispatch_result.get("task_id")
+            if tid:
+                import time
+                # 轮询等待完成
+                for _ in range(30):
+                    time.sleep(0.5)
+                    task_record = master_control.query_task(tid)
+                    if task_record:
+                        if task_record.get("status") == "done":
+                            return {"success": True, "data": task_record.get("result")}
+                        if task_record.get("status") == "failed":
+                            return {"success": False, "error": task_record.get("error"), "task_id": tid}
+                return {"success": False, "error": "查询超时", "task_id": tid}
+            return dispatch_result
+        
+        # 写操作：异步返回 task_id
         result = master_control.dispatch_app_task(
-            app=app,
-            operation=operation,
-            params=params or {},
-            parent_session=parent_session,
+            app=app, operation=operation, params=params or {}, parent_session=parent_session,
         )
         return result
 
     tool_calling_engine.register_tool("dispatch_app_task", _dispatch_app_task_handler)
     tool_registry.register(ToolDefinition(
         name="dispatch_app_task",
-        description="【写操作】将 App 的写入型任务分发到 MasterControl 异步执行。"
-                     "适用于创建、修改、删除等有副作用的操作 (create_novel, add_character, save_outline 等)。"
-                     "必须将用户提供的参数填入 params 对象中（如 title, genre, author 等）。"
-                     "工具立即返回 task_id，异步执行，后续可用 query_task 查询进度。"
-                     "同时向用户回复任务已安排及对应的 task_id。",
+        description="【App 操作】将任务分发到 App（如 novel_studio）执行。"
+                     "查询操作 (list_novels, get_novel, get_stats) 同步返回结果。"
+                     "写操作 (create_novel, add_character, save_outline, write_chapter 等) 异步执行返回 task_id。"
+                     "必须将用户提供的参数填入 params 对象中（如 title, genre, author 等）。",
         parameters=[
             ToolParameter(name="app", type="string", description="目标 App 标识，如 novel_studio", required=True),
             ToolParameter(name="operation", type="string", description="操作名，如 create_novel", required=True),

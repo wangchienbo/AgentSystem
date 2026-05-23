@@ -142,19 +142,34 @@ class ToolCallExecutor:
         self,
         calls: list[dict[str, Any]],
     ) -> list[ToolCallResult]:
-        """Execute multiple tool calls in parallel.
+        """Execute multiple tool calls in parallel, but in batches to avoid system stall.
 
+        Hard-coded batch execution:
+        - Calls within a batch run in parallel (capped by semaphore).
+        - Batches run serially to prevent resource exhaustion.
+        - Default batch size: 3 (model can output unlimited, executor handles pacing).
+        
         Each call dict: {"tool_id": ..., "arguments": ..., "caller_id": ...}
         """
-        tasks = [
-            self._limited_call(
-                c["tool_id"],
-                c.get("arguments"),
-                c.get("caller_id"),
-            )
-            for c in calls
-        ]
-        return await asyncio.gather(*tasks, return_exceptions=True)
+        BATCH_SIZE = 3
+        if not calls:
+            return []
+        
+        all_results: list[ToolCallResult] = []
+        for i in range(0, len(calls), BATCH_SIZE):
+            batch = calls[i:i + BATCH_SIZE]
+            tasks = [
+                self._limited_call(
+                    c["tool_id"],
+                    c.get("arguments"),
+                    c.get("caller_id"),
+                )
+                for c in batch
+            ]
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            all_results.extend(batch_results)
+            
+        return all_results
 
     async def _limited_call(
         self,

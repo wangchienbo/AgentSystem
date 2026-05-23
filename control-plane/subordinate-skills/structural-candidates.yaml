@@ -35,6 +35,12 @@ structural_subordinate_candidates:
     recommendation: promoted
     promotion_status: created-as-structural-subordinate-skill
     rationale: Telemetry/evidence/governance docs form a stable design and planning control unit.
+  - candidate_id: development-constraints
+    candidate_type: module
+    scope_id: development-constraints
+    recommendation: promoted
+    promotion_status: created-as-structural-subordinate-skill
+    rationale: AI development constraints (skill layering, app design, context reading, code structure, prohibitions) form a critical governance surface that must be loaded before any code generation task.
   - candidate_id: tests-and-fixtures
     candidate_type: module
     scope_id: tests-and-fixtures

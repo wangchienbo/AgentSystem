@@ -220,4 +220,87 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         result = await engine.character_dialogue(novel_id, char1, char2, topic)
         return {"success": True, "result": result}
 
+    # ═══════════════════════════════════════════════════════════════
+    # 演化引擎 API
+    # ═══════════════════════════════════════════════════════════════
+
+    @router.post("/evolve/init")
+    async def api_evolve_init(data: dict):
+        novel_id = data.get("novel_id", "")
+        result = engine.init_evolution(novel_id)
+        return {"success": True, "result": result}
+
+    @router.post("/evolve/place")
+    async def api_evolve_place(data: dict):
+        char_name = data.get("char_name", "")
+        scene_name = data.get("scene_name", "")
+        result = engine.place_character_in_scene(char_name, scene_name)
+        return {"success": True, "result": result}
+
+    @router.post("/evolve/tick")
+    async def api_evolve_tick(data: dict):
+        result = engine.tick()
+        return {"success": True, "result": result}
+
+    @router.post("/evolve/batch")
+    async def api_evolve_batch(data: dict):
+        count = int(data.get("count", 5))
+        results = engine.batch_tick(count)
+        return {"success": True, "results": results}
+
+    @router.post("/evolve/state")
+    async def api_evolve_state(data: dict = {}):
+        result = engine.get_evolution_state()
+        return {"success": True, "result": result}
+
+    @router.post("/evolve/event")
+    async def api_evolve_event(data: dict):
+        result = engine.add_world_event(
+            title=data.get("title", ""),
+            description=data.get("description", ""),
+            event_type=data.get("event_type", ""),
+        )
+        return {"success": True, "result": result}
+
+    @router.post("/evolve/save")
+    async def api_evolve_save(data: dict):
+        novel_id = data.get("novel_id", "")
+        result = engine.save_evolution_state(novel_id)
+        return {"success": True, "result": result}
+
+    @router.post("/evolve/write")
+    async def api_evolve_write(data: dict = {}):
+        result = engine.write_narrative_chapter()
+        return {"success": True, "result": result}
+
+    @router.post("/evolve/log")
+    async def api_evolve_log(data: dict = {}):
+        log = engine.export_evolution_log()
+        return {"success": True, "log": log}
+
+    # ═══════════════════════════════════════════════════════════════
+    # 导出 API
+    # ═══════════════════════════════════════════════════════════════
+
+    @router.post("/export")
+    async def api_export_novel(data: dict):
+        """按目录结构导出小说（含 TOC.md、分章文件、大纲、世界观）"""
+        novel_id = data.get("novel_id", "")
+        output_dir = data.get("output_dir", None)
+        if not novel_id:
+            current = engine.get_current_novel()
+            if current:
+                novel_id = current.id
+        if not novel_id:
+            return {"success": False, "error": "请指定 novel_id"}
+        result = engine.export_novel_directory(novel_id=novel_id, output_dir=output_dir)
+        return result
+
+    @router.post("/export/text")
+    async def api_export_text(data: dict):
+        """导出为纯文本"""
+        novel_id = data.get("novel_id", "")
+        text = engine._storage.export_text(novel_id)
+        return {"success": True, "text": text, "length": len(text)}
+
     return router

@@ -359,11 +359,13 @@ def narrow_tools_for_script_route(tools: list[ToolDef]) -> list[ToolDef]:
 
 def narrow_tools_for_operator_route(tools: list[ToolDef]) -> list[ToolDef]:
     allowed = {"call_asset_method", "exec_shell", "read_file", "ask_clarification", "unclear",
-               "dispatch_app_task", "query_task"}
+               "dispatch_app_task", "query_task",
+               "list_assets", "query_asset_info"}
     narrowed = [tool for tool in tools if tool.name in allowed]
     return narrowed or tools
     allowed = {"call_asset_method", "exec_shell", "read_file", "ask_clarification", "unclear",
-               "dispatch_app_task", "query_task"}
+               "dispatch_app_task", "query_task",
+               "list_assets", "query_asset_info"}
     narrowed = [tool for tool in tools if tool.name in allowed]
     return narrowed or tools
 

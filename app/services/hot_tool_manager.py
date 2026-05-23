@@ -128,8 +128,28 @@ SYSTEM_TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "list_assets",
+        "description": "列出所有已注册的运行时资产及其能力。调用后返回每个资产的 asset_id 和可调用方法列表。",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "query_asset_info",
+        "description": "查询某个运行时资产的详细信息，包括资产描述、能力列表（方法名+描述）。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "asset_id": {"type": "string", "description": "资产ID，如 asset:novel_studio:v1"},
+            },
+            "required": ["asset_id"],
+        },
+    },
+    {
         "name": "dispatch_app_task",
-        "description": "【写操作】将 App 的写入型任务分发到 MasterControl 异步执行。适用于创建、修改、删除等有副作用的操作。工具立即返回 task_id，异步执行。注意：必须将用户提供的所有参数（如标题、题材等）填入 params 参数中。",
+        "description": "【App 操作】将任务分发到 App（如 novel_studio）执行。查询操作（list_novels, get_novel）同步返回结果。写操作（create_novel, add_character, save_outline 等）异步返回 task_id。注意：必须将用户提供的所有参数（如标题、题材等）填入 params 参数中。",
         "parameters": {
             "type": "object",
             "properties": {

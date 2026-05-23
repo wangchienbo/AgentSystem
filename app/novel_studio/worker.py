@@ -25,6 +25,23 @@ OPERATIONS: dict[str, tuple[list[str], str]] = {
     "create_world":       (["novel_id", "name"], "创建世界观"),
     "add_scene":          (["novel_id", "name"], "添加场景"),
     "get_novel":          (["novel_id"], "查询小说"),
+    # ── 演化操作 ──
+    "init_evolution":     (["novel_id"], "初始化演化"),
+    "tick":               ([], "世界演化的一个时间步"),
+    "place_character":    (["char_name", "scene_name"], "角色入场景"),
+    "batch_tick":         ([], "批量演化"),
+    "add_world_event":    (["title"], "添加世界事件"),
+    "generate_chapter_from_evolution": ([], "从演化生成章节"),
+    "get_evolution_state":([], "查看演化状态"),
+    "export_evolution_log":([], "导出演化日志"),
+    "save_evolution_state":(["novel_id"], "保存演化状态"),
+    "write_narrative_chapter":([], "从演化记录生成章节正文"),
+    # 角色属性
+    "set_attributes":      (["novel_id", "name"], "设置角色属性"),
+    "add_equipment":       (["novel_id", "name"], "添加装备"),
+    "set_faction":         (["novel_id", "name"], "设置势力"),
+    "rename_chapters":     ([], "为无标题章节批量生成章节名"),
+    "export_novel":        ([], "按目录结构导出小说（含TOC、分章文件）"),
 }
 
 
@@ -96,6 +113,23 @@ class NovelStudioWorker(AppWorkerProtocol):
             "generate_content": "generate_content",
             "save_chapter": "save_chapter",
             "add_chapter_outline": "add_chapter_outline",
+            # 演化别名
+            "init_evolution": "init_evolution", "start_evolution": "init_evolution",
+            "tick": "tick", "evolve": "tick",
+            "place_character": "place_character", "enter_scene": "place_character",
+            "batch_tick": "batch_tick", "batch_evolve": "batch_tick",
+            "add_world_event": "add_world_event", "world_event": "add_world_event",
+            "generate_chapter_from_evolution": "generate_chapter_from_evolution",
+            "get_evolution_state": "get_evolution_state", "evolution_status": "get_evolution_state",
+            "export_evolution_log": "export_evolution_log", "evolution_log": "export_evolution_log",
+            "save_evolution_state": "save_evolution_state", "save_evolution": "save_evolution_state",
+            "write_narrative_chapter": "write_narrative_chapter", "write_chapter_from_evolution": "write_narrative_chapter",
+            # 角色属性
+            "set_attributes": "set_attributes", "set_stats": "set_attributes", "set_attr": "set_attributes",
+            "add_equipment": "add_equipment", "equip": "add_equipment", "give_item": "add_equipment",
+            "set_faction": "set_faction", "join_faction": "set_faction",
+            "rename_chapters": "rename_chapters", "rename_chapter": "rename_chapters", "generate_chapter_names": "rename_chapters",
+            "export_novel": "export_novel", "export_novel_directory": "export_novel", "download_novel": "export_novel",
         }
         canonical = op_map.get(op, op)
         if canonical == "create_novel":
@@ -131,6 +165,7 @@ class NovelStudioWorker(AppWorkerProtocol):
                 personality=personality,
                 background=params.get("background", ""),
                 speech_style=params.get("speech_style", ""),
+                special_ability=params.get("special_ability", ""),
             )
             if char:
                 self._set_progress(task_id, 100, "角色添加完成")
@@ -249,6 +284,12 @@ class NovelStudioWorker(AppWorkerProtocol):
             self._set_progress(task_id, 100, f"第{ch_num}章保存完成")
             return {"chapter_number": ch_num, "title": title, "word_count": len(content)}
 
+        elif canonical == "list_novels":
+            self._set_progress(task_id, 30, "正在列出小说...")
+            novels = self._engine.list_novels()
+            self._set_progress(task_id, 100, "查询完成")
+            return {"success": True, "novels": novels}
+
         elif canonical == "get_novel":
             self._set_progress(task_id, 50, "正在查询小说...")
             novel = self._engine.get_novel(params.get("novel_id", ""))
@@ -263,6 +304,163 @@ class NovelStudioWorker(AppWorkerProtocol):
                     "chapter_count": len(novel.chapters) if novel.chapters else 0,
                 }
             raise ValueError("小说不存在")
+
+        # ═══════════════════════════════════════════════════════════════
+        # 演化操作
+        # ═══════════════════════════════════════════════════════════════
+
+        elif canonical == "init_evolution":
+            self._set_progress(task_id, 30, "初始化演化引擎...")
+            novel_id = self._safe_novel_id(params)
+            resume = params.get("resume", True)
+            if isinstance(resume, str):
+                resume = resume.lower() in ("true", "1", "yes")
+            result = self._engine.init_evolution(novel_id, resume=resume)
+            self._set_progress(task_id, 100, "演化就绪")
+            return result
+
+        elif canonical == "place_character":
+            self._set_progress(task_id, 50, "调度角色入场景...")
+            result = self._engine.place_character_in_scene(
+                params.get("char_name", ""),
+                params.get("scene_name", ""),
+            )
+            self._set_progress(task_id, 100, "完成")
+            return result
+
+        elif canonical == "tick":
+            self._set_progress(task_id, 20, "世界演化中...")
+            result = self._engine.tick()
+            self._set_progress(task_id, 100, "演化完成")
+            return result
+
+        elif canonical == "batch_tick":
+            count = int(params.get("count", 5))
+            self._set_progress(task_id, 10, f"批量演化 {count} tick...")
+            results = self._engine.batch_tick(count)
+            self._set_progress(task_id, 100, "批量演化完成")
+            return {"ticks": results, "count": count}
+
+        elif canonical == "add_world_event":
+            self._set_progress(task_id, 50, "添加世界事件...")
+            result = self._engine.add_world_event(
+                title=params.get("title", ""),
+                description=params.get("description", ""),
+                event_type=params.get("event_type", ""),
+                public=params.get("public", True),
+            )
+            self._set_progress(task_id, 100, "事件已记录")
+            return result
+
+        elif canonical == "generate_chapter_from_evolution":
+            self._set_progress(task_id, 30, "从演化记录生成章节...")
+            result = self._engine.generate_chapter_from_evolution()
+            self._set_progress(task_id, 100, "章节大纲生成完成")
+            return result
+
+        elif canonical == "get_evolution_state":
+            result = self._engine.get_evolution_state()
+            return result
+
+        elif canonical == "export_evolution_log":
+            log = self._engine.export_evolution_log()
+            return {"log": log}
+
+        elif canonical == "save_evolution_state":
+            self._set_progress(task_id, 50, "保存演化状态...")
+            nid = self._safe_novel_id(params)
+            result = self._engine.save_evolution_state(nid)
+            self._set_progress(task_id, 100, "已保存")
+            return result
+
+        elif canonical == "write_narrative_chapter":
+            self._set_progress(task_id, 30, "AI 正在从演化记录撰写章节...")
+            result = self._engine.write_narrative_chapter()
+            if result.get("success"):
+                self._set_progress(task_id, 100, f"第{result.get('chapter_number')}章完成")
+            return result
+
+        # ═══════════════════════════════════════════════════════════════
+        # 角色属性操作
+        # ═══════════════════════════════════════════════════════════════
+
+        elif canonical == "set_attributes":
+            self._set_progress(task_id, 50, "设置角色属性...")
+            novel_id = self._safe_novel_id(params)
+            novel = self._engine._storage.get_novel(novel_id)
+            if not novel:
+                raise ValueError("小说不存在")
+            char_name = params.get("name", params.get("char_name", ""))
+            char = next((c for c in novel.characters.values() if c.name == char_name), None)
+            if not char:
+                raise ValueError(f"角色 {char_name} 不存在")
+            attr = params.get("attributes", params.get("stats", {}))
+            from app.novel_studio.models import Attributes
+            if isinstance(attr, dict):
+                for k, v in attr.items():
+                    if hasattr(char.attributes, k):
+                        setattr(char.attributes, k, int(v))
+            self._engine._storage.save_novel(novel)
+            self._set_progress(task_id, 100, "属性设置完成")
+            return {"success": True, "attributes": char.attributes.sheet()}
+
+        elif canonical == "add_equipment":
+            self._set_progress(task_id, 50, "添加装备...")
+            novel_id = self._safe_novel_id(params)
+            novel = self._engine._storage.get_novel(novel_id)
+            if not novel:
+                raise ValueError("小说不存在")
+            char_name = params.get("name", params.get("char_name", ""))
+            char = next((c for c in novel.characters.values() if c.name == char_name), None)
+            if not char:
+                raise ValueError(f"角色 {char_name} 不存在")
+            from app.novel_studio.models import EquipmentItem
+            eq = EquipmentItem(
+                name=params.get("item_name", params.get("name", "未知物品")),
+                slot=params.get("slot", "tool"),
+                effect=params.get("effect", ""),
+                stat_bonuses=params.get("stat_bonuses", {}),
+                description=params.get("description", ""),
+            )
+            char.equipment.append(eq)
+            self._engine._storage.save_novel(novel)
+            self._set_progress(task_id, 100, "装备添加完成")
+            return {"success": True, "equipment": eq.name}
+
+        elif canonical == "set_faction":
+            self._set_progress(task_id, 50, "设置势力...")
+            novel_id = self._safe_novel_id(params)
+            novel = self._engine._storage.get_novel(novel_id)
+            if not novel:
+                raise ValueError("小说不存在")
+            char_name = params.get("name", params.get("char_name", ""))
+            char = next((c for c in novel.characters.values() if c.name == char_name), None)
+            if not char:
+                raise ValueError(f"角色 {char_name} 不存在")
+            from app.novel_studio.models import Faction
+            char.faction = Faction(
+                name=params.get("faction_name", params.get("name", "未知势力")),
+                rank=params.get("rank", "成员"),
+                description=params.get("description", ""),
+            )
+            self._engine._storage.save_novel(novel)
+            self._set_progress(task_id, 100, "势力设置完成")
+            return {"success": True, "faction": char.faction.name}
+
+        elif canonical == "rename_chapters":
+            self._set_progress(task_id, 10, "开始逐章生成章节名...")
+            result = self._engine.rename_chapters()
+            self._set_progress(task_id, 100, "章节名补全完成")
+            return result
+
+        elif canonical == "export_novel":
+            self._set_progress(task_id, 20, "正在导出小说目录结构...")
+            nid = self._safe_novel_id(params)
+            output_dir = params.get("output_dir", None)
+            result = self._engine.export_novel_directory(novel_id=nid, output_dir=output_dir)
+            if result.get("success"):
+                self._set_progress(task_id, 100, f"导出完成: {result.get('output_dir')}")
+            return result
 
         else:
             raise ValueError(f"未知操作: {operation} (尝试过别名: {canonical})")

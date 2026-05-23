@@ -184,6 +184,25 @@ runtime_services["novel_engine"] = novel_engine
 novel_router = create_novel_router(model_router=model_router, llm_client=llm_client, engine=novel_engine)
 app.include_router(novel_router)
 
+# 注册系统级压缩下载路由
+from app.api.download_router import router as download_router, _DOWNLOAD_DIR as download_dir
+app.include_router(download_router)
+
+# 下载文件静态服务
+from fastapi.responses import FileResponse as _FileResp
+
+@app.get("/download/{filename}")
+async def serve_download(filename: str):
+    """实际文件下载端点"""
+    file_path = download_dir / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="文件不存在或已过期")
+    return _FileResp(
+        path=file_path,
+        filename=filename,
+        media_type="application/zip",
+    )
+
 # ---------------------------------------------------------------------------
 # Register novel_studio as a system AppBlueprint (so the gateway knows about it)
 # ---------------------------------------------------------------------------
@@ -239,9 +258,6 @@ if runtime_center:
                 AssetCapability(name="save_outline", description="保存小说三幕大纲",
                     method="save_outline",
                     input_schema={"novel_id": "string", "summary": "string", "three_act": "object"}),
-                AssetCapability(name="get_novel", description="查看小说详情（含角色、大纲）",
-                    method="get_novel",
-                    input_schema={"novel_id": "string"}),
                 AssetCapability(name="save_world", description="创建或更新世界观",
                     method="save_world",
                     input_schema={"novel_id": "string", "name": "string", "overview": "string", "rules": "list"}),
@@ -265,7 +281,6 @@ if runtime_center:
             "create_novel":    lambda **p: _novel_create_resp(novel_engine, **p),
             "add_character":   lambda **p: _novel_add_char_resp(novel_engine, **p),
             "save_outline":    lambda **p: _novel_save_outline_resp(novel_engine, **p),
-            "get_novel":       lambda **p: _novel_get_resp(novel_engine, **p),
             "save_world":      lambda **p: _novel_create_world_resp(novel_engine, **p),
             "add_scene":       lambda **p: _novel_add_scene_resp(novel_engine, **p),
         }
@@ -299,6 +314,11 @@ def _novel_create_resp(engine, title="未命名", genre="", logline="", **kw):
     if logline:
         engine.create_outline(novel.id, title, logline=logline)
     return {"success": True, "novel_id": novel.id, "title": novel.title}
+
+def _novel_list_resp(engine, **kw):
+    """列出所有小说"""
+    novels = engine.list_novels()
+    return {"success": True, "novels": novels}
 
 def _novel_get_resp(engine, novel_id="", **kw):
     data = engine.get_novel_full_report(novel_id)
@@ -631,6 +651,16 @@ async def novel_studio_page():
     if studio_path.exists():
         return HTMLResponse(studio_path.read_text(encoding="utf-8"))
     return HTMLResponse("<html><body><h1>Novel Studio</h1><p>Template not found</p></body></html>")
+
+
+@app.get("/download/{filename:path}")
+async def download_file(filename: str):
+    """静态文件下载"""
+    safe = Path(filename).name  # 防止路径穿越
+    file_path = STATIC_DIR / safe
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path, filename=safe, media_type="application/octet-stream")
 
 
 @app.get("/", response_class=FileResponse)

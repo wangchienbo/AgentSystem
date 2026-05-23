@@ -173,7 +173,52 @@ class NovelStorage:
         self.save_novel(novel)
         return novel
 
-    # ──── 数据统计 ────
+    # ──── 角色级存储（演化用） ────
+
+    def save_character_state(self, novel_id: str, agent_data: dict) -> None:
+        """保存角色的完整状态（包含记忆）到独立文件"""
+        chars_dir = self._root / "characters" / novel_id
+        _ensure_dir(chars_dir)
+        char_id = agent_data.get("character", {}).get("id", "unknown")
+        path = chars_dir / f"{char_id}.json"
+        path.write_text(
+            json.dumps(agent_data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def load_character_state(self, novel_id: str, char_id: str) -> dict | None:
+        """从独立文件加载角色状态"""
+        chars_dir = self._root / "characters" / novel_id
+        path = chars_dir / f"{char_id}.json"
+        if not path.exists():
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def list_character_states(self, novel_id: str) -> list[str]:
+        """列出所有保存的角色状态 ID"""
+        chars_dir = self._root / "characters" / novel_id
+        _ensure_dir(chars_dir)
+        return [f.stem for f in chars_dir.glob("*.json")]
+
+    # ──── 演化状态存储 ────
+
+    def save_evolution_state(self, novel_id: str, state: dict) -> None:
+        """保存演化状态"""
+        evo_dir = self._root / "evolution" / novel_id
+        _ensure_dir(evo_dir)
+        path = evo_dir / "state.json"
+        path.write_text(
+            json.dumps(state, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def load_evolution_state(self, novel_id: str) -> dict | None:
+        """加载演化状态"""
+        evo_dir = self._root / "evolution" / novel_id
+        path = evo_dir / "state.json"
+        if not path.exists():
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
 
     def get_stats(self, novel_id: str) -> dict[str, Any]:
         novel = self.get_novel(novel_id)
@@ -210,3 +255,111 @@ class NovelStorage:
             lines.append(f"\n## 第{ch.number}章 {ch.title}\n")
             lines.append(ch.content)
         return "\n".join(lines)
+
+    def export_to_directory(self, novel_id: str, output_dir: Path | str | None = None) -> dict:
+        """按「小说名/卷/章」目录结构导出小说，生成 TOC.md 索引
+        
+        目录结构：
+            {output_dir}/{novel_title}/
+            ├── TOC.md
+            ├── 第001章_标题.md
+            ├── 第002章_标题.md
+            └── ...
+        """
+        from pathlib import Path as _Path
+
+        novel = self.get_novel(novel_id)
+        if novel is None:
+            return {"success": False, "error": "小说未找到"}
+
+        base = _Path(output_dir) if output_dir else self._root / "export"
+        novel_dir = base / self._sanitize_path(novel.title)
+        novel_dir.mkdir(parents=True, exist_ok=True)
+
+        chapters_dir = novel_dir / "chapters"
+        chapters_dir.mkdir(parents=True, exist_ok=True)
+
+        toc_lines = [
+            f"# {novel.title}",
+            f"",
+            f"作者：{novel.author}",
+            f"类型：{novel.genre}",
+            f"状态：{novel.status}",
+            f"",
+            "---",
+            f"",
+            "## 目录",
+            f"",
+        ]
+
+        exported = []
+        for ch in sorted(novel.chapters, key=lambda x: x.number):
+            safe_title = self._sanitize_path(ch.title or f"第{ch.number}章")
+            filename = f"{ch.number:03d}_{safe_title}.md"
+            ch_path = chapters_dir / filename
+
+            # 写章节文件
+            ch_content = f"# {ch.title or f'第{ch.number}章'}\n\n{ch.content}"
+            ch_path.write_text(ch_content, encoding="utf-8")
+
+            # TOC 条目
+            toc_lines.append(f"- [{ch.title or f'第{ch.number}章'}](chapters/{filename})")
+            exported.append({
+                "chapter_number": ch.number,
+                "title": ch.title,
+                "file": str(ch_path.relative_to(novel_dir)),
+                "word_count": ch.word_count,
+            })
+
+        # 写大纲（如果有）
+        if novel.outline:
+            outline_path = novel_dir / "outline.md"
+            outline_content = f"# {novel.title} — 大纲\n\n"
+            if novel.outline.summary:
+                outline_content += f"## 故事梗概\n\n{novel.outline.summary}\n\n"
+            if novel.outline.logline:
+                outline_content += f"## 一句话梗概\n\n{novel.outline.logline}\n\n"
+            if novel.outline.three_act:
+                outline_content += "## 三幕结构\n\n"
+                for act_name, act_desc in novel.outline.three_act.items():
+                    outline_content += f"### {act_name}\n\n{act_desc}\n\n"
+            outline_path.write_text(outline_content, encoding="utf-8")
+            toc_lines.insert(6, f"- [故事大纲](outline.md)")
+
+        # 写世界观（如果有）
+        if novel.world:
+            world_path = novel_dir / "world.md"
+            world_content = f"# {novel.world.name}\n\n{novel.world.overview}\n\n"
+            if novel.world.rules:
+                world_content += "## 世界规则\n\n"
+                for rule in novel.world.rules:
+                    world_content += f"- {rule}\n"
+            if novel.world.scenes:
+                world_content += "\n## 场景\n\n"
+                for scene in novel.world.scenes.values():
+                    world_content += f"### {scene.name}\n\n{scene.description}\n\n"
+            world_path.write_text(world_content, encoding="utf-8")
+            toc_lines.insert(7, f"- [世界观](world.md)")
+
+        # 写 TOC
+        toc_path = novel_dir / "TOC.md"
+        toc_path.write_text("\n".join(toc_lines), encoding="utf-8")
+
+        total_words = sum(ch.word_count for ch in novel.chapters)
+        return {
+            "success": True,
+            "novel_title": novel.title,
+            "output_dir": str(novel_dir),
+            "chapter_count": len(exported),
+            "total_words": total_words,
+            "files": [str(novel_dir / f) for f in ["TOC.md"] + [e["file"] for e in exported]],
+        }
+
+    @staticmethod
+    def _sanitize_path(name: str) -> str:
+        """清理文件名中的非法字符"""
+        import re
+        # 移除路径分隔符和常见非法字符
+        name = re.sub(r'[\\/:*?"<>|]', '_', name)
+        name = name.strip()
+        return name or "untitled"

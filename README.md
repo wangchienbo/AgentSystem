@@ -50,6 +50,7 @@ See:
 - `docs/implementation-plan-telemetry.md` — phased implementation plan and requirement-reduction boundary for the telemetry/evolution layer
 - `docs/testing.md`
 - `docs/testing-detail.md`
+- `docs/development-constraints.md` — **AI 开发新代码时必须遵守的约束合集**（Skill 分层、App 设计、上下文读取、代码结构、禁止事项）
 - `docs/development-log.md`
 
 ## Operator CLI (Phase 1 skeleton)
