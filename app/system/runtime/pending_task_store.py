@@ -24,6 +24,18 @@ class PendingTaskStore:
             return None
         return max(open_tasks, key=lambda item: item.updated_at)
 
+    def list_closed_tasks(self, user_id: str) -> list[PendingTaskRecord]:
+        return [
+            task for task in self._tasks_by_user.get(user_id, [])
+            if task.status in {"completed", "abandoned", "blocked"}
+        ]
+
+    def get_latest_closed_task(self, user_id: str) -> PendingTaskRecord | None:
+        closed_tasks = self.list_closed_tasks(user_id)
+        if not closed_tasks:
+            return None
+        return max(closed_tasks, key=lambda item: item.updated_at)
+
     def upsert_task(self, task: PendingTaskRecord) -> PendingTaskRecord:
         task.updated_at = datetime.now(UTC)
         items = self._tasks_by_user.setdefault(task.user_id, [])

@@ -220,6 +220,87 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         result = await engine.character_dialogue(novel_id, char1, char2, topic)
         return {"success": True, "result": result}
 
+    @router.post("/chat")
+    async def api_chat(data: dict):
+        """AI 对话接口：绑定小说上下文的自由对话"""
+        novel_id = data.get("novel_id", "")
+        message = data.get("message", "")
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+        if not message:
+            return {"success": False, "error": "消息不能为空"}
+
+        novel = engine.get_novel(novel_id)
+        if not novel:
+            return {"success": False, "error": "小说未找到"}
+
+        # 构建小说上下文
+        ctx = [f"# {novel.title}"]
+        if novel.genre:
+            ctx.append(f"类型：{novel.genre}")
+        ctx.append(f"状态：{novel.status}")
+        if novel.outline and novel.outline.summary:
+            ctx.append(f"大纲摘要：{novel.outline.summary}")
+        if novel.outline and novel.outline.chapters:
+            chapters_plan = [f"  第{c.number}章 {c.title}" for c in novel.outline.chapters]
+            ctx.append("章节规划：\n" + "\n".join(chapters_plan))
+        if novel.characters:
+            ctx.append("角色：")
+            for c in novel.characters.values():
+                ctx.append(f"  - {c.name}({c.archetype.value}): {'、'.join(c.personality)}")
+                if c.goal:
+                    ctx.append(f"    目标：{c.goal}")
+        if novel.world:
+            ctx.append(f"世界观：{novel.world.name} - {novel.world.overview}")
+        if novel.chapters:
+            ctx.append("已完成章节：")
+            for ch in novel.chapters[-3:]:
+                ctx.append(f"  第{ch.number}章 {ch.title}（{len(ch.content)}字）")
+
+        full_context = "\n".join(ctx)
+        system_prompt = f"""你是一位专业的小说创作助手，正在帮助用户创作小说。
+
+当前小说《{novel.title}》的上下文信息：
+{full_context}
+
+你的能力：
+1. 根据用户指令生成大纲、角色、世界观、章节等内容
+2. 回答关于故事的问题，提供创作建议
+3. 帮助用户规划剧情、分析角色、完善世界观
+4. 直接生成小说内容（当用户要求写章节时）
+
+规则：
+- 保持角色性格一致
+- 注意情节逻辑
+- 语言自然流畅
+- 直接回答问题，不要返回 JSON 格式
+- 如果用户要求生成章节，直接写出内容"""
+
+        try:
+            if engine._llm_client:
+                text, _ = engine._llm_client.chat(
+                    [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
+                    model=engine._llm_client._config.model,
+                    max_tokens=2000,
+                    temperature=0.8,
+                    stream=False,
+                )
+            elif engine._model_router:
+                client = engine._model_router.get_client("architect", "complex")
+                text, _ = client.chat(
+                    [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
+                    model=client._config.model,
+                    max_tokens=2000,
+                    temperature=0.8,
+                    stream=False,
+                )
+            else:
+                return {"success": False, "error": "请配置 LLM 客户端"}
+
+            return {"success": True, "content": text or "（空回复）"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     # ═══════════════════════════════════════════════════════════════
     # 演化引擎 API
     # ═══════════════════════════════════════════════════════════════

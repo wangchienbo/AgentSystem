@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -222,11 +223,10 @@ class TestBlueprintCompareService:
 
 class TestUpgradeService:
     def setup_method(self):
-        self.store = RuntimeStateStore(base_dir="data/runtime/test_upgrade_svc")
+        self._tmpdir = Path(tempfile.mkdtemp(prefix="test_upgrade_svc_"))
+        self.store = RuntimeStateStore(base_dir=str(self._tmpdir / "runtime"))
         self.lifecycle = AppLifecycleService(store=self.store)
-        self.log_dir = Path("data/runtime/test_upgrade_logs")
-        if self.log_dir.exists():
-            shutil.rmtree(self.log_dir)
+        self.log_dir = self._tmpdir / "logs"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.log_service = UpgradeLogService(base_dir=str(self.log_dir))
         self.compare_service = BlueprintCompareService()
@@ -344,11 +344,10 @@ class TestUpgradeService:
 
 class TestRollbackService:
     def setup_method(self):
-        self.store = RuntimeStateStore(base_dir="data/runtime/test_rollback")
+        self._tmpdir = Path(tempfile.mkdtemp(prefix="test_rollback_"))
+        self.store = RuntimeStateStore(base_dir=str(self._tmpdir / "runtime"))
         self.lifecycle = AppLifecycleService(store=self.store)
-        self.log_dir = Path("data/runtime/test_rollback_logs")
-        if self.log_dir.exists():
-            shutil.rmtree(self.log_dir)
+        self.log_dir = self._tmpdir / "logs"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.log_service = UpgradeLogService(base_dir=str(self.log_dir))
         self.compare_service = BlueprintCompareService()

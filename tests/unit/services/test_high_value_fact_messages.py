@@ -14,7 +14,7 @@ from app.services.high_value_fact_messages import (
 
 def test_high_value_fact_templates_are_stable() -> None:
     assert repo_located_message(str(REPO_ROOT), str(REPO_ROOT / "README.md")) == (
-        f"repo_located repo_path={REPO_ROOT} readme_path={REPO_ROOT / "README.md"}"
+        f"repo_located repo_path={REPO_ROOT} readme_path={REPO_ROOT / 'README.md'}"
     )
     assert target_file_identified_message("app/services/context_center.py") == (
         "target_file_identified path=app/services/context_center.py"

@@ -1,95 +1,410 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>小说创作室</title>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>小说创作室</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,"Noto Sans SC",sans-serif;background:#0f0f13;color:#e0e0e0;padding:20px}
-.container{max-width:1200px;margin:0 auto}
-h1{font-size:24px;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
-.panel{background:#1a1a24;border:1px solid #2a2a35;border-radius:12px;padding:20px;margin-bottom:16px}
-.panel h2{font-size:18px;margin-bottom:12px;color:#a78bfa}
-.nav{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.nav button{background:#1e1e2a;border:1px solid #2a2a35;color:#ccc;padding:8px 16px;border-radius:8px;cursor:pointer}
-.nav button.active{background:#4f46e5;border-color:#4f46e5;color:#fff}
-.form-group{margin-bottom:10px}
-.form-group label{display:block;font-size:13px;color:#999;margin-bottom:4px}
-.form-group input,.form-group textarea,.form-group select{width:100%;background:#0f0f13;border:1px solid #2a2a35;color:#e0e0e0;padding:10px;border-radius:8px;font-size:14px}
-.form-group textarea{min-height:80px;resize:vertical}
-.btn{background:#4f46e5;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer}
-.btn:hover{background:#5f56f5}
-.btn-secondary{background:#2a2a35;color:#ccc}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.card{background:#1e1e2a;border:1px solid #2a2a35;border-radius:8px;padding:14px;cursor:pointer}
-.card:hover{border-color:#4f46e5}
-.card h3{font-size:16px;margin-bottom:4px}
-.card .meta{font-size:12px;color:#888}
-.hidden{display:none}
-.flex{display:flex;gap:8px;align-items:center}
-pre{font-size:14px;line-height:1.8;color:#ccc;white-space:pre-wrap}
-.char-tag{background:#2a2a3a;padding:4px 12px;border-radius:20px;font-size:12px;display:inline-block;margin:2px}
-#output,#dialogue-output{white-space:pre-wrap;font-size:14px;line-height:1.7;color:#ccc}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;height:100vh;overflow:hidden;color:#222}
+#app{display:flex;flex-direction:column;height:100vh}
+#topbar{display:flex;align-items:center;padding:10px 16px;background:#1a1a2e;color:#fff;gap:12px;flex-shrink:0}
+.hamburger{cursor:pointer;font-size:22px;padding:4px 6px;border-radius:4px;user-select:none;background:transparent;border:none;color:#fff}
+.hamburger:hover{background:rgba(255,255,255,.1)}
+#topbar h2{flex:1;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tb-genre{font-size:12px;color:#aaa;background:rgba(255,255,255,.1);padding:2px 8px;border-radius:10px}
+.top-actions{display:flex;gap:6px}
+.top-actions button,.back-btn{cursor:pointer;background:#e94560;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px}
+.back-btn{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:4px 10px;font-size:13px;cursor:pointer}
+.back-btn:hover{background:rgba(255,255,255,.1)}
+.top-actions button:hover{background:#d63851}
+#body{display:flex;flex:1;overflow:hidden}
+#sidebar{width:280px;min-width:280px;background:#fff;border-right:1px solid #e0e0e0;overflow-y:auto;transition:width .3s,min-width .3s,opacity .3s}
+#sidebar.collapsed{width:0;min-width:0;overflow:hidden;opacity:0}
+.sidebar-section{padding:12px 14px}
+.sidebar-section h3{font-size:14px;margin-bottom:8px;color:#333}
+.tree-item{cursor:pointer;display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;font-size:13px;color:#444;margin:1px 0}
+.tree-item:hover{background:#e8f0fe;color:#1a73e8}
+.tree-item .dot{width:6px;height:6px;border-radius:50%;background:#e94560;flex-shrink:0}
+.tree-item.active{background:#e8f0fe;color:#1a73e8}
+.empty-hint{color:#999;font-size:13px;padding:6px 8px}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+#chat-area{flex:1;overflow-y:auto;padding:16px 20px;background:#f8f9fb}
+#chat-msgs{max-width:700px;margin:0 auto}
+.empty{text-align:center;padding:60px 20px;color:#666}
+.empty .icon{font-size:48px;margin-bottom:16px}
+.q-btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
+.q-btn{padding:8px 16px;border:1px solid #ddd;border-radius:20px;background:#fff;cursor:pointer;font-size:13px;color:#333}
+.q-btn:hover{background:#e8f0fe;border-color:#1a73e8;color:#1a73e8}
+.msg{margin:8px 0;padding:10px 14px;border-radius:12px;line-height:1.6;font-size:14px;white-space:pre-wrap;max-width:85%}
+.msg.user{background:#1a73e8;color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.msg.ai{background:#fff;border:1px solid #e0e0e0;border-bottom-left-radius:4px}
+.msg.system{text-align:center;font-size:12px;color:#999;padding:6px}
+.msg.ai.typing{color:#888;font-style:italic}
+#input-area{display:flex;padding:12px 16px;background:#fff;border-top:1px solid #e0e0e0;gap:8px;flex-shrink:0}
+#chat-input{flex:1;border:1px solid #ddd;border-radius:20px;padding:10px 16px;font-size:14px;outline:none;resize:none;font-family:inherit;min-height:20px;max-height:80px}
+#chat-input:focus{border-color:#1a73e8}
+#send-btn{background:#1a73e8;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:14px;cursor:pointer;white-space:nowrap}
+#send-btn:disabled{opacity:.5;cursor:not-allowed}
+#gen-btn{background:#e94560;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:14px;cursor:pointer;white-space:nowrap}
+#gen-btn:disabled{opacity:.5;cursor:not-allowed}
+#detail-view{display:none;flex-direction:column;height:100%;background:#f8f9fb}
+#detail-view.active{display:flex}
+#detail-view .detail-header{display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #e0e0e0}
+#detail-view .detail-header button{background:transparent;border:1px solid #ddd;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:#666}
+#detail-view .detail-body{flex:1;overflow-y:auto;padding:20px;max-width:700px;margin:0 auto;width:100%;font-size:14px;line-height:1.7;white-space:pre-wrap}
+#list-view{display:flex;flex-direction:column;height:100%}
+#list-view .view-inner{flex:1;overflow-y:auto;padding:20px 30px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;padding:20px 0}
+.card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:16px;cursor:pointer;transition:box-shadow .2s,transform .15s}
+.card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-2px)}
+.card h3{font-size:16px;margin-bottom:6px;color:#222}
+.card .cm{font-size:13px;color:#666;display:flex;gap:12px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;width:400px;max-width:90vw;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.modal h3{font-size:18px;margin-bottom:16px}
+.modal label{display:block;margin-top:12px;font-size:13px;color:#555}
+.modal input,.modal textarea{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-top:4px;outline:none;font-family:inherit}
+.modal input:focus,.modal textarea:focus{border-color:#1a73e8}
+.modal textarea{min-height:60px;resize:vertical}
+.modal .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.modal .modal-actions button{padding:8px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px}
+.modal .modal-actions .cancel{background:#eee;color:#333}
+.modal .modal-actions .confirm{background:#1a73e8;color:#fff}
+.view{display:none;flex:1}
+.view.active{display:flex;flex-direction:column;flex:1}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
 </style>
 </head>
 <body>
-<div class="container">
-<h1>✍️ 小说创作室</h1>
-<div class="nav">
-  <button class="active" onclick="switchTab('novels')">📚 小说</button>
-  <button onclick="switchTab('outline')">📋 大纲</button>
-  <button onclick="switchTab('chars')">👥 角色</button>
-  <button onclick="switchTab('world')">🌍 世界观</button>
-  <button onclick="switchTab('write')">✏️ 写作</button>
-  <button onclick="switchTab('dialogue')">💬 对话</button>
-</div>
+<div id="app">
+  <div id="list-view" class="view active">
+    <div id="topbar">
+      <h2>📖 小说创作室</h2>
+      <div class="top-actions">
+        <button onclick="showCreate()">+ 新建</button>
+      </div>
+    </div>
+    <div class="view-inner">
+      <div class="grid" id="novel-grid"><div style="color:#666;grid-column:1/-1;text-align:center;padding:60px">加载中...</div></div>
+    </div>
+  </div>
 
-<div id="tab-novels">
-  <div class="panel">
-    <div class="flex" style="justify-content:space-between"><h2>我的小说</h2><button class="btn btn-sm" onclick="showCreateNovel()">+ 新建</button></div>
-    <div id="novel-list" class="grid mt-2"></div>
+  <div id="workspace" class="view">
+    <div id="topbar">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <span id="tb-title">加载中...</span>
+      <span id="tb-genre"></span>
+      <div style="flex:1"></div>
+      <div class="top-actions">
+        <button class="back-btn" onclick="showList()">← 返回</button>
+      </div>
+    </div>
+    <div id="body">
+      <div id="sidebar">
+        <div class="sidebar-section"><h3>📚 章节</h3><div class="empty-hint">加载中...</div></div>
+      </div>
+      <div id="main">
+        <div id="chat-area">
+          <div id="chat-msgs"><div class="empty"><div class="icon">⏳</div><p>加载中...</p></div></div>
+        </div>
+        <div id="input-area">
+          <textarea id="chat-input" placeholder="输入创作指令..." disabled></textarea>
+          <button id="gen-btn" disabled>⚡ 生成下一章</button>
+          <button id="send-btn" disabled>发送</button>
+        </div>
+      </div>
+      <div id="detail-view">
+        <div class="detail-header">
+          <button onclick="hideDetail()">← 返回聊天</button>
+          <span id="detail-title" style="font-weight:600"></span>
+        </div>
+        <div class="detail-body" id="detail-body"></div>
+      </div>
+    </div>
   </div>
 </div>
-<div id="tab-outline" class="hidden"><div class="panel" id="outline-panel"><h2>故事大纲</h2><div id="outline-content"></div></div></div>
-<div id="tab-chars" class="hidden"><div class="panel"><h2>角色管理</h2><div id="char-content"></div></div></div>
-<div id="tab-world" class="hidden"><div class="panel"><h2>世界观</h2><div id="world-content"></div></div></div>
-<div id="tab-write" class="hidden"><div class="panel"><h2>✏️ 写作</h2><div class="form-group"><label>创作指令</label><textarea id="write-instr" rows="4" placeholder="描述要写的内容"></textarea></div><div class="flex"><button class="btn" onclick="generateText()">生成</button><button class="btn btn-secondary" onclick="writeChapter()">写下一章</button></div><div id="output" class="mt-2"></div></div></div>
-<div id="tab-dialogue" class="hidden"><div class="panel"><h2>💬 角色对话</h2><div class="grid"><div class="form-group"><label>角色1</label><select id="d1"></select></div><div class="form-group"><label>角色2</label><select id="d2"></select></div></div><div class="form-group"><label>话题</label><input id="dtopic" placeholder="对话场景和话题"></div><button class="btn" onclick="doDialogue()">开始对话</button><div id="dialogue-output" class="mt-2"></div></div></div>
+
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <h3>✍️ 新建小说</h3>
+    <label>作品名称</label><input id="ctitle" placeholder="输入作品名称">
+    <label>类型</label><input id="cgenre" placeholder="例如：奇幻、科幻、悬疑">
+    <label>故事概述（可选）</label><textarea id="coutline" placeholder="简单描述故事方向..."></textarea>
+    <div class="modal-actions">
+      <button class="cancel" onclick="hideCreate()">取消</button>
+      <button class="confirm" onclick="createNovel()">创建</button>
+    </div>
+  </div>
 </div>
-<div id="create-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100">
-<div class="panel" style="width:500px"><h2>新建小说</h2>
-<div class="form-group"><label>标题</label><input id="ctitle"></div>
-<div class="form-group"><label>类型</label><input id="cgenre" placeholder="玄幻/科幻/悬疑"></div>
-<div class="form-group"><label>一句话梗概</label><textarea id="clogline" rows="2"></textarea></div>
-<div class="flex" style="justify-content:flex-end"><button class="btn btn-secondary" onclick="document.getElementById('create-modal').classList.add('hidden')">取消</button><button class="btn" onclick="createNovel()">创建</button></div>
-</div></div>
 
 <script>
-const API='/api/novel';let cid=null;
-async function api(path,data){return await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})}).then(r=>r.json())}
-function switchTab(t){document.querySelectorAll('[id^=tab-]').forEach(e=>e.classList.add('hidden'));document.getElementById('tab-'+t).classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.nav button').forEach(b=>{if(b.textContent.includes({novels:'📚',outline:'📋',chars:'👥',world:'🌍',write:'✏️',dialogue:'💬'}[t]))b.classList.add('active')});refreshTab(t)}
-function refreshTab(t){if(t=='novels')loadNovels();else if(t=='outline'&&cid)loadOutline();else if(t=='chars'&&cid)loadChars();else if(t=='world'&&cid)loadWorld()}
-function showCreateNovel(){document.getElementById('create-modal').classList.remove('hidden')}
-async function loadNovels(){const d=await api('/list');const list=document.getElementById('novel-list');if(!d.novels||!d.novels.length){list.innerHTML='<div style="color:#888;padding:20px;text-align:center">还没有小说</div>';return}
-list.innerHTML=d.novels.map(n=>`<div class="card" onclick="selectNovel('${n.id}')"><h3>${n.title}</h3><div class="meta">${n.genre||''} · ${n.status} · ${n.char_count}角色 · ${n.chapter_count}章</div></div>`).join('')}
-async function selectNovel(id){cid=id;const d=await api('/report',{novel_id:id});document.getElementById('tab-novels').innerHTML=`<div class="panel"><h2>📖 ${d.title||'小说'}</h2><pre>${d.report||''}</pre><div class="flex mt-2"><button class="btn btn-sm btn-secondary" onclick="switchTab('outline')">📋 大纲</button><button class="btn btn-sm btn-secondary" onclick="switchTab('chars')">👥 角色</button><button class="btn btn-sm btn-secondary" onclick="switchTab('world')">🌍 世界观</button><button class="btn btn-sm" onclick="switchTab('write')">✏️ 写作</button></div></div>`}
-async function createNovel(){const d=await api('/create',{title:document.getElementById('ctitle').value||'未命名',genre:document.getElementById('cgenre').value,logline:document.getElementById('clogline').value});if(d.novel_id){cid=d.novel_id;document.getElementById('create-modal').classList.add('hidden');loadNovels();switchTab('outline')}}
-async function loadOutline(){const d=await api('/outline',{novel_id:cid});if(d.html)document.getElementById('outline-content').innerHTML=d.html;else document.getElementById('outline-content').innerHTML=`<button class="btn btn-sm" onclick="showOutlineForm()">新建大纲</button>`}
-function showOutlineForm(){document.getElementById('outline-content').innerHTML=`<div class="form-group"><label>摘要</label><textarea id="osum" rows="4"></textarea></div><div class="grid"><div class="form-group"><label>第一幕</label><textarea id="oa1" rows="3"></textarea></div><div class="form-group"><label>第二幕</label><textarea id="oa2" rows="3"></textarea></div><div class="form-group"><label>第三幕</label><textarea id="oa3" rows="3"></textarea></div></div><div class="flex"><button class="btn" onclick="saveOutline()">保存</button><button class="btn btn-secondary" onclick="showChapterForm()">+ 章节</button></div>`}
-async function saveOutline(){await api('/outline/save',{novel_id:cid,summary:document.getElementById('osum').value,three_act:{act1:document.getElementById('oa1').value,act2:document.getElementById('oa2').value,act3:document.getElementById('oa3').value}});loadOutline()}
-function showChapterForm(){document.getElementById('outline-content').innerHTML+=`<div class="panel"><div class="grid"><div class="form-group"><label>章节号</label><input id="cn" type="number" value="1"></div><div class="form-group"><label>标题</label><input id="ctt" placeholder="标题"></div></div><div class="form-group"><label>概要</label><textarea id="csm" rows="2"></textarea></div><button class="btn" onclick="addChapter()">添加</button></div>`}
-async function addChapter(){await api('/outline/chapter',{novel_id:cid,number:parseInt(document.getElementById('cn').value),title:document.getElementById('ctt').value,summary:document.getElementById('csm').value});loadOutline()}
-async function loadChars(){const d=await api('/characters',{novel_id:cid});document.getElementById('char-content').innerHTML='<div class="flex" style="justify-content:space-between"><div class="char-list">'+(d.characters||[]).map(c=>`<span class="char-tag">${c.name}(${c.archetype||''})</span>`).join('')+'</div><button class="btn btn-sm btn-secondary" onclick="addCharForm()">+ 添加</button></div>'}
-function addCharForm(){document.getElementById('char-content').innerHTML+=`<div class="panel"><div class="grid"><div class="form-group"><label>名字</label><input id="cname"></div><div class="form-group"><label>类型</label><select id="carch"><option>主角</option><option>女主角</option><option>反派</option><option>导师</option><option>伙伴</option><option>配角</option></select></div></div><div class="form-group"><label>性格（逗号分隔）</label><input id="cper" placeholder="勇敢, 机智, 温柔"></div><div class="form-group"><label>背景</label><textarea id="cbg" rows="2"></textarea></div><button class="btn" onclick="addChar()">添加</button></div>`}
-async function addChar(){await api('/character/add',{novel_id:cid,name:document.getElementById('cname').value,archetype:document.getElementById('carch').value,personality:document.getElementById('cper').value.split(',').map(s=>s.trim()),background:document.getElementById('cbg').value});loadChars()}
-async function loadWorld(){const d=await api('/world',{novel_id:cid});document.getElementById('world-content').innerHTML=(d.html||'暂无世界观')+`<div class="flex mt-2"><button class="btn btn-sm btn-secondary" onclick="createWorldForm()">新建世界观</button><button class="btn btn-sm btn-secondary" onclick="addSceneForm()">+ 场景</button></div>`}
-function createWorldForm(){document.getElementById('world-content').innerHTML=`<div class="form-group"><label>世界名称</label><input id="wname" placeholder="大陆/星系名"></div><div class="form-group"><label>概述</label><textarea id="wdesc" rows="3"></textarea></div><div class="form-group"><label>规则（每行一个）</label><textarea id="wrules" rows="3" placeholder="魔法只能由血脉继承&#10;龙族千年才苏醒一次"></textarea></div><button class="btn" onclick="saveWorld()">保存</button>`}
-async function saveWorld(){await api('/world/save',{novel_id:cid,name:document.getElementById('wname').value,overview:document.getElementById('wdesc').value,rules:document.getElementById('wrules').value.split('\n').filter(Boolean)});loadWorld()}
-function addSceneForm(){document.getElementById('world-content').innerHTML+=`<div class="panel"><div class="form-group"><label>场景名</label><input id="sname"></div><div class="form-group"><label>地点</label><input id="sloc"></div><div class="form-group"><label>描述</label><textarea id="sdesc" rows="2"></textarea></div><button class="btn" onclick="addScene()">添加</button></div>`}
-async function addScene(){await api('/scene/add',{novel_id:cid,name:document.getElementById('sname').value,location:document.getElementById('sloc').value,description:document.getElementById('sdesc').value});loadWorld()}
-async function generateText(){const d=await api('/generate',{novel_id:cid,instruction:document.getElementById('write-instr').value});document.getElementById('output').innerHTML=d.content||'[生成失败]'}
-async function writeChapter(){const d=await api('/chapter/write',{novel_id:cid});document.getElementById('output').innerHTML=d.content||'[请先创建大纲和章节]'}
-async function doDialogue(){const d=await api('/dialogue',{novel_id:cid,char1:document.getElementById('d1').value,char2:document.getElementById('d2').value,topic:document.getElementById('dtopic').value});document.getElementById('dialogue-output').innerHTML=d.result||'[对话失败]'}
-async function refreshDialogueChars(){if(!cid)return;const d=await api('/characters',{novel_id:cid});const chars=d.characters||[];[document.getElementById('d1'),document.getElementById('d2')].forEach(sel=>{sel.innerHTML=chars.map(c=>`<option value="${c.name}">${c.name}</option>`).join('')})}
-setInterval(()=>{if(!document.getElementById('tab-dialogue').classList.contains('hidden')&&cid)refreshDialogueChars()},3000);
+const API='/api/novel';
+let cid=null,novelData=null,sidebarOpen=true;
+
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+async function api(path,body){
+  try{
+    const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+    return await r.json();
+  }catch(e){return {error:e.message}}
+}
+
+// === View switching ===
+function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==id))}
+
+async function loadNovels(){
+  const d=await api('/list');const grid=$('novel-grid');
+  if(!d.novels||!d.novels.length){grid.innerHTML='<div style="color:#666;grid-column:1/-1;text-align:center;padding:60px">还没有小说，点击右上角开始创作</div>';return}
+  grid.innerHTML=d.novels.map(n=>`
+    <div class="card" onclick="enterNovel('${n.id}')">
+      <h3>${esc(n.title||'未命名')}</h3>
+      <div class="cm"><span>📖 ${esc(n.genre||'未分类')}</span><span>👥 ${n.char_count||0}</span><span>📄 ${n.chapter_count||0}章</span></div>
+      <div class="cm" style="margin-top:6px;color:#555">${esc(n.status||'草稿')} · ${(n.created_at||'').slice(0,10)}</div>
+    </div>
+  `).join('')
+}
+
+function enterNovel(id){
+  cid=id;showView('workspace');
+  $('chat-msgs').innerHTML='<div class="empty"><div class="icon">⏳</div><p>加载小说数据...</p></div>';
+  $('chat-input').disabled=true;$('send-btn').disabled=true;$('gen-btn').disabled=true;
+  loadNovelData(id);
+}
+
+async function loadNovelData(id){
+  const d=await api('/get',{novel_id:id});
+  if(!d.success||!d.novel){$('chat-msgs').innerHTML='<div class="empty"><div class="icon">❌</div><p>加载失败: 未找到该小说</p></div>';return}
+  novelData=d.novel;
+  $('tb-title').textContent=novelData.title||'未命名';
+  $('tb-genre').textContent=novelData.genre||'';
+  buildSidebar();
+  // Welcome message
+  $('chat-msgs').innerHTML=`<div class="empty"><div class="icon">📖</div><p>开始创作《${esc(novelData.title||'')}》<br>输入指令或选择快捷操作</p><div class="q-btns"><button class="q-btn" onclick="quick('帮我把故事大纲写好')">生成大纲</button><button class="q-btn" onclick="quick('写下一章')">写下一章</button><button class="q-btn" onclick="quick('列出所有角色和他们的关系')">查看角色</button></div></div>`;
+  $('chat-input').disabled=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;
+}
+
+function buildSidebar(){
+  const s=$('sidebar');
+  const nd=novelData;
+  if(!nd){s.innerHTML='<div class="sidebar-section"><h3>📚 章节</h3><div class="empty-hint">暂无数据</div></div>';return}
+  
+  let html='';
+  // === Chapters ===
+  html+='<div class="sidebar-section"><h3>📚 章节</h3>';
+  const chs=nd.chapters||[];
+  if(chs.length){
+    chs.forEach((ch,i)=>{
+      const t=esc(ch.title||'第'+(i+1)+'章');
+      html+=`<div class="tree-item chapter" data-idx="${i}" onclick="showDetail('chapter',${i})"><span class="dot"></span>${t}</div>`;
+      // scenes from outline
+      const oc=nd.outline&&nd.outline.chapters&&nd.outline.chapters[i];
+      if(oc&&oc.key_events&&oc.key_events.length){
+        (oc.key_events||[]).forEach((ev,evi)=>html+=`<div class="tree-item sub" style="padding-left:28px" onclick="showDetail('event','${i}:${evi}')">  🎬 ${esc(ev)}</div>`);
+      }
+    });
+  }else{
+    html+='<div class="empty-hint">暂无章节</div>';
+  }
+  html+='</div>';
+
+  // === Characters ===
+  html+='<div class="sidebar-section"><h3>👥 角色</h3>';
+  const rawChars=nd.characters||{};
+  const chars=Array.isArray(rawChars)?rawChars:Object.values(rawChars);
+  if(chars.length){
+    chars.forEach((ch,i)=>{
+      const name=typeof ch==='string'?ch:(ch.name||ch.role||'角色'+(i+1));
+      const role=typeof ch==='string'?'':(ch.role||ch.archetype?'('+esc(ch.role||ch.archetype||'')+')':'');
+      html+=`<div class="tree-item sub" onclick="showDetail('character',${i})">  👤 ${esc(name)}${role}</div>`;
+    });
+  }else{
+    html+='<div class="empty-hint">暂无角色</div>';
+  }
+  html+='</div>';
+
+  // === World ===
+  html+='<div class="sidebar-section"><h3>🌍 世界观</h3>';
+  const w=nd.world||{};
+  if(w.name||w.overview){
+    html+=`<div class="tree-item sub" onclick="showDetail('world',0)">  🌏 ${esc(w.name||'世界')}</div>`;
+    const scenes=w.scenes||{};
+    const sceneEntries=typeof scenes==='object'&&!Array.isArray(scenes)?Object.entries(scenes):Array.isArray(scenes)?scenes.map((s,i)=>[i,s]):[];
+    if(sceneEntries.length){
+      sceneEntries.slice(0,5).forEach(([sk,sc])=>{
+        html+=`<div class="tree-item sub" style="padding-left:28px" onclick="showDetail('scene','${esc(sk)}')">  🏞️ ${esc(sc.title||sc.name||String(sk).slice(0,8))}</div>`;
+      });
+    }
+  }else{
+    html+='<div class="empty-hint">暂无世界观设定</div>';
+  }
+  html+='</div>';
+
+  s.innerHTML=html;
+}
+
+function buildSubSection(label,arr){
+  if(!arr||!arr.length) return '';
+  let html='<div class="sidebar-section"><h3>'+label+'</h3>';
+  arr.forEach((item,i)=>{
+    const name=typeof item==='string'?item:(item.name||item.role||'项'+(i+1));
+    html+=`<div class="tree-item sub"">  👤 ${esc(name)}</div>`;
+  });
+  return html+'</div>';
+}
+
+function toggleSidebar(){
+  sidebarOpen=!sidebarOpen;
+  document.getElementById('sidebar').classList.toggle('collapsed',!sidebarOpen);
+}
+
+function showDetail(type,idx){
+  if(!novelData) return;
+  const dt=$('detail-title');const db=$('detail-body');
+  let title='',body='';
+  if(type==='chapter'){
+    const ch=(novelData.chapters||[])[idx];
+    if(!ch){title='章节未找到';body='';}
+    else{title=ch.title||'第'+(idx+1)+'章';
+      body='📄 **'+title+'**\n\n'+(ch.content||'（内容待生成）');
+      if(ch.word_count) body+='\n\n_字数：'+ch.word_count+'_';
+      if(ch.status) body+='\n_状态：'+ch.status+'_';}
+  }else if(type==='character'){
+    const rawChars=novelData.characters||{};
+    const chars=Array.isArray(rawChars)?rawChars:Object.values(rawChars);
+    const ch=chars[idx];
+    if(!ch){title='角色未找到';body='';}
+    else{
+      if(typeof ch==='string'){title=ch;body='角色：'+ch;}
+      else{title=ch.name||ch.role||'角色';
+        body='角色信息：\n';
+        if(ch.name)body+='名称：'+ch.name+'\n';
+        if(ch.role)body+='角色：'+ch.role+'\n';
+        if(ch.archetype)body+='类型：'+ch.archetype+'\n';
+        if(ch.description||ch.desc)body+='描述：'+(ch.description||ch.desc)+'\n';
+        if(ch.personality||ch.traits)body+='特点：'+(Array.isArray(ch.personality||ch.traits)?(ch.personality||ch.traits).join('、'):(ch.personality||ch.traits));
+        if(ch.background)body+='\n背景：'+ch.background;}
+    }
+  }else if(type==='world'){
+    const w=novelData.world||{};
+    title=w.name||'世界观';
+    body='🌍 '+title+'\n\n';
+    if(w.overview)body+='概述：'+w.overview+'\n\n';
+    if(w.rules&&w.rules.length)body+='规则：\n'+w.rules.map(r=>'• '+r).join('\n');
+    if(w.scenes){
+      const ks=Object.keys(w.scenes);
+      if(ks.length){body+='\n\n场景：\n';ks.forEach(k=>{const s=w.scenes[k];body+='• '+(s.title||s.name||k.slice(0,8))+'\n';});}
+    }
+  }else if(type==='scene'){
+    const scenes=novelData.world&&novelData.world.scenes||{};
+    const sc=typeof scenes==='object'&&!Array.isArray(scenes)?scenes[idx]:null;
+    if(sc){title=sc.title||sc.name||'场景';body=JSON.stringify(sc,null,2);}
+    else{title='场景未找到';body='';}
+  }else if(type==='event'){
+    const parts=idx.split(':');
+    const ci=parseInt(parts[0]),ei=parseInt(parts[1]);
+    const oc=novelData.outline&&novelData.outline.chapters&&novelData.outline.chapters[ci];
+    const ev=oc&&oc.key_events&&oc.key_events[ei];
+    if(ev){title='关键事件';body=ev;}
+    else{title='事件未找到';body='';}
+  }
+  dt.textContent=title;
+  db.textContent=body;
+  $('chat-area').style.display='none';
+  $('detail-view').classList.add('active');
+}
+
+function hideDetail(){
+  $('detail-view').classList.remove('active');
+  $('chat-area').style.display='flex';
+}
+
+function showList(){
+  hideDetail();novelData=null;
+  showView('list-view');
+}
+
+function showCreate(){$('create-modal').classList.add('show');$('ctitle').focus()}
+function hideCreate(){$('create-modal').classList.remove('show')}
+
+async function createNovel(){
+  const title=$('ctitle').value.trim();const genre=$('cgenre').value.trim();const outline=$('coutline').value.trim();
+  if(!title){alert('请输入作品名称');return}
+  const d=await api('/create',{title,genre,summary:outline});
+  if(d.success&&d.novel_id){
+    hideCreate();
+    $('ctitle').value='';$('cgenre').value='';$('coutline').value='';
+    enterNovel(d.novel_id);
+  }else{alert('创建失败: '+(d.error||'未知错误'))}
+}
+
+async function sendMsg(){
+  const inp=$('chat-input');const text=inp.value.trim();
+  if(!text||!cid)return;
+  inp.value='';$('send-btn').disabled=true;$('gen-btn').disabled=true;inp.disabled=true;
+  // Add user message
+  const msgs=$('chat-msgs');
+  msgs.innerHTML+=`<div class="msg user">${esc(text)}</div>`;
+  msgs.innerHTML+=`<div class="msg ai typing" id="typing-indicator">✍️ 思考中...</div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const d=await api('/chat',{novel_id:cid,message:text});
+    const ti=$('typing-indicator');
+    if(ti)ti.remove();
+    const reply=d.message||d.reply||d.response||'（无回复）';
+    msgs.innerHTML+=`<div class="msg ai">${esc(reply)}</div>`;
+  }catch(e){
+    const ti=$('typing-indicator');
+    if(ti)ti.remove();
+    msgs.innerHTML+=`<div class="msg system">⚠️ 请求失败: ${e.message}</div>`;
+  }
+  $('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false;inp.focus();
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+async function genNextChapter(){
+  if(!cid)return;
+  $('gen-btn').disabled=true;$('send-btn').disabled=true;
+  const msgs=$('chat-msgs');
+  msgs.innerHTML+=`<div class="msg system">⚡ 开始生成下一章...</div>`;
+  msgs.innerHTML+=`<div class="msg ai typing" id="typing-indicator">✍️ 生成中...</div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const d=await api('/generate',{novel_id:cid});
+    const ti=$('typing-indicator');
+    if(ti)ti.remove();
+    if(d.success){
+      msgs.innerHTML+=`<div class="msg system">✅ 章节生成成功！</div>`;
+      // Refresh sidebar
+      await loadNovelData(cid);
+    }else{
+      msgs.innerHTML+=`<div class="msg system">❌ 生成失败: ${esc(d.error||'未知错误')}</div>`;
+    }
+  }catch(e){
+    const ti=$('typing-indicator');
+    if(ti)ti.remove();
+    msgs.innerHTML+=`<div class="msg system">⚠️ 生成异常: ${e.message}</div>`;
+  }
+  $('gen-btn').disabled=false;$('send-btn').disabled=false;
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function quick(q){
+  $('chat-input').value=q;
+  sendMsg();
+}
+
+// Key bindings
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey&&e.target.id==='chat-input'){e.preventDefault();sendMsg()}
+  if(e.key==='Enter'&&$('create-modal').classList.contains('show')&&e.target.id!=='coutline'){e.preventDefault();createNovel()}
+});
+
+// Init
 loadNovels();
 </script>
-</body></html>
+</body>
+</html>

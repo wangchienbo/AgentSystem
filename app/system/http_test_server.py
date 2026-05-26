@@ -23,10 +23,10 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from app.ai.model_client import describe_tool_route_budget
-from app.novel_studio.api import create_novel_router
 from app.models.asset_contract import AssetDescriptor, AssetCapability, AssetType, AssetKind, AssetState, Visibility
 from app.runtime_paths import resolve_runtime_paths
 from app.bootstrap.runtime import build_runtime
+from app.novel_studio.bootstrap import bootstrap_novel_studio
 from app.models.app_blueprint import AppBlueprint
 from app.models.app_instance import AppInstance
 from app.models.app_profile import AppRuntimeProfile
@@ -167,22 +167,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# 注册 Novel Studio 路由
-model_router = runtime_services.get("model_router")
-llm_client = None
-if model_router:
-    try:
-        llm_client = model_router.get_client("architect", "complex")
-    except Exception:
-        pass
-
-# 共享引擎：Worker / HTTP 路由 / RuntimeAsset 用同一个 NovelStorage
-from app.novel_studio.engine import NovelStudioEngine
-novel_engine = NovelStudioEngine(storage=None, model_router=model_router)
-runtime_services["novel_engine"] = novel_engine
-
-novel_router = create_novel_router(model_router=model_router, llm_client=llm_client, engine=novel_engine)
-app.include_router(novel_router)
+# 注册 Novel Studio（统一引导）
+_novel_result = bootstrap_novel_studio(runtime_services, fastapi_app=app)
+novel_engine = _novel_result["engine"]
+novel_router = _novel_result["router"]
 
 # 注册系统级压缩下载路由
 from app.api.download_router import router as download_router, _DOWNLOAD_DIR as download_dir
@@ -203,120 +191,15 @@ async def serve_download(filename: str):
         media_type="application/zip",
     )
 
-# ---------------------------------------------------------------------------
-# Register novel_studio as a system AppBlueprint (so the gateway knows about it)
-# ---------------------------------------------------------------------------
-app_registry = runtime_services.get("app_registry")
-if app_registry:
-    try:
-        app_registry.get_blueprint("bp.novel_studio")
-        logger.info("novel_studio blueprint already registered")
-    except Exception:
-        novel_bp = AppBlueprint(
-            id="bp.novel_studio",
-            name="novel_studio",
-            goal="小说创作工作室 — 支持写小说、管理大纲、设定世界观、角色创作",
-            version="1.0.0",
-            source_path="app/novel_studio/",
-            app_shape="generic",
-            runtime_profile=AppRuntimeProfile(),
-            runtime_policy=RuntimePolicy(),
-        )
-        try:
-            app_registry.register_blueprint(novel_bp, description="小说创作应用，支持大纲、角色、世界观、章节生成与角色对话")
-            logger.info("✅ novel_studio AppBlueprint registered")
-        except Exception as e:
-            logger.warning("Failed to register novel_studio blueprint: %s", e)
 
-# ---------------------------------------------------------------------------
-# Register novel_studio as a RuntimeAsset (so the model discovers it via assets)
-# ---------------------------------------------------------------------------
-runtime_center = runtime_services.get("runtime_center")
-if runtime_center:
-    try:
-        import httpx
-        api_base = "http://localhost:80/api/novel"
+# ── Novel engine proxy helpers (已迁移到 app/novel_studio/bootstrap.py) ────
+# 以下函数保留以兼容遗留代码，新代码应直接使用 bootstrap 模块
 
-        novel_asset = AssetDescriptor(
-            asset_id="asset:novel_studio:v1",
-            name="小说工作室",
-            description="小说创作应用，支持创建小说、管理角色、大纲、世界观、章节生成",
-            asset_type=AssetType.APP,
-            asset_kind=AssetKind.MATERIALIZED,
-            version="1.0.0",
-            owner_type="system",
-            owner_id="system",
-            source_of_truth="runtime",
-            status=AssetState.ACTIVE,
-            capabilities=[
-                AssetCapability(name="create_novel", description="创建一本新小说",
-                    method="create_novel",
-                    input_schema={"title": {"type": "string", "desc": "书名"}, "genre": {"type": "string", "desc": "题材"}, "logline": {"type": "string", "desc": "一句话梗概"}}),
-                AssetCapability(name="add_character", description="给小说添加角色",
-                    method="add_character",
-                    input_schema={"novel_id": "string", "name": "string", "archetype": "string", "personality": "list", "background": "string"}),
-                AssetCapability(name="save_outline", description="保存小说三幕大纲",
-                    method="save_outline",
-                    input_schema={"novel_id": "string", "summary": "string", "three_act": "object"}),
-                AssetCapability(name="save_world", description="创建或更新世界观",
-                    method="save_world",
-                    input_schema={"novel_id": "string", "name": "string", "overview": "string", "rules": "list"}),
-                AssetCapability(name="add_scene", description="添加场景",
-                    method="add_scene",
-                    input_schema={"novel_id": "string", "name": "string", "location": "string", "description": "string"}),
-            ],
-            visibility=Visibility.PUBLIC,
-            tags=["novel", "writing", "creative"],
-        )
-
-        # 直接调 novel_studio engine（不走 HTTP，避免自阻塞）
-        from app.novel_studio.engine import NovelStudioEngine
-        # 复用已有 engine（shared），不再新建 storage
-        _shared_engine = runtime_services.get("novel_engine")
-        if _shared_engine is None:
-            _shared_engine = NovelStudioEngine(storage=None, model_router=ModelRouter())
-            runtime_services["novel_engine"] = _shared_engine
-        _mr = model_router or ModelRouter()
-        method_mappings = {
-            "create_novel":    lambda **p: _novel_create_resp(novel_engine, **p),
-            "add_character":   lambda **p: _novel_add_char_resp(novel_engine, **p),
-            "save_outline":    lambda **p: _novel_save_outline_resp(novel_engine, **p),
-            "save_world":      lambda **p: _novel_create_world_resp(novel_engine, **p),
-            "add_scene":       lambda **p: _novel_add_scene_resp(novel_engine, **p),
-        }
-
-        runtime_center.register_asset(novel_asset, method_mappings=method_mappings)
-        logger.info("✅ novel_studio RuntimeAsset registered with %d methods", len(method_mappings))
-    except Exception as e:
-        logger.warning("Failed to register novel_studio RuntimeAsset: %s", e)
-
-# ---------------------------------------------------------------------------
-# Register novel_studio Worker (MasterControl 异步调度)
-# ---------------------------------------------------------------------------
-master_control = runtime_services.get("master_control")
-if master_control:
-    try:
-        from app.novel_studio.worker import NovelStudioWorker
-        _shared_engine = runtime_services.get("novel_engine")
-        if _shared_engine:
-            worker = NovelStudioWorker(_shared_engine)
-            master_control.register_app_worker("novel_studio", worker)
-            logger.info("✅ novel_studio Worker registered (shared engine)")
-        else:
-            logger.warning("novel_engine not available, skipping Worker registration")
-    except Exception as e:
-        logger.warning("Failed to register novel_studio Worker: %s", e)
-
-
-# ── Novel engine proxy helpers ──────────────────────────────────────────
 def _novel_create_resp(engine, title="未命名", genre="", logline="", **kw):
-    novel = engine.create_novel(title, genre=genre, author=kw.get("author", ""))
-    if logline:
-        engine.create_outline(novel.id, title, logline=logline)
-    return {"success": True, "novel_id": novel.id, "title": novel.title}
+    from app.novel_studio.bootstrap import _novel_create_resp as _impl
+    return _impl(engine, title=title, genre=genre, logline=logline, **kw)
 
 def _novel_list_resp(engine, **kw):
-    """列出所有小说"""
     novels = engine.list_novels()
     return {"success": True, "novels": novels}
 
@@ -643,6 +526,12 @@ async def get_current_user(request: Request):
     user_sessions[session_id] = hydrated
     conversation_history.setdefault(session_id, [])
     return hydrated
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    from fastapi.responses import Response
+    return Response(content=b"", media_type="image/x-icon")
 
 
 @app.get("/studio", response_class=HTMLResponse)
