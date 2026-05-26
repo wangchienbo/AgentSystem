@@ -538,7 +538,12 @@ async def favicon():
 async def novel_studio_page():
     studio_path = Path(__file__).resolve().parent.parent / "novel_studio" / "templates" / "studio.html"
     if studio_path.exists():
-        return HTMLResponse(studio_path.read_text(encoding="utf-8"))
+        from fastapi.responses import HTMLResponse as _HTML
+        content = studio_path.read_text(encoding="utf-8")
+        return _HTML(
+            content=content,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate, max-age=0"}
+        )
     return HTMLResponse("<html><body><h1>Novel Studio</h1><p>Template not found</p></body></html>")
 
 
