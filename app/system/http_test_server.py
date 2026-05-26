@@ -547,6 +547,13 @@ async def novel_studio_page():
     return HTMLResponse("<html><body><h1>Novel Studio</h1><p>Template not found</p></body></html>")
 
 
+@app.get("/debug-log")
+async def debug_log(msg: str = "", ts: str = ""):
+    """Client-side debug logging endpoint"""
+    logger.info("[CLIENT] %s (ts=%s)", msg, ts)
+    return HTMLResponse("ok")
+
+
 @app.get("/download/{filename:path}")
 async def download_file(filename: str):
     """静态文件下载"""
