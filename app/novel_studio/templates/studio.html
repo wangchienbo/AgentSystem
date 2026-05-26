@@ -75,6 +75,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .view{display:none;flex:1}
 .view.active{display:flex;flex-direction:column;flex:1}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+
+/* Mobile: sidebar as overlay */
+@media(max-width:768px){
+  #sidebar{position:fixed;top:50px;left:0;bottom:0;width:280px;z-index:50;box-shadow:2px 0 12px rgba(0,0,0,.15)}
+  #sidebar.collapsed{width:0;min-width:0}
+  #main{width:100%;max-width:100%;overflow-x:hidden}
+  .grid{grid-template-columns:1fr}
+  .msg{max-width:95%}
+  #tb-genre{display:none}
+}
 </style>
 </head>
 <body>
@@ -172,6 +182,8 @@ function enterNovel(id){
   cid=id;showView('workspace');
   $('chat-msgs').innerHTML='<div class="empty"><div class="icon">⏳</div><p>加载小说数据...</p></div>';
   $('chat-input').disabled=true;$('send-btn').disabled=true;$('gen-btn').disabled=true;
+  // Auto-collapse sidebar on mobile
+  if(window.innerWidth<768){sidebarOpen=false;document.getElementById('sidebar').classList.add('collapsed')}
   loadNovelData(id);
 }
 
