@@ -413,7 +413,7 @@ async function sendMsg(){
     const d=await api('/chat',{novel_id:cid,message:text});
     const ti=$('typing-indicator');
     if(ti)ti.remove();
-    const reply=d.content||d.message||d.reply||d.response||'（无回复）';
+    const reply=d.content||d.message||d.reply||d.response||'（模型暂无回复）';
     msgs.innerHTML+=`<div class="msg ai">${esc(reply)}</div>`;
   }catch(e){
     const ti=$('typing-indicator');
@@ -439,6 +439,8 @@ async function genNextChapter(){
       msgs.innerHTML+=`<div class="msg system">✅ 章节生成成功！</div>`;
       if(d.content){
         msgs.innerHTML+=`<div class="msg ai">${esc(d.content)}</div>`;
+      }else{
+        msgs.innerHTML+=`<div class="msg ai">（章节内容已保存，可在侧边栏查看）</div>`;
       }
       // Refresh sidebar
       await loadNovelData(cid);
