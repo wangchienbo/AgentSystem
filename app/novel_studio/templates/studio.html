@@ -176,7 +176,20 @@ async function api(path,body){
 }
 
 // === View switching ===
-function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==id))}
+function showView(id){
+  // Toggle CSS classes for consistency with other code
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==id));
+  // Also directly set style for reliability (QQ browser workaround)
+  var views=document.querySelectorAll('.view');
+  for(var i=0;i<views.length;i++){
+    var v=views[i];
+    if(v.id===id){
+      v.style.display='flex';
+    }else{
+      v.style.display='none';
+    }
+  }
+}
 
 async function loadNovels(){
   const d=await api('/list');const grid=$('novel-grid');
