@@ -183,7 +183,7 @@ async function loadNovels(){
   dbg('loadNovels: '+(d.novels?d.novels.length+' novels':'no novels'));
   if(!d.novels||!d.novels.length){grid.innerHTML='<div style="color:#666;grid-column:1/-1;text-align:center;padding:60px">还没有小说，点击右上角开始创作</div>';return}
   grid.innerHTML=d.novels.map(n=>`
-    <div class="card" data-id="${esc(n.id)}" ontouchend="cardTap(event,'${esc(n.id)}')" onclick="cardTap(event,'${esc(n.id)}')">
+    <div class="card" data-id="${esc(n.id)}" onclick="cardTap(event,'${esc(n.id)}')">
       <h3>${esc(n.title||'未命名')}</h3>
       <div class="cm"><span>📖 ${esc(n.genre||'未分类')}</span><span>👥 ${n.char_count||0}</span><span>📄 ${n.chapter_count||0}章</span></div>
       <div class="cm" style="margin-top:6px;color:#555">${esc(n.status||'草稿')} · ${(n.created_at||'').slice(0,10)}</div>
@@ -194,10 +194,10 @@ async function loadNovels(){
 
 function cardTap(ev,id){
   dbg('cardTap: '+id);
-  // Show loading overlay immediately
+  // Show loading overlay immediately (use direct style, most reliable)
   var ol=$('loading-overlay');
   $('loading-text').textContent='加载小说...';
-  ol.classList.add('show');
+  ol.style.display='flex';
   // Visual feedback on card
   var card=ev.currentTarget;
   card.style.transition='background .15s';
@@ -220,7 +220,7 @@ function enterNovel(id){
 async function loadNovelData(id){
   dbg('loadNovelData start');
   const d=await api('/get',{novel_id:id});
-  if(!d.success||!d.novel){$('chat-msgs').innerHTML='<div class="empty"><div class="icon">❌</div><p>加载失败: 未找到该小说</p></div>';$('loading-overlay').classList.remove('show');dbg('loadNovelData FAIL: '+id);return}
+  if(!d.success||!d.novel){$('chat-msgs').innerHTML='<div class="empty"><div class="icon">❌</div><p>加载失败: 未找到该小说</p></div>';$('loading-overlay').style.display='none';dbg('loadNovelData FAIL: '+id);return}
   novelData=d.novel;
   $('tb-title').textContent=novelData.title||'未命名';
   $('tb-genre').textContent=novelData.genre||'';
@@ -229,7 +229,7 @@ async function loadNovelData(id){
   $('chat-msgs').innerHTML=`<div class="empty"><div class="icon">📖</div><p>开始创作《${esc(novelData.title||'')}》<br>输入指令或选择快捷操作</p><div class="q-btns"><button class="q-btn" onclick="quick('帮我把故事大纲写好')">生成大纲</button><button class="q-btn" onclick="quick('写下一章')">写下一章</button><button class="q-btn" onclick="quick('列出所有角色和他们的关系')">查看角色</button></div></div>`;
   $('chat-input').disabled=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;
   // Hide loading overlay
-  $('loading-overlay').classList.remove('show');
+  $('loading-overlay').style.display='none';
   dbg('loadNovelData DONE: '+id);
 }
 
