@@ -74,6 +74,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .modal .modal-actions .confirm{background:#1a73e8;color:#fff}
 .view{display:none;flex:1}
 .view.active{display:flex;flex-direction:column;flex:1}
+#loading-overlay{display:none;position:fixed;inset:0;z-index:999;background:#f0f2f5;flex-direction:column;align-items:center;justify-content:center;font-size:16px;color:#333}
+#loading-overlay.show{display:flex}
+#loading-overlay .spin{width:36px;height:36px;border:3px solid #ddd;border-top-color:#1a73e8;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
+@keyframes spin{to{transform:rotate(360deg)}}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
 
 /* Mobile: sidebar as overlay */
@@ -136,6 +140,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<div id="loading-overlay"><div class="spin"></div><p id="loading-text">加载中...</p></div>
+
 <div class="modal-overlay" id="create-modal">
   <div class="modal">
     <h3>✍️ 新建小说</h3>
@@ -188,7 +194,11 @@ async function loadNovels(){
 
 function cardTap(ev,id){
   dbg('cardTap: '+id);
-  // Visual feedback
+  // Show loading overlay immediately
+  var ol=$('loading-overlay');
+  $('loading-text').textContent='加载小说...';
+  ol.classList.add('show');
+  // Visual feedback on card
   var card=ev.currentTarget;
   card.style.transition='background .15s';
   card.style.background='#e8f0fe';
@@ -210,7 +220,7 @@ function enterNovel(id){
 async function loadNovelData(id){
   dbg('loadNovelData start');
   const d=await api('/get',{novel_id:id});
-  if(!d.success||!d.novel){$('chat-msgs').innerHTML='<div class="empty"><div class="icon">❌</div><p>加载失败: 未找到该小说</p></div>';dbg('loadNovelData FAIL: '+id);return}
+  if(!d.success||!d.novel){$('chat-msgs').innerHTML='<div class="empty"><div class="icon">❌</div><p>加载失败: 未找到该小说</p></div>';$('loading-overlay').classList.remove('show');dbg('loadNovelData FAIL: '+id);return}
   novelData=d.novel;
   $('tb-title').textContent=novelData.title||'未命名';
   $('tb-genre').textContent=novelData.genre||'';
@@ -218,6 +228,9 @@ async function loadNovelData(id){
   // Welcome message
   $('chat-msgs').innerHTML=`<div class="empty"><div class="icon">📖</div><p>开始创作《${esc(novelData.title||'')}》<br>输入指令或选择快捷操作</p><div class="q-btns"><button class="q-btn" onclick="quick('帮我把故事大纲写好')">生成大纲</button><button class="q-btn" onclick="quick('写下一章')">写下一章</button><button class="q-btn" onclick="quick('列出所有角色和他们的关系')">查看角色</button></div></div>`;
   $('chat-input').disabled=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;
+  // Hide loading overlay
+  $('loading-overlay').classList.remove('show');
+  dbg('loadNovelData DONE: '+id);
 }
 
 function buildSidebar(){
