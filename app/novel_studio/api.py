@@ -457,4 +457,38 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         text = engine._storage.export_text(novel_id)
         return {"success": True, "text": text, "length": len(text)}
 
+    # ──── 删除 API ────
+
+    @router.post("/delete")
+    async def api_delete_novel(data: dict):
+        """删除整本小说及其关联数据"""
+        novel_id = data.get("novel_id", "")
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+        if engine._storage.delete_novel(novel_id):
+            return {"success": True, "deleted": novel_id}
+        return {"success": False, "error": "not_found"}
+
+    @router.post("/chapter/delete")
+    async def api_delete_chapter(data: dict):
+        """删除指定编号的章节"""
+        novel_id = data.get("novel_id", "")
+        chapter_number = int(data.get("chapter_number", 0))
+        if not novel_id or chapter_number <= 0:
+            return {"success": False, "error": "参数错误"}
+        if engine._storage.delete_chapter(novel_id, chapter_number):
+            return {"success": True, "chapter_number": chapter_number}
+        return {"success": False, "error": "章节未找到"}
+
+    @router.post("/chapter/delete_range")
+    async def api_delete_chapters_range(data: dict):
+        """删除编号范围内的章节"""
+        novel_id = data.get("novel_id", "")
+        from_number = int(data.get("from", 0))
+        to_number = int(data.get("to", 0))
+        if not novel_id or from_number <= 0 or to_number < from_number:
+            return {"success": False, "error": "参数错误"}
+        deleted = engine._storage.delete_chapters_range(novel_id, from_number, to_number)
+        return {"success": True, "deleted": deleted, "from": from_number, "to": to_number}
+
     return router

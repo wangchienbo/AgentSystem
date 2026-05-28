@@ -75,8 +75,43 @@ class NovelStorage:
         path = novels_dir / f"{novel_id}.json"
         if path.exists():
             path.unlink()
+            # 清理关联的角色状态和演化状态目录
+            chars_dir = self._root / "characters" / novel_id
+            if chars_dir.exists():
+                import shutil
+                shutil.rmtree(chars_dir)
+            evo_dir = self._root / "evolution" / novel_id
+            if evo_dir.exists():
+                import shutil
+                shutil.rmtree(evo_dir)
             return True
         return False
+
+    # ──── 章节删除 ────
+
+    def delete_chapter(self, novel_id: str, chapter_number: int) -> bool:
+        """删除指定编号的章节"""
+        novel = self.get_novel(novel_id)
+        if novel is None:
+            return False
+        before = len(novel.chapters)
+        novel.chapters = [c for c in novel.chapters if c.number != chapter_number]
+        if len(novel.chapters) == before:
+            return False
+        self.save_novel(novel)
+        return True
+
+    def delete_chapters_range(self, novel_id: str, from_number: int, to_number: int) -> int:
+        """删除编号范围内的章节，返回删除数量"""
+        novel = self.get_novel(novel_id)
+        if novel is None:
+            return 0
+        before = len(novel.chapters)
+        novel.chapters = [c for c in novel.chapters if c.number < from_number or c.number > to_number]
+        deleted = before - len(novel.chapters)
+        if deleted > 0:
+            self.save_novel(novel)
+        return deleted
 
     # ──── 角色管理 ────
 
