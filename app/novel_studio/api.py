@@ -324,17 +324,8 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
 
         try:
             if engine._llm_client:
-                text, _ = engine._llm_client.chat(
-                    [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
-                    model=engine._llm_client._config.model,
-                    max_tokens=2000,
-                    temperature=0.8,
-                    stream=False,
-                )
-                # 冷启动重试：首次返回空则再试一次
-                if not text:
-                    import logging as _log
-                    _log.getLogger(__name__).warning("LLM returned empty on first attempt, retrying...")
+                text = ""
+                for attempt in range(3):
                     text, _ = engine._llm_client.chat(
                         [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
                         model=engine._llm_client._config.model,
@@ -342,19 +333,16 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
                         temperature=0.8,
                         stream=False,
                     )
+                    if text:
+                        break
+                    if attempt < 2:
+                        import logging as _log
+                        _log.getLogger(__name__).warning(f"LLM returned empty (attempt {attempt+1}), retrying...")
+                        import time; time.sleep(1.5)
             elif engine._model_router:
                 client = engine._model_router.get_client("architect", "complex")
-                text, _ = client.chat(
-                    [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
-                    model=client._config.model,
-                    max_tokens=2000,
-                    temperature=0.8,
-                    stream=False,
-                )
-                # 冷启动重试
-                if not text:
-                    import logging as _log
-                    _log.getLogger(__name__).warning("LLM(router) returned empty on first attempt, retrying...")
+                text = ""
+                for attempt in range(3):
                     text, _ = client.chat(
                         [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
                         model=client._config.model,
@@ -362,6 +350,12 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
                         temperature=0.8,
                         stream=False,
                     )
+                    if text:
+                        break
+                    if attempt < 2:
+                        import logging as _log
+                        _log.getLogger(__name__).warning(f"LLM(router) returned empty (attempt {attempt+1}), retrying...")
+                        import time; time.sleep(1.5)
             else:
                 return {"success": False, "error": "请配置 LLM 客户端"}
 

@@ -360,16 +360,8 @@ class NovelStudioEngine:
 
         try:
             if self._llm_client:
-                text, _ = self._llm_client.chat(
-                    [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
-                    model=self._llm_client._config.model,
-                    max_tokens=2000,
-                    temperature=0.8,
-                    stream=False,
-                )
-                # 冷启动重试
-                if not text:
-                    logger.warning("LLM returned empty on first generate_content attempt, retrying...")
+                text = ""
+                for attempt in range(3):
                     text, _ = self._llm_client.chat(
                         [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
                         model=self._llm_client._config.model,
@@ -377,18 +369,16 @@ class NovelStudioEngine:
                         temperature=0.8,
                         stream=False,
                     )
+                    if text:
+                        break
+                    if attempt < 2:
+                        import time
+                        logger.warning(f"LLM returned empty (generate_content attempt {attempt+1}), retrying...")
+                        time.sleep(1.5)
             elif self._model_router:
                 client = self._model_router.get_client("architect", "complex")
-                text, _ = client.chat(
-                    [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
-                    model=client._config.model,
-                    max_tokens=2000,
-                    temperature=0.8,
-                    stream=False,
-                )
-                # 冷启动重试
-                if not text:
-                    logger.warning("LLM(router) returned empty on first generate_content attempt, retrying...")
+                text = ""
+                for attempt in range(3):
                     text, _ = client.chat(
                         [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
                         model=client._config.model,
@@ -396,6 +386,12 @@ class NovelStudioEngine:
                         temperature=0.8,
                         stream=False,
                     )
+                    if text:
+                        break
+                    if attempt < 2:
+                        import time
+                        logger.warning(f"LLM(router) returned empty (generate_content attempt {attempt+1}), retrying...")
+                        time.sleep(1.5)
             else:
                 return GenerationResult(content="[请配置 LLM 客户端]")
 
