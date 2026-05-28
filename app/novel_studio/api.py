@@ -192,43 +192,50 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         content = result.content
 
         # 自动保存为章节
-        novel = engine.get_novel(novel_id)
-        chapter_number = 1
-        chapter_title = "未命名"
-        if novel:
-            # 计算下一章编号
-            if novel.chapters:
-                chapter_number = max(c.number for c in novel.chapters) + 1
-            else:
-                chapter_number = 1
-            # 从指令中提取标题（如果用户提到了章节名）
-            import re
-            title_match = re.search(r'[第](\d+)[章节]|["「『]([^"」』]+)["」』]', instruction)
-            if title_match:
-                num = title_match.group(1)
-                name = title_match.group(2)
-                if name:
-                    chapter_title = name
-                elif num:
-                    chapter_title = f"第{num}章"
-                else:
-                    chapter_title = "未命名"
-            elif len(instruction) > 5 and "写" not in instruction[:3]:
-                chapter_title = instruction[:20]
-            # 创建并保存章节
-            chapter = Chapter(
-                number=chapter_number,
-                title=chapter_title,
-                content=content,
-                word_count=len(content),
-            )
-            engine._storage.add_chapter(novel_id, chapter)
+        chapter_info = _save_as_chapter(novel_id, content, instruction)
+        if not chapter_info:
+            chapter_info = {"number": 0, "title": ""}
 
         return {
             "success": True,
             "content": content,
-            "chapter": {"number": chapter_number, "title": chapter_title},
+            "chapter": chapter_info,
         }
+
+    # ──── 辅助函数：将 LLM 生成内容保存为章节 ────
+    def _save_as_chapter(novel_id: str, content: str, instruction: str = "") -> dict | None:
+        """检测生成内容是否为章节正文，若是则自动保存。返回 {number, title} 或 None"""
+        if len(content) < 100:
+            return None  # 太短不认为是章节正文
+        novel = engine.get_novel(novel_id)
+        if not novel:
+            return None
+        # 计算下一章编号
+        if novel.chapters:
+            chapter_number = max(c.number for c in novel.chapters) + 1
+        else:
+            chapter_number = 1
+        # 从指令中提取标题
+        import re
+        chapter_title = "未命名"
+        title_match = re.search(r'[第](\d+)[章节]|["「『]([^"」』]+)["」』]', instruction)
+        if title_match:
+            num = title_match.group(1)
+            name = title_match.group(2)
+            if name:
+                chapter_title = name
+            elif num:
+                chapter_title = f"第{num}章"
+        elif len(instruction) > 5 and "写" not in instruction[:3]:
+            chapter_title = instruction[:20]
+        chapter = Chapter(
+            number=chapter_number,
+            title=chapter_title,
+            content=content,
+            word_count=len(content),
+        )
+        engine._storage.add_chapter(novel_id, chapter)
+        return {"number": chapter_number, "title": chapter_title}
 
     @router.post("/chapter/write")
     async def api_write_chapter(data: dict):
@@ -358,7 +365,18 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
             else:
                 return {"success": False, "error": "请配置 LLM 客户端"}
 
-            return {"success": True, "content": text or "（模型返回为空，请重试）"}
+            text = text or ""
+            # 检测聊天中是否在写章节：消息含写/章/生成等关键词，且内容足够长
+            chapter_info = None
+            if text and len(text) >= 100:
+                import re
+                if re.search(r'写|章|节|生成|继续|下一', message):
+                    chapter_info = _save_as_chapter(novel_id, text, message)
+
+            resp = {"success": True, "content": text or "（模型未返回有效内容，请换个说法再试）"}
+            if chapter_info:
+                resp["chapter"] = chapter_info
+            return resp
         except Exception as e:
             return {"success": False, "error": str(e)}
 
