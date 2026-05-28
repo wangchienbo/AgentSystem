@@ -401,30 +401,81 @@ async function createNovel(){
   }else{alert('创建失败: '+(d.error||'未知错误'))}
 }
 
+let _msgId=0;
 async function sendMsg(){
   const inp=$('chat-input');const text=inp.value.trim();
   if(!text||!cid)return;
   inp.value='';$('send-btn').disabled=true;$('gen-btn').disabled=true;inp.disabled=true;
-  // Add user message
   const msgs=$('chat-msgs');
   msgs.innerHTML+=`<div class="msg user">${esc(text)}</div>`;
-  msgs.innerHTML+=`<div class="msg ai typing" id="typing-indicator">✍️ 思考中...</div>`;
+  // Create AI message bubble that will be filled progressively (streaming)
+  const mid='stream-msg-'+(++_msgId);
+  msgs.innerHTML+=`<div class="msg ai" id="${mid}"></div>`;
+  const msgDiv=document.getElementById(mid);
   msgs.scrollTop=msgs.scrollHeight;
   try{
-    const d=await api('/chat',{novel_id:cid,message:text});
-    const ti=$('typing-indicator');
-    if(ti)ti.remove();
-    const reply=d.content||d.message||d.reply||d.response||'（模型暂无回复）';
-    const ch=d.chapter;
-    let tag='';
-    if(ch&&ch.number)tag=` <span class="ch-tag">📚 已保存为第${ch.number}章${ch.title?'「'+esc(ch.title)+'」':''}</span>`;
-    msgs.innerHTML+=`<div class="msg ai">${esc(reply)}${tag}</div>`;
-    // Refresh sidebar if a chapter was saved
-    if(ch&&ch.number)await loadNovelData(cid);
+    const response=await fetch(API+'/chat/stream',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({novel_id:cid,message:text})
+    });
+    if(!response.ok){
+      const err=await response.json().catch(()=>({error:'HTTP '+response.status}));
+      msgDiv.textContent='⚠️ '+(err.error||'请求失败');
+      return;
+    }
+    // Check if streaming is supported
+    if(!response.body){
+      // Fallback: read full text
+      const data=await response.json();
+      const reply=data.content||data.message||'（模型暂无回复）';
+      msgDiv.textContent=reply;
+      if(data.chapter&&data.chapter.number){
+        var tag=document.createElement('span');tag.className='ch-tag';
+        tag.textContent='📚 已保存为第'+data.chapter.number+'章'+(data.chapter.title?'「'+data.chapter.title+'」':'');
+        msgDiv.appendChild(tag);
+        await loadNovelData(cid);
+      }
+      return;
+    }
+    // Streaming mode: parse NDJSON line by line
+    const reader=response.body.getReader();
+    const decoder=new TextDecoder();
+    let buffer='',fullText='',chapterInfo=null;
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+      const lines=buffer.split('\n');
+      buffer=lines.pop(); // keep trailing incomplete line in buffer
+      for(const line of lines){
+        if(!line.trim())continue;
+        try{
+          const data=JSON.parse(line);
+          if(data.token){
+            fullText+=data.token;
+            msgDiv.textContent=fullText;
+            msgs.scrollTop=msgs.scrollHeight;
+          }else if(data.done){
+            chapterInfo=data.chapter||null;
+          }else if(data.info){
+            // Show info message (e.g., retrying)
+            if(!fullText)msgDiv.textContent='⏳ '+data.info;
+          }else if(data.error){
+            msgDiv.textContent='⚠️ '+data.error;
+          }
+        }catch(e){/* skip malformed lines */}
+      }
+    }
+    // Add chapter tag if saved
+    if(chapterInfo&&chapterInfo.number){
+      var tag=document.createElement('span');tag.className='ch-tag';
+      tag.textContent='📚 已保存为第'+chapterInfo.number+'章'+(chapterInfo.title?'「'+chapterInfo.title+'」':'');
+      msgDiv.appendChild(tag);
+    }
+    if(chapterInfo&&chapterInfo.number)await loadNovelData(cid);
   }catch(e){
-    const ti=$('typing-indicator');
-    if(ti)ti.remove();
-    msgs.innerHTML+=`<div class="msg system">⚠️ 请求失败: ${e.message}</div>`;
+    msgDiv.textContent='⚠️ 请求失败: '+e.message;
   }
   $('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false;inp.focus();
   msgs.scrollTop=msgs.scrollHeight;

@@ -8,7 +8,7 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from app.novel_studio.engine import NovelStudioEngine
 from app.novel_studio.storage import NovelStorage
@@ -265,6 +265,138 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         topic = data.get("topic", "闲聊")
         result = await engine.character_dialogue(novel_id, char1, char2, topic)
         return {"success": True, "result": result}
+
+    @router.post("/chat/stream")
+    async def api_chat_stream(data: dict):
+        """SSE 流式 AI 对话接口：实时逐 token 显示生成内容"""
+        novel_id = data.get("novel_id", "")
+        message = data.get("message", "")
+        if not novel_id:
+            return JSONResponse({"success": False, "error": "缺少 novel_id"})
+        if not message:
+            return JSONResponse({"success": False, "error": "消息不能为空"})
+        novel = engine.get_novel(novel_id)
+        if not novel:
+            return JSONResponse({"success": False, "error": "小说未找到"})
+
+        return StreamingResponse(
+            _stream_chat_events(engine, novel, message, novel_id),
+            media_type="application/x-ndjson",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    # ──── SSE 辅助生成器 ────
+    def _stream_chat_events(
+        engine: NovelStudioEngine,
+        novel,
+        message: str,
+        novel_id: str,
+    ):
+        """SSE 事件生成器：构建上下文 → 流式 LLM → 章节保存"""
+        # 构建小说上下文（与 /chat 保持一致）
+        ctx = [f"# {novel.title}"]
+        if novel.genre:
+            ctx.append(f"类型：{novel.genre}")
+        ctx.append(f"状态：{novel.status}")
+        if novel.outline and novel.outline.summary:
+            ctx.append(f"大纲摘要：{novel.outline.summary}")
+        if novel.outline and novel.outline.chapters:
+            chapters_plan = [f"  第{c.number}章 {c.title}" for c in novel.outline.chapters]
+            ctx.append("章节规划：\n" + "\n".join(chapters_plan))
+        if novel.characters:
+            ctx.append("角色：")
+            for c in novel.characters.values():
+                ctx.append(f"  - {c.name}({c.archetype.value}): {'、'.join(c.personality)}")
+                if c.goal:
+                    ctx.append(f"    目标：{c.goal}")
+        if novel.world:
+            ctx.append(f"世界观：{novel.world.name} - {novel.world.overview}")
+        if novel.chapters:
+            ctx.append("已完成章节：")
+            for ch in novel.chapters[-3:]:
+                ctx.append(f"  第{ch.number}章 {ch.title}（{len(ch.content)}字）")
+
+        full_context = "\n".join(ctx)
+        system_prompt = f"""你是一位专业的小说创作助手，正在帮助用户创作小说。
+
+当前小说《{novel.title}》的上下文信息：
+{full_context}
+
+你的能力：
+1. 根据用户指令生成大纲、角色、世界观、章节等内容
+2. 回答关于故事的问题，提供创作建议
+3. 帮助用户规划剧情、分析角色、完善世界观
+4. 直接生成小说内容（当用户要求写章节时）
+
+规则：
+- 保持角色性格一致
+- 注意情节逻辑
+- 语言自然流畅
+- 直接回答问题，不要返回 JSON 格式
+- 如果用户要求生成章节，直接写出内容"""
+
+        import json as _json
+        import time as _time
+        import logging as _log
+        _logger = _log.getLogger(__name__)
+
+        try:
+            # 1. 获取 LLM 客户端
+            if engine._llm_client:
+                client = engine._llm_client
+                model = client._config.model
+            elif engine._model_router:
+                client = engine._model_router.get_client("architect", "complex")
+                model = client._config.model
+            else:
+                yield _json.dumps({"error": "LLM 未配置"}) + "\n"
+                return
+
+            # 2. 流式生成
+            full_text = ""
+            token_count = 0
+            for attempt in range(2):
+                try:
+                    for token in client.chat_stream(
+                        [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
+                        model=model,
+                        max_tokens=2000,
+                        temperature=0.8,
+                    ):
+                        token_count += 1
+                        full_text += token
+                        yield _json.dumps({"token": token}) + "\n"
+                except Exception as e:
+                    _logger.warning(f"chat_stream attempt {attempt+1} error: {e}")
+                    if attempt == 0:
+                        yield _json.dumps({"info": "重试中..."}) + "\n"
+                        _time.sleep(1.5)
+                        continue
+                    raise
+                if token_count > 0:
+                    break
+                if attempt == 0:
+                    yield _json.dumps({"info": "重试中..."}) + "\n"
+                    _time.sleep(1.5)
+
+            # 3. 检测是否保存章节
+            chapter_info = None
+            if full_text and len(full_text) >= 100:
+                import re as _re
+                if _re.search(r'写|章|节|生成|继续|下一', message):
+                    chapter_info = _save_as_chapter(novel_id, full_text, message)
+
+            resp = {"done": True}
+            if chapter_info:
+                resp["chapter"] = chapter_info
+            yield _json.dumps(resp) + "\n"
+
+        except Exception as e:
+            yield _json.dumps({"error": str(e)}) + "\n"
 
     @router.post("/chat")
     async def api_chat(data: dict):

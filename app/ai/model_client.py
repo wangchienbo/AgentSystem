@@ -416,6 +416,62 @@ class OpenAIResponsesClient:
                     completion_tokens = len(full_text) // 4
         return "".join(content_parts), {"model": model_name, "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "total_tokens": prompt_tokens + completion_tokens}
 
+    def chat_stream(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        model: str | None = None,
+        max_tokens: int = 500,
+        temperature: float = 0.7,
+    ):
+        """Stream tokens from chat completion, yielding content chunks one by one.
+
+        Args:
+            messages: List of message dicts with role/content.
+            model: Model name override.
+            max_tokens: Max tokens to generate.
+            temperature: Sampling temperature.
+
+        Yields:
+            str: Incremental content tokens as they arrive from the API.
+        """
+        model_name = model or self._config.model
+        url = _chat_completions_url(self._config.base_url)
+        payload: dict = {
+            "model": model_name,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": True,
+        }
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        with httpx.Client(timeout=self._config.timeout_seconds) as client:
+            with client.stream("POST", url, json=payload, headers=headers) as response:
+                if response.status_code >= 400:
+                    body = response.read().decode(errors="replace")[:300]
+                    raise ModelClientError(
+                        f"Chat stream request failed: {response.status_code} {body}",
+                        status_code=response.status_code,
+                        retryable=response.status_code >= 500,
+                    )
+                for line in response.iter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:]
+                    if data == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        delta = chunk.get("choices", [{}])[0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            yield content
+                    except (json.JSONDecodeError, IndexError, KeyError):
+                        continue
+
     def chat_with_tools(
         self,
         messages: list[dict[str, Any]],
