@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.novel_studio.engine import NovelStudioEngine
 from app.novel_studio.storage import NovelStorage
-from app.novel_studio.models import CharacterArchetype
+from app.novel_studio.models import CharacterArchetype, Chapter
 
 
 def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIRouter:
@@ -189,7 +189,46 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         novel_id = data.get("novel_id", "")
         instruction = data.get("instruction", "继续写下去")
         result = await engine.generate_content(novel_id, instruction)
-        return {"success": True, "content": result.content}
+        content = result.content
+
+        # 自动保存为章节
+        novel = engine.get_novel(novel_id)
+        chapter_number = 1
+        chapter_title = "未命名"
+        if novel:
+            # 计算下一章编号
+            if novel.chapters:
+                chapter_number = max(c.number for c in novel.chapters) + 1
+            else:
+                chapter_number = 1
+            # 从指令中提取标题（如果用户提到了章节名）
+            import re
+            title_match = re.search(r'[第](\d+)[章节]|["「『]([^"」』]+)["」』]', instruction)
+            if title_match:
+                num = title_match.group(1)
+                name = title_match.group(2)
+                if name:
+                    chapter_title = name
+                elif num:
+                    chapter_title = f"第{num}章"
+                else:
+                    chapter_title = "未命名"
+            elif len(instruction) > 5 and "写" not in instruction[:3]:
+                chapter_title = instruction[:20]
+            # 创建并保存章节
+            chapter = Chapter(
+                number=chapter_number,
+                title=chapter_title,
+                content=content,
+                word_count=len(content),
+            )
+            engine._storage.add_chapter(novel_id, chapter)
+
+        return {
+            "success": True,
+            "content": content,
+            "chapter": {"number": chapter_number, "title": chapter_title},
+        }
 
     @router.post("/chapter/write")
     async def api_write_chapter(data: dict):

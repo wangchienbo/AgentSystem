@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import random
 from datetime import datetime, UTC
 from typing import Any
@@ -52,6 +53,8 @@ DEFAULT_CHARACTER_ARCHETYPES = {
         "speech_style": "语气平和，语言精炼，常用哲理和隐喻",
     },
 }
+
+logger = logging.getLogger(__name__)
 
 
 class NovelStudioEngine:

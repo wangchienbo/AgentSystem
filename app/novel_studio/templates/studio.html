@@ -436,7 +436,9 @@ async function genNextChapter(){
     const ti=$('typing-indicator');
     if(ti)ti.remove();
     if(d.success){
-      msgs.innerHTML+=`<div class="msg system">✅ 章节生成成功！</div>`;
+      const ch=d.chapter||{};
+      const chTag=ch.number?'第'+ch.number+'章「'+(ch.title||'')+'」':'章节';
+      msgs.innerHTML+=`<div class="msg system">✅ ${chTag} 生成成功！已保存</div>`;
       if(d.content){
         msgs.innerHTML+=`<div class="msg ai">${esc(d.content)}</div>`;
       }else{
