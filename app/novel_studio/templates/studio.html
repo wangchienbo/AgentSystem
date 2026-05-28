@@ -81,7 +81,52 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 @keyframes spin{to{transform:rotate(360deg)}}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
 
-/* Mobile: sidebar as overlay */
+/* ========== Reader View ========== */
+#reader-view{display:none;flex-direction:column;height:100%}
+#reader-view.active{display:flex}
+#reader-topbar{display:flex;align-items:center;padding:10px 16px;background:#1a1a2e;color:#fff;gap:12px;flex-shrink:0}
+#reader-topbar .rtitle{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px}
+#reader-topbar .rsub{font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#reader-topbar .close-btn{background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:4px 10px;font-size:13px;cursor:pointer;color:#fff;margin-left:auto}
+#reader-topbar .close-btn:hover{background:rgba(255,255,255,.1)}
+#reader-body{display:flex;flex:1;overflow:hidden;background:#f5f3ef}
+#reader-toc{width:260px;min-width:260px;background:#fff;border-right:1px solid #e0e0e0;overflow-y:auto;padding:10px 0;transition:width .3s,min-width .3s,opacity .3s}
+#reader-toc.collapsed{width:0;min-width:0;overflow:hidden;opacity:0}
+#reader-toc .toc-title{padding:8px 16px;font-size:13px;color:#999;font-weight:600;letter-spacing:.5px}
+#reader-toc .toc-item{cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 16px;font-size:14px;color:#444;border-left:3px solid transparent;transition:all .15s}
+#reader-toc .toc-item:hover{background:#f0f0f0;color:#1a73e8}
+#reader-toc .toc-item .toc-num{color:#999;font-size:12px;min-width:24px;text-align:right;flex-shrink:0}
+#reader-toc .toc-item .toc-title-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#reader-toc .toc-item .toc-wc{color:#bbb;font-size:11px;margin-left:auto;flex-shrink:0}
+#reader-toc .toc-item.active{background:#e8f0fe;color:#1a73e8;border-left-color:#1a73e8;font-weight:600}
+#reader-toc .toc-empty{padding:40px 20px;text-align:center;color:#999;font-size:14px}
+#reader-content{flex:1;overflow-y:auto;padding:30px 40px 60px;max-width:720px;margin:0 auto;width:100%}
+#reader-content .rc-header{margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e0ddd5}
+#reader-content .rc-title{font-size:26px;font-weight:700;color:#1a1a2e;line-height:1.3;margin-bottom:8px}
+#reader-content .rc-meta{font-size:13px;color:#999;display:flex;gap:16px}
+#reader-content .rc-body{font-size:17px;line-height:1.9;color:#2c2c2c;white-space:pre-wrap;letter-spacing:.3px}
+#reader-content .rc-body p{text-indent:2em;margin-bottom:8px}
+#reader-content .rc-empty{text-align:center;padding:80px 20px;color:#999;font-size:16px}
+#reader-nav{display:flex;align-items:center;justify-content:center;padding:12px 20px;background:#fff;border-top:1px solid #e0e0e0;gap:12px;flex-shrink:0}
+#reader-nav button{padding:8px 24px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;color:#333;transition:all .15s}
+#reader-nav button:hover:not(:disabled){background:#1a73e8;color:#fff;border-color:#1a73e8}
+#reader-nav button:disabled{opacity:.3;cursor:not-allowed}
+#reader-nav .rn-info{font-size:13px;color:#999;min-width:120px;text-align:center}
+#reader-nav .rn-progress{font-size:13px;color:#666;text-align:center}
+.read-btn{background:#34a853!important;color:#fff!important;border:none;border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer}
+.read-btn:hover{background:#2d9248!important}
+
+/* Mobile: reader TOC as overlay */
+@media(max-width:768px){
+  #reader-toc{position:fixed;top:50px;left:0;bottom:56px;width:280px;z-index:50;box-shadow:2px 0 12px rgba(0,0,0,.15)}
+  #reader-toc.collapsed{width:0;min-width:0}
+  #reader-content{padding:20px;max-width:100%}
+  #reader-content .rc-title{font-size:22px}
+  #reader-content .rc-body{font-size:16px;line-height:1.8}
+  #reader-topbar .rtitle{max-width:160px}
+}
+
+/* Mobile existing overrides */
 @media(max-width:768px){
   #sidebar{position:fixed;top:50px;left:0;bottom:0;width:280px;z-index:50;box-shadow:2px 0 12px rgba(0,0,0,.15)}
   #sidebar.collapsed{width:0;min-width:0}
@@ -113,6 +158,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <span id="tb-genre"></span>
       <div style="flex:1"></div>
       <div class="top-actions">
+        <button class="read-btn" onclick="openReader()">📖 阅读</button>
         <button class="back-btn" onclick="showList()">← 返回</button>
       </div>
     </div>
@@ -139,7 +185,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
     </div>
   </div>
-</div>
+
+  <!-- ====== Reader View ====== -->
+  <div id="reader-view" class="view">
+    <div id="reader-topbar">
+      <button class="hamburger" onclick="toggleReaderToc()">☰</button>
+      <span class="rtitle" id="reader-title">加载中...</span>
+      <span class="rsub" id="reader-subtitle"></span>
+      <button class="close-btn" onclick="closeReader()">✕ 关闭阅读</button>
+    </div>
+    <div id="reader-body">
+      <div id="reader-toc">
+        <div class="toc-title">📖 目录</div>
+        <div id="reader-toc-list"><div class="toc-empty">暂无章节</div></div>
+      </div>
+      <div id="reader-content">
+        <div class="rc-empty">选择章节开始阅读</div>
+      </div>
+    </div>
+    <div id="reader-nav">
+      <button id="prev-ch-btn" onclick="prevChapter()" disabled>← 上一章</button>
+      <span class="rn-progress" id="reader-progress">0 / 0</span>
+      <button id="next-ch-btn" onclick="nextChapter()" disabled>下一章 →</button>
+    </div>
+  </div>
+</div>  <!-- end #app -->
 
 <div id="loading-overlay"><div class="spin"></div><p id="loading-text">加载中...</p></div>
 
@@ -426,13 +496,24 @@ async function sendMsg(){
     }
     // Check if streaming is supported
     if(!response.body){
-      // Fallback: read full text
-      const data=await response.json();
-      const reply=data.content||data.message||'（模型暂无回复）';
-      msgDiv.textContent=reply;
-      if(data.chapter&&data.chapter.number){
+      // Fallback: read full text as NDJSON (line-by-line parsing)
+      const text=await response.text();
+      const lines=text.split('\n');
+      let fullText='',chapterInfo=null;
+      for(const line of lines){
+        if(!line.trim())continue;
+        try{
+          const data=JSON.parse(line);
+          if(data.token) fullText+=data.token;
+          else if(data.done) chapterInfo=data.chapter||null;
+          else if(data.info && !fullText) msgDiv.textContent='⏳ '+data.info;
+          else if(data.error){ msgDiv.textContent='⚠️ '+data.error; return; }
+        }catch(e){/* skip malformed lines */}
+      }
+      msgDiv.textContent=fullText||'（模型暂无回复）';
+      if(chapterInfo&&chapterInfo.number){
         var tag=document.createElement('span');tag.className='ch-tag';
-        tag.textContent='📚 已保存为第'+data.chapter.number+'章'+(data.chapter.title?'「'+data.chapter.title+'」':'');
+        tag.textContent='📚 已保存为第'+chapterInfo.number+'章'+(chapterInfo.title?'「'+chapterInfo.title+'」':'');
         msgDiv.appendChild(tag);
         await loadNovelData(cid);
       }
@@ -518,6 +599,109 @@ async function genNextChapter(){
 function quick(q){
   $('chat-input').value=q;
   sendMsg();
+}
+
+// ====== Reader View ======
+let readerCurrentIdx=0;
+let readerTocOpen=true;
+
+function openReader(){
+  if(!novelData) return;
+  hideDetail();
+  showView('reader-view');
+  // Auto-collapse TOC on mobile
+  if(window.innerWidth<768){readerTocOpen=false;document.getElementById('reader-toc').classList.add('collapsed')}
+  buildReaderToc();
+  const chs=novelData.chapters||[];
+  if(chs.length){loadChapter(0)}else{
+    $('reader-title').textContent=novelData.title||'未命名';
+    $('reader-subtitle').textContent='暂无章节';
+    $('reader-content').innerHTML='<div class="rc-empty">📝 还没有章节，返回创作室开始写作吧</div>';
+  }
+  dbg('openReader: '+cid);
+}
+
+function closeReader(){
+  showView('workspace');
+  dbg('closeReader');
+}
+
+function buildReaderToc(){
+  const chs=novelData&&novelData.chapters||[];
+  const list=$('reader-toc-list');
+  if(!chs.length){list.innerHTML='<div class="toc-empty">暂无章节</div>';return}
+  list.innerHTML=chs.map((ch,i)=>{
+    const num=i+1;
+    const title=esc(ch.title||'第'+num+'章');
+    const wc=ch.word_count?esc(String(ch.word_count)):'';
+    const active= i===readerCurrentIdx?' active':'';
+    return '<div class="toc-item'+active+'" onclick="loadChapter('+i+')">'+
+      '<span class="toc-num">'+num+'</span>'+
+      '<span class="toc-title-text">'+title+'</span>'+
+      (wc?'<span class="toc-wc">'+wc+'字</span>':'')+
+    '</div>';
+  }).join('');
+}
+
+function loadChapter(idx){
+  const chs=novelData&&novelData.chapters||[];
+  if(idx<0||idx>=chs.length)return;
+  readerCurrentIdx=idx;
+  const ch=chs[idx];
+  const num=idx+1;
+  const title=ch.title||'第'+num+'章';
+  
+  // Update topbar
+  $('reader-title').textContent=novelData.title||'未命名';
+  $('reader-subtitle').textContent='第'+num+'章：'+title;
+  
+  // Update TOC active state
+  document.querySelectorAll('#reader-toc .toc-item').forEach(el=>el.classList.remove('active'));
+  const items=document.querySelectorAll('#reader-toc .toc-item');
+  if(items[idx])items[idx].classList.add('active');
+  
+  // Build content
+  const content=ch.content||'（内容待生成）';
+  const wc=ch.word_count||'';
+  const status=ch.status||'';
+  const lines=content.split('\n').filter(l=>l.trim());
+  const paragraphs=lines.map(l=>'<p>'+esc(l)+'</p>').join('');
+  
+  $('reader-content').innerHTML=
+    '<div class="rc-header">'+
+      '<div class="rc-title">第'+num+'章 '+esc(title)+'</div>'+
+      '<div class="rc-meta">'+
+        (wc?'<span>📝 '+wc+'字</span>':'')+
+        (status?'<span>🏷️ '+esc(status)+'</span>':'')+
+        '<span>📄 第'+num+'/'+chs.length+'章</span>'+
+      '</div>'+
+    '</div>'+
+    '<div class="rc-body">'+
+      (content?paragraphs:'<p>（内容待生成）</p>')+
+    '</div>';
+  
+  // Update nav
+  $('prev-ch-btn').disabled=(idx===0);
+  $('next-ch-btn').disabled=(idx===chs.length-1);
+  $('reader-progress').textContent=num+' / '+chs.length;
+  
+  // Scroll to top
+  $('reader-content').scrollTop=0;
+  
+  dbg('loadChapter: '+idx+' ('+title+')');
+}
+
+function prevChapter(){
+  loadChapter(readerCurrentIdx-1);
+}
+
+function nextChapter(){
+  loadChapter(readerCurrentIdx+1);
+}
+
+function toggleReaderToc(){
+  readerTocOpen=!readerTocOpen;
+  document.getElementById('reader-toc').classList.toggle('collapsed',!readerTocOpen);
 }
 
 // Key bindings
