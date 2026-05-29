@@ -246,6 +246,59 @@ class CharacterAgent:
             logger.warning("角色决策失败 %s: %s", self._char.name, e)
             return {"action": "沉默观望", "dialogue": "沉默", "inner": ""}
 
+    # ── 对话方法（被 engine.character_dialogue 调用） ──
+
+    async def speak(self, context: str, target_audience: str = "") -> str:
+        """以角色身份生成一句对话台词"""
+        parts = [f"你扮演的角色是{self._char.name}。"]
+        parts.append(f"\n{self._char.sheet_block()}")
+
+        if self._char.speech_style:
+            parts.append(f"\n说话风格：{self._char.speech_style}")
+
+        if self._memories:
+            parts.append(f"\n{self.get_knowing_summary(5)}")
+
+        if target_audience:
+            parts.append(f"\n对话对象：{target_audience}")
+
+        parts.append(f"\n当前情境：\n{context}")
+        parts.append(f"\n请以{self._char.name}的身份说一句话（仅回复你所说的内容，不要加动作描写以外的说明）：")
+
+        prompt = "\n".join(parts)
+        system_prompt = (
+            f"你正在扮演{self._char.name}。保持角色性格一致，"
+            f"用词和语气符合角色设定。只输出角色台词，不要加注解。"
+        )
+
+        try:
+            if self._router:
+                client = self._router.get_client("architect", "complex")
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ]
+                text, _ = client.chat(
+                    messages,
+                    max_tokens=300,
+                    temperature=0.85,
+                    stream=False,
+                )
+                return (text or "……").strip()
+            return "……"
+        except Exception as e:
+            logger.warning("角色 %s 对话失败: %s", self._char.name, e)
+            return "……"
+
+    def add_to_history(self, role: str, content: str) -> None:
+        """将对话记录加入角色记忆"""
+        self.add_memory(
+            content=content,
+            participants=[role] if role != "user" else [],
+            importance=0.6,
+            tags=["dialogue"],
+        )
+
     def _parse_decision(self, text: str) -> dict[str, str]:
         """解析角色决策输出"""
         result = {"action": "", "dialogue": "", "inner": "", "perception": ""}

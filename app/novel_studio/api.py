@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Generator
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
@@ -15,8 +15,30 @@ from app.novel_studio.storage import NovelStorage
 from app.novel_studio.models import CharacterArchetype, Chapter
 
 
-def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIRouter:
-    """创建小说工作室 API 路由"""
+def create_novel_router(
+    model_router=None,
+    llm_client=None,
+    engine=None,
+    context_center=None,
+    runtime_center=None,
+) -> APIRouter:
+    """创建小说工作室 API 路由
+
+    Parameters
+    ----------
+    context_center : ContextCenter | None
+        如果提供，LLM 调用的上下文将通过 ContextCenter 统一管理
+    runtime_center : RuntimeCenter | None
+        如果提供，资产方法调用可通过 RuntimeCenter 调度
+    """
+    from app.novel_studio.novel_context_builder import (
+        build_novel_system_prompt,
+        get_or_create_novel_session,
+        get_or_create_dialogue_session,
+        log_context_record,
+        log_novel_context_records,
+    )
+
     router = APIRouter(prefix="/api/novel", tags=["novel-studio"])
     if engine is None:
         engine = NovelStudioEngine(
@@ -317,7 +339,11 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         char1 = data.get("char1", "")
         char2 = data.get("char2", "")
         topic = data.get("topic", "闲聊")
+        # 通过 ContextCenter 管理对话会话（每个角色对话独立上下文窗口）
+        d_session_id = get_or_create_dialogue_session(novel_id, char1, char2, context_center)
+        log_context_record(d_session_id, f"话题：{topic}", context_center, role="user", kind="message")
         result = await engine.character_dialogue(novel_id, char1, char2, topic)
+        log_context_record(d_session_id, result, context_center, role="assistant", kind="message")
         return {"success": True, "result": result}
 
     @router.post("/chat/stream")
@@ -333,8 +359,16 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         if not novel:
             return JSONResponse({"success": False, "error": "小说未找到"})
 
+        # 通过 ContextCenter 管理上下文（如果可用）
+        session_id = get_or_create_novel_session(novel_id, context_center)
+        log_novel_context_records(novel, context_center, session_id)
+        log_context_record(session_id, message, context_center, role="user", kind="message")
+
+        # 使用集中式系统 prompt 构建
+        system_prompt = build_novel_system_prompt(novel)
+
         return StreamingResponse(
-            _stream_chat_events(engine, novel, message, novel_id),
+            _stream_chat_events(engine, novel, message, novel_id, system_prompt, context_center, session_id),
             media_type="application/x-ndjson",
             headers={
                 "Cache-Control": "no-cache",
@@ -349,49 +383,12 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         novel,
         message: str,
         novel_id: str,
-    ):
+        system_prompt: str,
+        context_center=None,
+        session_id: str = "",
+    ) -> Generator:
         """SSE 事件生成器：构建上下文 → 流式 LLM → 章节保存"""
-        # 构建小说上下文（与 /chat 保持一致）
-        ctx = [f"# {novel.title}"]
-        if novel.genre:
-            ctx.append(f"类型：{novel.genre}")
-        ctx.append(f"状态：{novel.status}")
-        if novel.outline and novel.outline.summary:
-            ctx.append(f"大纲摘要：{novel.outline.summary}")
-        if novel.outline and novel.outline.chapters:
-            chapters_plan = [f"  第{c.number}章 {c.title}" for c in novel.outline.chapters]
-            ctx.append("章节规划：\n" + "\n".join(chapters_plan))
-        if novel.characters:
-            ctx.append("角色：")
-            for c in novel.characters.values():
-                ctx.append(f"  - {c.name}({c.archetype.value}): {'、'.join(c.personality)}")
-                if c.goal:
-                    ctx.append(f"    目标：{c.goal}")
-        if novel.world:
-            ctx.append(f"世界观：{novel.world.name} - {novel.world.overview}")
-        if novel.chapters:
-            ctx.append("已完成章节：")
-            for ch in novel.chapters[-3:]:
-                ctx.append(f"  第{ch.number}章 {ch.title}（{len(ch.content)}字）")
-
-        full_context = "\n".join(ctx)
-        system_prompt = f"""你是一位专业的小说创作助手，正在帮助用户创作小说。
-
-当前小说《{novel.title}》的上下文信息：
-{full_context}
-
-你的能力：
-1. 根据用户指令生成大纲、角色、世界观、章节等内容
-2. 回答关于故事的问题，提供创作建议
-3. 帮助用户规划剧情、分析角色、完善世界观
-4. 直接生成小说内容（当用户要求写章节时）
-
-规则：
-- 保持角色性格一致
-- 注意情节逻辑
-- 语言自然流畅
-- 直接回答问题，不要返回 JSON 格式
-- 如果用户要求生成章节，直接写出内容"""
+        # 上下文已由调用者通过 build_novel_system_prompt() 构建
 
         import json as _json
         import time as _time
@@ -437,6 +434,10 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
                     yield _json.dumps({"info": "重试中..."}) + "\n"
                     _time.sleep(1.5)
 
+            # 记录完整回复到 ContextCenter
+            if full_text and context_center and session_id:
+                log_context_record(session_id, full_text, context_center, role="assistant", kind="message")
+
             # 3. 检测是否保存章节
             chapter_info = None
             if full_text and len(full_text) >= 100:
@@ -466,47 +467,13 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         if not novel:
             return {"success": False, "error": "小说未找到"}
 
-        # 构建小说上下文
-        ctx = [f"# {novel.title}"]
-        if novel.genre:
-            ctx.append(f"类型：{novel.genre}")
-        ctx.append(f"状态：{novel.status}")
-        if novel.outline and novel.outline.summary:
-            ctx.append(f"大纲摘要：{novel.outline.summary}")
-        if novel.outline and novel.outline.chapters:
-            chapters_plan = [f"  第{c.number}章 {c.title}" for c in novel.outline.chapters]
-            ctx.append("章节规划：\n" + "\n".join(chapters_plan))
-        if novel.characters:
-            ctx.append("角色：")
-            for c in novel.characters.values():
-                ctx.append(f"  - {c.name}({c.archetype.value}): {'、'.join(c.personality)}")
-                if c.goal:
-                    ctx.append(f"    目标：{c.goal}")
-        if novel.world:
-            ctx.append(f"世界观：{novel.world.name} - {novel.world.overview}")
-        if novel.chapters:
-            ctx.append("已完成章节：")
-            for ch in novel.chapters[-3:]:
-                ctx.append(f"  第{ch.number}章 {ch.title}（{len(ch.content)}字）")
+        # 通过 ContextCenter 管理上下文
+        session_id = get_or_create_novel_session(novel_id, context_center)
+        log_novel_context_records(novel, context_center, session_id)
+        log_context_record(session_id, message, context_center, role="user", kind="message")
 
-        full_context = "\n".join(ctx)
-        system_prompt = f"""你是一位专业的小说创作助手，正在帮助用户创作小说。
-
-当前小说《{novel.title}》的上下文信息：
-{full_context}
-
-你的能力：
-1. 根据用户指令生成大纲、角色、世界观、章节等内容
-2. 回答关于故事的问题，提供创作建议
-3. 帮助用户规划剧情、分析角色、完善世界观
-4. 直接生成小说内容（当用户要求写章节时）
-
-规则：
-- 保持角色性格一致
-- 注意情节逻辑
-- 语言自然流畅
-- 直接回答问题，不要返回 JSON 格式
-- 如果用户要求生成章节，直接写出内容"""
+        # 使用集中式系统 prompt
+        system_prompt = build_novel_system_prompt(novel)
 
         try:
             if engine._llm_client:
@@ -546,6 +513,10 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
                 return {"success": False, "error": "请配置 LLM 客户端"}
 
             text = text or ""
+            # 记录完整回复到 ContextCenter
+            if text and context_center and session_id:
+                log_context_record(session_id, text, context_center, role="assistant", kind="message")
+
             # 检测聊天中是否在写章节：消息含写/章/生成等关键词，且内容足够长
             chapter_info = None
             if text and len(text) >= 100:

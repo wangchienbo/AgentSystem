@@ -66,7 +66,15 @@ def bootstrap_novel_studio(
     runtime_services["novel_engine"] = engine
 
     # ── 2. 创建路由 ────────────────────────────────────────────
-    router = create_novel_router(model_router=model_router, llm_client=llm_client, engine=engine)
+    context_center = runtime_services.get("context_center")
+    runtime_center = runtime_services.get("runtime_center")
+    router = create_novel_router(
+        model_router=model_router,
+        llm_client=llm_client,
+        engine=engine,
+        context_center=context_center,
+        runtime_center=runtime_center,
+    )
 
     # ── 3. 挂载 FastAPI 路由（如果提供 app） ───────────────────
     if fastapi_app is not None:
@@ -172,6 +180,19 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
                 method="add_scene",
                 input_schema={"novel_id": "string", "name": "string",
                               "location": "string", "description": "string"}),
+            AssetCapability(name="chat", description="与小说创作助手对话，绑定当前小说上下文",
+                method="chat",
+                input_schema={"novel_id": "string", "message": "string"}),
+            AssetCapability(name="character_dialogue", description="生成两个角色之间的对话",
+                method="character_dialogue",
+                input_schema={"novel_id": "string", "char1": "string",
+                              "char2": "string", "topic": "string"}),
+            AssetCapability(name="write_chapter", description="从大纲生成下一章内容",
+                method="write_chapter",
+                input_schema={"novel_id": "string"}),
+            AssetCapability(name="get_novel", description="获取小说完整数据",
+                method="get_novel",
+                input_schema={"novel_id": "string"}),
         ],
         visibility=Visibility.PUBLIC,
         tags=["novel", "writing", "creative"],
@@ -183,6 +204,10 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
         "save_outline": lambda **p: _novel_save_outline_resp(engine, **p),
         "save_world": lambda **p: _novel_create_world_resp(engine, **p),
         "add_scene": lambda **p: _novel_add_scene_resp(engine, **p),
+        "chat": lambda **p: _novel_chat_resp(engine, **p),
+        "character_dialogue": lambda **p: _novel_dialogue_resp(engine, **p),
+        "write_chapter": lambda **p: _novel_write_chapter_resp(engine, **p),
+        "get_novel": lambda **p: _novel_get_resp(engine, **p),
     }
 
     try:
@@ -246,3 +271,65 @@ def _novel_add_scene_resp(engine, novel_id="", name="", location="", description
     if scene:
         return {"success": True}
     return {"success": False, "error": "添加场景失败"}
+
+
+def _novel_chat_resp(engine, novel_id="", message="", **kw):
+    """同步聊天（供 RuntimeAsset 调用）"""
+    import asyncio
+    # 同步包装异步引擎调用
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    # engine.generate_content 是 async，需要同步包装
+    novel = engine.get_novel(novel_id)
+    if not novel:
+        return {"success": False, "error": "not_found"}
+    result = loop.run_until_complete(engine.generate_content(novel_id, message))
+    return {"success": True, "content": result.content}
+
+
+def _novel_dialogue_resp(engine, novel_id="", char1="", char2="", topic="闲聊", **kw):
+    """角色对话（供 RuntimeAsset 调用）"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(engine.character_dialogue(novel_id, char1, char2, topic))
+    return {"success": True, "result": result}
+
+
+def _novel_write_chapter_resp(engine, novel_id="", **kw):
+    """写下一章（供 RuntimeAsset 调用）"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    novel = engine.get_novel(novel_id)
+    if not novel or not novel.outline:
+        return {"success": False, "error": "请先创建大纲"}
+    next_ch = None
+    for co in novel.outline.chapters:
+        existing = [c for c in novel.chapters if c.number == co.number]
+        if not existing:
+            next_ch = co
+            break
+    if not next_ch:
+        return {"success": False, "error": "所有章节都写完了"}
+    chapter = loop.run_until_complete(engine.write_chapter(novel_id, next_ch.number))
+    if chapter:
+        return {"success": True, "chapter": chapter.number, "title": chapter.title}
+    return {"success": False, "error": "生成失败"}
+
+
+def _novel_get_resp(engine, novel_id="", **kw):
+    """获取小说数据（供 RuntimeAsset 调用）"""
+    novel = engine.get_novel(novel_id)
+    if not novel:
+        return {"success": False, "error": "not_found"}
+    return {"success": True, "novel": novel.model_dump(mode="json")}
