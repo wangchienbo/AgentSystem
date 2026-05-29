@@ -363,7 +363,6 @@ def create_novel_router(
                 _re.DOTALL
             )
             if not chapter_matches:
-                # 尝试 markdown 列表
                 chapter_matches = _re.findall(
                     r'(?:第\s*(\d+)\s*[章节][：:]\s*(.+?)(?:\n|$))',
                     content,
@@ -390,6 +389,105 @@ def create_novel_router(
             return True
         except Exception:
             return False
+
+    # ──── 辅助函数：解析并执行 [call:method(...)] 指令 ────
+    def _execute_call_asset_commands(text: str, novel_id: str, engine) -> str:
+        """从 LLM 输出中解析 [call:method(param=value)] 并执行，返回清理后的文本"""
+        import re as _re
+        call_pattern = r'\[call:(\w+)\(([^)]*)\)\]'
+        novel = engine.get_novel(novel_id)
+        if not novel:
+            return text
+        results = []
+
+        for match in _re.finditer(call_pattern, text):
+            method = match.group(1)
+            params_str = match.group(2)
+            params = {"novel_id": novel_id}
+            # 解析 key=value 参数
+            for kv in params_str.split(','):
+                kv = kv.strip()
+                if '=' in kv:
+                    k, v = kv.split('=', 1)
+                    k, v = k.strip(), v.strip().strip('"\'')
+                    if v.isdigit():
+                        v = int(v)
+                    params[k] = v
+
+            try:
+                result = None
+                if method == "save_outline":
+                    engine.create_outline(novel_id, novel.title,
+                        summary=params.get("summary", ""),
+                        three_act=params.get("three_act", {}))
+                    result = "大纲已保存"
+                elif method == "add_outline_chapter":
+                    engine.add_chapter_outline(novel_id,
+                        int(params.get("number", 1)),
+                        params.get("title", ""),
+                        params.get("summary", ""),
+                        params.get("key_events", []))
+                    result = f"第{params.get('number')}章大纲已添加"
+                elif method == "add_character":
+                    from app.novel_studio.models import CharacterArchetype
+                    arch = params.get("archetype", "配角")
+                    try:
+                        archetype = CharacterArchetype(arch)
+                    except ValueError:
+                        archetype = CharacterArchetype.SUPPORTING
+                    char = engine.add_character(novel_id, params.get("name", "新角色"),
+                        archetype=archetype,
+                        personality=params.get("personality", []),
+                        background=params.get("background", ""))
+                    result = f"角色「{char.name}」已添加" if char else "添加失败"
+                elif method == "update_character":
+                    char = engine.update_character(novel_id, params.get("char_id", ""),
+                        name=params.get("name"), archetype=params.get("archetype"),
+                        personality=params.get("personality"),
+                        background=params.get("background"))
+                    result = f"角色已更新" if char else "角色不存在"
+                elif method == "delete_character":
+                    ok = engine.remove_character(novel_id, params.get("char_id", ""))
+                    result = "角色已删除" if ok else "角色不存在"
+                elif method == "save_world":
+                    engine.create_world(novel_id, params.get("name", "世界"),
+                        overview=params.get("overview", ""),
+                        rules=params.get("rules", []))
+                    result = "世界观已保存"
+                elif method == "add_scene":
+                    engine.add_scene(novel_id, params.get("name", "场景"),
+                        location=params.get("location", ""),
+                        description=params.get("description", ""))
+                    result = "场景已添加"
+                elif method == "update_scene":
+                    updates = {k: params[k] for k in ["name", "location", "description"] if k in params}
+                    if updates:
+                        engine._storage.update_scene(novel_id, params.get("scene_id", ""), updates)
+                    result = "场景已更新"
+                elif method == "delete_scene":
+                    ok = engine.remove_scene(novel_id, params.get("scene_id", ""))
+                    result = "场景已删除" if ok else "场景不存在"
+                elif method == "update_chapter":
+                    updates = {}
+                    if "title" in params: updates["title"] = params["title"]
+                    if "content" in params: updates["content"] = params["content"]
+                    if updates:
+                        engine._storage.update_chapter(novel_id, params.get("chapter_id", ""), updates)
+                    result = "章节已更新"
+                elif method == "delete_chapter":
+                    ok = engine._storage.delete_chapter(novel_id, int(params.get("chapter_number", 0)))
+                    result = "章节已删除" if ok else "章节不存在"
+                elif method == "get_novel":
+                    result = "小说数据已获取"
+                results.append(result or "已执行")
+            except Exception as e:
+                results.append(f"执行失败: {e}")
+
+        # 替换 [call:...] 标记为执行结果
+        cleaned = text
+        if results:
+            cleaned = _re.sub(call_pattern, lambda m: f"[{results.pop(0) if results else '已执行'}]", text)
+        return cleaned
 
     @router.post("/chapter/write")
     async def api_write_chapter(data: dict):
@@ -542,6 +640,11 @@ def create_novel_router(
             if full_text and context_center and session_id:
                 log_context_record(session_id, full_text, context_center, role="assistant", kind="message")
 
+            # 执行 [call:...] 指令并替换结果
+            if full_text and 'call:' in full_text:
+                full_text = _execute_call_asset_commands(full_text, novel_id, engine)
+                yield _json.dumps({"token": full_text, "effect": "executed"}) + "\n"
+
             # 3. 检测是否保存章节
             chapter_info = None
             if full_text and len(full_text) >= 100:
@@ -623,6 +726,10 @@ def create_novel_router(
             # 记录完整回复到 ContextCenter
             if text and context_center and session_id:
                 log_context_record(session_id, text, context_center, role="assistant", kind="message")
+
+            # 执行 [call:...] 指令并替换结果
+            if text and 'call:' in text:
+                text = _execute_call_asset_commands(text, novel_id, engine)
 
             # 检测聊天中是否在写章节：消息含写/章/生成等关键词，且内容足够长
             chapter_info = None

@@ -149,10 +149,10 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
     novel_asset = AssetDescriptor(
         asset_id="asset:novel_studio:v1",
         name="小说工作室",
-        description="小说创作应用，支持创建小说、管理角色、大纲、世界观、章节生成",
+        description="小说创作应用，支持创建小说、管理角色、大纲、世界观、章节生成、章节编辑、角色编辑、场景编辑",
         asset_type=AssetType.APP,
         asset_kind=AssetKind.MATERIALIZED,
-        version="1.0.0",
+        version="2.0.0",
         owner_type="system",
         owner_id="system",
         source_of_truth="runtime",
@@ -168,10 +168,23 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
                 input_schema={"novel_id": "string", "name": "string",
                               "archetype": "string", "personality": "list",
                               "background": "string"}),
+            AssetCapability(name="update_character", description="更新角色的名称/类型/性格/背景等字段",
+                method="update_character",
+                input_schema={"novel_id": "string", "char_id": "string",
+                              "name": "string", "archetype": "string",
+                              "personality": "list", "background": "string"}),
+            AssetCapability(name="delete_character", description="删除指定角色",
+                method="delete_character",
+                input_schema={"novel_id": "string", "char_id": "string"}),
             AssetCapability(name="save_outline", description="保存小说三幕大纲",
                 method="save_outline",
                 input_schema={"novel_id": "string", "summary": "string",
                               "three_act": "object"}),
+            AssetCapability(name="add_outline_chapter", description="添加大纲中的章节规划",
+                method="add_outline_chapter",
+                input_schema={"novel_id": "string", "number": "int",
+                              "title": "string", "summary": "string",
+                              "key_events": "list"}),
             AssetCapability(name="save_world", description="创建或更新世界观",
                 method="save_world",
                 input_schema={"novel_id": "string", "name": "string",
@@ -180,6 +193,14 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
                 method="add_scene",
                 input_schema={"novel_id": "string", "name": "string",
                               "location": "string", "description": "string"}),
+            AssetCapability(name="update_scene", description="更新场景的名称/地点/描述",
+                method="update_scene",
+                input_schema={"novel_id": "string", "scene_id": "string",
+                              "name": "string", "location": "string",
+                              "description": "string"}),
+            AssetCapability(name="delete_scene", description="删除指定场景",
+                method="delete_scene",
+                input_schema={"novel_id": "string", "scene_id": "string"}),
             AssetCapability(name="chat", description="与小说创作助手对话，绑定当前小说上下文",
                 method="chat",
                 input_schema={"novel_id": "string", "message": "string"}),
@@ -190,9 +211,19 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
             AssetCapability(name="write_chapter", description="从大纲生成下一章内容",
                 method="write_chapter",
                 input_schema={"novel_id": "string"}),
-            AssetCapability(name="get_novel", description="获取小说完整数据",
+            AssetCapability(name="update_chapter", description="更新章节标题或内容",
+                method="update_chapter",
+                input_schema={"novel_id": "string", "chapter_id": "string",
+                              "title": "string", "content": "string"}),
+            AssetCapability(name="delete_chapter", description="删除指定编号的章节",
+                method="delete_chapter",
+                input_schema={"novel_id": "string", "chapter_number": "int"}),
+            AssetCapability(name="get_novel", description="获取小说完整数据（含所有章节、角色、世界观、大纲）",
                 method="get_novel",
                 input_schema={"novel_id": "string"}),
+            AssetCapability(name="generate", description="根据指令生成小说内容并自动保存为章节",
+                method="generate",
+                input_schema={"novel_id": "string", "instruction": "string"}),
         ],
         visibility=Visibility.PUBLIC,
         tags=["novel", "writing", "creative"],
@@ -201,13 +232,21 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
     method_mappings = {
         "create_novel": lambda **p: _novel_create_resp(engine, **p),
         "add_character": lambda **p: _novel_add_char_resp(engine, **p),
+        "update_character": lambda **p: _novel_update_char_resp(engine, **p),
+        "delete_character": lambda **p: _novel_delete_char_resp(engine, **p),
         "save_outline": lambda **p: _novel_save_outline_resp(engine, **p),
+        "add_outline_chapter": lambda **p: _novel_add_outline_chapter_resp(engine, **p),
         "save_world": lambda **p: _novel_create_world_resp(engine, **p),
         "add_scene": lambda **p: _novel_add_scene_resp(engine, **p),
+        "update_scene": lambda **p: _novel_update_scene_resp(engine, **p),
+        "delete_scene": lambda **p: _novel_delete_scene_resp(engine, **p),
         "chat": lambda **p: _novel_chat_resp(engine, **p),
         "character_dialogue": lambda **p: _novel_dialogue_resp(engine, **p),
         "write_chapter": lambda **p: _novel_write_chapter_resp(engine, **p),
+        "update_chapter": lambda **p: _novel_update_chapter_resp(engine, **p),
+        "delete_chapter": lambda **p: _novel_delete_chapter_resp(engine, **p),
         "get_novel": lambda **p: _novel_get_resp(engine, **p),
+        "generate": lambda **p: _novel_generate_resp(engine, **p),
     }
 
     try:
@@ -333,3 +372,97 @@ def _novel_get_resp(engine, novel_id="", **kw):
     if not novel:
         return {"success": False, "error": "not_found"}
     return {"success": True, "novel": novel.model_dump(mode="json")}
+
+
+# ─── 新注册的方法响应 ──────────────────────────────────────────────
+
+
+def _novel_update_char_resp(engine, novel_id="", char_id="", **kw):
+    from app.novel_studio.models import CharacterArchetype
+    updates = {}
+    for field in ["name", "archetype", "personality", "background", "speech_style", "goal", "flaw"]:
+        if field in kw:
+            updates[field] = kw[field]
+    if "archetype" in updates and isinstance(updates["archetype"], str):
+        try:
+            updates["archetype"] = CharacterArchetype(updates["archetype"])
+        except ValueError:
+            pass
+    char = engine.update_character(novel_id, char_id, **updates)
+    if char:
+        return {"success": True, "character": {"id": char.id, "name": char.name}}
+    return {"success": False, "error": "角色不存在"}
+
+
+def _novel_delete_char_resp(engine, novel_id="", char_id="", **kw):
+    ok = engine.remove_character(novel_id, char_id)
+    return {"success": ok, "error": "" if ok else "角色不存在"}
+
+
+def _novel_add_outline_chapter_resp(engine, novel_id="", number=1, title="", summary="", key_events=None, **kw):
+    engine.add_chapter_outline(novel_id, int(number), title, summary, key_events or [])
+    return {"success": True}
+
+
+def _novel_update_scene_resp(engine, novel_id="", scene_id="", **kw):
+    updates = {}
+    for field in ["name", "location", "description", "time_period", "weather"]:
+        if field in kw:
+            updates[field] = kw[field]
+    if not updates:
+        return {"success": False, "error": "no_updates"}
+    novel = engine._storage.update_scene(novel_id, scene_id, updates)
+    return {"success": novel is not None, "error": "" if novel else "场景不存在"}
+
+
+def _novel_delete_scene_resp(engine, novel_id="", scene_id="", **kw):
+    ok = engine.remove_scene(novel_id, scene_id)
+    return {"success": ok, "error": "" if ok else "场景不存在"}
+
+
+def _novel_update_chapter_resp(engine, novel_id="", chapter_id="", title=None, content=None, **kw):
+    updates = {}
+    if title is not None:
+        updates["title"] = title
+    if content is not None:
+        updates["content"] = content
+        updates["word_count"] = len(content)
+    if not updates:
+        return {"success": False, "error": "no_updates"}
+    novel = engine._storage.update_chapter(novel_id, chapter_id, updates)
+    return {"success": novel is not None}
+
+
+def _novel_delete_chapter_resp(engine, novel_id="", chapter_number=None, **kw):
+    if chapter_number is None:
+        return {"success": False, "error": "缺少 chapter_number"}
+    ok = engine._storage.delete_chapter(novel_id, int(chapter_number))
+    return {"success": ok}
+
+
+def _novel_generate_resp(engine, novel_id="", instruction="", **kw):
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(engine.generate_content(novel_id, instruction))
+    from app.novel_studio.api import _try_save_as_outline, _save_as_chapter
+    from app.novel_studio.models import Chapter
+    content = result.content if hasattr(result, 'content') else str(result)
+    chapter_info = None
+    if content and len(content) >= 100:
+        import re
+        if re.search(r'大纲|梗概|三幕', instruction):
+            _try_save_as_outline(novel_id, content, engine)
+        else:
+            novel = engine.get_novel(novel_id)
+            if novel and novel.chapters:
+                chapter_number = max(c.number for c in novel.chapters) + 1
+            else:
+                chapter_number = 1
+            chapter = Chapter(number=chapter_number, title="生成内容", content=content, word_count=len(content))
+            engine._storage.add_chapter(novel_id, chapter)
+            chapter_info = {"number": chapter_number, "title": "生成内容"}
+    return {"success": True, "content": content, "chapter": chapter_info}
