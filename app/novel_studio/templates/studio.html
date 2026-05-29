@@ -338,6 +338,7 @@ function buildSidebar(){
   // === Chapters ===
   html+='<div class="sidebar-section"><h3>📚 章节</h3>';
   const chs=nd.chapters||[];
+  html+=`<div class="tree-item" onclick="addChapter()" style="color:#1a73e8;font-size:12px">  ➕ 新建章节</div>`;
   if(chs.length){
     chs.forEach((ch,i)=>{
       const t=esc(ch.title||'第'+(i+1)+'章');
@@ -373,6 +374,7 @@ function buildSidebar(){
   }else{
     html+='<div class="empty-hint">暂无角色</div>';
   }
+  html+=`<div class="tree-item" onclick="addCharacter()" style="color:#1a73e8;font-size:12px">  ➕ 添加角色</div>`;
   html+='</div>';
 
   // === World ===
@@ -390,6 +392,7 @@ function buildSidebar(){
   }else{
     html+='<div class="empty-hint">暂无世界观设定</div>';
   }
+  html+=`<div class="tree-item" onclick="addScene()" style="color:#1a73e8;font-size:12px">  ➕ 添加场景</div>`;
   html+='</div>';
 
   s.innerHTML=html;
@@ -488,6 +491,9 @@ function showDetail(type,idx){
 function hideDetail(){
   $('detail-view').classList.remove('active');
   $('chat-area').style.display='flex';
+  if(!_isStreaming){
+    $('chat-input').disabled=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;
+  }
 }
 
 function showList(){
@@ -510,9 +516,18 @@ async function createNovel(){
 }
 
 let _msgId=0;
+let _scrollPending=false;
+let _isStreaming=false;
+function _scrollToBottom(el){
+  if(_scrollPending)return;
+  _scrollPending=true;
+  requestAnimationFrame(()=>{el.scrollTop=el.scrollHeight;_scrollPending=false});
+}
+
 async function sendMsg(){
   const inp=$('chat-input');const text=inp.value.trim();
   if(!text||!cid)return;
+  _isStreaming=true;
   inp.value='';$('send-btn').disabled=true;$('gen-btn').disabled=true;inp.disabled=true;
   const msgs=$('chat-msgs');
   msgs.innerHTML+=`<div class="msg user">${esc(text)}</div>`;
@@ -520,7 +535,7 @@ async function sendMsg(){
   const mid='stream-msg-'+(++_msgId);
   msgs.innerHTML+=`<div class="msg ai" id="${mid}"></div>`;
   const msgDiv=document.getElementById(mid);
-  msgs.scrollTop=msgs.scrollHeight;
+  _scrollToBottom(msgs);
   try{
     const response=await fetch(API+'/chat/stream',{
       method:'POST',
@@ -530,6 +545,8 @@ async function sendMsg(){
     if(!response.ok){
       const err=await response.json().catch(()=>({error:'HTTP '+response.status}));
       msgDiv.textContent='⚠️ '+(err.error||'请求失败');
+      _isStreaming=false;
+      $('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false;
       return;
     }
     // Check if streaming is supported
@@ -545,7 +562,7 @@ async function sendMsg(){
           if(data.token) fullText+=data.token;
           else if(data.done) chapterInfo=data.chapter||null;
           else if(data.info && !fullText) msgDiv.textContent='⏳ '+data.info;
-          else if(data.error){ msgDiv.textContent='⚠️ '+data.error; return; }
+          else if(data.error){ msgDiv.textContent='⚠️ '+data.error; _isStreaming=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false; return; }
         }catch(e){/* skip malformed lines */}
       }
       msgDiv.textContent=fullText||'（模型暂无回复）';
@@ -553,90 +570,88 @@ async function sendMsg(){
         var tag=document.createElement('span');tag.className='ch-tag';
         tag.textContent='📚 已保存为第'+chapterInfo.number+'章'+(chapterInfo.title?'「'+chapterInfo.title+'」':'');
         msgDiv.appendChild(tag);
-        await loadNovelData(cid);
+        refreshSidebar();
       }
+      _isStreaming=false;
+      $('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false;
+      _scrollToBottom(msgs);
       return;
     }
     // Streaming mode: parse NDJSON line by line
     const reader=response.body.getReader();
     const decoder=new TextDecoder();
-    let buffer='',fullText='',chapterInfo=null;
+    let buffer='',fullText='',chapterInfo=null,gotInfo=false;
+    msgDiv.textContent='⏳ 思考中...';
     while(true){
       const {done,value}=await reader.read();
       if(done)break;
       buffer+=decoder.decode(value,{stream:true});
       const lines=buffer.split('\n');
       buffer=lines.pop(); // keep trailing incomplete line in buffer
+      let textChanged=false;
       for(const line of lines){
         if(!line.trim())continue;
         try{
           const data=JSON.parse(line);
           if(data.token){
+            if(gotInfo&&fullText.length<10)msgDiv.textContent=''; // clear "thinking" indicator on first real token
             fullText+=data.token;
             msgDiv.textContent=fullText;
-            msgs.scrollTop=msgs.scrollHeight;
+            textChanged=true;
           }else if(data.done){
             chapterInfo=data.chapter||null;
           }else if(data.info){
-            // Show info message (e.g., retrying)
-            if(!fullText)msgDiv.textContent='⏳ '+data.info;
+            if(!gotInfo){msgDiv.textContent='⏳ '+data.info;gotInfo=true;}
           }else if(data.error){
             msgDiv.textContent='⚠️ '+data.error;
           }
         }catch(e){/* skip malformed lines */}
       }
+      if(textChanged)_scrollToBottom(msgs);
+    }
+    // Remove "⏳ 思考中..." if no tokens arrived
+    if(!fullText){
+      msgDiv.textContent='（模型暂无回复）';
     }
     // Add chapter tag if saved
     if(chapterInfo&&chapterInfo.number){
       var tag=document.createElement('span');tag.className='ch-tag';
       tag.textContent='📚 已保存为第'+chapterInfo.number+'章'+(chapterInfo.title?'「'+chapterInfo.title+'」':'');
       msgDiv.appendChild(tag);
+      refreshSidebar();
     }
-    if(chapterInfo&&chapterInfo.number)await loadNovelData(cid);
   }catch(e){
     msgDiv.textContent='⚠️ 请求失败: '+e.message;
   }
+  _isStreaming=false;
   $('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false;inp.focus();
-  msgs.scrollTop=msgs.scrollHeight;
+  _scrollToBottom(msgs);
 }
 
 async function genNextChapter(){
   if(!cid)return;
-  $('gen-btn').disabled=true;$('send-btn').disabled=true;
-  const msgs=$('chat-msgs');
-  msgs.innerHTML+=`<div class="msg system">⚡ 开始生成下一章...</div>`;
-  msgs.innerHTML+=`<div class="msg ai typing" id="typing-indicator">✍️ 生成中...</div>`;
-  msgs.scrollTop=msgs.scrollHeight;
-  try{
-    const d=await api('/generate',{novel_id:cid});
-    const ti=$('typing-indicator');
-    if(ti)ti.remove();
-    if(d.success){
-      const ch=d.chapter||{};
-      const chTag=ch.number?'第'+ch.number+'章「'+(ch.title||'')+'」':'章节';
-      msgs.innerHTML+=`<div class="msg system">✅ ${chTag} 生成成功！已保存</div>`;
-      if(d.content){
-        msgs.innerHTML+=`<div class="msg ai">${esc(d.content)}</div>`;
-      }else{
-        msgs.innerHTML+=`<div class="msg ai">（章节内容已保存，可在侧边栏查看）</div>`;
-      }
-      // Refresh sidebar
-      await loadNovelData(cid);
-    }else{
-      msgs.innerHTML+=`<div class="msg system">❌ 生成失败: ${esc(d.error||'未知错误')}</div>`;
-    }
-  }catch(e){
-    const ti=$('typing-indicator');
-    if(ti)ti.remove();
-    msgs.innerHTML+=`<div class="msg system">⚠️ 生成异常: ${e.message}</div>`;
-  }
-  $('gen-btn').disabled=false;$('send-btn').disabled=false;
-  msgs.scrollTop=msgs.scrollHeight;
+  // Reuse the chat/stream endpoint with "写下一章" prompt
+  $('chat-input').value='请写下一章，延续前面的故事';
+  await sendMsg();
 }
 
 function quick(q){
   $('chat-input').value=q;
   sendMsg();
+}
+
+// ──── Lightweight sidebar refresh (does NOT replace chat) ────
+async function refreshSidebar(){
+  if(!cid)return;
+  try{
+    const d=await api('/get',{novel_id:cid});
+    if(d.success&&d.novel){
+      novelData=d.novel;
+      $('tb-title').textContent=novelData.title||'未命名';
+      $('tb-genre').textContent=novelData.genre||'';
+      buildSidebar();
+    }
+  }catch(e){dbg('refreshSidebar error: '+e.message);}
 }
 
 // ====== Reader View ======
@@ -754,7 +769,7 @@ async function deleteChapter(chapterId, chapterNumber){
   });
   if(d.success){
     hideDetail();
-    await    enterNovel(cid);
+    await refreshSidebar();
   } else {
     alert('删除失败：' + (d.error || '未知错误'));
   }
@@ -772,7 +787,7 @@ async function saveChapter(chapterId, chapterNumber){
     content: content
   });
   if(d.success){
-    await    enterNovel(cid);
+    hideDetail(); await refreshSidebar();
   } else {
     alert('保存失败');
   }
@@ -942,24 +957,127 @@ async function saveCurrentItem(){
     });
   }
   if(d&&d.success){
-    await enterNovel(cid);
+    await refreshSidebar();
   }else{
     alert('保存失败：'+(d&&d.error||'未知错误'));
   }
   editTargetType=''; editTargetId='';
 }
 
+// ──── Inline Add Functions ────
+
+function addChapter(){
+  if(!cid) return;
+  editTargetType='add_chapter'; editTargetId='';
+  const dt=$('detail-title'); const db=$('detail-body'); const da=$('detail-actions');
+  dt.textContent='新建章节';
+  da.innerHTML=`<button class="detail-btn" onclick="cancelAddItem()">取消</button>
+    <button class="detail-btn edit" onclick="saveAddItem()">💾 创建</button>`;
+  db.innerHTML=`
+    <div><label style="font-size:12px;color:#666">章节标题</label>
+    <input id="add-field-title" type="text" value="" placeholder="输入章节标题" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">章节内容（可选）</label>
+    <textarea id="add-field-content" style="width:100%;min-height:300px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:monospace;box-sizing:border-box;line-height:1.6" placeholder="输入章节内容，留空则创建空白章节"></textarea></div>`;
+  $('chat-area').style.display='none';
+  $('detail-view').classList.add('active');
+}
+
+function addCharacter(){
+  if(!cid) return;
+  editTargetType='add_character'; editTargetId='';
+  const dt=$('detail-title'); const db=$('detail-body'); const da=$('detail-actions');
+  dt.textContent='添加角色';
+  da.innerHTML=`<button class="detail-btn" onclick="cancelAddItem()">取消</button>
+    <button class="detail-btn edit" onclick="saveAddItem()">💾 创建</button>`;
+  db.innerHTML=`
+    <div><label style="font-size:12px;color:#666">名称</label>
+    <input id="add-field-name" type="text" value="" placeholder="角色名称" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">类型（英雄/女主角/反派/导师/配角）</label>
+    <input id="add-field-archetype" type="text" value="配角" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">性格特点（逗号分隔）</label>
+    <input id="add-field-personality" type="text" value="" placeholder="勇敢，智慧，幽默" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">说话风格</label>
+    <input id="add-field-speech_style" type="text" value="" placeholder="温和/直率/讽刺..." style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">背景故事</label>
+    <textarea id="add-field-background" style="width:100%;min-height:60px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;box-sizing:border-box;line-height:1.6" placeholder="角色背景故事..."></textarea></div>`;
+  $('chat-area').style.display='none';
+  $('detail-view').classList.add('active');
+}
+
+function addScene(){
+  if(!cid) return;
+  editTargetType='add_scene'; editTargetId='';
+  const dt=$('detail-title'); const db=$('detail-body'); const da=$('detail-actions');
+  dt.textContent='添加场景';
+  da.innerHTML=`<button class="detail-btn" onclick="cancelAddItem()">取消</button>
+    <button class="detail-btn edit" onclick="saveAddItem()">💾 创建</button>`;
+  db.innerHTML=`
+    <div><label style="font-size:12px;color:#666">场景名称</label>
+    <input id="add-field-name" type="text" value="" placeholder="场景名称" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">地点</label>
+    <input id="add-field-location" type="text" value="" placeholder="地点" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">描述</label>
+    <textarea id="add-field-description" style="width:100%;min-height:80px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;box-sizing:border-box;line-height:1.6" placeholder="场景描述..."></textarea></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">时代/时间</label>
+    <input id="add-field-time_period" type="text" value="" placeholder="如：明朝、未来2077年" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">天气</label>
+    <input id="add-field-weather" type="text" value="" placeholder="如：晴、雨、雪" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>`;
+  $('chat-area').style.display='none';
+  $('detail-view').classList.add('active');
+}
+
+function cancelAddItem(){
+  editTargetType=''; editTargetId='';
+  hideDetail();
+}
+
+async function saveAddItem(){
+  const t=editTargetType; if(!t||!cid)return;
+  let d;
+  if(t==='add_chapter'){
+    const title=$('add-field-title').value.trim()||'新章节';
+    const content=$('add-field-content').value.trim();
+    d=await api('/chapter/add',{novel_id:cid,title:title,content:content});
+  }else if(t==='add_character'){
+    const personality=$('add-field-personality').value.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
+    d=await api('/character/add',{
+      novel_id:cid,
+      name:$('add-field-name').value.trim()||'新角色',
+      archetype:$('add-field-archetype').value.trim()||'配角',
+      personality:personality,
+      speech_style:$('add-field-speech_style').value.trim(),
+      background:$('add-field-background').value.trim(),
+    });
+  }else if(t==='add_scene'){
+    d=await api('/scene/add',{
+      novel_id:cid,
+      name:$('add-field-name').value.trim()||'新场景',
+      location:$('add-field-location').value.trim(),
+      description:$('add-field-description').value.trim(),
+      time_period:$('add-field-time_period').value.trim(),
+      weather:$('add-field-weather').value.trim(),
+    });
+  }
+  if(d&&d.success){
+    editTargetType=''; editTargetId='';
+    await refreshSidebar();
+    hideDetail();
+  }else{
+    alert('创建失败：'+(d&&d.error||'未知错误'));
+  }
+}
+
 async function deleteCharacter(charId){
   if(!confirm('确定删除该角色吗？'))return;
   const d=await api('/character/delete',{novel_id:cid,char_id:charId});
-  if(d.success){hideDetail();await enterNovel(cid);}
+  if(d.success){hideDetail();await refreshSidebar();}
   else{alert('删除失败：'+(d.error||'未知错误'));}
 }
 
 async function deleteScene(sceneId){
   if(!confirm('确定删除该场景吗？'))return;
   const d=await api('/scene/delete',{novel_id:cid,scene_id:sceneId});
-  if(d.success){hideDetail();await enterNovel(cid);}
+  if(d.success){hideDetail();await refreshSidebar();}
   else{alert('删除失败：'+(d.error||'未知错误'));}
 }
 

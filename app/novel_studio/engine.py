@@ -135,6 +135,22 @@ class NovelStudioEngine:
             return result.outline.chapters[-1]
         return None
 
+    def add_chapter(self, novel_id: str, title: str, content: str = "", number: int | None = None) -> Chapter | None:
+        """创建空白章节"""
+        novel = self._storage.get_novel(novel_id)
+        if novel is None:
+            return None
+        next_number = number or (max((c.number for c in novel.chapters), default=0) + 1)
+        chapter = Chapter(
+            number=next_number,
+            title=title,
+            content=content,
+            word_count=len(content),
+            status="draft",
+        )
+        result = self._storage.add_chapter(novel_id, chapter)
+        return chapter if result else None
+
     # ──── 角色模块 ────
 
     def add_character(

@@ -469,6 +469,18 @@ def create_novel_router(
         novel = engine._storage.update_chapter(novel_id, chapter_id, updates)
         return {"success": novel is not None}
 
+    @router.post("/chapter/add")
+    async def api_add_chapter(data: dict):
+        novel_id = data.get("novel_id", "")
+        title = data.get("title", "新章节")
+        content = data.get("content", "")
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+        chapter = engine.add_chapter(novel_id, title=title, content=content)
+        if chapter:
+            return {"success": True, "chapter": {"id": chapter.id, "number": chapter.number, "title": chapter.title}}
+        return {"success": False, "error": "小说不存在"}
+
     @router.post("/dialogue")
     async def api_dialogue(data: dict):
         novel_id = data.get("novel_id", "")
@@ -557,6 +569,9 @@ def create_novel_router(
                     except Exception as e:
                         return {"error": str(e), "ok": False}
 
+                # 立即通知前端：模型正在思考
+                yield _json.dumps({"info": "思考中..."}) + "\n"
+
                 final_text, usage = client.chat_turns(
                     system_prompt=system_prompt,
                     user_message=message,
@@ -576,7 +591,7 @@ def create_novel_router(
                         if pi > 0:
                             yield _json.dumps({"token": "\n"}) + "\n"
                         if para:
-                            chunk_size = 30
+                            chunk_size = 60
                             for j in range(0, len(para), chunk_size):
                                 yield _json.dumps({"token": para[j:j+chunk_size]}) + "\n"
             else:
