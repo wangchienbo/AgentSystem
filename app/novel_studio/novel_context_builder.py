@@ -250,6 +250,7 @@ def build_novel_system_prompt(novel) -> str:
 
     full_context = "\n".join(ctx_parts)
     return f"""你是一位专业的小说创作助手，正在帮助用户创作小说《{novel.title}》。
+小说ID（novel_id = "{novel.id}"）—— 使用 call_asset_method 时，params 中必须传入此 novel_id。
 
 当前上下文：
 {full_context}

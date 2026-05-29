@@ -184,7 +184,7 @@ class NovelStudioEngine:
         """删除角色"""
         novel = self._storage.remove_character(novel_id, char_id)
         if novel:
-            self._agent_registry.unregister(char_id)
+            self._agent_registry.remove(char_id)
             return True
         return False
 
