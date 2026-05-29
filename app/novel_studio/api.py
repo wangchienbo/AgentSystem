@@ -333,6 +333,64 @@ def create_novel_router(
         engine._storage.add_chapter(novel_id, chapter)
         return {"number": chapter_number, "title": chapter_title}
 
+    # ──── 辅助函数：将 LLM 响应保存为大纲 ────
+    def _try_save_as_outline(novel_id: str, content: str, engine) -> bool:
+        """尝试从 LLM 输出中提取并保存大纲信息（静默跳过，不影响响应）"""
+        if not content or len(content) < 50:
+            return False
+        novel = engine.get_novel(novel_id)
+        if not novel:
+            return False
+        try:
+            import re as _re
+            # 提取摘要（取前300字作为梗概）
+            summary = content[:300].strip()
+            # 检测是否有三幕结构
+            three_act = {}
+            act_patterns = {
+                "act1": r'(?:第?一[幕部]|开端|setup|beginning).*?(?=第?二[幕部]|发展|middle|$|第?三[幕部])',
+                "act2": r'(?:第?二[幕部]|发展|middle|confrontation).*?(?=第?三[幕部]|结局|end|resolution|$)',
+                "act3": r'(?:第?三[幕部]|结局|end|resolution).*',
+            }
+            for key, pat in act_patterns.items():
+                m = _re.search(pat, content, _re.DOTALL | _re.IGNORECASE)
+                if m:
+                    three_act[key] = m.group(0).strip()[:500]
+            # 提取章节规划
+            chapter_matches = _re.findall(
+                r'(?:第(\d+)[章节][：: ]+(.+?)(?=第\d+[章节]|$))',
+                content + '\n第999章 END',
+                _re.DOTALL
+            )
+            if not chapter_matches:
+                # 尝试 markdown 列表
+                chapter_matches = _re.findall(
+                    r'(?:第\s*(\d+)\s*[章节][：:]\s*(.+?)(?:\n|$))',
+                    content,
+                )
+            # 保存大纲
+            engine.create_outline(
+                novel_id, novel.title,
+                summary=summary,
+                three_act=three_act,
+            )
+            # 保存每个章节规划
+            for num_str, title in chapter_matches:
+                if not num_str or not title:
+                    continue
+                try:
+                    engine.add_chapter_outline(
+                        novel_id, int(num_str),
+                        title.strip()[:50],
+                        summary="",
+                        key_events=[],
+                    )
+                except Exception:
+                    pass
+            return True
+        except Exception:
+            return False
+
     @router.post("/chapter/write")
     async def api_write_chapter(data: dict):
         novel_id = data.get("novel_id", "")
@@ -488,7 +546,10 @@ def create_novel_router(
             chapter_info = None
             if full_text and len(full_text) >= 100:
                 import re as _re
-                if _re.search(r'写|章|节|生成|继续|下一', message):
+                # 用户要求生成大纲时，不保存为章节，而是保存为大纲
+                if _re.search(r'大纲|梗概|三幕', message):
+                    _try_save_as_outline(novel_id, full_text, engine)
+                elif _re.search(r'写|章|节|生成|继续|下一', message):
                     chapter_info = _save_as_chapter(novel_id, full_text, message)
 
             resp = {"done": True}
@@ -567,7 +628,10 @@ def create_novel_router(
             chapter_info = None
             if text and len(text) >= 100:
                 import re
-                if re.search(r'写|章|节|生成|继续|下一', message):
+                # 用户要求生成大纲时，不保存为章节，而是保存为大纲
+                if re.search(r'大纲|梗概|三幕', message):
+                    _try_save_as_outline(novel_id, text, engine)
+                elif re.search(r'写|章|节|生成|继续|下一', message):
                     chapter_info = _save_as_chapter(novel_id, text, message)
 
             resp = {"success": True, "content": text or "（模型未返回有效内容，请换个说法再试）"}
