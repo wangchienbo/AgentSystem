@@ -170,6 +170,30 @@ def create_novel_router(
             return {"success": True, "character": {"id": char.id, "name": char.name}}
         return {"success": False, "error": "novel_not_found"}
 
+    @router.post("/character/update")
+    async def api_update_character(data: dict):
+        novel_id = data.get("novel_id", "")
+        char_id = data.get("char_id", "")
+        updates = {}
+        for field in ["name", "archetype", "personality", "background", "speech_style", "goal", "flaw"]:
+            if field in data:
+                updates[field] = data[field]
+        if not novel_id or not char_id or not updates:
+            return {"success": False, "error": "缺少参数"}
+        char = engine.update_character(novel_id, char_id, **updates)
+        if char:
+            return {"success": True, "character": {"id": char.id, "name": char.name}}
+        return {"success": False, "error": "角色不存在"}
+
+    @router.post("/character/delete")
+    async def api_delete_character(data: dict):
+        novel_id = data.get("novel_id", "")
+        char_id = data.get("char_id", "")
+        if not novel_id or not char_id:
+            return {"success": False, "error": "缺少参数"}
+        ok = engine.remove_character(novel_id, char_id)
+        return {"success": ok, "error": "" if ok else "角色不存在"}
+
     @router.post("/world")
     async def api_get_world(data: dict):
         novel_id = data.get("novel_id", "")
@@ -205,6 +229,28 @@ def create_novel_router(
         description = data.get("description", "")
         engine.add_scene(novel_id, name, location=location, description=description)
         return {"success": True}
+
+    @router.post("/scene/delete")
+    async def api_delete_scene(data: dict):
+        novel_id = data.get("novel_id", "")
+        scene_id = data.get("scene_id", "")
+        if not novel_id or not scene_id:
+            return {"success": False, "error": "缺少参数"}
+        ok = engine.remove_scene(novel_id, scene_id)
+        return {"success": ok, "error": "" if ok else "场景不存在"}
+
+    @router.post("/scene/update")
+    async def api_update_scene(data: dict):
+        novel_id = data.get("novel_id", "")
+        scene_id = data.get("scene_id", "")
+        updates = {}
+        for field in ["name", "location", "description", "time_period", "weather", "lighting", "temperature"]:
+            if field in data:
+                updates[field] = data[field]
+        if not novel_id or not scene_id or not updates:
+            return {"success": False, "error": "缺少参数"}
+        novel = engine._storage.update_scene(novel_id, scene_id, updates)
+        return {"success": novel is not None, "error": "" if novel else "场景不存在"}
 
     @router.post("/generate")
     async def api_generate(data: dict):

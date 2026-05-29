@@ -428,7 +428,7 @@ function showDetail(type,idx){
         <button class="detail-btn delete" onclick="deleteChapter('${ch.id||''}',${ch.number})">🗑️ 删除</button>
       `;
     }
-  }else if(type==='character'){
+    }else if(type==='character'){
     const rawChars=novelData.characters||{};
     const chars=Array.isArray(rawChars)?rawChars:Object.values(rawChars);
     const ch=chars[idx];
@@ -444,7 +444,10 @@ function showDetail(type,idx){
         if(ch.personality||ch.traits)body+='特点：'+(Array.isArray(ch.personality||ch.traits)?(ch.personality||ch.traits).join('、'):(ch.personality||ch.traits));
         if(ch.background)body+='\n背景：'+ch.background;}
     }
-    da.innerHTML='';
+    da.innerHTML=`
+      <button class="detail-btn edit" onclick="editCharacter('${esc(ch.id||'')}')">✏️ 编辑</button>
+      <button class="detail-btn delete" onclick="deleteCharacter('${esc(ch.id||'')}')">🗑️ 删除</button>
+    `;
   }else if(type==='world'){
     const w=novelData.world||{};
     title=w.name||'世界观';
@@ -455,13 +458,18 @@ function showDetail(type,idx){
       const ks=Object.keys(w.scenes);
       if(ks.length){body+='\n\n场景：\n';ks.forEach(k=>{const s=w.scenes[k];body+='• '+(s.title||s.name||k.slice(0,8))+'\n';});}
     }
-    da.innerHTML='';
+    da.innerHTML=`
+      <button class="detail-btn edit" onclick="editWorld()">✏️ 编辑</button>
+    `;
   }else if(type==='scene'){
     const scenes=novelData.world&&novelData.world.scenes||{};
     const sc=typeof scenes==='object'&&!Array.isArray(scenes)?scenes[idx]:null;
     if(sc){title=sc.title||sc.name||'场景';body=JSON.stringify(sc,null,2);}
     else{title='场景未找到';body='';}
-    da.innerHTML='';
+    da.innerHTML=`
+      <button class="detail-btn edit" onclick="editScene('${esc(sc&&sc.id||idx)}')">✏️ 编辑</button>
+      <button class="detail-btn delete" onclick="deleteScene('${esc(sc&&sc.id||idx)}')">🗑️ 删除</button>
+    `;
   }else if(type==='event'){
     const parts=idx.split(':');
     const ci=parseInt(parts[0]),ei=parseInt(parts[1]);
@@ -810,6 +818,149 @@ function editChapter(chapterId, chapterNumber, currentTitle){
       <textarea id="edit-content" style="width:100%;min-height:400px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:monospace;box-sizing:border-box;line-height:1.6">${esc(ch.content||'')}</textarea>
     </div>
   `;
+}
+
+// ──── Character / World / Scene Management ────
+
+let editTargetType=''; let editTargetId='';
+
+function editCharacter(charId){
+  const rawChars=novelData.characters||{};
+  const chars=Array.isArray(rawChars)?rawChars:Object.values(rawChars);
+  const ch=chars.find(c=>c.id===charId);
+  if(!ch){alert('角色未找到');return;}
+  editTargetType='character'; editTargetId=charId;
+  const dt=$('detail-title'); const db=$('detail-body'); const da=$('detail-actions');
+  dt.textContent='编辑角色：'+esc(ch.name||'');
+  da.innerHTML=`<button class="detail-btn" onclick="cancelEditItem()">取消</button>
+    <button class="detail-btn edit" onclick="saveCurrentItem()">💾 保存</button>`;
+  const pers = Array.isArray(ch.personality)?ch.personality.join('、'):(ch.personality||'');
+  db.innerHTML=`
+    <div><label style="font-size:12px;color:#666">名称</label>
+    <input id="edit-field-name" type="text" value="${esc(ch.name||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">类型（英雄/女主角/反派/导师/配角）</label>
+    <input id="edit-field-archetype" type="text" value="${esc(ch.archetype||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">性格特点（逗号分隔）</label>
+    <input id="edit-field-personality" type="text" value="${esc(pers)}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">说话风格</label>
+    <input id="edit-field-speech_style" type="text" value="${esc(ch.speech_style||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">背景故事</label>
+    <textarea id="edit-field-background" style="width:100%;min-height:80px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;box-sizing:border-box;line-height:1.6">${esc(ch.background||'')}</textarea></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">目标</label>
+    <input id="edit-field-goal" type="text" value="${esc(ch.goal||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">缺陷</label>
+    <input id="edit-field-flaw" type="text" value="${esc(ch.flaw||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>`;
+}
+
+function editWorld(){
+  const w=novelData.world||{};
+  editTargetType='world'; editTargetId='';
+  const dt=$('detail-title'); const db=$('detail-body'); const da=$('detail-actions');
+  dt.textContent='编辑世界观';
+  da.innerHTML=`<button class="detail-btn" onclick="cancelEditItem()">取消</button>
+    <button class="detail-btn edit" onclick="saveCurrentItem()">💾 保存</button>`;
+  const rules=Array.isArray(w.rules)?w.rules.join('\n'):'';
+  db.innerHTML=`
+    <div><label style="font-size:12px;color:#666">世界名称</label>
+    <input id="edit-field-world_name" type="text" value="${esc(w.name||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">概述</label>
+    <textarea id="edit-field-overview" style="width:100%;min-height:60px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;box-sizing:border-box;line-height:1.6">${esc(w.overview||'')}</textarea></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">世界规则（每行一条）</label>
+    <textarea id="edit-field-rules" style="width:100%;min-height:60px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;box-sizing:border-box;line-height:1.6">${esc(rules)}</textarea></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">魔法/超自然体系</label>
+    <input id="edit-field-magic_system" type="text" value="${esc(w.magic_system||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">历史背景</label>
+    <textarea id="edit-field-history" style="width:100%;min-height:50px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;box-sizing:border-box;line-height:1.6">${esc(w.history||'')}</textarea></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">地理</label>
+    <textarea id="edit-field-geography" style="width:100%;min-height:50px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;box-sizing:border-box;line-height:1.6">${esc(w.geography||'')}</textarea></div>`;
+}
+
+function editScene(sceneId){
+  const scenes=novelData.world&&novelData.world.scenes||{};
+  const sc=scenes[sceneId];
+  if(!sc){alert('场景未找到');return;}
+  editTargetType='scene'; editTargetId=sceneId;
+  const dt=$('detail-title'); const db=$('detail-body'); const da=$('detail-actions');
+  dt.textContent='编辑场景：'+esc(sc.name||'');
+  da.innerHTML=`<button class="detail-btn" onclick="cancelEditItem()">取消</button>
+    <button class="detail-btn edit" onclick="saveCurrentItem()">💾 保存</button>`;
+  db.innerHTML=`
+    <div><label style="font-size:12px;color:#666">场景名称</label>
+    <input id="edit-field-name" type="text" value="${esc(sc.name||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">地点</label>
+    <input id="edit-field-location" type="text" value="${esc(sc.location||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">描述</label>
+    <textarea id="edit-field-description" style="width:100%;min-height:80px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit;box-sizing:border-box;line-height:1.6">${esc(sc.description||'')}</textarea></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">时代/时间</label>
+    <input id="edit-field-time_period" type="text" value="${esc(sc.time_period||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>
+    <div style="margin-top:8px"><label style="font-size:12px;color:#666">天气</label>
+    <input id="edit-field-weather" type="text" value="${esc(sc.weather||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box"></div>`;
+}
+
+function cancelEditItem(){
+  if(editTargetType==='character'){showDetail('character',0);}
+  else if(editTargetType==='world'){showDetail('world',0);}
+  else if(editTargetType==='scene'){const scenes=novelData.world&&novelData.world.scenes||{}; const keys=Object.keys(scenes); const i=keys.indexOf(editTargetId); showDetail('scene',i>=0?i:0);}
+  editTargetType=''; editTargetId='';
+}
+
+async function saveCurrentItem(){
+  const t=editTargetType; const id=editTargetId;
+  if(!t) return;
+  let d;
+  if(t==='character'){
+    const personality=$('edit-field-personality').value.split(/[,，]/).map(s=>s.trim()).filter(Boolean);
+    d=await api('/character/update',{
+      novel_id:cid, char_id:id,
+      name:$('edit-field-name').value.trim(),
+      archetype:$('edit-field-archetype').value.trim(),
+      personality:personality,
+      speech_style:$('edit-field-speech_style').value.trim(),
+      background:$('edit-field-background').value.trim(),
+      goal:$('edit-field-goal').value.trim(),
+      flaw:$('edit-field-flaw').value.trim(),
+    });
+  }else if(t==='world'){
+    const rules=$('edit-field-rules').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    d=await api('/world/save',{
+      novel_id:cid,
+      name:$('edit-field-world_name').value.trim(),
+      overview:$('edit-field-overview').value.trim(),
+      rules:rules,
+      magic_system:$('edit-field-magic_system').value.trim(),
+      history:$('edit-field-history').value.trim(),
+      geography:$('edit-field-geography').value.trim(),
+    });
+  }else if(t==='scene'){
+    d=await api('/scene/update',{
+      novel_id:cid, scene_id:id,
+      name:$('edit-field-name').value.trim(),
+      location:$('edit-field-location').value.trim(),
+      description:$('edit-field-description').value.trim(),
+      time_period:$('edit-field-time_period').value.trim(),
+      weather:$('edit-field-weather').value.trim(),
+    });
+  }
+  if(d&&d.success){
+    await enterNovel(cid);
+  }else{
+    alert('保存失败：'+(d&&d.error||'未知错误'));
+  }
+  editTargetType=''; editTargetId='';
+}
+
+async function deleteCharacter(charId){
+  if(!confirm('确定删除该角色吗？'))return;
+  const d=await api('/character/delete',{novel_id:cid,char_id:charId});
+  if(d.success){hideDetail();await enterNovel(cid);}
+  else{alert('删除失败：'+(d.error||'未知错误'));}
+}
+
+async function deleteScene(sceneId){
+  if(!confirm('确定删除该场景吗？'))return;
+  const d=await api('/scene/delete',{novel_id:cid,scene_id:sceneId});
+  if(d.success){hideDetail();await enterNovel(cid);}
+  else{alert('删除失败：'+(d.error||'未知错误'));}
 }
 
 // Key bindings

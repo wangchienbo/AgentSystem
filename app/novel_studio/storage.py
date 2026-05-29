@@ -208,6 +208,27 @@ class NovelStorage:
         self.save_novel(novel)
         return novel
 
+    def remove_scene(self, novel_id: str, scene_id: str) -> Novel | None:
+        """删除世界观下的一个场景"""
+        novel = self.get_novel(novel_id)
+        if novel is None or novel.world is None or scene_id not in novel.world.scenes:
+            return None
+        del novel.world.scenes[scene_id]
+        self.save_novel(novel)
+        return novel
+
+    def update_scene(self, novel_id: str, scene_id: str, updates: dict) -> Novel | None:
+        """更新场景属性"""
+        novel = self.get_novel(novel_id)
+        if novel is None or novel.world is None or scene_id not in novel.world.scenes:
+            return None
+        scene = novel.world.scenes[scene_id]
+        for k, v in updates.items():
+            if hasattr(scene, k) and v is not None:
+                setattr(scene, k, v)
+        self.save_novel(novel)
+        return novel
+
     # ──── 角色级存储（演化用） ────
 
     def save_character_state(self, novel_id: str, agent_data: dict) -> None:

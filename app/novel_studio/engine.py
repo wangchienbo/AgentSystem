@@ -173,6 +173,26 @@ class NovelStudioEngine:
             return char
         return None
 
+    def update_character(self, novel_id: str, char_id: str, **updates) -> Character | None:
+        """更新角色属性（委托 storage）"""
+        novel = self._storage.update_character(novel_id, char_id, updates)
+        if novel and char_id in novel.characters:
+            return novel.characters[char_id]
+        return None
+
+    def remove_character(self, novel_id: str, char_id: str) -> bool:
+        """删除角色"""
+        novel = self._storage.remove_character(novel_id, char_id)
+        if novel:
+            self._agent_registry.unregister(char_id)
+            return True
+        return False
+
+    def remove_scene(self, novel_id: str, scene_id: str) -> bool:
+        """删除场景"""
+        novel = self._storage.remove_scene(novel_id, scene_id)
+        return novel is not None
+
     def add_default_characters(self, novel_id: str) -> list[Character]:
         """为小说添加默认角色模板"""
         from app.novel_studio.models import Attributes
