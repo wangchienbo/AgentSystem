@@ -27,6 +27,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tree-item:hover{background:#e8f0fe;color:#1a73e8}
 .tree-item .dot{width:6px;height:6px;border-radius:50%;background:#e94560;flex-shrink:0}
 .tree-item.active{background:#e8f0fe;color:#1a73e8}
+.tree-item .ch-title{flex:1;cursor:pointer}
+.tree-item .ch-actions{display:none;gap:2px}
+.tree-item:hover .ch-actions{display:flex}
+.ch-btn{background:none;border:none;cursor:pointer;padding:0 4px;font-size:12px;color:#999;line-height:1}
+.ch-btn:hover{color:#e94560}
+.ch-btn.edit:hover{color:#1a73e8}
+.detail-actions{display:flex;gap:6px;margin-left:auto}
+.detail-btn{background:none;border:1px solid #ddd;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;color:#555}
+.detail-btn:hover{background:#f0f0f0}
+.detail-btn.edit:hover{background:#e8f0fe;color:#1a73e8;border-color:#1a73e8}
+.detail-btn.delete:hover{background:#fee;color:#e94560;border-color:#e94560}
 .empty-hint{color:#999;font-size:13px;padding:6px 8px}
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
 #chat-area{flex:1;overflow-y:auto;padding:16px 20px;background:#f8f9fb}
@@ -180,6 +191,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="detail-header">
           <button onclick="hideDetail()">← 返回聊天</button>
           <span id="detail-title" style="font-weight:600"></span>
+          <span id="detail-actions" class="detail-actions"></span>
         </div>
         <div class="detail-body" id="detail-body"></div>
       </div>
@@ -329,7 +341,14 @@ function buildSidebar(){
   if(chs.length){
     chs.forEach((ch,i)=>{
       const t=esc(ch.title||'第'+(i+1)+'章');
-      html+=`<div class="tree-item chapter" data-idx="${i}" onclick="showDetail('chapter',${i})"><span class="dot"></span>${t}</div>`;
+      const cid=ch.id||'';
+      html+=`<div class="tree-item chapter" data-idx="${i}">
+        <span class="dot" onclick="showDetail('chapter',${i})"></span>
+        <span class="ch-title" onclick="showDetail('chapter',${i})">${t}</span>
+        <span class="ch-actions">
+          <button onclick="event.stopPropagation();deleteChapter('${cid}',${ch.number})" class="ch-btn" title="删除章节">✕</button>
+        </span>
+      </div>`;
       // scenes from outline
       const oc=nd.outline&&nd.outline.chapters&&nd.outline.chapters[i];
       if(oc&&oc.key_events&&oc.key_events.length){
@@ -393,15 +412,22 @@ function toggleSidebar(){
 
 function showDetail(type,idx){
   if(!novelData) return;
-  const dt=$('detail-title');const db=$('detail-body');
+  const dt=$('detail-title');const db=$('detail-body');const da=$('detail-actions');
   let title='',body='';
   if(type==='chapter'){
     const ch=(novelData.chapters||[])[idx];
     if(!ch){title='章节未找到';body='';}
-    else{title=ch.title||'第'+(idx+1)+'章';
+    else{
+      title=ch.title||'第'+(idx+1)+'章';
       body='📄 **'+title+'**\n\n'+(ch.content||'（内容待生成）');
       if(ch.word_count) body+='\n\n_字数：'+ch.word_count+'_';
-      if(ch.status) body+='\n_状态：'+ch.status+'_';}
+      if(ch.status) body+='\n_状态：'+ch.status+'_';
+      // Action buttons
+      da.innerHTML=`
+        <button class="detail-btn edit" onclick="editChapter('${ch.id||''}',${ch.number},'${esc(ch.title||'')}')">✏️ 编辑</button>
+        <button class="detail-btn delete" onclick="deleteChapter('${ch.id||''}',${ch.number})">🗑️ 删除</button>
+      `;
+    }
   }else if(type==='character'){
     const rawChars=novelData.characters||{};
     const chars=Array.isArray(rawChars)?rawChars:Object.values(rawChars);
@@ -418,6 +444,7 @@ function showDetail(type,idx){
         if(ch.personality||ch.traits)body+='特点：'+(Array.isArray(ch.personality||ch.traits)?(ch.personality||ch.traits).join('、'):(ch.personality||ch.traits));
         if(ch.background)body+='\n背景：'+ch.background;}
     }
+    da.innerHTML='';
   }else if(type==='world'){
     const w=novelData.world||{};
     title=w.name||'世界观';
@@ -428,11 +455,13 @@ function showDetail(type,idx){
       const ks=Object.keys(w.scenes);
       if(ks.length){body+='\n\n场景：\n';ks.forEach(k=>{const s=w.scenes[k];body+='• '+(s.title||s.name||k.slice(0,8))+'\n';});}
     }
+    da.innerHTML='';
   }else if(type==='scene'){
     const scenes=novelData.world&&novelData.world.scenes||{};
     const sc=typeof scenes==='object'&&!Array.isArray(scenes)?scenes[idx]:null;
     if(sc){title=sc.title||sc.name||'场景';body=JSON.stringify(sc,null,2);}
     else{title='场景未找到';body='';}
+    da.innerHTML='';
   }else if(type==='event'){
     const parts=idx.split(':');
     const ci=parseInt(parts[0]),ei=parseInt(parts[1]);
@@ -440,6 +469,7 @@ function showDetail(type,idx){
     const ev=oc&&oc.key_events&&oc.key_events[ei];
     if(ev){title='关键事件';body=ev;}
     else{title='事件未找到';body='';}
+    da.innerHTML='';
   }
   dt.textContent=title;
   db.textContent=body;
@@ -702,6 +732,84 @@ function nextChapter(){
 function toggleReaderToc(){
   readerTocOpen=!readerTocOpen;
   document.getElementById('reader-toc').classList.toggle('collapsed',!readerTocOpen);
+}
+
+// ──── Chapter Management ────
+
+async function deleteChapter(chapterId, chapterNumber){
+  if(!chapterId && !chapterNumber) return;
+  const msg = `确定删除第${chapterNumber}章吗？此操作不可撤销。`;
+  if(!confirm(msg)) return;
+  const d = await api('/chapter/delete', {
+    novel_id: cid,
+    chapter_number: chapterNumber
+  });
+  if(d.success){
+    hideDetail();
+    await    enterNovel(cid);
+  } else {
+    alert('删除失败：' + (d.error || '未知错误'));
+  }
+}
+
+async function saveChapter(chapterId, chapterNumber){
+  const title = $('edit-title').value.trim();
+  const content = $('edit-content').value.trim();
+  if(!title){alert('请输入章节标题');return}
+  if(!content){alert('请输入章节内容');return}
+  const d = await api('/chapter/update', {
+    novel_id: cid,
+    chapter_id: chapterId,
+    title: title,
+    content: content
+  });
+  if(d.success){
+    await    enterNovel(cid);
+  } else {
+    alert('保存失败');
+  }
+}
+
+function cancelEdit(){
+  // Re-show the detail of the current chapter
+  const da=$('detail-actions');
+  da.innerHTML='';
+  // Find which chapter was being edited
+  const chs=novelData.chapters||[];
+  for(let i=0;i<chs.length;i++){
+    const ch=chs[i];
+    if(ch.id===lastEditedChapterId || ch.number===lastEditedChapterNumber){
+      showDetail('chapter',i);
+      return;
+    }
+  }
+  hideDetail();
+}
+
+let lastEditedChapterId='';
+let lastEditedChapterNumber=0;
+
+function editChapter(chapterId, chapterNumber, currentTitle){
+  lastEditedChapterId=chapterId;
+  lastEditedChapterNumber=chapterNumber;
+  const ch = (novelData.chapters||[]).find(c => c.id === chapterId || c.number === chapterNumber);
+  if(!ch) return;
+  const db=$('detail-body');
+  const da=$('detail-actions');
+  const dt=$('detail-title');
+  dt.textContent = '编辑第'+chapterNumber+'章';
+  da.innerHTML = `<button class="detail-btn" onclick="cancelEdit()">取消</button>
+    <button class="detail-btn edit" onclick="saveChapter('${chapterId}',${chapterNumber})">💾 保存</button>`;
+  db.innerHTML = `
+    <div style="margin-bottom:8px">
+      <label style="font-size:12px;color:#666">章节标题</label>
+      <input id="edit-title" type="text" value="${esc(ch.title||'')}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:12px;color:#666">章节内容</label>
+      <textarea id="edit-content" style="width:100%;min-height:400px;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:monospace;box-sizing:border-box;line-height:1.6">${esc(ch.content||'')}</textarea>
+    </div>
+  `;
 }
 
 // Key bindings

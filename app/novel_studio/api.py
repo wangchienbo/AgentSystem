@@ -202,6 +202,33 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
             "chapter": chapter_info,
         }
 
+    # ──── 辅助函数：从 LLM 生成内容中提取章节标题 ────
+    def _extract_chapter_title(content: str, default: str = "未命名") -> str:
+        """从 LLM 生成的内容首段中提取章节标题"""
+        import re
+        # 尝试匹配各种标题格式
+        lines = content.strip().split('\n')
+        first_line = lines[0].strip() if lines else ""
+        # 匹配 "第N章 标题" 或 "# 第N章 标题" 或 "## 第N章 标题"
+        title_match = re.search(r'(?:#{1,6}\s*)?第(\d+)[章节]\s*[：:]\s*(.+?)(?:[#\n]|$)', first_line)
+        if title_match:
+            return title_match.group(2).strip()
+        title_match = re.search(r'(?:#{1,6}\s*)?第(\d+)[章节]\s+(.+?)(?:[#\n]|$)', first_line)
+        if title_match:
+            return title_match.group(2).strip()
+        # 匹配 "## 标题" 或 "# 标题"
+        title_match = re.search(r'^#{1,6}\s+(.+?)(?:[#\n]|$)', first_line)
+        if title_match:
+            return title_match.group(1).strip()
+        # 匹配 "**标题**" 格式
+        title_match = re.search(r'^\*\*(.+?)\*\*', first_line)
+        if title_match:
+            return title_match.group(1).strip()
+        # 如果第一行很短（<30字），把它当作标题
+        if len(first_line) < 30 and first_line and not first_line.startswith('"'):
+            return first_line[:30]
+        return default
+
     # ──── 辅助函数：将 LLM 生成内容保存为章节 ────
     def _save_as_chapter(novel_id: str, content: str, instruction: str = "") -> dict | None:
         """检测生成内容是否为章节正文，若是则自动保存。返回 {number, title} 或 None"""
@@ -215,19 +242,20 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
             chapter_number = max(c.number for c in novel.chapters) + 1
         else:
             chapter_number = 1
-        # 从指令中提取标题
-        import re
-        chapter_title = "未命名"
-        title_match = re.search(r'[第](\d+)[章节]|["「『]([^"」』]+)["」』]', instruction)
-        if title_match:
-            num = title_match.group(1)
-            name = title_match.group(2)
-            if name:
-                chapter_title = name
-            elif num:
-                chapter_title = f"第{num}章"
-        elif len(instruction) > 5 and "写" not in instruction[:3]:
-            chapter_title = instruction[:20]
+        # 从生成内容中提取标题（优先），回退到指令
+        chapter_title = _extract_chapter_title(content)
+        if chapter_title == "未命名":
+            import re
+            title_match = re.search(r'[第](\d+)[章节]|["「『]([^"」』]+)["」』]', instruction)
+            if title_match:
+                num = title_match.group(1)
+                name = title_match.group(2)
+                if name:
+                    chapter_title = name
+                elif num:
+                    chapter_title = f"第{num}章"
+            elif len(instruction) > 5 and "写" not in instruction[:3]:
+                chapter_title = instruction[:20]
         chapter = Chapter(
             number=chapter_number,
             title=chapter_title,
@@ -256,6 +284,32 @@ def create_novel_router(model_router=None, llm_client=None, engine=None) -> APIR
         if chapter:
             return {"success": True, "content": chapter.content[:2000], "chapter": chapter.number}
         return {"success": False, "content": "章节生成失败"}
+
+    @router.post("/chapter/delete")
+    async def api_delete_chapter(data: dict):
+        novel_id = data.get("novel_id", "")
+        chapter_number = data.get("chapter_number", 0)
+        if not novel_id or not chapter_number:
+            return {"success": False, "error": "缺少参数"}
+        ok = engine._storage.delete_chapter(novel_id, chapter_number)
+        return {"success": ok}
+
+    @router.post("/chapter/update")
+    async def api_update_chapter(data: dict):
+        novel_id = data.get("novel_id", "")
+        chapter_id = data.get("chapter_id", "")
+        title = data.get("title", None)
+        content = data.get("content", None)
+        if not novel_id or not chapter_id:
+            return {"success": False, "error": "缺少参数"}
+        updates = {}
+        if title is not None:
+            updates["title"] = title
+        if content is not None:
+            updates["content"] = content
+            updates["word_count"] = len(content)
+        novel = engine._storage.update_chapter(novel_id, chapter_id, updates)
+        return {"success": novel is not None}
 
     @router.post("/dialogue")
     async def api_dialogue(data: dict):
