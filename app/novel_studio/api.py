@@ -390,104 +390,38 @@ def create_novel_router(
         except Exception:
             return False
 
-    # ──── 辅助函数：解析并执行 [call:method(...)] 指令 ────
-    def _execute_call_asset_commands(text: str, novel_id: str, engine) -> str:
-        """从 LLM 输出中解析 [call:method(param=value)] 并执行，返回清理后的文本"""
-        import re as _re
-        call_pattern = r'\[call:(\w+)\(([^)]*)\)\]'
-        novel = engine.get_novel(novel_id)
-        if not novel:
-            return text
-        results = []
-
-        for match in _re.finditer(call_pattern, text):
-            method = match.group(1)
-            params_str = match.group(2)
-            params = {"novel_id": novel_id}
-            # 解析 key=value 参数
-            for kv in params_str.split(','):
-                kv = kv.strip()
-                if '=' in kv:
-                    k, v = kv.split('=', 1)
-                    k, v = k.strip(), v.strip().strip('"\'')
-                    if v.isdigit():
-                        v = int(v)
-                    params[k] = v
-
-            try:
-                result = None
-                if method == "save_outline":
-                    engine.create_outline(novel_id, novel.title,
-                        summary=params.get("summary", ""),
-                        three_act=params.get("three_act", {}))
-                    result = "大纲已保存"
-                elif method == "add_outline_chapter":
-                    engine.add_chapter_outline(novel_id,
-                        int(params.get("number", 1)),
-                        params.get("title", ""),
-                        params.get("summary", ""),
-                        params.get("key_events", []))
-                    result = f"第{params.get('number')}章大纲已添加"
-                elif method == "add_character":
-                    from app.novel_studio.models import CharacterArchetype
-                    arch = params.get("archetype", "配角")
-                    try:
-                        archetype = CharacterArchetype(arch)
-                    except ValueError:
-                        archetype = CharacterArchetype.SUPPORTING
-                    char = engine.add_character(novel_id, params.get("name", "新角色"),
-                        archetype=archetype,
-                        personality=params.get("personality", []),
-                        background=params.get("background", ""))
-                    result = f"角色「{char.name}」已添加" if char else "添加失败"
-                elif method == "update_character":
-                    char = engine.update_character(novel_id, params.get("char_id", ""),
-                        name=params.get("name"), archetype=params.get("archetype"),
-                        personality=params.get("personality"),
-                        background=params.get("background"))
-                    result = f"角色已更新" if char else "角色不存在"
-                elif method == "delete_character":
-                    ok = engine.remove_character(novel_id, params.get("char_id", ""))
-                    result = "角色已删除" if ok else "角色不存在"
-                elif method == "save_world":
-                    engine.create_world(novel_id, params.get("name", "世界"),
-                        overview=params.get("overview", ""),
-                        rules=params.get("rules", []))
-                    result = "世界观已保存"
-                elif method == "add_scene":
-                    engine.add_scene(novel_id, params.get("name", "场景"),
-                        location=params.get("location", ""),
-                        description=params.get("description", ""))
-                    result = "场景已添加"
-                elif method == "update_scene":
-                    updates = {k: params[k] for k in ["name", "location", "description"] if k in params}
-                    if updates:
-                        engine._storage.update_scene(novel_id, params.get("scene_id", ""), updates)
-                    result = "场景已更新"
-                elif method == "delete_scene":
-                    ok = engine.remove_scene(novel_id, params.get("scene_id", ""))
-                    result = "场景已删除" if ok else "场景不存在"
-                elif method == "update_chapter":
-                    updates = {}
-                    if "title" in params: updates["title"] = params["title"]
-                    if "content" in params: updates["content"] = params["content"]
-                    if updates:
-                        engine._storage.update_chapter(novel_id, params.get("chapter_id", ""), updates)
-                    result = "章节已更新"
-                elif method == "delete_chapter":
-                    ok = engine._storage.delete_chapter(novel_id, int(params.get("chapter_number", 0)))
-                    result = "章节已删除" if ok else "章节不存在"
-                elif method == "get_novel":
-                    result = "小说数据已获取"
-                results.append(result or "已执行")
-            except Exception as e:
-                results.append(f"执行失败: {e}")
-
-        # 替换 [call:...] 标记为执行结果
-        cleaned = text
-        if results:
-            cleaned = _re.sub(call_pattern, lambda m: f"[{results.pop(0) if results else '已执行'}]", text)
-        return cleaned
+    # ──── 辅助：构建 call_asset_method 工具定义 ────
+    def _build_asset_tool_def() -> dict:
+        """构建 call_asset_method 的 OpenAI 函数调用格式"""
+        return {
+            "type": "function",
+            "function": {
+                "name": "call_asset_method",
+                "description": "调用小说工作室资产（asset:novel_studio:v1）的方法。"
+                               "当你需要创建、修改或删除小说数据时使用此工具。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "asset_id": {
+                            "type": "string",
+                            "description": "资产ID，固定为 asset:novel_studio:v1",
+                        },
+                        "method": {
+                            "type": "string",
+                            "description": "方法名，例如 add_character, save_outline, write_chapter, "
+                                           "update_character, delete_character, save_world, "
+                                           "add_scene, update_scene, delete_scene, "
+                                           "add_outline_chapter, update_chapter, delete_chapter, get_novel, generate",
+                        },
+                        "params": {
+                            "type": "object",
+                            "description": "参数对象，必须包含 novel_id。其他参数根据方法而定",
+                        },
+                    },
+                    "required": ["asset_id", "method"],
+                },
+            },
+        }
 
     @router.post("/chapter/write")
     async def api_write_chapter(data: dict):
@@ -570,7 +504,7 @@ def create_novel_router(
         system_prompt = build_novel_system_prompt(novel)
 
         return StreamingResponse(
-            _stream_chat_events(engine, novel, message, novel_id, system_prompt, context_center, session_id),
+            _stream_chat_events(engine, novel, message, novel_id, system_prompt, context_center, session_id, runtime_center),
             media_type="application/x-ndjson",
             headers={
                 "Cache-Control": "no-cache",
@@ -588,10 +522,9 @@ def create_novel_router(
         system_prompt: str,
         context_center=None,
         session_id: str = "",
+        runtime_center=None,
     ) -> Generator:
-        """SSE 事件生成器：构建上下文 → 流式 LLM → 章节保存"""
-        # 上下文已由调用者通过 build_novel_system_prompt() 构建
-
+        """SSE 事件生成器：工具轮次 → 流式输出 → 章节保存"""
         import json as _json
         import time as _time
         import logging as _log
@@ -601,55 +534,89 @@ def create_novel_router(
             # 1. 获取 LLM 客户端
             if engine._llm_client:
                 client = engine._llm_client
-                model = client._config.model
             elif engine._model_router:
                 client = engine._model_router.get_client("architect", "complex")
-                model = client._config.model
             else:
                 yield _json.dumps({"error": "LLM 未配置"}) + "\n"
                 return
+            model = client._config.model
 
-            # 2. 流式生成
             full_text = ""
-            token_count = 0
-            for attempt in range(2):
-                try:
-                    for token in client.chat_stream(
-                        [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
-                        model=model,
-                        max_tokens=2000,
-                        temperature=0.8,
-                    ):
-                        token_count += 1
-                        full_text += token
-                        yield _json.dumps({"token": token}) + "\n"
-                except Exception as e:
-                    _logger.warning(f"chat_stream attempt {attempt+1} error: {e}")
+
+            # 2. 生成文本
+            if runtime_center:
+                # ── 有运行时中心：使用 chat_turns 多轮工具调用 ──
+                tool_def = _build_asset_tool_def()
+
+                def _call_asset_handler(asset_id, method, params=None):
+                    try:
+                        result = runtime_center.call_asset_method(asset_id, method, params or {})
+                        if hasattr(result, 'to_dict'):
+                            return result.to_dict()
+                        return result
+                    except Exception as e:
+                        return {"error": str(e), "ok": False}
+
+                final_text, usage = client.chat_turns(
+                    system_prompt=system_prompt,
+                    user_message=message,
+                    tools=[tool_def],
+                    tool_handlers={"call_asset_method": _call_asset_handler},
+                    model=model,
+                    max_tokens=2000,
+                    temperature=0.8,
+                    max_turns=5,
+                )
+                full_text = final_text or ""
+
+                # 流式输出 final_text（分段发送模拟实时显示）
+                if full_text:
+                    paragraphs = full_text.split('\n')
+                    for pi, para in enumerate(paragraphs):
+                        if pi > 0:
+                            yield _json.dumps({"token": "\n"}) + "\n"
+                        if para:
+                            chunk_size = 30
+                            for j in range(0, len(para), chunk_size):
+                                yield _json.dumps({"token": para[j:j+chunk_size]}) + "\n"
+            else:
+                # ── 无 runtime_center：降级到纯流式 ──
+                yield _json.dumps({"info": "普通模式"}) + "\n"
+                for attempt in range(2):
+                    try:
+                        for token in client.chat_stream(
+                            [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
+                            model=model,
+                            max_tokens=2000,
+                            temperature=0.8,
+                        ):
+                            full_text += token
+                            yield _json.dumps({"token": token}) + "\n"
+                    except Exception as e:
+                        _logger.warning(f"chat_stream attempt {attempt+1} error: {e}")
+                        if attempt == 0:
+                            yield _json.dumps({"info": "重试中..."}) + "\n"
+                            _time.sleep(1.5)
+                            continue
+                        raise
+                    if full_text:
+                        break
                     if attempt == 0:
                         yield _json.dumps({"info": "重试中..."}) + "\n"
                         _time.sleep(1.5)
-                        continue
-                    raise
-                if token_count > 0:
-                    break
-                if attempt == 0:
-                    yield _json.dumps({"info": "重试中..."}) + "\n"
-                    _time.sleep(1.5)
+
+            if not full_text:
+                yield _json.dumps({"error": "模型返回为空"}) + "\n"
+                return
 
             # 记录完整回复到 ContextCenter
             if full_text and context_center and session_id:
                 log_context_record(session_id, full_text, context_center, role="assistant", kind="message")
 
-            # 执行 [call:...] 指令并替换结果
-            if full_text and 'call:' in full_text:
-                full_text = _execute_call_asset_commands(full_text, novel_id, engine)
-                yield _json.dumps({"token": full_text, "effect": "executed"}) + "\n"
-
             # 3. 检测是否保存章节
             chapter_info = None
             if full_text and len(full_text) >= 100:
                 import re as _re
-                # 用户要求生成大纲时，不保存为章节，而是保存为大纲
                 if _re.search(r'大纲|梗概|三幕', message):
                     _try_save_as_outline(novel_id, full_text, engine)
                 elif _re.search(r'写|章|节|生成|继续|下一', message):
@@ -661,6 +628,8 @@ def create_novel_router(
             yield _json.dumps(resp) + "\n"
 
         except Exception as e:
+            import traceback
+            _logger.error("_stream_chat_events error: %s\n%s", e, traceback.format_exc())
             yield _json.dumps({"error": str(e)}) + "\n"
 
     @router.post("/chat")
@@ -687,14 +656,47 @@ def create_novel_router(
 
         try:
             if engine._llm_client:
-                text = ""
+                client = engine._llm_client
+            elif engine._model_router:
+                client = engine._model_router.get_client("architect", "complex")
+            else:
+                return {"success": False, "error": "请配置 LLM 客户端"}
+            model = client._config.model
+
+            text = ""
+
+            if runtime_center:
+                # ── 有运行时中心：多轮工具调用 ──
+                tool_def = _build_asset_tool_def()
+
+                def _call_asset_handler(asset_id, method, params=None):
+                    try:
+                        result = runtime_center.call_asset_method(asset_id, method, params or {})
+                        if hasattr(result, 'to_dict'):
+                            return result.to_dict()
+                        return result
+                    except Exception as e:
+                        return {"error": str(e), "ok": False}
+
+                text, usage = client.chat_turns(
+                    system_prompt=system_prompt,
+                    user_message=message,
+                    tools=[tool_def],
+                    tool_handlers={"call_asset_method": _call_asset_handler},
+                    model=model,
+                    max_tokens=2000,
+                    temperature=0.8,
+                    max_turns=5,
+                )
+                text = text or ""
+            else:
+                # ── 无 runtime_center：普通对话 ──
                 for attempt in range(3):
-                    text, _ = engine._llm_client.chat(
+                    text, _ = client.chat(
                         [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
-                        model=engine._llm_client._config.model,
+                        model=model,
                         max_tokens=2000,
                         temperature=0.8,
-                        stream=False,
                     )
                     if text:
                         break
@@ -702,40 +704,16 @@ def create_novel_router(
                         import logging as _log
                         _log.getLogger(__name__).warning(f"LLM returned empty (attempt {attempt+1}), retrying...")
                         import time; time.sleep(1.5)
-            elif engine._model_router:
-                client = engine._model_router.get_client("architect", "complex")
-                text = ""
-                for attempt in range(3):
-                    text, _ = client.chat(
-                        [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
-                        model=client._config.model,
-                        max_tokens=2000,
-                        temperature=0.8,
-                        stream=False,
-                    )
-                    if text:
-                        break
-                    if attempt < 2:
-                        import logging as _log
-                        _log.getLogger(__name__).warning(f"LLM(router) returned empty (attempt {attempt+1}), retrying...")
-                        import time; time.sleep(1.5)
-            else:
-                return {"success": False, "error": "请配置 LLM 客户端"}
 
             text = text or ""
             # 记录完整回复到 ContextCenter
             if text and context_center and session_id:
                 log_context_record(session_id, text, context_center, role="assistant", kind="message")
 
-            # 执行 [call:...] 指令并替换结果
-            if text and 'call:' in text:
-                text = _execute_call_asset_commands(text, novel_id, engine)
-
-            # 检测聊天中是否在写章节：消息含写/章/生成等关键词，且内容足够长
+            # 检测聊天中是否在写章节
             chapter_info = None
             if text and len(text) >= 100:
                 import re
-                # 用户要求生成大纲时，不保存为章节，而是保存为大纲
                 if re.search(r'大纲|梗概|三幕', message):
                     _try_save_as_outline(novel_id, text, engine)
                 elif re.search(r'写|章|节|生成|继续|下一', message):
