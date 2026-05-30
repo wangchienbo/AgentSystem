@@ -214,6 +214,11 @@ def _build_message_from_choice(choice: dict[str, Any]) -> dict[str, Any]:
     tool_calls = _extract_tool_calls_from_choice(choice)
     if tool_calls:
         normalized["tool_calls"] = tool_calls
+    # DeepSeek may put reasoning_content at choice level
+    if isinstance(choice, dict):
+        choice_rc = choice.get("reasoning_content")
+        if choice_rc and isinstance(choice_rc, str) and choice_rc.strip():
+            normalized["reasoning_content"] = choice_rc
     return normalized
 
 

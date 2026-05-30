@@ -230,7 +230,7 @@ def build_novel_system_prompt(novel) -> str:
         chapters_plan = [
             f"  第{c.number}章 {c.title}" for c in novel.outline.chapters
         ]
-        ctx_parts.append("章节规划：\n" + "\n".join(chapters_plan))
+        ctx_parts.append("大纲章节规划（未写，仅规划）：\n" + "\n".join(chapters_plan))
     if novel.characters:
         ctx_parts.append("角色：")
         for c in novel.characters.values():
@@ -242,10 +242,20 @@ def build_novel_system_prompt(novel) -> str:
     if novel.world:
         ctx_parts.append(f"世界观：{novel.world.name} - {novel.world.overview}")
     if novel.chapters:
-        ctx_parts.append("已完成章节：")
-        for ch in novel.chapters[-3:]:
+        ctx_parts.append("已完成章节（共{}章）：".format(len(novel.chapters)))
+        # Show last 10 chapters with detail, and all chapter titles compactly
+        if len(novel.chapters) > 10:
+            ctx_parts.append("  全部章节列表：")
+            for ch in novel.chapters:
+                ctx_parts.append(
+                    f"    第{ch.number}章 {ch.title}"
+                )
+            ctx_parts.append("")
+        ctx_parts.append("  最近章节（第{}-{}章）：".format(
+            max(1, len(novel.chapters) - 9), len(novel.chapters)))
+        for ch in novel.chapters[-10:]:
             ctx_parts.append(
-                f"  第{ch.number}章 {ch.title}（{len(ch.content)}字）"
+                f"    第{ch.number}章 {ch.title}（{len(ch.content)}字）"
             )
 
     full_context = "\n".join(ctx_parts)
@@ -270,6 +280,8 @@ def build_novel_system_prompt(novel) -> str:
 - 直接回答问题，不要返回 JSON 格式
 - 如果用户要求生成章节，直接写出章节正文内容
 - 如果用户要求生成大纲，按"梗概 → 三幕 → 章节规划"的顺序输出
-- 需要保存数据时，使用 call_asset_method 工具调用对应方法"""
+- 需要保存数据时，使用 call_asset_method 工具调用对应方法
+- 注意区分「大纲规划」（未写）和「已完成章节」（已写），不要混淆
+- 这是一部长篇连载小说，目标至少 300 章。写章节时保持节奏感，每章 1500-3000 字"""
 
 
