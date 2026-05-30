@@ -567,11 +567,14 @@ def create_novel_router(
             if engine._llm_client:
                 client = engine._llm_client
             elif engine._model_router:
-                client = engine._model_router.get_client("architect", "complex")
+                client = engine._model_router.get_client("novel_writer", "complex")
             else:
                 yield _json.dumps({"error": "LLM 未配置"}) + "\n"
                 return
             model = client._config.model
+            max_tok = getattr(client._config, 'max_tokens', 4096)
+            temp = getattr(client._config, 'temperature', 0.7)
+            max_turn = getattr(client._config, 'max_turns', 30)
 
             full_text = ""
 
@@ -598,9 +601,9 @@ def create_novel_router(
                     tools=[tool_def],
                     tool_handlers={"call_asset_method": _call_asset_handler},
                     model=model,
-                    max_tokens=2000,
-                    temperature=0.8,
-                    max_turns=5,
+                    max_tokens=max_tok,
+                    temperature=temp,
+                    max_turns=max_turn,
                 )
                 full_text = final_text or ""
 
@@ -622,8 +625,8 @@ def create_novel_router(
                         for token in client.chat_stream(
                             [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
                             model=model,
-                            max_tokens=2000,
-                            temperature=0.8,
+                            max_tokens=max_tok,
+                            temperature=temp,
                         ):
                             full_text += token
                             yield _json.dumps({"token": token}) + "\n"
@@ -682,10 +685,13 @@ def create_novel_router(
             if engine._llm_client:
                 client = engine._llm_client
             elif engine._model_router:
-                client = engine._model_router.get_client("architect", "complex")
+                client = engine._model_router.get_client("novel_writer", "complex")
             else:
                 return {"success": False, "error": "请配置 LLM 客户端"}
             model = client._config.model
+            max_tok = getattr(client._config, 'max_tokens', 4096)
+            temp = getattr(client._config, 'temperature', 0.7)
+            max_turn = getattr(client._config, 'max_turns', 30)
 
             text = ""
 
@@ -708,9 +714,9 @@ def create_novel_router(
                     tools=[tool_def],
                     tool_handlers={"call_asset_method": _call_asset_handler},
                     model=model,
-                    max_tokens=2000,
-                    temperature=0.8,
-                    max_turns=5,
+                    max_tokens=max_tok,
+                    temperature=temp,
+                    max_turns=max_turn,
                 )
                 text = text or ""
             else:
@@ -719,8 +725,8 @@ def create_novel_router(
                     text, _ = client.chat(
                         [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
                         model=model,
-                        max_tokens=2000,
-                        temperature=0.8,
+                        max_tokens=max_tok,
+                        temperature=temp,
                     )
                     if text:
                         break

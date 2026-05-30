@@ -45,6 +45,7 @@ class ModelRoute:
     api_key_env: str
     temperature: float = 0.7
     max_tokens: int = 4096
+    max_turns: int = 30
     timeout_seconds: float = 30.0
     source: str = ""  # "skill", "caller", "default"
 
@@ -122,6 +123,7 @@ class ModelRouter:
                 "api_key_env": cfg.get("api_key_env", model_section.get("api_key_env", "OPENAI_API_KEY") if isinstance(model_section, dict) else "OPENAI_API_KEY"),
                 "temperature": float(cfg.get("temperature", 0.7)),
                 "max_tokens": int(cfg.get("max_tokens", 4096)),
+                "max_turns": int(cfg.get("max_turns", 30)),
                 "timeout_seconds": float(cfg.get("timeout_seconds", model_section.get("timeout_seconds", 30.0) if isinstance(model_section, dict) else 30.0)),
             }
 
@@ -186,6 +188,11 @@ class ModelRouter:
         # 2. Caller routing table
         caller_cfg = self._caller_routes.get(caller)
         if isinstance(caller_cfg, dict):
+            # 2a. model_alias (current config.yaml format: novel_writer → architect)
+            model_alias = caller_cfg.get("model_alias")
+            if model_alias:
+                return self._resolve_by_preference(model_alias, source=f"caller:{caller}")
+            # 2b. default_model (legacy format)
             model_key = caller_cfg.get("default_model")
             if model_key:
                 return self._resolve_by_preference(model_key, source=f"caller:{caller}")
@@ -235,6 +242,7 @@ class ModelRouter:
                 api_key_env=cfg["api_key_env"],
                 temperature=cfg["temperature"],
                 max_tokens=cfg["max_tokens"],
+                max_turns=cfg.get("max_turns", 30),
                 timeout_seconds=cfg.get("timeout_seconds", 30.0),
                 source=source,
             )
@@ -248,6 +256,7 @@ class ModelRouter:
                     api_key_env=cfg["api_key_env"],
                     temperature=cfg["temperature"],
                     max_tokens=cfg["max_tokens"],
+                    max_turns=cfg.get("max_turns", 30),
                     timeout_seconds=cfg.get("timeout_seconds", 30.0),
                     source=source,
                 )
@@ -262,6 +271,7 @@ class ModelRouter:
                 api_key_env=first.get("api_key_env", "OPENAI_API_KEY"),
                 temperature=0.7,
                 max_tokens=4096,
+                max_turns=30,
                 source=source,
             )
         
@@ -286,4 +296,7 @@ class ModelRouter:
             model=route.model_name,
             api_key_env=route.api_key_env,
             timeout_seconds=route.timeout_seconds,
+            temperature=route.temperature,
+            max_tokens=route.max_tokens,
+            max_turns=route.max_turns,
         )

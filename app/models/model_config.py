@@ -13,3 +13,4 @@ class ModelConfig(BaseModel):
     timeout_seconds: float = Field(default=600.0, gt=0)  # 最大等待 10 分钟，适应长文本生成/复杂推理
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=8192, gt=0)  # 支持更长输出 (≈ 8k token)
+    max_turns: int = Field(default=30, gt=0)  # 多轮工具调用的最大轮次，走系统配置而非硬编码
