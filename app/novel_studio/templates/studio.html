@@ -146,6 +146,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .msg{max-width:95%}
   #tb-genre{display:none}
 }
+
+/* Pipeline progress display */
+.pipe-msg{padding:12px 16px;margin:8px 0;border-radius:12px;background:#f0f4ff;border:1px solid #d0d8f0;max-width:700px}
+.pipe-step{display:flex;align-items:center;gap:10px;padding:6px 10px;margin:3px 0;border-radius:6px;background:#f8fafe;font-size:13px}
+.pipe-step.done{background:#e8f5e9;color:#2e7d32}
+.pipe-step.error{background:#fff0f0;color:#c62828}
+.pipe-step.running{background:#fff8e1;color:#f57f17;font-weight:600}
+.pipe-step .step-icon{width:20px;text-align:center}
+.pipe-char{margin:6px 0;padding:8px 12px;border-radius:8px;background:#fff;border:1px solid #e0e0e0}
+.pipe-char .c-name{font-weight:600;font-size:13px;color:#333}
+.pipe-char .c-act{font-size:12px;color:#555;margin:2px 0}
+.pipe-char .c-diag{font-size:12px;color:#1a73e8}
+.pipe-char .c-inner{font-size:12px;color:#999;font-style:italic}
+.pipe-result{background:#e8f5e9;border:1px solid #c8e6c9;border-radius:12px;padding:12px 16px;margin:8px 0;max-width:700px}
+.pipe-result .pr-title{font-weight:600;color:#2e7d32;margin-bottom:4px}
+.pipe-result .pr-preview{font-size:13px;color:#444;line-height:1.5;max-height:200px;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -630,9 +646,96 @@ async function sendMsg(){
 
 async function genNextChapter(){
   if(!cid)return;
-  // Reuse the chat/stream endpoint with "写下一章" prompt
-  $('chat-input').value='请写下一章，延续前面的故事';
-  await sendMsg();
+  const inp=$('chat-input');
+  inp.disabled=true;$('send-btn').disabled=true;$('gen-btn').disabled=true;
+
+  // Show pipeline progress message
+  const pipeDiv=document.createElement('div');
+  pipeDiv.className='msg ai';
+  pipeDiv.id='pipeline-msg';
+  pipeDiv.innerHTML='<div class="pipe-msg"><div style="font-weight:600;margin-bottom:8px">⚡ 多Agent管道生成下一章</div><div id="pipe-steps"></div><div id="pipe-actions" style="margin-top:8px"></div><div id="pipe-result"></div></div>';
+  $('chat-msgs').appendChild(pipeDiv);
+  $('chat-area').scrollTop=$('chat-area').scrollHeight;
+
+  const stepsContainer=$('pipe-steps');
+  const actionsContainer=$('pipe-actions');
+  const resultContainer=$('pipe-result');
+
+  // Add step indicators (all "waiting" initially)
+  const stepDefs=[
+    {id:'chapter_plan',icon:'📋',name:'章节规划'},
+    {id:'scene_build',icon:'🌍',name:'场景构建'},
+    {id:'character_action',icon:'🎭',name:'角色行为'},
+    {id:'narrative',icon:'✍️',name:'叙事合成'},
+    {id:'memory_update',icon:'💾',name:'记忆更新'},
+  ];
+  stepDefs.forEach(s=>{
+    const el=document.createElement('div');
+    el.className='pipe-step waiting';
+    el.id='ps-'+s.id;
+    el.innerHTML=`<span class="step-icon">${s.icon}</span><span class="step-name">${s.name}</span><span class="step-status">等待中</span>`;
+    stepsContainer.appendChild(el);
+  });
+
+  function updateStep(id,status,msg){
+    const el=$('ps-'+id);
+    if(!el)return;
+    el.className='pipe-step '+status;
+    const icons={done:'✅',error:'❌',running:'⏳',waiting:'⏸️'};
+    el.innerHTML=`<span class="step-icon">${icons[status]||'⏸️'}</span><span class="step-name">${stepDefs.find(s=>s.id==id)?.name||id}</span><span class="step-status">${msg||''}</span>`;
+  }
+
+  try{
+    updateStep('chapter_plan','running','分析大纲...');
+
+    const res=await fetch('/api/novel/generate/next',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({novel_id:cid,template:'write_next_chapter'}),
+    });
+    const data=await res.json();
+
+    if(data.success){
+      // Update all steps from pipeline result
+      const steps=data.steps||[];
+      steps.forEach(s=>{
+        updateStep(s.module,s.status==='done'?'done':s.status==='error'?'error':'done',s.summary);
+      });
+
+      // Show character actions
+      const actions=data.actions||[];
+      if(actions.length){
+        let html='<div style="font-weight:600;margin:8px 0 4px;font-size:13px">🎭 角色决策</div>';
+        actions.forEach(a=>{
+          html+=`<div class="pipe-char"><div class="c-name">${esc(a.character||'')}</div>`;
+          const act=a.行动||a.action||'';
+          if(act) html+=`<div class="c-act">行动：${esc(act.slice(0,100))}</div>`;
+          const diag=a.对话||a.dialogue||'';
+          if(diag&&diag!=='沉默') html+=`<div class="c-diag">「${esc(diag.slice(0,80))}」</div>`;
+          const inner=a.内心||a.inner||'';
+          if(inner) html+=`<div class="c-inner">（${esc(inner.slice(0,80))}）</div>`;
+          html+=`</div>`;
+        });
+        actionsContainer.innerHTML=html;
+      }
+
+      // Show result
+      const ch=data.chapter_number||'?';
+      const title=data.title||'';
+      const content=data.content||'';
+      resultContainer.innerHTML=`<div class="pipe-result"><div class="pr-title">✅ 第${ch}章「${esc(title)}」${data.word_count?`（${data.word_count}字）`:''}</div><div class="pr-preview">${esc(content.slice(0,500))}</div></div>`;
+
+      // Refresh sidebar
+      setTimeout(refreshSidebar,500);
+    }else{
+      updateStep('chapter_plan','error',data.error||'未知错误');
+    }
+  }catch(e){
+    updateStep('chapter_plan','error',e.message);
+  }finally{
+    inp.disabled=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;
+    $('chat-area').scrollTop=$('chat-area').scrollHeight;
+  }
 }
 
 function quick(q){

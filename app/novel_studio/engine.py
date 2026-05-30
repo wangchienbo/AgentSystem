@@ -452,6 +452,84 @@ class NovelStudioEngine:
         except Exception as e:
             return GenerationResult(content=f"[生成出错: {str(e)}]")
 
+    # ──── Pipeline: 多 Agent 管道生成 ────
+
+    async def generate_next_chapter(
+        self,
+        novel_id: str,
+        template: str = "write_next_chapter",
+        progress_callback=None,
+    ) -> dict:
+        """使用 Pipeline 多角色 Agent 管道生成下一章
+
+        核心特性：
+        - 每个角色独立 Agent（独立 LLM 调用）
+        - 信息隔离：角色只知道自己能感知到的
+        - 模块化：5 步管道（规划→场景→行为→叙事→记忆）
+
+        Returns:
+            dict: {success, chapter_number, title, content, steps, ...}
+        """
+        from app.novel_studio.pipeline import (
+            PipelineContext,
+            get_orchestrator,
+        )
+        from app.novel_studio.pipeline.orchestrator import PipelineOrchestrator
+
+        novel = self._storage.get_novel(novel_id)
+        if not novel:
+            return {"success": False, "error": "小说未找到"}
+
+        # 预热角色 Agent（如果未注册）
+        if novel.characters:
+            for cid, char in novel.characters.items():
+                if not self._agent_registry.get(cid):
+                    self._agent_registry.register(char)
+
+        # 预热 SceneManager（如果有场景）
+        self._scene_manager = SceneManager()
+        if novel.world and novel.world.scenes:
+            for sid, scene in novel.world.scenes.items():
+                self._scene_manager.add_scene(scene)
+
+        # 构建 PipelineContext
+        ctx = PipelineContext(
+            novel_id=novel_id,
+            storage=self._storage,
+            agent_registry=self._agent_registry,
+            scene_manager=self._scene_manager,
+            world_module=self._world_module,
+            llm_client=self._llm_client,
+            model_router=self._model_router,
+        )
+
+        # 执行管道
+        orch = get_orchestrator()
+        try:
+            ctx = await orch.run(template, ctx=ctx, progress_callback=progress_callback)
+        except Exception as e:
+            logger.exception("Pipeline 执行失败")
+            return {
+                "success": False,
+                "error": str(e),
+                "steps": ctx.get_progress(),
+            }
+
+        narrative_output = ctx.get_output("narrative")
+        plan_output = ctx.get_output("chapter_plan")
+
+        return {
+            "success": True,
+            "chapter_number": (narrative_output or {}).get("chapter_number",
+                (plan_output or {}).get("chapter_number", 0)),
+            "title": (narrative_output or {}).get("title",
+                (plan_output or {}).get("title", "")),
+            "content": (narrative_output or {}).get("content", ""),
+            "word_count": (narrative_output or {}).get("word_count", 0),
+            "steps": ctx.get_progress(),
+            "actions": ctx.get_output("character_action", {}).get("actions", []),
+        }
+
     async def character_dialogue(
         self, novel_id: str, char1_name: str, char2_name: str,
         topic: str, setting: str = "",

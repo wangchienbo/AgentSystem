@@ -26,6 +26,10 @@ class SceneManager:
         # char_id → scene_id
         self._locations: dict[str, str] = {}
 
+    def get_scene(self, scene_id: str) -> SceneSetting | None:
+        """获取场景定义"""
+        return self._scenes.get(scene_id)
+
     def add_scene(self, scene: SceneSetting) -> None:
         """注册场景"""
         self._scenes[scene.id] = scene

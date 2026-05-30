@@ -90,8 +90,17 @@ def bootstrap_novel_studio(
     # ── 6. 注册 Worker（MasterControl 异步调度） ────────────────
     _register_worker(runtime_services, engine)
 
+    # ── 7. 注册 Pipeline 模块 ───────────────────────────────────
+    _register_pipeline_modules()
+
     _bootstrapped = True
     return {"engine": engine, "router": router}
+
+
+def _register_pipeline_modules():
+    """注册管道模块到全局编排器"""
+    from app.novel_studio.pipeline import register_default_modules
+    register_default_modules()
 
 
 # ---------------------------------------------------------------------------

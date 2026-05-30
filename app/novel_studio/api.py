@@ -270,6 +270,15 @@ def create_novel_router(
             "chapter": chapter_info,
         }
 
+    @router.post("/generate/next")
+    async def api_generate_next(data: dict):
+        novel_id = data.get("novel_id", "")
+        template = data.get("template", "write_next_chapter")
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+        result = await engine.generate_next_chapter(novel_id, template=template)
+        return result
+
     # ──── 辅助函数：从 LLM 生成内容中提取章节标题 ────
     def _extract_chapter_title(content: str, default: str = "未命名") -> str:
         """从 LLM 生成的内容首段中提取章节标题"""
