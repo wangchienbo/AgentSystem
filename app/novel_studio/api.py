@@ -628,18 +628,7 @@ def create_novel_router(
             if full_text and context_center and session_id:
                 log_context_record(session_id, full_text, context_center, role="assistant", kind="message")
 
-            # 3. 检测是否保存章节
-            chapter_info = None
-            if full_text and len(full_text) >= 100:
-                import re as _re
-                if _re.search(r'大纲|梗概|三幕', message):
-                    _try_save_as_outline(novel_id, full_text, engine)
-                elif _re.search(r'写|章|节|生成|继续|下一', message):
-                    chapter_info = _save_as_chapter(novel_id, full_text, message)
-
-            resp = {"done": True}
-            if chapter_info:
-                resp["chapter"] = chapter_info
+            resp = {"done": True, "mode": "chat"}
             yield _json.dumps(resp) + "\n"
 
         except Exception as e:
