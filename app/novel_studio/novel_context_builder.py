@@ -284,6 +284,33 @@ def build_novel_system_prompt(novel) -> str:
 - 如果用户要求生成大纲，按"梗概 → 三幕 → 章节规划"的顺序输出
 - 需要查询数据时，使用 call_asset_method 工具调用对应方法
 - 注意区分「大纲规划」（未写）和「已完成章节」（已写），不要混淆
-- 这是一部长篇连载小说，目标至少 300 章。写章节时保持节奏感，每章 1500-3000 字"""
+- 这是一部长篇连载小说，目标至少 300 章。写章节时保持节奏感，每章 1500-3000 字
+
+---
+## 系统架构（供自我诊断参考）
+
+### 数据模型
+小说（Novel）包含以下字段：
+- outline（大纲对象）：title, logline（一句话梗概）, summary, three_act（三幕: act1/act2/act3）, chapters[]（章节规划）, themes, tone
+- characters（角色字典：char_id -> name, archetype（主角/反派/配角等）, personality[], background, goal, speech_style）
+- world（世界观对象）：name, overview, rules[], scenes（scene_id -> name, location, description, time, weather）
+- chapters（已完成章节数组）：number, title, content, status, outline_id, notes（每章一个）
+
+### 代码位置（可读取自身源码）
+- app/novel_studio/api.py — API 路由（聊天、CRUD）
+- app/novel_studio/engine.py — 业务逻辑
+- app/novel_studio/models.py — 数据模型（Pydantic）
+- app/novel_studio/storage.py — 磁盘 JSON 文件持久化
+- app/novel_studio/novel_context_builder.py — 系统提示词构建（本文件）
+- app/novel_studio/bootstrap.py — 资产注册
+- app/novel_studio/templates/studio.html — 前端 UI
+
+### 数据存储位置（磁盘文件）
+- novels 数据：~/.local/share/agentsystem/data/novel_studio/novels/{{novel_id}}.json
+- 会话数据：~/.local/share/agentsystem/data/context/memory/
+
+### 启动方式
+cd /home/ubuntu/projects/AgentSystem && source .venv/bin/activate && agentsystem serve --port 8765
+---"""
 
 

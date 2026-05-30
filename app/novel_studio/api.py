@@ -392,13 +392,31 @@ def create_novel_router(
 
     # ──── 辅助：构建 call_asset_method 工具定义 ────
     def _build_asset_tool_def() -> dict:
-        """构建 call_asset_method 的 OpenAI 函数调用格式"""
+        """构建 call_asset_method 的 OpenAI 函数调用格式，包含所有方法描述"""
         return {
             "type": "function",
             "function": {
                 "name": "call_asset_method",
                 "description": "调用小说工作室资产（asset:novel_studio:v1）的方法。"
-                               "当你需要创建、修改或删除小说数据时使用此工具。",
+                               "可用方法清单（含参数说明）：\n"
+                               "1. get_novel(novel_id) - 获取小说完整数据\n"
+                               "2. save_outline(novel_id, title, logline, summary, three_act, themes, tone) - 保存三幕大纲\n"
+                               "3. add_outline_chapter(novel_id, number, title, summary, key_events, characters_involved, "
+                               "settings, pov_character) - 在大纲中添加章节规划\n"
+                               "4. add_character(novel_id, name, archetype, personality, background, speech_style) - 添加角色\n"
+                               "5. update_character(novel_id, char_id, ...) - 更新角色\n"
+                               "6. delete_character(novel_id, char_id) - 删除角色\n"
+                               "7. save_world(novel_id, name, overview, rules) - 保存世界观\n"
+                               "8. add_scene(novel_id, name, location, description, time, weather) - 添加场景\n"
+                               "9. update_scene(novel_id, scene_id, ...) - 更新场景\n"
+                               "10. delete_scene(novel_id, scene_id) - 删除场景\n"
+                               "11. write_chapter(novel_id) - 从大纲生成下一章\n"
+                               "12. update_chapter(novel_id, chapter_id, title, content) - 更新章节\n"
+                               "13. delete_chapter(novel_id, chapter_number) - 删除章节\n"
+                               "14. character_dialogue(novel_id, char1, char2, topic) - 角色对话生成\n"
+                               "15. chat(novel_id, message) - 对话\n"
+                               "16. create_novel(title, genre, logline) - 新建小说\n"
+                               "17. generate(novel_id, instruction) - 指令生成",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -408,14 +426,16 @@ def create_novel_router(
                         },
                         "method": {
                             "type": "string",
-                            "description": "方法名，例如 add_character, save_outline, write_chapter, "
-                                           "update_character, delete_character, save_world, "
-                                           "add_scene, update_scene, delete_scene, "
-                                           "add_outline_chapter, update_chapter, delete_chapter, get_novel, generate",
+                            "description": "方法名，必填。可选：get_novel, save_outline, add_outline_chapter, "
+                                           "add_character, update_character, delete_character, "
+                                           "save_world, add_scene, update_scene, delete_scene, "
+                                           "write_chapter, update_chapter, delete_chapter, "
+                                           "character_dialogue, chat, create_novel, generate",
                         },
                         "params": {
                             "type": "object",
-                            "description": "参数对象，必须包含 novel_id。其他参数根据方法而定",
+                            "description": "参数对象，必须包含 novel_id（新建小说除外）。"
+                                           "各方法需要的参数详见上方 description。",
                         },
                     },
                     "required": ["asset_id", "method"],
