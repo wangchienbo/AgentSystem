@@ -697,10 +697,14 @@ class OpenAIResponsesClient:
                 "tool_calls": tool_calls,
             }
             # DeepSeek reasoning models include reasoning_content that must be
-            # passed back on subsequent turns; preserve it if present and non-empty.
+            # passed back on subsequent turns. The API requires ALL assistant
+            # messages in reasoning mode to have the reasoning_content field,
+            # even when the model's original response omitted it (empty string).
             reasoning = message.get("reasoning_content")
             if reasoning and isinstance(reasoning, str) and reasoning.strip():
                 assistant_message["reasoning_content"] = reasoning
+            else:
+                assistant_message["reasoning_content"] = ""
             messages.append(assistant_message)
 
             for tc in tool_calls:
