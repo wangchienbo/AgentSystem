@@ -1149,3 +1149,86 @@ class NovelStudioEngine:
         from pathlib import Path
         out = Path(output_dir) if output_dir else None
         return self._storage.export_to_directory(nid, out)
+
+    def get_system_info(self) -> dict[str, Any]:
+        """返回系统架构信息（动态发现，不硬编码路径）供 LLM 自我诊断"""
+        from pathlib import Path
+        from app.runtime_paths import resolve_runtime_paths
+
+        # 从 engine.py 自身文件路径推断项目根：app/novel_studio/engine.py → .. → 项目根
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        paths = resolve_runtime_paths(repo_root)
+
+        # 源代码文件（相对路径）
+        source_files = [
+            {"path": "app/novel_studio/api.py", "purpose": "API 路由（聊天、CRUD、流式端点）"},
+            {"path": "app/novel_studio/engine.py", "purpose": "业务逻辑（本文件）"},
+            {"path": "app/novel_studio/models.py", "purpose": "Pydantic 数据模型"},
+            {"path": "app/novel_studio/storage.py", "purpose": "磁盘 JSON 文件持久化"},
+            {"path": "app/novel_studio/bootstrap.py", "purpose": "资产注册与系统集成"},
+            {"path": "app/novel_studio/novel_context_builder.py", "purpose": "系统提示词构建"},
+            {"path": "app/novel_studio/templates/studio.html", "purpose": "Web 前端 UI"},
+            {"path": "app/novel_studio/character_agent.py", "purpose": "角色 Agent"},
+            {"path": "app/novel_studio/scene_manager.py", "purpose": "场景管理"},
+            {"path": "app/novel_studio/world_module.py", "purpose": "世界观模块"},
+            {"path": "app/novel_studio/narrative_engine.py", "purpose": "叙事引擎"},
+            {"path": "app/novel_studio/worker.py", "purpose": "MasterControl Worker"},
+        ]
+
+        # 数据模型
+        data_model = {
+            "Novel(title, genre)": {
+                "outline": "Outline 对象 — {title, logline, summary, three_act{act1,act2,act3}, chapters[], themes, tone}",
+                "characters": "dict[char_id -> Character] — {name, archetype, personality[], background, goal, speech_style}",
+                "world": "WorldSetting 对象 — {name, overview, rules[], factions[], scenes{scene_id -> SceneSetting}}",
+                "chapters": "list[Chapter] — [{number, title, content, status, outline_id, notes, word_count}]",
+                "status": "planning | writing | editing | published",
+            }
+        }
+
+        # 能力清单（与 bootstrap.py AssetCapability 定义的 17 个方法一致）
+        capabilities = [
+            {"name": "get_novel", "params": "novel_id", "desc": "获取小说完整数据"},
+            {"name": "save_outline", "params": "novel_id, title, logline, summary, three_act, themes, tone", "desc": "保存三幕大纲"},
+            {"name": "add_outline_chapter", "params": "novel_id, number, title, summary, key_events, characters_involved, settings, pov_character", "desc": "在大纲中添加章节规划"},
+            {"name": "add_character", "params": "novel_id, name, archetype, personality[], background, speech_style, goal", "desc": "添加角色"},
+            {"name": "update_character", "params": "novel_id, char_id, ...", "desc": "更新角色字段"},
+            {"name": "delete_character", "params": "novel_id, char_id", "desc": "删除角色"},
+            {"name": "save_world", "params": "novel_id, name, overview, rules[], factions[]", "desc": "保存世界观"},
+            {"name": "add_scene", "params": "novel_id, name, location, description, time, weather", "desc": "添加场景"},
+            {"name": "update_scene", "params": "novel_id, scene_id, ...", "desc": "更新场景"},
+            {"name": "delete_scene", "params": "novel_id, scene_id", "desc": "删除场景"},
+            {"name": "write_chapter", "params": "novel_id", "desc": "从大纲生成下一章并保存"},
+            {"name": "update_chapter", "params": "novel_id, chapter_id, title, content", "desc": "更新已保存章节"},
+            {"name": "delete_chapter", "params": "novel_id, chapter_number", "desc": "删除指定编号章节"},
+            {"name": "add_chapter", "params": "novel_id, title (可选)", "desc": "手动添加空章节"},
+            {"name": "character_dialogue", "params": "novel_id, char1, char2, topic", "desc": "角色对话模拟"},
+            {"name": "chat", "params": "novel_id, message", "desc": "小说创作对话"},
+            {"name": "create_novel", "params": "title, genre, logline", "desc": "新建小说"},
+            {"name": "generate", "params": "novel_id, instruction", "desc": "根据指令生成内容并自动保存"},
+            {"name": "get_system_info", "params": "无需参数", "desc": "返回本系统架构信息（即此方法）"},
+        ]
+
+        storage = {
+            "novels_dir": str(paths.data_dir / "novel_studio" / "novels"),
+            "sessions_dir": str(paths.data_dir / "context" / "memory"),
+            "config_file": str(paths.config_file),
+            "repo_root": str(repo_root),
+        }
+
+        startup = {
+            "command": f"cd {repo_root} && source .venv/bin/activate && agentsystem serve --port 8765",
+            "port": 8765,
+            "python": f"{repo_root}/.venv/bin/python",
+        }
+
+        return {
+            "app_name": "Novel Studio（小说工作室）",
+            "asset_id": "asset:novel_studio:v1",
+            "repo_root": str(repo_root),
+            "source_files": source_files,
+            "data_model": data_model,
+            "capabilities": capabilities,
+            "storage_paths": storage,
+            "startup": startup,
+        }

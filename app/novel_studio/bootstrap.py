@@ -224,6 +224,10 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
             AssetCapability(name="generate", description="根据指令生成小说内容并自动保存为章节",
                 method="generate",
                 input_schema={"novel_id": "string", "instruction": "string"}),
+            AssetCapability(name="get_system_info", description="返回系统架构信息（数据模型、代码位置、能力清单、存储路径），供 LLM 自我诊断",
+                method="get_system_info",
+                side_effect_level="none",
+                input_schema={}),
         ],
         visibility=Visibility.PUBLIC,
         tags=["novel", "writing", "creative"],
@@ -247,6 +251,7 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
         "delete_chapter": lambda **p: _novel_delete_chapter_resp(engine, **p),
         "get_novel": lambda **p: _novel_get_resp(engine, **p),
         "generate": lambda **p: _novel_generate_resp(engine, **p),
+        "get_system_info": lambda **p: _system_info_resp(engine, **p),
     }
 
     try:
@@ -466,3 +471,8 @@ def _novel_generate_resp(engine, novel_id="", instruction="", **kw):
             engine._storage.add_chapter(novel_id, chapter)
             chapter_info = {"number": chapter_number, "title": "生成内容"}
     return {"success": True, "content": content, "chapter": chapter_info}
+
+
+def _system_info_resp(engine, **kw):
+    """返回系统架构信息"""
+    return {"success": True, "info": engine.get_system_info()}
