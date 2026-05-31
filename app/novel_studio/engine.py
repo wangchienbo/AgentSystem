@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import random
@@ -529,6 +530,288 @@ class NovelStudioEngine:
             "steps": ctx.get_progress(),
             "actions": ctx.get_output("character_action", {}).get("actions", []),
         }
+
+    # ────·─── 共享管道辅助 ────·───
+
+    def _prepare_pipeline_context(self, novel_id: str, template: str):
+        """准备管道上下文，返回 (ctx, orch, step_names)，shared by stream & task runners"""
+        from app.novel_studio.pipeline import (
+            PipelineContext,
+            get_orchestrator,
+        )
+        from app.novel_studio.scene_manager import SceneManager
+
+        novel = self._storage.get_novel(novel_id)
+        if not novel:
+            raise ValueError("小说未找到")
+
+        # 预热角色 Agent
+        if novel.characters:
+            for cid, char in novel.characters.items():
+                if not self._agent_registry.get(cid):
+                    self._agent_registry.register(char)
+
+        # 预热 SceneManager
+        self._scene_manager = SceneManager()
+        if novel.world and novel.world.scenes:
+            for sid, scene in novel.world.scenes.items():
+                self._scene_manager.add_scene(scene)
+
+        # 构建 PipelineContext
+        ctx = PipelineContext(
+            novel_id=novel_id,
+            storage=self._storage,
+            agent_registry=self._agent_registry,
+            scene_manager=self._scene_manager,
+            world_module=self._world_module,
+            llm_client=self._llm_client,
+            model_router=self._model_router,
+        )
+
+        orch = get_orchestrator()
+        step_names = orch.get_step_names(template)
+        return ctx, orch, step_names
+
+    async def run_next_chapter_task(
+        self,
+        novel_id: str,
+        template: str,
+        task: "GenerateTask",
+    ):
+        """后台执行管道，结果写入 GenerateTask（不依赖 HTTP 连接存活）
+
+        - 在 task.events 中缓冲每一步事件
+        - task.status: pending → running → complete | error
+        - 任何异常写入 task.error，不抛出
+        """
+        from app.novel_studio.pipeline import get_orchestrator
+        from app.novel_studio.task_manager import GenerateTask
+        import asyncio, json
+
+        task.status = "running"
+
+        try:
+            ctx, orch, step_names = self._prepare_pipeline_context(novel_id, template)
+        except ValueError as e:
+            task.status = "error"
+            task.error = str(e)
+            task.events.append({"type": "error", "message": str(e)})
+            return
+
+        # step_waiting
+        for name in step_names:
+            module = orch._modules.get(name)
+            desc = module.description if module else name
+            task.events.append({
+                "type": "step_waiting",
+                "module": name,
+                "description": desc,
+                "status": "waiting",
+            })
+
+        # 角色事件小队列
+        char_queue = asyncio.Queue()
+
+        def character_callback(result_dict, done_count, total_count):
+            char_queue.put_nowait({
+                "type": "character_done",
+                "character": result_dict.get("character", "?"),
+                "action": result_dict.get("行动") or result_dict.get("action", ""),
+                "dialogue": result_dict.get("对话") or result_dict.get("dialogue", ""),
+                "inner": result_dict.get("内心") or result_dict.get("inner", ""),
+                "progress": {"done": done_count, "total": total_count},
+            })
+
+        ctx._character_decided_callback = character_callback
+
+        # 逐步骤执行
+        try:
+            for idx, name in enumerate(step_names):
+                module = orch._modules.get(name)
+                if module is None:
+                    task.events.append({"type": "error", "message": f"模块未注册: {name}"})
+                    task.status = "error"
+                    return
+
+                # step_start
+                task.events.append({
+                    "type": "step_start", "module": name,
+                    "description": module.description if module else name,
+                    "status": "running",
+                })
+
+                try:
+                    ctx = await module.execute(ctx)
+
+                    if module.modifies_storage:
+                        ctx.refresh_novel()
+
+                    # 排空角色事件
+                    while not char_queue.empty():
+                        task.events.append(char_queue.get_nowait())
+
+                    task.events.append({
+                        "type": "step_done", "module": name,
+                        "status": "done", "summary": module.description,
+                    })
+
+                except Exception as e:
+                    import traceback as _tb
+                    ctx.record_step(name, "error", f"{module.description}失败: {str(e)}")
+                    task.events.append({"type": "error", "message": f"管道执行失败: {str(e)}"})
+                    task.status = "error"
+                    return
+
+            # 取最终输出
+            narrative_output = ctx.get_output("narrative")
+            plan_output = ctx.get_output("chapter_plan")
+            actions = ctx.get_output("character_action", {}).get("actions", [])
+
+            task.result = {
+                "chapter_number": (narrative_output or {}).get("chapter_number",
+                    (plan_output or {}).get("chapter_number", 0)),
+                "title": (narrative_output or {}).get("title",
+                    (plan_output or {}).get("title", "")),
+                "content": (narrative_output or {}).get("content", ""),
+                "word_count": (narrative_output or {}).get("word_count", 0),
+                "steps": ctx.get_progress(),
+                "actions": actions,
+            }
+            task.events.append({"type": "complete", **task.result})
+            task.status = "complete"
+
+        except Exception as e:
+            import traceback as _tb
+            task.error = f"管道执行失败: {str(e)}"
+            task.events.append({"type": "error", "message": task.error})
+            task.status = "error"
+
+    async def generate_next_chapter_stream(
+        self,
+        novel_id: str,
+        template: str = "write_next_chapter",
+    ):
+        """流式生成下一章（异步生成器，每一步 yield 一个 JSON 事件）
+
+        Events:
+            {"type":"step_start","module":"...","description":"📋 章节规划"}
+            {"type":"step_done","module":"...","description":"...","summary":"..."}
+            {"type":"character_done","character":"...","action":"...","dialogue":"...","inner":"...","progress":{"done":2,"total":5}}
+            {"type":"complete","chapter_number":6,"title":"...","word_count":3136,"content":"...","steps":[...],"actions":[...]}
+            {"type":"error","message":"..."}
+        """
+        from app.novel_studio.pipeline import (
+            PipelineContext,
+            get_orchestrator,
+        )
+        from app.novel_studio.pipeline.orchestrator import PipelineOrchestrator
+
+        try:
+            ctx, orch, step_names = self._prepare_pipeline_context(novel_id, template)
+        except ValueError as e:
+            yield json.dumps({"type": "error", "message": str(e)}, ensure_ascii=False) + "\n"
+            return
+
+        # 1️⃣ 立即 yield 所有步骤的 waiting 事件
+        for name in step_names:
+            module = orch._modules.get(name)
+            desc = module.description if module else name
+            yield json.dumps({
+                "type": "step_waiting",
+                "module": name,
+                "description": desc,
+                "status": "waiting",
+            }, ensure_ascii=False) + "\n"
+
+        # 角色事件小队列（character_action 步骤中使用）
+        char_queue = asyncio.Queue()
+
+        def character_callback(result_dict, done_count, total_count):
+            char_queue.put_nowait({
+                "type": "character_done",
+                "character": result_dict.get("character", "?"),
+                "action": result_dict.get("行动") or result_dict.get("action", ""),
+                "dialogue": result_dict.get("对话") or result_dict.get("dialogue", ""),
+                "inner": result_dict.get("内心") or result_dict.get("inner", ""),
+                "progress": {"done": done_count, "total": total_count},
+            })
+
+        ctx._character_decided_callback = character_callback
+
+        # 2️⃣ 逐步骤执行管道，直接 yield event
+        #    逐步骤 yield event，不依赖 Queue
+        try:
+            for idx, name in enumerate(step_names):
+                module = orch._modules.get(name)
+                if module is None:
+                    yield json.dumps({
+                        "type": "error",
+                        "message": f"模块未注册: {name}",
+                    }, ensure_ascii=False) + "\n"
+                    return
+
+                # step_start
+                yield json.dumps({
+                    "type": "step_start",
+                    "module": name,
+                    "description": module.description if module else name,
+                    "status": "running",
+                }, ensure_ascii=False) + "\n"
+
+                try:
+                    ctx = await module.execute(ctx)
+
+                    if module.modifies_storage:
+                        ctx.refresh_novel()
+
+                    # 排空角色事件
+                    while not char_queue.empty():
+                        ev = char_queue.get_nowait()
+                        yield json.dumps(ev, ensure_ascii=False) + "\n"
+
+                    # step_done
+                    yield json.dumps({
+                        "type": "step_done",
+                        "module": name,
+                        "status": "done",
+                        "summary": module.description,
+                    }, ensure_ascii=False) + "\n"
+
+                except Exception as e:
+                    import traceback as _tb
+                    ctx.record_step(name, "error", f"{module.description}失败: {str(e)}")
+                    yield json.dumps({
+                        "type": "error",
+                        "message": f"管道执行失败: {str(e)}",
+                    }, ensure_ascii=False) + "\n"
+                    return
+
+            # 取最终输出
+            narrative_output = ctx.get_output("narrative")
+            plan_output = ctx.get_output("chapter_plan")
+            actions = ctx.get_output("character_action", {}).get("actions", [])
+
+            # complete
+            yield json.dumps({
+                "type": "complete",
+                "chapter_number": (narrative_output or {}).get("chapter_number",
+                    (plan_output or {}).get("chapter_number", 0)),
+                "title": (narrative_output or {}).get("title",
+                    (plan_output or {}).get("title", "")),
+                "content": (narrative_output or {}).get("content", ""),
+                "word_count": (narrative_output or {}).get("word_count", 0),
+                "steps": ctx.get_progress(),
+                "actions": actions,
+            }, ensure_ascii=False) + "\n"
+
+        except Exception as e:
+            import traceback as _tb
+            yield json.dumps({
+                "type": "error",
+                "message": f"管道执行失败: {str(e)}",
+            }, ensure_ascii=False) + "\n"
+
+        return  # 生成器结束
 
     async def character_dialogue(
         self, novel_id: str, char1_name: str, char2_name: str,

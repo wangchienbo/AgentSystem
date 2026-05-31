@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Generator
 
 from fastapi import APIRouter, Request
@@ -13,6 +14,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from app.novel_studio.engine import NovelStudioEngine
 from app.novel_studio.storage import NovelStorage
 from app.novel_studio.models import CharacterArchetype, Chapter
+
+logger = logging.getLogger(__name__)
 
 
 def create_novel_router(
@@ -278,6 +281,80 @@ def create_novel_router(
             return {"success": False, "error": "缺少 novel_id"}
         result = await engine.generate_next_chapter(novel_id, template=template)
         return result
+
+    @router.post("/generate/next/stream")
+    async def api_generate_next_stream(data: dict):
+        novel_id = data.get("novel_id", "")
+        template = data.get("template", "write_next_chapter")
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+
+        generator = engine.generate_next_chapter_stream(novel_id, template=template)
+        return StreamingResponse(generator, media_type="application/x-ndjson")
+
+    # ──── 后台任务 API（缓冲模式，断开连接后继续生成） ────
+
+    import asyncio as _asyncio
+    from app.novel_studio.task_manager import create_task, get_task, get_latest_task, cleanup_old_tasks
+
+    @router.post("/generate/start")
+    async def api_generate_start(data: dict):
+        """启动后台生成任务，返回 task_id（不阻塞，不断开）"""
+        novel_id = data.get("novel_id", "")
+        template = data.get("template", "write_next_chapter")
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+
+        # 检查是否有已存在的运行中任务
+        existing = get_latest_task(novel_id)
+        if existing and existing.status == "running":
+            return {
+                "success": True,
+                "task_id": existing.id,
+                "note": "已有运行中的任务，继续使用",
+            }
+
+        task = create_task(novel_id, template)
+        # 在后台线程池启动管道执行（client.chat() 是同步 httpx，会阻塞事件循环）
+        def _run_pipeline_in_thread():
+            """Use a separate event loop in a thread to avoid blocking uvicorn's event loop"""
+            _loop = _asyncio.new_event_loop()
+            _asyncio.set_event_loop(_loop)
+            try:
+                _loop.run_until_complete(
+                    engine.run_next_chapter_task(novel_id, template, task)
+                )
+            except Exception:
+                logger.exception("后台管道线程异常")
+            finally:
+                _loop.close()
+                _asyncio.set_event_loop(None)
+
+        main_loop = _asyncio.get_event_loop()
+        main_loop.run_in_executor(None, _run_pipeline_in_thread)
+
+        return {"success": True, "task_id": task.id}
+
+    @router.get("/task/{task_id}")
+    async def api_get_task(task_id: str, from_event: int = 0):
+        """获取任务状态和事件（支持增量拉取 via from_event）"""
+        task = get_task(task_id)
+        if not task:
+            return {"success": False, "error": "任务未找到"}
+
+        data = task.to_dict(from_event_index=from_event)
+        data["success"] = True
+        return data
+
+    @router.get("/tasks/latest")
+    async def api_get_latest_task(novel_id: str = ""):
+        """获取某小说最新的任务"""
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+        task = get_latest_task(novel_id)
+        if not task:
+            return {"success": True, "task": None}
+        return {"success": True, "task": task.to_dict()}
 
     # ──── 辅助函数：从 LLM 生成内容中提取章节标题 ────
     def _extract_chapter_title(content: str, default: str = "未命名") -> str:

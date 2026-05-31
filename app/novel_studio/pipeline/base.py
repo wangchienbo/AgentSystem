@@ -46,6 +46,9 @@ class PipelineContext:
         self._step_results: list[dict] = []  # 每一步的进度记录
         self._novel_cache = None
 
+        # 角色决策回调（流式进度）
+        self._character_decided_callback = None
+
     # ── 小说数据 ──
 
     @property
@@ -121,6 +124,12 @@ class PipelineContext:
         if self._model_router:
             return self._model_router.get_client(profile)
         return None
+
+    # ── 角色决策回调（流式进度核心） ──
+
+    def set_character_decided_callback(self, callback):
+        """设置每个角色决策完成后的回调 (result_dict) -> None"""
+        self._character_decided_callback = callback
 
     # ── 进度记录 ──
 

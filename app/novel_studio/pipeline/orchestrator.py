@@ -69,6 +69,8 @@ class PipelineOrchestrator:
 
             logger.info("  [%d/%d] %s — %s", idx + 1, len(step_names), name, module.description)
             ctx.record_step(name, "running", f"正在{module.description}...")
+            if progress_callback:
+                progress_callback(name, "running", module.description)
 
             try:
                 ctx = await module.execute(ctx)

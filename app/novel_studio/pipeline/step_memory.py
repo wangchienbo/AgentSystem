@@ -66,7 +66,7 @@ class MemoryUpdateModule(BaseModule):
 
             if memory_parts:
                 memory_text = f"[第{chapter_number}章] " + "；".join(memory_parts)
-                agent.remember(memory_text)
+                agent.add_memory(memory_text, scene_id=scene.get("scene_id", ""))
                 total_saved += 1
 
             # 角色也知道同场景其他角色做了什么（但不包括内心）
@@ -82,7 +82,11 @@ class MemoryUpdateModule(BaseModule):
                     o_parts.append(f"{other['character']}说：{o_diag}")
                 if o_parts:
                     others_text = f"[第{chapter_number}章] " + "；".join(o_parts)
-                    agent.remember(others_text)
+                    agent.add_memory(
+                        others_text,
+                        scene_id=scene.get("scene_id", ""),
+                        participants=[other["character"]],
+                    )
                     total_saved += 1
 
         # 全局记忆也保存

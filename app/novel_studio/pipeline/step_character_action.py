@@ -47,8 +47,8 @@ class CharacterActionModule(BaseModule):
         # 为每个角色构建独立的上下文
         scene_context = _build_scene_context_text(scene)
 
-        # 并行执行所有角色的决策
-        tasks = []
+        # 并行执行所有角色的决策，每完成一个立刻回调
+        character_tasks = {}
         for char_name in occupants:
             agent = ctx.get_agent_by_name(char_name)
             if not agent:
@@ -58,23 +58,29 @@ class CharacterActionModule(BaseModule):
             # 获取感知（信息隔离核心）
             perception = ctx.get_perception(agent.character.id)
 
-            tasks.append(_decide_character(ctx, agent, char_name, perception, scene_context))
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+            task = _decide_character(ctx, agent, char_name, perception, scene_context)
+            character_tasks[char_name] = task
 
         actions = []
-        for r in results:
-            if isinstance(r, Exception):
-                logger.error("角色决策异常: %s", r)
+        total_chars = len(character_tasks)
+        done_count = 0
+        for coro in asyncio.as_completed(character_tasks.values()):
+            try:
+                r = await coro
+                actions.append(r)
+                done_count += 1
+                # 每完成一个角色就回调（流式进度）
+                if ctx._character_decided_callback:
+                    ctx._character_decided_callback(r, done_count, total_chars)
+            except Exception as e:
+                logger.error("角色决策异常: %s", e)
                 actions.append({
                     "character": "?",
                     "action": "沉默观望",
                     "dialogue": "沉默",
                     "inner": "",
-                    "error": str(r),
+                    "error": str(e),
                 })
-            else:
-                actions.append(r)
 
         logger.info("角色决策完成: %d 个角色", len(actions))
         ctx.set_output(self.name, {"actions": actions, "scene_id": scene_id})
