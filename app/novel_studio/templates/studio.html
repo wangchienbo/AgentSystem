@@ -6,7 +6,7 @@
 <title>小说创作室</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;height:100vh;overflow:hidden;color:#222;touch-action:manipulation}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;height:100vh;overflow:hidden;color:#222;touch-action:manipulation;-webkit-overflow-scrolling:touch}
 #app{display:flex;flex-direction:column;height:100vh}
 #topbar{display:flex;align-items:center;padding:10px 16px;background:#1a1a2e;color:#fff;gap:12px;flex-shrink:0}
 .hamburger{cursor:pointer;font-size:22px;padding:4px 6px;border-radius:4px;user-select:none;background:transparent;border:none;color:#fff}
@@ -19,7 +19,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .back-btn:hover{background:rgba(255,255,255,.1)}
 .top-actions button:hover{background:#d63851}
 #body{display:flex;flex:1;overflow:hidden}
-#sidebar{width:280px;min-width:280px;background:#fff;border-right:1px solid #e0e0e0;overflow-y:auto;transition:width .3s,min-width .3s,opacity .3s}
+#sidebar{width:280px;min-width:280px;background:#fff;border-right:1px solid #e0e0e0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;transition:width .3s,min-width .3s,opacity .3s}
 #sidebar.collapsed{width:0;min-width:0;overflow:hidden;opacity:0}
 .sidebar-section{padding:12px 14px}
 .sidebar-section h3{font-size:14px;margin-bottom:8px;color:#333}
@@ -40,7 +40,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .detail-btn.delete:hover{background:#fee;color:#e94560;border-color:#e94560}
 .empty-hint{color:#999;font-size:13px;padding:6px 8px}
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
-#chat-area{flex:1;overflow-y:auto;padding:16px 20px;background:#f8f9fb}
+#chat-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 20px;background:#f8f9fb}
 #chat-msgs{max-width:700px;margin:0 auto}
 .empty{text-align:center;padding:60px 20px;color:#666}
 .empty .icon{font-size:48px;margin-bottom:16px}
@@ -64,9 +64,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #detail-view.active{display:flex}
 #detail-view .detail-header{display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid #e0e0e0}
 #detail-view .detail-header button{background:transparent;border:1px solid #ddd;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px;color:#666}
-#detail-view .detail-body{flex:1;overflow-y:auto;padding:20px;max-width:700px;margin:0 auto;width:100%;font-size:14px;line-height:1.7;white-space:pre-wrap}
+#detail-view .detail-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:20px;max-width:700px;margin:0 auto;width:100%;font-size:14px;line-height:1.7;white-space:pre-wrap}
 #list-view{display:flex;flex-direction:column;height:100%}
-#list-view .view-inner{flex:1;overflow-y:auto;padding:20px 30px}
+#list-view .view-inner{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:20px 30px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;padding:20px 0}
 .card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:16px;cursor:pointer;transition:box-shadow .2s,transform .15s}
 .card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-2px)}
@@ -101,7 +101,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #reader-topbar .close-btn{background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:4px 10px;font-size:13px;cursor:pointer;color:#fff;margin-left:auto}
 #reader-topbar .close-btn:hover{background:rgba(255,255,255,.1)}
 #reader-body{display:flex;flex:1;overflow:hidden;background:#f5f3ef}
-#reader-toc{width:260px;min-width:260px;background:#fff;border-right:1px solid #e0e0e0;overflow-y:auto;padding:10px 0;transition:width .3s,min-width .3s,opacity .3s}
+#reader-toc{width:260px;min-width:260px;background:#fff;border-right:1px solid #e0e0e0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:10px 0;transition:width .3s,min-width .3s,opacity .3s}
 #reader-toc.collapsed{width:0;min-width:0;overflow:hidden;opacity:0}
 #reader-toc .toc-title{padding:8px 16px;font-size:13px;color:#999;font-weight:600;letter-spacing:.5px}
 #reader-toc .toc-item{cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 16px;font-size:14px;color:#444;border-left:3px solid transparent;transition:all .15s}
@@ -111,7 +111,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #reader-toc .toc-item .toc-wc{color:#bbb;font-size:11px;margin-left:auto;flex-shrink:0}
 #reader-toc .toc-item.active{background:#e8f0fe;color:#1a73e8;border-left-color:#1a73e8;font-weight:600}
 #reader-toc .toc-empty{padding:40px 20px;text-align:center;color:#999;font-size:14px}
-#reader-content{flex:1;overflow-y:auto;padding:30px 40px 60px;max-width:720px;margin:0 auto;width:100%}
+#reader-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:30px 40px 60px;max-width:720px;margin:0 auto;width:100%}
 #reader-content .rc-header{margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e0ddd5}
 #reader-content .rc-title{font-size:26px;font-weight:700;color:#1a1a2e;line-height:1.3;margin-bottom:8px}
 #reader-content .rc-meta{font-size:13px;color:#999;display:flex;gap:16px}
@@ -145,6 +145,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .grid{grid-template-columns:1fr}
   .msg{max-width:95%}
   #tb-genre{display:none}
+  /* Mobile touch scrolling improvements */
+  #body{overflow-y:auto}
+  .view-inner{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px}
+  .detail-body{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px}
+  #chat-area{padding:12px 14px}
+  #chat-msgs{max-width:100%}
+  .char-grid{grid-template-columns:1fr}
+  .pipe-result .pr-preview{max-height:150px;overflow-y:auto;-webkit-overflow-scrolling:touch}
 }
 
 /* Pipeline progress display */
@@ -539,7 +547,8 @@ let _isStreaming=false;
 function _scrollToBottom(el){
   if(_scrollPending)return;
   _scrollPending=true;
-  requestAnimationFrame(()=>{el.scrollTop=el.scrollHeight;_scrollPending=false});
+  try{el.scrollTo({top:el.scrollHeight,behavior:'smooth'})}catch(e){el.scrollTop=el.scrollHeight}
+  setTimeout(()=>{_scrollPending=false},80);
 }
 
 async function sendMsg(){
