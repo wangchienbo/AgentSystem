@@ -25,7 +25,6 @@ logs/
 
 # Memory & workspace
 memory/
-prompts/
 
 # Temporary docs
 改造执行指南.md
