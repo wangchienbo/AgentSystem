@@ -13,7 +13,7 @@
 - method: `add_character` / `update_character` / `delete_character`
 - params: 包含 novel_id 和角色字段
 
-查看当前所有角色：调用 `call_asset_method(asset:novel_studio:v1, get_novel, {"novel_id": "xxx"})` 从返回数据中获取 characters。
+查看当前所有角色：调用 `call_asset_method(asset_id="asset:novel_studio:v1", method="get_novel", params={"novel_id": "xxx"})` 从返回数据中获取 characters。
 
 ## 设计原则
 1. **角色要有驱动力**：每个角色应该有欲望→动机→行动链

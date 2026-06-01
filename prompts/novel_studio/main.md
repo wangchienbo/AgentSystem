@@ -31,14 +31,23 @@
 
 你通过 `call_asset_method` 工具调用小说操作。asset_id 固定为 `asset:novel_studio:v1`。
 
-重要操作列表（**参数必须使用正确名称**，novel_id 传入完整的 ID 字符串）：
-- `get_novel(novel_id)` — 获取小说完整数据
-- `add_character(novel_id, name, archetype, personality, background)` — 添加角色
-- `write_chapter(novel_id)` — 从大纲生成下一章
-- `update_chapter(novel_id, chapter_id, title, content)` — 更新章节
-- `save_outline(novel_id, title, logline, summary, three_act, themes, tone)` — 保存大纲
-- `save_world(novel_id, name, overview, rules)` — 保存世界观
-- `character_dialogue(novel_id, char1, char2, topic)` — 角色对话
+可用方法（**使用 method 参数指定方法名，params 参数传入参数对象**）：
+| 方法 | params 参数 | 说明 |
+|------|-------------|------|
+| `get_novel` | `{"novel_id": "xxx"}` | 获取小说完整数据 |
+| `add_character` | `{"novel_id": "xxx", "name": "...", "archetype": "...", "personality": [...], "background": "..."}` | 添加角色 |
+| `write_chapter` | `{"novel_id": "xxx"}` | 从大纲生成下一章 |
+| `update_chapter` | `{"novel_id": "xxx", "chapter_id": "...", "title": "...", "content": "..."}` | 更新章节 |
+| `save_outline` | `{"novel_id": "xxx", "summary": "...", "three_act": {...}}` | 保存大纲 |
+| `save_world` | `{"novel_id": "xxx", "name": "...", "overview": "...", "rules": [...]}` | 保存世界观 |
+| `character_dialogue` | `{"novel_id": "xxx", "char1": "...", "char2": "...", "topic": "..."}` | 角色对话 |
+
+**重要：novel_id 必须使用下方【当前小说状态】中出现的完整 ID（如 `novel_20260601_xxxx`），不要使用小说标题。**
+
+示例调用：
+```
+call_asset_method(asset_id="asset:novel_studio:v1", method="get_novel", params={"novel_id": "novel_20260601065827_6d073fe9"})
+```
 
 注意事项：
 - 当前小说 ID 已在下方【当前小说状态】列出，直接使用该 ID，不要猜测

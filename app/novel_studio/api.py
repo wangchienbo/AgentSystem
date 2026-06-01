@@ -493,7 +493,8 @@ def create_novel_router(
     def _format_novel_state(novel) -> str:
         """格式化小说当前状态，用于注入总提示词。"""
         from app.novel_studio.models import CharacterArchetype
-        lines = [f"**{novel.title}**", f"类型：{novel.genre or '未设定'}"]
+        novel_id = getattr(novel, 'novel_id', '') or getattr(novel, 'id', '')
+        lines = [f"**{novel.title}**", f"小说 ID：`{novel_id}`", f"类型：{novel.genre or '未设定'}"]
         if novel.outline and novel.outline.summary:
             lines.append(f"梗概：{novel.outline.summary[:200]}")
         if novel.characters:
@@ -846,8 +847,7 @@ def create_novel_router(
 
                 # 4. 获取工具定义（过滤系统工具 + 保留 read_prompt_skill 和 call_asset_method）
                 all_tools = hot_tool_manager.get_tools_for_session(session_id)
-                allowed = ("call_asset_method", "list_assets", "query_asset_info",
-                           "read_prompt_skill", "find_tool", "ask_clarification", "unclear")
+                allowed = ("call_asset_method", "read_prompt_skill", "ask_clarification")
                 tool_defs = [
                     ToolDef(name=t["name"], description=t.get("description", ""),
                             parameters=t.get("parameters", {"type": "object", "properties": {}}))

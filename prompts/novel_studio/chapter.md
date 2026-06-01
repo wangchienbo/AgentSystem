@@ -7,9 +7,9 @@
 - **章节结构**：规划章节的起承转合
 
 ## 操作方式
-- 写新章节：调用 `call_asset_method(asset:novel_studio:v1, write_chapter, {"novel_id": "xxx"})`，引擎会自动找到下一个未写章节
-- 更新章节：调用 `call_asset_method(asset:novel_studio:v1, update_chapter, {"novel_id": "xxx", "chapter_id": "...", "title": "...", "content": "..."})`
-- 删除章节：调用 `call_asset_method(asset:novel_studio:v1, delete_chapter, {"novel_id": "xxx", "chapter_number": N})`
+- 写新章节：调用 `call_asset_method(asset_id="asset:novel_studio:v1", method="write_chapter", params={"novel_id": "xxx"})`，引擎会自动找到下一个未写章节
+- 更新章节：调用 `call_asset_method(asset_id="asset:novel_studio:v1", method="update_chapter", params={"novel_id": "xxx", "chapter_id": "...", "title": "...", "content": "..."})`
+- 删除章节：调用 `call_asset_method(asset_id="asset:novel_studio:v1", method="delete_chapter", params={"novel_id": "xxx", "chapter_number": N})`
 
 ## 写作原则
 1. **开场要抓人**：每章开头应有钩子（hook）吸引读者
