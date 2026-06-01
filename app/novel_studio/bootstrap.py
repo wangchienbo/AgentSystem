@@ -68,12 +68,19 @@ def bootstrap_novel_studio(
     # ── 2. 创建路由 ────────────────────────────────────────────
     context_center = runtime_services.get("context_center")
     runtime_center = runtime_services.get("runtime_center")
+    tool_calling_engine = runtime_services.get("tool_calling_engine")
+    hot_tool_manager = runtime_services.get("hot_tool_manager")
+    from app.services.prompt_composer import PromptComposer
+    prompt_composer = PromptComposer()
     router = create_novel_router(
         model_router=model_router,
         llm_client=llm_client,
         engine=engine,
         context_center=context_center,
         runtime_center=runtime_center,
+        tool_calling_engine=tool_calling_engine,
+        hot_tool_manager=hot_tool_manager,
+        prompt_composer=prompt_composer,
     )
 
     # ── 3. 挂载 FastAPI 路由（如果提供 app） ───────────────────

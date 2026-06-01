@@ -172,6 +172,20 @@ SYSTEM_TOOLS: list[dict[str, Any]] = [
             "required": ["task_id"],
         },
     },
+    {
+        "name": "read_prompt_skill",
+        "description": "读取当前 App 的分层子技能详细指导。总提示词（【App 上下文】）中列出了所有可用技能及其触发条件。当你需要某个子技能的完整操作指南时调用此工具，返回该技能的完整提示词内容。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "skill_name": {
+                    "type": "string",
+                    "description": "技能名，如 character（角色管理）、chapter（章节写作）、plot（情节规划）、world（世界观）、dialogue（对话生成）、pipeline（流水线生成）",
+                }
+            },
+            "required": ["skill_name"],
+        },
+    },
 ]
 
 

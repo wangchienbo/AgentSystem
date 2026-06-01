@@ -82,6 +82,16 @@ class PromptComposer:
         parts = [content for _, content in matched]
         return "\n\n".join(parts)
 
+    def read_skill(self, skill_path: str) -> str:
+        """按路径读取子 skill 提示词文件内容。
+
+        供 read_prompt_skill 工具调用。路径如 novel_studio/chapter，
+        实际文件为 prompts/novel_studio/chapter.md。
+        """
+        if not skill_path.endswith(".md"):
+            skill_path = skill_path + ".md"
+        return self._read_prompt_file(skill_path)
+
     def reload(self) -> None:
         """重新加载索引和缓存。"""
         self._index = None
@@ -164,6 +174,13 @@ class PromptComposer:
         if not file_path.exists():
             # 也试试以 prompts_dir 为基路径
             file_path = self._prompts_dir / relative_path
+        if not file_path.exists():
+            # 尝试在 prompts 子目录中搜索文件名（兼容 LLM 只传文件名不传子目录）
+            basename = Path(relative_path).name
+            for candidate in self._prompts_dir.rglob(basename):
+                if candidate.is_file():
+                    file_path = candidate
+                    break
         if not file_path.exists():
             logger.warning("Prompt file not found: %s", relative_path)
             return ""

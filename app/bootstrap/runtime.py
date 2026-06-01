@@ -1292,9 +1292,21 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     def _unclear_handler(reply: str = "我没理解你的意思,换个说法试试?") -> dict[str, object]:
         return {"reply": reply}
 
+    def _read_prompt_skill_handler(skill_name: str) -> str:
+        """Read a sub-skill prompt file by name."""
+        try:
+            from app.services.prompt_composer import PromptComposer
+            composer = PromptComposer()
+            content = composer.read_skill(skill_name)
+            return content or f"未找到技能 '{skill_name}'"
+        except Exception as e:
+            logger.warning("read_prompt_skill failed: %s", e)
+            return f"读取技能失败: {e}"
+
     tool_calling_engine.register_tool("find_tool", _find_tool_handler)
     tool_calling_engine.register_tool("ask_clarification", _ask_clarification_handler)
     tool_calling_engine.register_tool("unclear", _unclear_handler)
+    tool_calling_engine.register_tool("read_prompt_skill", _read_prompt_skill_handler)
 
     for tool_def in FIXED_TOOLS:
         hot_tool_manager.register_tool(tool_def, fixed=True)

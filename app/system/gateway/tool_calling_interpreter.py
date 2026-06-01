@@ -174,9 +174,16 @@ def build_session_context(
     available_apps: list[dict[str, Any]],
     available_assets: list[dict[str, Any]] | None = None,
     session_id: str | None = None,
+    app_system_prompt: str | None = None,
 ) -> str:
     """Build readable session context for prompt."""
     lines = []
+
+    # App system prompt at the TOP — always visible regardless of history length
+    if app_system_prompt:
+        lines.append("【App 上下文】")
+        lines.append(app_system_prompt)
+        lines.append("")
 
     # Continuation guidance: tell the model this is likely a continuation
     if history:

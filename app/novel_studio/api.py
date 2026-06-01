@@ -24,6 +24,9 @@ def create_novel_router(
     engine=None,
     context_center=None,
     runtime_center=None,
+    tool_calling_engine=None,
+    hot_tool_manager=None,
+    prompt_composer=None,
 ) -> APIRouter:
     """创建小说工作室 API 路由
 
@@ -33,6 +36,12 @@ def create_novel_router(
         如果提供，LLM 调用的上下文将通过 ContextCenter 统一管理
     runtime_center : RuntimeCenter | None
         如果提供，资产方法调用可通过 RuntimeCenter 调度
+    tool_calling_engine : ToolCallingEngine | None
+        如果提供，使用系统工具调用引擎（包含 read_prompt_skill、call_asset_method 等）
+    hot_tool_manager : HotToolManager | None
+        如果提供，获取注册的工具定义列表
+    prompt_composer : PromptComposer | None
+        如果提供，读取分层提示词模板
     """
     from app.novel_studio.novel_context_builder import (
         build_novel_system_prompt,
@@ -41,6 +50,11 @@ def create_novel_router(
         log_context_record,
         log_novel_context_records,
     )
+    from app.system.gateway.tool_calling_interpreter import (
+        build_session_context,
+        SYSTEM_PROMPT_TEMPLATE,
+    )
+    from app.ai.tool_calling_engine import ToolDef
 
     router = APIRouter(prefix="/api/novel", tags=["novel-studio"])
     if engine is None:
@@ -476,6 +490,40 @@ def create_novel_router(
         except Exception:
             return False
 
+    def _format_novel_state(novel) -> str:
+        """格式化小说当前状态，用于注入总提示词。"""
+        from app.novel_studio.models import CharacterArchetype
+        lines = [f"**{novel.title}**", f"类型：{novel.genre or '未设定'}"]
+        if novel.outline and novel.outline.summary:
+            lines.append(f"梗概：{novel.outline.summary[:200]}")
+        if novel.characters:
+            chars = []
+            for c in novel.characters.values():
+                role = c.archetype.value if hasattr(c.archetype, 'value') else str(c.archetype)
+                chars.append(f"{c.name}({role})")
+            lines.append(f"角色（{len(chars)}个）：{'、'.join(chars[:12])}")
+            if len(chars) > 12:
+                lines[-1] += f"…等共{len(chars)}个"
+        if novel.chapters:
+            done = [c for c in novel.chapters if c.content]
+            lines.append(f"已写{len(done)}章 / 共{len(novel.chapters)}章")
+            if done:
+                lines.append("最近章节：")
+                for c in done[-3:]:
+                    preview = c.content[:60].replace('\n', ' ')
+                    lines.append(f"  第{c.number}章 {c.title}：{preview}…")
+        if novel.world:
+            w = novel.world
+            lines.append(f"世界观：{w.name or '未命名'}")
+            if w.scenes:
+                lines.append(f"  场景（{len(w.scenes)}个）：{'、'.join(list(w.scenes.keys())[:5])}")
+        if novel.outline and novel.outline.chapters:
+            pending = sum(1 for co in novel.outline.chapters
+                         if not any(c.number == co.number for c in novel.chapters if c.content))
+            lines.append(f"待写章节：{pending}章")
+        lines.append(f"状态：{novel.status}")
+        return '\n'.join(lines)
+
     # ──── 辅助：构建 call_asset_method 工具定义 ────
     def _build_asset_tool_def() -> dict:
         """构建 call_asset_method 的 OpenAI 函数调用格式，包含所有方法描述"""
@@ -764,26 +812,64 @@ def create_novel_router(
         log_novel_context_records(novel, context_center, session_id)
         log_context_record(session_id, message, context_center, role="user", kind="message")
 
-        # 使用集中式系统 prompt
-        system_prompt = build_novel_system_prompt(novel)
-
         try:
-            if engine._llm_client:
-                client = engine._llm_client
-            elif engine._model_router:
-                client = engine._model_router.get_client("novel_writer", "complex")
-            else:
-                return {"success": False, "error": "请配置 LLM 客户端"}
-            model = client._config.model
-            max_tok = getattr(client._config, 'max_tokens', 4096)
-            temp = getattr(client._config, 'temperature', 0.7)
-            max_turn = getattr(client._config, 'max_turns', 30)
+            if tool_calling_engine and hot_tool_manager and prompt_composer:
+                # ── 新架构：系统工具调用引擎 ──
+                # 1. 读取总提示词模板
+                app_system_prompt = prompt_composer.read_skill("novel_studio/main")
+                novel_data = _format_novel_state(novel)
+                app_system_prompt = app_system_prompt.replace("{novel_data}", novel_data)
 
-            text = ""
+                # 2. 获取历史并构建 session context
+                window = context_center.get_recent_context(session_id, limit=10) if context_center else None
+                history = [
+                    {"role": r.role, "content": r.content}
+                    for r in window.records if r.kind == "message"
+                ] if window else []
+                formatted_ctx = build_session_context(
+                    history=history,
+                    pending_intent=None,
+                    pending_params={},
+                    missing_param=None,
+                    available_apps=[],
+                    app_system_prompt=app_system_prompt,
+                )
 
-            if runtime_center:
-                # ── 有运行时中心：多轮工具调用 ──
+                # 3. 填充系统提示词
+                system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+                    session_context=formatted_ctx,
+                    tools_description="",
+                    tool_loop_governor="你仅能使用下方面板的可用工具。每次调用后评估是否收集到足够信息回答用户问题。",
+                    branch_guidance="",
+                    app_routing_rules="",
+                )
+
+                # 4. 获取工具定义（过滤系统工具 + 保留 read_prompt_skill 和 call_asset_method）
+                all_tools = hot_tool_manager.get_tools_for_session(session_id)
+                allowed = ("call_asset_method", "list_assets", "query_asset_info",
+                           "read_prompt_skill", "find_tool", "ask_clarification", "unclear")
+                tool_defs = [
+                    ToolDef(name=t["name"], description=t.get("description", ""),
+                            parameters=t.get("parameters", {"type": "object", "properties": {}}))
+                    for t in all_tools if t["name"] in allowed
+                ]
+
+                # 5. 执行多轮工具调用
+                result = tool_calling_engine.execute_turns(
+                    skill_id="novel_studio",
+                    system_prompt=system_prompt,
+                    user_message=message,
+                    tools=tool_defs,
+                    asset_id="asset:novel_studio:v1",
+                    session_id=session_id,
+                    max_turns=20,
+                )
+                text = (result.final_text or "").strip()
+
+            elif runtime_center:
+                # ── 兼容旧架构：有 runtime_center ──
                 tool_def = _build_asset_tool_def()
+                system_prompt = build_novel_system_prompt(novel)
 
                 def _call_asset_handler(asset_id, method, params=None):
                     try:
@@ -794,34 +880,48 @@ def create_novel_router(
                     except Exception as e:
                         return {"error": str(e), "ok": False}
 
+                if engine._llm_client:
+                    client = engine._llm_client
+                elif engine._model_router:
+                    client = engine._model_router.get_client("novel_writer", "complex")
+                else:
+                    return {"success": False, "error": "请配置 LLM 客户端"}
+
                 text, usage = client.chat_turns(
                     system_prompt=system_prompt,
                     user_message=message,
                     tools=[tool_def],
                     tool_handlers={"call_asset_method": _call_asset_handler},
-                    model=model,
-                    max_tokens=max_tok,
-                    temperature=temp,
-                    max_turns=max_turn,
+                    model=client._config.model,
+                    max_tokens=getattr(client._config, 'max_tokens', 4096),
+                    temperature=getattr(client._config, 'temperature', 0.7),
+                    max_turns=getattr(client._config, 'max_turns', 30),
                 )
-                text = text or ""
+                text = (text or "").strip()
             else:
-                # ── 无 runtime_center：普通对话 ──
+                # ── 降级：普通对话 ──
+                system_prompt = build_novel_system_prompt(novel)
+                if engine._llm_client:
+                    client = engine._llm_client
+                elif engine._model_router:
+                    client = engine._model_router.get_client("novel_writer", "complex")
+                else:
+                    return {"success": False, "error": "请配置 LLM 客户端"}
+
                 for attempt in range(3):
                     text, _ = client.chat(
                         [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
-                        model=model,
-                        max_tokens=max_tok,
-                        temperature=temp,
+                        model=client._config.model,
+                        max_tokens=getattr(client._config, 'max_tokens', 4096),
+                        temperature=getattr(client._config, 'temperature', 0.7),
                     )
                     if text:
                         break
                     if attempt < 2:
-                        import logging as _log
-                        _log.getLogger(__name__).warning(f"LLM returned empty (attempt {attempt+1}), retrying...")
+                        _logger.warning(f"LLM returned empty (attempt {attempt+1}), retrying...")
                         import time; time.sleep(1.5)
+                text = (text or "").strip()
 
-            text = text or ""
             # 记录完整回复到 ContextCenter
             if text and context_center and session_id:
                 log_context_record(session_id, text, context_center, role="assistant", kind="message")
