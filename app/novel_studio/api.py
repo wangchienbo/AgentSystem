@@ -400,8 +400,17 @@ def create_novel_router(
     # ──── 辅助函数：将 LLM 生成内容保存为章节 ────
     def _save_as_chapter(novel_id: str, content: str, instruction: str = "") -> dict | None:
         """检测生成内容是否为章节正文，若是则自动保存。返回 {number, title} 或 None"""
-        if len(content) < 100:
+        if len(content) < 500:
             return None  # 太短不认为是章节正文
+        # 中文占比检测
+        chinese_count = sum(1 for c in content if '\u4e00' <= c <= '\u9fff')
+        chinese_ratio = chinese_count / max(len(content), 1)
+        if chinese_ratio < 0.4:
+            return None  # 中文占比过低，不是叙事章节
+        # 检测是否为 LLM 回复文本特征
+        head = content.strip()[:200]
+        if any(head.startswith(e) for e in ['✅', '📖', '🎭', '⭐', '🔥', '💀']) or '**' in head[:50]:
+            return None  # 看起来是 LLM 回复文本
         novel = engine.get_novel(novel_id)
         if not novel:
             return None
@@ -814,6 +823,7 @@ def create_novel_router(
         log_context_record(session_id, message, context_center, role="user", kind="message")
 
         try:
+            _skip_auto_save = False
             if tool_calling_engine and hot_tool_manager and prompt_composer:
                 # ── 新架构：系统工具调用引擎 ──
                 # 1. 读取总提示词模板
@@ -865,6 +875,17 @@ def create_novel_router(
                     max_turns=20,
                 )
                 text = (result.final_text or "").strip()
+                # 检测是否有 save_chapter 工具调用，如有则用章节正文覆盖回复文本
+                # （LLM 常输出 meta 评论而非章节正文，直接从工具参数中提取更可靠）
+                for _tc in (result.tool_calls or []):
+                    if _tc.tool_name == "call_asset_method" and isinstance(_tc.args, dict):
+                        if _tc.args.get("method") == "save_chapter" and isinstance(_tc.args.get("params"), dict):
+                            _chapter_content = _tc.args["params"].get("content", "").strip()
+                            if len(_chapter_content) > 500:
+                                text = _chapter_content
+                                break
+                # 新架构：LLM 自主管理章节保存，跳过 auto-save
+                _skip_auto_save = True
 
             elif runtime_center:
                 # ── 兼容旧架构：有 runtime_center ──
@@ -926,9 +947,9 @@ def create_novel_router(
             if text and context_center and session_id:
                 log_context_record(session_id, text, context_center, role="assistant", kind="message")
 
-            # 检测聊天中是否在写章节
+            # 检测聊天中是否在写章节（仅旧架构路径，新架构 LLM 用 save_chapter 自主管理）
             chapter_info = None
-            if text and len(text) >= 100:
+            if not _skip_auto_save and text and len(text) >= 100:
                 import re
                 if re.search(r'大纲|梗概|三幕', message):
                     _try_save_as_outline(novel_id, text, engine)

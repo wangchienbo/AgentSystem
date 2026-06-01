@@ -224,7 +224,10 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
                 method="character_dialogue",
                 input_schema={"novel_id": "string", "char1": "string",
                               "char2": "string", "topic": "string"}),
-            AssetCapability(name="write_chapter", description="从大纲生成下一章内容",
+            AssetCapability(name="save_chapter", description="直接保存章节内容到小说（不需要大纲，LLM 撰写内容后立即保存）",
+                method="save_chapter",
+                input_schema={"novel_id": "string", "title": "string", "content": "string", "number": "int"}),
+            AssetCapability(name="write_chapter", description="从大纲生成下一章内容（需要先定义大纲章节）",
                 method="write_chapter",
                 input_schema={"novel_id": "string"}),
             AssetCapability(name="update_chapter", description="更新章节标题或内容",
@@ -262,6 +265,7 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
         "delete_scene": lambda **p: _novel_delete_scene_resp(engine, **p),
         "chat": lambda **p: _novel_chat_resp(engine, **p),
         "character_dialogue": lambda **p: _novel_dialogue_resp(engine, **p),
+        "save_chapter": lambda **p: _novel_save_chapter_resp(engine, **p),
         "write_chapter": lambda **p: _novel_write_chapter_resp(engine, **p),
         "update_chapter": lambda **p: _novel_update_chapter_resp(engine, **p),
         "delete_chapter": lambda **p: _novel_delete_chapter_resp(engine, **p),
@@ -360,6 +364,53 @@ def _novel_dialogue_resp(engine, novel_id="", char1="", char2="", topic="闲聊"
         asyncio.set_event_loop(loop)
     result = loop.run_until_complete(engine.character_dialogue(novel_id, char1, char2, topic))
     return {"success": True, "result": result}
+
+
+def _novel_save_chapter_resp(engine, novel_id="", title="", content="", number=None, **kw):
+    """保存 LLM 撰写的章节内容到小说。带验证：只接受纯中文叙事文本。"""
+    import logging
+    _log = logging.getLogger(__name__)
+
+    if not content or len(content) < 500:
+        _log.warning("save_chapter rejected: too short (%s chars)", len(content) if content else 0)
+        return {"success": False, "error": "章节内容太短（至少500字），看起来不是完整的章节正文。"}
+
+    # 统计中文占比
+    chinese_count = sum(1 for c in content if '\u4e00' <= c <= '\u9fff')
+    chinese_ratio = chinese_count / max(len(content), 1)
+
+    # 前200字符特征检测
+    head = content.strip()[:200]
+    has_bold_marker = '**' in head[:50]
+    has_reply_markers = any(m in head for m in ['已成功', '已保存', '章节', 'Chapter', 'Response'])
+    starts_with_emoji = any(head.startswith(e) for e in ['✅', '📖', '🎭', '⭐', '🔥', '💀'])
+    has_meta_markers = head.startswith('**') or ':', ': ' in head[:30]
+
+    # 决策：是回复文本还是章节正文？
+    is_response = (
+        starts_with_emoji
+        or (has_bold_marker and chinese_ratio < 0.6)
+        or (chinese_ratio < 0.5)
+        or (has_reply_markers and chinese_ratio < 0.7)
+    )
+
+    _log.info(
+        "save_chapter decision novel=%s title=%s len=%s chinese_ratio=%.0f%% marker=%s response=%s",
+        novel_id, title, len(content), chinese_ratio * 100, has_bold_marker or starts_with_emoji, is_response,
+    )
+
+    if is_response:
+        return {"success": False, "error": "内容看起来是回复文本而非章节正文。save_chapter 只用于保存纯叙事章节内容。"}
+
+    if not title:
+        existing = engine.get_novel(novel_id)
+        next_num = max((c.number for c in existing.chapters), default=0) + 1 if existing else 1
+        title = f"第{next_num}章"
+
+    chapter = engine.add_chapter(novel_id, title, content, number=int(number) if number else None)
+    if chapter:
+        return {"success": True, "chapter": {"number": chapter.number, "title": chapter.title, "word_count": chapter.word_count}}
+    return {"success": False, "error": "保存章节失败"}
 
 
 def _novel_write_chapter_resp(engine, novel_id="", **kw):

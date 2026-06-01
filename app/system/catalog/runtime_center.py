@@ -314,6 +314,15 @@ class RuntimeCenter:
                 "error_type": None if success else "tool_result_error",
                 "raw_result": result,
             }
+        if isinstance(result, dict) and result.get("success") is False:
+            return {
+                **base,
+                "ok": False,
+                "result": None,
+                "error": str(result.get("error", "asset method call failed")),
+                "error_type": result.get("error_type", "handler_error"),
+                "raw_result": result,
+            }
         if isinstance(result, dict) and result.get("status") == "error":
             return {
                 **base,

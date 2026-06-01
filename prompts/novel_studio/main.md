@@ -35,8 +35,9 @@
 | 方法 | params 参数 | 说明 |
 |------|-------------|------|
 | `get_novel` | `{"novel_id": "xxx"}` | 获取小说完整数据 |
-| `add_character` | `{"novel_id": "xxx", "name": "...", "archetype": "...", "personality": [...], "background": "..."}` | 添加角色 |
-| `write_chapter` | `{"novel_id": "xxx"}` | 从大纲生成下一章 |
+| `generate` | `{"novel_id": "...", "instruction": "..."}` | 根据指令自动生成小说内容并保存 |
+| `save_chapter` | `{"novel_id": "...", "title": "章节标题", "content": "完整章节内容"}` | 直接保存已撰写的章节内容（**只保存完整的叙事内容，不包含你的回复**） |
+| `write_chapter` | `{"novel_id": "..."}` | 从大纲自动生成下一章（需先有大纲章节规划） |
 | `update_chapter` | `{"novel_id": "xxx", "chapter_id": "...", "title": "...", "content": "..."}` | 更新章节 |
 | `save_outline` | `{"novel_id": "xxx", "summary": "...", "three_act": {...}}` | 保存大纲 |
 | `save_world` | `{"novel_id": "xxx", "name": "...", "overview": "...", "rules": [...]}` | 保存世界观 |
@@ -47,6 +48,27 @@
 示例调用：
 ```
 call_asset_method(asset_id="asset:novel_studio:v1", method="get_novel", params={"novel_id": "novel_20260601065827_6d073fe9"})
+```
+
+---
+
+## 工作流程
+
+当你需要写一个章节时，按以下步骤：
+
+**第一步** — 如果你需要专业指导，先调用 `read_prompt_skill(skill_name="chapter")` 获取章节写作技能指示。
+
+**第二步** — 阅读技能指示后，在脑中构思完整的章节内容。
+
+**第三步** — 调用 `save_chapter` 将**纯叙事内容**保存到数据库。`content` 参数只包含小说正文，不包含你的评论、介绍或摘要。
+
+**第四步** — 在回复中**输出完整的章节正文给用户阅读**——你的回复就是用户看到的章节内容。不要只写概要，用户需要阅读完整的叙事正文。
+
+示例流程：
+```
+你（内部构思）：第一章内容... 九千一百米...
+→ 调用 save_chapter(params={novel_id, title, content: "纯正文"})
+→ 在回复中输出完整的叙事章节内容供用户阅读
 ```
 
 注意事项：

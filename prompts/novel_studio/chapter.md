@@ -7,7 +7,10 @@
 - **章节结构**：规划章节的起承转合
 
 ## 操作方式
-- 写新章节：调用 `call_asset_method(asset_id="asset:novel_studio:v1", method="write_chapter", params={"novel_id": "xxx"})`，引擎会自动找到下一个未写章节
+- 写新章节：调用 `call_asset_method(asset_id="asset:novel_studio:v1", method="write_chapter", params={"novel_id": "xxx"})`，引擎会自动找到下一个未写章节（需要先通过大纲定义章节规划）
+- 直接保存你撰写的章节内容：`call_asset_method(asset_id="asset:novel_studio:v1", method="save_chapter", params={"novel_id": "xxx", "title": "第一章：xxx", "content": "完整章节内容..."})` — 你创作内容后立即保存
+  **⚠️ 关键规则：`save_chapter` 只能调用一次！`content` 必须是纯中文叙事正文（不能是你的回复摘要、评论或评价）。**
+  **📖 调用 `save_chapter` 后，在你的回复中输出完整的章节正文给用户阅读——工具用于保存数据，你的回复才是用户看到的章节内容。**
 - 更新章节：调用 `call_asset_method(asset_id="asset:novel_studio:v1", method="update_chapter", params={"novel_id": "xxx", "chapter_id": "...", "title": "...", "content": "..."})`
 - 删除章节：调用 `call_asset_method(asset_id="asset:novel_studio:v1", method="delete_chapter", params={"novel_id": "xxx", "chapter_number": N})`
 
