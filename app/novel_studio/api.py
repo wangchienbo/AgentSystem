@@ -707,24 +707,101 @@ def create_novel_router(
         _logger = _log.getLogger(__name__)
 
         try:
-            # 1. 获取 LLM 客户端
-            if engine._llm_client:
-                client = engine._llm_client
-            elif engine._model_router:
-                client = engine._model_router.get_client("novel_writer", "complex")
-            else:
-                yield _json.dumps({"error": "LLM 未配置"}) + "\n"
-                return
-            model = client._config.model
-            max_tok = getattr(client._config, 'max_tokens', 4096)
-            temp = getattr(client._config, 'temperature', 0.7)
-            max_turn = getattr(client._config, 'max_turns', 30)
-
             full_text = ""
 
-            # 2. 生成文本
-            if runtime_center:
-                # ── 有运行时中心：使用 chat_turns 多轮工具调用 ──
+            # ── 新架构：系统工具调用引擎（分层提示词 + ToolCallingEngine）──
+            if tool_calling_engine and hot_tool_manager and prompt_composer:
+                yield _json.dumps({"info": "AI 思考中..."}) + "\n"
+
+                # 1. 读取总提示词模板并注入小说数据
+                app_system_prompt = prompt_composer.read_skill("novel_studio/main")
+                novel_data = _format_novel_state(novel)
+                app_system_prompt = app_system_prompt.replace("{novel_data}", novel_data)
+
+                # 2. 获取历史并构建 session context
+                window = context_center.get_recent_context(session_id, limit=10) if context_center else None
+                history = [
+                    {"role": r.role, "content": r.content}
+                    for r in window.records if r.kind == "message"
+                ] if window else []
+                formatted_ctx = build_session_context(
+                    history=history,
+                    pending_intent=None,
+                    pending_params={},
+                    missing_param=None,
+                    available_apps=[],
+                    app_system_prompt=app_system_prompt,
+                )
+
+                # 3. 填充系统提示词
+                _sp = SYSTEM_PROMPT_TEMPLATE.format(
+                    session_context=formatted_ctx,
+                    tools_description="",
+                    tool_loop_governor="你仅能使用下方面板的可用工具。每次调用后评估是否收集到足够信息回答用户问题。",
+                    branch_guidance="",
+                    app_routing_rules="",
+                )
+
+                # 4. 获取工具定义（过滤系统工具 + 保留关键工具）
+                all_tools = hot_tool_manager.get_tools_for_session(session_id)
+                allowed = ("call_asset_method", "read_prompt_skill", "ask_clarification")
+                tool_defs = [
+                    ToolDef(name=t["name"], description=t.get("description", ""),
+                            parameters=t.get("parameters", {"type": "object", "properties": {}}))
+                    for t in all_tools if t["name"] in allowed
+                ]
+
+                # 5. 执行多轮工具调用
+                result = tool_calling_engine.execute_turns(
+                    skill_id="novel_studio",
+                    system_prompt=_sp,
+                    user_message=message,
+                    tools=tool_defs,
+                    asset_id="asset:novel_studio:v1",
+                    session_id=session_id,
+                    max_turns=20,
+                )
+
+                # 6. 提取回复正文（优先从 save_chapter 工具参数中提取）
+                text = (result.final_text or "").strip()
+                for _tc in (result.tool_calls or []):
+                    if _tc.tool_name == "call_asset_method" and isinstance(_tc.args, dict):
+                        if _tc.args.get("method") == "save_chapter" and isinstance(_tc.args.get("params"), dict):
+                            _chapter_content = _tc.args["params"].get("content", "").strip()
+                            if len(_chapter_content) > 500:
+                                text = _chapter_content
+                                break
+                full_text = text
+
+                if full_text:
+                    # 流式输出：分段 + 分块发送
+                    paragraphs = full_text.split('\n')
+                    for pi, para in enumerate(paragraphs):
+                        if pi > 0:
+                            yield _json.dumps({"token": "\n"}) + "\n"
+                        if para:
+                            chunk_size = 60
+                            for j in range(0, len(para), chunk_size):
+                                yield _json.dumps({"token": para[j:j+chunk_size]}) + "\n"
+                else:
+                    yield _json.dumps({"error": "模型返回为空"}) + "\n"
+                    return
+
+            # ── 旧架构路径 ──
+            # 1. 获取 LLM 客户端
+            elif runtime_center:
+                if engine._llm_client:
+                    client = engine._llm_client
+                elif engine._model_router:
+                    client = engine._model_router.get_client("novel_writer", "complex")
+                else:
+                    yield _json.dumps({"error": "LLM 未配置"}) + "\n"
+                    return
+                model = client._config.model
+                max_tok = getattr(client._config, 'max_tokens', 4096)
+                temp = getattr(client._config, 'temperature', 0.7)
+                max_turn = getattr(client._config, 'max_turns', 30)
+
                 tool_def = _build_asset_tool_def()
 
                 def _call_asset_handler(asset_id, method, params=None):
@@ -763,6 +840,17 @@ def create_novel_router(
                                 yield _json.dumps({"token": para[j:j+chunk_size]}) + "\n"
             else:
                 # ── 无 runtime_center：降级到纯流式 ──
+                if engine._llm_client:
+                    client = engine._llm_client
+                elif engine._model_router:
+                    client = engine._model_router.get_client("novel_writer", "complex")
+                else:
+                    yield _json.dumps({"error": "LLM 未配置"}) + "\n"
+                    return
+                model = client._config.model
+                max_tok = getattr(client._config, 'max_tokens', 4096)
+                temp = getattr(client._config, 'temperature', 0.7)
+                max_turn = getattr(client._config, 'max_turns', 30)
                 yield _json.dumps({"info": "普通模式"}) + "\n"
                 for attempt in range(2):
                     try:
