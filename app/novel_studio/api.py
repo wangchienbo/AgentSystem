@@ -742,13 +742,12 @@ def create_novel_router(
                     app_routing_rules="",
                 )
 
-                # 4. 获取工具定义（过滤系统工具 + 保留关键工具）
+                # 4. 获取所有工具定义（不限制，LLM 根据需要自主选择）
                 all_tools = hot_tool_manager.get_tools_for_session(session_id)
-                allowed = ("call_asset_method", "read_prompt_skill", "ask_clarification")
                 tool_defs = [
                     ToolDef(name=t["name"], description=t.get("description", ""),
                             parameters=t.get("parameters", {"type": "object", "properties": {}}))
-                    for t in all_tools if t["name"] in allowed
+                    for t in all_tools
                 ]
 
                 # 5. 执行多轮工具调用
@@ -943,13 +942,12 @@ def create_novel_router(
                     app_routing_rules="",
                 )
 
-                # 4. 获取工具定义（过滤系统工具 + 保留 read_prompt_skill 和 call_asset_method）
+                # 4. 获取所有工具定义（不限制，LLM 根据需要自主选择）
                 all_tools = hot_tool_manager.get_tools_for_session(session_id)
-                allowed = ("call_asset_method", "read_prompt_skill", "ask_clarification")
                 tool_defs = [
                     ToolDef(name=t["name"], description=t.get("description", ""),
                             parameters=t.get("parameters", {"type": "object", "properties": {}}))
-                    for t in all_tools if t["name"] in allowed
+                    for t in all_tools
                 ]
 
                 # 5. 执行多轮工具调用

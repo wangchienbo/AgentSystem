@@ -1573,6 +1573,7 @@ class NovelStudioEngine:
         storage = {
             "novels_dir": str(paths.data_dir / "novel_studio" / "novels"),
             "sessions_dir": str(paths.data_dir / "context" / "memory"),
+            "prompts_dir": str(repo_root / "prompts" / "novel_studio"),
             "config_file": str(paths.config_file),
             "repo_root": str(repo_root),
         }

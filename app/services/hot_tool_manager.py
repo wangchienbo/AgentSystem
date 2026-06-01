@@ -180,7 +180,7 @@ SYSTEM_TOOLS: list[dict[str, Any]] = [
             "properties": {
                 "skill_name": {
                     "type": "string",
-                    "description": "技能名，如 character（角色管理）、chapter（章节写作）、plot（情节规划）、world（世界观）、dialogue（对话生成）、pipeline（流水线生成）",
+                    "description": "技能名，如 main（总提示词）、character（角色管理）、chapter（章节写作）、plot（情节规划）、world（世界观）、dialogue（对话生成）、pipeline（流水线生成）。用户问起你自身提示词内容时，用此工具读取并展示实际文件内容。",
                 }
             },
             "required": ["skill_name"],

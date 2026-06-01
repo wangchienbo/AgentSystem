@@ -370,37 +370,14 @@ class ToolCallingEngine:
                 assistant_message["tool_calls"] = tool_calls
             messages.append(assistant_message)
 
-            for tc in tool_calls[:1]:
+            # ── 并行执行所有工具调用 ──
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            def _execute_tool(tc: dict) -> dict[str, Any]:
+                """Execute a single tool call and return result dict."""
                 tool_name = tc.get("function", {}).get("name", "")
                 tool_args_str = tc.get("function", {}).get("arguments", "{}")
                 tool_call_id = tc.get("id", "")
-
-                if tool_name == consecutive_tool_name:
-                    consecutive_tool_count += 1
-                else:
-                    consecutive_tool_name = tool_name
-                    consecutive_tool_count = 1
-
-                if tool_name == "call_asset_method" and consecutive_tool_count >= 5:
-                    logger.warning(
-                        "ToolCallingEngine loop guard triggered session=%s turn=%s tool=%s consecutive=%s",
-                        session_id,
-                        turn + 1,
-                        tool_name,
-                        consecutive_tool_count,
-                    )
-                    guard_result = (
-                        "[loop-guard] 已连续多次调用 call_asset_method。"
-                        "如果现有资产结果已经足够，请立即停止工具调用并直接回答；"
-                        "只有在缺少明确关键事实时，才允许再补一次调用。"
-                    )
-                    call_records.append(ToolCallRecord(tool_name=tool_name, args={"loop_guard": True}, result=guard_result))
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call_id,
-                        "content": guard_result,
-                    })
-                    break
 
                 try:
                     tool_args = json.loads(tool_args_str)
@@ -408,68 +385,93 @@ class ToolCallingEngine:
                     tool_args = {}
 
                 if not tool_name:
-                    call_records.append(ToolCallRecord(tool_name="", args=tool_args, result=None, error="Empty tool name"))
-                    continue
+                    return {
+                        "tc": tc,
+                        "tool_name": "",
+                        "tool_args": tool_args,
+                        "tool_call_id": tool_call_id,
+                        "error": "Empty tool name",
+                        "result_str": "",
+                        "record": ToolCallRecord(tool_name="", args=tool_args, result=None, error="Empty tool name"),
+                    }
 
                 handler = handlers.get(tool_name)
-                if handler:
-                    logger.info("ToolCallingEngine calling tool session=%s turn=%s tool=%s args=%s", session_id, turn + 1, tool_name, json.dumps(tool_args, ensure_ascii=False)[:200])
-                    try:
-                        result = handler(**tool_args) if isinstance(tool_args, dict) else handler(tool_args)
-                        result_str = self._sanitize_tool_result(tool_name, result)
-                        logger.info("ToolCallingEngine tool result session=%s turn=%s tool=%s result=%s", session_id, turn + 1, tool_name, result_str[:200])
-                        call_records.append(ToolCallRecord(tool_name=tool_name, args=tool_args, result=result))
-                        evidence_items.extend(self._build_evidence_items(tool_name, result))
-                        if self._telemetry_service is not None:
-                            self._telemetry_service.record_step(
-                                StepTelemetryRecord(
-                                    interaction_id=interaction_id,
-                                    step_id=f"tool_{turn + 1}_{len(call_records)}",
-                                    step_type="tool",
-                                    name=tool_name,
-                                    success=True,
-                                    payload_summary={
-                                        "turn": turn + 1,
-                                        "tool_name": tool_name,
-                                        "args": tool_args,
-                                        "session_id": session_id,
-                                        "user_id": user_id,
-                                    },
-                                ),
-                                app_id=asset_id,
-                            )
-                    except Exception as e:
-                        result_str = json.dumps({"error": str(e)}, ensure_ascii=False)
-                        call_records.append(ToolCallRecord(tool_name=tool_name, args=tool_args, result=None, error=str(e)))
-                        if self._telemetry_service is not None:
-                            self._telemetry_service.record_step(
-                                StepTelemetryRecord(
-                                    interaction_id=interaction_id,
-                                    step_id=f"tool_{turn + 1}_{len(call_records)}",
-                                    step_type="tool",
-                                    name=tool_name,
-                                    success=False,
-                                    error_code="tool_execution_error",
-                                    payload_summary={
-                                        "turn": turn + 1,
-                                        "tool_name": tool_name,
-                                        "args": tool_args,
-                                        "error": str(e),
-                                        "session_id": session_id,
-                                        "user_id": user_id,
-                                    },
-                                ),
-                                app_id=asset_id,
-                            )
-                else:
-                    result_str = json.dumps({"error": f"Tool not found: {tool_name}"}, ensure_ascii=False)
-                    call_records.append(ToolCallRecord(tool_name=tool_name, args=tool_args, result=None, error="Tool not found"))
+                if not handler:
+                    err = f"Tool not found: {tool_name}"
+                    return {
+                        "tc": tc,
+                        "tool_name": tool_name,
+                        "tool_args": tool_args,
+                        "tool_call_id": tool_call_id,
+                        "error": err,
+                        "result_str": json.dumps({"error": err}, ensure_ascii=False),
+                        "record": ToolCallRecord(tool_name=tool_name, args=tool_args, result=None, error=err),
+                    }
 
+                try:
+                    result = handler(**tool_args) if isinstance(tool_args, dict) else handler(tool_args)
+                    result_str = self._sanitize_tool_result(tool_name, result)
+                    logger.info(
+                        "ToolCallingEngine tool result session=%s turn=%s tool=%s result=%s",
+                        session_id, turn + 1, tool_name, result_str[:200],
+                    )
+                    return {
+                        "tc": tc,
+                        "tool_name": tool_name,
+                        "tool_args": tool_args,
+                        "tool_call_id": tool_call_id,
+                        "error": None,
+                        "result_str": result_str,
+                        "result": result,
+                        "record": ToolCallRecord(tool_name=tool_name, args=tool_args, result=result),
+                    }
+                except Exception as e:
+                    result_str = json.dumps({"error": str(e)}, ensure_ascii=False)
+                    logger.warning("ToolCallingEngine tool error session=%s turn=%s tool=%s error=%s", session_id, turn + 1, tool_name, e)
+                    return {
+                        "tc": tc,
+                        "tool_name": tool_name,
+                        "tool_args": tool_args,
+                        "tool_call_id": tool_call_id,
+                        "error": str(e),
+                        "result_str": result_str,
+                        "record": ToolCallRecord(tool_name=tool_name, args=tool_args, result=None, error=str(e)),
+                    }
+
+            batch_results = list(_execute_tool(tc) for tc in tool_calls)
+
+            # Append assistant message once, then all tool results
+            for br in batch_results:
+                call_records.append(br["record"])
+                if br.get("result"):
+                    evidence_items.extend(self._build_evidence_items(br["tool_name"], br["result"]))
                 messages.append({
                     "role": "tool",
-                    "tool_call_id": tool_call_id,
-                    "content": result_str,
+                    "tool_call_id": br["tool_call_id"],
+                    "content": br["result_str"],
                 })
+
+            # Telemetry for each tool
+            if self._telemetry_service is not None:
+                for br in batch_results:
+                    self._telemetry_service.record_step(
+                        StepTelemetryRecord(
+                            interaction_id=interaction_id,
+                            step_id=f"tool_{turn + 1}_{br['tool_name']}",
+                            step_type="tool",
+                            name=br["tool_name"],
+                            success=br["error"] is None,
+                            error_code=br["error"],
+                            payload_summary={
+                                "turn": turn + 1,
+                                "tool_name": br["tool_name"],
+                                "args": br["tool_args"],
+                                "session_id": session_id,
+                                "user_id": user_id,
+                            },
+                        ),
+                        app_id=asset_id,
+                    )
 
 
         if self._telemetry_service is not None:
