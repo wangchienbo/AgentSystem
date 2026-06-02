@@ -298,6 +298,7 @@ class Novel(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     tags: list[str] = Field(default_factory=list)
+    custom_prompt: str = ""  # 专属提示词/写作风格/特殊指令
 
     @property
     def char_count(self) -> int:

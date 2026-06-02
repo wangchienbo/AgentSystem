@@ -40,7 +40,7 @@ class TurnBudgetPolicy:
     HARD_CAP: int = 200
 
     # 收敛提示阈值：超过此轮次时注入收敛引导
-    CONVERGENCE_HINT_TURN: int = 50
+    CONVERGENCE_HINT_TURN: int = 8
 
     @classmethod
     def decide(cls, mode: TaskModeBudget, authorized: bool = False) -> int:

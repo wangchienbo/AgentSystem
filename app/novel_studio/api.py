@@ -511,8 +511,8 @@ def create_novel_router(
             for c in novel.characters.values():
                 role = c.archetype.value if hasattr(c.archetype, 'value') else str(c.archetype)
                 chars.append(f"{c.name}({role})")
-            lines.append(f"角色（{len(chars)}个）：{'、'.join(chars[:12])}")
-            if len(chars) > 12:
+            lines.append(f"角色（{len(chars)}个）：{'、'.join(chars[:8])}")
+            if len(chars) > 8:
                 lines[-1] += f"…等共{len(chars)}个"
         if novel.chapters:
             done = [c for c in novel.chapters if c.content]
@@ -520,17 +520,39 @@ def create_novel_router(
             if done:
                 lines.append("最近章节：")
                 for c in done[-3:]:
-                    preview = c.content[:60].replace('\n', ' ')
+                    preview = c.content[:30].replace('\n', ' ')
                     lines.append(f"  第{c.number}章 {c.title}：{preview}…")
         if novel.world:
             w = novel.world
             lines.append(f"世界观：{w.name or '未命名'}")
             if w.scenes:
-                lines.append(f"  场景（{len(w.scenes)}个）：{'、'.join(list(w.scenes.keys())[:5])}")
+                lines.append(f"  场景（{len(w.scenes)}个）：{'、'.join(list(w.scenes.keys())[:3])}")
         if novel.outline and novel.outline.chapters:
             pending = sum(1 for co in novel.outline.chapters
                          if not any(c.number == co.number for c in novel.chapters if c.content))
             lines.append(f"待写章节：{pending}章")
+            # Include outline chapter list for detailed queries
+            lines.append("大纲章节：")
+            for oc in novel.outline.chapters[:10]:
+                summary = (oc.summary or "")[:60]
+                lines.append(f"  第{oc.number}章 «{oc.title}» — {summary}...")
+            if len(novel.outline.chapters) > 10:
+                lines.append(f"  …共{len(novel.outline.chapters)}章")
+        if novel.characters and isinstance(novel.characters, dict):
+            lines.append("角色详情：")
+            for c_name, c_data in novel.characters.items():
+                role = ""
+                if hasattr(c_data, 'archetype'):
+                    role = c_data.archetype.value if hasattr(c_data.archetype, 'value') else str(c_data.archetype)
+                elif isinstance(c_data, dict):
+                    role = c_data.get('archetype', c_data.get('role', ''))
+                bg = ""
+                if hasattr(c_data, 'background'):
+                    bg = c_data.background or ""
+                elif isinstance(c_data, dict):
+                    bg = c_data.get('background', '') or ''
+                bg_short = (bg[:40] + "...") if len(bg) > 40 else bg
+                lines.append(f"  {c_name}({role}): {bg_short}" if role else f"  {c_name}")
         lines.append(f"状态：{novel.status}")
         return '\n'.join(lines)
 
@@ -737,7 +759,7 @@ def create_novel_router(
                 _sp = SYSTEM_PROMPT_TEMPLATE.format(
                     session_context=formatted_ctx,
                     tools_description="",
-                    tool_loop_governor="你仅能使用下方面板的可用工具。每次调用后评估是否收集到足够信息回答用户问题。",
+                    tool_loop_governor="[收敛优先] 优先在同一轮并行输出全部独立工具调用（系统自动并行执行）。一旦拿到能回答用户问题的数据，立即停止调任何工具，输出中文回复。不要为追求全面或验证而继续探索。查询小说状态只需调一次 get_novel。",
                     branch_guidance="",
                     app_routing_rules="",
                 )
@@ -758,7 +780,7 @@ def create_novel_router(
                     tools=tool_defs,
                     asset_id="asset:novel_studio:v1",
                     session_id=session_id,
-                    max_turns=20,
+                    max_turns=50,
                 )
 
                 # 6. 提取回复正文（优先从 save_chapter 工具参数中提取）
@@ -937,7 +959,7 @@ def create_novel_router(
                 system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
                     session_context=formatted_ctx,
                     tools_description="",
-                    tool_loop_governor="你仅能使用下方面板的可用工具。每次调用后评估是否收集到足够信息回答用户问题。",
+                    tool_loop_governor="[收敛优先] 优先在同一轮并行输出全部独立工具调用（系统自动并行执行）。一旦拿到能回答用户问题的数据，立即停止调任何工具，输出中文回复。不要为追求全面或验证而继续探索。查询小说状态只需调一次 get_novel。",
                     branch_guidance="",
                     app_routing_rules="",
                 )
@@ -958,7 +980,7 @@ def create_novel_router(
                     tools=tool_defs,
                     asset_id="asset:novel_studio:v1",
                     session_id=session_id,
-                    max_turns=20,
+                    max_turns=50,
                 )
                 text = (result.final_text or "").strip()
                 # 检测是否有 save_chapter 工具调用，如有则用章节正文覆盖回复文本

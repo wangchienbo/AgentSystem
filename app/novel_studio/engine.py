@@ -105,6 +105,14 @@ class NovelStudioEngine:
     def get_novel(self, novel_id: str) -> Novel | None:
         return self._storage.get_novel(novel_id)
 
+    def update_custom_prompt(self, novel_id: str, custom_prompt: str) -> Novel | None:
+        novel = self._storage.get_novel(novel_id)
+        if not novel:
+            return None
+        novel.custom_prompt = custom_prompt
+        self._storage.save_novel(novel)
+        return novel
+
     # ──── 大纲模块 ────
 
     def create_outline(

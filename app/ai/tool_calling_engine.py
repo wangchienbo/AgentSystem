@@ -34,7 +34,9 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 
-MAX_TOOL_RESULT_CHARS = 800
+# Increased from 800 to 3000: complex asset results (get_novel, get_system_info)
+# can be 10K+ chars; 800 was truncating critical data forcing tool re-exploration
+MAX_TOOL_RESULT_CHARS = 3000
 
 from app.services.model_router import ModelRouter, ModelRouterError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError
@@ -438,7 +440,11 @@ class ToolCallingEngine:
                         "record": ToolCallRecord(tool_name=tool_name, args=tool_args, result=None, error=str(e)),
                     }
 
-            batch_results = list(_execute_tool(tc) for tc in tool_calls)
+            batch_results = []
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                futures = {pool.submit(_execute_tool, tc): tc for tc in tool_calls}
+                for future in as_completed(futures):
+                    batch_results.append(future.result())
 
             # Append assistant message once, then all tool results
             for br in batch_results:
