@@ -559,30 +559,134 @@ def create_novel_router(
     # ──── 辅助：构建 call_asset_method 工具定义 ────
     def _build_asset_tool_def() -> dict:
         """构建 call_asset_method 的 OpenAI 函数调用格式，包含所有方法描述"""
+        _desc_lines = []
+        _desc_lines.append("调用小说工作室资产（asset:novel_studio:v1）的方法。所有方法都是安全的系统接口——直接调用即可，无需阅读源码了解实现细节。")
+        _desc_lines.append("写操作后若想确认是否生效，可再次调用 get_novel 验证（但不要自己去读数据文件或源码）。")
+        _desc_lines.append("")
+        _desc_lines.append("### 完整方法清单")
+        _desc_lines.append("")
+        _methods = [
+            ("get_novel", "novel_id",
+             "获取小说完整数据。一次调用返回所有内容：大纲、已写章节、角色、世界观、场景、状态。",
+             "返回值：novel_data – 含 id, title, genre, logline, outline(含chapters规划), chapters(已写), characters, world, scenes, status 等全部字段",
+             "示例：get_novel(novel_id=\"novel_20260601_xxxx\")",
+             "→ 回答任何小说问题前调一次就够，不用再读文件"),
+            ("save_chapter", "novel_id, title, content, [number]",
+             "直接保存已撰写的章节到小说。content 只包含纯叙事正文，不含你的评论/摘要/结构说明。",
+             "返回值：{ok: true, result: {chapter: {id, number, title, content}, message: \"保存成功\"}}",
+             "示例：save_chapter(novel_id=\"...\", title=\"第一章 初入京城\", content=\"正文...\")",
+             "→ 写完整章后调用保存。若想验证保存是否成功，可再调 get_novel 查看 chapters 列表"),
+            ("save_outline", "novel_id, title, logline, summary, three_act, themes, tone",
+             "保存小说三幕大纲。three_act 是包含 act1/act2/act3 各幕描述的字典。",
+             "返回值：{ok: true, result: {outline_id, title}}",
+             "示例：save_outline(novel_id=\"...\", title=\"穿越大明\", three_act={act1: \"开场\"})",
+             "→ 大纲编辑完成后调用保存"),
+            ("add_outline_chapter", "novel_id, number, title, summary, key_events, characters_involved, settings, pov_character",
+             "在大纲中添加一个章节规划。number 是章节序号，title 是章节标题。",
+             "返回值：{ok: true, result: {chapter: {number, title, summary}}}",
+             "示例：add_outline_chapter(novel_id=\"...\", number=1, title=\"初入京城\", key_events=[\"到达\", \"偶遇\"])",
+             "→ 规划小说章节结构时使用"),
+            ("add_character", "novel_id, name, archetype, personality, background, speech_style",
+             "添加角色到小说。archetype 可选值：protagonist/antagonist/mentor/ally/neutral/adversary/foil/confidante。",
+             "返回值：{ok: true, result: {character: {id, name, archetype, personality}}}",
+             "示例：add_character(novel_id=\"...\", name=\"沈逸之\", archetype=\"protagonist\", personality=[\"机敏\", \"坚韧\"], background=\"锦衣卫北镇抚司百户\")",
+             "→ 创建新角色时调用"),
+            ("update_character", "novel_id, char_id, name, archetype, personality, background, speech_style",
+             "更新已有角色的一个或多个字段。只传需要更新的参数即可。",
+             "返回值：{ok: true, result: {character: {id, name, ...}}}",
+             "示例：update_character(novel_id=\"...\", char_id=\"char_xxx\", personality=[\"成熟\"])",
+             "→ 修改角色属性时调用"),
+            ("delete_character", "novel_id, char_id",
+             "从小说中删除指定角色。",
+             "返回值：{ok: true, result: {message: \"删除成功\"}}",
+             "示例：delete_character(novel_id=\"...\", char_id=\"char_xxx\")",
+             "→ 移除不需要的角色"),
+            ("save_world", "novel_id, name, overview, rules",
+             "创建或更新世界观设定。rules 是规则列表，每条规则包含 rule 和 description。",
+             "返回值：{ok: true, result: {world_id, name}}",
+             "示例：save_world(novel_id=\"...\", name=\"大明世界\", overview=\"嘉靖年间...\", rules=[{rule: \"皇权至上\", description: \"...\"}])",
+             "→ 定义小说世界规则时调用"),
+            ("add_scene", "novel_id, name, location, description, time, weather",
+             "添加一个场景设定。场景是故事发生的地点+时间+氛围的组合。",
+             "返回值：{ok: true, result: {scene: {id, name, location}}}",
+             "示例：add_scene(novel_id=\"...\", name=\"京城街市\", location=\"北京城\", description=\"繁华的明代街市\")",
+             "→ 定义故事场景时调用"),
+            ("update_scene", "novel_id, scene_id, name, location, description, time, weather",
+             "更新已有场景的名称/地点/描述等字段。",
+             "返回值：{ok: true, result: {scene: {id, name, location}}}",
+             "示例：update_scene(novel_id=\"...\", scene_id=\"scene_xxx\", description=\"深夜的街市\")",
+             "→ 调整场景设定时调用"),
+            ("delete_scene", "novel_id, scene_id",
+             "删除指定场景。",
+             "返回值：{ok: true, result: {message: \"删除成功\"}}",
+             "示例：delete_scene(novel_id=\"...\", scene_id=\"scene_xxx\")",
+             "→ 移除不需要的场景"),
+            ("write_chapter", "novel_id",
+             "从大纲自动生成下一章内容。需要先有大纲章节规划。AI 会根据大纲章节概要自动创作完整章节。",
+             "返回值：{ok: true, result: {chapter: {id, number, title, content}}}",
+             "示例：write_chapter(novel_id=\"...\")",
+             "→ 让系统自动写下一章"),
+            ("update_chapter", "novel_id, chapter_id, title, content",
+             "更新已有章节的标题或内容。",
+             "返回值：{ok: true, result: {chapter: {id, number, title, content}}}",
+             "示例：update_chapter(novel_id=\"...\", chapter_id=\"ch_xxx\", content=\"新内容...\")",
+             "→ 修改已写章节"),
+            ("delete_chapter", "novel_id, chapter_number",
+             "按章节编号删除小说中的完整章节。",
+             "返回值：{ok: true, result: {message: \"删除成功\"}}",
+             "示例：delete_chapter(novel_id=\"...\", chapter_number=3)",
+             "→ 删除不需要的章节"),
+            ("character_dialogue", "novel_id, char1, char2, topic",
+             "生成两个角色之间的对话。指定角色名和话题，AI 自动生成符合角色性格的对话内容。",
+             "返回值：{ok: true, result: {dialogue: [{speaker, line}, ...]}}",
+             "示例：character_dialogue(novel_id=\"...\", char1=\"沈逸之\", char2=\"严世藩\", topic=\"朝堂对峙\")",
+             "→ 需要角色对话场景时调用"),
+            ("chat", "novel_id, message",
+             "与小说创作助手对话，绑定当前小说上下文进行创作交流。",
+             "返回值：{ok: true, result: {reply: \"AI回复内容\"}}",
+             "示例：chat(novel_id=\"...\", message=\"帮我构思一下下一个情节\")",
+             "→ 进行创作讨论（当前已通过本会话进行，一般不需要主动调）"),
+            ("create_novel", "title, genre, logline",
+             "创建一本新小说。自动生成 novel_id。",
+             "返回值：{ok: true, result: {novel: {id, title, genre, logline}}}",
+             "示例：create_novel(title=\"穿越大明\", genre=\"历史奇幻\", logline=\"一名现代特工穿越到明朝嘉靖年间...\")",
+             "→ 开始创作新作品时调用"),
+            ("generate", "novel_id, instruction",
+             "根据指令自动生成小说内容并保存为章节。AI 根据指令创作完整内容并写入数据库。",
+             "返回值：{ok: true, result: {chapter: {id, number, title, content}}}",
+             "示例：generate(novel_id=\"...\", instruction=\"写第一章，主角沈逸之在执行秘密任务时意外穿越\")",
+             "→ 快速生成章节内容"),
+            ("save_custom_prompt", "novel_id, custom_prompt",
+             "设置或更新小说的专属提示词/写作指令。用于指导 AI 按特定风格或方向写作。",
+             "返回值：{ok: true, result: {message: \"保存成功\"}}",
+             "示例：save_custom_prompt(novel_id=\"...\", custom_prompt=\"文风参考金庸，对话简洁有力，动作描写细致\")",
+             "→ 控制小说写作风格"),
+            ("get_system_info", "",
+             "返回系统架构信息：源代码文件列表、数据模型、完整能力清单、存储路径、启动命令。",
+             "返回值：{ok: true, result: {files: [...], capabilities: [...], storage: \"...\", startup: \"...\"}}",
+             "示例：get_system_info()",
+             "→ 回答关于代码/架构/能力的问题"),
+        ]
+        for i, ma in enumerate(_methods, 1):
+            name, params, desc, ret, example, usage = ma
+            _desc_lines.append(f"**{i}. {name}({params})**")
+            _desc_lines.append(f"  - 说明：{desc}")
+            _desc_lines.append(f"  - {ret}")
+            _desc_lines.append(f"  - 示例：`{example}`")
+            _desc_lines.append(f"  - {usage}")
+            _desc_lines.append("")
+        description = "\n".join(_desc_lines)
+        _all_methods = "get_novel, save_chapter, save_outline, add_outline_chapter, " \
+                       "add_character, update_character, delete_character, " \
+                       "save_world, add_scene, update_scene, delete_scene, " \
+                       "write_chapter, update_chapter, delete_chapter, " \
+                       "character_dialogue, chat, create_novel, generate, " \
+                       "save_custom_prompt, get_system_info"
         return {
             "type": "function",
             "function": {
                 "name": "call_asset_method",
-                "description": "调用小说工作室资产（asset:novel_studio:v1）的方法。"
-                               "可用方法清单（含参数说明）：\n"
-                               "1. get_novel(novel_id) - 获取小说完整数据\n"
-                               "2. save_outline(novel_id, title, logline, summary, three_act, themes, tone) - 保存三幕大纲\n"
-                               "3. add_outline_chapter(novel_id, number, title, summary, key_events, characters_involved, "
-                               "settings, pov_character) - 在大纲中添加章节规划\n"
-                               "4. add_character(novel_id, name, archetype, personality, background, speech_style) - 添加角色\n"
-                               "5. update_character(novel_id, char_id, ...) - 更新角色\n"
-                               "6. delete_character(novel_id, char_id) - 删除角色\n"
-                               "7. save_world(novel_id, name, overview, rules) - 保存世界观\n"
-                               "8. add_scene(novel_id, name, location, description, time, weather) - 添加场景\n"
-                               "9. update_scene(novel_id, scene_id, ...) - 更新场景\n"
-                               "10. delete_scene(novel_id, scene_id) - 删除场景\n"
-                               "11. write_chapter(novel_id) - 从大纲生成下一章\n"
-                               "12. update_chapter(novel_id, chapter_id, title, content) - 更新章节\n"
-                               "13. delete_chapter(novel_id, chapter_number) - 删除章节\n"
-                               "14. character_dialogue(novel_id, char1, char2, topic) - 角色对话生成\n"
-                               "15. chat(novel_id, message) - 对话\n"
-                               "16. create_novel(title, genre, logline) - 新建小说\n"
-                               "17. generate(novel_id, instruction) - 指令生成",
+                "description": description,
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -592,16 +696,12 @@ def create_novel_router(
                         },
                         "method": {
                             "type": "string",
-                            "description": "方法名，必填。可选：get_novel, save_outline, add_outline_chapter, "
-                                           "add_character, update_character, delete_character, "
-                                           "save_world, add_scene, update_scene, delete_scene, "
-                                           "write_chapter, update_chapter, delete_chapter, "
-                                           "character_dialogue, chat, create_novel, generate",
+                            "description": f"方法名，必填。可选：{_all_methods}",
                         },
                         "params": {
                             "type": "object",
-                            "description": "参数对象，必须包含 novel_id（新建小说除外）。"
-                                           "各方法需要的参数详见上方 description。",
+                            "description": "参数对象，必须包含 novel_id（新建小说、get_system_info 除外）。"
+                                           "具体参数见上方方法清单中的说明。",
                         },
                     },
                     "required": ["asset_id", "method"],
