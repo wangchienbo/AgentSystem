@@ -125,6 +125,9 @@ SYSTEM_PROMPT_TEMPLATE = """你是 AgentSystem 的智能交互引擎。
 6. 证据已足够时立刻停止调用并用中文回答; 不足时明确未解决问题
 7. 缺少必要参数时用 `ask_clarification`; 无法理解时用 `unclear`
 8. **每轮必须输出文本回复**——即使已经调用了工具，也必须在最后完整输出一段中文回答，不能只调工具不写回答。没有任何例外。
+9. **接口调用优先级高于文件系统探索**：调用 `call_asset_method` 获取数据后如果需要进一步验证，应优先再次调用 `call_asset_method`（如 get_novel），而不是直接用 `exec_shell`/`read_file`/`list_files`/`search_files` 去读文件系统。文件系统是最后的手段，不是验证途径。
+   - 具体的文件路径和存储结构信息，系统不会主动给你——你需要时可以通过 `call_asset_method(method="get_system_info")` 获取架构总览
+   - 不要因为你知道某个文件名就去读它——除非用户明确要求操作该文件
 """
 
 

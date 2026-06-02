@@ -1520,28 +1520,22 @@ class NovelStudioEngine:
         return self._storage.export_to_directory(nid, out)
 
     def get_system_info(self) -> dict[str, Any]:
-        """返回系统架构信息（动态发现，不硬编码路径）供 LLM 自我诊断"""
-        from pathlib import Path
-        from app.runtime_paths import resolve_runtime_paths
+        """返回系统架构信息供 LLM 自我诊断"""
 
-        # 从 engine.py 自身文件路径推断项目根：app/novel_studio/engine.py → .. → 项目根
-        repo_root = Path(__file__).resolve().parent.parent.parent
-        paths = resolve_runtime_paths(repo_root)
-
-        # 源代码文件（相对路径）
-        source_files = [
-            {"path": "app/novel_studio/api.py", "purpose": "API 路由（聊天、CRUD、流式端点）"},
-            {"path": "app/novel_studio/engine.py", "purpose": "业务逻辑（本文件）"},
-            {"path": "app/novel_studio/models.py", "purpose": "Pydantic 数据模型"},
-            {"path": "app/novel_studio/storage.py", "purpose": "磁盘 JSON 文件持久化"},
-            {"path": "app/novel_studio/bootstrap.py", "purpose": "资产注册与系统集成"},
-            {"path": "app/novel_studio/novel_context_builder.py", "purpose": "系统提示词构建"},
-            {"path": "app/novel_studio/templates/studio.html", "purpose": "Web 前端 UI"},
-            {"path": "app/novel_studio/character_agent.py", "purpose": "角色 Agent"},
-            {"path": "app/novel_studio/scene_manager.py", "purpose": "场景管理"},
-            {"path": "app/novel_studio/world_module.py", "purpose": "世界观模块"},
-            {"path": "app/novel_studio/narrative_engine.py", "purpose": "叙事引擎"},
-            {"path": "app/novel_studio/worker.py", "purpose": "MasterControl Worker"},
+        # 模块分层（抽象描述，不暴露具体文件路径）
+        layers = [
+            {"name": "API 层", "desc": "聊天端点、CRUD 操作、流式输出入口"},
+            {"name": "业务逻辑层", "desc": "核心创作业务逻辑、数据校验与转换"},
+            {"name": "数据层", "desc": "数据模型定义（Novel, Character, World, Chapter）"},
+            {"name": "存储层", "desc": "数据持久化与读写"},
+            {"name": "上下文构建层", "desc": "对话系统提示词组装"},
+            {"name": "UI 层", "desc": "Web 前端界面"},
+            {"name": "资产注册层", "desc": "系统集成与工具注册"},
+            {"name": "角色推理层", "desc": "角色对话模拟与行为推理"},
+            {"name": "场景管理层", "desc": "场景创建与管理"},
+            {"name": "世界观模块", "desc": "世界观构建与维护"},
+            {"name": "叙事引擎", "desc": "叙事生成与节奏控制"},
+            {"name": "后台任务层", "desc": "异步任务调度和执行"},
         ]
 
         # 数据模型
@@ -1555,7 +1549,7 @@ class NovelStudioEngine:
             }
         }
 
-        # 能力清单（与 bootstrap.py AssetCapability 定义的 17 个方法一致）
+        # 能力清单（与 AssetCapability 定义一致）
         capabilities = [
             {"name": "get_novel", "params": "novel_id", "desc": "获取小说完整数据"},
             {"name": "save_outline", "params": "novel_id, title, logline, summary, three_act, themes, tone", "desc": "保存三幕大纲"},
@@ -1579,26 +1573,23 @@ class NovelStudioEngine:
         ]
 
         storage = {
-            "novels_dir": str(paths.data_dir / "novel_studio" / "novels"),
-            "sessions_dir": str(paths.data_dir / "context" / "memory"),
-            "prompts_dir": str(repo_root / "prompts" / "novel_studio"),
-            "config_file": str(paths.config_file),
-            "repo_root": str(repo_root),
+            "novels": "小说数据",
+            "sessions": "对话上下文记忆",
+            "prompts": "子技能提示词文件",
+            "config": "系统配置文件",
         }
 
         startup = {
-            "command": f"cd {repo_root} && source .venv/bin/activate && agentsystem serve --port 8765",
+            "command": "agentsystem serve --port 8765",
             "port": 8765,
-            "python": f"{repo_root}/.venv/bin/python",
         }
 
         return {
             "app_name": "Novel Studio（小说工作室）",
             "asset_id": "asset:novel_studio:v1",
-            "repo_root": str(repo_root),
-            "source_files": source_files,
+            "layers": layers,
             "data_model": data_model,
             "capabilities": capabilities,
-            "storage_paths": storage,
+            "storage": storage,
             "startup": startup,
         }
