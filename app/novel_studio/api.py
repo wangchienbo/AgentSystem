@@ -87,7 +87,30 @@ def create_novel_router(
         novel = engine.get_novel(novel_id)
         if not novel:
             return {"success": False, "error": "not_found"}
-        return {"success": True, "novel": novel.model_dump(mode="json")}
+        d = novel.model_dump(mode="json")
+        # 紧凑摘要（放在 JSON 顶部确保截断后也能看到全部章节清单）
+        _sp = [f"《{d.get('title', '')}》状态:{d.get('status', '?')}"]
+        _ol = (d.get("outline") or {}).get("chapters") or []
+        _ch = d.get("chapters") or []
+        _sp.append(f"大纲:{len(_ol)}章")
+        if _ol:
+            _sp.append("规划:" + ",".join(f"#{c['number']}{c['title']}" for c in _ol))
+        _sp.append(f"已写:{len(_ch)}章")
+        if _ch:
+            _dl = []
+            for _c in _ch:
+                _n = _c.get("number", "?")
+                _t = _c.get("title", "?")
+                _dl.append(f"#{_n} {_t}")
+            _sp.append("已写明细:" + " | ".join(_dl))
+        _cd = d.get("characters") or {}
+        if isinstance(_cd, dict) and _cd:
+            _sp.append(f"角色:{len(_cd)}个")
+        _wd = d.get("world") or {}
+        if _wd.get("name"):
+            _sp.append(f"世界观:{_wd['name']}")
+        summary = " | ".join(_sp)
+        return {"success": True, "_summary": summary, "novel": d}
 
     @router.post("/report")
     async def api_novel_report(data: dict):
@@ -567,10 +590,10 @@ def create_novel_router(
         _desc_lines.append("")
         _methods = [
             ("get_novel", "novel_id",
-             "获取小说完整数据。一次调用返回所有内容：大纲、已写章节、角色、世界观、场景、状态。",
-             "返回值：novel_data – 含 id, title, genre, logline, outline(含chapters规划), chapters(已写), characters, world, scenes, status 等全部字段",
+             "获取小说完整数据。一次调用返回所有内容：大纲、已写章节、角色、世界观、场景、状态。返回数据中 _summary 字段是紧凑摘要（永远可见，不会被截断），包含全部章节编号和标题、角色数等关键信息。即使 novel 字段被截断，_summary 也能告诉你完整的章节清单。",
+             "返回值：{success, _summary(紧凑摘要), novel(完整数据)} – _summary 含全部章节编号/标题/角色数/状态等",
              "示例：get_novel(novel_id=\"novel_20260601_xxxx\")",
-             "→ 回答任何小说问题前调一次就够，不用再读文件"),
+             "→ 回答任何小说问题前调一次就够。先看 _summary 了解全貌，再根据需要从 novel 中取详情"),
             ("save_chapter", "novel_id, title, content, [number]",
              "直接保存已撰写的章节到小说。content 只包含纯叙事正文，不含你的评论/摘要/结构说明。",
              "返回值：{ok: true, result: {chapter: {id, number, title, content}, message: \"保存成功\"}}",
