@@ -96,7 +96,7 @@ class TokenUsage(BaseModel):
 
 class ChatMessageResponse(BaseModel):
     """LightBrain's structured reply to a user message."""
-    type: Literal["text", "card", "list", "form", "confirm", "progress", "error"] = Field(default="text")
+    type: Literal["text", "card", "list", "form", "confirm", "progress", "error", "replay"] = Field(default="text")
     content: str = Field(..., description="Main text content")
     data: dict[str, Any] | None = Field(default=None, description="Structured data payload")
     actions: list[ActionSuggestion] = Field(default_factory=list, description="Clickable buttons/options")
