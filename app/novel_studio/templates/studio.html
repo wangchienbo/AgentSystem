@@ -347,12 +347,40 @@ async function loadNovelData(id){
   $('tb-title').textContent=novelData.title||'未命名';
   $('tb-genre').textContent=novelData.genre||'';
   buildSidebar();
-  // Welcome message
-  $('chat-msgs').innerHTML=`<div class="empty"><div class="icon">📖</div><p>开始创作《${esc(novelData.title||'')}》<br>输入指令或选择快捷操作</p><div class="q-btns"><button class="q-btn" onclick="quick('帮我把故事大纲写好')">生成大纲</button><button class="q-btn" onclick="quick('写下一章')">写下一章</button><button class="q-btn" onclick="quick('列出所有角色和他们的关系')">查看角色</button></div></div>`;
+  // Load chat history from ContextCenter
+  $('chat-msgs').innerHTML='<div class="empty"><div class="icon">⏳</div><p>加载聊天记录...</p></div>';
+  $('chat-input').disabled=true;$('send-btn').disabled=true;$('gen-btn').disabled=true;
+  await loadChatHistory(id);
+  // If chat history was loaded, the welcome message is already replaced
+  var msgs=$('chat-msgs');
+  if(msgs.children.length===0 || msgs.querySelector('.empty')){
+    // No history — show welcome
+    msgs.innerHTML=`<div class="empty"><div class="icon">📖</div><p>开始创作《${esc(novelData.title||'')}》<br>输入指令或选择快捷操作</p><div class="q-btns"><button class="q-btn" onclick="quick('帮我把故事大纲写好')">生成大纲</button><button class="q-btn" onclick="quick('写下一章')">写下一章</button><button class="q-btn" onclick="quick('列出所有角色和他们的关系')">查看角色</button></div></div>`;
+  }
   $('chat-input').disabled=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;
   // Hide loading overlay
   $('loading-overlay').style.display='none';
   dbg('loadNovelData DONE: '+id);
+}
+
+async function loadChatHistory(id){
+  dbg('loadChatHistory: '+id);
+  const d=await api('/chat/history',{novel_id:id});
+  if(!d.success||!d.records||!d.records.length){
+    dbg('loadChatHistory: no history');
+    return;
+  }
+  dbg('loadChatHistory: '+d.records.length+' records');
+  const msgs=$('chat-msgs');
+  msgs.innerHTML='';
+  for(const r of d.records){
+    const roleLabel=r.role==='user'?'user':'ai';
+    var content=esc(r.content||'');
+    msgs.innerHTML+=`<div class="msg ${roleLabel}">${content}</div>`;
+  }
+  // Scroll to bottom
+  _scrollToBottom(msgs);
+  dbg('loadChatHistory DONE');
 }
 
 function buildSidebar(){

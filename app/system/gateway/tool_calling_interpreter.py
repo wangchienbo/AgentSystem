@@ -178,8 +178,13 @@ def build_session_context(
     available_assets: list[dict[str, Any]] | None = None,
     session_id: str | None = None,
     app_system_prompt: str | None = None,
+    model_input_view: Any | None = None,
 ) -> str:
-    """Build readable session context for prompt."""
+    """Build readable session context for prompt.
+
+    如果提供 model_input_view（ModelInputView），优先使用其 context_text
+    代替 history 列表格式化，以支持上下文压缩和窗口控制。
+    """
     lines = []
 
     # App system prompt at the TOP — always visible regardless of history length
@@ -188,39 +193,59 @@ def build_session_context(
         lines.append(app_system_prompt)
         lines.append("")
 
-    # Continuation guidance: tell the model this is likely a continuation
-    if history:
-        lines.append("【对话延续性提示】")
-        lines.append("当前消息大概率是上一轮对话的延续。请先判断是否与上轮相关：")
-        lines.append("  - 若是延续，基于【最近对话】中的上下文作答，不要重复问已明确的事实")
-        lines.append("  - 若是新话题，忽略历史上下文并直接处理当前请求")
-        lines.append("")
+    # 使用 ModelInputView 替代原始 history 格式化
+    if model_input_view is not None:
+        # Continuation guidance (缩短版，因为 model_input_view 已包含上下文)
+        if model_input_view.total_turns > 0:
+            lines.append("【对话延续性提示】")
+            lines.append("当前消息大概率是上一轮对话的延续。请先判断是否与上轮相关：")
+            lines.append("  - 若是延续，基于【对话上下文】中的信息作答")
+            lines.append("  - 若是新话题，忽略历史上下文并直接处理当前请求")
+            lines.append("")
 
-    if pending_intent:
-        lines.append(f"【等待完成】")
-        lines.append(f"  - 意图: {pending_intent}")
-        if pending_params:
-            lines.append(f"  - 已有: {pending_params}")
-        if missing_param:
-            lines.append(f"  - 等待补充: {missing_param}")
-        lines.append(f"  - 用户现在说: \"{{user_input}}\" ← 请将这句话填入缺失参数")
+        # 插入 ModelInputView 构建的上下文
+        lines.append("【对话上下文】")
+        lines.append(model_input_view.context_text)
 
-    # Asset visibility section
-    if available_assets:
-        asset_section = format_assets_for_prompt(available_assets)
-        lines.append(asset_section)
+        # 如果发生了压缩，添加 expand 提示
+        if model_input_view.compressed and model_input_view.expand_hint:
+            lines.append("")
+            lines.append(model_input_view.expand_hint)
 
-    if available_apps:
-        names = [a.get("name", a.get("app_id", "")) for a in available_apps[:5]]
-        lines.append(f"【已安装 App】{', '.join(names)}")
+    else:
+        # ── 原有逻辑：传统 history 列表格式化 ──
+        if history:
+            lines.append("【对话延续性提示】")
+            lines.append("当前消息大概率是上一轮对话的延续。请先判断是否与上轮相关：")
+            lines.append("  - 若是延续，基于【最近对话】中的上下文作答，不要重复问已明确的事实")
+            lines.append("  - 若是新话题，忽略历史上下文并直接处理当前请求")
+            lines.append("")
 
-    if history:
-        lines.append("【最近对话】")
-        recent_history = list(reversed(history[-10:]))
-        for msg in recent_history:
-            role = msg.get("role", "")
-            content = msg.get("content", "") or ""
-            lines.append(f"  {role}: {content}")
+        if pending_intent:
+            lines.append(f"【等待完成】")
+            lines.append(f"  - 意图: {pending_intent}")
+            if pending_params:
+                lines.append(f"  - 已有: {pending_params}")
+            if missing_param:
+                lines.append(f"  - 等待补充: {missing_param}")
+            lines.append(f"  - 用户现在说: \"{{user_input}}\" ← 请将这句话填入缺失参数")
+
+        # Asset visibility section
+        if available_assets:
+            asset_section = format_assets_for_prompt(available_assets)
+            lines.append(asset_section)
+
+        if available_apps:
+            names = [a.get("name", a.get("app_id", "")) for a in available_apps[:5]]
+            lines.append(f"【已安装 App】{', '.join(names)}")
+
+        if history:
+            lines.append("【最近对话】")
+            recent_history = list(reversed(history[-10:]))
+            for msg in recent_history:
+                role = msg.get("role", "")
+                content = msg.get("content", "") or ""
+                lines.append(f"  {role}: {content}")
 
 
     return "\n".join(lines) if lines else "新会话,无历史上下文"
@@ -471,6 +496,7 @@ class ToolCallingInterpreter:
         runtime_center: Any = None,
         telemetry_service: Any = None,
         context_center: Any = None,
+        model_input_builder: Any = None,
     ) -> None:
         self._registry = tool_registry
         self._engine = tool_calling_engine
@@ -480,6 +506,7 @@ class ToolCallingInterpreter:
         self._runtime_center = runtime_center  # For asset visibility in prompt
         self._telemetry_service = telemetry_service
         self._context_center = context_center
+        self._model_input_builder = model_input_builder  # Path B: context view layer
         self._current_exec_context: dict | None = None  # ← 新增
 
     def interpret(
@@ -844,6 +871,7 @@ PY"""
             return deterministic
 
         history = self._get_history(session_id)
+        model_input_view = self._get_model_input_view(session_id)
         session_ctx = build_session_context(
             history=history,
             pending_intent=None,
@@ -852,6 +880,7 @@ PY"""
             available_apps=available_apps,
             available_assets=None,
             session_id=session_id,
+            model_input_view=model_input_view,
         )
         if self._hot_tool_manager and session_id:
             hot_tools = self._hot_tool_manager.get_tools_for_session(session_id)
@@ -911,6 +940,9 @@ PY"""
                 logger.debug("Failed to get assets from RuntimeCenter: %s", e)
 
         # Build prompt components
+        model_input_view = None
+        if self._model_input_builder is not None:
+            model_input_view = self._get_model_input_view(session_id)
         session_ctx = build_session_context(
             history=history,
             pending_intent=None,
@@ -919,6 +951,7 @@ PY"""
             available_apps=available_apps,
             available_assets=available_assets if available_assets else None,
             session_id=session_id,
+            model_input_view=model_input_view,
         )
         # Phase E.2: Use hot tools instead of full registry
         if self._hot_tool_manager and session_id:
@@ -1352,7 +1385,20 @@ PY"""
 
         return []
 
-        return []
+    def _get_model_input_view(self, session_id: str, window_turns: int = 10) -> Any | None:
+        """Get ModelInputView from ModelInputBuilder for context-aware window+compression.
+
+        Returns None if ModelInputBuilder is not available.
+        """
+        if self._model_input_builder is not None and session_id:
+            try:
+                return self._model_input_builder.build(
+                    session_id=session_id,
+                    window_turns=window_turns,
+                )
+            except Exception as e:
+                logger.debug("_get_model_input_view failed: %s", e)
+        return None
 
     def _store_pending(
         self,

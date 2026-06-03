@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from app.services.context_storage_paths import (
     DEFAULT_CONTEXT_CENTER_DIR,
@@ -25,6 +28,9 @@ class ContextCenter:
     session links. It does not yet replace LightBrainMemory in the active path,
     but establishes the target interface for the migration.
     """
+
+    MAX_RECORDS_PER_SESSION: int = 500
+    """每个会话在内存中保留的最大记录数。超过时自动裁剪旧记录。"""
 
     def __init__(self, *, base_dir: str | Path = DEFAULT_CONTEXT_CENTER_DIR) -> None:
         self._nodes: dict[str, SessionNode] = {}
@@ -138,6 +144,15 @@ class ContextCenter:
 
     def append_context(self, record: SessionContextRecord) -> SessionContextRecord:
         self._records.setdefault(record.session_id, []).append(record)
+        # ── GC 兜底：自动裁剪旧记录，防止内存膨胀 ──
+        recs = self._records[record.session_id]
+        overflow = len(recs) - self.MAX_RECORDS_PER_SESSION
+        if overflow > 0:
+            self._records[record.session_id] = recs[overflow:]
+            logger.debug(
+                "gc_session(%s): trimmed %d old records, kept %d",
+                record.session_id, overflow, self.MAX_RECORDS_PER_SESSION,
+            )
         if record.kind == "summary":
             self._writer.append_summary_event(
                 session_id=record.session_id,
@@ -271,6 +286,32 @@ class ContextCenter:
     def read_context(self, session_id: str, limit: int = 100) -> SessionContextWindow:
         records = self._records.get(session_id, [])
         return SessionContextWindow(session_id=session_id, records=records[-limit:])
+
+    # ──── GC 方法 ────
+
+    def gc_session(self, session_id: str, max_records: int | None = None) -> dict[str, Any]:
+        """裁剪指定会话的内存记录到 max_records（默认 MAX_RECORDS_PER_SESSION）。
+        仅裁剪内存 _records，不影响磁盘持久化。返回裁剪统计。"""
+        limit = max_records or self.MAX_RECORDS_PER_SESSION
+        recs = self._records.get(session_id, [])
+        if len(recs) <= limit:
+            return {"session_id": session_id, "trimmed": 0, "kept": len(recs)}
+        trimmed = len(recs) - limit
+        self._records[session_id] = recs[trimmed:]
+        logger.info("gc_session(%s): 手动裁剪 %d 条旧记录，保留 %d 条", session_id, trimmed, limit)
+        return {"session_id": session_id, "trimmed": trimmed, "kept": limit}
+
+    def gc_all(self, max_records: int | None = None) -> dict[str, Any]:
+        """遍历所有会话，裁剪超过限制的旧记录。返回所有会话的裁剪统计。"""
+        limit = max_records or self.MAX_RECORDS_PER_SESSION
+        results = {}
+        total_trimmed = 0
+        for session_id in list(self._records.keys()):
+            r = self.gc_session(session_id, max_records=limit)
+            results[session_id] = r
+            total_trimmed += r["trimmed"]
+        logger.info("gc_all: 共处理 %d 个会话，裁剪 %d 条记录", len(results), total_trimmed)
+        return {"sessions": results, "total_trimmed": total_trimmed}
 
     def link_sessions(self, link: SessionLink) -> SessionLink:
         self._links.append(link)

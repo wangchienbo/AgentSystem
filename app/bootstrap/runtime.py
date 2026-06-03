@@ -1357,6 +1357,10 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     # Initialize ContextCenter — unified context assembly hub
     context_center = ContextCenter()
 
+    # Initialize ModelInputBuilder — context view layer (Path B)
+    from app.services.model_input_builder import ModelInputBuilder
+    model_input_builder = ModelInputBuilder(context_center)
+
     # Initialize ToolCallingInterpreter with hot tool support + asset visibility
     tool_calling_interpreter = ToolCallingInterpreter(
         tool_registry=tool_registry,
@@ -1367,6 +1371,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         runtime_center=runtime_center,  # For asset visibility in prompt
         telemetry_service=telemetry_service,
         context_center=context_center,  # Unified context assembly
+        model_input_builder=model_input_builder,  # Path B: context view layer
     )
     def _interaction_detail_provider(asset_id: str) -> dict[str, object] | None:
         if hasattr(asset_center, "get_asset_detail"):

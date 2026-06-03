@@ -47,6 +47,7 @@ def bootstrap_novel_studio(
 
     from app.novel_studio.engine import NovelStudioEngine
     from app.novel_studio.api import create_novel_router
+    from app.system.auth import require_auth
     from app.models.app_blueprint import AppBlueprint
     from app.models.asset_contract import (
         AssetDescriptor, AssetCapability, AssetType, AssetKind,
@@ -81,6 +82,8 @@ def bootstrap_novel_studio(
         tool_calling_engine=tool_calling_engine,
         hot_tool_manager=hot_tool_manager,
         prompt_composer=prompt_composer,
+        model_input_builder=runtime_services.get("model_input_builder"),
+        require_auth=require_auth,
     )
 
     # ── 3. 挂载 FastAPI 路由（如果提供 app） ───────────────────

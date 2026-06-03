@@ -8,7 +8,7 @@ import json
 import logging
 from typing import Any, Generator
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from app.novel_studio.engine import NovelStudioEngine
@@ -27,6 +27,8 @@ def create_novel_router(
     tool_calling_engine=None,
     hot_tool_manager=None,
     prompt_composer=None,
+    model_input_builder=None,
+    require_auth=None,
 ) -> APIRouter:
     """创建小说工作室 API 路由
 
@@ -56,7 +58,8 @@ def create_novel_router(
     )
     from app.ai.tool_calling_engine import ToolDef
 
-    router = APIRouter(prefix="/api/novel", tags=["novel-studio"])
+    _deps = [Depends(require_auth)] if require_auth else []
+    router = APIRouter(prefix="/api/novel", tags=["novel-studio"], dependencies=_deps)
     if engine is None:
         engine = NovelStudioEngine(
             storage=NovelStorage(),
@@ -803,6 +806,31 @@ def create_novel_router(
         log_context_record(d_session_id, result, context_center, role="assistant", kind="message")
         return {"success": True, "result": result}
 
+    @router.post("/chat/history")
+    async def api_chat_history(data: dict):
+        """获取小说对话历史"""
+        novel_id = data.get("novel_id", "")
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+        novel = engine.get_novel(novel_id)
+        if not novel:
+            return {"success": False, "error": "小说未找到"}
+
+        session_id = get_or_create_novel_session(novel_id, context_center)
+        records = []
+        if context_center:
+            window = context_center.read_context(session_id, limit=100)
+            records = [
+                {"role": r.role, "content": r.content, "created_at": r.created_at.isoformat()}
+                for r in window.records
+                if r.kind == "message"
+            ]
+        return {
+            "success": True,
+            "records": records,
+            "session_id": session_id,
+        }
+
     @router.post("/chat/stream")
     async def api_chat_stream(data: dict):
         """SSE 流式 AI 对话接口：实时逐 token 显示生成内容"""
@@ -825,7 +853,7 @@ def create_novel_router(
         system_prompt = build_novel_system_prompt(novel)
 
         return StreamingResponse(
-            _stream_chat_events(engine, novel, message, novel_id, system_prompt, context_center, session_id, runtime_center),
+            _stream_chat_events(engine, novel, message, novel_id, system_prompt, context_center, session_id, runtime_center, model_input_builder),
             media_type="application/x-ndjson; charset=utf-8",
             headers={
                 "Cache-Control": "no-cache",
@@ -844,6 +872,7 @@ def create_novel_router(
         context_center=None,
         session_id: str = "",
         runtime_center=None,
+        model_input_builder=None,
     ) -> Generator:
         """SSE 事件生成器：工具轮次 → 流式输出 → 章节保存"""
         import json as _json
@@ -863,8 +892,15 @@ def create_novel_router(
                 novel_data = _format_novel_state(novel)
                 app_system_prompt = app_system_prompt.replace("{novel_data}", novel_data)
 
-                # 2. 获取历史并构建 session context
-                window = context_center.get_recent_context(session_id, limit=10) if context_center else None
+                # 2. 使用 ModelInputBuilder 构建上下文（支持窗口 + 压缩）
+                model_input_view = None
+                if context_center and model_input_builder:
+                    model_input_view = model_input_builder.build(
+                        session_id=session_id,
+                        window_turns=10,
+                    )
+                # fallback: 传统 history 方式
+                window = context_center.get_recent_context(session_id, limit=10) if context_center and model_input_view is None else None
                 history = [
                     {"role": r.role, "content": r.content}
                     for r in window.records if r.kind == "message"
@@ -876,6 +912,7 @@ def create_novel_router(
                     missing_param=None,
                     available_apps=[],
                     app_system_prompt=app_system_prompt,
+                    model_input_view=model_input_view,
                 )
 
                 # 3. 填充系统提示词
@@ -1063,8 +1100,15 @@ def create_novel_router(
                 novel_data = _format_novel_state(novel)
                 app_system_prompt = app_system_prompt.replace("{novel_data}", novel_data)
 
-                # 2. 获取历史并构建 session context
-                window = context_center.get_recent_context(session_id, limit=10) if context_center else None
+                # 2. 使用 ModelInputBuilder 构建上下文（支持窗口 + 压缩）
+                model_input_view = None
+                if context_center and model_input_builder:
+                    model_input_view = model_input_builder.build(
+                        session_id=session_id,
+                        window_turns=10,
+                    )
+                # fallback: 传统 history 方式
+                window = context_center.get_recent_context(session_id, limit=10) if context_center and model_input_view is None else None
                 history = [
                     {"role": r.role, "content": r.content}
                     for r in window.records if r.kind == "message"
@@ -1076,6 +1120,7 @@ def create_novel_router(
                     missing_param=None,
                     available_apps=[],
                     app_system_prompt=app_system_prompt,
+                    model_input_view=model_input_view,
                 )
 
                 # 3. 填充系统提示词
