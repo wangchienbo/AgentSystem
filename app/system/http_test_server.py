@@ -18,7 +18,7 @@ import json
 from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -794,6 +794,78 @@ async def api_task_query(task_id: str):
     if result is None:
         return {"success": False, "error": f"task {task_id} not found"}
     return {"success": True, "task": result}
+
+
+
+
+@app.post("/api/chat/stream")
+async def api_chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
+    """SSE streaming chat endpoint."""
+    session_id = req.session_id or user["session_id"]
+    started_at = datetime.now()
+    user_sessions.setdefault(session_id, {
+        "username": user.get("username", "anonymous"),
+        "session_id": session_id,
+        "login_time": started_at.isoformat(),
+        "last_active": started_at.isoformat(),
+    })
+    conversation_history.setdefault(session_id, [])
+    user_sessions[session_id]["last_active"] = started_at.isoformat()
+
+    async def event_generator():
+        full_response = ""
+        try:
+            run_metadata = _extract_run_metadata(req.payload)
+            augmented_message = _augment_user_message(req.message, session_id)
+            chat_req = ChatMessageRequest(
+                user_id=user.get("username", "anonymous"),
+                channel="webchat",
+                message=req.message,
+                session_id=session_id,
+                memory_context=_build_effective_memory_context(session_id),
+            )
+            if augmented_message != req.message:
+                chat_req.memory_context = ((chat_req.memory_context or "") + f"\n\n[webchat_style_hint]\n{augmented_message}").strip()
+
+            # Try to get streaming response from gateway
+            gateway = getattr(app, "gateway", None) or getattr(app.state, "gateway", None)
+            if gateway and hasattr(gateway, "receive_message_stream"):
+                async for chunk in gateway.receive_message_stream(chat_req, available_apps=_build_available_apps()):
+                    full_response += chunk
+                    yield f"data: {json.dumps({'delta': chunk, 'session_id': session_id})}\n\n"
+            else:
+                # Fallback: use regular receive_message and stream char by char
+                llm_resp = await gateway.receive_message(chat_req, available_apps=_build_available_apps())
+                response_text = getattr(llm_resp, "content", "") or ""
+                for char in response_text:
+                    full_response += char
+                    yield f"data: {json.dumps({'delta': char, 'session_id': session_id})}\n\n"
+                    import asyncio
+                    await asyncio.sleep(0.01)
+
+            finished_at = datetime.now()
+            latency_ms = int((finished_at - started_at).total_seconds() * 1000)
+
+            # Store in conversation history
+            conversation_history.setdefault(session_id, []).append({
+                "role": "user",
+                "content": req.message,
+                "timestamp": started_at.isoformat(),
+            })
+            conversation_history.setdefault(session_id, []).append({
+                "role": "assistant",
+                "content": full_response,
+                "timestamp": finished_at.isoformat(),
+            })
+
+            # Send done event
+            yield f"data: {json.dumps({'done': True, 'session_id': session_id, 'latency_ms': latency_ms})}\n\n"
+
+        except Exception as e:
+            error_text = str(e)
+            yield f"data: {json.dumps({'error': error_text, 'session_id': session_id})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.post("/api/chat-regression/run")
