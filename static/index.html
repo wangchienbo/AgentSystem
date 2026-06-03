@@ -8,7 +8,7 @@
         :root {
             --bg: #f5f5f5; --surface: #ffffff; --border: #e0e0e0;
             --text: #111111; --accent: #6c5ce7; --accent-light: #a29bfe;
-            --error: #e74c3c; --success: #27ae60;
+            --error: #e74c3c; --success: #27ae60; --sidebar-w: 280px;
         }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; }
@@ -32,14 +32,61 @@
 
         /* ── Chat ── */
         #chatScreen { display: none; flex: 1; flex-direction: column; }
-        #chatHeader { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; }
-        #chatHeader .title { font-weight: 600; color: var(--accent); font-size: 15px; }
-        #chatHeader .user-info { font-size: 12px; color: #888; }
-        #headerActions { display: flex; gap: 8px; }
-        #headerActions button { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #666; }
+        #chatHeader { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        #chatHeader .title { font-weight: 600; color: var(--accent); font-size: 15px; white-space: nowrap; }
+        #chatHeader .user-info { font-size: 12px; color: #888; white-space: nowrap; }
+        #headerLeft { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        #headerActions { display: flex; gap: 8px; flex-shrink: 0; }
+        #headerActions button { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #666; white-space: nowrap; }
         #headerActions button:hover { background: var(--bg); }
 
-        #messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+        /* ── Session Button & Dropdown ── */
+        #session-btn-wrap { position: relative; display: inline-block; }
+        #session-btn { cursor: pointer; font-size: 13px; color: var(--accent); background: var(--bg); border-radius: 6px; padding: 4px 10px; border: 1px solid var(--border); user-select: none; white-space: nowrap; }
+        #session-btn:hover { background: #eee; }
+        #session-dropdown { display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.12); min-width: 240px; max-height: 320px; overflow-y: auto; z-index: 200; }
+        #session-dropdown.show { display: block; }
+        .sd-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px 6px; border-bottom: 1px solid var(--border); }
+        .sd-header span { font-weight: 600; font-size: 13px; color: #888; }
+        .sd-header button { background: none; border: none; color: var(--accent); font-size: 12px; cursor: pointer; font-weight: 600; padding: 2px 6px; }
+        .sd-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        .sd-item:hover { background: #f8f8ff; }
+        .sd-item.active { background: #eeeefe; font-weight: 600; color: var(--accent); }
+        .sd-item .sd-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sd-item .sd-count { font-size: 11px; color: #aaa; margin: 0 8px; white-space: nowrap; }
+        .sd-item .sd-del { background: none; border: none; color: #ccc; cursor: pointer; font-size: 14px; padding: 0 4px; visibility: hidden; }
+        .sd-item:hover .sd-del { visibility: visible; }
+        .sd-item .sd-del:hover { color: var(--error); }
+        .sd-create { border-top: 1px solid var(--border); padding: 8px 12px; display: flex; gap: 6px; }
+        .sd-create input { flex: 1; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 12px; }
+        .sd-create button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+
+        /* Chat layout */
+        #chatBody { display: flex; flex: 1; overflow: hidden; }
+
+        /* ── Sidebar Session Panel ── */
+        #sessionSidebar { display: none; width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); flex-shrink: 0; flex-direction: column; overflow: hidden; }
+        #sessionSidebar.show { display: flex; }
+        .sb-header { padding: 14px 16px 10px; font-weight: 600; color: var(--accent); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .sb-header button { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--accent); }
+        .sb-list { flex: 1; overflow-y: auto; }
+        .sb-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f5f5f5; transition: background 0.15s; }
+        .sb-item:hover { background: #f8f8ff; }
+        .sb-item.active { background: #eeeefe; border-left: 3px solid var(--accent); }
+        .sb-item .sbi-label { font-size: 14px; color: var(--text); font-weight: 500; margin-bottom: 2px; }
+        .sb-item .sbi-meta { font-size: 11px; color: #aaa; display: flex; gap: 8px; }
+
+        /* ── Messages ── */
+        #messagesContainer { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        #messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; 
+            -webkit-overflow-scrolling: touch; overscroll-behavior: contain; 
+            contain: layout style paint; will-change: scroll-position; }
+        .load-more-wrap { text-align: center; padding: 8px 0; flex-shrink: 0; }
+        #loadMoreBtn { background: none; border: 1px solid var(--border); border-radius: 16px; padding: 6px 16px; font-size: 12px; color: #888; cursor: pointer; }
+        #loadMoreBtn:hover { background: var(--bg); }
+        #loadMoreBtn:disabled { opacity: 0.4; cursor: default; }
+        .load-more-empty { font-size: 12px; color: #ccc; padding: 8px 0; }
+
         .msg-wrapper { display: flex; flex-direction: column; max-width: 85%; }
         .msg-user { align-self: flex-end; align-items: flex-end; }
         .msg-assistant { align-self: flex-start; align-items: flex-start; }
@@ -64,6 +111,12 @@
 
         /* Error toast */
         #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--error); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 13px; display: none; z-index: 100; }
+
+        /* ── Mobile ── */
+        @media (max-width: 640px) {
+            #sessionSidebar.show { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 300; width: 100%; }
+            #sessionSidebar.show + #messagesContainer { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -85,19 +138,43 @@
 
 <div id="chatScreen">
     <div id="chatHeader">
-        <div>
+        <div id="headerLeft">
+            <div id="session-btn-wrap">
+                <div id="session-btn" onclick="toggleSessionDropdown(event)">
+                    💬 <span id="session-btn-label">对话</span> ▾
+                </div>
+                <div id="session-dropdown"></div>
+            </div>
             <div class="title">🦞 AgentSystem</div>
-            <div class="user-info" id="userDisplay"></div>
         </div>
-        <div id="headerActions">
-            <button id="clearBtn" title="清空对话">🗑 清空</button>
-            <button id="logoutBtn">退出</button>
+        <div id="headerRight" style="display:flex;align-items:center;gap:8px;">
+            <div class="user-info" id="userDisplay"></div>
+            <div id="headerActions">
+                <button id="sidebarToggleBtn" onclick="toggleSidebar()" title="会话列表">☰</button>
+                <button id="clearBtn" title="清空对话">🗑</button>
+                <button id="logoutBtn">退出</button>
+            </div>
         </div>
     </div>
-    <div id="messages"></div>
-    <div id="inputBar">
-        <textarea id="inputBox" rows="1" placeholder="输入消息，按 Enter 发送..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-        <button id="sendBtn" onclick="sendMessage()">➤</button>
+    <div id="chatBody">
+        <div id="sessionSidebar">
+            <div class="sb-header">
+                <span>📋 对话列表</span>
+                <button onclick="toggleSidebar()">✕</button>
+            </div>
+            <div class="sb-list" id="sidebarList"></div>
+        </div>
+        <div id="messagesContainer">
+            <div id="messages">
+                <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
+                    <button id="loadMoreBtn" onclick="loadMoreHistory()">加载更多消息 ↺</button>
+                </div>
+            </div>
+            <div id="inputBar">
+                <textarea id="inputBox" rows="1" placeholder="输入消息，按 Enter 发送..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                <button id="sendBtn" onclick="sendMessage()">➤</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -108,18 +185,23 @@
 let sessionId = null;
 let username = null;
 let sending = false;
+let sessions = [];
+let historyTotal = 0;
+let historyOffset = 0;
+const PAGE_SIZE = 50;
 
 // ── Init: check existing session ───────────────────────────────────────────
 (async function init() {
     try {
-        // 尝试从 cookie 恢复会话
         const resp = await fetch('/api/sessions', { credentials: 'include' });
         if (resp.ok) {
             const data = await resp.json();
             if (data.success && data.sessions && data.sessions.length > 0) {
-                // 已有活跃会话，恢复它
-                sessionId = data.sessions[0].session_id;
-                username = data.sessions[0].username;
+                const cur = data.sessions.find(s => s.is_current) || data.sessions[0];
+                sessionId = cur.session_id;
+                // 尝试从 cookie 恢复会话名（登录返回的）
+                // 回退从 session list 里找
+                await rebuildSessions();
                 await loadHistory();
                 showChat();
                 return;
@@ -154,17 +236,23 @@ async function doLogin() {
             sessionId = data.session_id;
             username = data.username;
             msg.className = 'loginMsg-info'; msg.textContent = '登录成功，加载中...';
-            // 渲染登录返回的历史记录
             const msgs = document.getElementById('messages');
+            // 保留 loadMoreWrap
+            const lw = document.getElementById('loadMoreWrap');
             msgs.innerHTML = '';
+            if (lw) msgs.appendChild(lw);
             if (data.history && Array.isArray(data.history)) {
+                historyTotal = data.history.length;
+                historyOffset = Math.min(historyTotal, PAGE_SIZE);
                 data.history.forEach(h => {
                     if (h.role === 'user') appendBubble('user', escHtml(h.content), h.timestamp);
                     else appendBubble('assistant', h.content, h.timestamp);
                 });
             }
             scrollBottom();
+            await rebuildSessions();
             showChat();
+            updateLoadMoreBtn();
         } else {
             msg.className = 'loginMsg-error'; msg.textContent = data.error || '登录失败';
         }
@@ -173,25 +261,219 @@ async function doLogin() {
     }
 }
 
-// ── History ─────────────────────────────────────────────────────────────────
+// ── Sessions ───────────────────────────────────────────────────────────────
+async function rebuildSessions() {
+    try {
+        const resp = await fetch('/api/sessions', { credentials: 'include' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        sessions = data.sessions || [];
+        renderSessionUI();
+    } catch(e) { console.warn('rebuildSessions failed:', e); }
+}
+
+function renderSessionUI() {
+    // 更新下拉
+    const dd = document.getElementById('session-dropdown');
+    const cur = sessions.find(s => s.is_current) || sessions[0];
+    // 更新按钮label
+    document.getElementById('session-btn-label').textContent = (cur && cur.label) || '对话';
+
+    let html = '<div class="sd-header"><span>💬 对话列表</span><button onclick="closeDropdown();toggleSidebar();">管理</button></div>';
+    sessions.forEach(s => {
+        const active = s.is_current ? ' active' : '';
+        html += `<div class="sd-item${active}" onclick="switchSession('${s.session_id}')">
+            <span class="sd-label">${escHtml(s.label)}</span>
+            <span class="sd-count">${s.message_count}</span>
+            <button class="sd-del" onclick="event.stopPropagation();deleteSession('${s.session_id}')">✕</button>
+        </div>`;
+    });
+    html += '<div class="sd-create"><input id="sdNewName" placeholder="新对话名称..." /><button onclick="createSession()">新建</button></div>';
+    dd.innerHTML = html;
+
+    // 更新侧栏
+    const sb = document.getElementById('sidebarList');
+    let sbHtml = '';
+    sessions.forEach(s => {
+        const active = s.is_current ? ' active' : '';
+        const timeAgo = s.last_active ? timeSince(s.last_active) : '';
+        sbHtml += `<div class="sb-item${active}" onclick="switchSession('${s.session_id}');if(window.innerWidth<=640)toggleSidebar();">
+            <div class="sbi-label">${escHtml(s.label)}</div>
+            <div class="sbi-meta"><span>${s.message_count} 条消息</span>${timeAgo ? '<span>'+timeAgo+'</span>' : ''}</div>
+        </div>`;
+    });
+    sb.innerHTML = sbHtml;
+}
+
+async function createSession() {
+    const input = document.getElementById('sdNewName');
+    const label = input ? input.value.trim() : '';
+    try {
+        const resp = await fetch('/api/sessions', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ label })
+        });
+        if (resp.ok) {
+            if (input) input.value = '';
+            await rebuildSessions();
+            // 自动切换到新会话
+            await switchToLastSession();
+        } else {
+            showToast('创建失败');
+        }
+    } catch(e) { showToast('网络错误'); }
+}
+
+async function switchToLastSession() {
+    const resp = await fetch('/api/sessions', { credentials: 'include' });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const cur = data.sessions.find(s => s.is_current) || data.sessions[0];
+    if (cur) {
+        await doSwitchSession(cur.session_id);
+    }
+}
+
+async function switchSession(sid) {
+    if (sid === sessionId) { closeDropdown(); return; }
+    try {
+        const resp = await fetch(`/api/sessions/${sid}/switch`, {
+            method: 'POST', credentials: 'include'
+        });
+        if (resp.ok) {
+            await doSwitchSession(sid);
+        } else {
+            showToast('切换失败');
+        }
+    } catch(e) { showToast('网络错误'); }
+}
+
+async function doSwitchSession(sid) {
+    sessionId = sid;
+    closeDropdown();
+    await rebuildSessions();
+    await loadHistory();
+    scrollBottom();
+}
+
+async function deleteSession(sid) {
+    if (!confirm('确定删除此对话？')) return;
+    try {
+        const resp = await fetch(`/api/sessions/${sid}`, {
+            method: 'DELETE', credentials: 'include'
+        });
+        if (resp.ok) {
+            await rebuildSessions();
+            // 如果当前会话被删，切换到列表第一个
+            if (sid === sessionId) {
+                const s = sessions.find(x => true);
+                if (s) await doSwitchSession(s.session_id);
+            }
+        } else {
+            showToast('删除失败');
+        }
+    } catch(e) { showToast('网络错误'); }
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+function toggleSidebar() {
+    const sb = document.getElementById('sessionSidebar');
+    sb.classList.toggle('show');
+}
+
+// ── Dropdown ───────────────────────────────────────────────────────────────
+function toggleSessionDropdown(e) {
+    e.stopPropagation();
+    const dd = document.getElementById('session-dropdown');
+    dd.classList.toggle('show');
+}
+function closeDropdown() {
+    document.getElementById('session-dropdown').classList.remove('show');
+}
+document.addEventListener('click', function(e) {
+    const dd = document.getElementById('session-dropdown');
+    const btn = document.getElementById('session-btn-wrap');
+    if (dd.classList.contains('show') && !btn.contains(e.target)) {
+        closeDropdown();
+    }
+});
+
+// ── History (paginated) ─────────────────────────────────────────────────────
 async function loadHistory() {
     if (!sessionId) return;
     try {
-        const resp = await fetch(`/api/sessions/${sessionId}/history`, { credentials: 'include' });
+        const resp = await fetch(`/api/sessions/${sessionId}/history?limit=${PAGE_SIZE}&offset=0`, { credentials: 'include' });
         if (resp.ok) {
             const data = await resp.json();
-            if (data.success && data.history) {
-                // 清空并重放历史
+            if (data.success) {
+                historyTotal = data.total;
+                historyOffset = Math.min(data.total, PAGE_SIZE);
                 const msgs = document.getElementById('messages');
+                const lw = document.getElementById('loadMoreWrap');
                 msgs.innerHTML = '';
-                data.history.forEach(h => {
-                    if (h.role === 'user') appendBubble('user', escHtml(h.content), h.timestamp);
-                    else appendBubble('assistant', h.content, h.timestamp);
-                });
+                if (lw) msgs.appendChild(lw);
+                if (data.history) {
+                    data.history.forEach(h => {
+                        if (h.role === 'user') appendBubble('user', escHtml(h.content), h.timestamp);
+                        else appendBubble('assistant', h.content, h.timestamp);
+                    });
+                }
+                updateLoadMoreBtn();
                 scrollBottom();
             }
         }
     } catch(e) { console.warn('History load failed:', e); }
+}
+
+async function loadMoreHistory() {
+    const btn = document.getElementById('loadMoreBtn');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = '加载中...';
+    try {
+        const resp = await fetch(`/api/sessions/${sessionId}/history?limit=${PAGE_SIZE}&offset=${historyOffset}`, { credentials: 'include' });
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.success && data.history && data.history.length > 0) {
+                historyOffset += data.history.length;
+                // 反向追加（最老的在上）
+                const msgs = document.getElementById('messages');
+                const lw = document.getElementById('loadMoreWrap');
+                data.history.reverse().forEach(h => {
+                    const el = h.role === 'user'
+                        ? createBubbleEl('user', escHtml(h.content), h.timestamp)
+                        : createBubbleEl('assistant', h.content, h.timestamp);
+                    if (lw && lw.nextSibling) {
+                        msgs.insertBefore(el, lw.nextSibling);
+                    } else {
+                        msgs.insertBefore(el, msgs.firstChild.nextSibling || msgs.firstChild);
+                    }
+                });
+                // 用 requestAnimationFrame 保持滚动位置
+                updateLoadMoreBtn();
+            } else {
+                // 没有更多了
+                const w = document.getElementById('loadMoreWrap');
+                if (w) w.style.display = 'none';
+            }
+        }
+    } catch(e) { console.warn('Load more failed:', e); }
+    btn.disabled = false;
+    btn.textContent = '加载更多消息 ↺';
+}
+
+function updateLoadMoreBtn() {
+    const w = document.getElementById('loadMoreWrap');
+    if (!w) return;
+    const remaining = historyTotal - historyOffset;
+    if (remaining > 0) {
+        w.style.display = 'block';
+        document.getElementById('loadMoreBtn').textContent = `加载更多消息 (还有 ${remaining} 条) ↺`;
+    } else {
+        w.style.display = 'none';
+    }
 }
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
@@ -218,6 +500,11 @@ async function sendMessage() {
             const data = await resp.json();
             if (data.success) {
                 appendBubble('assistant', data.response);
+                historyTotal += 2;
+                historyOffset += 2;
+                updateLoadMoreBtn();
+                // 更新会话列表（消息计数）
+                await rebuildSessions();
             } else {
                 appendBubble('assistant', `<span style="color:var(--error)">错误: ${escHtml(data.error || '未知错误')}</span>`);
             }
@@ -243,11 +530,10 @@ function showChat() {
     document.getElementById('loadingScreen').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('chatScreen').style.display = 'flex';
-    document.getElementById('userDisplay').textContent = username ? `用户: ${username}` : '';
+    document.getElementById('userDisplay').textContent = username ? `👤 ${username}` : '';
 }
 
-function appendBubble(role, html, timestamp) {
-    const msgs = document.getElementById('messages');
+function createBubbleEl(role, html, timestamp) {
     const w = document.createElement('div');
     w.className = `msg-wrapper msg-${role}`;
     const b = document.createElement('div');
@@ -258,6 +544,12 @@ function appendBubble(role, html, timestamp) {
     t.textContent = timestamp ? new Date(timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}) : timeStr();
     w.appendChild(b);
     w.appendChild(t);
+    return w;
+}
+
+function appendBubble(role, html, timestamp) {
+    const msgs = document.getElementById('messages');
+    const w = createBubbleEl(role, html, timestamp);
     msgs.appendChild(w);
     scrollBottom();
 }
@@ -278,7 +570,7 @@ function removeThinking() {
 
 function scrollBottom() {
     const msgs = document.getElementById('messages');
-    msgs.scrollTop = msgs.scrollHeight;
+    requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; });
 }
 function timeStr() {
     return new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
@@ -295,11 +587,33 @@ function autoResize(el) {
 function handleKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+function timeSince(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return '刚刚';
+    if (mins < 60) return mins + '分钟前';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + '小时前';
+    const days = Math.floor(hrs / 24);
+    return days + '天前';
+}
 
 // ── Header actions ────────────────────────────────────────────────────────────
 document.getElementById('clearBtn').onclick = () => {
     if (confirm('确定清空当前对话？')) {
-        document.getElementById('messages').innerHTML = '';
+        const msgs = document.getElementById('messages');
+        const lw = document.getElementById('loadMoreWrap');
+        msgs.innerHTML = '';
+        if (lw) msgs.appendChild(lw);
+        historyTotal = 0;
+        historyOffset = 0;
+        updateLoadMoreBtn();
     }
 };
 document.getElementById('logoutBtn').onclick = async () => {

@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 import json
+import uuid
 from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -612,6 +613,15 @@ async def login(request: Request):
             username = parsed.get("username", [username])[0]
     # 按用户名生成稳定的 session_id（同一用户每次登录都恢复同一会话）
     session_id = f"session_{username}"
+    # 确保 LobsterSessionStore 有此会话
+    ls = lobster_sessions._ensure_user(username)
+    if session_id not in ls["sessions"]:
+        ls["sessions"][session_id] = {
+            "label": "默认对话",
+            "created_at": datetime.now(UTC).isoformat(),
+            "last_active": datetime.now(UTC).isoformat(),
+        }
+        ls["current"] = session_id
     if session_id in user_sessions:
         # 已存在 → 更新登录时间，不重建会话
         user_sessions[session_id]["login_time"] = datetime.now().isoformat()
@@ -652,7 +662,10 @@ async def api_get_history(session_id: str, user: dict = Depends(get_current_user
 
 @app.post("/api/chat")
 async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
-    session_id = req.session_id or user["session_id"]
+    username = user.get("username", "anonymous")
+    # 多会话支持：如果前端未指定session_id，从 LobsterSessionStore 获取当前会话
+    current_session = lobster_sessions.get_current_session(username)
+    session_id = req.session_id or current_session or user["session_id"]
     started_at = datetime.now()
     user_sessions.setdefault(session_id, {
         "username": user.get("username", "anonymous"),
@@ -1009,29 +1022,142 @@ async def logout():
 async def api_list_sessions(user: dict = Depends(get_current_user)):
     """列出当前用户的所有会话"""
     username = user["username"]
-    # 当前只有按用户名的单一稳定会话
-    return {
-        "success": True,
-        "sessions": [
-            {
-                "session_id": user["session_id"],
-                "username": username,
-                "login_time": user.get("login_time", ""),
-                "message_count": len(conversation_history.get(user["session_id"], [])),
-                "is_current": True,
-            }
-        ],
-    }
+    # 确保有会话
+    ls = lobster_sessions._ensure_user(username)
+    if not ls["sessions"]:
+        lobster_sessions.create_session(username, "默认对话")
+    sessions = lobster_sessions.list_sessions(username)
+    return {"success": True, "sessions": sessions}
+
+
+@app.post("/api/sessions")
+async def api_create_session(user: dict = Depends(get_current_user), request: Request = None):
+    """创建新会话"""
+    label = ""
+    if request:
+        try:
+            body = await request.json()
+            label = body.get("label", "") if isinstance(body, dict) else ""
+        except Exception:
+            pass
+    sid = lobster_sessions.create_session(user["username"], label or None)
+    return {"success": True, "session_id": sid}
+
+
+@app.post("/api/sessions/{session_id}/switch")
+async def api_switch_session(session_id: str, user: dict = Depends(get_current_user)):
+    """切换到指定会话"""
+    ok = lobster_sessions.switch_session(user["username"], session_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"success": True, "session_id": session_id}
+
+
+@app.delete("/api/sessions/{session_id}")
+async def api_delete_session(session_id: str, user: dict = Depends(get_current_user)):
+    """删除指定会话"""
+    ok = lobster_sessions.delete_session(user["username"], session_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"success": True}
 
 
 @app.get("/api/sessions/{session_id}/history")
-async def api_session_history(session_id: str, user: dict = Depends(get_current_user)):
-    """获取指定会话的历史记录"""
-    # 安全检查：只能查看自己的会话
-    if session_id != user["session_id"]:
+async def api_session_history(session_id: str, user: dict = Depends(get_current_user), limit: int = 50, offset: int = 0):
+    """获取指定会话的历史记录（分页）"""
+    # 安全检查：验证会话属于当前用户
+    username = user["username"]
+    ls = lobster_sessions._ensure_user(username)
+    if session_id not in ls["sessions"]:
         raise HTTPException(status_code=403, detail="Forbidden")
     history = conversation_history.get(session_id, [])
-    return {"success": True, "history": history}
+    total = len(history)
+    # 倒序截取（最新的在后面）
+    start = max(0, total - offset - limit)
+    end = max(0, total - offset)
+    page = history[start:end] if start < end else []
+    return {
+        "success": True,
+        "history": page,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+class LobsterSessionStore:
+    """轻量内存会话存储，每用户独立管理多个聊天会话。"""
+    def __init__(self):
+        self._data: dict[str, dict] = {}
+
+    def _ensure_user(self, username: str) -> dict:
+        if username not in self._data:
+            self._data[username] = {"current": None, "sessions": {}}
+        return self._data[username]
+
+    def list_sessions(self, username: str) -> list[dict]:
+        ns = self._ensure_user(username)
+        current = ns["current"]
+        result = []
+        for sid, meta in ns["sessions"].items():
+            from app.system.http_test_server import conversation_history
+            result.append({
+                "session_id": sid,
+                "label": meta.get("label", ""),
+                "created_at": meta.get("created_at", ""),
+                "last_active": meta.get("last_active", ""),
+                "message_count": len(conversation_history.get(sid, [])),
+                "is_current": sid == current,
+            })
+        result.sort(key=lambda x: x["last_active"], reverse=True)
+        return result
+
+    def get_current_session(self, username: str) -> str | None:
+        return self._ensure_user(username)["current"]
+
+    def create_session(self, username: str, label: str = "") -> str:
+        ns = self._ensure_user(username)
+        import uuid as _uuid
+        from datetime import datetime, timezone
+        session_id = f"session_{username}_{_uuid.uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc).isoformat()
+        ns["sessions"][session_id] = {
+            "label": label or f"对话{len(ns['sessions']) + 1}",
+            "created_at": now, "last_active": now,
+        }
+        ns["current"] = session_id
+        from app.system.http_test_server import conversation_history
+        conversation_history.setdefault(session_id, [])
+        return session_id
+
+    def switch_session(self, username: str, session_id: str) -> bool:
+        ns = self._ensure_user(username)
+        if session_id not in ns["sessions"]:
+            return False
+        ns["current"] = session_id
+        from datetime import datetime, timezone
+        ns["sessions"][session_id]["last_active"] = datetime.now(timezone.utc).isoformat()
+        return True
+
+    def delete_session(self, username: str, session_id: str) -> bool:
+        ns = self._ensure_user(username)
+        if session_id not in ns["sessions"]:
+            return False
+        del ns["sessions"][session_id]
+        from app.system.http_test_server import conversation_history
+        conversation_history.pop(session_id, None)
+        if ns["current"] == session_id:
+            remaining = list(ns["sessions"].keys())
+            ns["current"] = remaining[0] if remaining else None
+        return True
+
+    def touch_session(self, username: str, session_id: str):
+        ns = self._ensure_user(username)
+        if session_id in ns["sessions"]:
+            from datetime import datetime, timezone
+            ns["sessions"][session_id]["last_active"] = datetime.now(timezone.utc).isoformat()
+
+lobster_sessions = LobsterSessionStore()
 
 
 if __name__ == "__main__":

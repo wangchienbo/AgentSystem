@@ -833,7 +833,7 @@ def create_novel_router(
 
     @router.post("/chat/history")
     async def api_chat_history(request: Request, data: dict):
-        """获取小说对话历史（支持 session_uuid 参数）"""
+        """获取小说对话历史（支持分页：limit/offset）"""
         novel_id = data.get("novel_id", "")
         if not novel_id:
             return {"success": False, "error": "缺少 novel_id"}
@@ -848,18 +848,30 @@ def create_novel_router(
         if not session_uuid:
             session_uuid = _session_store.create_session(username, novel_id)
 
+        limit = data.get("limit", 50)
+        offset = data.get("offset", 0)
+
         session_id = get_or_create_novel_session(novel_id, context_center, user_id=username, session_uuid=session_uuid)
         records = []
+        total = 0
         if context_center:
-            window = context_center.read_context(session_id, limit=100)
-            records = [
+            window = context_center.read_context(session_id, limit=10000)  # 读取全部消息记录
+            all_records = [
                 {"role": r.role, "content": r.content, "created_at": r.created_at.isoformat()}
                 for r in window.records
                 if r.kind == "message"
             ]
+            total = len(all_records)
+            # 倒序截取：offset=0 返回最新的 limit 条
+            start = max(0, total - offset - limit)
+            end = max(0, total - offset)
+            records = all_records[start:end] if start < end else []
         return {
             "success": True,
             "records": records,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
             "session_id": session_id,
             "session_uuid": session_uuid,
             "username": username,

@@ -53,7 +53,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .empty-hint{color:#999;font-size:13px;padding:6px 8px}
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
 #chat-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 20px;background:#f8f9fb}
-#chat-msgs{max-width:700px;margin:0 auto}
+#chat-msgs{max-width:700px;margin:0 auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;contain:layout style paint;will-change:scroll-position}
 .empty{text-align:center;padding:60px 20px;color:#666}
 .empty .icon{font-size:48px;margin-bottom:16px}
 .q-btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
@@ -329,6 +329,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 const API='/api/novel';
 let cid=null,novelData=null,sidebarOpen=true,sessionUuid=null;
+// 分页状态
+let chatTotal=0, chatOffset=0; const CHAT_PAGE=50;
 
 function $(id){return document.getElementById(id.startsWith('#')?id.slice(1):id)}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -427,26 +429,44 @@ async function loadNovelData(id){
   dbg('loadNovelData DONE: '+id);
 }
 
-async function loadChatHistory(id){
-  dbg('loadChatHistory: '+id);
-  const d=await api('/chat/history',{novel_id:id,session_uuid:sessionUuid});
-  if(!d.success||!d.records||!d.records.length){
-    dbg('loadChatHistory: no history');
+async function loadChatHistory(id,append){
+  dbg('loadChatHistory: '+id+(append?' (append)':''));
+  const d=await api('/chat/history',{novel_id:id,session_uuid:sessionUuid,limit:CHAT_PAGE,offset:append?chatOffset:0});
+  if(!d.success){
+    dbg('loadChatHistory FAIL: '+(d.error||'unknown'));
     return;
   }
-  dbg('loadChatHistory: '+d.records.length+' records');
-  // Store session_uuid from response
   if(d.session_uuid) sessionUuid=d.session_uuid;
+  chatTotal=d.total||0;
+  if(!append) chatOffset=Math.min(chatTotal,CHAT_PAGE);
+  else chatOffset+= (d.records||[]).length;
   const msgs=$('chat-msgs');
-  msgs.innerHTML='';
-  for(const r of d.records){
-    const roleLabel=r.role==='user'?'user':'ai';
-    var content=esc(r.content||'');
-    msgs.innerHTML+=`<div class="msg ${roleLabel}">${content}</div>`;
+  if(!append) msgs.innerHTML='';
+  // 保留 load more button wrapper
+  var lw=$('load-more-wrap');
+  if(lw) lw.remove();
+  if(d.records&&d.records.length){
+    for(const r of d.records){
+      const roleLabel=r.role==='user'?'user':'ai';
+      var content=esc(r.content||'');
+      msgs.innerHTML+=`<div class="msg ${roleLabel}">${content}</div>`;
+    }
   }
-  // Scroll to bottom
+  // 追加 load more button
+  var remaining=chatTotal-chatOffset;
+  if(remaining>0){
+    var wrap=document.createElement('div');
+    wrap.id='load-more-wrap';
+    wrap.style.cssText='text-align:center;padding:8px 0;flex-shrink:0';
+    wrap.innerHTML='<button onclick="loadMoreHistory()" style="background:none;border:1px solid #ddd;border-radius:16px;padding:6px 16px;font-size:12px;color:#888;cursor:pointer">加载更多消息 ('+remaining+' 条) ↺</button>';
+    msgs.insertBefore(wrap,msgs.firstChild);
+  }
   _scrollToBottom(msgs);
-  dbg('loadChatHistory DONE');
+  dbg('loadChatHistory DONE: total='+chatTotal+' offset='+chatOffset);
+}
+
+function loadMoreHistory(){
+  loadChatHistory(cid,true);
 }
 
 function buildSidebar(){
