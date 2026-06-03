@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from app.novel_studio.engine import NovelStudioEngine
 from app.novel_studio.storage import NovelStorage
 from app.novel_studio.models import CharacterArchetype, Chapter
+from app.novel_studio.session_store import SessionStore
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,30 @@ def create_novel_router(
             model_router=model_router,
             llm_client=llm_client,
         )
+
+    # ──── 会话管理辅助 ─────────────────────────────────────────
+    _session_store = SessionStore()
+
+    def _extract_username(request: Request) -> str:
+        """从 cookie 提取用户名"""
+        sid = request.cookies.get("session_id", "")
+        if sid.startswith("session_"):
+            return sid[len("session_"):]
+        return "anonymous"
+
+    def _resolve_session(novel_id: str, username: str, request_session_uuid: str = "") -> str:
+        """解析当前会话 uuid — 返回有效的 session_uuid 字符串"""
+        if request_session_uuid:
+            # 用户指定了 uuid：确认存在，切换到它
+            _session_store.switch_session(username, novel_id, request_session_uuid)
+            return request_session_uuid
+        # 无指定：获取当前或新建
+        current = _session_store.get_current_session(username, novel_id)
+        if current:
+            return current
+        return _session_store.create_session(username, novel_id)
+
+    # ──────── 路由 ────────
 
     @router.post("/create")
     async def api_create_novel(data: dict):
@@ -807,8 +832,8 @@ def create_novel_router(
         return {"success": True, "result": result}
 
     @router.post("/chat/history")
-    async def api_chat_history(data: dict):
-        """获取小说对话历史"""
+    async def api_chat_history(request: Request, data: dict):
+        """获取小说对话历史（支持 session_uuid 参数）"""
         novel_id = data.get("novel_id", "")
         if not novel_id:
             return {"success": False, "error": "缺少 novel_id"}
@@ -816,7 +841,14 @@ def create_novel_router(
         if not novel:
             return {"success": False, "error": "小说未找到"}
 
-        session_id = get_or_create_novel_session(novel_id, context_center)
+        username = _extract_username(request)
+        session_uuid = data.get("session_uuid", "")
+        if not session_uuid:
+            session_uuid = _session_store.get_current_session(username, novel_id)
+        if not session_uuid:
+            session_uuid = _session_store.create_session(username, novel_id)
+
+        session_id = get_or_create_novel_session(novel_id, context_center, user_id=username, session_uuid=session_uuid)
         records = []
         if context_center:
             window = context_center.read_context(session_id, limit=100)
@@ -829,6 +861,8 @@ def create_novel_router(
             "success": True,
             "records": records,
             "session_id": session_id,
+            "session_uuid": session_uuid,
+            "username": username,
         }
 
     @router.post("/chat/stream")
@@ -1073,8 +1107,8 @@ def create_novel_router(
             yield _json.dumps({"error": str(e)}) + "\n"
 
     @router.post("/chat")
-    async def api_chat(data: dict):
-        """AI 对话接口：绑定小说上下文的自由对话"""
+    async def api_chat(request: Request, data: dict):
+        """AI 对话接口：绑定小说上下文的自由对话（支持 session_uuid 参数）"""
         novel_id = data.get("novel_id", "")
         message = data.get("message", "")
         if not novel_id:
@@ -1087,7 +1121,14 @@ def create_novel_router(
             return {"success": False, "error": "小说未找到"}
 
         # 通过 ContextCenter 管理上下文
-        session_id = get_or_create_novel_session(novel_id, context_center)
+        username = _extract_username(request)
+        session_uuid = data.get("session_uuid", "")
+        if not session_uuid:
+            session_uuid = _session_store.get_current_session(username, novel_id)
+        if not session_uuid:
+            session_uuid = _session_store.create_session(username, novel_id)
+        _session_store.touch_session(username, novel_id, session_uuid)
+        session_id = get_or_create_novel_session(novel_id, context_center, user_id=username, session_uuid=session_uuid)
         log_novel_context_records(novel, context_center, session_id)
         log_context_record(session_id, message, context_center, role="user", kind="message")
 
@@ -1244,8 +1285,8 @@ def create_novel_router(
     # ═══════════════════════════════════════════════════════════════
 
     @router.post("/chat/start")
-    async def api_chat_start(data: dict):
-        """启动后台聊天任务，浏览器断开后服务器继续运行，结果自动保存到 ContextCenter"""
+    async def api_chat_start(request: Request, data: dict):
+        """启动后台聊天任务，浏览器断开后服务器继续运行，结果自动保存到 ContextCenter（支持 session_uuid）"""
         novel_id = data.get("novel_id", "")
         message = data.get("message", "")
         if not novel_id or not message:
@@ -1260,8 +1301,17 @@ def create_novel_router(
                 "note": "已有运行中的聊天任务，继续使用",
             }
 
+        # 解析会话
+        username = _extract_username(request)
+        session_uuid = data.get("session_uuid", "")
+        if not session_uuid:
+            session_uuid = _session_store.get_current_session(username, novel_id)
+        if not session_uuid:
+            session_uuid = _session_store.create_session(username, novel_id, "新对话")
+        _session_store.touch_session(username, novel_id, session_uuid)
+
         # 创建任务
-        session_id = get_or_create_novel_session(novel_id, context_center)
+        session_id = get_or_create_novel_session(novel_id, context_center, user_id=username, session_uuid=session_uuid)
         task = create_task(
             novel_id=novel_id,
             template="chat",
@@ -1563,4 +1613,58 @@ def create_novel_router(
         deleted = engine._storage.delete_chapters_range(novel_id, from_number, to_number)
         return {"success": True, "deleted": deleted, "from": from_number, "to": to_number}
 
+    # ═══════════════════════════════════════════════════════════════
+    # 会话管理 API
+    # ═══════════════════════════════════════════════════════════════
+
+    @router.post("/sessions")
+    async def api_list_sessions(request: Request, data: dict):
+        """获取用户在当前小说下的所有会话列表"""
+        novel_id = data.get("novel_id", "")
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+        username = _extract_username(request)
+        sessions = _session_store.list_sessions(username, novel_id)
+        return {"success": True, "sessions": sessions, "username": username}
+
+    @router.post("/session/create")
+    async def api_create_session(request: Request, data: dict):
+        """创建新会话并设为当前"""
+        novel_id = data.get("novel_id", "")
+        if not novel_id:
+            return {"success": False, "error": "缺少 novel_id"}
+        label = data.get("label", "")
+        username = _extract_username(request)
+        session_uuid = _session_store.create_session(username, novel_id, label)
+        # 创建对应的 ContextCenter 会话节点
+        session_id = get_or_create_novel_session(novel_id, context_center, user_id=username, session_uuid=session_uuid)
+        return {"success": True, "session_uuid": session_uuid, "session_id": session_id}
+
+    @router.post("/session/switch")
+    async def api_switch_session(request: Request, data: dict):
+        """切换到已有会话"""
+        novel_id = data.get("novel_id", "")
+        session_uuid = data.get("session_uuid", "")
+        if not novel_id or not session_uuid:
+            return {"success": False, "error": "缺少 novel_id 或 session_uuid"}
+        username = _extract_username(request)
+        ok = _session_store.switch_session(username, novel_id, session_uuid)
+        if not ok:
+            return {"success": False, "error": "会话不存在"}
+        return {"success": True, "session_uuid": session_uuid}
+
+    @router.post("/session/delete")
+    async def api_delete_session(request: Request, data: dict):
+        """删除指定会话"""
+        novel_id = data.get("novel_id", "")
+        session_uuid = data.get("session_uuid", "")
+        if not novel_id or not session_uuid:
+            return {"success": False, "error": "缺少 novel_id 或 session_uuid"}
+        username = _extract_username(request)
+        ok = _session_store.delete_session(username, novel_id, session_uuid)
+        if not ok:
+            return {"success": False, "error": "会话不存在"}
+        return {"success": True, "deleted": session_uuid}
+
     return router
+

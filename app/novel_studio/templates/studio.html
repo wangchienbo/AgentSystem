@@ -9,7 +9,7 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;height:100vh;overflow:hidden;color:#222;touch-action:manipulation;-webkit-overflow-scrolling:touch}
 #app{display:flex;flex-direction:column;height:100vh}
 /* ── Login Screen ── */
-#loginScreen{display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;background:#f0f2f5}
+#loginScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;background:#f0f2f5}
 #loginScreen h2{color:#1a1a2e;margin-bottom:24px;font-size:20px}
 .login-box{background:#fff;border-radius:12px;padding:24px;width:100%;max-width:320px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
 .login-box input{width:100%;padding:10px 12px;margin-bottom:12px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box}
@@ -138,6 +138,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #reader-nav .rn-progress{font-size:13px;color:#666;text-align:center}
 .read-btn{background:#34a853!important;color:#fff!important;border:none;border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer}
 .read-btn:hover{background:#2d9248!important}
+
+/* ── Session Panel ── */
+.session-item{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;font-size:13px;color:#444;margin:1px 0;cursor:pointer}
+.session-item:hover{background:#e8f0fe;color:#1a73e8}
+.session-item.current{background:#e8f0fe;color:#1a73e8;font-weight:600}
+.session-item .s-label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.session-item .s-del{background:none;border:none;cursor:pointer;padding:0 4px;font-size:12px;color:#ccc;line-height:1;flex-shrink:0}
+.session-item .s-del:hover{color:#e94560}
+.session-add{color:#1a73e8;font-size:12px;cursor:pointer;padding:4px 8px;margin:2px 0;border-radius:6px;display:inline-block}
+.session-add:hover{background:#e8f0fe}
 
 /* Mobile: reader TOC as overlay */
 @media(max-width:768px){
@@ -289,7 +299,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script>
 const API='/api/novel';
-let cid=null,novelData=null,sidebarOpen=true;
+let cid=null,novelData=null,sidebarOpen=true,sessionUuid=null;
 
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
@@ -381,6 +391,8 @@ async function loadNovelData(id){
     msgs.innerHTML=`<div class="empty"><div class="icon">📖</div><p>开始创作《${esc(novelData.title||'')}》<br>输入指令或选择快捷操作</p><div class="q-btns"><button class="q-btn" onclick="quick('帮我把故事大纲写好')">生成大纲</button><button class="q-btn" onclick="quick('写下一章')">写下一章</button><button class="q-btn" onclick="quick('列出所有角色和他们的关系')">查看角色</button></div></div>`;
   }
   $('chat-input').disabled=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;
+  // Load session list
+  loadSessions(id);
   // Hide loading overlay
   $('loading-overlay').style.display='none';
   dbg('loadNovelData DONE: '+id);
@@ -388,12 +400,14 @@ async function loadNovelData(id){
 
 async function loadChatHistory(id){
   dbg('loadChatHistory: '+id);
-  const d=await api('/chat/history',{novel_id:id});
+  const d=await api('/chat/history',{novel_id:id,session_uuid:sessionUuid});
   if(!d.success||!d.records||!d.records.length){
     dbg('loadChatHistory: no history');
     return;
   }
   dbg('loadChatHistory: '+d.records.length+' records');
+  // Store session_uuid from response
+  if(d.session_uuid) sessionUuid=d.session_uuid;
   const msgs=$('chat-msgs');
   msgs.innerHTML='';
   for(const r of d.records){
@@ -676,7 +690,7 @@ async function sendMsg(){
     const resp=await fetch(API+'/chat/start',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({novel_id:cid,message:text})
+      body:JSON.stringify({novel_id:cid,message:text,session_uuid:sessionUuid})
     });
     const data=await resp.json();
     if(!data.success)throw new Error(data.error||'启动失败');
@@ -915,6 +929,96 @@ async function genNextChapter(){
 function quick(q){
   $('chat-input').value=q;
   sendMsg();
+}
+
+// ──── 会话管理 ────
+async function loadSessions(novelId){
+  if(!novelId)return;
+  try{
+    const d=await api('/sessions',{novel_id:novelId});
+    if(d.success&&d.sessions){
+      var current=d.sessions.find(s=>s.is_current);
+      if(current) sessionUuid=current.session_uuid;
+      buildSessionsPanel(d.sessions);
+    }
+  }catch(e){dbg('loadSessions error: '+e.message);}
+}
+
+function buildSessionsPanel(sessions){
+  const s=$('sidebar');
+  if(!s)return;
+  // Remove old session section if exists
+  var old=document.getElementById('session-section');
+  if(old)old.remove();
+  var div=document.createElement('div');
+  div.id='session-section';
+  div.className='sidebar-section';
+  var html='<h3>💬 对话</h3>';
+  var has=(sessions||[]);
+  has.forEach(function(si){
+    var cls='session-item'+(si.is_current?' current':'');
+    html+='<div class="'+cls+'">'+
+      '<span class="s-label" onclick="switchSession(\''+si.session_uuid+'\')">'+esc(si.label||si.session_uuid.slice(0,8))+'</span>'+
+      '<button class="s-del" onclick="event.stopPropagation();deleteSession(\''+si.session_uuid+'\')" title="删除会话">✕</button>'+
+    '</div>';
+  });
+  html+='<div class="session-add" onclick="newSession()">➕ 新建对话</div>';
+  div.innerHTML=html;
+  s.appendChild(div);
+}
+
+async function newSession(){
+  if(!cid)return;
+  dbg('newSession');
+  const d=await api('/session/create',{novel_id:cid});
+  if(d.success&&d.session_uuid){
+    sessionUuid=d.session_uuid;
+    // Switch to new session: clear chat, welcome message
+    $('chat-msgs').innerHTML='<div class="empty"><div class="icon">💬</div><p>新对话，输入指令开始</p></div>';
+    loadSessions(cid);
+    // Re-enable inputs
+    $('chat-input').disabled=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;
+    dbg('newSession OK: '+sessionUuid);
+  }else{
+    dbg('newSession FAIL: '+(d.error||''));
+  }
+}
+
+async function switchSession(uuid){
+  if(!cid||!uuid||uuid===sessionUuid)return;
+  dbg('switchSession: '+uuid);
+  const d=await api('/session/switch',{novel_id:cid,session_uuid:uuid});
+  if(d.success){
+    sessionUuid=uuid;
+    // Reload chat history for this session
+    $('chat-msgs').innerHTML='<div class="empty"><div class="icon">⏳</div><p>加载对话记录...</p></div>';
+    $('chat-input').disabled=true;$('send-btn').disabled=true;$('gen-btn').disabled=true;
+    await loadChatHistory(cid);
+    var msgs=$('chat-msgs');
+    if(msgs.children.length===0 || msgs.querySelector('.empty')){
+      msgs.innerHTML=`<div class="empty"><div class="icon">💬</div><p>切换至另一个对话</p></div>`;
+    }
+    $('chat-input').disabled=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;
+    loadSessions(cid);
+  }else{
+    dbg('switchSession FAIL: '+(d.error||''));
+  }
+}
+
+async function deleteSession(uuid){
+  if(!cid||!uuid)return;
+  if(!confirm('确定删除这个会话吗？'))return;
+  dbg('deleteSession: '+uuid);
+  const d=await api('/session/delete',{novel_id:cid,session_uuid:uuid});
+  if(d.success){
+    if(uuid===sessionUuid){
+      sessionUuid=null;
+      $('chat-msgs').innerHTML=`<div class="empty"><div class="icon">💬</div><p>对话已切换</p></div>`;
+    }
+    loadSessions(cid);
+  }else{
+    dbg('deleteSession FAIL: '+(d.error||''));
+  }
 }
 
 // ──── Lightweight sidebar refresh (does NOT replace chat) ────

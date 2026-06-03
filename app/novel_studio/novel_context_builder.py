@@ -28,9 +28,15 @@ NOVEL_SESSION_PREFIX = "novel:"
 DIALOGUE_SESSION_PREFIX = "novel:dialogue:"
 
 
-def novel_session_id(novel_id: str) -> str:
-    """小说主会话 ID"""
-    return f"{NOVEL_SESSION_PREFIX}{novel_id}"
+def novel_session_id(novel_id: str, user_id: str = SESSION_USER, session_uuid: str = "") -> str:
+    """小说主会话 ID — 格式: novel:<username>:<novel_id>:<uuid>"""
+    parts = [NOVEL_SESSION_PREFIX]
+    if user_id and user_id != SESSION_USER:
+        parts.append(f"{user_id}:")
+    parts.append(novel_id)
+    if session_uuid:
+        parts.append(f":{session_uuid}")
+    return "".join(parts)
 
 
 def dialogue_session_id(novel_id: str, char1: str, char2: str) -> str:
@@ -46,12 +52,16 @@ def get_or_create_novel_session(
     novel_id: str,
     context_center: Any,
     user_id: str = SESSION_USER,
+    session_uuid: str = "",
 ) -> str:
-    """获取或创建小说主会话（如果 context_center 不存在则静默跳过）"""
-    if not context_center:
-        return novel_session_id(novel_id)
+    """获取或创建小说主会话（如果 context_center 不存在则静默跳过）
 
-    sid = novel_session_id(novel_id)
+    session_id 格式: novel:<username>:<novel_id>:<uuid>
+    """
+    if not context_center:
+        return novel_session_id(novel_id, user_id, session_uuid)
+
+    sid = novel_session_id(novel_id, user_id, session_uuid)
     try:
         existing = context_center.get_session_node(sid)
         if existing is not None:
