@@ -149,6 +149,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .session-add{color:#1a73e8;font-size:12px;cursor:pointer;padding:4px 8px;margin:2px 0;border-radius:6px;display:inline-block}
 .session-add:hover{background:#e8f0fe}
 
+/* ── Session Topbar Dropdown ── */
+#session-btn-wrap{position:relative;display:flex;align-items:center;margin:0 4px}
+#session-btn{display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:3px 10px;border-radius:6px;font-size:13px;color:#1a73e8;background:rgba(26,115,232,.08);border:1px solid rgba(26,115,232,.2);white-space:nowrap;max-width:160px;user-select:none;position:relative}
+#session-btn:hover{background:rgba(26,115,232,.15)}
+#session-btn .s-caret{font-size:10px;margin-left:2px;transition:transform .2s}
+#session-btn.open .s-caret{transform:rotate(180deg)}
+#session-btn .s-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px}
+
+#session-dropdown{position:absolute;top:100%;left:0;z-index:200;min-width:220px;max-width:300px;max-height:300px;overflow-y:auto;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);display:none;margin-top:4px;padding:6px}
+#session-dropdown.show{display:block}
+#session-dropdown .sd-header{padding:6px 10px;font-size:12px;color:#999;border-bottom:1px solid #f0f0f0;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+#session-dropdown .sd-header .sd-new{color:#1a73e8;cursor:pointer;font-size:12px}
+#session-dropdown .sd-header .sd-new:hover{text-decoration:underline}
+.sd-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;color:#333;cursor:pointer;margin:1px 0}
+.sd-item:hover{background:#f0f4ff}
+.sd-item.current{background:#e8f0fe;font-weight:600}
+.sd-item .sd-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sd-item .sd-msgs{font-size:11px;color:#999;flex-shrink:0}
+.sd-item .sd-del{background:none;border:none;cursor:pointer;padding:2px 4px;font-size:12px;color:#ccc;flex-shrink:0;border-radius:4px}
+.sd-item .sd-del:hover{color:#e94560;background:#fff0f0}
+.sd-item .sd-id{font-size:10px;color:#bbb;margin-left:4px}
+
 /* Mobile: reader TOC as overlay */
 @media(max-width:768px){
   #reader-toc{position:fixed;top:50px;left:0;bottom:56px;width:280px;z-index:50;box-shadow:2px 0 12px rgba(0,0,0,.15)}
@@ -226,6 +248,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
       <span id="tb-title">加载中...</span>
       <span id="tb-genre"></span>
+      <div id="session-btn-wrap">
+        <div id="session-btn" onclick="toggleSessionDropdown()" title="切换对话">
+          💬 <span class="s-label" id="sess-current-label">对话</span>
+          <span class="s-caret">▾</span>
+          <div id="session-dropdown"></div>
+        </div>
+      </div>
       <div style="flex:1"></div>
       <div class="top-actions">
         <button class="read-btn" onclick="openReader()">📖 阅读</button>
@@ -301,7 +330,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const API='/api/novel';
 let cid=null,novelData=null,sidebarOpen=true,sessionUuid=null;
 
-function $(id){return document.getElementById(id)}
+function $(id){return document.getElementById(id.startsWith('#')?id.slice(1):id)}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
 function dbg(msg){
@@ -940,6 +969,7 @@ async function loadSessions(novelId){
       var current=d.sessions.find(s=>s.is_current);
       if(current) sessionUuid=current.session_uuid;
       buildSessionsPanel(d.sessions);
+      buildSessionDropdown(d.sessions);
     }
   }catch(e){dbg('loadSessions error: '+e.message);}
 }
@@ -1020,6 +1050,49 @@ async function deleteSession(uuid){
     dbg('deleteSession FAIL: '+(d.error||''));
   }
 }
+
+// ──── Session dropdown ────
+function toggleSessionDropdown(){
+  const dd=document.getElementById('session-dropdown');
+  if(!dd)return;
+  dd.classList.toggle('show');
+  const btn=document.getElementById('session-btn');
+  if(btn)btn.classList.toggle('open');
+}
+
+function buildSessionDropdown(sessions){
+  const dd=document.getElementById('session-dropdown');
+  if(!dd)return;
+  const current=(sessions||[]).find(s=>s.is_current);
+  const lbl=document.getElementById('sess-current-label');
+  if(lbl) lbl.textContent=current?(current.label||current.session_uuid.slice(0,8)):'对话';
+  var html='<div class="sd-header"><span>💬 对话历史</span><span class="sd-new" onclick="newSession();toggleSessionDropdown()">➕ 新建</span></div>';
+  (sessions||[]).forEach(function(si){
+    var cls='sd-item'+(si.is_current?' current':'');
+    var label=esc(si.label||si.session_uuid.slice(0,8));
+    var msgs=si.message_count||'0';
+    html+='<div class="'+cls+'" onclick="switchSession(\''+si.session_uuid+'\');toggleSessionDropdown()">'+
+      '<span class="sd-label">'+label+'</span>'+
+      '<span class="sd-msgs">'+msgs+'条</span>'+
+      '<button class="sd-del" onclick="event.stopPropagation();deleteSession(\''+si.session_uuid+'\')">✕</button>'+
+    '</div>';
+  });
+  if(!sessions||sessions.length===0){
+    html+='<div style="padding:16px;text-align:center;color:#999;font-size:13px">暂无对话记录</div>';
+  }
+  dd.innerHTML=html;
+}
+
+// Close session dropdown on outside click
+document.addEventListener('click',function(e){
+  var wrap=document.getElementById('session-btn-wrap');
+  var dd=document.getElementById('session-dropdown');
+  if(wrap&&dd&&dd.classList.contains('show')&&!wrap.contains(e.target)){
+    dd.classList.remove('show');
+    var btn=document.getElementById('session-btn');
+    if(btn)btn.classList.remove('open');
+  }
+});
 
 // ──── Lightweight sidebar refresh (does NOT replace chat) ────
 async function refreshSidebar(){
