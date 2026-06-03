@@ -270,8 +270,17 @@ class ToolCallingEngine:
                 messages.append({
                     "role": "system",
                     "content": (
-                        f"[系统提示] 当前对话已执行 {turn} 轮工具调用，接近预算上限。"
-                        f"请立即整理已有信息，输出当前阶段性成果作为回复，不再调用工具。"
+                        f"[收敛信号] 已消耗 {turn+1} 轮工具调用，必须立刻收尾。"
+                        f"请立即整理已有信息输出中文回复，无论是否完整，不要再调任何工具。"
+                    ),
+                })
+            # 二次强制回收信号 - 仅靠近最大轮数时注射一次
+            if turn == max(_convergence_turn + 4, 12) and _convergence_turn > 0:
+                messages.append({
+                    "role": "system",
+                    "content": (
+                        "[紧急回收] 工具轮次已严重超限，本轮是最后一次调用。"
+                        "请立即输出中文回复（可基于已有信息），不要再调任何工具。"
                     ),
                 })
 
@@ -354,6 +363,13 @@ class ToolCallingEngine:
                     )
                 total_usage["model"] = model_name
                 total_usage["turns"] = turn + 1
+                logger.info(
+                    "ToolCallingEngine session=%s finished model=%s turns=%s prompt_tokens=%s completion_tokens=%s total_tokens=%s",
+                    session_id, model_name, turn + 1,
+                    total_usage.get("prompt_tokens", 0),
+                    total_usage.get("completion_tokens", 0),
+                    total_usage.get("total_tokens", 0),
+                )
                 return ToolCallingResult(
                     final_text=response.get("text", ""),
                     tool_calls=call_records,

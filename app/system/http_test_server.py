@@ -167,6 +167,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# 确保所有 JSON 响应包含 charset=utf-8 防止中文乱码
+@app.middleware("http")
+async def add_charset_to_json(request: Request, call_next):
+    response = await call_next(request)
+    ct = response.headers.get("content-type", "")
+    if ct.startswith("application/json") and "charset" not in ct:
+        response.headers["content-type"] = "application/json; charset=utf-8"
+    elif ct.startswith("text/html") and "charset" not in ct:
+        response.headers["content-type"] = ct + "; charset=utf-8"
+    return response
+
 # 注册 Novel Studio（统一引导）
 _novel_result = bootstrap_novel_studio(runtime_services, fastapi_app=app)
 novel_engine = _novel_result["engine"]

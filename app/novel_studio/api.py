@@ -826,7 +826,7 @@ def create_novel_router(
 
         return StreamingResponse(
             _stream_chat_events(engine, novel, message, novel_id, system_prompt, context_center, session_id, runtime_center),
-            media_type="application/x-ndjson",
+            media_type="application/x-ndjson; charset=utf-8",
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
@@ -882,7 +882,7 @@ def create_novel_router(
                 _sp = SYSTEM_PROMPT_TEMPLATE.format(
                     session_context=formatted_ctx,
                     tools_description="",
-                    tool_loop_governor="[收敛优先] 优先在同一轮并行输出全部独立工具调用（系统自动并行执行）。一旦拿到能回答用户问题的数据，立即停止调任何工具，输出中文回复。不要为追求全面或验证而继续探索。查询小说状态只需调一次 get_novel。",
+                    tool_loop_governor="[收敛优先] 🔴【核心规则】必须一次性并行输出所有独立工具调用——系统自动并行执行互不依赖的多个工具。每一轮LLM调用都算一轮，无论输出几个工具都算一轮。一轮调10个工具远优于10轮各调1个。一旦拿到足够回答用户问题的数据，立即停止调任何工具，只输出中文回复。不要连续多轮逐次调用工具。查询小说状态只需调一次 get_novel。",
                     branch_guidance="",
                     app_routing_rules="",
                 )
@@ -903,7 +903,7 @@ def create_novel_router(
                     tools=tool_defs,
                     asset_id="asset:novel_studio:v1",
                     session_id=session_id,
-                    max_turns=50,
+                    max_turns=15,
                 )
 
                 # 6. 提取回复正文（优先从 save_chapter 工具参数中提取）
@@ -1082,7 +1082,7 @@ def create_novel_router(
                 system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
                     session_context=formatted_ctx,
                     tools_description="",
-                    tool_loop_governor="[收敛优先] 优先在同一轮并行输出全部独立工具调用（系统自动并行执行）。一旦拿到能回答用户问题的数据，立即停止调任何工具，输出中文回复。不要为追求全面或验证而继续探索。查询小说状态只需调一次 get_novel。",
+                    tool_loop_governor="[收敛优先] 🔴【核心规则】必须一次性并行输出所有独立工具调用——系统自动并行执行互不依赖的多个工具。每一轮LLM调用都算一轮，无论输出几个工具都算一轮。一轮调10个工具远优于10轮各调1个。一旦拿到足够回答用户问题的数据，立即停止调任何工具，只输出中文回复。不要连续多轮逐次调用工具。查询小说状态只需调一次 get_novel。",
                     branch_guidance="",
                     app_routing_rules="",
                 )
@@ -1103,7 +1103,7 @@ def create_novel_router(
                     tools=tool_defs,
                     asset_id="asset:novel_studio:v1",
                     session_id=session_id,
-                    max_turns=50,
+                    max_turns=15,
                 )
                 text = (result.final_text or "").strip()
                 # 检测是否有 save_chapter 工具调用，如有则用章节正文覆盖回复文本
