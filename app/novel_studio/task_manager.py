@@ -15,12 +15,16 @@ logger = logging.getLogger(__name__)
 
 
 class GenerateTask:
-    """一个管道生成任务"""
+    """一个管道生成任务或聊天任务"""
 
-    def __init__(self, novel_id: str, template: str):
+    def __init__(self, novel_id: str, template: str = "write_next_chapter",
+                 kind: str = "chapter", message: str = "", session_id: str = ""):
         self.id: str = uuid.uuid4().hex[:12]
         self.novel_id: str = novel_id
         self.template: str = template
+        self.kind: str = kind  # "chapter" | "chat"
+        self.message: str = message  # 用户消息（仅 chat 使用）
+        self.session_id: str = session_id  # ContextCenter session（仅 chat 使用）
         self.status: str = "pending"  # pending → running → complete | error
         self.events: list[dict[str, Any]] = []  # 缓冲的所有事件
         self.result: dict[str, Any] | None = None
@@ -33,6 +37,9 @@ class GenerateTask:
             "id": self.id,
             "novel_id": self.novel_id,
             "template": self.template,
+            "kind": self.kind,
+            "message": self.message,
+            "session_id": self.session_id,
             "status": self.status,
             "events": self.events[from_event_index:],
             "total_events": len(self.events),
@@ -49,12 +56,13 @@ _tasks: dict[str, GenerateTask] = {}
 _novel_latest: dict[str, str] = {}  # novel_id → latest task_id
 
 
-def create_task(novel_id: str, template: str = "write_next_chapter") -> GenerateTask:
+def create_task(novel_id: str, template: str = "write_next_chapter",
+                kind: str = "chapter", message: str = "", session_id: str = "") -> GenerateTask:
     """创建新任务"""
-    task = GenerateTask(novel_id, template)
+    task = GenerateTask(novel_id, template, kind=kind, message=message, session_id=session_id)
     _tasks[task.id] = task
     _novel_latest[novel_id] = task.id
-    logger.info("Task created: %s for novel %s (template=%s)", task.id, novel_id, template)
+    logger.info("Task created: %s for novel %s (kind=%s)", task.id, novel_id, kind)
     return task
 
 

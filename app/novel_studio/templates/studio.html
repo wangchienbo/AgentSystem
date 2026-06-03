@@ -8,6 +8,18 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;height:100vh;overflow:hidden;color:#222;touch-action:manipulation;-webkit-overflow-scrolling:touch}
 #app{display:flex;flex-direction:column;height:100vh}
+/* ── Login Screen ── */
+#loginScreen{display:none;flex-direction:column;align-items:center;justify-content:center;flex:1;background:#f0f2f5}
+#loginScreen h2{color:#1a1a2e;margin-bottom:24px;font-size:20px}
+.login-box{background:#fff;border-radius:12px;padding:24px;width:100%;max-width:320px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.login-box input{width:100%;padding:10px 12px;margin-bottom:12px;border:1px solid #ddd;border-radius:8px;font-size:15px;box-sizing:border-box}
+.login-box input:focus{outline:none;border-color:#1a73e8}
+.login-box button{width:100%;padding:10px;background:#1a73e8;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer}
+.login-box button:hover{background:#1557b0}
+#loginMsg{margin-top:12px;font-size:13px;text-align:center;min-height:18px}
+.loginMsg-error{color:#e94560}
+.loginMsg-info{color:#666}
+#chatMain{display:none;flex:1;flex-direction:column;overflow:hidden}
 #topbar{display:flex;align-items:center;padding:10px 16px;background:#1a1a2e;color:#fff;gap:12px;flex-shrink:0}
 .hamburger{cursor:pointer;font-size:22px;padding:4px 6px;border-radius:4px;user-select:none;background:transparent;border:none;color:#fff}
 .hamburger:hover{background:rgba(255,255,255,.1)}
@@ -176,6 +188,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </head>
 <body>
 <div id="app">
+  <!-- ── Login Screen ── -->
+  <div id="loginScreen">
+    <h2>📖 小说创作室</h2>
+    <div class="login-box">
+      <input type="text" id="loginUser" placeholder="用户名" autocomplete="username" />
+      <button id="loginBtn">进入工作室</button>
+      <div id="loginMsg">输入任意用户名即可进入</div>
+    </div>
+  </div>
+  <!-- ── Main App ── -->
+  <div id="chatMain">
   <div id="list-view" class="view active">
     <div id="topbar">
       <h2>📖 小说创作室</h2>
@@ -579,6 +602,63 @@ function _scrollToBottom(el){
   setTimeout(()=>{_scrollPending=false},80);
 }
 
+// ──── 聊天任务轮询（缓冲模式，断开不丢进度） ────
+let _chatPollTimer=null,_chatPollActive=false;
+
+async function _pollChatTask(taskId,msgDiv,msgs){
+  if(_chatPollActive)return;
+  _chatPollActive=true;
+  try{
+    let taskStatus='pending',taskResult=null,taskError=null;
+    let lastIdx=0;
+    while(true){
+      const resp=await fetch(`/api/novel/task/${taskId}?from_event=${lastIdx}`);
+      if(!resp.ok)throw new Error('Poll HTTP '+resp.status);
+      const data=await resp.json();
+      if(!data.success)throw new Error(data.error||'unknown');
+      taskStatus=data.status;
+      // Show progress events if available
+      const evts=data.events||[];
+      for(let i=lastIdx;i<data.total_events;i++){
+        const ev=evts[i-lastIdx];
+        if(ev&&ev.type==='status'&&ev.text==='running'){
+          msgDiv.innerHTML='⏳ 思考中...';
+        }
+        lastIdx=i+1;
+      }
+      if(taskStatus==='complete'){
+        taskResult=data.result;
+        if(taskResult&&taskResult.content){
+          msgDiv.innerHTML=esc(taskResult.content);
+          if(taskResult.chapter&&taskResult.chapter.number){
+            var tag=document.createElement('span');tag.className='ch-tag';
+            tag.textContent='📚 已保存为第'+taskResult.chapter.number+'章'+(taskResult.chapter.title?'「'+taskResult.chapter.title+'」':'');
+            msgDiv.appendChild(tag);
+            refreshSidebar();
+          }
+        }else{
+          msgDiv.innerHTML='（模型暂无回复）';
+        }
+        break;
+      }
+      if(taskStatus==='error'){
+        msgDiv.innerHTML='⚠️ '+esc(data.error||'任务失败');
+        break;
+      }
+      await new Promise(r=>{_chatPollTimer=setTimeout(r,2000)});
+    }
+  }catch(e){
+    msgDiv.innerHTML='⚠️ 请求失败: '+esc(e.message);
+  }finally{
+    _chatPollActive=false;
+    _isStreaming=false;
+    $('send-btn').disabled=false;$('gen-btn').disabled=false;
+    const inp=$('chat-input');if(inp)inp.disabled=false;
+    try{localStorage.removeItem('chat_task_'+cid)}catch(_){}
+    _scrollToBottom(msgs);
+  }
+}
+
 async function sendMsg(){
   const inp=$('chat-input');const text=inp.value.trim();
   if(!text||!cid)return;
@@ -586,101 +666,34 @@ async function sendMsg(){
   inp.value='';$('send-btn').disabled=true;$('gen-btn').disabled=true;inp.disabled=true;
   const msgs=$('chat-msgs');
   msgs.innerHTML+=`<div class="msg user">${esc(text)}</div>`;
-  // Create AI message bubble that will be filled progressively (streaming)
+  // Create AI message bubble that will be filled when task completes
   const mid='stream-msg-'+(++_msgId);
-  msgs.innerHTML+=`<div class="msg ai" id="${mid}"></div>`;
+  msgs.innerHTML+=`<div class="msg ai" id="${mid}"><span class="thinking">⏳ 启动中...</span></div>`;
   const msgDiv=document.getElementById(mid);
   _scrollToBottom(msgs);
   try{
-    const response=await fetch(API+'/chat/stream',{
+    // Start background chat task (buffered: browser disconnect won't lose response)
+    const resp=await fetch(API+'/chat/start',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({novel_id:cid,message:text})
     });
-    if(!response.ok){
-      const err=await response.json().catch(()=>({error:'HTTP '+response.status}));
-      msgDiv.textContent='⚠️ '+(err.error||'请求失败');
-      _isStreaming=false;
-      $('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false;
-      return;
-    }
-    // Check if streaming is supported
-    if(!response.body){
-      // Fallback: read full text as NDJSON (line-by-line parsing)
-      const text=await response.text();
-      const lines=text.split('\n');
-      let fullText='',chapterInfo=null;
-      for(const line of lines){
-        if(!line.trim())continue;
-        try{
-          const data=JSON.parse(line);
-          if(data.token) fullText+=data.token;
-          else if(data.done) chapterInfo=data.chapter||null;
-          else if(data.info && !fullText) msgDiv.textContent='⏳ '+data.info;
-          else if(data.error){ msgDiv.textContent='⚠️ '+data.error; _isStreaming=false;$('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false; return; }
-        }catch(e){/* skip malformed lines */}
-      }
-      msgDiv.textContent=fullText||'（模型暂无回复）';
-      if(chapterInfo&&chapterInfo.number){
-        var tag=document.createElement('span');tag.className='ch-tag';
-        tag.textContent='📚 已保存为第'+chapterInfo.number+'章'+(chapterInfo.title?'「'+chapterInfo.title+'」':'');
-        msgDiv.appendChild(tag);
-        refreshSidebar();
-      }
-      _isStreaming=false;
-      $('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false;
-      _scrollToBottom(msgs);
-      return;
-    }
-    // Streaming mode: parse NDJSON line by line
-    const reader=response.body.getReader();
-    const decoder=new TextDecoder();
-    let buffer='',fullText='',chapterInfo=null,gotInfo=false;
-    msgDiv.textContent='⏳ 思考中...';
-    while(true){
-      const {done,value}=await reader.read();
-      if(done)break;
-      buffer+=decoder.decode(value,{stream:true});
-      const lines=buffer.split('\n');
-      buffer=lines.pop(); // keep trailing incomplete line in buffer
-      let textChanged=false;
-      for(const line of lines){
-        if(!line.trim())continue;
-        try{
-          const data=JSON.parse(line);
-          if(data.token){
-            if(gotInfo&&fullText.length<10)msgDiv.textContent=''; // clear "thinking" indicator on first real token
-            fullText+=data.token;
-            msgDiv.textContent=fullText;
-            textChanged=true;
-          }else if(data.done){
-            chapterInfo=data.chapter||null;
-          }else if(data.info){
-            if(!gotInfo){msgDiv.textContent='⏳ '+data.info;gotInfo=true;}
-          }else if(data.error){
-            msgDiv.textContent='⚠️ '+data.error;
-          }
-        }catch(e){/* skip malformed lines */}
-      }
-      if(textChanged)_scrollToBottom(msgs);
-    }
-    // Remove "⏳ 思考中..." if no tokens arrived
-    if(!fullText){
-      msgDiv.textContent='（模型暂无回复）';
-    }
-    // Add chapter tag if saved
-    if(chapterInfo&&chapterInfo.number){
-      var tag=document.createElement('span');tag.className='ch-tag';
-      tag.textContent='📚 已保存为第'+chapterInfo.number+'章'+(chapterInfo.title?'「'+chapterInfo.title+'」':'');
-      msgDiv.appendChild(tag);
-      refreshSidebar();
-    }
+    const data=await resp.json();
+    if(!data.success)throw new Error(data.error||'启动失败');
+
+    // Save task_id to localStorage for reconnection
+    try{localStorage.setItem('chat_task_'+cid,data.task_id)}catch(_){}
+
+    // Wait for existing pollTask to finish (chapter gen)
+    // Then poll for chat task completion
+    msgDiv.innerHTML='⏳ 思考中...';
+    await _pollChatTask(data.task_id,msgDiv,msgs);
   }catch(e){
-    msgDiv.textContent='⚠️ 请求失败: '+e.message;
+    msgDiv.innerHTML='⚠️ 请求失败: '+esc(e.message);
+    _isStreaming=false;
+    $('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false;
+    _scrollToBottom(msgs);
   }
-  _isStreaming=false;
-  $('send-btn').disabled=false;$('gen-btn').disabled=false;inp.disabled=false;inp.focus();
-  _scrollToBottom(msgs);
 }
 
 // ──── Pipeline state & helpers (global, used by pollTask & genNextChapter) ────
@@ -865,6 +878,37 @@ async function genNextChapter(){
   }catch(e){
     console.warn('checkPendingTask error:',e.message);
     try{localStorage.removeItem('novel_task_'+cid)}catch(_){}
+  }
+  // ── 检查未完成的聊天任务 ──
+  try{
+    const chatTask=localStorage.getItem('chat_task_'+cid);
+    if(chatTask){
+      const resp=await fetch(`/api/novel/task/${chatTask}?from_event=0`);
+      if(resp.ok){
+        const data=await resp.json();
+        if(data.success&&data.status==='complete'){
+          // Chat task already complete → ContextCenter already has it
+          // Just clean up localStorage, loadChatHistory will show it
+          localStorage.removeItem('chat_task_'+cid);
+          // Try reloading chat history to get the new message
+          await loadChatHistory(cid);
+        }else if(data.success&&(data.status==='running'||data.status==='pending')){
+          // Running chat task → resume polling
+          const msgs=$('chat-msgs');
+          const mid='stream-msg-'+(++_msgId);
+          msgs.innerHTML+=`<div class="msg ai" id="${mid}"><span class="thinking">⏳ 重连中...</span></div>`;
+          const msgDiv=document.getElementById(mid);
+          _pollChatTask(chatTask,msgDiv,msgs);
+        }else{
+          localStorage.removeItem('chat_task_'+cid);
+        }
+      }else{
+        localStorage.removeItem('chat_task_'+cid);
+      }
+    }
+  }catch(e){
+    console.warn('checkPendingChatTask error:',e.message);
+    try{localStorage.removeItem('chat_task_'+cid)}catch(_){}
   }
 })();
 
@@ -1320,8 +1364,73 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&$('create-modal').classList.contains('show')&&e.target.id!=='coutline'){e.preventDefault();createNovel()}
 });
 
-// Init
-loadNovels();
+// ── Auth ──────────────────────────────────────────────────────
+let _currentUser = null;
+
+function showLogin(msg, isError){
+  $('#loginScreen').style.display='flex';
+  $('#chatMain').style.display='none';
+  const lm=$('#loginMsg');
+  lm.className=isError?'loginMsg-error':'loginMsg-info';
+  lm.textContent=msg||'输入任意用户名即可进入';
+}
+function showApp(){
+  $('#loginScreen').style.display='none';
+  $('#chatMain').style.display='flex';
+}
+
+async function doLogin(){
+  const u=$('#loginUser').value.trim();
+  if(!u){showLogin('请输入用户名',true);return;}
+  const btn=$('#loginBtn'); btn.disabled=true; btn.textContent='登录中...';
+  showLogin('登录中...');
+  try{
+    const resp=await fetch('/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:u}),
+    });
+    const d=await resp.json();
+    if(d.success){
+      _currentUser=d.username;
+      showApp();
+      loadNovels();
+      // Try to restore last selected novel from URL hash or localStorage
+      const savedCid=localStorage.getItem('last_novel_id');
+      if(savedCid) refreshSidebar();
+    }else{
+      showLogin('登录失败: '+(d.error||'未知错误'),true);
+    }
+  }catch(e){
+    showLogin('网络错误: '+e.message,true);
+  }finally{
+    const btn=$('#loginBtn'); btn.disabled=false; btn.textContent='进入工作室';
+  }
+}
+$('#loginBtn').onclick=doLogin;
+$('#loginUser').onkeydown=e=>{if(e.key==='Enter')doLogin()};
+
+// Check existing session on page load
+(async function checkSession(){
+  try{
+    const resp=await fetch('/api/novel/list',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:'{}',
+    });
+    if(resp.ok){
+      const d=await resp.json();
+      if(d.success){
+        showApp();
+        loadNovels();
+        return;
+      }
+    }
+  }catch(_){}
+  showLogin();
+})();
 </script>
+  </div> <!-- /chatMain -->
+</div> <!-- /app -->
 </body>
 </html>

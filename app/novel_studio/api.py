@@ -1240,6 +1240,213 @@ def create_novel_router(
             return {"success": False, "error": str(e)}
 
     # ═══════════════════════════════════════════════════════════════
+    # 聊天缓冲（后台运行，浏览器断开不丢失）
+    # ═══════════════════════════════════════════════════════════════
+
+    @router.post("/chat/start")
+    async def api_chat_start(data: dict):
+        """启动后台聊天任务，浏览器断开后服务器继续运行，结果自动保存到 ContextCenter"""
+        novel_id = data.get("novel_id", "")
+        message = data.get("message", "")
+        if not novel_id or not message:
+            return {"success": False, "error": "缺少 novel_id 或 message"}
+
+        # 检查是否有已存在的运行中聊天任务
+        existing = get_latest_task(novel_id)
+        if existing and existing.kind == "chat" and existing.status == "running":
+            return {
+                "success": True,
+                "task_id": existing.id,
+                "note": "已有运行中的聊天任务，继续使用",
+            }
+
+        # 创建任务
+        session_id = get_or_create_novel_session(novel_id, context_center)
+        task = create_task(
+            novel_id=novel_id,
+            template="chat",
+            kind="chat",
+            message=message,
+            session_id=session_id,
+        )
+        logger.info("Chat task %s created: novel=%s message_len=%d", task.id, novel_id, len(message))
+
+        def _run_chat_in_thread():
+            """在后台线程运行 LLM 调用（同步执行，不阻塞 uvicorn）"""
+            from datetime import datetime, timezone
+            _loop = _asyncio.new_event_loop()
+            _asyncio.set_event_loop(_loop)
+            try:
+                task.status = "running"
+                task.events.append({"type": "status", "text": "running", "ts": datetime.now(timezone.utc).isoformat()})
+
+                # 1. 获取小说数据和会话
+                novel = engine.get_novel(novel_id)
+                if not novel:
+                    raise RuntimeError(f"小说 {novel_id} 未找到")
+
+                # 2. 记录用户消息到 ContextCenter
+                log_novel_context_records(novel, context_center, session_id)
+                log_context_record(session_id, message, context_center, role="user", kind="message")
+                task.events.append({"type": "user_msg", "text": message, "ts": datetime.now(timezone.utc).isoformat()})
+
+                # 3. 调用 LLM（优先新架构：系统工具调用引擎）
+                text = ""
+                _skip_auto_save = False
+                if tool_calling_engine and hot_tool_manager and prompt_composer:
+                    # 新架构：系统工具调用引擎
+                    app_system_prompt = prompt_composer.read_skill("novel_studio/main")
+                    novel_data = _format_novel_state(novel)
+                    app_system_prompt = app_system_prompt.replace("{novel_data}", novel_data)
+
+                    model_input_view = None
+                    if context_center and model_input_builder:
+                        model_input_view = model_input_builder.build(
+                            session_id=session_id,
+                            window_turns=10,
+                        )
+                    window = context_center.get_recent_context(session_id, limit=10) if context_center and model_input_view is None else None
+                    history = [
+                        {"role": r.role, "content": r.content}
+                        for r in window.records if r.kind == "message"
+                    ] if window else []
+                    formatted_ctx = build_session_context(
+                        history=history,
+                        pending_intent=None,
+                        pending_params={},
+                        missing_param=None,
+                        available_apps=[],
+                        app_system_prompt=app_system_prompt,
+                        model_input_view=model_input_view,
+                    )
+
+                    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+                        session_context=formatted_ctx,
+                        tools_description="",
+                        tool_loop_governor="[收敛优先] 🔴【核心规则】必须一次性并行输出所有独立工具调用——系统自动并行执行互不依赖的多个工具。每一轮LLM调用都算一轮，无论输出几个工具都算一轮。一轮调10个工具远优于10轮各调1个。一旦拿到足够回答用户问题的数据，立即停止调任何工具，只输出中文回复。不要连续多轮逐次调用工具。查询小说状态只需调一次 get_novel。",
+                        branch_guidance="",
+                        app_routing_rules="",
+                    )
+
+                    all_tools = hot_tool_manager.get_tools_for_session(session_id)
+                    tool_defs = [
+                        ToolDef(name=t["name"], description=t.get("description", ""),
+                                parameters=t.get("parameters", {"type": "object", "properties": {}}))
+                        for t in all_tools
+                    ]
+
+                    result = tool_calling_engine.execute_turns(
+                        skill_id="novel_studio",
+                        system_prompt=system_prompt,
+                        user_message=message,
+                        tools=tool_defs,
+                        asset_id="asset:novel_studio:v1",
+                        session_id=session_id,
+                        max_turns=15,
+                    )
+                    text = (result.final_text or "").strip()
+                    for _tc in (result.tool_calls or []):
+                        if _tc.tool_name == "call_asset_method" and isinstance(_tc.args, dict):
+                            if _tc.args.get("method") == "save_chapter" and isinstance(_tc.args.get("params"), dict):
+                                _chapter_content = _tc.args["params"].get("content", "").strip()
+                                if len(_chapter_content) > 500:
+                                    text = _chapter_content
+                                    break
+                    _skip_auto_save = True
+
+                elif runtime_center:
+                    # 兼容旧架构
+                    tool_def = _build_asset_tool_def()
+                    system_prompt = build_novel_system_prompt(novel)
+
+                    def _call_asset_handler(asset_id, method, params=None):
+                        try:
+                            result = runtime_center.call_asset_method(asset_id, method, params or {})
+                            if hasattr(result, 'to_dict'):
+                                return result.to_dict()
+                            return result
+                        except Exception as e:
+                            return {"error": str(e), "ok": False}
+
+                    if engine._llm_client:
+                        client = engine._llm_client
+                    elif engine._model_router:
+                        client = engine._model_router.get_client("novel_writer", "complex")
+                    else:
+                        raise RuntimeError("请配置 LLM 客户端")
+
+                    text, usage = client.chat_turns(
+                        system_prompt=system_prompt,
+                        user_message=message,
+                        tools=[tool_def],
+                        tool_handlers={"call_asset_method": _call_asset_handler},
+                        model=client._config.model,
+                        max_tokens=getattr(client._config, 'max_tokens', 4096),
+                        temperature=getattr(client._config, 'temperature', 0.7),
+                        max_turns=getattr(client._config, 'max_turns', 30),
+                    )
+                    text = (text or "").strip()
+                else:
+                    # 降级：普通对话
+                    system_prompt = build_novel_system_prompt(novel)
+                    if engine._llm_client:
+                        client = engine._llm_client
+                    elif engine._model_router:
+                        client = engine._model_router.get_client("novel_writer", "complex")
+                    else:
+                        raise RuntimeError("请配置 LLM 客户端")
+
+                    for attempt in range(3):
+                        text, _ = client.chat(
+                            [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
+                            model=client._config.model,
+                            max_tokens=getattr(client._config, 'max_tokens', 4096),
+                            temperature=getattr(client._config, 'temperature', 0.7),
+                        )
+                        if text:
+                            break
+                        if attempt < 2:
+                            logger.warning(f"LLM returned empty (attempt {attempt+1}), retrying...")
+                            import time; time.sleep(1.5)
+                    text = (text or "").strip()
+
+                # 4. 记录 LLM 回复到 ContextCenter
+                if text:
+                    log_context_record(session_id, text, context_center, role="assistant", kind="message")
+
+                # 5. 尝试自动保存章节（旧架构兼容）
+                chapter_info = None
+                if not _skip_auto_save and text and len(text) >= 100:
+                    import re
+                    if re.search(r'大纲|梗概|三幕', message):
+                        _try_save_as_outline(novel_id, text, engine)
+                    elif re.search(r'写|章|节|生成|继续|下一', message):
+                        chapter_info = _save_as_chapter(novel_id, text, message)
+
+                # 6. 更新任务结果
+                result_data = {"content": text or "（模型未返回有效内容，请换个说法再试）"}
+                if chapter_info:
+                    result_data["chapter"] = chapter_info
+                task.result = result_data
+                task.status = "complete"
+                task.events.append({"type": "complete", "text": text, "ts": datetime.now(timezone.utc).isoformat()})
+                logger.info("Chat task %s complete: text_len=%d", task.id, len(text or ""))
+
+            except Exception as e:
+                logger.exception("后台聊天线程异常")
+                task.status = "error"
+                task.error = str(e)
+                task.events.append({"type": "error", "text": str(e), "ts": datetime.now(timezone.utc).isoformat()})
+            finally:
+                _loop.close()
+                _asyncio.set_event_loop(None)
+
+        main_loop = _asyncio.get_event_loop()
+        main_loop.run_in_executor(None, _run_chat_in_thread)
+
+        return {"success": True, "task_id": task.id}
+
+    # ═══════════════════════════════════════════════════════════════
     # 演化引擎 API
     # ═══════════════════════════════════════════════════════════════
 
