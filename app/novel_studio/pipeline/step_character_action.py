@@ -63,7 +63,7 @@ class CharacterActionModule(BaseModule):
                 break  # 所有角色都已行动
 
             # 1️⃣ 全局冲动评估（一次 LLM 调用评估所有未行动角色）
-            impulse_scores = await _evaluate_impulses(
+            impulse_scores = _evaluate_impulses(
                 ctx, remaining, scene_context, scene_id,
                 previous_actions=actions,
             )
@@ -88,8 +88,8 @@ class CharacterActionModule(BaseModule):
                 # 获取感知（信息隔离核心）
                 perception = ctx.get_perception(agent.character.id)
 
-                # 角色决策（独立 LLM 调用）
-                decision = await _decide_character(
+                # 角色决策（顺序 LLM 调用）
+                decision = _decide_character(
                     ctx, agent, char_name, perception, scene_context,
                     previous_actions=actions,
                 )
@@ -141,7 +141,7 @@ class CharacterActionModule(BaseModule):
 # ─── 冲动评估（全局） ───────────────────────────────────
 
 
-async def _evaluate_impulses(
+def _evaluate_impulses(
     ctx: PipelineContext,
     characters: list[str],
     scene_context: str,
@@ -214,7 +214,7 @@ async def _evaluate_impulses(
         return {c: 50.0 for c in characters}
 
     try:
-        text, _ = await client.chat(
+        text, _ = client.chat(
             [{"role": "system", "content": system_prompt},
              {"role": "user", "content": prompt}],
             max_tokens=400,
@@ -262,7 +262,7 @@ def _parse_impulse_json(text: str, characters: list[str]) -> dict[str, float]:
 # ─── 角色决策（独立） ───────────────────────────────────
 
 
-async def _decide_character(
+def _decide_character(
     ctx, agent, char_name: str, perception, scene_context: str,
     previous_actions: list[dict],
 ) -> dict:
@@ -286,7 +286,7 @@ async def _decide_character(
                 "inner": "",
             }
 
-        text, _ = await client.chat(
+            text, _ = client.chat(
             [{"role": "system", "content": system_prompt},
              {"role": "user", "content": prompt}],
             max_tokens=600,
