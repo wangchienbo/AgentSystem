@@ -367,9 +367,9 @@ class CharacterAgentRegistry:
         agent = self._agents.pop(char_id, None)
         if agent is None:
             return False
-        if self._context_center and agent.session_id:
+        if self._context_center and agent._character_session_id:
             try:
-                self._context_center.unregister_session(agent.session_id)
+                self._context_center.unregister_session(agent._character_session_id)
             except Exception as e:
                 logger.warning("角色 %s 会话清理失败: %s", agent.name, e)
         return True
