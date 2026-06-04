@@ -183,13 +183,15 @@ class BaseModule(abc.ABC):
 PIPELINE_TEMPLATES: dict[str, list[str]] = {
     "write_next_chapter": [
         "chapter_plan",       # ① 查大纲定本章目标
-        "scene_build",        # ② 选场景定参与者
-        "character_action",   # ③ 每个角色独立决策
-        "narrative",          # ④ 合成叙事章节
-        "memory_update",      # ⑤ 保存记忆
+        "scene_sequence",     # ② 按4原则生成多场景序列
+        "scene_build",        # ③ 细化所有场景的感官细节
+        "character_action",   # ④ 每个角色在各自场景独立决策
+        "narrative",          # ⑤ 合成叙事（多场景+上一章结尾）
+        "memory_update",      # ⑥ 保存记忆
     ],
     "quick_write": [
         "chapter_plan",
+        "scene_sequence",
         "scene_build",
         "character_action",
         "narrative",

@@ -1,13 +1,7 @@
-"""Step: Character Action — 角色行为决策（顺序冲动评估版）
+"""Step: Character Action — 角色行为决策（多场景版）
 
-核心变更（从并行 → 顺序）：
-1. 每轮全局评估所有角色的发言冲动（一次 LLM 调用）
-2. 冲动最高的角色先行动（独立 LLM 决策）
-3. 更新场景事件日志
-4. 下一轮（所有角色都有机会行动后结束）
-
-信息隔离：角色 A 不知道角色 B 的内心，只知道 A 能感知到的。
-ContextCenter 集成：角色决策结果写入持久化记忆。
+对场景序列中的每个场景独立进行角色冲动评估 + 决策。
+每个场景的角色只在该场景中行动，角色可能出现在多个场景中。
 """
 from __future__ import annotations
 
@@ -21,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class CharacterActionModule(BaseModule):
-    """④ 角色行为：顺序冲动评估 + 独立决策"""
+    """④ 角色行为：对场景序列中的每个场景执行角色决策"""
 
     @property
     def name(self) -> str:
@@ -29,46 +23,87 @@ class CharacterActionModule(BaseModule):
 
     @property
     def description(self) -> str:
-        return "🎭 角色行为决策（顺序冲动评估）"
+        return "🎭 角色行为决策（多场景顺序评估）"
 
     async def execute(self, ctx: PipelineContext) -> PipelineContext:
-        scene = ctx.get_output("scene_build")
-        if not scene:
+        scenes_data = ctx.get_output("scene_build")
+        if not scenes_data:
             raise ValueError("缺少场景定义，请先执行 scene_build 模块")
 
-        scene_id = scene.get("scene_id")
-        occupants = scene.get("occupants", [])
-
-        if not occupants:
-            logger.warning("场景 %s 中没有角色", scene_id or "?")
-            ctx.set_output(self.name, {"actions": [], "scene_id": scene_id})
+        scenes = scenes_data.get("scenes", [])
+        if not scenes:
+            logger.warning("场景列表为空")
+            ctx.set_output(self.name, {"actions": [], "scene_actions": {}, "scene_count": 0})
             return ctx
 
-        # 确保角色的 Agent 存在
         novel = ctx.novel
         if novel.characters:
             ctx.ensure_agents(novel.characters)
 
-        scene_context = _build_scene_context_text(scene)
-        total_chars = len(occupants)
+        all_actions = []
+        scene_actions_map = {}
 
-        # ── 顺序冲动评估循环 ──
+        for scene_idx, scene in enumerate(scenes):
+            scene_id = scene.get("scene_id", f"scene_{scene_idx}")
+            participants = scene.get("participants", [])
+
+            if not participants:
+                logger.info("场景 %s 无参与者，跳过", scene.get("name", "?"))
+                continue
+
+            scene_context = _build_scene_context_text(scene)
+
+            # ── 对该场景执行角色顺序决策 ──
+            actions = await self._run_scene_actions(
+                ctx, scene, scene_id, scene_context, participants,
+            )
+            all_actions.extend(actions)
+            scene_actions_map[scene_id] = {
+                "scene_name": scene.get("name", ""),
+                "actions": actions,
+            }
+
+            logger.info(
+                "场景「%s」决策完成: %d 个角色行动",
+                scene.get("name", "?"), len(actions),
+            )
+
+        logger.info(
+            "角色多场景决策完成: %d 个场景, %d 个行动",
+            len(scenes), len(all_actions),
+        )
+        ctx.set_output(self.name, {
+            "actions": all_actions,
+            "scene_actions": scene_actions_map,
+            "scene_count": len(scenes),
+        })
+        return ctx
+
+    async def _run_scene_actions(
+        self,
+        ctx: PipelineContext,
+        scene: dict,
+        scene_id: str,
+        scene_context: str,
+        occupants: list[str],
+    ) -> list[dict]:
+        """对单个场景执行角色决策"""
         actions: list[dict] = []
         acted_chars: set[str] = set()
-        max_rounds = total_chars * 2  # 安全上限
+        total_chars = len(occupants)
+        max_rounds = total_chars * 2
 
         for round_idx in range(max_rounds):
             remaining = [c for c in occupants if c not in acted_chars]
             if not remaining:
-                break  # 所有角色都已行动
+                break
 
-            # 1️⃣ 全局冲动评估（一次 LLM 调用评估所有未行动角色）
+            # 1️⃣ 冲动评估
             impulse_scores = _evaluate_impulses(
                 ctx, remaining, scene_context, scene_id,
                 previous_actions=actions,
             )
 
-            # 按冲动得分降序排列
             sorted_chars = sorted(
                 impulse_scores.items(),
                 key=lambda x: x[1],
@@ -85,18 +120,16 @@ class CharacterActionModule(BaseModule):
                     acted_chars.add(char_name)
                     continue
 
-                # 获取感知（信息隔离核心）
                 perception = ctx.get_perception(agent.character.id)
-
-                # 角色决策（顺序 LLM 调用）
                 decision = _decide_character(
                     ctx, agent, char_name, perception, scene_context,
                     previous_actions=actions,
                 )
+                decision["scene_id"] = scene_id
                 actions.append(decision)
                 acted_chars.add(char_name)
 
-                # 记录到 SceneManager 事件日志
+                # 记录到 SceneManager
                 ctx._scene_manager.apply_action(
                     char_name=char_name,
                     action=decision.get("action", ""),
@@ -105,7 +138,7 @@ class CharacterActionModule(BaseModule):
                     scene_id=scene_id,
                 )
 
-                # 将记忆写入 ContextCenter（通过 CharacterAgent.add_memory）
+                # 写入记忆
                 agent.add_memory(
                     content=f"{char_name}{decision.get('action', '沉默观望')}",
                     scene_id=scene_id or "",
@@ -114,9 +147,8 @@ class CharacterActionModule(BaseModule):
                     tags=["pipeline_action"],
                 )
 
-                # 流式回调
-                done_count = len(actions)
                 if ctx._character_decided_callback:
+                    done_count = len(actions)
                     ctx._character_decided_callback(
                         decision, done_count, total_chars,
                     )
@@ -126,19 +158,10 @@ class CharacterActionModule(BaseModule):
             if len(acted_chars) >= total_chars:
                 break
 
-        logger.info(
-            "角色顺序决策完成: %d 个角色, %d 轮",
-            len(actions), round_idx + 1,
-        )
-        ctx.set_output(self.name, {
-            "actions": actions,
-            "scene_id": scene_id,
-            "rounds": round_idx + 1,
-        })
-        return ctx
+        return actions
 
 
-# ─── 冲动评估（全局） ───────────────────────────────────
+# ─── 以下函数与原来一致 ─────────────────────────────────
 
 
 def _evaluate_impulses(
@@ -148,14 +171,9 @@ def _evaluate_impulses(
     scene_id: str | None,
     previous_actions: list[dict],
 ) -> dict[str, float]:
-    """全局评估未行动角色的发言冲动（一次LLM调用）
-
-    返回 dict {char_name: impulse_score(0-100)}
-    """
     if not characters:
         return {}
 
-    # 构建冲动评估 prompt
     char_descs = []
     for char_name in characters:
         agent = ctx.get_agent_by_name(char_name)
@@ -172,7 +190,6 @@ def _evaluate_impulses(
         else:
             char_descs.append(f"- {char_name}（无详细设定）")
 
-    # 之前的事件摘要
     events_summary = ""
     if previous_actions:
         parts = ["已发生的事件："]
@@ -204,13 +221,12 @@ def _evaluate_impulses(
 - 戏剧性：谁的行动会最有看点？
 
 输出 JSON 格式，只输出数字评分：
-{{"impulses": {{"角色名": 分数, ...}}}}
-"""
+{{"impulses": {{"角色名": 分数, ...}}}}"""
+
     system_prompt = "你是一个小说戏剧性评估系统。只需输出 JSON。"
 
     client = ctx.get_llm_client("novel_writer")
     if not client:
-        # 降级：所有角色均等冲动
         return {c: 50.0 for c in characters}
 
     try:
@@ -221,7 +237,6 @@ def _evaluate_impulses(
             temperature=0.7,
         )
         text = (text or "").strip()
-        # 尝试解析 JSON
         scores = _parse_impulse_json(text, characters)
         logger.debug("冲动评估: %s", scores)
         return scores
@@ -231,9 +246,7 @@ def _evaluate_impulses(
 
 
 def _parse_impulse_json(text: str, characters: list[str]) -> dict[str, float]:
-    """从 LLM 输出解析冲动分数 JSON"""
     import re
-    # 尝试直接解析
     try:
         data = json.loads(text)
         impulses = data.get("impulses", data)
@@ -243,7 +256,6 @@ def _parse_impulse_json(text: str, characters: list[str]) -> dict[str, float]:
     except (json.JSONDecodeError, ValueError, TypeError):
         pass
 
-    # 尝试从文本中提取 JSON
     m = re.search(r'\{[^}]+\}', text)
     if m:
         try:
@@ -255,18 +267,13 @@ def _parse_impulse_json(text: str, characters: list[str]) -> dict[str, float]:
         except (json.JSONDecodeError, ValueError, TypeError):
             pass
 
-    # 降级
     return {c: 50.0 for c in characters}
-
-
-# ─── 角色决策（独立） ───────────────────────────────────
 
 
 def _decide_character(
     ctx, agent, char_name: str, perception, scene_context: str,
     previous_actions: list[dict],
 ) -> dict:
-    """单个角色的决策（独立 LLM 调用）"""
     try:
         prompt = _build_decision_prompt(
             agent, char_name, perception, scene_context,
@@ -297,7 +304,6 @@ def _decide_character(
         )
         text = text or ""
 
-        # 记录原始 LLM 输出（用于调试）
         raw_preview = text[:300].replace("\n", "\\n")
         logger.warning("🧠 LLM 原始输出 (%s): %s", char_name, raw_preview)
 
@@ -319,22 +325,18 @@ def _build_decision_prompt(
     agent, char_name: str, perception, scene_context: str,
     previous_actions: list[dict],
 ) -> str:
-    """构建角色决策 prompt（只包含角色知道的信息 + 之前事件）"""
     char = agent.character
     parts = [f"你扮演的角色是{char_name}。\n"]
 
-    # 角色面板
     parts.append(
         char.sheet_block() if hasattr(char, "sheet_block")
         else f"性格：{'、'.join(getattr(char, 'personality', []) or [])}"
     )
 
-    # 特殊能力
     if getattr(char, "special_ability", None):
         parts.append(f"\n⚠️ 你的特殊能力：{char.special_ability}")
         parts.append("在决策时，这个能力会改变你能感知到的信息和你的思维方式。")
 
-    # 穿越者提示
     bg = getattr(char, "background", "") or ""
     if "穿越" in bg or "现代" in bg:
         parts.append("\n【重要】你不是这个时代的人。你的灵魂来自四百多年后的现代世界。")
@@ -342,7 +344,6 @@ def _build_decision_prompt(
         parts.append("你拥有现代人的知识储备——历史进程、科学常识、社会运作逻辑——")
         parts.append("但你绝不能直接暴露这些。所有的建议和行动都要包装成合理解释。")
 
-    # 关系（只提在场角色）
     visible_names = getattr(perception, "visible_chars", []) or []
     if visible_names:
         rels = []
@@ -354,7 +355,6 @@ def _build_decision_prompt(
                 rels.append(vn)
         parts.append(f"\n你身边的人：{'、'.join(rels)}")
 
-    # 场景感知
     parts.append(f"\n当前场景：{scene_context}")
     desc = getattr(perception, "scene_description", None) or ""
     if desc:
@@ -369,33 +369,25 @@ def _build_decision_prompt(
     if mood:
         parts.append(f"氛围：{mood}")
 
-    # 之前发生的事件（角色知道的事）
     if previous_actions:
         parts.append("\n【你刚刚目睹的事】")
         for a in previous_actions:
             c = a.get("character", "?")
             act = a.get("action", "")
             dia = a.get("dialogue", "")
-            inner = a.get("inner", "")
             line = f"  {c}{act}"
             if dia and dia != "沉默":
                 line += f"，说「{dia[:80]}」"
-            if inner and char_name in visible_names:
-                # 角色能感知到对方的外在表现，但读心需特殊能力
-                pass
             parts.append(line)
         parts.append("")
 
-    # 记忆（角色知道的事）— 从 ContextCenter 获取
     knowing = agent.get_knowing_summary(5)
     parts.append(f"\n{knowing}")
 
-    # 说话风格
     speech_style = getattr(char, "speech_style", None) or ""
     if speech_style:
         parts.append(f"\n说话风格：{speech_style}")
 
-    # 决策指令
     parts.append(f"""\n请以 {char_name} 的身份做出决策。
 
 输出格式（每行一个字段）：
@@ -408,7 +400,6 @@ def _build_decision_prompt(
 
 
 def _build_scene_context_text(scene: dict) -> str:
-    """把场景定义转为描述文本"""
     parts = []
     if scene.get("name"):
         parts.append(scene["name"])
@@ -426,7 +417,6 @@ def _build_scene_context_text(scene: dict) -> str:
 
 
 def _parse_decision(text: str, char_name: str) -> dict[str, str]:
-    """解析角色决策输出（支持多行值、JSON、标签、纯文本）"""
     result = {
         "character": char_name,
         "action": "",
@@ -436,15 +426,16 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
     }
 
     import re
-    # 去掉常见的思考标签 (thinking/reasoning/thought)
+    # 去掉思考标签
+    text_clean = text
     for tag in ['thinking', 'reasoning', 'thought']:
         text_clean = re.sub(
-            rf'<{tag}>.*?</{tag}>', '', text, flags=re.DOTALL
+            rf'<{tag}>.*?</{tag}>', '', text_clean, flags=re.DOTALL
         )
     text_clean = text_clean.strip()
     logger.debug("LLM 原始输出 (%s):\n%s", char_name, text_clean[:500])
 
-    # ── 尝试 JSON 解析 ──
+    # JSON 解析
     json_patterns = [
         r'\{[\s\S]*?"(?:action|行动|dialogue|对话|inner|内心|perception|感知)"[\s\S]*?\}',
         r'\{[\s\S]*?["\'](?:action|行动|dialogue|对话)["\'][\s\S]*?\}',
@@ -458,19 +449,17 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
                 result["dialogue"] = data.get("dialogue", "") or data.get("对话", "")
                 result["inner"] = data.get("inner", "") or data.get("内心", "")
                 result["感知"] = data.get("perception", "") or data.get("感知", "")
-                if result["action"] or result["dialogue"] != "沉默" or result["对话"] != "沉默":
+                if result["action"] or result["dialogue"] != "沉默" or result.get("对话", "") != "沉默":
                     return result
         except (json.JSONDecodeError, ValueError, TypeError):
             pass
 
-    # ── 逐行解析（双段模式：先收集行，再关联值）──
+    # 逐行解析
     lines = text_clean.split("\n")
-    # 第一遍：收集所有前缀行
-    field_lines = {}  # prefix → list of (line_idx, val_text)
+    field_lines = {}
     for i, line in enumerate(lines):
         stripped = line.strip()
         for prefix in ["感知", "行动", "对话", "内心"]:
-            # 寻找前缀（支持 **前缀：** 格式）
             for sep in ["：", ":"]:
                 m = re.search(rf'\*?\*?{re.escape(prefix)}\s*{re.escape(sep)}\s*', stripped)
                 if m:
@@ -478,18 +467,14 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
                     field_lines.setdefault(prefix, []).append((i, val))
                     break
 
-    # 第二遍：处理值（空值的尝试向后取行）
     for prefix in ["感知", "行动", "对话", "内心"]:
         if prefix not in field_lines:
             continue
-        # 取最后一次出现（覆盖）
         idx, val = field_lines[prefix][-1]
         if not val:
-            # 空值：从下一行开始取，直到遇到另一个前缀或末尾
             next_lines = []
             for j in range(idx + 1, len(lines)):
                 next_line = lines[j].strip()
-                # 检查是否是新前缀开始
                 is_new_field = any(
                     re.match(rf'\*?\*?{re.escape(p)}\s*[：:]', next_line)
                     for p in ["感知", "行动", "对话", "内心"]
@@ -498,52 +483,9 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
                     break
                 if next_line and not next_line.startswith("#"):
                     next_lines.append(next_line)
-            if next_lines:
-                val = "\n".join(next_lines)
-        val = _clean_value(val)
-        if val:
-            result[prefix] = val
+            val = "\n".join(next_lines).strip() if next_lines else ""
 
-    # ── 如果逐行解析没找到，尝试正则 ──
-    if not result["行动"]:
-        patterns = [
-            ("感知", r'(?:感知|perception)\s*[：:]\s*([\s\S]*?)(?=\n(?:行动|对话|内心|action|dialogue|inner|$)|\Z)'),
-            ("行动", r'(?:行动|action)\s*[：:]\s*([\s\S]*?)(?=\n(?:对话|内心|感知|dialogue|inner|perception|$)|\Z)'),
-            ("对话", r'(?:对话|dialogue)\s*[：:]\s*([\s\S]*?)(?=\n(?:内心|感知|行动|inner|perception|action|$)|\Z)'),
-            ("内心", r'(?:内心|inner)\s*[：:]\s*([\s\S]*?)(?=\n(?:感知|行动|对话|perception|action|dialogue|$)|\Z)'),
-        ]
-        for key, pat in patterns:
-            if not result.get(key):
-                m = re.search(pat, text_clean, re.DOTALL)
-                if m:
-                    result[key] = _clean_value(m.group(1).strip())
-
-    # ── 降级策略 ──
-    if not result["行动"]:
-        valid_lines = [l.strip() for l in lines if l.strip()
-                       and not l.strip().startswith("输出格式")
-                       and not l.strip().startswith("你扮演")
-                       and not l.strip().startswith("请以")]
-        if valid_lines:
-            last = valid_lines[-1]
-            if len(last) > 5:
-                result["action"] = last[:120]
+        field_map = {"感知": "感知", "行动": "action", "对话": "dialogue", "内心": "inner"}
+        result[field_map[prefix]] = val
 
     return result
-
-
-def _clean_value(val: str) -> str:
-    """清理字段值中的格式噪音"""
-    val = val.strip()
-    # 去掉包裹的 ** 和 * (markdown)
-    val = re.sub(r'^\*+', '', val)
-    val = re.sub(r'\*+$', '', val)
-    # 去掉首尾空白分隔符
-    for ch in ["：", ":", "'", '"', " ", "　"]:
-        val = val.strip(ch)
-    # 去掉结尾的 \u200b (零宽空格) 等不可见字符
-    val = val.strip()
-    # 如果只剩标点符号则置空
-    if re.match(r'^[\s，。！？、；：""''【】《》（）\.\,\!\?\:\;]+$', val):
-        val = ""
-    return val

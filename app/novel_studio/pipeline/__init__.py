@@ -17,6 +17,7 @@ from .orchestrator import (
     get_orchestrator,
 )
 from .step_chapter_plan import ChapterPlanModule
+from .step_scene_sequence import SceneSequenceModule
 from .step_scene_build import SceneBuildModule
 from .step_character_action import CharacterActionModule
 from .step_narrative import NarrativeModule
@@ -29,6 +30,7 @@ __all__ = [
     "PipelineOrchestrator",
     "get_orchestrator",
     "ChapterPlanModule",
+    "SceneSequenceModule",
     "SceneBuildModule",
     "CharacterActionModule",
     "NarrativeModule",
@@ -41,6 +43,7 @@ def register_default_modules():
     orch = get_orchestrator()
     mods = [
         ChapterPlanModule(),
+        SceneSequenceModule(),
         SceneBuildModule(),
         CharacterActionModule(),
         NarrativeModule(),

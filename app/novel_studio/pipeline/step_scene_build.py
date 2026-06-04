@@ -1,7 +1,9 @@
-"""Step: Scene Build — 场景构建
+"""Step: Scene Build — 场景构建（多场景版）
 
-根据章节规划选择/生成场景，分配角色到场景。
-场景中包含：地点、氛围、感官细节（看到的/听到的/闻到的）。
+接收 scene_sequence 的场景序列，用 LLM 细化每个场景的感官细节：
+- sights / sounds / smells / atmosphere
+- 注册到 SceneManager
+- 分配角色到对应场景
 """
 from __future__ import annotations
 
@@ -15,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class SceneBuildModule(BaseModule):
-    """③ 场景构建：定地点、氛围、参与者"""
+    """③ 场景构建：细化场景序列中的所有场景"""
 
     @property
     def name(self) -> str:
@@ -23,212 +25,217 @@ class SceneBuildModule(BaseModule):
 
     @property
     def description(self) -> str:
-        return "🌍 场景构建"
+        return "🌍 场景细化"
 
     @property
     def modifies_storage(self) -> bool:
-        return True  # 会向 world.scenes 添加新场景
+        return True
 
     async def execute(self, ctx: PipelineContext) -> PipelineContext:
         novel = ctx.novel
         plan = ctx.get_output("chapter_plan")
+        sequence = ctx.get_output("scene_sequence")
+
         if not plan:
-            raise ValueError("缺少章节规划，请先执行 chapter_plan 模块")
+            raise ValueError("缺少章节规划")
+        if not sequence:
+            logger.warning("没有 scene_sequence 输出，从章节规划生成默认场景")
+            scenes_in = [{
+                "name": f"第{plan.get('chapter_number', 1)}章场景",
+                "location": "",
+                "description": plan.get("summary", ""),
+                "participants": plan.get("suggested_chars", []),
+                "time_period": "",
+                "purpose": plan.get("purpose", ""),
+                "scene_type": "主角线",
+            }]
+            chapter_number = plan.get("chapter_number", 1)
+        else:
+            scenes_in = sequence.get("scenes", [])
+            chapter_number = sequence.get("chapter_number", plan.get("chapter_number", 1))
+
+        if not scenes_in:
+            logger.warning("场景序列为空，使用降级方案")
+            scenes_in = [{
+                "name": f"第{chapter_number}章场景",
+                "location": "",
+                "description": plan.get("summary", ""),
+                "participants": plan.get("suggested_chars", []),
+                "time_period": "",
+            }]
 
         # 确保所有角色有 Agent
         if novel.characters:
             ctx.ensure_agents(novel.characters)
 
-        suggested_chars = plan.get("suggested_chars", [])
-        chapter_number = plan.get("chapter_number", len(novel.chapters) + 1)
+        # 尝试用 LLM 细化所有场景
+        detailed_scenes = await self._detail_all_scenes(ctx, novel, plan, scenes_in, chapter_number)
 
-        # 尝试从现有场景选一个合适的
-        existing_scenes = novel.world.scenes if novel.world and novel.world.scenes else {}
-
-        # 如果有已有场景并且有角色分配，复用
-        if existing_scenes:
-            scene = _pick_existing_scene(existing_scenes, suggested_chars, novel.characters, ctx)
-            if scene:
-                logger.info("复用已有场景: %s", scene.name)
-                # 确保场景注册到 SceneManager
-                if not ctx.get_occupants(scene.id):
-                    ctx.add_scene_to_manager(scene)
-                # 分配角色到场景（如果还没分配）
-                occupants = ctx.get_occupants(scene.id)
-                if not occupants:
-                    chars_to_assign = suggested_chars or list(novel.characters.keys())[:3]
-                    for char_name in chars_to_assign:
-                        for cid, char in novel.characters.items():
-                            if char.name == char_name:
-                                ctx.place_character_in_scene(char, scene.id)
-                                break
-                    occupants = ctx.get_occupants(scene.id)
-                # 返回包含 occupants 的 scene 输出
-                output = _scene_to_output(scene, novel)
-                output["occupants"] = [c.name for c in occupants] if occupants else chars_to_assign[:3]
-                ctx.set_output(self.name, output)
-                return ctx
-
-        # 没有合适场景 → 让 LLM 生成场景
-        client = ctx.get_llm_client("novel_writer")
-        if not client:
-            raise RuntimeError("LLM 客户端未配置")
-
-        existing_scenes_text = _build_scenes_context(existing_scenes)
-        chars_text = _build_chars_context(novel.characters, suggested_chars)
-
-        prompt = f"""你是一位小说场景设计师。请为小说《{novel.title}》的第{chapter_number}章设计场景。
-
-## 本章规划
-标题：{plan.get("title","")}
-概要：{plan.get("summary","")}
-关键事件：{", ".join(plan.get("key_events",[]))}
-
-## 已有场景
-{existing_scenes_text or "尚无场景"}
-
-## 参与角色
-{chars_text}
-
-请设计一个符合本章需求的场景。输出 JSON：
-{{
-  "name": "场景名称（如'京城正阳门外'）",
-  "location": "具体地点描述",
-  "description": "场景的详细描述（供角色感知用）",
-  "atmosphere": "氛围（如'紧张'、'欢快'）",
-  "weather": "天气",
-  "time_period": "时间（如'傍晚'）",
-  "sights": ["看到的1", "看到的2"],
-  "sounds": ["听到的1", "听到的2"],
-  "smells": ["闻到的1"],
-  "mood": "情绪基调",
-  "occupants": ["参与的角色名列表"],
-  "rules": ["场景特殊规则，如果有的话"]
-}}"""
-
-        system_prompt = f"你正在为小说《{novel.title}》设计场景。只输出 JSON。注意：场景设计必须物理合理、社会合理——场景中的元素（地点、物品、人员）必须能自圆其说。规则（rules）字段要包含任何对行为逻辑的限制（例如\"在集市上大声喧哗会被围观\"）。"
-        text, _ = client.chat(
-            [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
-            max_tokens=1500,
-            temperature=0.8,
-        )
-        text = text or ""
-
-        scene_data = _parse_json_output(text)
-        if not scene_data:
-            scene_data = {
-                "name": f"场景-第{chapter_number}章",
-                "location": "",
-                "description": text[:500],
-                "atmosphere": "",
-                "occupants": suggested_chars[:3],
-            }
-
-        # 保存到 Novel.world.scenes
+        # 注册所有场景到 SceneManager 并分配角色
         from app.novel_studio.models import SceneSetting
-        scene_id = f"scene_pipeline_{chapter_number}_{__import__('uuid').uuid4().hex[:8]}"
-        new_scene = SceneSetting(
-            id=scene_id,
-            name=scene_data.get("name", f"第{chapter_number}章场景"),
-        )
-        for field in ["description", "location", "atmosphere", "weather", "time_period", "mood"]:
-            if field in scene_data and scene_data[field]:
-                setattr(new_scene, field, scene_data[field])
-        for field in ["sights", "sounds", "smells", "rules"]:
-            if field in scene_data and scene_data[field]:
-                setattr(new_scene, field, scene_data[field])
+        registered_scenes = []
+        for sd in detailed_scenes:
+            scene_id = f"scene_pipeline_{chapter_number}_{sd.get('name', '')[:8]}_{__import__('uuid').uuid4().hex[:6]}"
+            new_scene = SceneSetting(
+                id=scene_id,
+                name=sd.get("name", f"第{chapter_number}章场景"),
+            )
+            for field in ["description", "location", "atmosphere", "weather", "time_period", "mood"]:
+                if field in sd and sd[field]:
+                    setattr(new_scene, field, sd[field])
+            for field in ["sights", "sounds", "smells", "rules"]:
+                if field in sd and sd[field]:
+                    setattr(new_scene, field, sd[field])
 
-        ctx.add_scene_to_manager(new_scene)
+            ctx.add_scene_to_manager(new_scene)
 
-        # 分配角色到场景
-        occupants = scene_data.get("occupants", suggested_chars)
-        assigned_chars = []
-        for char_name in occupants:
-            agent = ctx.get_agent_by_name(char_name)
-            if agent:
-                ctx.place_character_in_scene(agent.character, scene_id)
-                assigned_chars.append(char_name)
+            # 分配角色
+            participants = sd.get("participants", [])
+            assigned = []
+            for char_name in participants:
+                agent = ctx.get_agent_by_name(char_name)
+                if agent:
+                    ctx.place_character_in_scene(agent.character, scene_id)
+                    assigned.append(char_name)
 
-        logger.info("新建场景: %s (%s), %d个角色进入", new_scene.name, scene_id, len(assigned_chars))
+            registered_scenes.append({
+                "scene_id": scene_id,
+                "name": new_scene.name,
+                "location": new_scene.location,
+                "description": new_scene.description,
+                "atmosphere": new_scene.atmosphere,
+                "weather": new_scene.weather,
+                "time_period": new_scene.time_period,
+                "sights": getattr(new_scene, "sights", []),
+                "sounds": getattr(new_scene, "sounds", []),
+                "smells": getattr(new_scene, "smells", []),
+                "mood": getattr(new_scene, "mood", ""),
+                "participants": assigned,
+                "purpose": sd.get("purpose", ""),
+                "scene_type": sd.get("scene_type", ""),
+                "transition_from_prev": sd.get("transition_from_prev", ""),
+                "key_events_done": sd.get("key_events_done", []),
+            })
+
+        logger.info("场景细化完成: %d 个场景", len(registered_scenes))
         ctx.set_output(self.name, {
-            "scene_id": scene_id,
-            "name": new_scene.name,
-            "location": new_scene.location,
-            "description": new_scene.description,
-            "atmosphere": new_scene.atmosphere,
-            "weather": new_scene.weather,
-            "time_period": new_scene.time_period,
-            "sights": new_scene.sights,
-            "sounds": new_scene.sounds,
-            "smells": new_scene.smells,
-            "mood": new_scene.mood,
-            "occupants": assigned_chars,
+            "scenes": registered_scenes,
+            "chapter_number": chapter_number,
         })
         return ctx
 
+    async def _detail_all_scenes(
+        self,
+        ctx: PipelineContext,
+        novel,
+        plan: dict,
+        scenes_in: list[dict],
+        chapter_number: int,
+    ) -> list[dict]:
+        """用 LLM 细化所有场景的感官细节"""
+        client = ctx.get_llm_client("novel_writer")
+        if not client:
+            return scenes_in
 
-def _pick_existing_scene(existing_scenes, suggested_chars, novel_chars, ctx) -> any:
-    """尝试从已有场景中选一个合适的"""
-    # 策略：选一个角色最多的场景，或者跟参与角色关联的场景
-    best = None
-    best_score = 0
-    for sid, scene in existing_scenes.items():
-        occupants = ctx.get_occupants(sid)
-        score = 0
-        if occupants and suggested_chars:
-            occupant_names = set(c.name for c in occupants)
-            score = sum(1 for n in suggested_chars if n in occupant_names)
-        if score > best_score:
-            best_score = score
-            best = scene
-    return best
+        # 构建场景信息字符串
+        scenes_text = "\n".join(
+            f"场景{i+1}：{s.get('name','')}\n"
+            f"  地点：{s.get('location','')}\n"
+            f"  参与者：{', '.join(s.get('participants',[]))}\n"
+            f"  时间：{s.get('time_period','')}\n"
+            f"  场景类型：{s.get('scene_type','')}\n"
+            f"  目的：{s.get('purpose','')}\n"
+            for i, s in enumerate(scenes_in)
+        )
 
+        # 角色信息
+        chars_text = ""
+        if novel.characters:
+            for c in novel.characters.values():
+                name = getattr(c, "name", "?")
+                arch = getattr(c, "archetype", "?")
+                chars_text += f"  {name}（{arch}）\n"
 
-def _build_scenes_context(scenes: dict) -> str:
-    if not scenes:
-        return ""
-    lines = []
-    for sid, scene in list(scenes.items())[:5]:
-        lines.append(f"  {scene.name}：{scene.location or ''} {scene.description[:80] if scene.description else ''}")
-    return "\n".join(lines)
+        prompt = f"""请为小说《{novel.title}》的第{chapter_number}章细化以下场景，补充感官细节。
 
+## 场景序列
+{scenes_text}
 
-def _build_chars_context(characters: dict, suggested: list[str]) -> str:
-    if not characters:
-        return "（尚无角色）"
-    lines = []
-    for c in characters.values():
-        personality = "、".join(getattr(c, "personality", []) or [])
-        tag = " ← 建议参与" if c.name in suggested else ""
-        lines.append(f"  {c.name}（{getattr(c, 'archetype', '?')}）{personality}{tag}")
-    return "\n".join(lines)
+## 角色
+{chars_text}
 
+## 本章概要
+{plan.get("summary", "")}
 
-def _scene_to_output(scene, novel) -> dict:
-    return {
-        "scene_id": scene.id,
-        "name": scene.name,
-        "location": scene.location,
-        "description": scene.description,
-        "atmosphere": scene.atmosphere,
-        "weather": scene.weather,
-        "time_period": scene.time_period,
-        "sights": scene.sights,
-        "sounds": scene.sounds,
-        "smells": scene.smells,
-        "mood": scene.mood,
-    }
+请为每个场景补充完整的感官细节。输出 JSON 数组（只输出 JSON）：
+[
+  {{
+    "name": "场景名称",
+    "location": "具体地点描述",
+    "description": "场景详细描述（80-150字）",
+    "atmosphere": "氛围（如'紧张'、'肃杀'、'欢快'）",
+    "weather": "天气（如'阴雨'、'烈日'）",
+    "time_period": "时间（如'傍晚'）",
+    "sights": ["看到的细节1", "看到的细节2", "看到的细节3"],
+    "sounds": ["听到的1", "听到的2"],
+    "smells": ["闻到的1"],
+    "mood": "情绪基调",
+    "participants": ["参与的角色名"],
+    "rules": ["场景行为限制，如果有的话"],
+    "purpose": "叙事目的",
+    "scene_type": "场景类型",
+    "transition_from_prev": "过渡方式"
+  }}
+]
 
+注意：
+- sights/sounds/smells 要是具体的感官描写，不能是抽象概念
+- 每个场景的参与者只包含真正在该场景的角色
+- 场景顺序不变，保持原有的先后关系"""
 
-def _parse_json_output(text: str) -> dict | None:
-    import re
-    m = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
-    if m:
-        text = m.group(1)
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if m:
+        system_prompt = f"你正在为小说《{novel.title}》设计场景。只输出 JSON。场景设计必须物理合理。"
+
+        text, _ = client.chat(
+            [{"role": "system", "content": system_prompt},
+             {"role": "user", "content": prompt}],
+            max_tokens=2500,
+            temperature=0.7,
+        )
+        text = text or ""
+
+        detailed = self._parse_json_array(text)
+        if detailed and len(detailed) == len(scenes_in):
+            # 保留原始场景中的字段，合并 LLM 生成的细节
+            result = []
+            for i, orig in enumerate(scenes_in):
+                merged = dict(orig)
+                if i < len(detailed):
+                    for k in ["location", "description", "atmosphere", "weather",
+                              "time_period", "sights", "sounds", "smells", "mood", "rules"]:
+                        if detailed[i].get(k):
+                            merged[k] = detailed[i][k]
+                result.append(merged)
+            return result
+
+        # 降级
+        logger.warning("场景细化 JSON 解析失败，使用原始场景")
+        return scenes_in
+
+    def _parse_json_array(self, text: str) -> list[dict] | None:
+        import re
+        m = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
+        if m:
+            text = m.group(1)
+        m = re.search(r"\[.*\]", text, re.DOTALL)
+        if m:
+            try:
+                return json.loads(m.group())
+            except (json.JSONDecodeError, ValueError):
+                pass
         try:
-            return json.loads(m.group())
-        except json.JSONDecodeError:
+            data = json.loads(text)
+            if isinstance(data, list):
+                return data
+        except (json.JSONDecodeError, ValueError):
             pass
-    return None
+        return None
