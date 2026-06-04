@@ -4,6 +4,9 @@
 - 独立记忆系统
 - 场景感知（不在同一场景就不知道）
 - 知识过滤（没渠道知道的事不提及）
+
+ContextCenter 集成：每个角色拥有独立的 SessionNode，
+记忆通过 SessionContextRecord 持久化到磁盘，服务重启不丢失。
 """
 from __future__ import annotations
 
@@ -16,6 +19,7 @@ from app.novel_studio.models import (
     Attributes, EquipmentItem, Faction,
 )
 from app.ai.model_router import ModelRouter
+from app.models.context import SessionContextRecord, SessionNode
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +28,7 @@ class CharacterAgent:
     """角色 Agent——代表一个角色的行为、记忆和知识边界
 
     ContextCenter 集成：每个角色拥有独立的 SessionNode，
-    记忆持久化到磁盘，服务重启不丢失。
+    记忆通过 SessionContextRecord 持久化到磁盘。
     """
 
     def __init__(
@@ -78,18 +82,20 @@ class CharacterAgent:
         # 写入 ContextCenter 持久化
         if self._context_center and self._character_session_id:
             try:
-                self._context_center.append_context(
+                record = SessionContextRecord(
                     session_id=self._character_session_id,
-                    content=content,
-                    role="assistant",
                     kind="message",
-                    metadata_extra={
+                    role="assistant",
+                    content=content,
+                    metadata={
                         "scene_id": scene_id,
                         "importance": importance,
-                        "tags": tags or [],
-                        "participants": participants or [],
                         "timestamp": len(self._memories),
                     },
+                )
+                self._context_center.append_context_record(
+                    session_id=self._character_session_id,
+                    record=record,
                 )
             except Exception as e:
                 logger.warning("角色 %s 记忆持久化失败: %s", self._char.name, e)
@@ -126,21 +132,20 @@ class CharacterAgent:
         """从 ContextCenter 加载持久化的记忆到内存缓存"""
         loaded = 0
         try:
-            records = self._context_center.get_recent_context(
+            window = self._context_center.get_recent_context(
                 session_id=self._character_session_id,
                 limit=self._max_memories,
-                kind_filter="message",
             )
-            for rec in records:
-                meta = rec.get("metadata_extra", {}) or {}
+            for rec in window.records:
+                meta = rec.metadata or {}
                 mem = Memory(
                     timestamp=meta.get("timestamp", loaded),
-                    content=rec.get("content", ""),
+                    content=rec.content,
                     scene_id=meta.get("scene_id", ""),
                     char_pov=self._char.name,
-                    participants=meta.get("participants", []),
+                    participants=[],
                     importance=meta.get("importance", 0.5),
-                    tags=meta.get("tags", []),
+                    tags=[],
                 )
                 self._memories.append(mem)
                 loaded += 1
@@ -154,17 +159,17 @@ class CharacterAgent:
         if not self._context_center or not self._character_session_id:
             return self.get_knowing_summary(5)
         try:
-            records = self._context_center.get_recent_context(
+            window = self._context_center.get_recent_context(
                 session_id=self._character_session_id,
                 limit=10,
-                kind_filter="message",
             )
+            records = window.records
             if not records:
                 return f"{self._char.name}还没有任何记忆。"
             parts = [f"{self._char.name}记得的事："]
             for rec in reversed(records):
-                content = rec.get("content", "")
-                meta = rec.get("metadata_extra", {}) or {}
+                content = rec.content
+                meta = rec.metadata or {}
                 participants = meta.get("participants", [])
                 if participants:
                     content += f"（和{'、'.join(participants)}在一起）"
@@ -177,194 +182,58 @@ class CharacterAgent:
 
     def build_character_sheet_prompt(self) -> str:
         """角色面板描述——注入决策 prompt 头部"""
-        return self._char.sheet_block()
-
-    def build_decision_prompt(
-        self,
-        perception: CharacterPerception,
-        scene_context: str,
-    ) -> str:
-        """构造角色决策 prompt（只包含角色知道的信息）"""
-        parts = [f"你扮演的角色是{self._char.name}。"]
-        
-        # 角色面板
-        parts.append(f"\n{self._char.sheet_block()}")
-
-        # 关系（只提在场角色之间的关系）
-        visible_names = perception.visible_chars
-        if visible_names:
-            rels = []
-            for vn in visible_names:
-                if vn in self._char.relationships:
-                    rels.append(f"{vn}（{self._char.relationships[vn]}）")
-                else:
-                    rels.append(vn)
-            parts.append(f"\n你身边的人：{'、'.join(rels)}")
-
-        # 场景感知
-        parts.append(f"\n当前场景：{scene_context}")
-        if perception.scene_description:
-            parts.append(f"你看到：{perception.scene_description}")
-        if perception.sounds:
-            parts.append(f"你听到：{'；'.join(perception.sounds[:3])}")
-        if perception.smells:
-            parts.append(f"你闻到：{'；'.join(perception.smells[:2])}")
-        if perception.mood:
-            parts.append(f"氛围：{perception.mood}")
-
-        # 记忆（角色知道的事）
-        knowing = self.get_knowing_summary(5)
-        parts.append(f"\n{knowing}")
-
-        # 决策指令
-        parts.append(f"\n场景中不止你一个人。请以 {self._char.name} 的身份决定：")
-        parts.append("1. 你在这个场景中会做什么行动？")
-        parts.append("2. 如果你要说话，会说什么？")
-        parts.append("\n请用以下格式输出：")
-        parts.append("行动：<你想做的动作>")
-        parts.append("对话：<你想说的话>（如果没有想说的就写'沉默'）")
-        parts.append("内心：<你的内心想法>（可选）")
-
+        char = self._char
+        parts = [f"姓名：{char.name}"]
+        if char.personality:
+            parts.append(f"性格：{'、'.join(char.personality)}")
+        if char.background:
+            parts.append(f"背景：{char.background}")
+        if char.goal:
+            parts.append(f"目标：{char.goal}")
+        if char.speech_style:
+            parts.append(f"说话风格：{char.speech_style}")
+        if char.special_ability:
+            parts.append(f"特殊能力：{char.special_ability}")
+        if char.relationships:
+            rels = [f"{k}（{v}）" for k, v in char.relationships.items()]
+            parts.append(f"人际关系：{'、'.join(rels[:5])}")
+        if char.appearance:
+            parts.append(f"外貌：{char.appearance}")
+        if char.skills:
+            parts.append(f"技能：{'、'.join(char.skills[:5])}")
         return "\n".join(parts)
 
-    def decide_with_world(
-        self,
-        perception: CharacterPerception,
-        scene_context: str,
-        world_snapshot: str = "",
-    ) -> dict[str, str]:
-        """一次调用完成：感知过滤 + 行动决策
+    # ── 对话生成 ──
 
-        合并 query_perceived_context + decide 为单次 LLM 调用。
-        角色基于自身能力从世界快照中提取自己能感知到的部分，再做出决策。
-        """
-        parts = [f"你扮演的角色是{self._char.name}。\n"]
-        parts.append(self._char.sheet_block())
-
-        # 特殊能力提示（穿越者金手指、异能等）
-        if self._char.special_ability:
-            parts.append(f"\n⚠️ 你的特殊能力：{self._char.special_ability}")
-            parts.append("在决策时，这个能力会改变你能感知到的信息和你的思维方式。")
-
-        # 穿越者额外提示
-        if "穿越" in self._char.background or "现代" in self._char.background:
-            parts.append(f"\n【重要】你不是这个时代的人。你的灵魂来自四百多年后的现代世界。")
-            parts.append("你的思维方式、语言习惯、知识结构与周围人完全不同，你必须时刻伪装。")
-            parts.append("你拥有现代人的知识储备——历史进程、科学常识、社会运作逻辑——")
-            parts.append("但你绝不能直接暴露这些。所有的建议和行动都要包装成合理解释。")
-            parts.append("你的特殊能力是你最大的底牌，谨慎使用。")
-
-        # 关系
-        visible_names = perception.visible_chars
-        if visible_names:
-            rels = []
-            for vn in visible_names:
-                if vn in self._char.relationships:
-                    rels.append(f"{vn}（{self._char.relationships[vn]}）")
-                else:
-                    rels.append(vn)
-            parts.append(f"\n你身边的人：{'、'.join(rels)}")
-
-        # 场景
-        parts.append(f"\n当前场景：{scene_context}")
-        if perception.scene_description:
-            parts.append(f"你看到：{perception.scene_description}")
-        if perception.sounds:
-            parts.append(f"你听到：{'；'.join(perception.sounds[:3])}")
-        if perception.smells:
-            parts.append(f"你闻到：{'；'.join(perception.smells[:2])}")
-        if perception.mood:
-            parts.append(f"氛围：{perception.mood}")
-
-        # 记忆
-        knowing = self.get_knowing_summary(5)
-        parts.append(f"\n{knowing}")
-
-        # 世界快照（给能力过滤用）
-        if world_snapshot:
-            parts.append(f"\n【当前世界状态】\n{world_snapshot}\n")
-
-        # 单步指令
-        parts.append(f"""\n请按以下步骤处理：
-
-第一步 — 信息过滤
-基于你的能力（属性/装备/特殊能力/势力/记忆），从【当前世界状态】中找出你实际能知道的信息：
-- 同一场景内的全可见
-- 感知敏锐（有效感知≥14）→ 能注意更多细节
-- 有特殊能力 → 能力会让你看到常人看不到的联系
-- 有远程能力/装备 → 可能感知到其他场景
-- 同一势力 → 知道势力内情报
-- 排除你没渠道知道的信息
-
-第二步 — 做出决策
-基于你过滤后知道的信息，以 {self._char.name} 的身份决定。
-
-输出格式：
-感知：<你注意到/知道的事>
-行动：<你此刻的行动>
-对话：<你要说的话，如果没有就写沉默>
-内心：<你的内心想法>（可选）""")
-
-        prompt = "\n".join(parts)
-
+    def generate_dialogue_line(
+        self, context: str, speaking_to: str | None = None,
+        topic: str | None = None, emotion: str | None = None,
+    ) -> str:
+        """生成一句角色台词（基于角色设定和当前上下文）"""
         try:
             if self._router:
-                client = self._router.get_client("architect", "complex")
-                messages = [
-                    {"role": "system", "content": f"你正在扮演{self._char.name}。先判断自己知道什么，再行动。不要跳角色。"},
-                    {"role": "user", "content": prompt},
-                ]
-                text, _ = client.chat(
-                    messages,
-                    max_tokens=600,
-                    temperature=0.8,
-                    stream=False,
-                )
-                return self._parse_decision(text or "行动：沉默观望")
-            return {"action": "沉默观望", "dialogue": "沉默", "inner": ""}
-        except Exception as e:
-            logger.warning("角色决策失败 %s: %s", self._char.name, e)
-            return {"action": "沉默观望", "dialogue": "沉默", "inner": ""}
-
-    # ── 对话方法（被 engine.character_dialogue 调用） ──
-
-    async def speak(self, context: str, target_audience: str = "") -> str:
-        """以角色身份生成一句对话台词"""
-        parts = [f"你扮演的角色是{self._char.name}。"]
-        parts.append(f"\n{self._char.sheet_block()}")
-
-        if self._char.speech_style:
-            parts.append(f"\n说话风格：{self._char.speech_style}")
-
-        if self._memories:
-            parts.append(f"\n{self.get_knowing_summary(5)}")
-
-        if target_audience:
-            parts.append(f"\n对话对象：{target_audience}")
-
-        parts.append(f"\n当前情境：\n{context}")
-        parts.append(f"\n请以{self._char.name}的身份说一句话（仅回复你所说的内容，不要加动作描写以外的说明）：")
-
-        prompt = "\n".join(parts)
-        system_prompt = (
-            f"你正在扮演{self._char.name}。保持角色性格一致，"
-            f"用词和语气符合角色设定。只输出角色台词，不要加注解。"
-        )
-
-        try:
-            if self._router:
-                client = self._router.get_client("architect", "complex")
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ]
-                text, _ = client.chat(
-                    messages,
-                    max_tokens=300,
-                    temperature=0.85,
-                    stream=False,
-                )
-                return (text or "……").strip()
+                client = self._router.get_client("novel_writer")
+                if client:
+                    prompt = self.build_character_sheet_prompt()
+                    prompt += f"\n当前场景：{context}"
+                    if speaking_to:
+                        prompt += f"\n说话对象：{speaking_to}"
+                    if emotion:
+                        prompt += f"\n情绪状态：{emotion}"
+                    if topic:
+                        prompt += f"\n话题：{topic}"
+                    prompt += f"\n请以{self._char.name}的身份说一句话。保持角色性格。直接输出对话内容。"
+                    messages = [
+                        {"role": "system", "content": f"你正在扮演{self._char.name}。"},
+                        {"role": "user", "content": prompt},
+                    ]
+                    text, _ = client.chat(
+                        messages,
+                        max_tokens=300,
+                        temperature=0.85,
+                        stream=False,
+                    )
+                    return (text or "……").strip()
             return "……"
         except Exception as e:
             logger.warning("角色 %s 对话失败: %s", self._char.name, e)
@@ -435,13 +304,34 @@ class CharacterAgentRegistry:
         char_session_id = ""
         if self._context_center and novel_id:
             char_session_id = f"novel_{novel_id}_char_{character.id}"
+            novel_session_id = f"novel_{novel_id}"
             try:
-                self._context_center.get_or_create_session(
-                    session_id=char_session_id,
-                    parent_session_id=f"novel_{novel_id}",
-                    kind="character",
-                    context=f"角色记忆: {character.name}",
-                )
+                # 创建小说的根会话
+                root_node = self._context_center.get_session_node(novel_session_id)
+                if root_node is None:
+                    root_node = SessionNode(
+                        session_id=novel_session_id,
+                        user_id="novel_studio",
+                        channel="novel_system",
+                        kind="root",
+                        actor="system",
+                        topic_key=novel_id,
+                    )
+                    self._context_center.register_session_node(root_node)
+                # 创建角色的子会话
+                char_node = self._context_center.get_session_node(char_session_id)
+                if char_node is None:
+                    char_node = SessionNode(
+                        session_id=char_session_id,
+                        user_id="novel_studio",
+                        channel="novel_character",
+                        kind="child",
+                        actor="app",
+                        parent_session_id=novel_session_id,
+                        root_session_id=novel_session_id,
+                        topic_key=character.name,
+                    )
+                    self._context_center.register_session_node(char_node)
             except Exception as e:
                 logger.warning("角色 %s 会话创建失败: %s", character.name, e)
 
@@ -463,25 +353,11 @@ class CharacterAgentRegistry:
                 return agent
         return None
 
-    def remove(self, char_id: str) -> None:
-        self._agents.pop(char_id, None)
+    def __len__(self) -> int:
+        return len(self._agents)
 
-    def list_agents(self) -> list[dict[str, Any]]:
-        return [
-            {"id": aid, "name": a.name, "memories": len(a.memories)}
-            for aid, a in self._agents.items()
-        ]
+    def __iter__(self):
+        return iter(self._agents.values())
 
-    def to_serializable(self) -> dict:
-        return {
-            "agents": {aid: a.to_serializable() for aid, a in self._agents.items()},
-        }
-
-    @classmethod
-    def from_serializable(cls, data: dict, model_router=None) -> "CharacterAgentRegistry":
-        registry = cls(model_router=model_router)
-        for aid, a_data in data.get("agents", {}).items():
-            agent = CharacterAgent.from_serializable(a_data, model_router=model_router)
-            registry._agents[aid] = agent
-        return registry
-
+    def __contains__(self, char_id: str) -> bool:
+        return char_id in self._agents
