@@ -246,6 +246,33 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
                 method="get_system_info",
                 side_effect_level="none",
                 input_schema={}),
+            AssetCapability(name="delete_chapter_range", description="批量删除指定编号区间的章节。返回删除数量。",
+                method="delete_chapter_range",
+                input_schema={"novel_id": "string", "chapter_from": "int", "chapter_to": "int"}),
+            AssetCapability(name="add_chapter", description="手动添加一个空章节。title 可选，默认自动命名。返回 chapter 对象。",
+                method="add_chapter",
+                input_schema={"novel_id": "string", "title": "string"}),
+            AssetCapability(name="list_sessions", description="获取当前小说下的所有对话会话列表。",
+                method="list_sessions",
+                input_schema={"novel_id": "string"}),
+            AssetCapability(name="create_session", description="创建新的对话会话并设为当前。返回 session_uuid。",
+                method="create_session",
+                input_schema={"novel_id": "string", "label": "string"}),
+            AssetCapability(name="switch_session", description="切换到已有会话。",
+                method="switch_session",
+                input_schema={"novel_id": "string", "session_uuid": "string"}),
+            AssetCapability(name="delete_session", description="删除指定会话及其聊天记录。",
+                method="delete_session",
+                input_schema={"novel_id": "string", "session_uuid": "string"}),
+            AssetCapability(name="get_task", description="获取生成任务状态和事件列表（支持增量拉取 via from_event）。",
+                method="get_task",
+                input_schema={"task_id": "string", "from_event": "int"}),
+            AssetCapability(name="get_latest_task", description="获取某小说的最新生成任务。",
+                method="get_latest_task",
+                input_schema={"novel_id": "string"}),
+            AssetCapability(name="export_novel", description="导出小说全文文本。format 当前支持 text。返回 content 字符串。",
+                method="export_novel",
+                input_schema={"novel_id": "string", "format": "string"}),
         ],
         visibility=Visibility.PUBLIC,
         tags=["novel", "writing", "creative"],
@@ -269,6 +296,15 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
         "get_novel": lambda **p: _novel_get_resp(engine, **p),
         "save_custom_prompt": lambda **p: {"success": engine.update_custom_prompt(p.get("novel_id", ""), p.get("custom_prompt", "")) is not None},
         "get_system_info": lambda **p: _system_info_resp(engine, **p),
+        "delete_chapter_range": lambda **p: _novel_delete_range_resp(engine, **p),
+        "add_chapter": lambda **p: _novel_add_chapter_resp(engine, **p),
+        "list_sessions": lambda **p: _session_list_resp(engine, **p),
+        "create_session": lambda **p: _session_create_resp(engine, **p),
+        "switch_session": lambda **p: _session_switch_resp(engine, **p),
+        "delete_session": lambda **p: _session_delete_resp(engine, **p),
+        "get_task": lambda **p: _task_get_resp(engine, **p),
+        "get_latest_task": lambda **p: _task_latest_resp(engine, **p),
+        "export_novel": lambda **p: _export_novel_resp(engine, **p),
     }
 
     try:
@@ -475,3 +511,105 @@ def _novel_delete_chapter_resp(engine, novel_id="", chapter_number=None, **kw):
 def _system_info_resp(engine, **kw):
     """返回系统架构信息"""
     return {"success": True, "info": engine.get_system_info()}
+
+
+# ──── 新增能力：批量删除章节 ──────────────────────────────
+
+
+def _novel_delete_range_resp(engine, novel_id="", chapter_from=0, chapter_to=0, **kw):
+    if not novel_id or chapter_from <= 0 or chapter_to < chapter_from:
+        return {"success": False, "error": "参数错误"}
+    deleted = engine._storage.delete_chapters_range(novel_id, int(chapter_from), int(chapter_to))
+    return {"success": True, "deleted_count": deleted}
+
+
+# ──── 新增能力：手动添加空章节 ──────────────────────────
+
+
+def _novel_add_chapter_resp(engine, novel_id="", title="", **kw):
+    """手动添加空章节"""
+    from app.novel_studio.pipeline.step_chapter_plan import determine_chapter_number
+    number = determine_chapter_number(engine._storage, novel_id)
+    ch = engine._storage.add_chapter(novel_id, number=number, title=title or f"第{number}章")
+    if ch:
+        return {"success": True, "chapter": {"id": ch.id, "number": ch.number, "title": ch.title, "content": ch.content}}
+    return {"success": False, "error": "添加失败"}
+
+
+# ──── 新增能力：会话管理 ──────────────────────────────────
+
+
+def _session_list_resp(engine, novel_id="", username="", **kw):
+    from app.novel_studio.api import _session_store
+    if not novel_id:
+        return {"success": False, "error": "缺少 novel_id"}
+    sessions = _session_store.list_sessions(username, novel_id)
+    return {"success": True, "sessions": sessions, "count": len(sessions)}
+
+
+def _session_create_resp(engine, novel_id="", username="", label="", **kw):
+    from app.novel_studio.api import _session_store, context_center, get_or_create_novel_session
+    if not novel_id:
+        return {"success": False, "error": "缺少 novel_id"}
+    session_uuid = _session_store.create_session(username, novel_id, label)
+    session_id = get_or_create_novel_session(novel_id, context_center, user_id=username, session_uuid=session_uuid)
+    return {"success": True, "session_uuid": session_uuid, "session_id": session_id}
+
+
+def _session_switch_resp(engine, novel_id="", username="", session_uuid="", **kw):
+    from app.novel_studio.api import _session_store
+    if not novel_id or not session_uuid:
+        return {"success": False, "error": "缺少 novel_id 或 session_uuid"}
+    ok = _session_store.switch_session(username, novel_id, session_uuid)
+    return {"success": ok, "error": "" if ok else "会话不存在"}
+
+
+def _session_delete_resp(engine, novel_id="", username="", session_uuid="", **kw):
+    from app.novel_studio.api import _session_store
+    if not novel_id or not session_uuid:
+        return {"success": False, "error": "缺少 novel_id 或 session_uuid"}
+    ok = _session_store.delete_session(username, novel_id, session_uuid)
+    return {"success": ok, "error": "" if ok else "会话不存在"}
+
+
+# ──── 新增能力：任务状态查询 ──────────────────────────────
+
+
+def _task_get_resp(engine, task_id="", from_event=0, **kw):
+    from app.novel_studio.task_manager import get_task
+    task = get_task(task_id)
+    if not task:
+        return {"success": False, "error": "任务未找到"}
+    data = task.to_dict(from_event_index=from_event)
+    data["success"] = True
+    return data
+
+
+def _task_latest_resp(engine, novel_id="", **kw):
+    from app.novel_studio.task_manager import get_latest_task
+    if not novel_id:
+        return {"success": False, "error": "缺少 novel_id"}
+    task = get_latest_task(novel_id)
+    if not task:
+        return {"success": True, "task": None}
+    return {"success": True, "task": task.to_dict()}
+
+
+# ──── 新增能力：导出小说 ──────────────────────────────────
+
+
+def _export_novel_resp(engine, novel_id="", format="text", **kw):
+    """导出小说文本"""
+    novel = engine.get_novel(novel_id)
+    if not novel:
+        return {"success": False, "error": "小说不存在"}
+    if format == "text":
+        lines = [f"# {novel.title}", ""]
+        for ch in getattr(novel, "chapters", []):
+            lines.append(f"## 第{ch.number}章 {ch.title}")
+            lines.append("")
+            lines.append(ch.content or "")
+            lines.append("")
+        text = "\n".join(lines)
+        return {"success": True, "format": "text", "content": text, "length": len(text)}
+    return {"success": False, "error": f"不支持的格式: {format}"}

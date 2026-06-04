@@ -761,12 +761,21 @@ class NovelStudioEngine:
             {"name": "write_chapter", "params": "novel_id", "desc": "从大纲生成下一章并保存"},
             {"name": "update_chapter", "params": "novel_id, chapter_id, title, content", "desc": "更新已保存章节"},
             {"name": "delete_chapter", "params": "novel_id, chapter_number", "desc": "删除指定编号章节"},
+            {"name": "delete_chapter_range", "params": "novel_id, from, to", "desc": "批量删除指定编号区间的章节"},
             {"name": "add_chapter", "params": "novel_id, title (可选)", "desc": "手动添加空章节"},
             {"name": "character_dialogue", "params": "novel_id, char1, char2, topic", "desc": "角色对话模拟"},
             {"name": "chat", "params": "novel_id, message", "desc": "小说创作对话"},
             {"name": "create_novel", "params": "title, genre, logline", "desc": "新建小说"},
             {"name": "generate", "params": "novel_id, instruction", "desc": "根据指令生成内容并自动保存"},
             {"name": "get_system_info", "params": "无需参数", "desc": "返回本系统架构信息（即此方法）"},
+            {"name": "save_custom_prompt", "params": "novel_id, custom_prompt", "desc": "设置小说写作指令"},
+            {"name": "list_sessions", "params": "novel_id", "desc": "列出小说所有会话"},
+            {"name": "create_session", "params": "novel_id, label", "desc": "创建新会话"},
+            {"name": "switch_session", "params": "novel_id, session_uuid", "desc": "切换当前会话"},
+            {"name": "delete_session", "params": "novel_id, session_uuid", "desc": "删除会话"},
+            {"name": "get_task", "params": "task_id, from_event", "desc": "查询生成任务状态和事件"},
+            {"name": "get_latest_task", "params": "novel_id", "desc": "查询小说最新生成任务"},
+            {"name": "export_novel", "params": "novel_id, format", "desc": "导出小说全文"},
         ]
 
         storage = {

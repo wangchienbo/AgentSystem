@@ -361,3 +361,15 @@ class CharacterAgentRegistry:
 
     def __contains__(self, char_id: str) -> bool:
         return char_id in self._agents
+
+    def remove(self, char_id: str) -> bool:
+        """移除角色 Agent 并清理 ContextCenter 会话"""
+        agent = self._agents.pop(char_id, None)
+        if agent is None:
+            return False
+        if self._context_center and agent.session_id:
+            try:
+                self._context_center.unregister_session(agent.session_id)
+            except Exception as e:
+                logger.warning("角色 %s 会话清理失败: %s", agent.name, e)
+        return True
