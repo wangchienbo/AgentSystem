@@ -106,7 +106,7 @@ class SceneBuildModule(BaseModule):
   "rules": ["场景特殊规则，如果有的话"]
 }}"""
 
-        system_prompt = f"你正在为小说《{novel.title}》设计场景。只输出 JSON。"
+        system_prompt = f"你正在为小说《{novel.title}》设计场景。只输出 JSON。注意：场景设计必须物理合理、社会合理——场景中的元素（地点、物品、人员）必须能自圆其说。规则（rules）字段要包含任何对行为逻辑的限制（例如\"在集市上大声喧哗会被围观\"）。"
         text, _ = client.chat(
             [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
             max_tokens=1500,

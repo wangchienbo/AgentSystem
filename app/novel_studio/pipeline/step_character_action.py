@@ -275,6 +275,9 @@ def _decide_character(
         system_prompt = (
             f"你正在扮演{char_name}。先判断自己知道什么，再行动。不要跳角色。"
             f"保持角色性格绝对一致。"
+            f"在决定行动前做一次逻辑校验：你做的事是否能达成你期望的效果？"
+            f"如果你要卖东西或提供服务，对方真的会为此付钱吗？"
+            f"拒绝不合逻辑的行动方案，选择现实中行得通的做法。"
         )
 
         client = ctx.get_llm_client("novel_writer")

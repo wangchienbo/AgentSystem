@@ -5,10 +5,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from app.novel_studio.models import Novel, Character, Chapter, WorldSetting, Outline, SceneSetting
 
@@ -58,17 +61,63 @@ class NovelStorage:
         if not path.exists():
             return None
         data = json.loads(path.read_text(encoding="utf-8"))
-        return Novel(**data)
+        try:
+            return Novel(**data)
+        except Exception:
+            logger.error("小说数据损坏，尝试从 backup 恢复: %s", novel_id)
+            bak_path = path.with_suffix(".json.bak")
+            if bak_path.exists():
+                import shutil
+                shutil.copy2(bak_path, path)
+                data = json.loads(path.read_text(encoding="utf-8"))
+                return Novel(**data)
+            raise
 
     def save_novel(self, novel: Novel) -> None:
+        """保存小说数据，包含自动备份和空章节防护"""
         novels_dir = self._root / "novels"
         _ensure_dir(novels_dir)
         novel.updated_at = datetime.now(UTC).isoformat()
         path = novels_dir / f"{novel.id}.json"
+
+        # ── 空章节防护：如果 chapters 为空且文件已有内容，拒绝保存 ──
+        if not novel.chapters:
+            if path.exists():
+                existing = json.loads(path.read_text(encoding="utf-8"))
+                if existing.get("chapters"):
+                    logger.error(
+                        "阻止保存: novel=%s chapters从%d降为0，拒绝覆盖",
+                        novel.id, len(existing["chapters"]),
+                    )
+                    # 创建备份避免数据丢失后无法恢复
+                    self._create_backup(novel.id)
+                    return
+
+        # ── 自动备份：写之前保留上一版本 ──
+        if path.exists():
+            self._create_backup(novel.id)
+
         path.write_text(
             json.dumps(novel.model_dump(mode="json"), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+
+    def _create_backup(self, novel_id: str) -> None:
+        """创建一个时间戳备份，保留最近5个版本"""
+        novels_dir = self._root / "novels"
+        path = novels_dir / f"{novel_id}.json"
+        if not path.exists():
+            return
+        backups = sorted(novels_dir.glob(f"{novel_id}.json.bak*"))
+        # 删除最旧的备份，保留最多5个
+        while len(backups) >= 5:
+            backups[0].unlink()
+            backups = backups[1:]
+        # 创建时间戳备份
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        bak_path = novels_dir / f"{novel_id}.json.bak.{ts}"
+        import shutil
+        shutil.copy2(path, bak_path)
 
     def delete_novel(self, novel_id: str) -> bool:
         novels_dir = self._root / "novels"
@@ -169,6 +218,8 @@ class NovelStorage:
         novel = self.get_novel(novel_id)
         if novel is None:
             return None
+        if not chapter.word_count and chapter.content:
+            chapter.word_count = len(chapter.content)
         novel.chapters.append(chapter)
         novel.status = "writing"
         self.save_novel(novel)
@@ -183,6 +234,8 @@ class NovelStorage:
                 for k, v in updates.items():
                     if hasattr(ch, k) and v is not None:
                         setattr(ch, k, v)
+                if "content" in updates and updates.get("content"):
+                    ch.word_count = len(updates["content"])
                 ch.updated_at = datetime.now(UTC).isoformat()
                 break
         self.save_novel(novel)

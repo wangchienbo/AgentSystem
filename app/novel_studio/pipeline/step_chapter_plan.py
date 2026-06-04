@@ -76,7 +76,7 @@ class ChapterPlanModule(BaseModule):
   "purpose": "本章在整体故事中的作用"
 }}"""
 
-        system_prompt = f"你正在为小说《{novel.title}》规划第{next_chapter_number}章。只输出 JSON，不要其他内容。"
+        system_prompt = f"你正在为小说《{novel.title}》规划第{next_chapter_number}章。只输出 JSON，不要其他内容。注意：规划的事件必须符合常识逻辑——角色做某件事必须有合理的动机和可预期的结果，不能出现\"画在沙子上别人付钱\"这类不合逻辑的桥段。每个事件在现实中都能自圆其说。"
 
         text, _ = client.chat(
             [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
