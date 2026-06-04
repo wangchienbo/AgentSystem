@@ -294,6 +294,10 @@ async def _decide_character(
         )
         text = text or ""
 
+        # 记录原始 LLM 输出（用于调试）
+        raw_preview = text[:300].replace("\n", "\\n")
+        logger.warning("🧠 LLM 原始输出 (%s): %s", char_name, raw_preview)
+
         decision = _parse_decision(text, char_name)
         decision["character"] = char_name
         return decision
@@ -419,7 +423,7 @@ def _build_scene_context_text(scene: dict) -> str:
 
 
 def _parse_decision(text: str, char_name: str) -> dict[str, str]:
-    """解析角色决策输出（支持多种格式：JSON、标签、纯文本）"""
+    """解析角色决策输出（支持多行值、JSON、标签、纯文本）"""
     result = {
         "character": char_name,
         "action": "",
@@ -428,62 +432,115 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
         "感知": "",
     }
 
-    # 去掉 deepseek 的 标记
     import re
-    text_clean = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL)
+    # 去掉常见的思考标签 (thinking/reasoning/thought)
+    for tag in ['thinking', 'reasoning', 'thought']:
+        text_clean = re.sub(
+            rf'<{tag}>.*?</{tag}>', '', text, flags=re.DOTALL
+        )
     text_clean = text_clean.strip()
+    logger.debug("LLM 原始输出 (%s):\n%s", char_name, text_clean[:500])
 
-    # ── 尝试 JSON 解析（LLM 可能直接输出 JSON）──
-    try:
-        # 尝试在大文本中找 JSON 对象
-        m = re.search(r'\{[\s\S]*"action"[\s\S]*\}', text_clean)
-        if m:
-            data = json.loads(m.group(0))
-            result["action"] = data.get("action", "") or data.get("行动", "")
-            result["dialogue"] = data.get("dialogue", "") or data.get("对话", "")
-            result["inner"] = data.get("inner", "") or data.get("内心", "")
-            result["感知"] = data.get("perception", "") or data.get("感知", "")
-            if result["action"]:
-                return result
-    except (json.JSONDecodeError, ValueError, TypeError):
-        pass
+    # ── 尝试 JSON 解析 ──
+    json_patterns = [
+        r'\{[\s\S]*?"(?:action|行动|dialogue|对话|inner|内心|perception|感知)"[\s\S]*?\}',
+        r'\{[\s\S]*?["\'](?:action|行动|dialogue|对话)["\'][\s\S]*?\}',
+    ]
+    for jp in json_patterns:
+        try:
+            m = re.search(jp, text_clean)
+            if m:
+                data = json.loads(m.group(0))
+                result["action"] = data.get("action", "") or data.get("行动", "")
+                result["dialogue"] = data.get("dialogue", "") or data.get("对话", "")
+                result["inner"] = data.get("inner", "") or data.get("内心", "")
+                result["感知"] = data.get("perception", "") or data.get("感知", "")
+                if result["action"] or result["dialogue"] != "沉默" or result["对话"] != "沉默":
+                    return result
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
 
-    # ── 按行解析（支持 感知/行动/对话/内心 前缀）──
-    for line in text_clean.split("\n"):
-        line = line.strip()
+    # ── 逐行解析（双段模式：先收集行，再关联值）──
+    lines = text_clean.split("\n")
+    # 第一遍：收集所有前缀行
+    field_lines = {}  # prefix → list of (line_idx, val_text)
+    for i, line in enumerate(lines):
+        stripped = line.strip()
         for prefix in ["感知", "行动", "对话", "内心"]:
-            for sep in ["：", ":", "：\n"]:
-                pattern = f"{prefix}{sep}"
-                idx = line.find(pattern)
-                if idx >= 0:
-                    val = line[idx + len(pattern):].strip()
-                    val = val.strip("：").strip(":").strip("'\"").strip("**")
-                    if val:
-                        result[prefix] = val
-                        break
+            # 寻找前缀（支持 **前缀：** 格式）
+            for sep in ["：", ":"]:
+                m = re.search(rf'\*?\*?{re.escape(prefix)}\s*{re.escape(sep)}\s*', stripped)
+                if m:
+                    val = stripped[m.end():].strip()
+                    field_lines.setdefault(prefix, []).append((i, val))
+                    break
+
+    # 第二遍：处理值（空值的尝试向后取行）
+    for prefix in ["感知", "行动", "对话", "内心"]:
+        if prefix not in field_lines:
+            continue
+        # 取最后一次出现（覆盖）
+        idx, val = field_lines[prefix][-1]
+        if not val:
+            # 空值：从下一行开始取，直到遇到另一个前缀或末尾
+            next_lines = []
+            for j in range(idx + 1, len(lines)):
+                next_line = lines[j].strip()
+                # 检查是否是新前缀开始
+                is_new_field = any(
+                    re.match(rf'\*?\*?{re.escape(p)}\s*[：:]', next_line)
+                    for p in ["感知", "行动", "对话", "内心"]
+                )
+                if is_new_field:
+                    break
+                if next_line and not next_line.startswith("#"):
+                    next_lines.append(next_line)
+            if next_lines:
+                val = "\n".join(next_lines)
+        val = _clean_value(val)
+        if val:
+            result[prefix] = val
 
     # ── 如果逐行解析没找到，尝试正则 ──
     if not result["行动"]:
-        patterns = {
-            "感知": r"(?:感知|perception)[：:]\s*(.+?)(?=\n(?:行动|对话|内心|action|dialogue|inner|$))",
-            "行动": r"(?:行动|action)[：:]\s*(.+?)(?=\n(?:对话|内心|感知|dialogue|inner|perception|$))",
-            "对话": r"(?:对话|dialogue)[：:]\s*(.+?)(?=\n(?:内心|感知|行动|inner|perception|action|$))",
-            "内心": r"(?:内心|inner)[：:]\s*(.+?)(?=\n(?:感知|行动|对话|perception|action|dialogue|$))",
-        }
-        for key, pattern in patterns.items():
-            if not result.get(key) and key != "character":
-                m = re.search(pattern, text_clean, re.DOTALL)
+        patterns = [
+            ("感知", r'(?:感知|perception)\s*[：:]\s*([\s\S]*?)(?=\n(?:行动|对话|内心|action|dialogue|inner|$)|\Z)'),
+            ("行动", r'(?:行动|action)\s*[：:]\s*([\s\S]*?)(?=\n(?:对话|内心|感知|dialogue|inner|perception|$)|\Z)'),
+            ("对话", r'(?:对话|dialogue)\s*[：:]\s*([\s\S]*?)(?=\n(?:内心|感知|行动|inner|perception|action|$)|\Z)'),
+            ("内心", r'(?:内心|inner)\s*[：:]\s*([\s\S]*?)(?=\n(?:感知|行动|对话|perception|action|dialogue|$)|\Z)'),
+        ]
+        for key, pat in patterns:
+            if not result.get(key):
+                m = re.search(pat, text_clean, re.DOTALL)
                 if m:
-                    result[key] = m.group(1).strip()
+                    result[key] = _clean_value(m.group(1).strip())
 
-    # ── 最后的降级策略 ──
+    # ── 降级策略 ──
     if not result["行动"]:
-        lines = [l.strip() for l in text_clean.split("\n") if l.strip()]
-        if lines:
-            last = lines[-1]
-            skips = ["请以", "输出格式", "第一步", "第二步", "感知",
-                     "你扮演", "谢谢", "好的", "明白了", "让我", "作为"]
-            if not any(s in last for s in skips):
-                result["action"] = last[:100]
+        valid_lines = [l.strip() for l in lines if l.strip()
+                       and not l.strip().startswith("输出格式")
+                       and not l.strip().startswith("你扮演")
+                       and not l.strip().startswith("请以")]
+        if valid_lines:
+            last = valid_lines[-1]
+            if len(last) > 5:
+                result["action"] = last[:120]
 
     return result
+
+
+def _clean_value(val: str) -> str:
+    """清理字段值中的格式噪音"""
+    val = val.strip()
+    # 去掉包裹的 ** 和 * (markdown)
+    val = re.sub(r'^\*+', '', val)
+    val = re.sub(r'\*+$', '', val)
+    # 去掉首尾空白分隔符
+    for ch in ["：", ":", "'", '"', " ", "　"]:
+        val = val.strip(ch)
+    # 去掉结尾的 \u200b (零宽空格) 等不可见字符
+    val = val.strip()
+    # 如果只剩标点符号则置空
+    if re.match(r'^[\s，。！？、；：""''【】《》（）\.\,\!\?\:\;]+$', val):
+        val = ""
+    return val
