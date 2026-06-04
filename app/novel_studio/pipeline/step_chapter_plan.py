@@ -30,8 +30,7 @@ class ChapterPlanModule(BaseModule):
         if not novel:
             raise ValueError("小说不存在")
 
-        max_ch = max((c.number for c in novel.chapters), default=0)
-        next_chapter_number = max_ch + 1
+        next_chapter_number = len(novel.chapters) + 1
 
         # ── 检查大纲中是否有这一章的规划 ──
         plan = _find_chapter_plan(novel, next_chapter_number)

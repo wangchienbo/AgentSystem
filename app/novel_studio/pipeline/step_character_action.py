@@ -419,7 +419,7 @@ def _build_scene_context_text(scene: dict) -> str:
 
 
 def _parse_decision(text: str, char_name: str) -> dict[str, str]:
-    """解析角色决策输出（支持多种格式）"""
+    """解析角色决策输出（支持多种格式：JSON、标签、纯文本）"""
     result = {
         "character": char_name,
         "action": "",
@@ -428,41 +428,62 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
         "感知": "",
     }
 
-    # ── 逐行解析 ──
-    for line in text.split("\n"):
+    # 去掉 deepseek 的 标记
+    import re
+    text_clean = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL)
+    text_clean = text_clean.strip()
+
+    # ── 尝试 JSON 解析（LLM 可能直接输出 JSON）──
+    try:
+        # 尝试在大文本中找 JSON 对象
+        m = re.search(r'\{[\s\S]*"action"[\s\S]*\}', text_clean)
+        if m:
+            data = json.loads(m.group(0))
+            result["action"] = data.get("action", "") or data.get("行动", "")
+            result["dialogue"] = data.get("dialogue", "") or data.get("对话", "")
+            result["inner"] = data.get("inner", "") or data.get("内心", "")
+            result["感知"] = data.get("perception", "") or data.get("感知", "")
+            if result["action"]:
+                return result
+    except (json.JSONDecodeError, ValueError, TypeError):
+        pass
+
+    # ── 按行解析（支持 感知/行动/对话/内心 前缀）──
+    for line in text_clean.split("\n"):
         line = line.strip()
         for prefix in ["感知", "行动", "对话", "内心"]:
             for sep in ["：", ":", "：\n"]:
-                idx = line.find(f"{prefix}{sep}")
+                pattern = f"{prefix}{sep}"
+                idx = line.find(pattern)
                 if idx >= 0:
-                    val = line[idx + len(prefix) + len(sep):].strip()
-                    val = val.strip("：").strip(":").strip("'\"'").strip("**")
+                    val = line[idx + len(pattern):].strip()
+                    val = val.strip("：").strip(":").strip("'\"").strip("**")
                     if val:
                         result[prefix] = val
                         break
 
     # ── 如果逐行解析没找到，尝试正则 ──
     if not result["行动"]:
-        import re
         patterns = {
-            "感知": r"(?:感知|perception)[：:]\s*(.+?)(?=\n(?:行动|对话|内心|$))",
-            "行动": r"(?:行动|action)[：:]\s*(.+?)(?=\n(?:对话|内心|感知|$))",
-            "对话": r"(?:对话|dialogue)[：:]\s*(.+?)(?=\n(?:内心|感知|行动|$))",
-            "内心": r"(?:内心|inner)[：:]\s*(.+?)(?=\n(?:感知|行动|对话|$))",
+            "感知": r"(?:感知|perception)[：:]\s*(.+?)(?=\n(?:行动|对话|内心|action|dialogue|inner|$))",
+            "行动": r"(?:行动|action)[：:]\s*(.+?)(?=\n(?:对话|内心|感知|dialogue|inner|perception|$))",
+            "对话": r"(?:对话|dialogue)[：:]\s*(.+?)(?=\n(?:内心|感知|行动|inner|perception|action|$))",
+            "内心": r"(?:内心|inner)[：:]\s*(.+?)(?=\n(?:感知|行动|对话|perception|action|dialogue|$))",
         }
         for key, pattern in patterns.items():
             if not result.get(key) and key != "character":
-                m = re.search(pattern, text, re.DOTALL)
+                m = re.search(pattern, text_clean, re.DOTALL)
                 if m:
                     result[key] = m.group(1).strip()
 
     # ── 最后的降级策略 ──
     if not result["行动"]:
-        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        lines = [l.strip() for l in text_clean.split("\n") if l.strip()]
         if lines:
             last = lines[-1]
-            skips = ["请以", "输出格式", "第一步", "第二步", "感知", "你扮演"]
+            skips = ["请以", "输出格式", "第一步", "第二步", "感知",
+                     "你扮演", "谢谢", "好的", "明白了", "让我", "作为"]
             if not any(s in last for s in skips):
-                result["行动"] = last[:100]
+                result["action"] = last[:100]
 
     return result
