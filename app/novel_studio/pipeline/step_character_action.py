@@ -286,7 +286,7 @@ def _decide_character(
                 "inner": "",
             }
 
-            text, _ = client.chat(
+        text, _ = client.chat(
             [{"role": "system", "content": system_prompt},
              {"role": "user", "content": prompt}],
             max_tokens=600,
