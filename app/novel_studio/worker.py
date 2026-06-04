@@ -109,21 +109,9 @@ class NovelStudioWorker(AppWorkerProtocol):
             "get_novel": "get_novel", "query_novel": "get_novel",
             "get_character": "get_novel", "get_novel_info": "get_novel",
             "modify_novel": "add_character", "update_novel": "add_character",
-            "write_chapter": "write_chapter", "generate_chapter": "write_chapter",
-            "generate_content": "generate_content",
             "save_chapter": "save_chapter",
             "add_chapter_outline": "add_chapter_outline",
             # 演化别名
-            "init_evolution": "init_evolution", "start_evolution": "init_evolution",
-            "tick": "tick", "evolve": "tick",
-            "place_character": "place_character", "enter_scene": "place_character",
-            "batch_tick": "batch_tick", "batch_evolve": "batch_tick",
-            "add_world_event": "add_world_event", "world_event": "add_world_event",
-            "generate_chapter_from_evolution": "generate_chapter_from_evolution",
-            "get_evolution_state": "get_evolution_state", "evolution_status": "get_evolution_state",
-            "export_evolution_log": "export_evolution_log", "evolution_log": "export_evolution_log",
-            "save_evolution_state": "save_evolution_state", "save_evolution": "save_evolution_state",
-            "write_narrative_chapter": "write_narrative_chapter", "write_chapter_from_evolution": "write_narrative_chapter",
             # 角色属性
             "set_attributes": "set_attributes", "set_stats": "set_attributes", "set_attr": "set_attributes",
             "add_equipment": "add_equipment", "equip": "add_equipment", "give_item": "add_equipment",
@@ -222,42 +210,6 @@ class NovelStudioWorker(AppWorkerProtocol):
                 return {"scene_id": scene.id, "name": scene.name}
             raise ValueError("添加场景失败")
 
-        elif canonical == "write_chapter":
-            self._set_progress(task_id, 10, "正在准备生成章节...")
-            novel_id = self._safe_novel_id(params)
-            ch_num = params.get("chapter_number", params.get("chapter", 1))
-            style = params.get("style", "narration")
-            # 异步方法在同步线程中跑
-            async def _write():
-                return await self._engine.write_chapter(
-                    novel_id=novel_id,
-                    chapter_number=int(ch_num),
-                    style=style,
-                )
-            self._set_progress(task_id, 40, "AI 正在撰写章节内容...")
-            chapter = asyncio.run(_write())
-            if chapter:
-                self._set_progress(task_id, 100, f"第{ch_num}章完成")
-                return {"chapter": chapter.dict() if hasattr(chapter, 'dict') else str(chapter)}
-            raise ValueError("章节生成失败（检查大纲是否存在）")
-
-        elif canonical == "generate_content":
-            self._set_progress(task_id, 20, "正在生成内容...")
-            novel_id = self._safe_novel_id(params)
-            instruction = params.get("instruction", params.get("content", params.get("text", "")))
-            async def _gen():
-                return await self._engine.generate_content(
-                    novel_id=novel_id,
-                    instruction=instruction,
-                    chapter_number=params.get("chapter_number"),
-                    style=params.get("style", "narration"),
-                    scene_id=params.get("scene_id", ""),
-                )
-            self._set_progress(task_id, 50, "AI 正在创作...")
-            result = asyncio.run(_gen())
-            self._set_progress(task_id, 100, "内容生成完成")
-            return {"content": result.content, "word_count": len(result.content)}
-
         elif canonical == "save_chapter":
             self._set_progress(task_id, 30, "正在保存章节...")
             novel_id = self._safe_novel_id(params)
@@ -304,81 +256,6 @@ class NovelStudioWorker(AppWorkerProtocol):
                     "chapter_count": len(novel.chapters) if novel.chapters else 0,
                 }
             raise ValueError("小说不存在")
-
-        # ═══════════════════════════════════════════════════════════════
-        # 演化操作
-        # ═══════════════════════════════════════════════════════════════
-
-        elif canonical == "init_evolution":
-            self._set_progress(task_id, 30, "初始化演化引擎...")
-            novel_id = self._safe_novel_id(params)
-            resume = params.get("resume", True)
-            if isinstance(resume, str):
-                resume = resume.lower() in ("true", "1", "yes")
-            result = self._engine.init_evolution(novel_id, resume=resume)
-            self._set_progress(task_id, 100, "演化就绪")
-            return result
-
-        elif canonical == "place_character":
-            self._set_progress(task_id, 50, "调度角色入场景...")
-            result = self._engine.place_character_in_scene(
-                params.get("char_name", ""),
-                params.get("scene_name", ""),
-            )
-            self._set_progress(task_id, 100, "完成")
-            return result
-
-        elif canonical == "tick":
-            self._set_progress(task_id, 20, "世界演化中...")
-            result = self._engine.tick()
-            self._set_progress(task_id, 100, "演化完成")
-            return result
-
-        elif canonical == "batch_tick":
-            count = int(params.get("count", 5))
-            self._set_progress(task_id, 10, f"批量演化 {count} tick...")
-            results = self._engine.batch_tick(count)
-            self._set_progress(task_id, 100, "批量演化完成")
-            return {"ticks": results, "count": count}
-
-        elif canonical == "add_world_event":
-            self._set_progress(task_id, 50, "添加世界事件...")
-            result = self._engine.add_world_event(
-                title=params.get("title", ""),
-                description=params.get("description", ""),
-                event_type=params.get("event_type", ""),
-                public=params.get("public", True),
-            )
-            self._set_progress(task_id, 100, "事件已记录")
-            return result
-
-        elif canonical == "generate_chapter_from_evolution":
-            self._set_progress(task_id, 30, "从演化记录生成章节...")
-            result = self._engine.generate_chapter_from_evolution()
-            self._set_progress(task_id, 100, "章节大纲生成完成")
-            return result
-
-        elif canonical == "get_evolution_state":
-            result = self._engine.get_evolution_state()
-            return result
-
-        elif canonical == "export_evolution_log":
-            log = self._engine.export_evolution_log()
-            return {"log": log}
-
-        elif canonical == "save_evolution_state":
-            self._set_progress(task_id, 50, "保存演化状态...")
-            nid = self._safe_novel_id(params)
-            result = self._engine.save_evolution_state(nid)
-            self._set_progress(task_id, 100, "已保存")
-            return result
-
-        elif canonical == "write_narrative_chapter":
-            self._set_progress(task_id, 30, "AI 正在从演化记录撰写章节...")
-            result = self._engine.write_narrative_chapter()
-            if result.get("success"):
-                self._set_progress(task_id, 100, f"第{result.get('chapter_number')}章完成")
-            return result
 
         # ═══════════════════════════════════════════════════════════════
         # 角色属性操作

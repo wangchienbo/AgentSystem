@@ -25,6 +25,63 @@ class SceneManager:
         self._scenes: dict[str, SceneSetting] = {}
         # char_id → scene_id
         self._locations: dict[str, str] = {}
+        # 事件日志（跨 pipeline 调用累积）
+        self._event_log: list[dict] = []
+
+    def sync_scenes(self, scenes: dict) -> None:
+        """从 novel.world.scenes 同步场景定义（不重置）"""
+        for sid, scene in scenes.items():
+            if sid not in self._scenes:
+                if isinstance(scene, dict):
+                    # 从 dict 构造 SceneSetting
+                    from app.novel_studio.data_models import SceneSetting
+                    s = SceneSetting(
+                        id=sid,
+                        name=scene.get("name", sid),
+                        location=scene.get("location", ""),
+                        atmosphere=scene.get("atmosphere", ""),
+                        description=scene.get("description", ""),
+                        weather=scene.get("weather", ""),
+                        time_period=scene.get("time_period", ""),
+                    )
+                    self.add_scene(s)
+                else:
+                    self.add_scene(scene)
+
+    def clear_events(self):
+        """清除事件日志，准备新一轮"""
+        self._event_log = []
+
+    def get_event_log(self) -> list[dict]:
+        """获取当前场景事件日志"""
+        return list(self._event_log)
+
+    def apply_action(self, char_name: str, action: str, dialogue: str = "",
+                     inner: str = "", scene_id: str = "") -> None:
+        """记录角色行动到场景事件日志"""
+        event = {
+            "char_name": char_name,
+            "action": action,
+            "dialogue": dialogue,
+            "inner": inner,
+            "scene_id": scene_id or "",
+        }
+        self._event_log.append(event)
+
+    def get_event_summary(self, max_events: int = 5) -> str:
+        """获取最近的场景事件摘要"""
+        if not self._event_log:
+            return "之前没有任何事件发生。"
+        events = self._event_log[-max_events:]
+        lines = ["【之前发生的事件】"]
+        for ev in events:
+            parts = [f"  {ev['char_name']}{ev['action']}"]
+            if ev['dialogue'] and ev['dialogue'] != "沉默":
+                parts.append(f"，说「{ev['dialogue'][:80]}」")
+            if ev['inner']:
+                parts.append(f"（内心：{ev['inner'][:40]}）")
+            lines.append("".join(parts))
+        return "\n".join(lines)
 
     def get_scene(self, scene_id: str) -> SceneSetting | None:
         """获取场景定义"""

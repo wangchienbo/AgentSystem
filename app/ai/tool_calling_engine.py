@@ -34,9 +34,10 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 
-# Increased from 800 to 3000: complex asset results (get_novel, get_system_info)
-# can be 10K+ chars; 800 was truncating critical data forcing tool re-exploration
-MAX_TOOL_RESULT_CHARS = 3000
+# Increased from 800 → 3000 → 20000: get_novel returns full novel data
+# (largest novel ~18K chars) plus _summary prefix. 20000 ensures most
+# novels fit entirely, and _summary is always at the serialized string head.
+MAX_TOOL_RESULT_CHARS = 20000
 
 from app.services.model_router import ModelRouter, ModelRouterError
 from app.services.model_client import OpenAIResponsesClient, ModelClientError

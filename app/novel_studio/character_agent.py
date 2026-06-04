@@ -21,18 +21,29 @@ logger = logging.getLogger(__name__)
 
 
 class CharacterAgent:
-    """角色 Agent——代表一个角色的行为、记忆和知识边界"""
+    """角色 Agent——代表一个角色的行为、记忆和知识边界
+
+    ContextCenter 集成：每个角色拥有独立的 SessionNode，
+    记忆持久化到磁盘，服务重启不丢失。
+    """
 
     def __init__(
         self,
         character: Character,
         model_router: ModelRouter | None = None,
+        context_center=None,
+        character_session_id: str = "",
     ):
         self._char = character
         self._router = model_router
-        # 角色记忆（角色自己的视角）
+        self._context_center = context_center
+        self._character_session_id = character_session_id
+        # 角色记忆（角色自己的视角）— 内存缓存，启动时从 ContextCenter 加载
         self._memories: list[Memory] = []
-        self._max_memories = 50
+        self._max_memories = 100
+        # 启动时从持久化加载记忆
+        if self._context_center and self._character_session_id:
+            self._load_persisted_memories()
 
     @property
     def name(self) -> str:
@@ -53,7 +64,7 @@ class CharacterAgent:
         participants: list[str] | None = None,
         importance: float = 0.5, tags: list[str] | None = None,
     ) -> Memory:
-        """添加一条记忆（角色视角）"""
+        """添加一条记忆（角色视角），同时写入 ContextCenter 持久化"""
         mem = Memory(
             timestamp=len(self._memories),
             content=content,
@@ -64,6 +75,24 @@ class CharacterAgent:
             tags=tags or [],
         )
         self._memories.append(mem)
+        # 写入 ContextCenter 持久化
+        if self._context_center and self._character_session_id:
+            try:
+                self._context_center.append_context(
+                    session_id=self._character_session_id,
+                    content=content,
+                    role="assistant",
+                    kind="message",
+                    metadata_extra={
+                        "scene_id": scene_id,
+                        "importance": importance,
+                        "tags": tags or [],
+                        "participants": participants or [],
+                        "timestamp": len(self._memories),
+                    },
+                )
+            except Exception as e:
+                logger.warning("角色 %s 记忆持久化失败: %s", self._char.name, e)
         # 简单遗忘机制：超出上限时丢掉最不重要的
         if len(self._memories) > self._max_memories:
             self._memories.sort(key=lambda m: m.importance)
@@ -92,6 +121,57 @@ class CharacterAgent:
             if tag in m.tags:
                 return True
         return False
+
+    def _load_persisted_memories(self) -> int:
+        """从 ContextCenter 加载持久化的记忆到内存缓存"""
+        loaded = 0
+        try:
+            records = self._context_center.get_recent_context(
+                session_id=self._character_session_id,
+                limit=self._max_memories,
+                kind_filter="message",
+            )
+            for rec in records:
+                meta = rec.get("metadata_extra", {}) or {}
+                mem = Memory(
+                    timestamp=meta.get("timestamp", loaded),
+                    content=rec.get("content", ""),
+                    scene_id=meta.get("scene_id", ""),
+                    char_pov=self._char.name,
+                    participants=meta.get("participants", []),
+                    importance=meta.get("importance", 0.5),
+                    tags=meta.get("tags", []),
+                )
+                self._memories.append(mem)
+                loaded += 1
+        except Exception as e:
+            logger.warning("角色 %s 加载持久记忆失败: %s", self._char.name, e)
+        return loaded
+
+    @property
+    def knowledge_context(self) -> str:
+        """角色在 ContextCenter 中的知识摘要——用于构建去中心化决策 Prompt"""
+        if not self._context_center or not self._character_session_id:
+            return self.get_knowing_summary(5)
+        try:
+            records = self._context_center.get_recent_context(
+                session_id=self._character_session_id,
+                limit=10,
+                kind_filter="message",
+            )
+            if not records:
+                return f"{self._char.name}还没有任何记忆。"
+            parts = [f"{self._char.name}记得的事："]
+            for rec in reversed(records):
+                content = rec.get("content", "")
+                meta = rec.get("metadata_extra", {}) or {}
+                participants = meta.get("participants", [])
+                if participants:
+                    content += f"（和{'、'.join(participants)}在一起）"
+                parts.append(f"  - {content}")
+            return "\n".join(parts)
+        except Exception:
+            return self.get_knowing_summary(5)
 
     # ── Agent 决策 ──
 
@@ -334,14 +414,43 @@ class CharacterAgent:
 
 
 class CharacterAgentRegistry:
-    """角色 Agent 注册中心"""
+    """角色 Agent 注册中心
 
-    def __init__(self, model_router: ModelRouter | None = None):
+    ContextCenter 集成：注册角色时自动创建持久化记忆 SessionNode。
+    """
+
+    def __init__(self, model_router: ModelRouter | None = None, context_center=None):
         self._agents: dict[str, CharacterAgent] = {}
         self._router = model_router
+        self._context_center = context_center
+        self._novel_id: str = ""
 
-    def register(self, character: Character) -> CharacterAgent:
-        agent = CharacterAgent(character, model_router=self._router)
+    def set_novel_context(self, novel_id: str):
+        """设置当前小说 ID，用于构建角色会话路径"""
+        self._novel_id = novel_id
+
+    def register(self, character: Character, novel_id: str = "") -> CharacterAgent:
+        """注册角色，自动创建 ContextCenter 会话（如已配置）"""
+        novel_id = novel_id or self._novel_id
+        char_session_id = ""
+        if self._context_center and novel_id:
+            char_session_id = f"novel_{novel_id}_char_{character.id}"
+            try:
+                self._context_center.get_or_create_session(
+                    session_id=char_session_id,
+                    parent_session_id=f"novel_{novel_id}",
+                    kind="character",
+                    context=f"角色记忆: {character.name}",
+                )
+            except Exception as e:
+                logger.warning("角色 %s 会话创建失败: %s", character.name, e)
+
+        agent = CharacterAgent(
+            character,
+            model_router=self._router,
+            context_center=self._context_center,
+            character_session_id=char_session_id,
+        )
         self._agents[character.id] = agent
         return agent
 

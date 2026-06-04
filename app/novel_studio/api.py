@@ -320,24 +320,6 @@ def create_novel_router(
         novel = engine._storage.update_scene(novel_id, scene_id, updates)
         return {"success": novel is not None, "error": "" if novel else "场景不存在"}
 
-    @router.post("/generate")
-    async def api_generate(data: dict):
-        novel_id = data.get("novel_id", "")
-        instruction = data.get("instruction", "继续写下去")
-        result = await engine.generate_content(novel_id, instruction)
-        content = result.content
-
-        # 自动保存为章节
-        chapter_info = _save_as_chapter(novel_id, content, instruction)
-        if not chapter_info:
-            chapter_info = {"number": 0, "title": ""}
-
-        return {
-            "success": True,
-            "content": content,
-            "chapter": chapter_info,
-        }
-
     @router.post("/generate/next")
     async def api_generate_next(data: dict):
         novel_id = data.get("novel_id", "")
@@ -618,8 +600,8 @@ def create_novel_router(
         _desc_lines.append("")
         _methods = [
             ("get_novel", "novel_id",
-             "获取小说完整数据。一次调用返回所有内容：大纲、已写章节、角色、世界观、场景、状态。返回数据中 _summary 字段是紧凑摘要（永远可见，不会被截断），包含全部章节编号和标题、角色数等关键信息。即使 novel 字段被截断，_summary 也能告诉你完整的章节清单。",
-             "返回值：{success, _summary(紧凑摘要), novel(完整数据)} – _summary 含全部章节编号/标题/角色数/状态等",
+             "获取小说完整数据。一次调用返回所有内容：大纲、已写章节、角色、世界观、场景、状态。返回数据中 _summary 字段是紧凑摘要（永远可见，不会被截断），包含全部已写/大纲章节编号和标题、角色数列表、世界观和场景信息。即使 novel 字段被截断，_summary 也能告诉你完整的章节清单和角色清单。",
+             "返回值：{success, _summary(紧凑摘要), novel(完整数据)} – _summary 含 📖标题 📝章节(✓已写/□大纲) 👥角色列表 🌍世界观 🎭场景",
              "示例：get_novel(novel_id=\"novel_20260601_xxxx\")",
              "→ 回答任何小说问题前调一次就够。先看 _summary 了解全貌，再根据需要从 novel 中取详情"),
             ("save_chapter", "novel_id, title, content, [number]",
@@ -760,26 +742,6 @@ def create_novel_router(
             },
         }
 
-    @router.post("/chapter/write")
-    async def api_write_chapter(data: dict):
-        novel_id = data.get("novel_id", "")
-        novel = engine.get_novel(novel_id)
-        if not novel or not novel.outline:
-            return {"success": False, "content": "请先创建大纲和章节规划"}
-        # 找到下一个未写的章节
-        next_ch = None
-        for co in novel.outline.chapters:
-            existing = [c for c in novel.chapters if c.number == co.number]
-            if not existing:
-                next_ch = co
-                break
-        if not next_ch:
-            return {"success": False, "content": "所有章节都写完了！"}
-        chapter = await engine.write_chapter(novel_id, next_ch.number)
-        if chapter:
-            return {"success": True, "content": chapter.content[:2000], "chapter": chapter.number}
-        return {"success": False, "content": "章节生成失败"}
-
     @router.post("/chapter/delete")
     async def api_delete_chapter(data: dict):
         novel_id = data.get("novel_id", "")
@@ -817,19 +779,6 @@ def create_novel_router(
         if chapter:
             return {"success": True, "chapter": {"id": chapter.id, "number": chapter.number, "title": chapter.title}}
         return {"success": False, "error": "小说不存在"}
-
-    @router.post("/dialogue")
-    async def api_dialogue(data: dict):
-        novel_id = data.get("novel_id", "")
-        char1 = data.get("char1", "")
-        char2 = data.get("char2", "")
-        topic = data.get("topic", "闲聊")
-        # 通过 ContextCenter 管理对话会话（每个角色对话独立上下文窗口）
-        d_session_id = get_or_create_dialogue_session(novel_id, char1, char2, context_center)
-        log_context_record(d_session_id, f"话题：{topic}", context_center, role="user", kind="message")
-        result = await engine.character_dialogue(novel_id, char1, char2, topic)
-        log_context_record(d_session_id, result, context_center, role="assistant", kind="message")
-        return {"success": True, "result": result}
 
     @router.post("/chat/history")
     async def api_chat_history(request: Request, data: dict):

@@ -28,6 +28,7 @@ class PipelineContext:
         agent_registry,
         scene_manager,
         world_module,
+        context_center=None,
         llm_client=None,
         model_router=None,
     ):
@@ -36,6 +37,7 @@ class PipelineContext:
         self._agent_registry = agent_registry
         self._scene_manager = scene_manager
         self._world_module = world_module
+        self._context_center = context_center
         self._llm_client = llm_client
         self._model_router = model_router
 

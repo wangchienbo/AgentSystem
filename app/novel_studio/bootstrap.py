@@ -63,7 +63,7 @@ def bootstrap_novel_studio(
         except Exception:
             pass
 
-    engine = NovelStudioEngine(storage=None, model_router=model_router)
+    engine = NovelStudioEngine(storage=None, model_router=model_router, context_center=runtime_services.get("context_center"))
     runtime_services["novel_engine"] = engine
 
     # ── 2. 创建路由 ────────────────────────────────────────────
@@ -223,16 +223,9 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
             AssetCapability(name="chat", description="与小说创作助手对话，绑定当前小说上下文。进行创作讨论或咨询建议。",
                 method="chat",
                 input_schema={"novel_id": "string", "message": "string"}),
-            AssetCapability(name="character_dialogue", description="生成两个角色间的对话。AI 根据角色性格自动创作符合设定的对话内容。返回 dialogue 列表。",
-                method="character_dialogue",
-                input_schema={"novel_id": "string", "char1": "string",
-                              "char2": "string", "topic": "string"}),
             AssetCapability(name="save_chapter", description="直接保存已撰写的章节到小说。content 须为纯叙事正文（不含评论/摘要）。返回 chapter 对象含 id/number/title/content。示例：save_chapter(novel_id=\"...\", title=\"第一章\", content=\"正文...\")",
                 method="save_chapter",
                 input_schema={"novel_id": "string", "title": "string", "content": "string", "number": "int"}),
-            AssetCapability(name="write_chapter", description="从大纲自动生成下一章。需要先定义大纲章节。返回生成的 chapter 含完整内容。",
-                method="write_chapter",
-                input_schema={"novel_id": "string"}),
             AssetCapability(name="update_chapter", description="更新章节的标题或内容。返回更新后的 chapter 对象含 id/number/title/content。",
                 method="update_chapter",
                 input_schema={"novel_id": "string", "chapter_id": "string",
@@ -270,13 +263,10 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
         "update_scene": lambda **p: _novel_update_scene_resp(engine, **p),
         "delete_scene": lambda **p: _novel_delete_scene_resp(engine, **p),
         "chat": lambda **p: _novel_chat_resp(engine, **p),
-        "character_dialogue": lambda **p: _novel_dialogue_resp(engine, **p),
         "save_chapter": lambda **p: _novel_save_chapter_resp(engine, **p),
-        "write_chapter": lambda **p: _novel_write_chapter_resp(engine, **p),
         "update_chapter": lambda **p: _novel_update_chapter_resp(engine, **p),
         "delete_chapter": lambda **p: _novel_delete_chapter_resp(engine, **p),
         "get_novel": lambda **p: _novel_get_resp(engine, **p),
-        "generate": lambda **p: _novel_generate_resp(engine, **p),
         "save_custom_prompt": lambda **p: {"success": engine.update_custom_prompt(p.get("novel_id", ""), p.get("custom_prompt", "")) is not None},
         "get_system_info": lambda **p: _system_info_resp(engine, **p),
     }
@@ -361,18 +351,6 @@ def _novel_chat_resp(engine, novel_id="", message="", **kw):
     return {"success": True, "content": result.content}
 
 
-def _novel_dialogue_resp(engine, novel_id="", char1="", char2="", topic="闲聊", **kw):
-    """角色对话（供 RuntimeAsset 调用）"""
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(engine.character_dialogue(novel_id, char1, char2, topic))
-    return {"success": True, "result": result}
-
-
 def _novel_save_chapter_resp(engine, novel_id="", title="", content="", number=None, **kw):
     """保存 LLM 撰写的章节内容到小说。带验证：只接受纯中文叙事文本。"""
     import logging
@@ -418,31 +396,6 @@ def _novel_save_chapter_resp(engine, novel_id="", title="", content="", number=N
     if chapter:
         return {"success": True, "chapter": {"number": chapter.number, "title": chapter.title, "word_count": chapter.word_count}}
     return {"success": False, "error": "保存章节失败"}
-
-
-def _novel_write_chapter_resp(engine, novel_id="", **kw):
-    """写下一章（供 RuntimeAsset 调用）"""
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    novel = engine.get_novel(novel_id)
-    if not novel or not novel.outline:
-        return {"success": False, "error": "请先创建大纲"}
-    next_ch = None
-    for co in novel.outline.chapters:
-        existing = [c for c in novel.chapters if c.number == co.number]
-        if not existing:
-            next_ch = co
-            break
-    if not next_ch:
-        return {"success": False, "error": "所有章节都写完了"}
-    chapter = loop.run_until_complete(engine.write_chapter(novel_id, next_ch.number))
-    if chapter:
-        return {"success": True, "chapter": chapter.number, "title": chapter.title}
-    return {"success": False, "error": "生成失败"}
 
 
 def _novel_get_resp(engine, novel_id="", **kw):
@@ -517,34 +470,6 @@ def _novel_delete_chapter_resp(engine, novel_id="", chapter_number=None, **kw):
         return {"success": False, "error": "缺少 chapter_number"}
     ok = engine._storage.delete_chapter(novel_id, int(chapter_number))
     return {"success": ok}
-
-
-def _novel_generate_resp(engine, novel_id="", instruction="", **kw):
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(engine.generate_content(novel_id, instruction))
-    from app.novel_studio.api import _try_save_as_outline, _save_as_chapter
-    from app.novel_studio.models import Chapter
-    content = result.content if hasattr(result, 'content') else str(result)
-    chapter_info = None
-    if content and len(content) >= 100:
-        import re
-        if re.search(r'大纲|梗概|三幕', instruction):
-            _try_save_as_outline(novel_id, content, engine)
-        else:
-            novel = engine.get_novel(novel_id)
-            if novel and novel.chapters:
-                chapter_number = max(c.number for c in novel.chapters) + 1
-            else:
-                chapter_number = 1
-            chapter = Chapter(number=chapter_number, title="生成内容", content=content, word_count=len(content))
-            engine._storage.add_chapter(novel_id, chapter)
-            chapter_info = {"number": chapter_number, "title": "生成内容"}
-    return {"success": True, "content": content, "chapter": chapter_info}
 
 
 def _system_info_resp(engine, **kw):
