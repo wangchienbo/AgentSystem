@@ -13,6 +13,115 @@ from .base import BaseModule, PipelineContext
 
 logger = logging.getLogger(__name__)
 
+# ── Phase 1: 属性→能力翻译（缓存层 + 运行时上下文扩展） ──
+_ability_prompt_cache: dict[str, str] = {}
+
+
+def _build_ability_prompt(char) -> str:
+    """属性/特殊能力→自然语言行为描述（缓存层，一次性计算永久复用）"""
+    char_id = getattr(char, 'id', None) or getattr(char, 'name', 'unknown')
+    if char_id in _ability_prompt_cache:
+        return _ability_prompt_cache[char_id]
+
+    parts = []
+    attrs = getattr(char, 'attributes', None)
+    if attrs:
+        descs = []
+        if getattr(attrs, 'strength', 10) >= 16:
+            descs.append("你体格强壮，力量过人，在体力对抗中占尽优势")
+        elif getattr(attrs, 'strength', 10) <= 8:
+            descs.append("你体形瘦弱，体力上不占优势")
+        if getattr(attrs, 'dexterity', 10) >= 16:
+            descs.append("你身手敏捷，动作灵活，擅长精细操作和闪避")
+        elif getattr(attrs, 'dexterity', 10) <= 8:
+            descs.append("你动作笨拙，手脚不太利索")
+        if getattr(attrs, 'constitution', 10) >= 16:
+            descs.append("你体质强健，耐力惊人，能承受常人难以忍受的艰苦")
+        elif getattr(attrs, 'constitution', 10) <= 8:
+            descs.append("你身体虚弱，容易疲劳和生病")
+        if getattr(attrs, 'intelligence', 10) >= 16:
+            descs.append("你聪慧过人，知识渊博，善于分析推理和策划")
+        elif getattr(attrs, 'intelligence', 10) >= 14:
+            descs.append("你头脑聪明，学习能力强")
+        elif getattr(attrs, 'intelligence', 10) <= 8:
+            descs.append("你不太擅长思考复杂问题")
+        if getattr(attrs, 'wisdom', 10) >= 16:
+            descs.append("你洞察力极强，直觉敏锐，能察觉常人忽略的细节")
+        elif getattr(attrs, 'wisdom', 10) >= 14:
+            descs.append("你观察细致，能注意到周围环境的微妙变化")
+        elif getattr(attrs, 'wisdom', 10) <= 8:
+            descs.append("你不太敏感，容易忽略周围发生的事")
+        if getattr(attrs, 'charisma', 10) >= 16:
+            descs.append("你魅力出众，善于说服和感染他人")
+        elif getattr(attrs, 'charisma', 10) >= 14:
+            descs.append("你有一种吸引人的气质，说话有分量")
+        elif getattr(attrs, 'charisma', 10) <= 8:
+            descs.append("你不擅长社交，说话做事容易得罪人")
+        if descs:
+            parts.append("【你的能力状况】\n" + "\n".join(descs))
+
+    ability = getattr(char, 'special_ability', None) or ''
+    if ability:
+        parts.append(f"\n【你的特殊能力】\n{ability}")
+        parts.append("这个能力是你与众不同的根源。它会改变你能感知到的信息和你的行动选择。")
+
+    tags = char.ability_tags() if hasattr(char, 'ability_tags') else []
+    tag_desc_map = {
+        'keen_senses': "你的感官比常人敏锐，能注意到细微的声音、气味和环境变化。",
+        'sixth_sense': "你有近乎第六感的直觉，能感知到危险或隐藏的事物。",
+        'arcane_knowledge': "你掌握常人无法理解的深层知识，能从看似无关的现象中看出联系。",
+        'physically_imposing': "你的体格让人望而生畏，单是站在那里就能给人压迫感。",
+        'charismatic': "你的气质和魅力让人不由自主地被你吸引或信服。",
+    }
+    tag_texts = []
+    for tag in tags:
+        if tag in tag_desc_map:
+            tag_texts.append(tag_desc_map[tag])
+    faction_tags = [t for t in tags if t.startswith('faction:')]
+    if faction_tags:
+        tag_texts.append(f"你属于{'/'.join(t.split(':')[1] for t in faction_tags)}阵营。")
+    armed_tags = [t for t in tags if t.startswith('armed:')]
+    if armed_tags:
+        tag_texts.append(f"你携带着{'/'.join(t.split(':')[1] for t in armed_tags)}。")
+    if tag_texts:
+        parts.append("\n【你的特质】\n" + "\n".join(tag_texts))
+
+    result = "\n\n".join(parts)
+    _ability_prompt_cache[char_id] = result
+    return result
+
+
+def _build_ability_context(char, scene_context: str, perception) -> str:
+    """能力→上下文扩展（运行层：根据能力扩展角色收到的信息）"""
+    parts = []
+    effective_per = char.effective_perception() if hasattr(char, 'effective_perception') else 10
+    effective_int = char.effective_intelligence() if hasattr(char, 'effective_intelligence') else 10
+
+    if effective_per >= 18:
+        snd = getattr(perception, 'sounds', None) or []
+        sml = getattr(perception, 'smells', None) or []
+        ctx_lines = ["你察觉到了在场大多数人没有注意到的细节。"]
+        if snd:
+            ctx_lines.append("你听到了细微的声音变化：" + "、".join(snd))
+        if sml:
+            ctx_lines.append("你捕捉到了空气中的气味：" + "、".join(sml))
+        if effective_per >= 20:
+            ctx_lines.append("你的直觉告诉你——这个场景中有不寻常之处。")
+        parts.append("【你的敏锐感官】\n" + "\n".join(ctx_lines))
+    elif effective_per >= 14:
+        parts.append("【你的感官比常人敏锐】\n你注意到了一些容易被忽略的细节。")
+
+    if effective_int >= 16:
+        parts.append("【你的思维在高速运转】\n你将眼前的信息与已知的事实联系起来，发现了一些可能的关联。")
+    elif effective_int >= 14:
+        parts.append("【你在思考】\n你觉得眼前的信息之间可能有什么联系。")
+
+    ability = getattr(char, 'special_ability', None) or ''
+    if '天眼' in ability or '透视' in ability or '千里眼' in ability:
+        parts.append("【你的特殊能力在起作用】\n你的视野超越了眼前的场景，你能感知到更远处发生的事情。")
+
+    return '\n\n'.join(parts) if parts else ''
+
 
 class CharacterActionModule(BaseModule):
     """④ 角色行为：对场景序列中的每个场景执行角色决策"""
@@ -183,9 +292,26 @@ def _evaluate_impulses(
             goal = getattr(char, "goal", "") or ""
             speech = getattr(char, "speech_style", "") or ""
             bg = getattr(char, "background", "") or ""
+            # Phase 1: 能力因素加入冲动评估
+            attrs = getattr(char, "attributes", None)
+            ability_hint = ""
+            if attrs:
+                high_attrs = []
+                if getattr(attrs, "strength", 10) >= 16:
+                    high_attrs.append("力量过人")
+                if getattr(attrs, "dexterity", 10) >= 16:
+                    high_attrs.append("身法如电")
+                if getattr(attrs, "intelligence", 10) >= 16:
+                    high_attrs.append("智谋过人")
+                if getattr(attrs, "wisdom", 10) >= 16:
+                    high_attrs.append("洞察入微")
+                if getattr(attrs, "charisma", 10) >= 16:
+                    high_attrs.append("魅力非凡")
+                if high_attrs:
+                    ability_hint = f"，{'、'.join(high_attrs)}"
             char_descs.append(
                 f"- {char_name}（性格：{personality}，目标：{goal}，"
-                f"说话风格：{speech}，背景：{bg[:50]}）"
+                f"说话风格：{speech}，背景：{bg[:50]}{ability_hint}）"
             )
         else:
             char_descs.append(f"- {char_name}（无详细设定）")
@@ -217,6 +343,7 @@ def _evaluate_impulses(
 考虑因素：
 - 谁的性格最容易在这种情境下有强烈反应？
 - 谁在场景中有最强的目标/动机？
+- 谁的能力（力量、智力、感知等）在当前场景最有用武之地？
 - 谁还没做出反应？
 - 戏剧性：谁的行动会最有看点？
 
@@ -285,6 +412,9 @@ def _decide_character(
             f"在决定行动前做一次逻辑校验：你做的事是否能达成你期望的效果？"
             f"如果你要卖东西或提供服务，对方真的会为此付钱吗？"
             f"拒绝不合逻辑的行动方案，选择现实中行得通的做法。"
+            f"\n【能力使用提示】你的能力状况（属性数值、特殊能力、特质）描述了你能做什么、不能做什么。"
+            f"高属性意味着你在相关方面表现出色，低属性意味着不擅长。"
+            f"在决策时合理运用你的能力——既不要低估自己，也不要做超出能力范围的事。"
         )
 
         client = ctx.get_llm_client("novel_writer")
@@ -333,9 +463,10 @@ def _build_decision_prompt(
         else f"性格：{'、'.join(getattr(char, 'personality', []) or [])}"
     )
 
-    if getattr(char, "special_ability", None):
-        parts.append(f"\n⚠️ 你的特殊能力：{char.special_ability}")
-        parts.append("在决策时，这个能力会改变你能感知到的信息和你的思维方式。")
+    # Phase 1: 注入能力翻译（缓存层→行为描述）
+    ability_prompt = _build_ability_prompt(char)
+    if ability_prompt:
+        parts.append(f"\n{ability_prompt}")
 
     bg = getattr(char, "background", "") or ""
     if "穿越" in bg or "现代" in bg:
@@ -368,6 +499,11 @@ def _build_decision_prompt(
     mood = getattr(perception, "mood", None) or ""
     if mood:
         parts.append(f"氛围：{mood}")
+
+    # Phase 1: 能力→上下文扩展（运行层注入）
+    ability_context = _build_ability_context(char, scene_context, perception)
+    if ability_context:
+        parts.append(f"\n{ability_context}")
 
     if previous_actions:
         parts.append("\n【你刚刚目睹的事】")
