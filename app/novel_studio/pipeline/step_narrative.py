@@ -184,7 +184,11 @@ class NarrativeModule(BaseModule):
             lines.append(f"\n【重要】本章开头必须从上一章结尾处自然接续，不能有时间跳跃，不能重新介绍人物！")
             lines.append(f"上一章结束时主角在哪里、在做什么，本章就从那里继续写。")
         else:
-            lines.append(f"\n## 本章是第一章，从主角穿越到明末开始写。")
+            # 动态读取小说的世界观描述，替代硬编码的「明末」
+            world = getattr(novel, "world", None)
+            overview = getattr(world, "overview", "") or ""
+            genre = novel.genre or "玄幻"
+            lines.append(f"\n## 本章是第一章，从主角穿越到{genre}世界开始写。\n{overview[:80] if overview else ''}")
 
         # ─── 上一章全文参考 ───
         if prev_chapter_content and "第一章" not in prev_chapter_content:
