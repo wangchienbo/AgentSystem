@@ -232,6 +232,11 @@ def build_novel_context(novel) -> str:
         f"【类型】{novel.genre}" if novel.genre else "",
     ]
 
+    # 小说简介（面向用户的故事概述，也帮助 AI 理解故事定位）
+    description = getattr(novel, "description", "") or ""
+    if description:
+        parts.append(f"【小说简介】{description}")
+
     # 世界观概述
     world = getattr(novel, "world", None)
     if world is not None:

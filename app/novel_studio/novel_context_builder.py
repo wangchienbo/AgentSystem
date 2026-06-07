@@ -249,6 +249,8 @@ def build_novel_system_prompt(novel) -> str:
             )
             if c.goal:
                 ctx_parts.append(f"    目标：{c.goal}")
+    if getattr(novel, "description", ""):
+        ctx_parts.append(f"小说简介：{novel.description}")
     if novel.world:
         ctx_parts.append(f"世界观：{novel.world.name} - {novel.world.overview}")
     if novel.chapters:

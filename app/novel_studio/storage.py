@@ -49,6 +49,7 @@ class NovelStorage:
                     "status": data.get("status", "planning"),
                     "char_count": len(data.get("characters", {})),
                     "chapter_count": len(data.get("chapters", [])),
+                    "description": data.get("description", ""),
                     "updated_at": data.get("updated_at", ""),
                 })
             except Exception:

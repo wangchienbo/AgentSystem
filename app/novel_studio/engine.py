@@ -83,9 +83,9 @@ class NovelStudioEngine:
 
     # ──── 小说创建与管理 ────
 
-    def create_novel(self, title: str, genre: str = "", author: str = "") -> Novel:
+    def create_novel(self, title: str, genre: str = "", author: str = "", description: str = "") -> Novel:
         """创建新小说"""
-        novel = Novel(title=title, genre=genre, author=author)
+        novel = Novel(title=title, genre=genre, author=author, description=description)
         self._storage.save_novel(novel)
         self._current_novel_id = novel.id
         return novel
@@ -112,6 +112,15 @@ class NovelStudioEngine:
         if not novel:
             return None
         novel.custom_prompt = custom_prompt
+        self._storage.save_novel(novel)
+        return novel
+
+    def update_description(self, novel_id: str, description: str) -> Novel | None:
+        """更新小说简介"""
+        novel = self._storage.get_novel(novel_id)
+        if not novel:
+            return None
+        novel.description = description
         self._storage.save_novel(novel)
         return novel
 
@@ -769,6 +778,7 @@ class NovelStudioEngine:
             {"name": "generate", "params": "novel_id, instruction", "desc": "根据指令生成内容并自动保存"},
             {"name": "get_system_info", "params": "无需参数", "desc": "返回本系统架构信息（即此方法）"},
             {"name": "save_custom_prompt", "params": "novel_id, custom_prompt", "desc": "设置小说写作指令"},
+            {"name": "save_description", "params": "novel_id, description", "desc": "设置小说简介（面向读者的概述）"},
             {"name": "list_sessions", "params": "novel_id", "desc": "列出小说所有会话"},
             {"name": "create_session", "params": "novel_id, label", "desc": "创建新会话"},
             {"name": "switch_session", "params": "novel_id, session_uuid", "desc": "切换当前会话"},

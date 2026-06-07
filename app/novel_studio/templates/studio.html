@@ -246,8 +246,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div id="workspace" class="view">
     <div id="topbar">
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
-      <span id="tb-title">加载中...</span>
-      <span id="tb-genre"></span>
+      <div style="display:flex;flex-direction:column;min-width:0">
+        <span id="tb-title">加载中...</span>
+        <span id="tb-genre" style="font-size:11px;color:#aaa;margin-top:1px"></span>
+        <span id="tb-desc" style="font-size:11px;color:#888;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" onclick="editDescription()" title="点击编辑小说简介"></span>
+      </div>
       <div id="session-btn-wrap">
         <div id="session-btn" onclick="toggleSessionDropdown()" title="切换对话">
           💬 <span class="s-label" id="sess-current-label">对话</span>
@@ -319,6 +322,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <label>作品名称</label><input id="ctitle" placeholder="输入作品名称">
     <label>类型</label><input id="cgenre" placeholder="例如：奇幻、科幻、悬疑">
     <label>故事概述（可选）</label><textarea id="coutline" placeholder="简单描述故事方向..."></textarea>
+    <label>小说简介（可选）</label><textarea id="cdescription" placeholder="面向读者的简介，描述小说核心看点..."></textarea>
     <div class="modal-actions">
       <button class="cancel" onclick="hideCreate()">取消</button>
       <button class="confirm" onclick="createNovel()">创建</button>
@@ -373,6 +377,7 @@ async function loadNovels(){
       <h3>${esc(n.title||'未命名')}</h3>
       <div class="cm"><span>📖 ${esc(n.genre||'未分类')}</span><span>👥 ${n.char_count||0}</span><span>📄 ${n.chapter_count||0}章</span></div>
       <div class="cm" style="margin-top:6px;color:#555">${esc(n.status||'草稿')} · ${(n.created_at||'').slice(0,10)}</div>
+      <div class="card-desc" style="margin-top:6px;font-size:12px;color:#777;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc((n.description||'').slice(0,120))}</div>
     </div>
   `).join('')
   dbg('cards rendered');
@@ -410,6 +415,8 @@ async function loadNovelData(id){
   novelData=d.novel;
   $('tb-title').textContent=novelData.title||'未命名';
   $('tb-genre').textContent=novelData.genre||'';
+  $('tb-desc').textContent=novelData.description||'';
+  $('tb-desc').style.display=novelData.description?'':'none';
   buildSidebar();
   // Load chat history from ContextCenter
   $('chat-msgs').innerHTML='<div class="empty"><div class="icon">⏳</div><p>加载聊天记录...</p></div>';
@@ -467,6 +474,25 @@ async function loadChatHistory(id,append){
 
 function loadMoreHistory(){
   loadChatHistory(cid,true);
+}
+
+function editDescription(){
+  if(!novelData) return;
+  const d=prompt('编辑小说简介（面向读者）：', novelData.description||'');
+  if(d===null) return; // cancelled
+  fetch('/api/asset/call', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({asset_id:'asset:novel_studio:v1', method:'save_description', params:{novel_id:novelData.id, description:d}})
+  }).then(res=>res.json()).then(result=>{
+    if(result.success||result.ok){
+      novelData.description=d;
+      $('tb-desc').textContent=d;
+      $('tb-desc').style.display=d?'':'none';
+    }else{
+      alert('保存失败');
+    }
+  }).catch(()=>alert('保存失败'));
 }
 
 function buildSidebar(){
@@ -645,12 +671,12 @@ function showCreate(){$('create-modal').classList.add('show');$('ctitle').focus(
 function hideCreate(){$('create-modal').classList.remove('show')}
 
 async function createNovel(){
-  const title=$('ctitle').value.trim();const genre=$('cgenre').value.trim();const outline=$('coutline').value.trim();
+  const title=$('ctitle').value.trim();const genre=$('cgenre').value.trim();const outline=$('coutline').value.trim();const description=$('cdescription').value.trim();
   if(!title){alert('请输入作品名称');return}
-  const d=await api('/create',{title,genre,summary:outline});
+  const d=await api('/create',{title,genre,logline:outline,description});
   if(d.success&&d.novel_id){
     hideCreate();
-    $('ctitle').value='';$('cgenre').value='';$('coutline').value='';
+    $('ctitle').value='';$('cgenre').value='';$('coutline').value='';$('cdescription').value='';
     enterNovel(d.novel_id);
   }else{alert('创建失败: '+(d.error||'未知错误'))}
 }
@@ -1123,6 +1149,8 @@ async function refreshSidebar(){
       novelData=d.novel;
       $('tb-title').textContent=novelData.title||'未命名';
       $('tb-genre').textContent=novelData.genre||'';
+      $('tb-desc').textContent=novelData.description||'';
+      $('tb-desc').style.display=novelData.description?'':'none';
       buildSidebar();
     }
   }catch(e){dbg('refreshSidebar error: '+e.message);}

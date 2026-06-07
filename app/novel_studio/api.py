@@ -98,7 +98,8 @@ def create_novel_router(
         genre = data.get("genre", "")
         author = data.get("author", "")
         logline = data.get("logline", "")
-        novel = engine.create_novel(title, genre=genre, author=author)
+        description = data.get("description", "")
+        novel = engine.create_novel(title, genre=genre, author=author, description=description)
         # 如果有梗概先存为 outline
         if logline:
             engine.create_outline(novel.id, title, logline=logline)
@@ -694,6 +695,11 @@ def create_novel_router(
              "返回值：{ok: true, result: {message: \"保存成功\"}}",
              "示例：save_custom_prompt(novel_id=\"...\", custom_prompt=\"文风参考金庸，对话简洁有力，动作描写细致\")",
              "→ 控制小说写作风格"),
+            ("save_description", "novel_id, description",
+             "设置或更新小说简介（故事概述），面向读者的介绍文字。",
+             "返回值：{ok: true, result: {message: \"保存成功\"}}",
+             "示例：save_description(novel_id=\"...\", description=\"一个普通大学生穿越到玄幻世界，每天午夜随机抽取天赋的故事\")",
+             "→ 设置小说简介"),
             ("get_system_info", "",
              "返回系统架构信息：源代码文件列表、数据模型、完整能力清单、存储路径、启动命令。",
              "返回值：{ok: true, result: {files: [...], capabilities: [...], storage: \"...\", startup: \"...\"}}",
@@ -714,7 +720,7 @@ def create_novel_router(
                        "save_world, add_scene, update_scene, delete_scene, " \
                        "write_chapter, update_chapter, delete_chapter, " \
                        "character_dialogue, chat, create_novel, generate, " \
-                       "save_custom_prompt, get_system_info"
+                       "save_custom_prompt, save_description, get_system_info"
         return {
             "type": "function",
             "function": {
