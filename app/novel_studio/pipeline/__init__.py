@@ -22,6 +22,8 @@ from .step_scene_build import SceneBuildModule
 from .step_character_action import CharacterActionModule
 from .step_narrative import NarrativeModule
 from .step_memory import MemoryUpdateModule
+from .step_scene_loop import SceneLoopModule
+from .step_outline_update import OutlineUpdateModule
 
 __all__ = [
     "BaseModule",
@@ -35,6 +37,8 @@ __all__ = [
     "CharacterActionModule",
     "NarrativeModule",
     "MemoryUpdateModule",
+    "SceneLoopModule",
+    "OutlineUpdateModule",
 ]
 
 
@@ -48,6 +52,8 @@ def register_default_modules():
         CharacterActionModule(),
         NarrativeModule(),
         MemoryUpdateModule(),
+        SceneLoopModule(),
+        OutlineUpdateModule(),
     ]
     for m in mods:
         orch.register(m)

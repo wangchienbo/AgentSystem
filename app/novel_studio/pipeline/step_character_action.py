@@ -9,7 +9,7 @@ import json
 import logging
 from typing import Any
 
-from .base import BaseModule, PipelineContext
+from .base import BaseModule, PipelineContext, build_novel_context
 
 logger = logging.getLogger(__name__)
 
@@ -270,6 +270,26 @@ class CharacterActionModule(BaseModule):
         return actions
 
 
+# ─── 角色行为函数（供 scene_loop 内部调用） ─────────────────
+
+
+async def run_scene_actions(
+    ctx: PipelineContext,
+    scene: dict[str, Any],
+    scene_id: str,
+) -> list[dict[str, Any]]:
+    """对单个场景执行角色决策（供 scene_loop 调用）
+
+    包装 CharacterActionModule._run_scene_actions 的逻辑
+    """
+    module = CharacterActionModule()
+    scene_context = _build_scene_context_text(scene)
+    participants = scene.get("participants", [])
+    return await module._run_scene_actions(
+        ctx, scene, scene_id, scene_context, participants,
+    )
+
+
 # ─── 以下函数与原来一致 ─────────────────────────────────
 
 
@@ -330,6 +350,8 @@ def _evaluate_impulses(
         events_summary = "\n".join(parts)
 
     prompt = f"""你是一个小说角色冲动评估系统。你需要分析当前场景中所有角色的"发言冲动"——谁最应该在这个戏剧性时刻采取行动。
+
+{build_novel_context(ctx.novel)}
 
 【当前场景】
 {scene_context}
@@ -405,6 +427,7 @@ def _decide_character(
         prompt = _build_decision_prompt(
             agent, char_name, perception, scene_context,
             previous_actions=previous_actions,
+            novel=ctx.novel,
         )
         system_prompt = (
             f"你正在扮演{char_name}。先判断自己知道什么，再行动。不要跳角色。"
@@ -453,10 +476,16 @@ def _decide_character(
 
 def _build_decision_prompt(
     agent, char_name: str, perception, scene_context: str,
-    previous_actions: list[dict],
+    previous_actions: list[dict], novel=None,
 ) -> str:
     char = agent.character
     parts = [f"你扮演的角色是{char_name}。\n"]
+
+    # 注入小说核心设定（世界规则、专属提示等）
+    if novel:
+        novel_ctx = build_novel_context(novel)
+        if novel_ctx:
+            parts.append(f"{novel_ctx}\n")
 
     parts.append(
         char.sheet_block() if hasattr(char, "sheet_block")

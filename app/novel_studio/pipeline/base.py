@@ -182,6 +182,12 @@ class BaseModule(abc.ABC):
 # 常用管道模板
 PIPELINE_TEMPLATES: dict[str, list[str]] = {
     "write_next_chapter": [
+        "chapter_plan",       # ① 大纲预测本章
+        "scene_loop",         # ② 场景级循环：预测→环境→角色→重预测 × N
+        "narrative",          # ③ 叙事合成（多场景+连续性）
+        "memory_update",      # ④ 保存记忆
+    ],
+    "write_next_chapter_legacy": [
         "chapter_plan",       # ① 查大纲定本章目标
         "scene_sequence",     # ② 按4原则生成多场景序列
         "scene_build",        # ③ 细化所有场景的感官细节
@@ -205,3 +211,49 @@ PIPELINE_TEMPLATES: dict[str, list[str]] = {
         "memory_update",
     ],
 }
+
+
+# ─── 小说级上下文构建器 ───────────────────────────────────────
+
+
+def build_novel_context(novel) -> str:
+    """从 Novel 对象构建统一的「小说级上下文块」
+
+    包含小说类型、世界观设定、世界规则、专属写作指令等信息。
+    注入到每个 pipeline 步骤的 prompt 中，让 LLM 始终了解小说的核心设定。
+
+    返回格式化的标记块，可注入到任意 prompt 顶部。
+    """
+    if novel is None:
+        return ""
+
+    parts = [
+        f"【小说】{novel.title}",
+        f"【类型】{novel.genre}" if novel.genre else "",
+    ]
+
+    # 世界观概述
+    world = getattr(novel, "world", None)
+    if world is not None:
+        overview = getattr(world, "overview", "") or ""
+        if overview:
+            parts.append(f"【世界观概述】{overview}")
+        rules = getattr(world, "rules", None) or []
+        if rules:
+            parts.append("【世界规则】")
+            for r in rules:
+                parts.append(f"  {r}")
+
+    # 小说专属写作指令/提示词
+    custom_prompt = getattr(novel, "custom_prompt", "") or ""
+    if custom_prompt:
+        parts.append(f"【小说专属写作指令】\n{custom_prompt}")
+
+    # 过滤空段落
+    parts = [p for p in parts if p]
+
+    if not parts:
+        return ""
+
+    context = "\n".join(parts)
+    return f"\n## 📖 小说核心设定\n{context}\n"

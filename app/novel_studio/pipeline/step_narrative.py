@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .base import BaseModule, PipelineContext
+from .base import BaseModule, PipelineContext, build_novel_context
 
 logger = logging.getLogger(__name__)
 
@@ -31,17 +31,27 @@ class NarrativeModule(BaseModule):
     async def execute(self, ctx: PipelineContext) -> PipelineContext:
         novel = ctx.novel
         plan = ctx.get_output("chapter_plan")
-        scenes_data = ctx.get_output("scene_build", {})
-        char_actions = ctx.get_output("character_action", {})
 
         if not plan:
             raise ValueError("缺少章节规划")
-        if not scenes_data:
-            raise ValueError("缺少场景定义")
 
-        scenes = scenes_data.get("scenes", [])
-        actions = char_actions.get("actions", [])
-        scene_actions = char_actions.get("scene_actions", {})
+        # ── 数据源：优先 scene_loop，向后兼容旧 pipeline ──
+        loop_data = ctx.get_output("scene_loop", {})
+        if loop_data.get("scenes"):
+            scenes = loop_data.get("scenes", [])
+            scene_actions = loop_data.get("scene_actions", {})
+            actions = loop_data.get("actions", [])
+            prediction_updates = loop_data.get("prediction_updates", [])
+        else:
+            scenes_data = ctx.get_output("scene_build", {})
+            char_actions = ctx.get_output("character_action", {})
+            scenes = scenes_data.get("scenes", [])
+            actions = char_actions.get("actions", [])
+            scene_actions = char_actions.get("scene_actions", {})
+            prediction_updates = []
+
+        if not scenes:
+            raise ValueError("缺少场景定义")
 
         client = ctx.get_llm_client("novel_writer")
         if not client:
@@ -58,6 +68,7 @@ class NarrativeModule(BaseModule):
         prompt = self._build_prompt(
             novel, plan, scenes, actions, scene_actions,
             prev_chapter_ending, prev_chapter_content, prev_chapter_title,
+            prediction_updates=prediction_updates,
         )
         system_prompt = self._build_system_prompt(novel)
 
@@ -153,11 +164,17 @@ class NarrativeModule(BaseModule):
         prev_chapter_ending: str,
         prev_chapter_content: str,
         prev_chapter_title: str,
+        prediction_updates: list[dict] | None = None,
     ) -> str:
         chapter_number = plan.get("chapter_number", "?")
         chapter_title = plan.get("title", f"第{chapter_number}章")
 
         lines = [f"请创作第{chapter_number}章「{chapter_title}」。"]
+
+        # ─── 小说核心设定 ───
+        novel_ctx = build_novel_context(novel)
+        if novel_ctx:
+            lines.append(novel_ctx)
 
         # ─── 上一章结尾（最关键：从哪里开始写） ───
         if prev_chapter_ending and "第一章" not in prev_chapter_ending:
@@ -184,6 +201,30 @@ class NarrativeModule(BaseModule):
             lines.append(f"关键事件：")
             for ev in plan["key_events"]:
                 lines.append(f"  • {ev}")
+
+        # ─── 预测更新历程（scene_loop 模式的上下文） ───
+        if prediction_updates:
+            lines.append(f"\n## 场景演化历程（预测 vs 实际）")
+            for pu in prediction_updates:
+                si = pu.get("scene_index", 0) + 1
+                before = pu.get("before", {})
+                after = pu.get("after", {})
+                before_events = before.get("key_events", [])
+                after_events = after.get("key_events", [])
+                status = after.get("prediction_status", "")
+                deviation = after.get("deviation_report", "")
+
+                lines.append(f"场景{si}后：")
+                if deviation:
+                    lines.append(f"  偏差：{deviation}")
+                if status:
+                    lines.append(f"  状态：{status}")
+                if before_events or after_events:
+                    if before_events != after_events:
+                        lines.append(f"  预测已更新：{after_events}")
+        else:
+            # 旧模式没有 prediction_updates，但 key_events 仍然可用
+            pass
 
         # ─── 场景序列 ───
         lines.append(f"\n## 场景序列（本章将有 {len(scenes)} 个场景）")

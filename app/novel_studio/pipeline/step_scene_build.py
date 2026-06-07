@@ -11,7 +11,7 @@ import json
 import logging
 from typing import Any
 
-from .base import BaseModule, PipelineContext
+from .base import BaseModule, PipelineContext, build_novel_context
 
 logger = logging.getLogger(__name__)
 
@@ -239,3 +239,194 @@ class SceneBuildModule(BaseModule):
         except (json.JSONDecodeError, ValueError):
             pass
         return None
+
+
+# ─── 单场景细化函数（供 scene_loop 调用） ─────────────────
+
+# 大纲阻断标记：场景细化只包含环境/感官信息，不包含剧情暗示
+_SCENE_BUILD_BLOCKED = object()
+
+
+async def detail_one_scene(
+    ctx: PipelineContext,
+    novel,
+    plan: dict[str, Any],
+    scene_skeleton: dict[str, Any],
+    chapter_number: int,
+) -> dict[str, Any]:
+    """细化单个场景的环境/感官细节（大纲阻断版）
+
+    只添加：location, description, atmosphere, weather, time_period,
+           sights, sounds, smells, mood
+    不添加：关键事件、剧情提示、故事走向
+
+    Returns: 注册后的场景字典（含 scene_id）
+    """
+    client = ctx.get_llm_client("novel_writer")
+
+    # 确保角色 Agent 已注册
+    if novel.characters:
+        ctx.ensure_agents(novel.characters)
+
+    # 尝试用 LLM 细化
+    if client:
+        detailed = await _detail_single_scene_llm(
+            ctx, novel, plan, scene_skeleton, chapter_number,
+        )
+    else:
+        detailed = scene_skeleton
+
+    # 注册到 SceneManager
+    from app.novel_studio.models import SceneSetting
+    import uuid
+
+    scene_id = (
+        f"scene_pipeline_{chapter_number}_"
+        f"{detailed.get('name', '')[:8]}_{uuid.uuid4().hex[:6]}"
+    )
+    new_scene = SceneSetting(
+        id=scene_id,
+        name=detailed.get("name", f"第{chapter_number}章场景"),
+    )
+    for field in ["description", "location", "atmosphere", "weather",
+                   "time_period", "mood"]:
+        if field in detailed and detailed[field]:
+            setattr(new_scene, field, detailed[field])
+    for field in ["sights", "sounds", "smells", "rules"]:
+        if field in detailed and detailed[field]:
+            setattr(new_scene, field, detailed[field])
+
+    ctx.add_scene_to_manager(new_scene)
+
+    # 分配角色
+    participants = detailed.get("participants", [])
+    assigned = []
+    for char_name in participants:
+        agent = ctx.get_agent_by_name(char_name)
+        if agent:
+            ctx.place_character_in_scene(agent.character, scene_id)
+            assigned.append(char_name)
+
+    logger.info("场景细化完成: %s (%s)", detailed.get("name", "?"), scene_id)
+
+    registered = {
+        "scene_id": scene_id,
+        "name": new_scene.name,
+        "location": new_scene.location,
+        "description": new_scene.description,
+        "atmosphere": new_scene.atmosphere,
+        "weather": new_scene.weather,
+        "time_period": new_scene.time_period,
+        "sights": getattr(new_scene, "sights", []),
+        "sounds": getattr(new_scene, "sounds", []),
+        "smells": getattr(new_scene, "smells", []),
+        "mood": getattr(new_scene, "mood", ""),
+        "participants": assigned,
+        "purpose": detailed.get("purpose", ""),
+        "scene_type": detailed.get("scene_type", ""),
+        "transition_from_prev": detailed.get("transition_from_prev", ""),
+        "key_events_done": detailed.get("key_events_done", []),
+    }
+    return registered
+
+
+async def _detail_single_scene_llm(
+    ctx: PipelineContext,
+    novel,
+    plan: dict[str, Any],
+    scene: dict[str, Any],
+    chapter_number: int,
+) -> dict[str, Any]:
+    """用 LLM 细化单场景的环境/感官细节"""
+    client = ctx.get_llm_client("novel_writer")
+    if not client:
+        return scene
+
+    # 构建角色信息
+    chars_text = ""
+    if novel.characters:
+        for c in novel.characters.values():
+            name = getattr(c, "name", "?")
+            arch = getattr(c, "archetype", "?")
+            chars_text += f"  {name}（{arch}）\n"
+
+    scene_text = (
+        f"场景名称：{scene.get('name', '')}\n"
+        f"地点：{scene.get('location', '')}\n"
+        f"参与者：{', '.join(scene.get('participants', []))}\n"
+        f"时间：{scene.get('time_period', '')}\n"
+        f"场景类型：{scene.get('scene_type', '')}\n"
+        f"目的：{scene.get('purpose', '')}"
+    )
+
+    prompt = f"""请为小说《{novel.title}》的第{chapter_number}章细化以下场景的**环境/感官细节**。
+
+{build_novel_context(novel)}
+
+## 场景信息
+{scene_text}
+
+## 角色
+{chars_text}
+
+## 输出要求
+请为这个场景补充完整的**感官细节**。只描述环境——
+角色在这个场景中能看到什么、听到什么、闻到什么、感受到什么氛围。
+
+### ⚠️ 重要：不要包含任何剧情事件或故事走向暗示
+你只设计「在哪里」「什么时间」「什么环境」，而不是「要发生什么」。
+
+输出 JSON（只输出 JSON）：
+{{
+  "name": "场景名称（保留原始名称）",
+  "location": "具体地点描述（扩展细节）",
+  "description": "场景详细描述（80-150字，纯环境/感官）",
+  "atmosphere": "氛围（如'阴森'、'安静'、'热闹'）",
+  "weather": "天气（如'阴雨绵绵'、'烈日当空'）",
+  "time_period": "时间（如'傍晚'）",
+  "sights": ["眼睛能看到的细节1", "细节2", "细节3"],
+  "sounds": ["耳朵能听到的1", "声音2"],
+  "smells": ["鼻子能闻到的1"],
+  "mood": "情绪基调",
+  "rules": ["场景行为限制（如果有的话）"],
+  "participants": ["保留原始参与者"],
+  "purpose": "保留原始叙事目的",
+  "scene_type": "保留原始场景类型",
+  "transition_from_prev": "保留原始过渡信息"
+}}"""
+
+    system_prompt = (
+        f"你正在为小说《{novel.title}》设计场景环境。"
+        f"只输出 JSON。只描述环境，不写剧情。"
+    )
+
+    text, _ = client.chat(
+        [{"role": "system", "content": system_prompt},
+         {"role": "user", "content": prompt}],
+        max_tokens=1500,
+        temperature=0.7,
+    )
+    text = text or ""
+
+    import re
+    m = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
+    if m:
+        text = m.group(1)
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if m:
+        try:
+            detailed = json.loads(m.group())
+            if isinstance(detailed, dict):
+                # 合并：优先保留 LLM 的环境字段，保留原始的结构字段
+                result = dict(scene)
+                for k in ["location", "description", "atmosphere", "weather",
+                          "time_period", "sights", "sounds", "smells", "mood",
+                          "rules"]:
+                    if detailed.get(k):
+                        result[k] = detailed[k]
+                return result
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    logger.warning("单场景细化 JSON 解析失败，使用原始场景")
+    return scene

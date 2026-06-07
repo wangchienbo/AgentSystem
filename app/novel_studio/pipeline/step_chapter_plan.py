@@ -9,7 +9,7 @@ import json
 import logging
 from typing import Any
 
-from .base import BaseModule, PipelineContext
+from .base import BaseModule, PipelineContext, build_novel_context
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ class ChapterPlanModule(BaseModule):
                 "suggested_chars": plan.get("characters", []),
                 "purpose": plan.get("purpose", ""),
                 "source": "outline",  # 来自大纲
+                "is_prediction": True,  # ⚠️ 大纲也是预测不是剧本
             })
             return ctx
 
@@ -67,6 +68,9 @@ class ChapterPlanModule(BaseModule):
 ## 主要角色
 {_build_chars_summary(novel.characters)}
 
+## 小说核心设定
+{build_novel_context(novel)}
+
 请根据以上信息，规划第{next_chapter_number}章的内容。输出 JSON 格式（不要其他文字）：
 {{
   "title": "本章标题",
@@ -76,7 +80,15 @@ class ChapterPlanModule(BaseModule):
   "purpose": "本章在整体故事中的作用"
 }}"""
 
-        system_prompt = f"你正在为小说《{novel.title}》规划第{next_chapter_number}章。只输出 JSON，不要其他内容。注意：规划的事件必须符合常识逻辑——角色做某件事必须有合理的动机和可预期的结果，不能出现\"画在沙子上别人付钱\"这类不合逻辑的桥段。每个事件在现实中都能自圆其说。"
+        system_prompt = (
+            f"你正在为小说《{novel.title}》规划第{next_chapter_number}章。"
+            f"只输出 JSON，不要其他内容。注意：规划的事件必须符合常识逻辑"
+            f"——角色做某件事必须有合理的动机和可预期的结果，不能出现"
+            f"\"画在沙子上别人付钱\"这类不合逻辑的桥段。每个事件在现实中都能自圆其说。"
+            f"\n\n【重要】这只是一个**预测**，不是剧本。你的任务是预判角色可能做什么，"
+            f"而不是命令他们做什么。角色进入场景后将自由决策，你的预测可能会被自然推翻。"
+            f"好的预测是合乎逻辑的猜测，而不是规定的剧情。"
+        )
 
         text, _ = client.chat(
             [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
@@ -105,6 +117,7 @@ class ChapterPlanModule(BaseModule):
             "suggested_chars": plan_data.get("characters", []),
             "purpose": plan_data.get("purpose", ""),
             "source": "llm",
+            "is_prediction": True,  # ⚠️ 这是预测，不是剧本
         })
         return ctx
 
