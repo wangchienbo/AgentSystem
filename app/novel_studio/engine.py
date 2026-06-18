@@ -475,9 +475,15 @@ class NovelStudioEngine:
 
         ctx._character_decided_callback = character_callback
 
-        # 逐步骤执行
+        # 逐步骤执行（支持重生成循环）
         try:
-            for idx, name in enumerate(step_names):
+            max_regenerations = 2
+            regeneration_count = 0
+            narrative_step_idx = step_names.index("narrative") if "narrative" in step_names else -1
+
+            idx = 0
+            while idx < len(step_names):
+                name = step_names[idx]
                 module = orch._modules.get(name)
                 if module is None:
                     task.events.append({"type": "error", "message": f"模块未注册: {name}"})
@@ -501,6 +507,34 @@ class NovelStudioEngine:
                     while not char_queue.empty():
                         task.events.append(char_queue.get_nowait())
 
+                    # ─── 重生成检查（任何 step 都可以触发） ───
+                    if ctx.needs_regeneration and narrative_step_idx >= 0:
+                        if regeneration_count < max_regenerations:
+                            regeneration_count += 1
+
+                            # 清除旧章节
+                            if hasattr(ctx, "_novel_cache") and ctx._novel_cache is not None:
+                                novel = ctx._novel_cache
+                                if hasattr(novel, "chapters") and novel.chapters:
+                                    novel.chapters.pop()
+                                ctx.save_novel()
+
+                            # 清除叙事层输出和章节缓存
+                            ctx._outputs.pop("narrative", None)
+                            ctx._novel_cache = None
+
+                            # 回退到 narrative 步骤
+                            idx = narrative_step_idx - 1  # -1 because we increment below
+                            ctx.needs_regeneration = False
+                            ctx.regeneration_feedback = None
+                            task.events.append({
+                                "type": "step_regenerate", "module": name,
+                                "status": "regenerate",
+                                "summary": f"{name} 触发第{regeneration_count}次重生成",
+                            })
+                            idx += 1
+                            continue
+
                     task.events.append({
                         "type": "step_done", "module": name,
                         "status": "done", "summary": module.description,
@@ -512,6 +546,8 @@ class NovelStudioEngine:
                     task.events.append({"type": "error", "message": f"管道执行失败: {str(e)}"})
                     task.status = "error"
                     return
+
+                idx += 1
 
             # 取最终输出
             narrative_output = ctx.get_output("narrative")
@@ -591,8 +627,13 @@ class NovelStudioEngine:
 
         # 2️⃣ 逐步骤执行管道，直接 yield event
         #    逐步骤 yield event，不依赖 Queue
+        max_regenerations = 2
+        regeneration_count = 0
+        narrative_step_idx = step_names.index("narrative") if "narrative" in step_names else -1
+        step_index = 0
         try:
-            for idx, name in enumerate(step_names):
+            while step_index < len(step_names):
+                name = step_names[step_index]
                 module = orch._modules.get(name)
                 if module is None:
                     yield json.dumps({
@@ -620,6 +661,35 @@ class NovelStudioEngine:
                         ev = char_queue.get_nowait()
                         yield json.dumps(ev, ensure_ascii=False) + "\n"
 
+                    # ─── 重生成检查（任何 step 都可以触发） ───
+                    if ctx.needs_regeneration and narrative_step_idx >= 0:
+                        if regeneration_count < max_regenerations:
+                            regeneration_count += 1
+
+                            # 清除旧章节
+                            if hasattr(ctx, "_novel_cache") and ctx._novel_cache is not None:
+                                novel = ctx._novel_cache
+                                if hasattr(novel, "chapters") and novel.chapters:
+                                    novel.chapters.pop()
+                                ctx.save_novel()
+
+                            # 清除叙事层输出
+                            ctx._outputs.pop("narrative", None)
+                            ctx._novel_cache = None
+
+                            # 回退到 narrative 步骤
+                            step_index = narrative_step_idx - 1  # -1 because we increment below
+                            ctx.needs_regeneration = False
+                            ctx.regeneration_feedback = None
+                            yield json.dumps({
+                                "type": "regenerate",
+                                "module": name,
+                                "regeneration_count": regeneration_count,
+                                "description": f"{name} 触发第{regeneration_count}次重生成",
+                            }, ensure_ascii=False) + "\\n"
+                            step_index += 1
+                            continue
+
                     # step_done
                     yield json.dumps({
                         "type": "step_done",
@@ -636,6 +706,8 @@ class NovelStudioEngine:
                         "message": f"管道执行失败: {str(e)}",
                     }, ensure_ascii=False) + "\n"
                     return
+
+                step_index += 1
 
             # 取最终输出
             narrative_output = ctx.get_output("narrative")

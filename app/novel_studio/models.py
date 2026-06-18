@@ -46,6 +46,7 @@ class CharacterArchetype(str, Enum):
     COMIC_RELIEF = "搞笑角色"
     SUPPORTING = "配角"
     NARRATOR = "叙述者"
+    SYSTEM = "系统"
 
     def default_attributes(self) -> dict[str, int]:
         """按原型返回默认六维属性"""
@@ -103,25 +104,53 @@ class Faction(BaseModel):
     description: str = ""
 
 
+class CharacterWorldview(BaseModel):
+    """角色世界观 — 基于经历形成的对世界的主观认知
+
+    与客观世界资料（WorldSetting）不同，角色世界观：
+    - 可能不完整（角色没去过的地方不知道）
+    - 可能错误（道听途说、以讹传讹）
+    - 随经历演进（每章结束后可能更新）
+    """
+    known_facts: list[str] = Field(default_factory=list)
+    # 角色基于自身经历知道的世界事实
+    # 例："青云宗有内外门之分，外门杂役住在东山脚下"
+
+    beliefs: list[str] = Field(default_factory=list)
+    # 角色的主观认知/判断，可能正确也可能错误
+    # 例："赵无极不过是个欺软怕硬的外门执事"（可能是错的）
+
+    knowledge_gaps: list[str] = Field(default_factory=list)
+    # 角色明确意识到自己不知道的领域
+    # 例："不知道修炼境界怎么划分"
+
+    last_updated_chapter: int = 0
+    # 最后一次更新时的章节号，用于检测是否需要演进
+
+
 class Character(BaseModel):
     """角色设定"""
     id: str = Field(default_factory=lambda: _unique_id("char"))
     name: str
     archetype: CharacterArchetype = CharacterArchetype.SUPPORTING
-    personality: list[str] = Field(default_factory=list)  # 性格标签列表
-    background: str = ""  # 背景故事
-    motivation: str = ""  # 动机
-    goal: str = ""  # 目标
-    flaw: str = ""  # 缺点
-    speech_style: str = ""  # 说话风格描述
-    appearance: str = ""  # 外貌描述
-    relationships: dict[str, str] = Field(default_factory=dict)  # {角色名: 关系描述}
-    arc: str = ""  # 角色弧光（成长轨迹）
+    personality: list[str] = Field(default_factory=list)
+    background: str = ""
+    motivation: str = ""
+    goal: str = ""
+    flaw: str = ""
+    speech_style: str = ""
+    appearance: str = ""
+    relationships: dict[str, str] = Field(default_factory=dict)
+    arc: str = ""
     is_active: bool = True
     # ── 演化扩展 ──
-    current_scene: str = ""  # 当前所在场景 ID
-    knowing_tags: list[str] = Field(default_factory=list)  # 角色"知道"的信息标签
-    special_ability: str = ""  # 特殊能力/金手指描述（穿越者、异能者等）
+    current_scene: str = ""
+    knowing_tags: list[str] = Field(default_factory=list)
+    special_ability: str = ""
+    early_life: list[str] = Field(default_factory=list)
+    debut_chapter: int = 0
+    # ── 角色世界观（主观认知） ──
+    worldview: CharacterWorldview = Field(default_factory=CharacterWorldview)
     # ── 属性面板（游戏化） ──
     attributes: Attributes = Field(default_factory=Attributes)
     equipment: list[EquipmentItem] = Field(default_factory=list)
@@ -180,6 +209,10 @@ class Character(BaseModel):
             lines.append(f"目标：{self.goal}")
         if self.special_ability:
             lines.append(f"【特殊能力】{self.special_ability}")
+        if self.early_life:
+            lines.append(f"【前半生】")
+            for ev in self.early_life:
+                lines.append(f"· {ev}")
         return "\n".join(lines)
 
 
@@ -223,7 +256,92 @@ class SceneSetting(BaseModel):
     visible_objects: list[str] = Field(default_factory=list)
     hidden_objects: list[str] = Field(default_factory=list)
     rules: list[str] = Field(default_factory=list)
+    crowd: str = ""  # 背景人群描述（除参与者外的其他人）
     tags: list[str] = Field(default_factory=list)
+
+
+# ═══════════════════════════════════════════════════════════════
+# 世界演化系统 — 事件池 + 世界状态 + 结构化历史
+# ═══════════════════════════════════════════════════════════════
+
+
+class PendingEventStage(BaseModel):
+    """事件池中事件的一个阶段"""
+    name: str  # 阶段名，如"灵气异动"
+    duration_chapters: int = 1  # 持续章节数
+    effect: str = ""  # 此阶段对世界的影响描述
+
+
+class PendingEvent(BaseModel):
+    """事件池中的待触发大事件（人设计，演化器触发）"""
+    id: str = Field(default_factory=lambda: _unique_id("pev"))
+    type: str = ""  # 秘境/势力冲突/天灾/发现/人物事件
+    name: str
+    trigger_condition: str = ""  # 触发条件描述，如"章节>=5 且 北荒威胁>=3"
+    stages: list[PendingEventStage] = Field(default_factory=list)
+    historical_root: str = ""  # 关联的历史事件名，如"太古·天剑宗封山"
+    factions_involved: list[str] = Field(default_factory=list)
+    regions_affected: list[str] = Field(default_factory=list)
+    internal_setting: str = ""  # 内部设定（如秘境内部结构）
+    status: str = "pending"  # pending | active | completed
+    current_stage: int = 0  # 当前阶段索引
+    remaining_chapters: int = 0  # 当前阶段剩余章节数
+    activated_chapter: int = 0  # 在哪一章被激活
+
+
+class WorldHistoryEvent(BaseModel):
+    """结构化历史事件"""
+    name: str
+    year: str = ""  # 如"太古历3721年"
+    description: str = ""
+    factions_involved: list[str] = Field(default_factory=list)
+    regions_affected: list[str] = Field(default_factory=list)
+
+
+class WorldHistoryEra(BaseModel):
+    """历史时代"""
+    era: str  # 如"太古""近古""当代"
+    events: list[WorldHistoryEvent] = Field(default_factory=list)
+
+
+class FactionRelation(BaseModel):
+    """势力关系"""
+    faction_a: str
+    faction_b: str
+    status: str = "中立"  # 敌对/中立/同盟/从属
+    tension: int = 50  # 0-100，越高越紧张
+    last_event: str = ""
+
+
+class RegionalThreat(BaseModel):
+    """区域威胁"""
+    region: str
+    level: int = 0  # 0-10
+    source: str = ""  # 威胁来源
+    trend: str = "稳定"  # 上升/稳定/下降
+
+
+class WorldState(BaseModel):
+    """世界动态状态（每章演化更新）"""
+    active_events: list[PendingEvent] = Field(default_factory=list)
+    faction_relations: list[FactionRelation] = Field(default_factory=list)
+    regional_threats: list[RegionalThreat] = Field(default_factory=list)
+    current_chapter: int = 0
+
+
+class ChapterTimelineEvent(BaseModel):
+    """章节级事件记录"""
+    name: str
+    type: str = ""  # 势力事件/发现事件/天灾/人物事件/涟漪
+    description: str = ""
+    affected: list[str] = Field(default_factory=list)  # 受影响的势力/区域/角色
+    distance_to_protagonist: str = "L3"  # L1直接/L2间接/L3背景
+
+
+class ChapterTimeline(BaseModel):
+    """章节事件时间线"""
+    chapter: int
+    events: list[ChapterTimelineEvent] = Field(default_factory=list)
 
 
 class WorldSetting(BaseModel):
@@ -235,11 +353,16 @@ class WorldSetting(BaseModel):
     factions: list[dict[str, Any]] = Field(default_factory=list)  # 势力/阵营
     magic_system: str = ""  # 魔法/超自然体系
     technology_level: str = ""
-    history: str = ""
+    history: str = ""  # 旧版纯文本历史（保留兼容）
     geography: str = ""
     culture: str = ""
     scenes: dict[str, SceneSetting] = Field(default_factory=dict)  # {scene_id: scene}
     tags: list[str] = Field(default_factory=list)
+    # ── 世界演化系统 ──
+    pending_events: list[PendingEvent] = Field(default_factory=list)  # 事件池
+    history_eras: list[WorldHistoryEra] = Field(default_factory=list)  # 结构化历史
+    state: WorldState = Field(default_factory=WorldState)  # 动态世界状态
+    chapter_timeline: list[ChapterTimeline] = Field(default_factory=list)  # 章节事件线
 
 
 class ChapterOutline(BaseModel):
@@ -279,6 +402,7 @@ class Chapter(BaseModel):
     content: str = ""
     word_count: int = 0
     status: str = "draft"  # draft | revised | final
+    scenes: list[dict] = Field(default_factory=list)  # 场景数据（crowd/感官/参与者等）
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     notes: str = ""

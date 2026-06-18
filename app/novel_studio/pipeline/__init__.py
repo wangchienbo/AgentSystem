@@ -19,11 +19,17 @@ from .orchestrator import (
 from .step_chapter_plan import ChapterPlanModule
 from .step_scene_sequence import SceneSequenceModule
 from .step_scene_build import SceneBuildModule
-from .step_character_action import CharacterActionModule
-from .step_narrative import NarrativeModule
+from .character_action.step_character_action import CharacterActionModule
+from .narrative.step_narrative import NarrativeModule
+from .editorial_review.step_editorial_review import EditorialReviewModule
+from .world_check.step_world_check import WorldCheckModule
+from .world_design.step_world_design import WorldDesignModule
+from .world_evolve.step_world_evolve import WorldEvolveModule
+from .setting_check.step_setting_check import SettingCheckModule
 from .step_memory import MemoryUpdateModule
 from .step_scene_loop import SceneLoopModule
 from .step_outline_update import OutlineUpdateModule
+from .character_emerge.step_character_emerge import CharacterEmergeModule
 
 __all__ = [
     "BaseModule",
@@ -36,9 +42,15 @@ __all__ = [
     "SceneBuildModule",
     "CharacterActionModule",
     "NarrativeModule",
+    "EditorialReviewModule",
+    "WorldCheckModule",
+    "WorldDesignModule",
+    "WorldEvolveModule",
+    "SettingCheckModule",
     "MemoryUpdateModule",
     "SceneLoopModule",
     "OutlineUpdateModule",
+    "CharacterEmergeModule",
 ]
 
 
@@ -46,14 +58,20 @@ def register_default_modules():
     """注册所有默认模块到全局编排器"""
     orch = get_orchestrator()
     mods = [
+        WorldCheckModule(),
+        WorldDesignModule(),
+        WorldEvolveModule(),
         ChapterPlanModule(),
         SceneSequenceModule(),
         SceneBuildModule(),
         CharacterActionModule(),
         NarrativeModule(),
+        SettingCheckModule(),
+        EditorialReviewModule(),
         MemoryUpdateModule(),
         SceneLoopModule(),
         OutlineUpdateModule(),
+        CharacterEmergeModule(),
     ]
     for m in mods:
         orch.register(m)

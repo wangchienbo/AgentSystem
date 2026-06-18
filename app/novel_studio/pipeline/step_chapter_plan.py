@@ -73,12 +73,25 @@ class ChapterPlanModule(BaseModule):
 
 请根据以上信息，规划第{next_chapter_number}章的内容。输出 JSON 格式（不要其他文字）：
 {{
-  "title": "本章标题",
+  "title": "本章标题（注意：只写标题本身，不要加「第N章：」前缀）",
   "summary": "本章概要（一两句话）",
   "key_events": ["事件1", "事件2"],
   "characters": ["参与的角色名列表"],
   "purpose": "本章在整体故事中的作用"
 }}"""
+
+        # 第1章特殊约束
+        first_chapter_rules = ""
+        if next_chapter_number == 1:
+            first_chapter_rules = (
+                f"\n\n【第1章特殊约束——建立，不解决】"
+                f"\n第1章的核心任务是让读者认识这个世界和角色，不是推进剧情。"
+                f"\n- 本章不解决任何核心矛盾（生存危机、权力斗争等）"
+                f"\n- 本章只做三件事：① 建立世界观（时代、环境、氛围）② 角色初现（主角+1-2个关键角色登场，通过行动展示性格）③ 埋下伏笔（暗示后续冲突，但不展开）"
+                f"\n- key_events 必须是\"建立型\"事件：初次见面、环境探索、日常挣扎、小冲突（非生死）"
+                f"\n- 禁止的事件类型：生死决斗、权力夺位、大规模冲突、核心矛盾爆发"
+                f"\n- purpose 应该类似：\"建立世界观和角色关系，让读者感受明末乱世的氛围\""
+            )
 
         system_prompt = (
             f"你正在为小说《{novel.title}》规划第{next_chapter_number}章。"
@@ -88,6 +101,7 @@ class ChapterPlanModule(BaseModule):
             f"\n\n【重要】这只是一个**预测**，不是剧本。你的任务是预判角色可能做什么，"
             f"而不是命令他们做什么。角色进入场景后将自由决策，你的预测可能会被自然推翻。"
             f"好的预测是合乎逻辑的猜测，而不是规定的剧情。"
+            f"{first_chapter_rules}"
         )
 
         text, _ = client.chat(

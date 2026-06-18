@@ -8,7 +8,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .base import BaseModule, PipelineContext, build_novel_context
+from ..base import BaseModule, PipelineContext
+from ..prompt_loader import load_prompt, build_novel_context
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class NarrativeModule(BaseModule):
         if not scenes:
             raise ValueError("缺少场景定义")
 
-        client = ctx.get_llm_client("novel_writer")
+        client = ctx.get_llm_client("narrative_writer")
         if not client:
             raise RuntimeError("LLM 客户端未配置")
 
@@ -69,6 +70,7 @@ class NarrativeModule(BaseModule):
             novel, plan, scenes, actions, scene_actions,
             prev_chapter_ending, prev_chapter_content, prev_chapter_title,
             prediction_updates=prediction_updates,
+            regeneration_feedback=ctx.regeneration_feedback,
         )
         system_prompt = self._build_system_prompt(novel)
 
@@ -84,10 +86,17 @@ class NarrativeModule(BaseModule):
 
         # 保存章节
         from app.novel_studio.models import Chapter
+        import re
+        raw_title = plan.get("title", f"第{chapter_number}章")
+        # 去掉可能重复的 "第N章：" 前缀
+        clean_title = re.sub(r'^第[一二三四五六七八九十\d]+章[：:．\.\s]*', '', raw_title).strip()
+        if not clean_title:
+            clean_title = raw_title
         new_chapter = Chapter(
             number=chapter_number,
-            title=plan.get("title", f"第{chapter_number}章"),
+            title=clean_title,
             content=text,
+            scenes=scenes,  # ★ 持久化场景数据（crowd/感官/参与者）
         )
 
         try:
@@ -96,7 +105,17 @@ class NarrativeModule(BaseModule):
         except Exception as e:
             logger.error("保存章节失败: %s", e)
             if hasattr(novel, 'chapters') and novel.chapters is not None:
-                novel.chapters.append(new_chapter)
+                # 检查同号章节是否已存在，存在则替换（防止重写时重复追加）
+                existing_idx = None
+                for i, ch in enumerate(novel.chapters):
+                    if getattr(ch, 'number', None) == chapter_number:
+                        existing_idx = i
+                        break
+                if existing_idx is not None:
+                    novel.chapters[existing_idx] = new_chapter
+                    logger.info("第%d章已替换（重写）: %s (%d字)", chapter_number, new_chapter.title, len(text))
+                else:
+                    novel.chapters.append(new_chapter)
             else:
                 novel.chapters = [new_chapter]
 
@@ -140,19 +159,8 @@ class NarrativeModule(BaseModule):
         return getattr(prev, "title", "") or ""
 
     def _build_system_prompt(self, novel) -> str:
-        return (
-            f"你是一位中国古典小说作家，正在创作小说《{novel.title}》。\n\n"
-            f"写作要求：\n"
-            f"1. 只输出纯小说正文，不包含任何推理、分析笔记、逻辑校验等元内容\n"
-            f"2. 使用第三人称有限视角，不要写出「角色感到」「角色看到」这样的说明\n"
-            f"3. 角色的对话使用中文引号「」\n"
-            f"4. 叙事要有画面感和沉浸感\n"
-            f"5. 使用中文写作，采用明清白话小说风格\n"
-            f"6. 常识合理性：每个角色行为的动机和结果都必须合理\n"
-            f"7. 因果逻辑：角色做A事，必须有合理的原因导致B结果\n"
-            f"8. 社会合理性：考虑故事时代背景下的社会规则\n"
-            f"9. 动机关联：每个情节转折必须由角色动机驱动\n"
-        )
+        template = load_prompt("narrative", "system_writer.md")
+        return template.format(novel_title=novel.title)
 
     def _build_prompt(
         self,
@@ -165,11 +173,32 @@ class NarrativeModule(BaseModule):
         prev_chapter_content: str,
         prev_chapter_title: str,
         prediction_updates: list[dict] | None = None,
+        regeneration_feedback: str | None = None,
     ) -> str:
         chapter_number = plan.get("chapter_number", "?")
         chapter_title = plan.get("title", f"第{chapter_number}章")
 
         lines = [f"请创作第{chapter_number}章「{chapter_title}」。"]
+
+        # ─── 第一章：穿越前导语（必须在最前面，优先于场景序列） ───
+        is_first_chapter = chapter_number == 1
+        if is_first_chapter:
+            prologue_template = load_prompt("narrative", "prologue.md")
+            protagonist = getattr(novel, 'protagonist', None) or {}
+            if hasattr(protagonist, 'to_dict'):
+                protagonist = protagonist.to_dict()
+            custom = (novel.custom_prompt or '')
+            prologue_section = prologue_template.format(
+                genre=novel.genre or '未知',
+                novel_title=novel.title,
+                prot_name=protagonist.get('name', '主角'),
+                prot_personality=protagonist.get('personality', ''),
+                prot_background=protagonist.get('background', ''),
+                prologue_scene_rules=custom,
+                prologue_rules_section=custom,
+            )
+            lines.append(f"\n## ⚠️ 第一章硬性要求：必须先写穿越前导语\n{prologue_section}")
+            lines.append("\n【关键】你必须先从穿越前场景开始写（400-600字），让读者充分认识主角是谁、有什么遗憾、是什么样的人。然后再过渡到下面的场景序列。不要跳过穿越前导语直接写异世界！")
 
         # ─── 小说核心设定 ───
         novel_ctx = build_novel_context(novel)
@@ -177,18 +206,12 @@ class NarrativeModule(BaseModule):
             lines.append(novel_ctx)
 
         # ─── 上一章结尾（最关键：从哪里开始写） ───
-        if prev_chapter_ending and "第一章" not in prev_chapter_ending:
+        if not is_first_chapter and prev_chapter_ending and "第一章" not in prev_chapter_ending:
             lines.append(f"\n## ⚠️ 上一章结尾（本章必须从这里直接开始写）")
             lines.append(f"上一章《{prev_chapter_title}》结尾处：")
             lines.append(f"{prev_chapter_ending}")
             lines.append(f"\n【重要】本章开头必须从上一章结尾处自然接续，不能有时间跳跃，不能重新介绍人物！")
             lines.append(f"上一章结束时主角在哪里、在做什么，本章就从那里继续写。")
-        else:
-            # 动态读取小说的世界观描述，替代硬编码的「明末」
-            world = getattr(novel, "world", None)
-            overview = getattr(world, "overview", "") or ""
-            genre = novel.genre or "玄幻"
-            lines.append(f"\n## 本章是第一章，从主角穿越到{genre}世界开始写。\n{overview[:80] if overview else ''}")
 
         # ─── 上一章全文参考 ───
         if prev_chapter_content and "第一章" not in prev_chapter_content:
@@ -231,19 +254,26 @@ class NarrativeModule(BaseModule):
             pass
 
         # ─── 场景序列 ───
-        lines.append(f"\n## 场景序列（本章将有 {len(scenes)} 个场景）")
+        scene_label = "穿越后场景序列" if is_first_chapter else "场景序列"
+        lines.append(f"\n## {scene_label}（本章将有 {len(scenes)} 个场景）")
         for i, scene in enumerate(scenes):
             participants = scene.get("participants", [])
             lines.append(f"\n### 场景{i+1}：{scene.get('name', '')}")
             lines.append(f"  地点：{scene.get('location', '')}")
             lines.append(f"  时间：{scene.get('time_period', '')}")
             lines.append(f"  参与者：{'、'.join(participants)}")
+            p_details = scene.get("participant_details", {})
+            if p_details:
+                for pname, pinfo in p_details.items():
+                    lines.append(f"    {pname}：{pinfo.get('archetype','')} | {pinfo.get('background','')[:80]} | 说话风格：{pinfo.get('speech_style','')}")
             if scene.get("atmosphere"):
                 lines.append(f"  氛围：{scene['atmosphere']}")
             if scene.get("weather"):
                 lines.append(f"  天气：{scene['weather']}")
             if scene.get("description"):
                 lines.append(f"  描述：{scene['description']}")
+            if scene.get("crowd"):
+                lines.append(f"  ⚠️ 背景人群：{scene['crowd']}")
             if scene.get("transition_from_prev"):
                 lines.append(f"  过渡：{scene['transition_from_prev']}")
 
@@ -276,6 +306,12 @@ class NarrativeModule(BaseModule):
                 if inner:
                     lines.append(f"    内心：{inner}")
 
+        # ─── 重生成反馈（如果前序 step 触发了重生成） ───
+        if regeneration_feedback:
+            lines.append(f"\n## ⚠️ 重写要求（必须修正以下问题）")
+            lines.append(regeneration_feedback)
+            lines.append("请根据以上反馈重新创作本章，确保修正所有指出的问题。")
+
         # ─── 写作要求 ───
         lines.append(f"""
 ## 写作要求
@@ -285,7 +321,13 @@ class NarrativeModule(BaseModule):
 - 继承前文的语言风格和叙事节奏
 - 叙事要有画面感和沉浸感
 - 输出完整的章节正文（不含标题和元信息）
-- 不要包含「第X章 完」之类的结尾标记""")
+- 不要包含「第X章 完」之类的结尾标记
+
+## ⚠️ 背景人群不蒸发（硬性约束）
+- 每个场景的「背景人群」是场景的一部分，必须出现在叙事中
+- 即使场景焦点在主角身上，背景人群仍然存在——饥民的咳嗽声、窝棚里的低语、排队领粥的嘈杂
+- 当场景发生重大事件（如官兵搜查、冲突爆发）时，背景人群必须有反应：惊慌、躲避、被驱赶、或继续麻木地躺着
+- 不能让几十个人凭空消失——他们可以躲、可以跑、可以被忽略，但不能不存在""")
 
         return "\n".join(lines)
 

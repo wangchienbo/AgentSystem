@@ -49,7 +49,7 @@ class PipelineOrchestrator:
         ctx: "PipelineContext",
         progress_callback=None,
     ) -> "PipelineContext":
-        """执行管道
+        """执行管道（支持审核重生成循环）
 
         Args:
             template: 管道模板名称
@@ -59,7 +59,13 @@ class PipelineOrchestrator:
         step_names = self.get_step_names(template)
         logger.info("Pipeline 启动: template=%s, steps=%s", template, step_names)
 
-        for idx, name in enumerate(step_names):
+        max_regenerations = 2
+        regeneration_count = 0
+        narrative_step_idx = step_names.index("narrative") if "narrative" in step_names else -1
+
+        step_index = 0
+        while step_index < len(step_names):
+            name = step_names[step_index]
             module = self._modules.get(name)
             if module is None:
                 err = f"模块未注册: {name}"
@@ -67,7 +73,7 @@ class PipelineOrchestrator:
                 ctx.record_step(name, "error", err)
                 raise RuntimeError(err)
 
-            logger.info("  [%d/%d] %s — %s", idx + 1, len(step_names), name, module.description)
+            logger.info("  [%d/%d] %s — %s", step_index + 1, len(step_names), name, module.description)
             ctx.record_step(name, "running", f"正在{module.description}...")
             if progress_callback:
                 progress_callback(name, "running", module.description)
@@ -78,6 +84,45 @@ class PipelineOrchestrator:
                 # 如果模块修改了 storage，刷新上下文中的小说数据
                 if module.modifies_storage:
                     ctx.refresh_novel()
+
+                # 检查是否有 step 请求重生成（任何 step 都可以触发）
+                if ctx.needs_regeneration and narrative_step_idx >= 0:
+                    review_out = ctx.get_output(name, {})
+                    logger.info(
+                        "🔍 重生成检查: step=%s, needs_regeneration=%s, count=%d/%d",
+                        name,
+                        ctx.needs_regeneration,
+                        regeneration_count,
+                        max_regenerations,
+                    )
+                    if regeneration_count < max_regenerations:
+                        regeneration_count += 1
+
+                        # 清除旧章节（用 storage.delete_chapter 避免空章节保护拦截）
+                        chapter_number = ctx.get_output("narrative", {}).get("chapter_number", 1)
+                        ctx._storage.delete_chapter(ctx.novel_id, chapter_number)
+
+                        # 清除叙事层输出和章节缓存（让叙事层重新生成）
+                        ctx._outputs.pop("narrative", None)
+                        ctx._novel_cache = None
+
+                        # 回退到 narrative 步骤
+                        step_index = narrative_step_idx - 1  # -1 because we increment below
+                        logger.info(
+                            "🔄 第%d次重生成: %s 触发，回退到叙事层重新生成",
+                            regeneration_count,
+                            name,
+                        )
+                        ctx.record_step(
+                            name,
+                            "regenerate",
+                            f"{name} 触发第{regeneration_count}次重生成",
+                        )
+                        # 重置重生成标记，让 narrative 重新生成后由后续 step 重新判定
+                        ctx.needs_regeneration = False
+                        ctx.regeneration_feedback = None
+                        step_index += 1
+                        continue
 
                 # 更新进度
                 ctx.record_step(name, "done", f"{module.description}完成")
@@ -92,7 +137,12 @@ class PipelineOrchestrator:
                     progress_callback(name, "error", str(e))
                 raise
 
-        logger.info("Pipeline 完成: template=%s, %d steps", template, len(step_names))
+            step_index += 1
+
+        if regeneration_count > 0:
+            logger.info("Pipeline 完成: template=%s, %d steps, 重生成%d次", template, len(step_names), regeneration_count)
+        else:
+            logger.info("Pipeline 完成: template=%s, %d steps", template, len(step_names))
         return ctx
 
 

@@ -132,15 +132,18 @@ def _parse_sse_json_text(raw_text: str) -> dict:
 
 
 def _chat_completions_url(base_url: str) -> str:
+    import re
     base = base_url.rstrip("/")
-    if base.endswith("/v1"):
+    # Match any /vN suffix (v1, v2, v3, etc.)
+    if re.search(r"/v\d+$", base):
         return base + "/chat/completions"
     return base + "/v1/chat/completions"
 
 
 def _responses_url(base_url: str) -> str:
+    import re
     base = base_url.rstrip("/")
-    if base.endswith("/v1"):
+    if re.search(r"/v\d+$", base):
         return base + "/responses"
     return base + "/v1/responses"
 

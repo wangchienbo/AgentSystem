@@ -8,6 +8,8 @@ from __future__ import annotations
 import abc
 import logging
 from typing import Any
+from .prompt_loader import build_novel_context  # noqa: E402,F401
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +53,11 @@ class PipelineContext:
         # 角色决策回调（流式进度）
         self._character_decided_callback = None
 
+        # 审核与重生成循环
+        self.regeneration_feedback: str | None = None
+        self.regeneration_count: int = 0
+        self.needs_regeneration: bool = False  # 任何 step 设置此标记即可触发回退
+
     # ── 小说数据 ──
 
     @property
@@ -63,6 +70,11 @@ class PipelineContext:
     def refresh_novel(self):
         """强制重新加载小说数据（其他模块可能修改了 storage）"""
         self._novel_cache = self._storage.get_novel(self.novel_id)
+
+    def save_novel(self):
+        """将当前内存中的小说数据保存到 storage"""
+        if self._novel_cache is not None:
+            self._storage.save_novel(self._novel_cache)
 
     # ── 模块间数据传递 ──
 
@@ -182,25 +194,41 @@ class BaseModule(abc.ABC):
 # 常用管道模板
 PIPELINE_TEMPLATES: dict[str, list[str]] = {
     "write_next_chapter": [
-        "chapter_plan",       # ① 大纲预测本章
-        "scene_loop",         # ② 场景级循环：预测→环境→角色→重预测 × N
-        "narrative",          # ③ 叙事合成（多场景+连续性）
-        "memory_update",      # ④ 保存记忆
+        "world_design",      # ① 世界观事件池设计（仅首次，已有则跳过）
+        "world_check",        # ② 世界观完整性门禁（缺失则阻断）
+        "world_evolve",       # ③ 世界演化：触发事件 + 推进 + 涟漪 + 归档
+        "chapter_plan",       # ④ 大纲预测本章
+        "scene_loop",         # ⑤ 场景级循环：预测→环境→角色→重预测 × N
+        "narrative",          # ⑥ 叙事合成（多场景+连续性）
+        "setting_check",      # ⑦ 设定一致性交叉比对（独立LLM调用）
+        "editorial_review",   # ⑧ 章节质量审核（读者视角评分）
+        "character_emerge",   # ⑨ 角色涌现（自动发现新角色）
+        "memory_update",      # ⑩ 保存记忆
     ],
     "write_next_chapter_legacy": [
-        "chapter_plan",       # ① 查大纲定本章目标
-        "scene_sequence",     # ② 按4原则生成多场景序列
-        "scene_build",        # ③ 细化所有场景的感官细节
-        "character_action",   # ④ 每个角色在各自场景独立决策
-        "narrative",          # ⑤ 合成叙事（多场景+上一章结尾）
-        "memory_update",      # ⑥ 保存记忆
+        "world_design",      # ① 世界观事件池设计（仅首次）
+        "world_check",        # ② 世界观完整性门禁
+        "world_evolve",       # ③ 世界演化
+        "chapter_plan",       # ④ 查大纲定本章目标
+        "scene_sequence",     # ⑤ 按4原则生成多场景序列
+        "scene_build",        # ⑥ 细化所有场景的感官细节
+        "character_action",   # ⑦ 每个角色在各自场景独立决策
+        "narrative",          # ⑧ 合成叙事（多场景+上一章结尾）
+        "setting_check",      # ⑨ 设定一致性交叉比对
+        "editorial_review",   # ⑩ 章节质量审核
+        "memory_update",      # ⑪ 保存记忆
     ],
     "quick_write": [
+        "world_design",
+        "world_check",
+        "world_evolve",
         "chapter_plan",
         "scene_sequence",
         "scene_build",
         "character_action",
         "narrative",
+        "setting_check",
+        "editorial_review",
     ],
     "character_chat": [
         "scene_build",

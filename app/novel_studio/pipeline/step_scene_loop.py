@@ -27,7 +27,7 @@ from typing import Any
 from .base import BaseModule, PipelineContext
 from .step_scene_sequence import generate_one_scene
 from .step_scene_build import detail_one_scene
-from .step_character_action import run_scene_actions
+from .character_action.step_character_action import run_scene_actions
 from .step_outline_update import compare_and_update_prediction
 
 logger = logging.getLogger(__name__)

@@ -221,7 +221,16 @@ class NovelStorage:
             return None
         if not chapter.word_count and chapter.content:
             chapter.word_count = len(chapter.content)
-        novel.chapters.append(chapter)
+        # 检查同号章节是否已存在，存在则替换（防止重写时重复追加）
+        existing_idx = None
+        for i, ch in enumerate(novel.chapters):
+            if ch.number == chapter.number:
+                existing_idx = i
+                break
+        if existing_idx is not None:
+            novel.chapters[existing_idx] = chapter
+        else:
+            novel.chapters.append(chapter)
         novel.status = "writing"
         self.save_novel(novel)
         return novel

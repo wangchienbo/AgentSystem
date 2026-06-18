@@ -205,6 +205,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .pipe-step.done{background:#e8f5e9;color:#2e7d32}
 .pipe-step.error{background:#fff0f0;color:#c62828}
 .pipe-step.running{background:#fff8e1;color:#f57f17;font-weight:600}
+.pipe-step.regenerate{background:#fce4ec;color:#c62828;font-weight:600}
 .pipe-step .step-icon{width:20px;text-align:center}
 .pipe-char{margin:6px 0;padding:8px 12px;border-radius:8px;background:#fff;border:1px solid #e0e0e0}
 .char-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin:6px 0}
@@ -787,10 +788,17 @@ async function sendMsg(){
 
 // ──── Pipeline state & helpers (global, used by pollTask & genNextChapter) ────
 const PIPELINE_STEP_DEFS=[
+  {id:'world_check',icon:'🌍',name:'世界观检查'},
+  {id:'world_design',icon:'🎨',name:'事件池设计'},
+  {id:'world_evolve',icon:'🌊',name:'世界演化'},
   {id:'chapter_plan',icon:'📋',name:'章节规划'},
+  {id:'scene_loop',icon:'🔄',name:'场景循环'},
+  {id:'scene_sequence',icon:'🎬',name:'场景序列'},
   {id:'scene_build',icon:'🌍',name:'场景构建'},
   {id:'character_action',icon:'🎭',name:'角色行为'},
   {id:'narrative',icon:'✍️',name:'叙事合成'},
+  {id:'setting_check',icon:'🔍',name:'设定检查'},
+  {id:'editorial_review',icon:'📝',name:'质量审核'},
   {id:'memory_update',icon:'💾',name:'记忆更新'},
 ];
 let _pollTimer=null,_pollActive=false,_lastEventIdx=0;
@@ -809,7 +817,7 @@ function _pipelineInitSteps(){
 function _pipelineUpdateIcon(id,status,msg){
   _pipelineInitSteps();
   const el=document.getElementById('ps-'+id); if(!el)return;
-  const icons={done:'✅',error:'❌',running:'⏳',waiting:'⏸️'};
+  const icons={done:'✅',error:'❌',running:'⏳',waiting:'⏸️',regenerate:'🔄'};
   el.className='pipe-step '+status;
   const name=(PIPELINE_STEP_DEFS.find(s=>s.id==id)||{}).name||id;
   el.innerHTML=`<span class="step-icon">${icons[status]||'⏸️'}</span><span class="step-name">${name}</span><span class="step-status">${esc(msg||'')}</span>`;
@@ -852,6 +860,7 @@ function _pipelineHandleEvent(data){
     case 'step_waiting': _pipelineInitSteps(); break;
     case 'step_start': _pipelineInitSteps(); _pipelineUpdateIcon(data.module,'running',(data.description||'').replace(/^[^\s]+\s/,'')+'...'); break;
     case 'step_done': _pipelineInitSteps(); _pipelineUpdateIcon(data.module,'done',data.summary||'完成'); break;
+    case 'step_regenerate': _pipelineInitSteps(); _pipelineUpdateIcon(data.module,'regenerate',data.summary||'重生成'); break;
     case 'character_done': _pipelineInitSteps(); _pipelineAddCharCard(data); break;
     case 'complete': _pipelineShowComplete(data); break;
     case 'error': _pipelineShowError(data.message); break;

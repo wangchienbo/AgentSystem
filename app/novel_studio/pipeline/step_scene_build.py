@@ -83,7 +83,7 @@ class SceneBuildModule(BaseModule):
             for field in ["description", "location", "atmosphere", "weather", "time_period", "mood"]:
                 if field in sd and sd[field]:
                     setattr(new_scene, field, sd[field])
-            for field in ["sights", "sounds", "smells", "rules"]:
+            for field in ["sights", "sounds", "smells", "rules", "crowd"]:
                 if field in sd and sd[field]:
                     setattr(new_scene, field, sd[field])
 
@@ -98,6 +98,38 @@ class SceneBuildModule(BaseModule):
                     ctx.place_character_in_scene(agent.character, scene_id)
                     assigned.append(char_name)
 
+            # ★ 自动注入系统角色：当主角在场景中时，系统角色随之存在（意识空间）
+            if novel and novel.characters:
+                from app.novel_studio.models import CharacterArchetype
+                sys_char = next(
+                    (c for c in novel.characters.values()
+                     if c.archetype == CharacterArchetype.SYSTEM),
+                    None
+                )
+                if sys_char and sys_char.name not in assigned:
+                    has_protagonist = any(
+                        (c.name in assigned) and (c.archetype == CharacterArchetype.HERO)
+                        for c in novel.characters.values()
+                    )
+                    if has_protagonist:
+                        sys_agent = ctx.get_agent_by_name(sys_char.name)
+                        if sys_agent:
+                            ctx.place_character_in_scene(sys_agent.character, scene_id)
+                            assigned.append(sys_char.name)
+
+            # ★ 构建参与者详情
+            p_details = {}
+            for char_name in assigned:
+                char = _find_character_by_name(novel, char_name)
+                if char:
+                    p_details[char_name] = {
+                        "archetype": getattr(char, "archetype", ""),
+                        "background": getattr(char, "background", "")[:200],
+                        "personality": getattr(char, "personality", []),
+                        "goal": getattr(char, "goal", ""),
+                        "speech_style": getattr(char, "speech_style", ""),
+                    }
+
             registered_scenes.append({
                 "scene_id": scene_id,
                 "name": new_scene.name,
@@ -109,8 +141,10 @@ class SceneBuildModule(BaseModule):
                 "sights": getattr(new_scene, "sights", []),
                 "sounds": getattr(new_scene, "sounds", []),
                 "smells": getattr(new_scene, "smells", []),
+                "crowd": getattr(new_scene, "crowd", ""),
                 "mood": getattr(new_scene, "mood", ""),
                 "participants": assigned,
+                "participant_details": p_details,
                 "purpose": sd.get("purpose", ""),
                 "scene_type": sd.get("scene_type", ""),
                 "transition_from_prev": sd.get("transition_from_prev", ""),
@@ -156,6 +190,10 @@ class SceneBuildModule(BaseModule):
                 arch = getattr(c, "archetype", "?")
                 chars_text += f"  {name}（{arch}）\n"
 
+        # ★ 上一章人群基线
+        prev_scenes = _get_prev_chapter_scenes(novel, chapter_number)
+        crowd_baseline_section = _format_prev_crowd_baseline(prev_scenes)
+
         prompt = f"""请为小说《{novel.title}》的第{chapter_number}章细化以下场景，补充感官细节。
 
 ## 场景序列
@@ -163,6 +201,7 @@ class SceneBuildModule(BaseModule):
 
 ## 角色
 {chars_text}
+{crowd_baseline_section}
 
 ## 本章概要
 {plan.get("summary", "")}
@@ -182,6 +221,7 @@ class SceneBuildModule(BaseModule):
     "mood": "情绪基调",
     "participants": ["参与的角色名"],
     "rules": ["场景行为限制，如果有的话"],
+    "crowd": "背景人群描述（50-100字）",
     "purpose": "叙事目的",
     "scene_type": "场景类型",
     "transition_from_prev": "过渡方式"
@@ -190,6 +230,7 @@ class SceneBuildModule(BaseModule):
 
 注意：
 - sights/sounds/smells 要是具体的感官描写，不能是抽象概念
+- crowd 必须基于场景地点合理推断背景人群，不能为空（除非密室/荒野）
 - 每个场景的参与者只包含真正在该场景的角色
 - 场景顺序不变，保持原有的先后关系"""
 
@@ -211,7 +252,7 @@ class SceneBuildModule(BaseModule):
                 merged = dict(orig)
                 if i < len(detailed):
                     for k in ["location", "description", "atmosphere", "weather",
-                              "time_period", "sights", "sounds", "smells", "mood", "rules"]:
+                              "time_period", "sights", "sounds", "smells", "mood", "rules", "crowd"]:
                         if detailed[i].get(k):
                             merged[k] = detailed[i][k]
                 result.append(merged)
@@ -247,6 +288,61 @@ class SceneBuildModule(BaseModule):
 _SCENE_BUILD_BLOCKED = object()
 
 
+def _find_character_by_name(novel, name: str):
+    """从小说角色字典中按名称查找角色对象。"""
+    if not novel or not hasattr(novel, "characters"):
+        return None
+    chars = novel.characters
+    if isinstance(chars, dict):
+        for c in chars.values():
+            cname = getattr(c, "name", "") if hasattr(c, "name") else c.get("name", "")
+            if cname == name:
+                return c
+    return None
+
+
+def _get_prev_chapter_scenes(novel, chapter_number: int) -> list[dict]:
+    """从上一章已持久化的 scenes 数据中提取人群基线。
+
+    直接读取 Chapter.scenes 结构化数据，不做任何正则解析。
+    返回上一章所有场景的 crowd 字段列表。
+    """
+    if chapter_number <= 1:
+        return []
+
+    chapters = getattr(novel, "chapters", None) or []
+    for ch in chapters:
+        num = getattr(ch, "number", 0) if hasattr(ch, "number") else ch.get("number", 0)
+        if num == chapter_number - 1:
+            scenes = getattr(ch, "scenes", []) if hasattr(ch, "scenes") else ch.get("scenes", [])
+            return scenes if isinstance(scenes, list) else []
+
+    return []
+
+
+def _format_prev_crowd_baseline(prev_scenes: list[dict]) -> str:
+    """将上一章场景数据格式化为 LLM 可读的人群基线文本。"""
+    if not prev_scenes:
+        return ""
+
+    lines = ["## ⚠️ 上一章人群基线（crowd 必须与此连续）"]
+    for i, s in enumerate(prev_scenes):
+        name = s.get("name", f"场景{i+1}")
+        crowd = s.get("crowd", "")
+        participants = s.get("participants", [])
+        if crowd or participants:
+            lines.append(f"\n场景「{name}」：")
+            if crowd:
+                lines.append(f"  背景人群：{crowd}")
+            if participants:
+                lines.append(f"  参与者：{'、'.join(participants)}")
+
+    lines.append("\n【关键】crowd 字段中的人数、构成、状态必须与上一章基线保持连续。")
+    lines.append("- 人数不能凭空增减（除非本章明确发生了死亡/离开/新加入事件）")
+    lines.append("- 如果上一章说「庙内约二十人」，本章不能说「几十人」或「上百人」")
+    return "\n".join(lines)
+
+
 async def detail_one_scene(
     ctx: PipelineContext,
     novel,
@@ -268,10 +364,15 @@ async def detail_one_scene(
     if novel.characters:
         ctx.ensure_agents(novel.characters)
 
+    # ★ 提取上一章场景数据（用于跨章人群一致性锚定）
+    prev_scenes = _get_prev_chapter_scenes(novel, chapter_number)
+    crowd_baseline = _format_prev_crowd_baseline(prev_scenes)
+
     # 尝试用 LLM 细化
     if client:
         detailed = await _detail_single_scene_llm(
             ctx, novel, plan, scene_skeleton, chapter_number,
+            prev_crowd_baseline=crowd_baseline,
         )
     else:
         detailed = scene_skeleton
@@ -292,7 +393,7 @@ async def detail_one_scene(
                    "time_period", "mood"]:
         if field in detailed and detailed[field]:
             setattr(new_scene, field, detailed[field])
-    for field in ["sights", "sounds", "smells", "rules"]:
+    for field in ["sights", "sounds", "smells", "rules", "crowd"]:
         if field in detailed and detailed[field]:
             setattr(new_scene, field, detailed[field])
 
@@ -307,7 +408,39 @@ async def detail_one_scene(
             ctx.place_character_in_scene(agent.character, scene_id)
             assigned.append(char_name)
 
+    # ★ 自动注入系统角色：当主角在场景中时，系统角色随之存在（意识空间）
+    if novel and novel.characters:
+        from app.novel_studio.models import CharacterArchetype
+        sys_char = next(
+            (c for c in novel.characters.values()
+             if c.archetype == CharacterArchetype.SYSTEM),
+            None
+        )
+        if sys_char and sys_char.name not in assigned:
+            has_protagonist = any(
+                (c.name in assigned) and (c.archetype == CharacterArchetype.HERO)
+                for c in novel.characters.values()
+            )
+            if has_protagonist:
+                sys_agent = ctx.get_agent_by_name(sys_char.name)
+                if sys_agent:
+                    ctx.place_character_in_scene(sys_agent.character, scene_id)
+                    assigned.append(sys_char.name)
+
     logger.info("场景细化完成: %s (%s)", detailed.get("name", "?"), scene_id)
+
+    # ★ 构建参与者详情（供 character_action 和 narrative 使用）
+    participant_details = {}
+    for char_name in assigned:
+        char = _find_character_by_name(novel, char_name)
+        if char:
+            participant_details[char_name] = {
+                "archetype": getattr(char, "archetype", ""),
+                "background": getattr(char, "background", "")[:200],
+                "personality": getattr(char, "personality", []),
+                "goal": getattr(char, "goal", ""),
+                "speech_style": getattr(char, "speech_style", ""),
+            }
 
     registered = {
         "scene_id": scene_id,
@@ -320,8 +453,10 @@ async def detail_one_scene(
         "sights": getattr(new_scene, "sights", []),
         "sounds": getattr(new_scene, "sounds", []),
         "smells": getattr(new_scene, "smells", []),
+        "crowd": getattr(new_scene, "crowd", ""),
         "mood": getattr(new_scene, "mood", ""),
         "participants": assigned,
+        "participant_details": participant_details,
         "purpose": detailed.get("purpose", ""),
         "scene_type": detailed.get("scene_type", ""),
         "transition_from_prev": detailed.get("transition_from_prev", ""),
@@ -336,6 +471,7 @@ async def _detail_single_scene_llm(
     plan: dict[str, Any],
     scene: dict[str, Any],
     chapter_number: int,
+    prev_crowd_baseline: str = "",
 ) -> dict[str, Any]:
     """用 LLM 细化单场景的环境/感官细节"""
     client = ctx.get_llm_client("novel_writer")
@@ -359,6 +495,9 @@ async def _detail_single_scene_llm(
         f"目的：{scene.get('purpose', '')}"
     )
 
+    # ★ 上一章人群基线（跨章一致性锚定，由调用方通过 _format_prev_crowd_baseline 格式化）
+    crowd_baseline_section = prev_crowd_baseline or ""
+
     prompt = f"""请为小说《{novel.title}》的第{chapter_number}章细化以下场景的**环境/感官细节**。
 
 {build_novel_context(novel)}
@@ -368,7 +507,7 @@ async def _detail_single_scene_llm(
 
 ## 角色
 {chars_text}
-
+{crowd_baseline_section}
 ## 输出要求
 请为这个场景补充完整的**感官细节**。只描述环境——
 角色在这个场景中能看到什么、听到什么、闻到什么、感受到什么氛围。
@@ -389,11 +528,19 @@ async def _detail_single_scene_llm(
   "smells": ["鼻子能闻到的1"],
   "mood": "情绪基调",
   "rules": ["场景行为限制（如果有的话）"],
+  "crowd": "背景人群描述（50-100字，如'庙内横七竖八躺着三十多个饥民，有的在哼唧，有的已经不动了。庙外窝棚里还挤着十几个人取暖。远处空地排着领粥的长队。'）",
   "participants": ["保留原始参与者"],
   "purpose": "保留原始叙事目的",
   "scene_type": "保留原始场景类型",
   "transition_from_prev": "保留原始过渡信息"
-}}"""
+}}
+
+## ⚠️ 关键：crowd（背景人群）
+crowd 字段记录场景中除参与者之外的**背景人群**——路人、围观者、同处一地的其他人。
+- 必须基于场景地点和上下文合理推断
+- 不能为空（除非场景确实无人，如密室/荒野）
+- 这是叙事合成时防止「人群蒸发」的关键信息
+- 如果提供了「上一章人群基线」，crowd 必须与基线保持数量/构成连续"""
 
     system_prompt = (
         f"你正在为小说《{novel.title}》设计场景环境。"
@@ -421,7 +568,7 @@ async def _detail_single_scene_llm(
                 result = dict(scene)
                 for k in ["location", "description", "atmosphere", "weather",
                           "time_period", "sights", "sounds", "smells", "mood",
-                          "rules"]:
+                          "rules", "crowd"]:
                     if detailed.get(k):
                         result[k] = detailed[k]
                 return result

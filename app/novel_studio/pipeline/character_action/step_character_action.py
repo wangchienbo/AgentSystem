@@ -9,7 +9,8 @@ import json
 import logging
 from typing import Any
 
-from .base import BaseModule, PipelineContext, build_novel_context
+from ..base import BaseModule, PipelineContext
+from ..prompt_loader import load_prompt, build_novel_context
 
 logger = logging.getLogger(__name__)
 
@@ -499,10 +500,8 @@ def _build_decision_prompt(
 
     bg = getattr(char, "background", "") or ""
     if "穿越" in bg or "现代" in bg:
-        parts.append("\n【重要】你不是这个时代的人。你的灵魂来自四百多年后的现代世界。")
-        parts.append("你的思维方式、语言习惯、知识结构与周围人完全不同，你必须时刻伪装。")
-        parts.append("你拥有现代人的知识储备——历史进程、科学常识、社会运作逻辑——")
-        parts.append("但你绝不能直接暴露这些。所有的建议和行动都要包装成合理解释。")
+        parts.append("\n【重要】你的灵魂不属于这个世界。你的思维方式、语言习惯、知识结构与周围人完全不同。")
+        parts.append("你拥有另一个世界的知识储备，但你绝不能直接暴露。所有的建议和行动都要包装成合理解释。")
 
     visible_names = getattr(perception, "visible_chars", []) or []
     if visible_names:
@@ -552,14 +551,23 @@ def _build_decision_prompt(
     speech_style = getattr(char, "speech_style", None) or ""
     if speech_style:
         parts.append(f"\n说话风格：{speech_style}")
+    # ─── 加载角色专属提示词（按原型） ───
+    archetype = getattr(char, 'archetype', '') or ''
+    archetype_map = {
+        '系统': 'system',
+        '主角': 'protagonist',
+    }
+    archetype_file = archetype_map.get(archetype)
+    if archetype_file:
+        try:
+            rule = load_prompt("character_action", f"{archetype_file}.md")
+            parts.append(f"\n{rule}")
+        except FileNotFoundError:
+            pass
 
-    parts.append(f"""\n请以 {char_name} 的身份做出决策。
 
-输出格式（每行一个字段）：
-感知：<你注意到/知道的事>
-行动：<你此刻的行动>
-对话：<你要说的话，如果没有就写沉默>
-内心：<你的内心想法>（可选）""")
+    base_prompt = load_prompt("character_action", "base.md")
+    parts.append(f"\n{base_prompt.format(char_name=char_name)}")
 
     return "\n".join(parts)
 
