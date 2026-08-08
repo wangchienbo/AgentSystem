@@ -852,6 +852,8 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         intent_analyzer=app_intent_analyzer,
         architect=app_architect,
         skill_factory=skill_factory,
+        app_registry=app_registry,
+        app_installer=app_installer,
     )
     maoxuan_service = MaoxuanSkillService(model_router=model_router)
     memory_skill_service = MemorySkillService()

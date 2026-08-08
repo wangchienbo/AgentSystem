@@ -265,6 +265,28 @@ def _build_available_apps() -> list[dict[str, Any]]:
     return apps
 
 
+@app.post("/api/os/apps/create")
+def os_create_app(payload: dict):
+    """确定性自由设计 App：intent 分析 + 底层 skill 组合设计 + 装配安装，一步完成。
+
+    替代"通用对话 LLM 自主漫游探索"式创建（慢且不确定）。
+    由运行中的 server 执行，产物经其 store 持久化。
+    """
+    orch = runtime_services.get("app_design_orchestrator")
+    if not orch:
+        return {"status": "error", "error": "app_design_orchestrator 不可用"}
+    body = payload or {}
+    description = body.get("description") or body.get("goal") or ""
+    if not description:
+        return {"status": "error", "error": "缺少 description/goal"}
+    from app.models.app_design import DesignConfirmation
+    result = orch.design_app(description)
+    if result.status == "needs_clarification":
+        return {"status": "needs_clarification", "result": result.model_dump(mode="json")}
+    if result.status == "needs_confirmation":
+        result = orch.confirm_and_create(result.design, DesignConfirmation(approved=True))
+    return {"status": "ok", "result": result.model_dump(mode="json")}
+
 @app.get("/api/os/overview")
 def os_overview():
     """AI 操作系统统一工作台数据：App 目录 + Skill 库 + 运行时状态。"""

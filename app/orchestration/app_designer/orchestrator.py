@@ -216,9 +216,11 @@ class AppDesignOrchestrator:
             f"Scope: {skill_design.scope}\n"
             'This is a placeholder — refine the handler for production use.\n'
             '"""\n\n'
-            f"def handle(request: dict) -> dict:\n"
-            f'    text = request.get("text", "")\n'
-            f'    return {{"skill_id": "{skill_id}", "result": f"Processed: {{text}}", "status": "stub"}}\n'
+            'from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult\n\n'
+            f"def handle(request: SkillExecutionRequest) -> SkillExecutionResult:\n"
+            f'    text = request.inputs.get("text", "")\n'
+            f'    return SkillExecutionResult(skill_id="{skill_id}", status="completed", '
+            f'output={{"skill_id": "{skill_id}", "result": f"Processed: {{text}}", "status": "stub"}})\n'
         )
 
         import os
@@ -232,11 +234,11 @@ class AppDesignOrchestrator:
             skill_id=skill_id,
             name=skill_design.responsibility,
             description=f"Subordinate skill for {app_slug}: {skill_design.responsibility}",
-            adapter_kind="script",
-            handler_entry=handler_path,
+            adapter_kind="callable",
+            handler_entry=f"{handler_path}:handle",
             tags=[app_slug, skill_design.priority, "generated-by-designer"],
             schemas=SkillSchemaDefinition(
-                input={"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
+                input={"type": "object", "properties": {"text": {"type": "string"}}},
                 output={"type": "object", "properties": {"result": {"type": "string"}, "skill_id": {"type": "string"}}},
                 error={"type": "object", "properties": {"message": {"type": "string"}}},
             ),
