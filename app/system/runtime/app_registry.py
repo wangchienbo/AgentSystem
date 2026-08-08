@@ -17,6 +17,27 @@ class AppRegistryService:
         self._entries: dict[str, AppRegistryEntry] = {}
         self._operator_actions: list[AppOperatorActionRecord] = []
         self._store = store
+        self._load()
+
+    def _load(self) -> None:
+        """启动时从持久化 store 恢复已注册 blueprint 与 entry（含自由设计 App）。"""
+        if self._store is None:
+            return
+        try:
+            raw_bps = self._store.load_json("registry_blueprints", {})
+            for key, val in raw_bps.items():
+                try:
+                    self._blueprints[key] = AppBlueprint.model_validate(val)
+                except Exception:
+                    pass
+            raw_entries = self._store.load_json("registry_entries", {})
+            for key, val in raw_entries.items():
+                try:
+                    self._entries[key] = AppRegistryEntry.model_validate(val)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def register_blueprint(self, blueprint: AppBlueprint, description: str = "") -> AppRegistryEntry:
         self._blueprints[blueprint.id] = blueprint

@@ -51,6 +51,27 @@ class AppLifecycleService:
         # Asset registration hooks — set by runtime bootstrap
         self._on_asset_start_fn = None  # called after start → running
         self._on_asset_stop_fn = None   # called after stop/fail
+        self._load()
+
+    def _load(self) -> None:
+        """启动时从持久化 store 恢复 app 实例（含自由设计 App）。"""
+        if self._store is None:
+            return
+        try:
+            raw = self._store.load_json("app_instances", {})
+            for key, val in raw.items():
+                try:
+                    self._instances[key] = AppInstance.model_validate(val)
+                except Exception:
+                    pass
+            raw_events = self._store.load_json("lifecycle_events", {})
+            for key, val in raw_events.items():
+                try:
+                    self._events[key] = [LifecycleEvent.model_validate(item) for item in val]
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def set_asset_hooks(self, on_asset_start=None, on_asset_stop=None) -> None:
         """Set callbacks for asset self-registration.

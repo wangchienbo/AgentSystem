@@ -287,19 +287,95 @@ def os_create_app(payload: dict):
         result = orch.confirm_and_create(result.design, DesignConfirmation(approved=True))
     return {"status": "ok", "result": result.model_dump(mode="json")}
 
+def _os_find_instance(lifecycle, app_id: str) -> str | None:
+    """根据 blueprint_id 匹配实际 app_instance_id。"""
+    try:
+        for inst in lifecycle.list_instances():
+            if inst.id == app_id or inst.id.startswith(app_id + ":"):
+                return inst.id
+    except Exception:
+        pass
+    return None
+
+
+def _os_app_transition(app_id: str, event: str, reason: str) -> dict:
+    lifecycle = runtime_services.get("lifecycle")
+    if not lifecycle:
+        return {"status": "error", "message": "lifecycle 不可用"}
+    inst_id = _os_find_instance(lifecycle, app_id)
+    if not inst_id:
+        return {"status": "error", "message": f"未找到 App 实例: {app_id}"}
+    try:
+        lifecycle.transition(inst_id, event, reason=reason)
+        return {"status": "success", "message": f"App {app_id} 已 {event}", "app_id": app_id, "app_instance_id": inst_id}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "app_id": app_id}
+
+
+@app.post("/api/os/apps/{app_id}/start")
+def os_app_start(app_id: str):
+    return _os_app_transition(app_id, "start", "os_workbench.start")
+
+
+@app.post("/api/os/apps/{app_id}/stop")
+def os_app_stop(app_id: str):
+    return _os_app_transition(app_id, "stop", "os_workbench.stop")
+
+
+@app.post("/api/os/apps/{app_id}/pause")
+def os_app_pause(app_id: str):
+    return _os_app_transition(app_id, "pause", "os_workbench.pause")
+
+
+@app.post("/api/os/apps/{app_id}/resume")
+def os_app_resume(app_id: str):
+    return _os_app_transition(app_id, "resume", "os_workbench.resume")
+
+
+@app.delete("/api/os/apps/{app_id}")
+def os_app_delete(app_id: str):
+    lifecycle = runtime_services.get("lifecycle")
+    if not lifecycle:
+        return {"status": "error", "message": "lifecycle 不可用"}
+    inst_id = _os_find_instance(lifecycle, app_id)
+    if not inst_id:
+        return {"status": "error", "message": f"未找到 App 实例: {app_id}"}
+    try:
+        lifecycle.delete_app(inst_id)
+        return {"status": "success", "message": f"App {app_id} 已删除", "app_id": app_id}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "app_id": app_id}
+
+
 @app.get("/api/os/overview")
 def os_overview():
     """AI 操作系统统一工作台数据：App 目录 + Skill 库 + 运行时状态。"""
     apps = []
     registry = runtime_services.get("app_registry")
+    lifecycle = runtime_services.get("lifecycle")
+    instance_map: dict[str, Any] = {}
+    if lifecycle:
+        try:
+            instance_map = {inst.id: inst for inst in lifecycle.list_instances()}
+        except Exception:
+            instance_map = {}
     if registry:
         for entry in registry.list_entries():
+            inst_id = next(
+                (
+                    iid for iid in instance_map
+                    if iid == entry.blueprint_id or iid.startswith(entry.blueprint_id + ":")
+                ),
+                None,
+            )
+            inst = instance_map.get(inst_id) if inst_id else None
             apps.append({
                 "app_id": entry.blueprint_id,
+                "app_instance_id": inst_id or "",
                 "name": entry.name,
                 "version": entry.version,
                 "description": entry.description,
-                "status": "running" if entry.release_status == "active" else "stopped",
+                "status": (inst.status if inst else ("running" if entry.release_status == "active" else "stopped")),
                 "release_status": entry.release_status,
                 "app_shape": entry.app_shape,
             })
