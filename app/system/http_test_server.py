@@ -264,6 +264,76 @@ def _build_available_apps() -> list[dict[str, Any]]:
         })
     return apps
 
+
+@app.get("/api/os/overview")
+def os_overview():
+    """AI 操作系统统一工作台数据：App 目录 + Skill 库 + 运行时状态。"""
+    apps = []
+    registry = runtime_services.get("app_registry")
+    if registry:
+        for entry in registry.list_entries():
+            apps.append({
+                "app_id": entry.blueprint_id,
+                "name": entry.name,
+                "version": entry.version,
+                "description": entry.description,
+                "status": "running" if entry.release_status == "active" else "stopped",
+                "release_status": entry.release_status,
+                "app_shape": entry.app_shape,
+            })
+
+    skills = []
+    seen_skills: set[str] = set()
+
+    def _add_skill(sid: str, name: str, desc: str) -> None:
+        if sid and sid not in seen_skills:
+            seen_skills.add(sid)
+            skills.append({"skill_id": sid, "name": name or sid, "description": desc or ""})
+
+    sc = runtime_services.get("skill_control")
+    if sc and hasattr(sc, "list_skills"):
+        try:
+            for s in sc.list_skills():
+                _add_skill(
+                    getattr(s, "skill_id", None) or getattr(s, "id", None),
+                    getattr(s, "name", ""),
+                    getattr(s, "description", ""),
+                )
+        except Exception:
+            pass
+
+    # 操作系统内置能力清单（Skill 库）：保证工作台总能展示可复用能力
+    try:
+        from app.skills.system_skill_registry import SYSTEM_SKILL_SPECS
+        for sid, spec in SYSTEM_SKILL_SPECS.items():
+            _add_skill(sid, spec.get("name", ""), spec.get("description", ""))
+    except Exception:
+        pass
+
+    lifecycle = runtime_services.get("lifecycle")
+    instances = []
+    if lifecycle and hasattr(lifecycle, "list_instances"):
+        try:
+            for inst in lifecycle.list_instances():
+                instances.append({
+                    "instance_id": getattr(inst, "id", None),
+                    "blueprint_id": getattr(inst, "blueprint_id", None),
+                    "status": getattr(inst, "status", "unknown"),
+                })
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "apps": apps,
+        "skills": skills,
+        "instances": instances,
+        "app_count": len(apps),
+        "skill_count": len(skills),
+        "running_count": sum(1 for a in apps if a["status"] == "running"),
+    }
+
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -585,6 +655,15 @@ async def root():
         placeholder = """<html><head><title>AgentSystem</title></head><body><h1>AgentSystem 已启动</h1><p>请检查 static/index.html 是否存在。</p></body></html>"""
         return HTMLResponse(content=placeholder, status_code=200)
     return FileResponse(index_path)
+
+
+@app.get("/workbench", response_class=FileResponse)
+async def workbench():
+    """新时代 AI 操作系统统一工作台（App 桌面 + Skill 库 + 自由设计 + Shell）。"""
+    wb_path = STATIC_DIR / "workbench.html"
+    if not wb_path.is_file():
+        return HTMLResponse(content="<h1>workbench.html 未找到</h1>", status_code=404)
+    return FileResponse(wb_path)
 
 
 @app.get("/login", response_class=HTMLResponse)

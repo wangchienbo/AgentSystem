@@ -166,6 +166,7 @@ class NovelStorage:
         novel.chapters = [c for c in novel.chapters if c.number != chapter_number]
         if len(novel.chapters) == before:
             return False
+        self._cleanup_character_cognition(novel)
         self.save_novel(novel)
         return True
 
@@ -178,8 +179,28 @@ class NovelStorage:
         novel.chapters = [c for c in novel.chapters if c.number < from_number or c.number > to_number]
         deleted = before - len(novel.chapters)
         if deleted > 0:
+            self._cleanup_character_cognition(novel)
             self.save_novel(novel)
         return deleted
+
+    def _cleanup_character_cognition(self, novel) -> None:
+        """删除章节后清空角色认知残留，避免 world_check 误报『角色认知超前』。
+
+        章节被删后，角色 worldview 中属于已删章节的认知（known_facts/beliefs）
+        会成为虚假的『超前认知』，导致 LLM 门禁误判。删除章节必须一并清空，
+        让后续生成从干净状态重新累积。
+        """
+        chars = getattr(novel, "characters", None) or {}
+        if isinstance(chars, dict):
+            for c in chars.values():
+                wv = getattr(c, "worldview", None)
+                if wv is not None:
+                    wv.known_facts = []
+                    wv.beliefs = []
+                    wv.knowledge_gaps = []
+                    wv.last_updated_chapter = 0
+                if hasattr(c, "current_scene"):
+                    c.current_scene = ""
 
     # ──── 角色管理 ────
 
