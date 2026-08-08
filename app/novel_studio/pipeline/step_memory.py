@@ -92,9 +92,104 @@ class MemoryUpdateModule(BaseModule):
         # 全局记忆也保存
         self._save_global_memory(ctx, scene, actions, chapter_number)
 
+        # 更新角色世界观（known_facts 和 beliefs）
+        self._update_character_worldviews(ctx, scene, actions, chapter_number)
+
         logger.info("记忆更新完成: %d 条记忆", total_saved)
         ctx.set_output(self.name, {"memories_saved": total_saved})
         return ctx
+
+    def _update_character_worldviews(self, ctx, scene, actions, chapter_number):
+        """更新角色的世界观认知（known_facts 和 beliefs）"""
+        novel = ctx.novel
+        if not novel:
+            return
+
+        chars = getattr(novel, "characters", None) or {}
+        if not chars:
+            return
+
+        has_updates = False
+
+        # 为每个参与的角色更新 worldview
+        for action in actions:
+            char_name = action.get("character", "")
+            if not char_name:
+                continue
+
+            # 找到角色
+            char = None
+            char_id = None
+            for cid, c in (chars.items() if isinstance(chars, dict) else []):
+                name = getattr(c, "name", cid) if hasattr(c, "name") else c.get("name", cid)
+                if name == char_name:
+                    char = c
+                    char_id = cid
+                    break
+
+            if not char:
+                continue
+
+            # 获取或创建 worldview
+            wv = getattr(char, "worldview", None)
+            if wv is None:
+                wv = {}
+                if hasattr(char, "worldview"):
+                    char.worldview = wv
+
+            # 提取新的事实和信念
+            perception = action.get("感知", "")
+            act = action.get("action", "")
+            diag = action.get("dialogue", "")
+            inner = action.get("inner", "")
+
+            new_facts = []
+            new_beliefs = []
+
+            # 从感知中提取事实
+            if perception:
+                new_facts.append(f"[第{chapter_number}章] {perception}")
+
+            # 从行动中推断事实
+            if act:
+                new_facts.append(f"[第{chapter_number}章] {char_name}做了：{act}")
+
+            # 从内心独白中提取信念
+            if inner:
+                new_beliefs.append(f"[第{chapter_number}章] {inner}")
+
+            # 更新 known_facts
+            known = getattr(wv, "known_facts", []) if hasattr(wv, "known_facts") else wv.get("known_facts", [])
+            if isinstance(known, list):
+                known.extend(new_facts)
+                # 限制数量，只保留最近10条
+                if len(known) > 10:
+                    known = known[-10:]
+                if hasattr(wv, "known_facts"):
+                    wv.known_facts = known
+                else:
+                    wv["known_facts"] = known
+
+            # 更新 beliefs
+            beliefs = getattr(wv, "beliefs", []) if hasattr(wv, "beliefs") else wv.get("beliefs", [])
+            if isinstance(beliefs, list):
+                beliefs.extend(new_beliefs)
+                # 限制数量，只保留最近5条
+                if len(beliefs) > 5:
+                    beliefs = beliefs[-5:]
+                if hasattr(wv, "beliefs"):
+                    wv.beliefs = beliefs
+                else:
+                    wv["beliefs"] = beliefs
+
+            logger.info("更新角色 %s 的 worldview: %d 条新事实, %d 条新信念",
+                       char_name, len(new_facts), len(new_beliefs))
+            has_updates = True
+
+        # 保存到 JSON 文件（必须在 refresh_novel 之前）
+        if has_updates:
+            ctx.save_novel()
+            logger.info("角色 worldview 已保存到 storage")
 
     def _save_global_memory(self, ctx, scene, actions, chapter_number):
         """保存全局叙事事件（供世界模块使用）"""

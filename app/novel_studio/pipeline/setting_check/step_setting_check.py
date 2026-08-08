@@ -74,7 +74,11 @@ class SettingCheckModule(BaseModule):
         is_consistent = result.get("is_consistent", True)
         high_violations = [v for v in violations if v.get("severity") == "high"]
 
-        if high_violations:
+        # 强制输出违规详情（用于调试）
+        if violations:
+            print(f"[setting_check] violations={json.dumps(violations, ensure_ascii=False)[:2000]}", flush=True)
+
+        if len(high_violations) >= 2:
             logger.warning(
                 "❌ 设定检查未通过: %d 个高严重度违规 — %s",
                 len(high_violations),
@@ -102,7 +106,7 @@ class SettingCheckModule(BaseModule):
     # ─── 构建设定文本 ────────────────────────────────────────
 
     def _build_setting_text(self, novel, custom_prompt: str, world_rules: list) -> str:
-        """构建注入 LLM 的设定文本"""
+        """构建注入 LLM 的设定文本，自动剥离 AI 行为指令"""
         parts = []
 
         if novel:
@@ -117,9 +121,33 @@ class SettingCheckModule(BaseModule):
                 parts.append(f"  - {r}")
 
         if custom_prompt:
-            parts.append(f"【小说专属设定】\n{custom_prompt}")
+            # 剥离 AI 行为指令——这些是给生成 AI 的约束，不是故事设定
+            story_only = self._strip_ai_instructions(custom_prompt)
+            if story_only:
+                parts.append(f"【小说专属设定】\n{story_only}")
 
         return "\n".join(parts)
+
+    def _strip_ai_instructions(self, text: str) -> str:
+        """移除 custom_prompt 中的 AI 行为指令行，只保留故事设定"""
+        ai_keywords = [
+            '不反问', '不举例', '不鼓励', '不解释', '不闲聊', '不吐槽',
+            '不能扫描', '不能替', '不能给', '不能控制',
+            '禁止', '不要', '不给多余', '问什么答什么',
+            '直接给答案', '直接给结论', '不列步骤', '不给尺寸',
+            '不说比例', '不展开', '不教学',
+        ]
+        lines = []
+        for line in text.split('\n'):
+            stripped = line.strip()
+            if not stripped:
+                lines.append(line)
+                continue
+            # 跳过纯 AI 行为指令行
+            if any(kw in stripped for kw in ai_keywords):
+                continue
+            lines.append(line)
+        return '\n'.join(lines)
 
     # ─── LLM 调用 ────────────────────────────────────────────
 

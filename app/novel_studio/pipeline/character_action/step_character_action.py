@@ -136,9 +136,9 @@ class CharacterActionModule(BaseModule):
         return "🎭 角色行为决策（多场景顺序评估）"
 
     async def execute(self, ctx: PipelineContext) -> PipelineContext:
-        scenes_data = ctx.get_output("scene_build")
+        scenes_data = ctx.get_output("scene_sequence")
         if not scenes_data:
-            raise ValueError("缺少场景定义，请先执行 scene_build 模块")
+            raise ValueError("缺少场景定义，请先执行 scene_sequence 模块")
 
         scenes = scenes_data.get("scenes", [])
         if not scenes:
@@ -155,7 +155,7 @@ class CharacterActionModule(BaseModule):
 
         for scene_idx, scene in enumerate(scenes):
             scene_id = scene.get("scene_id", f"scene_{scene_idx}")
-            participants = scene.get("participants", [])
+            participants = scene.get("characters", [])
 
             if not participants:
                 logger.info("场景 %s 无参与者，跳过", scene.get("name", "?"))
@@ -285,7 +285,8 @@ async def run_scene_actions(
     """
     module = CharacterActionModule()
     scene_context = _build_scene_context_text(scene)
-    participants = scene.get("participants", [])
+    # 兼容两种字段名：participants 或 characters
+    participants = scene.get("participants", []) or scene.get("characters", [])
     return await module._run_scene_actions(
         ctx, scene, scene_id, scene_context, participants,
     )
@@ -482,8 +483,15 @@ def _build_decision_prompt(
     char = agent.character
     parts = [f"你扮演的角色是{char_name}。\n"]
 
+    archetype = getattr(char, 'archetype', '') or ''
+    archetype_map = {
+        '系统': 'system',
+        '主角': 'protagonist',
+    }
+
     # 注入小说核心设定（世界规则、专属提示等）
-    if novel:
+    # 系统角色不注入——系统是独立智能体，行为由自身 profile 驱动
+    if novel and archetype != '系统':
         novel_ctx = build_novel_context(novel)
         if novel_ctx:
             parts.append(f"{novel_ctx}\n")
@@ -498,10 +506,7 @@ def _build_decision_prompt(
     if ability_prompt:
         parts.append(f"\n{ability_prompt}")
 
-    bg = getattr(char, "background", "") or ""
-    if "穿越" in bg or "现代" in bg:
-        parts.append("\n【重要】你的灵魂不属于这个世界。你的思维方式、语言习惯、知识结构与周围人完全不同。")
-        parts.append("你拥有另一个世界的知识储备，但你绝不能直接暴露。所有的建议和行动都要包装成合理解释。")
+    # 角色背景由 profile 驱动，不做硬编码判断
 
     visible_names = getattr(perception, "visible_chars", []) or []
     if visible_names:
@@ -552,17 +557,16 @@ def _build_decision_prompt(
     if speech_style:
         parts.append(f"\n说话风格：{speech_style}")
     # ─── 加载角色专属提示词（按原型） ───
-    archetype = getattr(char, 'archetype', '') or ''
-    archetype_map = {
-        '系统': 'system',
-        '主角': 'protagonist',
-    }
     archetype_file = archetype_map.get(archetype)
     if archetype_file:
         try:
             rule = load_prompt("character_action", f"{archetype_file}.md")
+            # 系统角色：填充系统名称
+            if archetype == '系统':
+                system_name = getattr(char, 'name', '系统')
+                rule = rule.format(system_name=system_name)
             parts.append(f"\n{rule}")
-        except FileNotFoundError:
+        except (FileNotFoundError, KeyError):
             pass
 
 
@@ -573,20 +577,19 @@ def _build_decision_prompt(
 
 
 def _build_scene_context_text(scene: dict) -> str:
+    """构建场景上下文文本（适配新的场景格式）"""
     parts = []
-    if scene.get("name"):
-        parts.append(scene["name"])
+    if scene.get("time"):
+        parts.append(f"时间：{scene['time']}")
     if scene.get("location"):
-        parts.append(f"位于{scene['location']}")
-    if scene.get("atmosphere"):
-        parts.append(f"氛围{scene['atmosphere']}")
-    if scene.get("weather"):
-        parts.append(f"天气{scene['weather']}")
-    if scene.get("time_period"):
-        parts.append(f"时间{scene['time_period']}")
-    if scene.get("description"):
-        parts.append(scene["description"])
-    return "，".join(parts)
+        parts.append(f"地点：{scene['location']}")
+    if scene.get("characters"):
+        parts.append(f"人物：{', '.join(scene['characters'])}")
+    if scene.get("event"):
+        parts.append(f"事件：{scene['event']}")
+    if scene.get("environment_details"):
+        parts.append(f"环境：{scene['environment_details']}")
+    return "\n".join(parts)
 
 
 def _parse_decision(text: str, char_name: str) -> dict[str, str]:
@@ -596,6 +599,7 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
         "dialogue": "",
         "inner": "",
         "感知": "",
+        "面板": "",
     }
 
     import re
@@ -610,8 +614,8 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
 
     # JSON 解析
     json_patterns = [
-        r'\{[\s\S]*?"(?:action|行动|dialogue|对话|inner|内心|perception|感知)"[\s\S]*?\}',
-        r'\{[\s\S]*?["\'](?:action|行动|dialogue|对话)["\'][\s\S]*?\}',
+        r'\{[\s\S]*?"(?:action|行动|dialogue|对话|inner|内心|perception|感知|面板|panel)"[\s\S]*?\}',
+        r'\{[\s\S]*?["\'](?:action|行动|dialogue|对话|面板)["\'][\s\S]*?\}',
     ]
     for jp in json_patterns:
         try:
@@ -622,6 +626,7 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
                 result["dialogue"] = data.get("dialogue", "") or data.get("对话", "")
                 result["inner"] = data.get("inner", "") or data.get("内心", "")
                 result["感知"] = data.get("perception", "") or data.get("感知", "")
+                result["面板"] = data.get("面板", "") or data.get("panel", "")
                 if result["action"] or result["dialogue"] != "沉默" or result.get("对话", "") != "沉默":
                     return result
         except (json.JSONDecodeError, ValueError, TypeError):
@@ -632,7 +637,7 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
     field_lines = {}
     for i, line in enumerate(lines):
         stripped = line.strip()
-        for prefix in ["感知", "行动", "对话", "内心"]:
+        for prefix in ["感知", "行动", "对话", "内心", "面板"]:
             for sep in ["：", ":"]:
                 m = re.search(rf'\*?\*?{re.escape(prefix)}\s*{re.escape(sep)}\s*', stripped)
                 if m:
@@ -640,7 +645,7 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
                     field_lines.setdefault(prefix, []).append((i, val))
                     break
 
-    for prefix in ["感知", "行动", "对话", "内心"]:
+    for prefix in ["感知", "行动", "对话", "内心", "面板"]:
         if prefix not in field_lines:
             continue
         idx, val = field_lines[prefix][-1]
@@ -650,7 +655,7 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
                 next_line = lines[j].strip()
                 is_new_field = any(
                     re.match(rf'\*?\*?{re.escape(p)}\s*[：:]', next_line)
-                    for p in ["感知", "行动", "对话", "内心"]
+                    for p in ["感知", "行动", "对话", "内心", "面板"]
                 )
                 if is_new_field:
                     break
@@ -658,7 +663,7 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
                     next_lines.append(next_line)
             val = "\n".join(next_lines).strip() if next_lines else ""
 
-        field_map = {"感知": "感知", "行动": "action", "对话": "dialogue", "内心": "inner"}
+        field_map = {"感知": "感知", "行动": "action", "对话": "dialogue", "内心": "inner", "面板": "面板"}
         result[field_map[prefix]] = val
 
     return result

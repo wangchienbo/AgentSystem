@@ -1,6 +1,6 @@
 """Step: World Evolve — 世界演化引擎
 
-每章在 world_check 之后、chapter_plan 之前执行。
+每章在 scene_loop 之后、narrative 之前执行。
 职责（全部由 LLM 驱动，零硬编码）：
 1. 扫描事件池，判断触发条件是否满足
 2. 推进已激活事件的阶段
@@ -8,6 +8,11 @@
 4. 更新势力关系、区域威胁
 5. 归档完成的事件到历史
 6. 更新角色世界观
+
+与旧版区别：现在在 scene_loop 之后执行，可以拿到：
+- 所有已生成章节的完整场景数据（crowd、角色行动、预测偏差）
+- 本章 scene_loop 产出的角色行动和预测更新
+- 不再只靠 500 字正文摘要
 """
 
 from __future__ import annotations
@@ -51,7 +56,7 @@ class WorldEvolveModule(BaseModule):
             return ctx
 
         chapter_number = self._get_chapter_number(ctx, novel)
-        logger.info("开始世界演化 — 第%d章", chapter_number)
+        logger.info("开始世界演化 — 第%d章（基于完整历史场景数据）", chapter_number)
 
         client = ctx.get_llm_client("novel_writer")
         if not client:
@@ -60,7 +65,7 @@ class WorldEvolveModule(BaseModule):
             return ctx
 
         # 一次 LLM 调用完成全部：触发判断 + 阶段推进 + 涟漪 + 状态更新
-        result = await self._llm_evolve(client, world, novel, chapter_number)
+        result = await self._llm_evolve(ctx, client, world, novel, chapter_number)
 
         # 应用结果到数据
         self._apply_evolve(world, novel, result, chapter_number)
@@ -80,30 +85,32 @@ class WorldEvolveModule(BaseModule):
 
     # ─── LLM 调用（一次完成全部） ─────────────────────────────
 
-    async def _llm_evolve(self, client, world, novel, chapter_number: int) -> dict:
+    async def _llm_evolve(
+        self, ctx: PipelineContext, client, world, novel, chapter_number: int
+    ) -> dict:
         """LLM 判断触发条件 + 推进阶段 + 生成涟漪"""
         world_text = self._build_world_text(world, chapter_number)
-        last_chapter_text = self._build_last_chapter_text(novel)
+        history_text = self._build_history_text(ctx, novel)
         custom_prompt = getattr(novel, "custom_prompt", "") or ""
 
         user_prompt = f"""## 世界当前状态
 
 {world_text}
 
-## 上一章角色行动摘要
+## 所有已生成章节的场景历史
 
-{last_chapter_text}
+{history_text}
 
 ## 作者意图
 
 {custom_prompt if custom_prompt else '（未定义）'}
 
 请逐项完成：
-1. 检查事件池中 pending 事件的触发条件是否满足（基于当前章节数、势力关系紧张度、区域威胁等级等）
+1. 检查事件池中 pending 事件的触发条件是否满足（基于当前章节数、势力关系紧张度、区域威胁等级、以及场景历史中角色行动的影响）
 2. 推进 active 事件的阶段（remaining_chapters 归零则进入下一阶段）
-3. 生成涟漪事件
+3. 生成涟漪事件——必须基于场景历史中的具体角色行动
 4. 更新势力关系和区域威胁
-5. 更新角色世界观"""
+5. 更新角色世界观——基于场景历史中角色实际经历了什么"""
 
         try:
             text, _ = client.chat(
@@ -197,16 +204,81 @@ class WorldEvolveModule(BaseModule):
 
         return "\n".join(parts)
 
-    def _build_last_chapter_text(self, novel) -> str:
+    def _build_history_text(self, ctx: PipelineContext, novel) -> str:
+        """构建所有已生成章节的完整场景历史（含角色行动 + 预测偏差）"""
+        parts = []
         chapters = getattr(novel, "chapters", None) or []
-        if not chapters:
-            return "（故事尚未开始）"
 
-        last = chapters[-1]
-        title = getattr(last, "title", "") if hasattr(last, "title") else last.get("title", "")
-        content = getattr(last, "content", "") if hasattr(last, "content") else last.get("content", "")
-        summary = content[:500] + "..." if len(content) > 500 else content
-        return f"第{len(chapters)}章「{title}」\n{summary}"
+        # ── 1. 所有已保存章节的场景数据 ──
+        if chapters:
+            parts.append("## 已生成章节的场景历史\n")
+            for ch in chapters:
+                ch_num = getattr(ch, "number", "?")
+                ch_title = getattr(ch, "title", "")
+                ch_content = getattr(ch, "content", "") or ""
+                scenes = getattr(ch, "scenes", []) or []
+
+                parts.append(f"\n### 第{ch_num}章「{ch_title}」")
+                parts.append(f"正文摘要: {ch_content[:300]}...")
+
+                if scenes:
+                    for i, s in enumerate(scenes):
+                        s_name = s.get("name", f"场景{i+1}")
+                        parts.append(f"\n#### 场景: {s_name}")
+                        parts.append(f"  地点: {s.get('location', '?')}")
+                        parts.append(f"  时间: {s.get('time_period', '?')}")
+                        parts.append(f"  氛围: {s.get('atmosphere', '?')}")
+                        parts.append(f"  人群: {s.get('crowd', '')[:150]}")
+                        parts.append(f"  参与者: {', '.join(s.get('participants', []))}")
+                        sights = s.get('sights', [])
+                        sounds = s.get('sounds', [])
+                        smells = s.get('smells', [])
+                        if sights:
+                            parts.append(f"  视觉: {', '.join(sights[:3])}")
+                        if sounds:
+                            parts.append(f"  听觉: {', '.join(sounds[:3])}")
+                        if smells:
+                            parts.append(f"  嗅觉: {', '.join(smells[:3])}")
+        else:
+            parts.append("（尚无已生成章节）")
+
+        # ── 2. 本章 scene_loop 产出的角色行动（本章尚未保存，从 ctx 获取） ──
+        scene_loop_output = ctx.get_output("scene_loop", {})
+        if scene_loop_output:
+            scene_actions = scene_loop_output.get("scene_actions", {})
+            prediction_updates = scene_loop_output.get("prediction_updates", [])
+
+            if scene_actions:
+                parts.append("\n## 本章角色行动（scene_loop 产出，尚未合成叙事）\n")
+                for scene_id, sa in scene_actions.items():
+                    s_name = sa.get("scene_name", scene_id)
+                    actions = sa.get("actions", [])
+                    parts.append(f"\n### {s_name}")
+                    for a in actions:
+                        char_name = a.get("character", a.get("name", "?"))
+                        perception = a.get("perception", "")[:150]
+                        action = a.get("action", "")[:150]
+                        dialogue = a.get("dialogue", "")[:100]
+                        parts.append(f"  {char_name}:")
+                        if perception:
+                            parts.append(f"    感知: {perception}")
+                        if action:
+                            parts.append(f"    行动: {action}")
+                        if dialogue:
+                            parts.append(f"    对话: {dialogue}")
+
+            if prediction_updates:
+                parts.append("\n## 本章预测偏差\n")
+                for pu in prediction_updates:
+                    si = pu.get("scene_index", 0) + 1
+                    status = pu.get("after", {}).get("prediction_status", "")
+                    deviation = pu.get("after", {}).get("deviation_report", "")
+                    parts.append(f"  场景{si}: 状态={status} 偏差={deviation[:200]}")
+
+        if len(parts) == 0:
+            return "（故事尚未开始，无历史场景数据）"
+
+        return "\n".join(parts)
 
     # ─── 数据写回 ────────────────────────────────────────────
 

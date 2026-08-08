@@ -134,6 +134,8 @@ class CharacterEmergeModule(BaseModule):
                 personality=nc.get("personality", []),
                 background=nc.get("background", ""),
                 motivation=nc.get("motivation", ""),
+                goal=nc.get("goal", ""),
+                speech_style=nc.get("speech_style", ""),
                 early_life=nc.get("early_life", []),
                 debut_chapter=nc.get("debut_chapter", chapter_number),
                 worldview=worldview,

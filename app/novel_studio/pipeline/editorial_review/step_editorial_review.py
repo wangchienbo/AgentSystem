@@ -10,7 +10,7 @@
 5. 对话质量 — 对话自然？还是信息播报？
 6. 章节结构 — 开头抓人？中间起伏？结尾悬念？
 |7. 红线/出戏 — 有现代词汇、上帝视角、看穿剧情？
-|8. 设定一致性 — 文中细节是否与小说专属设定自洽？倒计时、天赋、角色知识边界等不能违反规则
+|8. 设定一致性 — 文中细节是否与小说专属设定自洽？
 
 评分不合格时 -> 触发叙事层重生成，附带详细审核反馈
 """
@@ -67,6 +67,12 @@ MAX_REGENERATIONS = 2      # 最多重生成2次
 # ─── 审核提示词模板 ────────────────────────────────────────
 
 REVIEW_SYSTEM_PROMPT = load_prompt("editorial_review", "review_criteria.md")
+
+
+def _build_review_system_prompt(novel) -> str:
+    """构建审核系统提示词，注入小说专属规则"""
+    custom = getattr(novel, "custom_prompt", "") or ""
+    return REVIEW_SYSTEM_PROMPT.replace("{custom_prompt}", custom)
 class EditorialReviewModule(BaseModule):
     """⑦ 章节质量审核：读者视角评估 + 低分触发重生成"""
 
@@ -155,38 +161,30 @@ class EditorialReviewModule(BaseModule):
     def _rule_based_check(self, content: str, chapter_number: int = 1) -> list[dict]:
         issues = []
 
-        # 0. 分离穿越前/后段落（第一章穿越前是现代场景，不应拦截现代词汇）
-        # 穿越标记：再睁眼/醒来/失去意识/睁开眼 等
+        # 0. 分离开篇/正文段落（第一章开篇场景不应拦截其特有词汇）
+        # 场景转换标记：分隔符或叙事转折词
         prologue_end = 0
-        for marker in ["再睁眼", "猛地睁开眼", "睁开眼", "醒来", "失去意识", "断了线"]:
+        for marker in ["***", "---", "\n\n\n"]:
             idx = content.find(marker)
             if 0 < idx < 600:
-                prologue_end = idx
+                prologue_end = idx + len(marker)
                 break
         post_prologue = content[prologue_end:] if prologue_end else content
 
-        # 0.5. 第一章穿越前导语存在性检查（严格版）
+        # 0.5. 第一章开篇场景存在性检查
         if chapter_number == 1:
-            # 检测穿越前导语：标记词前必须有现代场景特征
-            has_prologue = False
-            if prologue_end > 80:  # 标记词前至少有80字
-                before_marker = content[:prologue_end]
-                modern_markers = ["机房", "触电", "排插", "铜线", "电流", "加班", "凌晨",
-                                  "运维", "键盘", "指示灯", "电脑", "手机", "公司",
-                                  "办公室", "地铁", "出租屋", "公寓", "现代", "地球"]
-                found_modern = [m for m in modern_markers if m in before_marker]
-                if found_modern:
-                    has_prologue = True
+            # 检测开篇场景：正文前必须有足够内容
+            has_prologue = prologue_end > 80  # 标记前至少有80字
             if not has_prologue:
                 issues.append({
-                    "type": "缺少穿越前导语",
+                    "type": "缺少开篇场景",
                     "severity": "critical",
-                    "detail": "第一章缺少穿越前场景（机房/触电/穿越前导语）。"
-                              "必须以现代场景开头（200-400字），再过渡到穿越后。"
-                              "当前内容直接从异世界开始，缺少穿越触发事件。",
+                    "detail": "第一章缺少开篇场景。"
+                              "必须以开篇场景开头（200-400字），再过渡到正文。"
+                              "当前内容直接从正文开始，缺少开篇铺垫。",
                 })
 
-        # 1. 红线词检测（仅检查穿越后部分）
+        # 1. 红线词检测（仅检查正文部分）
         found_terms = []
         for term in BANNED_TERMS:
             pattern = re.compile(re.escape(term))
@@ -228,32 +226,28 @@ class EditorialReviewModule(BaseModule):
                 "items": long_paras,
             })
 
-        # 3. 抽卡事件检查（时间感知，非强制每章）
-        draw_panels = re.findall(r'【第\d+次抽卡[｜|]完成】', content)
-        talent_mentions = re.findall(r'【新增天赋[｜|](.+?)】', content)
-        # 不强制每章必须有抽卡——由系统根据时间流逝判断
-        # 但如果有新天赋，必须有抽卡面板
+        # 3. 面板交互检查（代码级，通用）
+        # 检测任何【XXX】格式的面板后是否有主角反应
+        panels = re.findall(r'【[^】]{2,20}】[^\n]*', content)
+        if panels:
+            for panel in panels[:3]:  # 检查前3个面板
+                idx = content.find(panel)
+                after_panel = content[idx + len(panel):idx + len(panel) + 200]
+                # 检查是否有主角的感知/思考/行动
+                has_reaction = any(kw in after_panel for kw in [
+                    '他', '愣', '惊', '想', '盯', '看', '深吸',
+                    '心跳', '握紧', '沉默', '低声', '喃喃', '皱眉'
+                ])
+                if not has_reaction:
+                    issues.append({
+                        "type": "面板无主角反应",
+                        "severity": "medium",
+                        "detail": f"面板「{panel.strip()}」弹出后，主角没有任何反应。"
+                                  f"面板后200字内未找到主角的感知/思考/行动。",
+                    })
+                    break  # 一个就够
 
-        # 4. 禁止倒计时数字（事件驱动模式不应有具体倒计时）
-        countdown_matches = re.findall(r'下次抽取[｜|]\s*\d{2}:\d{2}:\d{2}', content)
-        if countdown_matches:
-            issues.append({
-                "type": "不应显示倒计时",
-                "severity": "medium",
-                "detail": f"文中出现了具体倒计时数字（{countdown_matches[0]}）。"
-                          f"事件驱动模式下，面板不显示具体倒计时。",
-            })
-
-        # 5. 天赋来源检查
-        if talent_mentions and not draw_panels:
-            issues.append({
-                "type": "天赋无抽卡展示",
-                "severity": "critical",
-                "detail": f"文中出现了新增天赋（{', '.join(talent_mentions)}），但没有对应的抽卡面板展示。"
-                          f"每个新天赋必须通过抽卡面板展示给读者。",
-            })
-
-        # 6. 对话数量硬检查（代码级，不依赖LLM）
+        # 4. 对话数量硬检查（代码级，不依赖LLM）
         # 兼容「」中文引号 和 "" 英文引号
         cn_dialogue = len(re.findall(r'「[^」]+」', content))
         en_dialogue = len(re.findall(r'"([^"]{4,})"', content))
@@ -267,21 +261,6 @@ class EditorialReviewModule(BaseModule):
                 "detail": f"本章只有 {dialogue_count} 段真人对话（「」={cn_dialogue}, \"\"={en_dialogue}），要求至少 {MIN_DIALOGUE_COUNT} 段。"
                           f"每章必须有角色之间的真实对话，不能全程独白或旁白。",
             })
-        # 检查是否有天赋名称出现在文中但没有【新增天赋】标记
-        known_talents = set()
-        for m in re.finditer(r'【(?:新增|当前)天赋[｜|](.+?)】', content):
-            for t in m.group(1).split('、'):
-                known_talents.add(t.strip())
-        # 检查是否有天赋被使用但不在已知列表中（粗略检测：中文书名号内的天赋名）
-        talent_usage = re.findall(r'【(.+?)】', content)
-        for tu in talent_usage:
-            if tu in known_talents:
-                continue
-            # 简单启发式：如果看起来像天赋名（2-4个汉字，非系统关键词）
-            if 2 <= len(tu) <= 4 and tu not in ['万界抽卡系统｜已绑定', '下次抽取']:
-                # 可能是未展示的天赋
-                pass  # 太容易误报，交给 LLM 判断
-
         return issues
 
     # ─── LLM 读者视角评估 ────────────────────────────────────
@@ -398,15 +377,15 @@ class EditorialReviewModule(BaseModule):
         lines.append("  1=大量红线词/元叙事/角色看穿剧情")
         lines.append("")
         lines.append("【设定一致性】")
-        lines.append("  5=所有细节与小说设定完全自洽，倒计时/天赋/规则无一矛盾")
-        lines.append("  3=大部分一致，但有一两处细节与设定小冲突（如倒计时不合理）")
+        lines.append("  5=所有细节与小说设定完全自洽")
+        lines.append("  3=大部分一致，但有一两处细节与设定小冲突")
         lines.append("  1=多处严重冲突，明显违反小说专属规则")
         lines.append("")
         lines.append("只输出JSON，不要任何其他内容。")
 
         user_prompt = "\n".join(lines)
 
-        system_prompt = REVIEW_SYSTEM_PROMPT
+        system_prompt = _build_review_system_prompt(novel)
 
         try:
             text, _ = client.chat(
@@ -480,7 +459,7 @@ class EditorialReviewModule(BaseModule):
             logger.info("已达最大重生成次数(%d)，强制通过", MAX_REGENERATIONS)
             return True
 
-        # 检查 critical 级别的规则问题（如缺少穿越前导语）
+        # 检查 critical 级别的规则问题（如缺少开篇场景）
         rule_issues = evaluation.get("rule_issues", [])
         for iss in rule_issues:
             if iss.get("severity") == "critical":
@@ -563,12 +542,12 @@ class EditorialReviewModule(BaseModule):
 
     def _apply_quick_fixes(self, content: str, issues: list[dict]) -> str:
         """对有规则问题的内容做轻量修正（不调用LLM）"""
-        # 分离穿越前/后（穿越前是现代场景，不应修改）
+        # 分离开篇/正文段落（开篇场景不应修改）
         prologue_end = 0
-        for marker in ["再睁眼", "猛地睁开眼", "睁开眼", "醒来", "失去意识", "断了线"]:
+        for marker in ["***", "---", "\n\n\n"]:
             idx = content.find(marker)
             if 0 < idx < 600:
-                prologue_end = idx
+                prologue_end = idx + len(marker)
                 break
         
         prologue = content[:prologue_end] if prologue_end else ""

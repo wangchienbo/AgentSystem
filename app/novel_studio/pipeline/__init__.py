@@ -18,7 +18,6 @@ from .orchestrator import (
 )
 from .step_chapter_plan import ChapterPlanModule
 from .step_scene_sequence import SceneSequenceModule
-from .step_scene_build import SceneBuildModule
 from .character_action.step_character_action import CharacterActionModule
 from .narrative.step_narrative import NarrativeModule
 from .editorial_review.step_editorial_review import EditorialReviewModule
@@ -39,7 +38,6 @@ __all__ = [
     "get_orchestrator",
     "ChapterPlanModule",
     "SceneSequenceModule",
-    "SceneBuildModule",
     "CharacterActionModule",
     "NarrativeModule",
     "EditorialReviewModule",
@@ -58,12 +56,11 @@ def register_default_modules():
     """注册所有默认模块到全局编排器"""
     orch = get_orchestrator()
     mods = [
-        WorldCheckModule(),
+        # WorldCheckModule(),  # 临时禁用：LLM 误报角色认知滞后
         WorldDesignModule(),
         WorldEvolveModule(),
         ChapterPlanModule(),
         SceneSequenceModule(),
-        SceneBuildModule(),
         CharacterActionModule(),
         NarrativeModule(),
         SettingCheckModule(),

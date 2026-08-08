@@ -195,32 +195,32 @@ class BaseModule(abc.ABC):
 PIPELINE_TEMPLATES: dict[str, list[str]] = {
     "write_next_chapter": [
         "world_design",      # ① 世界观事件池设计（仅首次，已有则跳过）
-        "world_check",        # ② 世界观完整性门禁（缺失则阻断）
-        "world_evolve",       # ③ 世界演化：触发事件 + 推进 + 涟漪 + 归档
-        "chapter_plan",       # ④ 大纲预测本章
-        "scene_loop",         # ⑤ 场景级循环：预测→环境→角色→重预测 × N
-        "narrative",          # ⑥ 叙事合成（多场景+连续性）
-        "setting_check",      # ⑦ 设定一致性交叉比对（独立LLM调用）
-        "editorial_review",   # ⑧ 章节质量审核（读者视角评分）
-        "character_emerge",   # ⑨ 角色涌现（自动发现新角色）
-        "memory_update",      # ⑩ 保存记忆
+        # "world_check",     # 临时禁用：LLM 误报角色认知滞后
+        "chapter_plan",       # ② 大纲预测本章
+        "scene_loop",         # ③ 场景级循环：预测→环境→角色→重预测 × N
+        "world_evolve",       # ④ 世界演化：基于所有已生成章节的场景+行动推演大势
+        "narrative",          # ⑤ 叙事合成（多场景+连续性）
+        "setting_check",      # ⑥ 设定一致性交叉比对（独立LLM调用）
+        "editorial_review",   # ⑦ 章节质量审核（读者视角评分）
+        "character_emerge",   # ⑧ 角色涌现（自动发现新角色）
+        "memory_update",      # ⑨ 保存记忆
     ],
     "write_next_chapter_legacy": [
         "world_design",      # ① 世界观事件池设计（仅首次）
-        "world_check",        # ② 世界观完整性门禁
-        "world_evolve",       # ③ 世界演化
-        "chapter_plan",       # ④ 查大纲定本章目标
-        "scene_sequence",     # ⑤ 按4原则生成多场景序列
-        "scene_build",        # ⑥ 细化所有场景的感官细节
-        "character_action",   # ⑦ 每个角色在各自场景独立决策
-        "narrative",          # ⑧ 合成叙事（多场景+上一章结尾）
-        "setting_check",      # ⑨ 设定一致性交叉比对
-        "editorial_review",   # ⑩ 章节质量审核
-        "memory_update",      # ⑪ 保存记忆
+        # "world_check",     # 临时禁用
+        "world_evolve",       # ② 世界演化
+        "chapter_plan",       # ③ 查大纲定本章目标
+        "scene_sequence",     # ④ 按4原则生成多场景序列
+        "scene_build",        # ⑤ 细化所有场景的感官细节
+        "character_action",   # ⑥ 每个角色在各自场景独立决策
+        "narrative",          # ⑦ 合成叙事（多场景+上一章结尾）
+        "setting_check",      # ⑧ 设定一致性交叉比对
+        "editorial_review",   # ⑨ 章节质量审核
+        "memory_update",      # ⑩ 保存记忆
     ],
     "quick_write": [
         "world_design",
-        "world_check",
+        # "world_check",     # 临时禁用
         "world_evolve",
         "chapter_plan",
         "scene_sequence",

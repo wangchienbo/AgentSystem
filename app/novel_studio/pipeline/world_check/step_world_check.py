@@ -180,7 +180,10 @@ class WorldCheckModule(BaseModule):
             known = getattr(wv, "known_facts", []) if hasattr(wv, "known_facts") else wv.get("known_facts", [])
             beliefs = getattr(wv, "beliefs", []) if hasattr(wv, "beliefs") else wv.get("beliefs", [])
             gaps = getattr(wv, "knowledge_gaps", []) if hasattr(wv, "knowledge_gaps") else wv.get("knowledge_gaps", [])
+            last_updated = getattr(wv, "last_updated_chapter", None) if hasattr(wv, "last_updated_chapter") else wv.get("last_updated_chapter")
 
+            if last_updated is not None:
+                block.append(f"认知更新至：第{last_updated}章")
             if known:
                 block.append(f"已知事实：{'；'.join(known)}")
             if beliefs:

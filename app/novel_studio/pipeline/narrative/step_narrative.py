@@ -65,12 +65,20 @@ class NarrativeModule(BaseModule):
         prev_chapter_content = self._get_prev_chapter_full(novel)
         prev_chapter_title = self._get_prev_chapter_title(novel)
 
+        # ★ 人物群体（含会话历史）
+        character_groups = _get_character_groups(novel)
+
+        # ★ 构建世界上下文（历史+地理+历史人物）
+        world_context = _build_world_context(novel)
+
         # 构建上下文字符串
         prompt = self._build_prompt(
             novel, plan, scenes, actions, scene_actions,
             prev_chapter_ending, prev_chapter_content, prev_chapter_title,
             prediction_updates=prediction_updates,
             regeneration_feedback=ctx.regeneration_feedback,
+            character_groups=character_groups,
+            world_context=world_context,
         )
         system_prompt = self._build_system_prompt(novel)
 
@@ -160,7 +168,8 @@ class NarrativeModule(BaseModule):
 
     def _build_system_prompt(self, novel) -> str:
         template = load_prompt("narrative", "system_writer.md")
-        return template.format(novel_title=novel.title)
+        custom = getattr(novel, "custom_prompt", "") or ""
+        return template.format(novel_title=novel.title, custom_prompt=custom)
 
     def _build_prompt(
         self,
@@ -174,13 +183,15 @@ class NarrativeModule(BaseModule):
         prev_chapter_title: str,
         prediction_updates: list[dict] | None = None,
         regeneration_feedback: str | None = None,
+        character_groups: list[dict] | None = None,
+        world_context: str = "",
     ) -> str:
         chapter_number = plan.get("chapter_number", "?")
         chapter_title = plan.get("title", f"第{chapter_number}章")
 
         lines = [f"请创作第{chapter_number}章「{chapter_title}」。"]
 
-        # ─── 第一章：穿越前导语（必须在最前面，优先于场景序列） ───
+        # ─── 第一章：开篇场景（必须在最前面，优先于场景序列） ───
         is_first_chapter = chapter_number == 1
         if is_first_chapter:
             prologue_template = load_prompt("narrative", "prologue.md")
@@ -197,13 +208,41 @@ class NarrativeModule(BaseModule):
                 prologue_scene_rules=custom,
                 prologue_rules_section=custom,
             )
-            lines.append(f"\n## ⚠️ 第一章硬性要求：必须先写穿越前导语\n{prologue_section}")
-            lines.append("\n【关键】你必须先从穿越前场景开始写（400-600字），让读者充分认识主角是谁、有什么遗憾、是什么样的人。然后再过渡到下面的场景序列。不要跳过穿越前导语直接写异世界！")
+            lines.append(f"\n## ⚠️ 第一章硬性要求：必须先写开篇场景\n{prologue_section}")
+            lines.append("\n【关键】你必须先从主角的开篇场景开始写（400-600字），让读者充分认识主角是谁、有什么遗憾、是什么样的人。然后再过渡到下面的场景序列。不要跳过开篇场景直接写正文！")
 
         # ─── 小说核心设定 ───
         novel_ctx = build_novel_context(novel)
         if novel_ctx:
             lines.append(novel_ctx)
+
+        # ─── 世界背景 ───
+        if world_context:
+            lines.append(f"\n## 世界背景（历史+地理+时代人物）\n{world_context}")
+
+        # ─── 人物群体（含会话历史） ───
+        if character_groups:
+            lines.append(f"\n## 人物群体")
+            for g in character_groups:
+                lines.append(f"\n### {g.get('name', '?')}")
+                if g.get('description'):
+                    lines.append(f"概述：{g['description']}")
+                if g.get('dynamics'):
+                    lines.append(f"内部关系：{g['dynamics']}")
+                if g.get('member_profiles'):
+                    lines.append("成员简介：")
+                    for mname, mdesc in g['member_profiles'].items():
+                        lines.append(f"  - {mname}：{mdesc}")
+                if g.get('conversation_history'):
+                    lines.append("会话历史：")
+                    for h in g['conversation_history']:
+                        speaker = h.get('speaker', '?')
+                        content = h.get('content', '')
+                        action = h.get('action', '')
+                        entry = f"  {speaker}：{content}"
+                        if action:
+                            entry += f"（{action}）"
+                        lines.append(entry)
 
         # ─── 上一章结尾（最关键：从哪里开始写） ───
         if not is_first_chapter and prev_chapter_ending and "第一章" not in prev_chapter_ending:
@@ -254,13 +293,13 @@ class NarrativeModule(BaseModule):
             pass
 
         # ─── 场景序列 ───
-        scene_label = "穿越后场景序列" if is_first_chapter else "场景序列"
+        scene_label = "正文场景序列" if is_first_chapter else "场景序列"
         lines.append(f"\n## {scene_label}（本章将有 {len(scenes)} 个场景）")
         for i, scene in enumerate(scenes):
-            participants = scene.get("participants", [])
+            participants = scene.get("characters", [])
             lines.append(f"\n### 场景{i+1}：{scene.get('name', '')}")
             lines.append(f"  地点：{scene.get('location', '')}")
-            lines.append(f"  时间：{scene.get('time_period', '')}")
+            lines.append(f"  时间：{scene.get('time', '')}")
             lines.append(f"  参与者：{'、'.join(participants)}")
             p_details = scene.get("participant_details", {})
             if p_details:
@@ -298,11 +337,14 @@ class NarrativeModule(BaseModule):
                 act = action.get("action", "")
                 diag = action.get("dialogue", "")
                 inner = action.get("inner", "")
+                panel = action.get("面板", "")
                 lines.append(f"  {char}：")
                 if act:
                     lines.append(f"    行动：{act}")
                 if diag and diag != "沉默":
                     lines.append(f"    说：「{diag}」")
+                if panel:
+                    lines.append(f"    面板：\n{panel}")
                 if inner:
                     lines.append(f"    内心：{inner}")
 
@@ -325,7 +367,7 @@ class NarrativeModule(BaseModule):
 
 ## ⚠️ 背景人群不蒸发（硬性约束）
 - 每个场景的「背景人群」是场景的一部分，必须出现在叙事中
-- 即使场景焦点在主角身上，背景人群仍然存在——饥民的咳嗽声、窝棚里的低语、排队领粥的嘈杂
+- 即使场景焦点在主角身上，背景人群仍然存在——咳嗽声、低语声、排队的嘈杂声
 - 当场景发生重大事件（如官兵搜查、冲突爆发）时，背景人群必须有反应：惊慌、躲避、被驱赶、或继续麻木地躺着
 - 不能让几十个人凭空消失——他们可以躲、可以跑、可以被忽略，但不能不存在""")
 
@@ -341,3 +383,72 @@ class NarrativeModule(BaseModule):
         # 去掉「第X章 完」之类标记
         text = re.sub(r"\n?（?第[一二三四五六七八九十\d]+章[完|]）?\n?", "", text)
         return text.strip()
+
+
+# ─── 辅助函数 ───────────────────────────────
+
+def _get_character_groups(novel) -> list[dict]:
+    """从 novel 中提取人物群体列表"""
+    groups = getattr(novel, "character_groups", None) or []
+    result = []
+    for g in groups:
+        if hasattr(g, "model_dump"):
+            result.append(g.model_dump())
+        elif isinstance(g, dict):
+            result.append(g)
+        else:
+            result.append({
+                "name": getattr(g, "name", "?"),
+                "description": getattr(g, "description", ""),
+                "dynamics": getattr(g, "dynamics", ""),
+                "member_profiles": getattr(g, "member_profiles", {}),
+                "conversation_history": _conv_hist_to_dicts(getattr(g, "conversation_history", [])),
+            })
+    return result
+
+
+def _conv_hist_to_dicts(history) -> list[dict]:
+    """将会话历史条目转为 dict"""
+    result = []
+    for h in history:
+        if hasattr(h, "model_dump"):
+            result.append(h.model_dump())
+        elif isinstance(h, dict):
+            result.append(h)
+        else:
+            result.append({
+                "speaker": getattr(h, "speaker", "?"),
+                "content": getattr(h, "content", ""),
+                "action": getattr(h, "action", ""),
+            })
+    return result
+
+
+def _build_world_context(novel) -> str:
+    """构建世界背景文本（历史+地理+历史人物）"""
+    world = getattr(novel, "world", None)
+    if not world:
+        return ""
+    parts = []
+    history = getattr(world, "history", "") or ""
+    geography = getattr(world, "geography", "") or ""
+    overview = getattr(world, "overview", "") or ""
+    if history:
+        parts.append(f"## 世界历史\n{history}")
+    if geography:
+        parts.append(f"## 地理位置\n{geography}")
+    if overview:
+        parts.append(f"## 时代背景\n{overview}")
+    # 历史人物
+    figures = getattr(world, "historical_figures", []) or []
+    if figures:
+        parts.append("## 时代重要人物")
+        for f in figures:
+            name = f.get("name", f.name) if hasattr(f, "get") else getattr(f, "name", "?")
+            title = f.get("title", "") if hasattr(f, "get") else getattr(f, "title", "")
+            desc = f.get("description", "") if hasattr(f, "get") else getattr(f, "description", "")
+            loc = f.get("current_location", "") if hasattr(f, "get") else getattr(f, "current_location", "")
+            parts.append(f"\n### {name}（{title}）")
+            parts.append(f"位置：{loc}")
+            parts.append(f"简介：{desc}")
+    return "\n\n".join(parts)

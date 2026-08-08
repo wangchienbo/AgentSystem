@@ -958,10 +958,17 @@ async function genNextChapter(){
     if(!data.success){localStorage.removeItem('novel_task_'+cid);return;}
 
     if(data.status==='complete'){
+      // 任务已完成，直接显示结果
       if(data.has_result&&data.result){
         _lastEventIdx=0;
-        pollTask(saved);
+        _pipelineShowComplete(data.result);
+        // 重新启用按钮
+        const inp=document.getElementById('chat-input');
+        if(inp)inp.disabled=false;
+        const sb=$('send-btn'); if(sb)sb.disabled=false;
+        const gb=$('gen-btn'); if(gb)gb.disabled=false;
       }
+      localStorage.removeItem('novel_task_'+cid);
     }else if(data.status==='running'||data.status==='pending'){
       _lastEventIdx=0;
       const evts=data.events||[];

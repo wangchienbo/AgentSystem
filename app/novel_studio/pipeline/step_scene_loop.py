@@ -26,7 +26,6 @@ from typing import Any
 
 from .base import BaseModule, PipelineContext
 from .step_scene_sequence import generate_one_scene
-from .step_scene_build import detail_one_scene
 from .character_action.step_character_action import run_scene_actions
 from .step_outline_update import compare_and_update_prediction
 
@@ -78,6 +77,11 @@ class SceneLoopModule(BaseModule):
         all_actions: list[dict[str, Any]] = []
         scene_actions_map: dict[str, dict[str, Any]] = {}
         prediction_updates: list[dict[str, Any]] = []
+        prev_scene_state: dict[str, Any] | None = None  # 上一场景的 SceneState
+
+        # ── 人物群体（从 novel 读取，循环中更新会话历史） ──
+        novel_groups = getattr(novel, "character_groups", None) or []
+        scene_groups = _groups_to_dicts(novel_groups)
 
         # ── 确保角色 Agent 已注册 ──
         if novel.characters:
@@ -92,8 +96,8 @@ class SceneLoopModule(BaseModule):
                 f"场景 {scene_idx + 1}/{num_scenes}：预测→环境→角色→更新",
             )
 
-            # ── ① 预测场景（基于当前预测状态） ──
-            scene_skeleton = await generate_one_scene(
+            # ── ① 生成场景（包含事件和环境细节） ──
+            scene = await generate_one_scene(
                 ctx=ctx,
                 novel=novel,
                 plan=plan,
@@ -103,37 +107,28 @@ class SceneLoopModule(BaseModule):
                 prev_scene_actions=all_actions,
             )
 
-            # ── ② 细化环境（纯感官，无剧情暗示） ──
-            detailed_scene = await detail_one_scene(
-                ctx=ctx,
-                novel=novel,
-                plan=plan,
-                scene_skeleton=scene_skeleton,
-                chapter_number=chapter_number,
-            )
-
-            # ── ③ 角色在场景中自由决策 ──
-            scene_id = detailed_scene.get("scene_id", f"scene_loop_{scene_idx}")
+            # ── ② 角色在场景中围绕事件行动 ──
+            scene_id = scene.get("scene_id", f"scene_loop_{scene_idx}")
             scene_actions = await run_scene_actions(
                 ctx=ctx,
-                scene=detailed_scene,
+                scene=scene,
                 scene_id=scene_id,
             )
 
             # 记录该场景的行动
             scene_actions_map[scene_id] = {
-                "scene_name": detailed_scene.get("name", ""),
+                "scene_name": scene.get("time", ""),
                 "actions": scene_actions,
             }
             all_actions.extend(scene_actions)
-            all_scenes.append(detailed_scene)
+            all_scenes.append(scene)
 
-            # ── ④ 更新预测（对比实际 vs 预测） ──
+            # ── ③ 更新预测（对比实际 vs 预测） ──
             updated_prediction = await compare_and_update_prediction(
                 ctx=ctx,
                 novel=novel,
                 original_prediction=current_prediction,
-                scene=detailed_scene,
+                scene=scene,
                 scene_actions=scene_actions,
                 scene_index=scene_idx,
                 total_scenes_planned=num_scenes,
@@ -179,7 +174,7 @@ class SceneLoopModule(BaseModule):
             logger.info(
                 "场景 %d/%d 完成: 「%s」, %d 个角色行动, 预测状态=%s",
                 scene_idx + 1, num_scenes,
-                detailed_scene.get("name", "?"),
+                scene.get("time", "?"),
                 len(scene_actions),
                 updated_prediction.get("prediction_status", "?"),
             )
@@ -212,9 +207,15 @@ def _determine_scene_count(novel, plan: dict[str, Any]) -> int:
 
     逻辑：
     - 基于关键事件数量和小说历史场景数综合判断
-    - 初始值偏低（2-4），后续根据偏差情况动态增减
+    - 第1章强制使用更多场景（4-6个），确保有足够过渡
+    - 其他章节初始值偏低（2-4），后续根据偏差情况动态增减
     """
     key_events = plan.get("key_events", [])
+    chapter_number = plan.get("chapter_number", 1)
+
+    # 第1章强制使用更多场景，确保有足够过渡
+    if chapter_number == 1:
+        return max(5, len(key_events))  # 至少5个场景
 
     # 基于关键事件数量决定初始场景数
     # 故意留有余地（low end），因为动态调整会按需增加
@@ -228,3 +229,22 @@ def _determine_scene_count(novel, plan: dict[str, Any]) -> int:
         return 3
 
     return 3
+
+
+def _groups_to_dicts(groups) -> list[dict[str, Any]]:
+    """将 CharacterGroup 对象列表转为 dict 列表"""
+    result = []
+    for g in groups:
+        if hasattr(g, "model_dump"):
+            result.append(g.model_dump())
+        elif isinstance(g, dict):
+            result.append(g)
+        else:
+            result.append({
+                "name": getattr(g, "name", "?"),
+                "description": getattr(g, "description", ""),
+                "dynamics": getattr(g, "dynamics", ""),
+                "member_profiles": getattr(g, "member_profiles", {}),
+                "conversation_history": getattr(g, "conversation_history", []),
+            })
+    return result

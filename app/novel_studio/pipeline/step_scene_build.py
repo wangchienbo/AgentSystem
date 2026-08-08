@@ -349,14 +349,14 @@ async def detail_one_scene(
     plan: dict[str, Any],
     scene_skeleton: dict[str, Any],
     chapter_number: int,
+    prev_scene_state: dict[str, Any] | None = None,
+    character_groups: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """细化单个场景的环境/感官细节（大纲阻断版）
+    """细化单个场景的环境/感官细节（大纲阻断版 + 世界背景注入）
 
-    只添加：location, description, atmosphere, weather, time_period,
-           sights, sounds, smells, mood
-    不添加：关键事件、剧情提示、故事走向
-
-    Returns: 注册后的场景字典（含 scene_id）
+    新参数：
+        prev_scene_state: 上一场景的 SceneState，用于场景衔接
+        character_groups: 人物群体列表，含会话历史
     """
     client = ctx.get_llm_client("novel_writer")
 
@@ -373,6 +373,8 @@ async def detail_one_scene(
         detailed = await _detail_single_scene_llm(
             ctx, novel, plan, scene_skeleton, chapter_number,
             prev_crowd_baseline=crowd_baseline,
+            prev_scene_state=prev_scene_state,
+            character_groups=character_groups,
         )
     else:
         detailed = scene_skeleton
@@ -472,8 +474,10 @@ async def _detail_single_scene_llm(
     scene: dict[str, Any],
     chapter_number: int,
     prev_crowd_baseline: str = "",
+    prev_scene_state: dict[str, Any] | None = None,
+    character_groups: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """用 LLM 细化单场景的环境/感官细节"""
+    """用 LLM 细化单场景的环境/感官细节，注入世界背景"""
     client = ctx.get_llm_client("novel_writer")
     if not client:
         return scene
@@ -495,12 +499,27 @@ async def _detail_single_scene_llm(
         f"目的：{scene.get('purpose', '')}"
     )
 
-    # ★ 上一章人群基线（跨章一致性锚定，由调用方通过 _format_prev_crowd_baseline 格式化）
+    # ★ 上一章人群基线（跨章一致性锚定）
     crowd_baseline_section = prev_crowd_baseline or ""
+
+    # ★ 新增：世界历史背景
+    world_section = _build_world_context_section(novel)
+
+    # ★ 新增：历史人物介绍
+    hist_fig_section = _build_historical_figures_section(novel)
+
+    # ★ 新增：人物群体（含会话历史）
+    groups_section = _build_character_groups_section(character_groups or [])
+
+    # ★ 新增：空间衔接
+    space_section = _build_space_continuity_section(prev_scene_state)
 
     prompt = f"""请为小说《{novel.title}》的第{chapter_number}章细化以下场景的**环境/感官细节**。
 
-{build_novel_context(novel)}
+{world_section}
+{hist_fig_section}
+{groups_section}
+{space_section}
 
 ## 场景信息
 {scene_text}
@@ -508,6 +527,7 @@ async def _detail_single_scene_llm(
 ## 角色
 {chars_text}
 {crowd_baseline_section}
+
 ## 输出要求
 请为这个场景补充完整的**感官细节**。只描述环境——
 角色在这个场景中能看到什么、听到什么、闻到什么、感受到什么氛围。
@@ -528,7 +548,7 @@ async def _detail_single_scene_llm(
   "smells": ["鼻子能闻到的1"],
   "mood": "情绪基调",
   "rules": ["场景行为限制（如果有的话）"],
-  "crowd": "背景人群描述（50-100字，如'庙内横七竖八躺着三十多个饥民，有的在哼唧，有的已经不动了。庙外窝棚里还挤着十几个人取暖。远处空地排着领粥的长队。'）",
+  "crowd": "背景人群描述（50-100字，如'角落里横七竖八躺着三十多个人，有的在哼唧，有的已经不动了。外面窝棚里还挤着十几个人取暖。远处空地排着长队。'）",
   "participants": ["保留原始参与者"],
   "purpose": "保留原始叙事目的",
   "scene_type": "保留原始场景类型",
@@ -564,7 +584,6 @@ crowd 字段记录场景中除参与者之外的**背景人群**——路人、�
         try:
             detailed = json.loads(m.group())
             if isinstance(detailed, dict):
-                # 合并：优先保留 LLM 的环境字段，保留原始的结构字段
                 result = dict(scene)
                 for k in ["location", "description", "atmosphere", "weather",
                           "time_period", "sights", "sounds", "smells", "mood",
@@ -577,3 +596,108 @@ crowd 字段记录场景中除参与者之外的**背景人群**——路人、�
 
     logger.warning("单场景细化 JSON 解析失败，使用原始场景")
     return scene
+
+
+# ─── 世界背景构建函数 ───────────────────────────────
+
+def _build_world_context_section(novel) -> str:
+    """构建世界历史背景文本"""
+    world = getattr(novel, "world", None)
+    if not world:
+        return ""
+    parts = []
+    history = getattr(world, "history", "") or ""
+    geography = getattr(world, "geography", "") or ""
+    overview = getattr(world, "overview", "") or ""
+    if history:
+        parts.append(f"## 世界历史\n{history}")
+    if geography:
+        parts.append(f"## 地理位置\n{geography}")
+    if overview:
+        parts.append(f"## 时代背景\n{overview}")
+    return "\n\n".join(parts)
+
+
+def _build_historical_figures_section(novel) -> str:
+    """构建历史人物介绍文本"""
+    world = getattr(novel, "world", None)
+    if not world:
+        return ""
+    figures = getattr(world, "historical_figures", []) or []
+    if not figures:
+        return ""
+    lines = ["## 时代重要人物"]
+    for f in figures:
+        name = f.get("name", f.name) if hasattr(f, "get") else getattr(f, "name", "?")
+        title = f.get("title", "") if hasattr(f, "get") else getattr(f, "title", "")
+        desc = f.get("description", "") if hasattr(f, "get") else getattr(f, "description", "")
+        loc = f.get("current_location", "") if hasattr(f, "get") else getattr(f, "current_location", "")
+        status = f.get("current_status", "") if hasattr(f, "get") else getattr(f, "current_status", "")
+        lines.append(f"\n### {name}（{title}）")
+        lines.append(f"位置：{loc}")
+        lines.append(f"简介：{desc}")
+        if status:
+            lines.append(f"当前动向：{status}")
+    return "\n".join(lines)
+
+
+def _build_character_groups_section(groups: list[dict[str, Any]]) -> str:
+    """构建人物群体文本（含会话历史）"""
+    if not groups:
+        return ""
+    lines = ["## 人物群体"]
+    for g in groups:
+        name = g.get("name", "?")
+        desc = g.get("description", "")
+        dynamics = g.get("dynamics", "")
+        members = g.get("member_profiles", {})
+        history = g.get("conversation_history", [])
+        lines.append(f"\n### {name}")
+        if desc:
+            lines.append(f"概述：{desc}")
+        if dynamics:
+            lines.append(f"内部关系：{dynamics}")
+        if members:
+            lines.append("成员简介：")
+            for mname, mdesc in members.items():
+                lines.append(f"  - {mname}：{mdesc}")
+        if history:
+            lines.append("会话历史：")
+            for h in history:
+                speaker = h.get("speaker", "?")
+                content = h.get("content", "")
+                action = h.get("action", "")
+                entry = f"  {speaker}：{content}"
+                if action:
+                    entry += f"（{action}）"
+                lines.append(entry)
+    return "\n".join(lines)
+
+
+def _build_space_continuity_section(prev_scene_state: dict[str, Any] | None) -> str:
+    """构建空间衔接文本"""
+    if not prev_scene_state:
+        return ""
+    pos = prev_scene_state.get("position_landmark", "")
+    desc = prev_scene_state.get("position_description", "")
+    time_of_day = prev_scene_state.get("time_of_day", "")
+    chars = prev_scene_state.get("characters_present", [])
+    conflict = prev_scene_state.get("conflict", "")
+    emotion = prev_scene_state.get("emotional_temperature", "")
+    if not pos and not desc:
+        return ""
+    lines = ["## 上一场景结束状态"]
+    if pos:
+        lines.append(f"位置：{pos}")
+    if desc:
+        lines.append(f"描述：{desc}")
+    if time_of_day:
+        lines.append(f"时间：{time_of_day}")
+    if chars:
+        lines.append(f"在场人物：{', '.join(chars)}")
+    if conflict:
+        lines.append(f"当前冲突：{conflict}")
+    if emotion:
+        lines.append(f"情绪温度：{emotion}")
+    lines.append("\n【关键】新场景的位置必须与上一场景结束位置衔接。场景转换需要明确移动过程和时间流逝。")
+    return "\n".join(lines)

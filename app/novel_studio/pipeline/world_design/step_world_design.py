@@ -73,6 +73,8 @@ class WorldDesignModule(BaseModule):
         # 写回数据
         if result:
             self._apply_design(world, result)
+            # 清理角色 worldview（LLM 可能污染）
+            self._reset_character_worldviews(ctx)
             ctx.save_novel()
             logger.info(
                 "✅ 世界观设计完成：%d 个事件，%d 个历史时代",
@@ -217,3 +219,17 @@ class WorldDesignModule(BaseModule):
                 regional_threats=threats,
                 current_chapter=0,
             )
+
+    def _reset_character_worldviews(self, ctx) -> None:
+        """清理角色 worldview，防止 LLM 污染角色数据"""
+        novel = ctx.novel
+        if not novel:
+            return
+        chars = getattr(novel, "characters", None) or {}
+        for c in (chars.values() if isinstance(chars, dict) else []):
+            if hasattr(c, "worldview"):
+                c.worldview.known_facts = []
+                c.worldview.beliefs = []
+                c.worldview.knowledge_gaps = []
+            if hasattr(c, "early_life"):
+                c.early_life = []

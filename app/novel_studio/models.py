@@ -361,6 +361,7 @@ class WorldSetting(BaseModel):
     # ── 世界演化系统 ──
     pending_events: list[PendingEvent] = Field(default_factory=list)  # 事件池
     history_eras: list[WorldHistoryEra] = Field(default_factory=list)  # 结构化历史
+    historical_figures: list[HistoricalFigure] = Field(default_factory=list)  # 历史人物
     state: WorldState = Field(default_factory=WorldState)  # 动态世界状态
     chapter_timeline: list[ChapterTimeline] = Field(default_factory=list)  # 章节事件线
 
@@ -419,6 +420,7 @@ class Novel(BaseModel):
     world: WorldSetting | None = None
     chapters: list[Chapter] = Field(default_factory=list)
     status: str = "planning"  # planning | writing | editing | published
+    character_groups: list[CharacterGroup] = Field(default_factory=list)  # 人物群体
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     tags: list[str] = Field(default_factory=list)
@@ -504,3 +506,60 @@ class TickResult(BaseModel):
     actions: list[dict[str, str]] = Field(default_factory=list)  # 角色行动记录
     new_memories: int = 0
     summary: str = ""
+
+
+# ═══════════════════════════════════════════════════════════════
+# 场景状态机 + 人物群体 + 历史人物
+# ═══════════════════════════════════════════════════════════════
+
+class HistoricalFigure(BaseModel):
+    """历史人物——故事时代背景中真实存在的重要人物"""
+    name: str
+    title: str = ""  # 头衔/身份
+    description: str = ""  # 简要介绍
+    current_location: str = ""  # 当前所在地
+    current_status: str = ""  # 当前状态/动向
+    relevance: str = "L3"  # 与主角的关联度 L1直接/L2间接/L3背景
+
+
+class ConversationEntry(BaseModel):
+    """群体会话历史中的一条记录"""
+    speaker: str  # 说话人姓名
+    content: str  # 说话内容
+    action: str = ""  # 伴随动作
+    scene_id: str = ""  # 发生在哪个场景
+    chapter: int = 0
+
+
+class CharacterGroup(BaseModel):
+    """人物群体——故事中自然形成的人群，附带会话历史和成员简介"""
+    id: str = Field(default_factory=lambda: _unique_id("grp"))
+    name: str  # 群体名称，如"流民小队"
+    description: str = ""  # 群体概述
+    members: list[str] = Field(default_factory=list)  # 成员角色ID
+    member_profiles: dict[str, str] = Field(default_factory=dict)  # {角色名: 一句话简介}
+    conversation_history: list[ConversationEntry] = Field(default_factory=list)
+    formed_at: str = ""  # 形成时间/章节
+    dynamics: str = ""  # 群体内部关系动态（如"铁柱尊敬陈实，老孙头还在观望"）
+
+
+class SceneState(BaseModel):
+    """场景状态——场景间传递的持久化状态"""
+    scene_id: str = ""
+    # 位置
+    position_landmark: str = ""  # 地标名
+    position_description: str = ""  # 详细位置描述
+    # 时间
+    time_of_day: str = ""  # 时辰（如"申时初"）
+    time_elapsed: str = ""  # 距上一场景经过的时间
+    # 人物
+    characters_present: list[str] = Field(default_factory=list)  # 在场角色名
+    character_positions: dict[str, str] = Field(default_factory=dict)  # {角色名: 位置描述}
+    # 环境
+    environment: str = ""  # 环境条件（天气、光线、温度等）
+    # 戏剧
+    conflict: str = ""  # 当前冲突
+    emotional_temperature: str = ""  # 情绪温度（紧张/放松/焦虑/希望）
+    dramatic_function: str = ""  # 此场景的戏剧功能
+    # 衔接
+    transition_from_previous: str = ""  # 从上一场景到此的过渡描述
