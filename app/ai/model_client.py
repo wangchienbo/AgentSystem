@@ -31,6 +31,28 @@ def _build_timeout(timeout_seconds: float) -> httpx.Timeout:
     )
 
 
+# 上游 LLM 可安全重试的瞬态状态码（网关 5xx、限流）。
+TRANSIENT_HTTP_STATUSES = {429, 500, 502, 503, 504}
+
+
+def _is_transient_status(status_code: int) -> bool:
+    return status_code in TRANSIENT_HTTP_STATUSES
+
+
+def _retry_delay(attempt: int, base: float = 0.75) -> float:
+    """线性退避：attempt=0 -> base, 1 -> 2*base, ..."""
+    return base * (attempt + 1)
+
+
+_CHAT_RETRY_ATTEMPTS = 3
+_CHAT_TRANSPORT_ERRORS = (
+    httpx.RemoteProtocolError,
+    httpx.ReadTimeout,
+    httpx.ConnectTimeout,
+    httpx.ReadError,
+)
+
+
 def _safe_json(response: httpx.Response) -> dict:
     content_type = (response.headers.get("content-type", "") or "").lower()
     body_preview = response.text[:300]
@@ -319,23 +341,35 @@ class OpenAIResponsesClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        try:
-            with httpx.Client(timeout=self._config.timeout_seconds) as client:
-                response = client.post(url, json=payload, headers=headers)
-        except httpx.ReadTimeout as e:
-            raise ModelClientError(
-                f"LLM request read timed out after {self._config.timeout_seconds}s",
-                status_code=None,
-                retryable=True,
-            ) from e
-        except Exception as e:
-            raise ModelClientError(f"LLM request failed: {str(e)}", status_code=None, retryable=False) from e
-        if response.status_code >= 400:
-            raise ModelClientError(
-                f"Model probe failed: {response.status_code} {response.text[:300]}",
-                status_code=response.status_code,
-                retryable=response.status_code >= 500,
-            )
+        for attempt in range(_CHAT_RETRY_ATTEMPTS):
+            try:
+                with httpx.Client(timeout=self._config.timeout_seconds) as client:
+                    response = client.post(url, json=payload, headers=headers)
+            except _CHAT_TRANSPORT_ERRORS as e:
+                if attempt >= _CHAT_RETRY_ATTEMPTS - 1:
+                    raise ModelClientError(
+                        f"LLM request read timed out after {self._config.timeout_seconds}s",
+                        status_code=None,
+                        retryable=True,
+                    ) from e
+                time.sleep(_retry_delay(attempt))
+                continue
+            except Exception as e:
+                raise ModelClientError(f"LLM request failed: {str(e)}", status_code=None, retryable=False) from e
+            if response.status_code >= 400:
+                if _is_transient_status(response.status_code) and attempt < _CHAT_RETRY_ATTEMPTS - 1:
+                    logger.warning(
+                        "ModelClient.request transient failure model=%s attempt=%s/%s status=%s retry_in=%ss",
+                        self._config.model, attempt + 1, _CHAT_RETRY_ATTEMPTS, response.status_code, _retry_delay(attempt),
+                    )
+                    time.sleep(_retry_delay(attempt))
+                    continue
+                raise ModelClientError(
+                    f"Model probe failed: {response.status_code} {response.text[:300]}",
+                    status_code=response.status_code,
+                    retryable=_is_transient_status(response.status_code),
+                )
+            break
         content_type = response.headers.get("content-type", "")
         normalized = content_type.lower()
         if "application/json" in normalized:
@@ -380,18 +414,48 @@ class OpenAIResponsesClient:
         }
         with httpx.Client(timeout=self._config.timeout_seconds) as client:
             if not stream:
-                response = client.post(url, json=payload, headers=headers)
-                if response.status_code >= 400:
-                    body = response.text[:300]
-                    raise ModelClientError(
-                        f"Chat request failed: {response.status_code} {body}",
-                        status_code=response.status_code,
-                        retryable=response.status_code >= 500,
-                    )
-                data = _safe_chat_completion_payload(response)
-                _choice0, _message, text, _tool_calls, _finish_reason = _normalize_choice_payload(data, model_name=model_name)
-                usage = _build_usage_info(data.get("usage") or {}, model_name=model_name)
-                return text, usage
+                for attempt in range(_CHAT_RETRY_ATTEMPTS):
+                    try:
+                        response = client.post(url, json=payload, headers=headers)
+                    except _CHAT_TRANSPORT_ERRORS as exc:
+                        if attempt >= _CHAT_RETRY_ATTEMPTS - 1:
+                            raise ModelClientError(
+                                f"Chat request transport failed after retry: {exc}",
+                                status_code=None,
+                                retryable=True,
+                            ) from exc
+                        time.sleep(_retry_delay(attempt))
+                        continue
+                    if response.status_code >= 400:
+                        body = response.text[:300]
+                        if _is_transient_status(response.status_code) and attempt < _CHAT_RETRY_ATTEMPTS - 1:
+                            logger.warning(
+                                "ModelClient.chat transient failure model=%s attempt=%s/%s status=%s retry_in=%ss",
+                                model_name, attempt + 1, _CHAT_RETRY_ATTEMPTS, response.status_code, _retry_delay(attempt),
+                            )
+                            time.sleep(_retry_delay(attempt))
+                            continue
+                        raise ModelClientError(
+                            f"Chat request failed: {response.status_code} {body}",
+                            status_code=response.status_code,
+                            retryable=_is_transient_status(response.status_code),
+                        )
+                    data = _safe_chat_completion_payload(response)
+                    _choice0, _message, text, _tool_calls, _finish_reason = _normalize_choice_payload(data, model_name=model_name)
+                    if not text and attempt < _CHAT_RETRY_ATTEMPTS - 1:
+                        logger.warning(
+                            "ModelClient.chat empty_response model=%s attempt=%s/%s retry_in=%ss",
+                            model_name, attempt + 1, _CHAT_RETRY_ATTEMPTS, _retry_delay(attempt, 0.5),
+                        )
+                        time.sleep(_retry_delay(attempt, 0.5))
+                        continue
+                    usage = _build_usage_info(data.get("usage") or {}, model_name=model_name)
+                    return text, usage
+                raise ModelClientError(
+                    "Chat request exhausted all attempts without a response",
+                    status_code=None,
+                    retryable=True,
+                )
             with client.stream("POST", url, json=payload, headers=headers) as response:
                 if response.status_code >= 400:
                     body = response.read().decode(errors="replace")[:300]
