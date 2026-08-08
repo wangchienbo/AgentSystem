@@ -25,6 +25,9 @@ class ModelConfigLoader:
         self._local_config_path = Path(local_config_path) if local_config_path else DEFAULT_MODEL_CONFIG_PATH
 
     def load(self) -> ModelConfig:
+        # 总是先加载 model.local.env（补充环境变量，如各 provider 的 API key）。
+        # 这样 models 池中任意 api_key_env 都能从文件注入，无需启动命令手动 export。
+        self._load_legacy_private_env_file_if_present()
         if self._local_config_path.exists():
             payload = yaml.safe_load(self._local_config_path.read_text(encoding="utf-8")) or {}
             model_payload = payload.get("model") if isinstance(payload, dict) else None
@@ -35,7 +38,6 @@ class ModelConfigLoader:
                 os.environ.setdefault(config.api_key_env, config.api_key)
             return config
 
-        self._load_legacy_private_env_file_if_present()
         if LEGACY_MODEL_JSON_PATH.exists():
             payload = json.loads(LEGACY_MODEL_JSON_PATH.read_text(encoding="utf-8"))
             return ModelConfig(**payload)
