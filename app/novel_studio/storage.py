@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any
@@ -31,11 +32,17 @@ class NovelStorage:
     def __init__(self, storage_dir: str | None = None):
         self._root = Path(storage_dir) if storage_dir else DEFAULT_STORAGE_DIR
         _ensure_dir(self._root)
+        # 跨线程读写锁：保证并发读-改-写与文件写不产生竞态/损坏
+        self._lock = threading.RLock()
 
     # ──── 小说 CRUD ────
 
     def list_novels(self) -> list[dict[str, Any]]:
         """列出所有小说摘要"""
+        with self._lock:
+            return self._list_novels_locked()
+
+    def _list_novels_locked(self) -> list[dict[str, Any]]:
         novels_dir = self._root / "novels"
         _ensure_dir(novels_dir)
         results = []
@@ -57,6 +64,10 @@ class NovelStorage:
         return sorted(results, key=lambda x: x.get("updated_at", ""), reverse=True)
 
     def get_novel(self, novel_id: str) -> Novel | None:
+        with self._lock:
+            return self._get_novel_locked(novel_id)
+
+    def _get_novel_locked(self, novel_id: str) -> Novel | None:
         novels_dir = self._root / "novels"
         path = novels_dir / f"{novel_id}.json"
         if not path.exists():
@@ -75,7 +86,11 @@ class NovelStorage:
             raise
 
     def save_novel(self, novel: Novel) -> None:
-        """保存小说数据，包含自动备份和空章节防护"""
+        """保存小说数据，包含自动备份、空章节防护与原子写"""
+        with self._lock:
+            self._save_novel_locked(novel)
+
+    def _save_novel_locked(self, novel: Novel) -> None:
         novels_dir = self._root / "novels"
         _ensure_dir(novels_dir)
         novel.updated_at = datetime.now(UTC).isoformat()
@@ -98,10 +113,13 @@ class NovelStorage:
         if path.exists():
             self._create_backup(novel.id)
 
-        path.write_text(
+        # ── 原子写：写临时文件后 rename，避免写一半崩溃留下损坏文件 ──
+        tmp_path = path.with_suffix(".json.tmp")
+        tmp_path.write_text(
             json.dumps(novel.model_dump(mode="json"), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        tmp_path.replace(path)
 
     def _create_backup(self, novel_id: str) -> None:
         """创建一个时间戳备份，保留最近5个版本"""
