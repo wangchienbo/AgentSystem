@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType
 from app.models.context import SessionNode
-from app.services.context_center import ContextCenter
+from app.context.context_center import ContextCenter
 from app.system.asset_center.models import AssetDescriptorRecord, AssetMethodSpec, AssetSessionBindingRecord
 from app.system.asset_center.service import AssetCenterService
 from app.system.catalog.runtime_center import RuntimeCenter

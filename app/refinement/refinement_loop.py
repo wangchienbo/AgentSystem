@@ -18,7 +18,7 @@ from app.models.refinement_loop import (
 from app.governance.priority_analysis import PriorityAnalysisRequest, PriorityAnalysisService
 from app.governance.proposal_review import ProposalReviewService
 from app.refinement.refinement_failure_analysis import RefinementFailureAnalysisService
-from app.services.context_storage_paths import DEFAULT_SCRIPTS_DIR
+from app.context.context_storage_paths import DEFAULT_SCRIPTS_DIR
 from app.refinement.refinement_memory import RefinementMemoryStore
 
 

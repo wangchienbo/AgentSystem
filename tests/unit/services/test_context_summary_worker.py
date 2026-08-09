@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from app.models.context import SessionContextRecord
-from app.services.context_center import ContextCenter
-from app.services.context_summary_worker import ContextSummaryWorker
+from app.context.context_center import ContextCenter
+from app.context.context_summary_worker import ContextSummaryWorker
 
 
 def test_context_summary_worker_writes_summary_through_single_thread_queue(tmp_path) -> None:

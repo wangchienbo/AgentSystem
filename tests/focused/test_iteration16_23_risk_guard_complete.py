@@ -118,7 +118,7 @@ class TestToolLoopGuardIntegration:
     
     def test_tool_loop_guard_blocks_excessive_calls(self):
         """Verify tool loop guard blocks after exceeding per-command limit."""
-        from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
+        from app.governance.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
         
         guard = ToolLoopGuard(ToolLoopConfig(max_tool_calls_per_command=5))
         guard.reset_command()
@@ -136,7 +136,7 @@ class TestToolLoopGuardIntegration:
     
     def test_tool_loop_guard_detects_patterns(self):
         """Verify tool loop guard can detect repeating patterns."""
-        from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
+        from app.governance.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
         
         guard = ToolLoopGuard(ToolLoopConfig(
             max_tool_calls_per_command=100,  # High limit to avoid hitting it
@@ -205,7 +205,7 @@ class TestContractLinterIntegration:
     
     def test_contract_linter_basic_validation(self):
         """Verify contract linter can validate JSON structure."""
-        from app.services.contract_linter import ContractLinter, LintResult
+        from app.governance.contract_linter import ContractLinter, LintResult
         
         linter = ContractLinter()
 

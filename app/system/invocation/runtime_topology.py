@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.services.context_center import ContextCenter
+from app.context.context_center import ContextCenter
 from app.system.asset_center.service import AssetCenterService
 from app.system.catalog.runtime_center import RuntimeCenter
 from app.system.invocation.routing_governance_service import RoutingGovernanceService

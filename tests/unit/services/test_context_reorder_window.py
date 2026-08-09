@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from app.services.context_center import ContextCenter
-from app.services.context_reorder_window import SessionLocalReorderWindow
+from app.context.context_center import ContextCenter
+from app.context.context_reorder_window import SessionLocalReorderWindow
 
 
 def test_session_local_reorder_window_sorts_out_of_order_events() -> None:

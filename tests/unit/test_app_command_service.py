@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.app_command_service import AppCommandService
+from app.system.app.app_command_service import AppCommandService
 
 
 def test_app_command_service_normalize_modify_app_preserves_phase_h_context() -> None:

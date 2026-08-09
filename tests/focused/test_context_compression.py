@@ -4,7 +4,7 @@ These correspond to OPT-001 Phase 3 – Test.
 """
 
 import pytest
-from app.services.context_compressor import ContextCompressor, CompressionConfig, CompressionResult
+from app.context.context_compressor import ContextCompressor, CompressionConfig, CompressionResult
 from app.orchestration.context_manager_rpc import ContextManagerRpc
 
 # Helper to create a fake history list (not used in current compressor implementation)

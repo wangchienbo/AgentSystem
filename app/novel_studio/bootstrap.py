@@ -71,7 +71,7 @@ def bootstrap_novel_studio(
     runtime_center = runtime_services.get("runtime_center")
     tool_calling_engine = runtime_services.get("tool_calling_engine")
     hot_tool_manager = runtime_services.get("hot_tool_manager")
-    from app.services.prompt_composer import PromptComposer
+    from app.ai.prompt_composer import PromptComposer
     prompt_composer = PromptComposer()
     router = create_novel_router(
         model_router=model_router,

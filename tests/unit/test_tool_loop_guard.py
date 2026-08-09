@@ -1,7 +1,7 @@
 """Tests for tool loop guard service."""
 import pytest
 import time
-from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
+from app.governance.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
 
 
 class TestToolLoopGuard:

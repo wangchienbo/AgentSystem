@@ -5,18 +5,18 @@ from app.models.app_blueprint import AppBlueprint
 from app.models.app_instance import AppInstance
 from app.models.chat import ChatMessageRequest
 from app.models.interaction import AppCatalogEntry, UserCommand
-from app.services.app_application_service import AppApplicationService
+from app.system.app.app_application_service import AppApplicationService
 from app.system.runtime.app_catalog import AppCatalogService
 from app.system.runtime.app_data_store import AppDataStore
 from app.app_installer import AppInstallerService
 from app.system.runtime.app_registry import AppRegistryService
 from app.system.runtime.app_context_store import AppContextStore
-from app.services.draft_app_application_service import DraftAppApplicationService
-from app.services.draft_app_service import DraftAppService
+from app.system.app.draft_app_application_service import DraftAppApplicationService
+from app.system.app.draft_app_service import DraftAppService
 from app.system.gateway.interaction_gateway import InteractionGateway
 from app.system.runtime.lifecycle import AppLifecycleService
 from app.system.gateway.light_brain_memory import LightBrainMemory
-from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+from app.system.runtime.pending_task_orchestrator import PendingTaskOrchestrator
 from app.orchestration.requirement_router import RequirementRouter
 from app.system.runtime.runtime_host import AppRuntimeHostService
 from app.persistence.runtime_state_store import RuntimeStateStore

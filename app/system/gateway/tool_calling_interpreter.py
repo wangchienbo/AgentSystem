@@ -354,7 +354,7 @@ def choose_turn_budget(message: str, exec_context: dict | None = None) -> int:
     # 优先从 execution context 读取
     if exec_context:
         try:
-            from app.services.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
+            from app.governance.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
             mode_str = exec_context.get('task_mode', {}).get('mode', 'chat')
             is_auth = exec_context.get('authorization', {}).get('is_authorized', False)
             mode = TaskModeBudget(mode_str)

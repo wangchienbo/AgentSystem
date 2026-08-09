@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 
 from app.models.chat import InterpretedCommand
-from app.services.app_command_service import AppCommandService
-from app.services.app_create_modify_executor import AppCreateModifyExecutor
-from app.services.app_presenter import AppPresenter
+from app.system.app.app_command_service import AppCommandService
+from app.system.app.app_create_modify_executor import AppCreateModifyExecutor
+from app.system.app.app_presenter import AppPresenter
 
 
 def _make_executor(*, bus=None):

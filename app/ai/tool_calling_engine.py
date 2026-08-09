@@ -250,7 +250,7 @@ class ToolCallingEngine:
 
         if max_turns is None:
             try:
-                from app.services.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
+                from app.governance.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
                 max_turns = TurnBudgetPolicy.decide(TaskModeBudget.EXECUTION)
             except Exception:
                 max_turns = 30
@@ -260,7 +260,7 @@ class ToolCallingEngine:
 
         # 收敛提示阈值（turn≥CONVERGENCE_HINT_TURN 时注入）
         try:
-            from app.services.turn_budget_policy import TurnBudgetPolicy
+            from app.governance.turn_budget_policy import TurnBudgetPolicy
             _convergence_turn = TurnBudgetPolicy.CONVERGENCE_HINT_TURN
         except Exception:
             _convergence_turn = 50

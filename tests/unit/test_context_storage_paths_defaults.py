@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.runtime_paths import resolve_runtime_paths
-from app.services.context_storage_paths import build_context_storage_paths
+from app.context.context_storage_paths import build_context_storage_paths
 
 
 def test_build_context_storage_paths_defaults_to_install_model_data_dir(tmp_path, monkeypatch) -> None:

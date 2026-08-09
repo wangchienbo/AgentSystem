@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from app.models.context import SessionContextRecord
-from app.services.context_center import ContextCenter
-from app.services.context_recovery_manager import ContextRecoveryManager
-from app.services.context_storage_paths import build_context_storage_paths
-from app.services.context_summary_worker import ContextSummaryWorker
-from app.services.durable_context_buffer import DurableContextBuffer
+from app.context.context_center import ContextCenter
+from app.context.context_recovery_manager import ContextRecoveryManager
+from app.context.context_storage_paths import build_context_storage_paths
+from app.context.context_summary_worker import ContextSummaryWorker
+from app.context.durable_context_buffer import DurableContextBuffer
 
 
 def test_context_storage_path_helpers_build_expected_directories(tmp_path) -> None:

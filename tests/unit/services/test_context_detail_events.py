@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.models.context import SessionContextRecord
-from app.services.context_center import ContextCenter
-from app.services.context_query_service import ContextQueryService
-from app.services.context_writer import ContextWriter
+from app.context.context_center import ContextCenter
+from app.context.context_query_service import ContextQueryService
+from app.context.context_writer import ContextWriter
 
 
 def test_context_writer_persists_minimal_detail_event_schema(tmp_path) -> None:

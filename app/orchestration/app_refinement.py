@@ -6,7 +6,7 @@ from app.models.app_refinement import SuggestedSkillRefinementRequest, Suggested
 from app.models.skill_blueprint import SkillBlueprint
 from app.persistence.experience_store import ExperienceStore
 from app.skills.skill_control import SkillControlService, SkillControlError
-from app.services.skill_factory import SkillFactoryService, SkillFactoryError
+from app.skills.skill_factory import SkillFactoryService, SkillFactoryError
 
 
 class AppRefinementError(ValueError):

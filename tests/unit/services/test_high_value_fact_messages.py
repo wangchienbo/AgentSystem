@@ -4,7 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-from app.services.high_value_fact_messages import (
+from app.context.high_value_fact_messages import (
     acceptance_result_message,
     repo_located_message,
     target_file_identified_message,

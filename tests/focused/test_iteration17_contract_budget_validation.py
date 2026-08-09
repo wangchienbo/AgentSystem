@@ -12,8 +12,8 @@ import pytest
 from app.system.gateway.light_brain_gateway import LightBrainGateway
 from app.system.gateway.light_brain_memory import LightBrainMemory
 from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
-from app.services.contract_linter import ContractLinter, LintResult
-from app.services.budget_tracker import BudgetTracker, BudgetConfig, BudgetExceededError
+from app.governance.contract_linter import ContractLinter, LintResult
+from app.governance.budget_tracker import BudgetTracker, BudgetConfig, BudgetExceededError
 
 
 class TestContractLinterIntegration:
@@ -21,7 +21,7 @@ class TestContractLinterIntegration:
 
     def test_contract_linter_file_exists(self):
         """Verify contract linter implementation exists at expected path."""
-        from app.services.contract_linter import ContractLinter
+        from app.governance.contract_linter import ContractLinter
         assert ContractLinter is not None
 
     def test_contract_linter_basic_validation(self):
@@ -107,7 +107,7 @@ class TestBudgetTrackerIntegration:
 
     def test_budget_tracker_file_exists(self):
         """Verify budget tracker implementation exists."""
-        from app.services.budget_tracker import BudgetTracker, BudgetConfig, BudgetExceededError
+        from app.governance.budget_tracker import BudgetTracker, BudgetConfig, BudgetExceededError
         assert BudgetTracker is not None
         assert BudgetConfig is not None
 
@@ -283,7 +283,7 @@ class TestArchitectureDecisionNeeded:
     def test_budget_quota_dual_tracks_exist(self):
         """Verify both budget tracking systems exist."""
         # Track 1: app/services/budget_tracker.py - BudgetConfig, BudgetTracker
-        from app.services.budget_tracker import BudgetTracker, BudgetConfig
+        from app.governance.budget_tracker import BudgetTracker, BudgetConfig
 
         # Track 2: app/system/workers/app_mgmt.py - CostQuotaManager (via governance)
         # This is checked separately in governance tests

@@ -16,7 +16,6 @@ from typing import Any
 from app.models.asset import Asset, AssetFunction
 from app.models.asset_contract import AssetDescriptor
 from app.system.catalog.asset_registry import AssetRegistry
-from app.system.runtime_asset_formatter import render_asset_overview_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -104,10 +103,7 @@ def make_call_asset_method_tool() -> AssetToolDefinition:
 
 def make_all_asset_tools() -> list[AssetToolDefinition]:
     return [
-        make_list_assets_tool(),
-        make_query_asset_info_tool(),
         make_call_asset_method_tool(),
-        make_query_asset_detail_tool(),
     ]
 
 
@@ -144,7 +140,7 @@ class AssetToolExecutor:
         try:
             if tool_name == "list_assets":
                 return self._list_assets(arguments, caller_name)
-            if tool_name == "query_asset_info":
+            if tool_name in ("query_asset_info", "query_asset"):
                 return self._query_asset_info(arguments, caller_name)
             if tool_name == "call_asset_method":
                 return self._call_asset_method(arguments, caller_name)
@@ -168,11 +164,16 @@ class AssetToolExecutor:
             payload = asset.model_dump(mode="json") if hasattr(asset, "model_dump") else asset
             if filter_text and filter_text not in json.dumps(payload, ensure_ascii=False).lower():
                 continue
-            items.append(payload)
+            # 精简输出：只保留 asset_id、描述和能力方法名列表
+            items.append({
+                "asset_id": payload.get("asset_id", ""),
+                "description": payload.get("description", ""),
+                "methods": [c.get("method", c.get("name")) for c in payload.get("capabilities", [])],
+            })
         return ToolResult(success=True, data=items)
 
     def _query_asset_info(self, args: dict, caller_name: str) -> ToolResult:
-        asset_id = args.get("asset_id")
+        asset_id = args.get("asset_id") or args.get("keyword") or ""
         if not asset_id:
             return ToolResult(success=False, error="asset_id is required")
         if not hasattr(self._registry, "query_asset_info"):
@@ -194,6 +195,10 @@ class AssetToolExecutor:
             return ToolResult(success=False, error="Runtime asset call is not available")
         result = self._registry.call_asset_method(asset_id=asset_id, method=method, params=params)
         ok = bool(result.get("ok")) if isinstance(result, dict) else False
+        # Simplify for the model: extract the inner result data, skip envelope wrapping
+        inner = result.get("result") if isinstance(result, dict) else result
+        if ok and inner is not None:
+            return ToolResult(success=True, data=inner)
         return ToolResult(success=ok, data=result, error="" if ok else str(result.get("error", "asset method call failed")))
 
     def _query_asset_detail(self, args: dict, caller_name: str) -> ToolResult:
@@ -451,4 +456,33 @@ def assemble_asset_overview_prompt(registry: Any, caller_name: str) -> str:
     Compatible with both AssetRegistry (Asset model) and SystemCatalog (CatalogEntry).
     """
     assets = registry.get_visible_assets(caller_name)
-    return render_asset_overview_prompt(assets, header="## 你可用的资产")
+    if not assets:
+        return "当前没有可用的资产。"
+
+    lines = [
+        "## 你可用的资产",
+        "",
+        "以下是你可以调用的资产列表。每个资产包含：",
+        "- asset_id: 资产唯一标识",
+        "- 名称: 人类可读名称",
+        "- 接口: 该资产提供的所有可调用的功能",
+        "",
+        "**重要：如需了解某个资产的详细使用说明（输入参数格式、输出格式、注意事项），",
+        "请调用 query_asset_detail(asset_id) 工具。**",
+        "",
+    ]
+    for a in assets:
+        # Support both Asset model (has .functions) and CatalogEntry (has .interfaces)
+        if hasattr(a, 'interfaces'):
+            # CatalogEntry
+            fn_names = ", ".join(f"{k}({v.get('description', '')})" for k, v in a.interfaces.items()) if a.interfaces else "无"
+        elif hasattr(a, 'functions'):
+            # Asset model
+            fn_names = ", ".join(f"{f.key}({f.name})" for f in a.functions)
+        else:
+            fn_names = "无"
+        lines.append(f"### {a.asset_id} ({a.name})")
+        lines.append(f"描述: {a.description}")
+        lines.append(f"可用接口: {fn_names if fn_names else '无'}")
+        lines.append("")
+    return "\n".join(lines)

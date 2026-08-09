@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 from dataclasses import dataclass, field
 
-from app.services.context_storage_paths import DEFAULT_AUDIT_LOG_DIR
+from app.context.context_storage_paths import DEFAULT_AUDIT_LOG_DIR
 
 AuditAction = Literal[
     "create_app",

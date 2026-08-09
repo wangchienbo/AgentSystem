@@ -14,8 +14,8 @@ from typing import Any
 
 from app.ai.model_client import OpenAIResponsesClient
 from app.ai.model_config_loader import ModelConfigLoader
-from app.services.resource_budget_manager import ResourceBudgetManager, ResourceType
-from app.services.budget_tracker import BudgetExceededError
+from app.governance.resource_budget_manager import ResourceBudgetManager, ResourceType
+from app.governance.budget_tracker import BudgetExceededError
 
 
 class InternalModelRouter:

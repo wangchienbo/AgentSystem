@@ -19,8 +19,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.models.tool_entry import ToolEntry, ToolType
-from app.services.contract_linter import ContractLinter
-from app.services.tool_loop_guard import ToolLoopGuard
+from app.governance.contract_linter import ContractLinter
+from app.governance.tool_loop_guard import ToolLoopGuard
 from app.system.master.unified_tool_registry import UnifiedToolRegistry
 
 logger = logging.getLogger(__name__)

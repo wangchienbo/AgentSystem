@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.services.context_center import ContextCenter
+from app.context.context_center import ContextCenter
 from app.system.invocation.tool_context_contract import ToolContextQueryRequest
 
 

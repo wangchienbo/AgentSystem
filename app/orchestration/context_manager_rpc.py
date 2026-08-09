@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 # Context compression utilities
-from app.services.context_compressor import ContextCompressor, CompressionConfig
+from app.context.context_compressor import ContextCompressor, CompressionConfig
 
 
 @dataclass

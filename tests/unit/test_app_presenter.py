@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.app_presenter import AppPresenter
+from app.system.app.app_presenter import AppPresenter
 
 
 def test_app_presenter_confirmation_content_includes_phase_h_summary() -> None:

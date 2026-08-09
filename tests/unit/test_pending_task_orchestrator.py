@@ -15,10 +15,10 @@ from app.models.pending_task import (
     WORKFLOW_STAGE_VALUES,
 )
 from app.persistence.runtime_state_store import RuntimeStateStore
-from app.services.app_application_service import AppApplicationService
-from app.services.draft_app_application_service import DraftAppApplicationService
-from app.services.draft_app_service import DraftAppService
-from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+from app.system.app.app_application_service import AppApplicationService
+from app.system.app.draft_app_application_service import DraftAppApplicationService
+from app.system.app.draft_app_service import DraftAppService
+from app.system.runtime.pending_task_orchestrator import PendingTaskOrchestrator
 from app.system.runtime.lifecycle import AppLifecycleService
 from app.system.runtime.runtime_host import AppRuntimeHostService
 from app.system.runtime.pending_task_store import PendingTaskStore
@@ -166,7 +166,7 @@ def test_pending_task_workflow_constants_are_stable() -> None:
 
 
 def test_pending_task_orchestrator_supports_generic_stage_transition_helpers(tmp_path: Path):
-    from app.services.context_center import ContextCenter
+    from app.context.context_center import ContextCenter
 
     store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
     context_center = ContextCenter(base_dir=tmp_path / "context")
@@ -210,7 +210,7 @@ def test_pending_task_orchestrator_supports_generic_stage_transition_helpers(tmp
 
 
 def test_pending_task_orchestrator_can_mark_blocked_state(tmp_path: Path):
-    from app.services.context_center import ContextCenter
+    from app.context.context_center import ContextCenter
 
     store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
     context_center = ContextCenter(base_dir=tmp_path / "context")
@@ -283,7 +283,7 @@ def test_pending_task_orchestrator_can_capture_upgrade_plan(tmp_path: Path):
 
 
 def test_pending_task_orchestrator_can_capture_acceptance_plan_and_result(tmp_path: Path):
-    from app.services.context_center import ContextCenter
+    from app.context.context_center import ContextCenter
 
     store = PendingTaskStore(RuntimeStateStore(base_dir=str(tmp_path / "runtime")))
     context_center = ContextCenter(base_dir=tmp_path / "context")
@@ -321,7 +321,7 @@ def test_pending_task_orchestrator_can_capture_acceptance_plan_and_result(tmp_pa
 
 
 def test_pending_task_orchestrator_allows_app_side_context_writes(tmp_path: Path):
-    from app.services.context_center import ContextCenter
+    from app.context.context_center import ContextCenter
 
     context_center = ContextCenter(base_dir=tmp_path / "context")
     orchestrator = PendingTaskOrchestrator(context_center=context_center)
@@ -339,7 +339,7 @@ def test_pending_task_orchestrator_allows_app_side_context_writes(tmp_path: Path
 
 
 def test_pending_task_orchestrator_can_write_governance_observation(tmp_path: Path):
-    from app.services.context_center import ContextCenter
+    from app.context.context_center import ContextCenter
 
     context_center = ContextCenter(base_dir=tmp_path / "context")
     orchestrator = PendingTaskOrchestrator(context_center=context_center)

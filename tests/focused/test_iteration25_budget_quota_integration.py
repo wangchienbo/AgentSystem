@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.resource_budget_manager import (
+from app.governance.resource_budget_manager import (
     ResourceBudgetManager,
     ResourceBudgetConfig,
     ResourceType,
@@ -19,7 +19,7 @@ class TestResourceBudgetManagerInterface:
 
     def test_implements_interface(self):
         """Verify ResourceBudgetManager can be used as IResourceBudgetManager."""
-        from app.services.resource_budget_manager import IResourceBudgetManager
+        from app.governance.resource_budget_manager import IResourceBudgetManager
         
         manager = ResourceBudgetManager()
         
@@ -87,7 +87,7 @@ class TestBudgetTrackerBackwardCompatibility:
 
     def test_budget_tracker_alias(self):
         """Verify BudgetTracker is an alias for ResourceBudgetManager."""
-        from app.services.budget_tracker import BudgetTracker
+        from app.governance.budget_tracker import BudgetTracker
         
         tracker = BudgetTracker()
         
@@ -98,7 +98,7 @@ class TestBudgetTrackerBackwardCompatibility:
 
     def test_consume_tokens_backward_compatible(self):
         """Verify consume_tokens works as before."""
-        from app.services.budget_tracker import BudgetTracker
+        from app.governance.budget_tracker import BudgetTracker
         
         tracker = BudgetTracker()
         
@@ -109,7 +109,7 @@ class TestBudgetTrackerBackwardCompatibility:
 
     def test_get_session_usage_backward_compatible(self):
         """Verify get_session_usage returns expected structure."""
-        from app.services.budget_tracker import BudgetTracker
+        from app.governance.budget_tracker import BudgetTracker
         
         tracker = BudgetTracker()
         tracker.consume_tokens("session-1", "user-1", 5000)
@@ -180,7 +180,7 @@ class TestIteration25Completion:
 
     def test_architecture_layers_defined(self):
         """Verify all three layers are defined."""
-        from app.services.resource_budget_manager import IResourceBudgetManager
+        from app.governance.resource_budget_manager import IResourceBudgetManager
         from app.governance.cost_quota import CostQuotaManager
         from app.utils.observability import ObservabilityCollector
         

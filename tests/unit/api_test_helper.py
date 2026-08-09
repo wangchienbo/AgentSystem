@@ -25,7 +25,7 @@ from app.api.operator_filters import build_refinement_filter, build_workflow_obs
 from app.models.policy_authority import AuthorityPolicyRecord
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
 from app.governance.priority_analysis import PriorityAnalysisError
-from app.services.skill_factory import SkillFactoryError
+from app.skills.skill_factory import SkillFactoryError
 from app.skills.skill_control import SkillControlError
 from app.skills.skill_runtime import SkillRuntimeError
 from app.system.runtime.app_registry import AppRegistryError

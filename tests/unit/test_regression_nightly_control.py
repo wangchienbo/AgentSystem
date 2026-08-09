@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from app.bootstrap.runtime import build_runtime
-from app.services.regression_nightly_control import (
+from app.system.regression_nightly_control import (
     REGRESSION_NIGHTLY_SCHEDULE_ID,
     RegressionNightlyControlService,
 )
@@ -1681,7 +1681,7 @@ def test_run_regression_governance_cycle_passes_session_id_into_trigger_applicat
 
 def test_trigger_manual_cycle_uses_service_session_for_live_chat_governance(tmp_path: Path) -> None:
     from unittest.mock import Mock, patch
-    from app.services.regression_nightly_control import RegressionNightlyControlService, REGRESSION_NIGHTLY_SERVICE_SESSION_ID
+    from app.system.regression_nightly_control import RegressionNightlyControlService, REGRESSION_NIGHTLY_SERVICE_SESSION_ID
 
     service = build_service(tmp_path)
     service.register_nightly_schedule(interval_seconds=60)

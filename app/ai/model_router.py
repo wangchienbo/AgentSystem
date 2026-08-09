@@ -27,6 +27,7 @@ from app.ai.model_client import OpenAIResponsesClient, ModelClientError
 
 
 DEFAULT_CONFIG_PATH = DEFAULT_MODEL_CONFIG_PATH
+DEFAULT_MODEL_POOL = DEFAULT_CONFIG_PATH  # Backward-compatible alias
 DEFAULT_PREFERENCE_ALIASES: dict[str, str] = {
     # Cost-tier aliases — resolved against config.yaml model pool.
     # These are FALLBACK defaults when the config doesn't define the alias

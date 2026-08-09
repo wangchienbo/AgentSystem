@@ -19,7 +19,7 @@ from app.models.skill_creation import (
 )
 from app.system.catalog.asset_center import AssetCenter
 from app.orchestration.meta_app.bootstrap import MetaAppBootstrapService
-from app.services.skill_factory import SkillFactoryService, SkillFactoryError
+from app.skills.skill_factory import SkillFactoryService, SkillFactoryError
 from app.system.catalog.system_catalog import CatalogEntry, SystemCatalog
 
 

@@ -34,7 +34,7 @@ from app.models.app_profile import AppRuntimeProfile
 from app.models.chat import ChatMessageRequest
 from app.models.runtime_policy import RuntimePolicy
 from app.models.scheduling import ScheduleRecord
-from app.services.regression_nightly_control import RegressionNightlyControlService
+from app.system.regression_nightly_control import RegressionNightlyControlService
 from app.system.chat_observation import build_chat_observation_probe, persist_chat_observation
 from app.system.regression_governance_policy import build_governance_rollout_operator_summary
 from app.system.chat_regression import (

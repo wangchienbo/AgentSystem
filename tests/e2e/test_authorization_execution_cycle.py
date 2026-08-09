@@ -19,9 +19,9 @@ import pytest
 
 from app.models.authorization import AuthorizationLevel, AuthorizationState
 from app.models.pending_task import PendingTaskRecord
-from app.services.execution_mode_integrator import ExecutionModeIntegrator
-from app.services.authorization_service import AuthorizationService
-from app.services.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
+from app.system.gateway.execution_mode_integrator import ExecutionModeIntegrator
+from app.governance.authorization_service import AuthorizationService
+from app.governance.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
 
 
 class TestAuthorizationEngineCycle:
@@ -42,7 +42,7 @@ class TestAuthorizationEngineCycle:
 
     def test_intent_extractor_classifies_engineering(self):
         """P0-6: 意图提取识别工程任务。"""
-        from app.services.intent_extractor import IntentExtractor
+        from app.system.gateway.intent_extractor import IntentExtractor
         from app.models.intent import AuthorizationSignal
 
         extractor = IntentExtractor()
@@ -67,7 +67,7 @@ class TestAuthorizationEngineCycle:
 
     def test_authorization_service_persistence(self):
         """P2-1: 授权态持久化。"""
-        from app.services.authorization_service import AuthorizationService
+        from app.governance.authorization_service import AuthorizationService
 
         # 模拟 state_store
         mock_store = MagicMock()
@@ -130,7 +130,7 @@ class TestAuthorizationEngineCycle:
 
     def test_background_executor_submit(self):
         """P1-1: 后台执行器提交任务。"""
-        from app.services.background_executor import BackgroundExecutor
+        from app.core.background_executor import BackgroundExecutor
 
         mock_store = MagicMock()
         executor = BackgroundExecutor(pending_task_store=mock_store)

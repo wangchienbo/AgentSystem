@@ -565,3 +565,14 @@ class TaskDispatcher:
                     pass
         
         return record_copy
+
+
+class MasterControlService(MasterControl):
+    """Backward-compatible wrapper for orchestration wiring.
+
+    Provides the data_dir attribute expected by app.orchestration.core_orchestrator.
+    """
+
+    def __init__(self, data_dir: str | None = None) -> None:
+        super().__init__()
+        self._data_dir = data_dir

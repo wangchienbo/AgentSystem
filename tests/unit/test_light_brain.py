@@ -12,7 +12,7 @@ from app.models.chat import (
 from app.models.context import SessionContextRecord
 from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
 from app.system.gateway.light_brain_memory import LightBrainMemory
-from app.services.context_center import ContextCenter
+from app.context.context_center import ContextCenter
 from app.system.gateway.light_brain_gateway import LightBrainGateway
 from app.system.catalog.runtime_center import RuntimeCenter
 

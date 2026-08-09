@@ -23,7 +23,7 @@ from app.models.chat import (
 )
 from app.models.telemetry import InteractionTelemetryRecord
 from app.runtime_paths import resolve_runtime_paths
-from app.services.context_center import ContextCenter
+from app.context.context_center import ContextCenter
 from app.models.context import SessionContextRecord, SessionLink, SessionNode
 from app.ai.model_client import ModelClientError
 from app.models.pending_task import (
@@ -46,13 +46,13 @@ from app.config.context_upload import (
     format_system_note,
 )
 from app.utils.context_upload import ContextUploadHelper
-from app.services.rate_limiter import RateLimiter, RateLimitConfig
-from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
+from app.governance.rate_limiter import RateLimiter, RateLimitConfig
+from app.governance.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
 from app.utils.observability import ObservabilityCollector
 from app.utils.context_upload import ContextUploadHelper
 from app.config.context_upload import ContextUploadConfig
 
-from app.services.contract_linter import ContractLinter
+from app.governance.contract_linter import ContractLinter
 from app.system.management_presenters import (
     render_app_list,
     render_management_availability,
@@ -538,7 +538,7 @@ class LightBrainGateway:
         if self._execution_mode_integrator is not None:
             return self._execution_mode_integrator
         try:
-            from app.services.execution_mode_integrator import ExecutionModeIntegrator
+            from app.system.gateway.execution_mode_integrator import ExecutionModeIntegrator
             from app.persistence.runtime_state_store import RuntimeStateStore
             state_store = RuntimeStateStore()
             self._execution_mode_integrator = ExecutionModeIntegrator()
@@ -555,7 +555,7 @@ class LightBrainGateway:
         if self._intent_extractor is not None:
             return self._intent_extractor
         try:
-            from app.services.intent_extractor import IntentExtractor
+            from app.system.gateway.intent_extractor import IntentExtractor
             self._intent_extractor = IntentExtractor()
         except Exception:
             self._intent_extractor = None
@@ -1121,8 +1121,8 @@ class LightBrainGateway:
             return self._app_command_recovery
         if self._app_application_service is None:
             return None
-        from app.services.app_command_recovery_service import AppCommandRecoveryService
-        from app.services.app_command_service import AppCommandService
+        from app.system.app.app_command_recovery_service import AppCommandRecoveryService
+        from app.system.app.app_command_service import AppCommandService
         try:
             self._app_command_recovery = AppCommandRecoveryService(AppCommandService())
         except Exception:
@@ -3033,7 +3033,7 @@ class LightBrainGateway:
         if self._app_application_service is not None and self._app_application_service.owns(intent):
             recovery = self._get_app_command_recovery()
             if recovery is not None:
-                from app.services.app_command_recovery_service import AppCommandRecoveryResult
+                from app.system.app.app_command_recovery_service import AppCommandRecoveryResult
                 recovery_result = recovery.recover_from_source(
                     intent=intent,
                     user_id=user_id,

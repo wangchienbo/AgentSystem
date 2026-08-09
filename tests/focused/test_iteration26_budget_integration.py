@@ -10,12 +10,12 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
-from app.services.resource_budget_manager import (
+from app.governance.resource_budget_manager import (
     ResourceBudgetManager,
     ResourceBudgetConfig,
     ResourceType,
 )
-from app.services.budget_tracker import BudgetExceededError
+from app.governance.budget_tracker import BudgetExceededError
 from app.ai.internal_model_router import InternalModelRouter
 
 
@@ -166,7 +166,7 @@ class TestIteration26Status:
 
     def test_architecture_layers_verified(self):
         """All three ADR-001 layers exist and work together."""
-        from app.services.resource_budget_manager import ResourceBudgetManager
+        from app.governance.resource_budget_manager import ResourceBudgetManager
         from app.governance.cost_quota import CostQuotaManager
         from app.utils.observability import ObservabilityCollector
         
@@ -185,7 +185,7 @@ class TestIteration26Status:
 
     def test_backward_compatibility_maintained(self):
         """BudgetTracker alias still works."""
-        from app.services.budget_tracker import BudgetTracker, BudgetConfig
+        from app.governance.budget_tracker import BudgetTracker, BudgetConfig
         
         tracker = BudgetTracker(BudgetConfig(token_budget_per_session=500))
         success, error = tracker.consume_tokens("session-x", "user-x", 50)

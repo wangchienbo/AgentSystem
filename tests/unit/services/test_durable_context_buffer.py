@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.services.context_center import ContextCenter
-from app.services.durable_context_buffer import DurableContextBuffer
+from app.context.context_center import ContextCenter
+from app.context.durable_context_buffer import DurableContextBuffer
 
 
 def test_durable_context_buffer_persists_pending_events_across_instances(tmp_path) -> None:

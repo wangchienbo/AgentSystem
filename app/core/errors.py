@@ -25,7 +25,7 @@ from app.ai.supervisor import SupervisorError
 from app.refinement.blueprint_validation import BlueprintValidationError
 from app.skills.skill_validation import SkillValidationError
 from app.models.skill_diagnostics import SkillDiagnosticError
-from app.services.skill_factory import SkillFactoryError
+from app.skills.skill_factory import SkillFactoryError
 from app.refinement.requirement_blueprint_builder import RequirementBlueprintBuilderError
 
 

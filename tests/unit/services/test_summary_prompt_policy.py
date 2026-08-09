@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.services.context_summary_worker import ContextSummaryWorker
-from app.services.summary_prompt_policy import SummaryPromptPolicy
+from app.context.context_summary_worker import ContextSummaryWorker
+from app.context.summary_prompt_policy import SummaryPromptPolicy
 
 
 def test_summary_prompt_policy_short_record_is_near_verbatim() -> None:

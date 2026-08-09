@@ -28,12 +28,12 @@ from app.models.authorization import (
 from app.models.intent import AuthorizationSignal, ExtractedIntent
 from app.models.task_mode import TaskMode, EngineeringTaskType
 from app.models.pending_task import PendingTaskRecord
-from app.services.authorization_service import AuthorizationService
-from app.services.background_executor import BackgroundExecutor
-from app.services.execution_mode_integrator import ExecutionModeIntegrator
-from app.services.intent_extractor import IntentExtractor
-from app.services.prompt_composer import PromptComposer
-from app.services.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
+from app.governance.authorization_service import AuthorizationService
+from app.core.background_executor import BackgroundExecutor
+from app.system.gateway.execution_mode_integrator import ExecutionModeIntegrator
+from app.system.gateway.intent_extractor import IntentExtractor
+from app.ai.prompt_composer import PromptComposer
+from app.governance.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
 
 
 # ════════════════════════════════════════════════════════════════════

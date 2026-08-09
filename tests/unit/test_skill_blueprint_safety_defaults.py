@@ -4,7 +4,7 @@ from app.skills.generated_skill_assets import GeneratedSkillAssetStore
 from app.persistence.runtime_state_store import RuntimeStateStore
 from app.skills.schema_registry import SchemaRegistryService
 from app.skills.skill_control import SkillControlService
-from app.services.skill_factory import SkillFactoryService
+from app.skills.skill_factory import SkillFactoryService
 from app.skills.skill_runtime import SkillRuntimeService
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.context_center import ContextCenter
+from app.context.context_center import ContextCenter
 from app.system.invocation.context_bundle_assembly import ContextBundleAssemblyService
 from app.system.invocation.tool_context_contract import ModelInvocationRecord, ToolContextQueryRequest
 

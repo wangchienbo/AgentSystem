@@ -8,9 +8,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 from app.models.chat import ChatMessageRequest, TaskContinuationDecision
 from app.models.pending_task import PendingTaskRecord
 from app.persistence.runtime_state_store import RuntimeStateStore
-from app.services.app_application_service import AppApplicationService
-from app.services.draft_app_application_service import DraftAppApplicationService
-from app.services.draft_app_service import DraftAppService
+from app.system.app.app_application_service import AppApplicationService
+from app.system.app.draft_app_application_service import DraftAppApplicationService
+from app.system.app.draft_app_service import DraftAppService
 from app.system.gateway.light_brain_memory import LightBrainMemory
 from app.system.gateway.light_brain_gateway import LightBrainGateway
 from app.system.runtime.lifecycle import AppLifecycleService
@@ -161,7 +161,7 @@ def test_gateway_continue_task_returns_progress_response(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
-    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+    from app.system.runtime.pending_task_orchestrator import PendingTaskOrchestrator
     pending_store = PendingTaskStore(runtime_store)
     gateway = LightBrainGateway(
         memory=LightBrainMemory(),
@@ -438,7 +438,7 @@ def test_continue_interception_keeps_structured_payload(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
-    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+    from app.system.runtime.pending_task_orchestrator import PendingTaskOrchestrator
     pending_store = PendingTaskStore(runtime_store)
     gateway = LightBrainGateway(
         memory=LightBrainMemory(),
@@ -465,7 +465,7 @@ def test_continue_task_writes_back_default_runtime_profile(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
-    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+    from app.system.runtime.pending_task_orchestrator import PendingTaskOrchestrator
     pending_store = PendingTaskStore(runtime_store)
     gateway = LightBrainGateway(
         memory=LightBrainMemory(),
@@ -496,7 +496,7 @@ def test_second_continue_consumes_execute_draft_next_action(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
-    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+    from app.system.runtime.pending_task_orchestrator import PendingTaskOrchestrator
     pending_store = PendingTaskStore(runtime_store)
     gateway = LightBrainGateway(
         memory=LightBrainMemory(),
@@ -524,7 +524,7 @@ def test_third_continue_reports_draft_ready_completion(tmp_path: Path):
     runtime_store = RuntimeStateStore(base_dir=str(tmp_path / "runtime"))
     draft_service = DraftAppService(runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
-    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+    from app.system.runtime.pending_task_orchestrator import PendingTaskOrchestrator
     pending_store = PendingTaskStore(runtime_store)
     gateway = LightBrainGateway(
         memory=LightBrainMemory(),
@@ -596,7 +596,7 @@ def test_execute_action_apply_draft_app_routes_to_application_layer(tmp_path: Pa
     lifecycle = AppLifecycleService(runtime_store)
     runtime_host = AppRuntimeHostService(lifecycle=lifecycle, store=runtime_store)
     from app.system.runtime.pending_task_store import PendingTaskStore
-    from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+    from app.system.runtime.pending_task_orchestrator import PendingTaskOrchestrator
 
     pending_store = PendingTaskStore(runtime_store)
     app_application_service = AppApplicationService(

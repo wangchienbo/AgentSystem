@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 
 from app.system.runtime.app_catalog import AppCatalogService
-from app.services.system_skills.app_config import AppConfigService
+from app.system.runtime.app_config_service import AppConfigService
 from app.system.runtime.app_context_store import AppContextStore
 from app.system.runtime.app_data_store import AppDataStore
 from app.app_installer import AppInstallerService
@@ -17,7 +17,7 @@ from app.orchestration.app_refinement import AppRefinementService
 from app.orchestration.app_refinement_orchestrator import AppRefinementOrchestratorService
 from app.system.runtime.app_registry import AppRegistryService
 from app.persistence.context_compaction import ContextCompactionService
-from app.services.system_skills.context import ContextSkillService
+from app.skills.system_skills.context import ContextSkillService
 from app.refinement.blueprint_validation import BlueprintValidationService
 from app.skills.skill_validation import SkillValidationService
 from app.governance.demonstration_extractor import DemonstrationExtractor
@@ -59,14 +59,14 @@ from app.refinement.refinement_loop import RefinementLoopService
 from app.refinement.refinement_memory import RefinementMemoryStore
 from app.refinement.refinement_rollout import RefinementRolloutService
 from app.skills.skill_control import SkillControlService
-from app.services.skill_factory import SkillFactoryService
+from app.skills.skill_factory import SkillFactoryService
 from app.skills.skill_runtime import SkillRuntimeService
 from app.skills.skill_risk_policy import SkillRiskPolicyService
 from app.ai.prompt_selection_service import PromptSelectionService
 from app.ai.prompt_invocation_service import PromptInvocationService
 from app.skills.skill_suggestion import SkillSuggestionService
 from app.ai.supervisor import SupervisorService
-from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
+from app.skills.system_skills.state_audit import SystemAuditService, SystemStateService
 from app.governance.telemetry_service import TelemetryService
 from app.persistence.upgrade_log_service import UpgradeLogService
 from app.persistence.persistence_service import PersistenceService
@@ -80,9 +80,9 @@ from app.orchestration.meta_app.bootstrap import MetaAppBootstrapService
 from app.orchestration.meta_app.orchestrator import MetaAppCreationOrchestrator
 from app.models.maoxuan_skill import MaoxuanSkillRequest
 from app.models.memory_skill import MemorySkillRequest
-from app.services.system_skills.maoxuan import MaoxuanSkillService
+from app.skills.system_skills.maoxuan import MaoxuanSkillService
 from app.skills.system_skills.memory import MemorySkillService
-from app.services.context_center import ContextCenter
+from app.context.context_center import ContextCenter
 from app.runtime_paths import resolve_runtime_paths
 
 
@@ -161,10 +161,10 @@ from app.system.workers.user_service import UserService
 from app.governance.auth_service import AuthService
 from app.orchestration.session_router import SessionRouter
 from app.orchestration.pipeline_service import PipelineService
-from app.services.draft_app_service import DraftAppService
-from app.services.draft_app_application_service import DraftAppApplicationService
-from app.services.app_application_service import AppApplicationService
-from app.services.pending_task_orchestrator import PendingTaskOrchestrator
+from app.system.app.draft_app_service import DraftAppService
+from app.system.app.draft_app_application_service import DraftAppApplicationService
+from app.system.app.app_application_service import AppApplicationService
+from app.system.runtime.pending_task_orchestrator import PendingTaskOrchestrator
 from app.system.runtime.pending_task_store import PendingTaskStore
 from app.system.assets.config_center_asset import ConfigCenterAsset
 from app.system.assets.registration_protocol import AssetRegistrationProtocol
@@ -176,7 +176,7 @@ from app.system.interaction_runtime.interaction_orchestrator import InteractionO
 from app.system.invocation.invocation_dispatcher import InvocationDispatcher
 from app.system.model_runtime.model_selector import ModelSelector
 from app.system.startup.startup_orchestrator import StartupOrchestrator, StartupStage
-from app.services.hot_tool_manager import HotToolManager, FIXED_TOOLS
+from app.system.runtime.hot_tool_manager import HotToolManager, FIXED_TOOLS
 from app.tools.internal_tools import AGENTSYSTEM_INTERNAL_TOOL_HANDLERS
 
 # ── G.1/G.2: MessageBus, Workers, LogCenter, SkillMeta, PathStore ─────
@@ -937,9 +937,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
     from app.system.gateway.light_brain_memory import LightBrainMemory
     from app.system.gateway.llm_responder import LLMResponder
-    from app.services.external_model_review import ExternalModelReviewService, ExternalModelReviewWorker
+    from app.ai.external_model_review import ExternalModelReviewService, ExternalModelReviewWorker
     from app.system.master.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
-    from app.services.asset_tools import AssetToolExecutor, make_all_asset_tools
+    from app.system.catalog.asset_tools import AssetToolExecutor, make_all_asset_tools
     from app.system.master.package_manager import PackageManagerExecutor, make_all_package_tools
 
     # External model review (planned but not yet implemented)
@@ -1297,7 +1297,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     def _read_prompt_skill_handler(skill_name: str) -> str:
         """Read a sub-skill prompt file by name."""
         try:
-            from app.services.prompt_composer import PromptComposer
+            from app.ai.prompt_composer import PromptComposer
             composer = PromptComposer()
             content = composer.read_skill(skill_name)
             return content or f"未找到技能 '{skill_name}'"
@@ -1360,7 +1360,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     context_center = ContextCenter()
 
     # Initialize ModelInputBuilder — context view layer (Path B)
-    from app.services.model_input_builder import ModelInputBuilder
+    from app.context.model_input_builder import ModelInputBuilder
     model_input_builder = ModelInputBuilder(context_center)
 
     # Initialize ToolCallingInterpreter with hot tool support + asset visibility

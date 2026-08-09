@@ -16,12 +16,12 @@ from typing import Any
 from app.runtime_paths import resolve_runtime_paths
 from app.skills.skill_rpc import SkillRpcService
 from app.system.master.unified_tool_registry import UnifiedToolRegistry
-from app.services.contract_linter import ContractLinter
-from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
+from app.governance.contract_linter import ContractLinter
+from app.governance.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
 from app.persistence.command_queue import CommandQueue
 from app.ai.tool_call_executor import ToolCallExecutor
 from app.ai.internal_model_router import InternalModelRouter
-from app.services.resource_budget_manager import ResourceBudgetManager, ResourceBudgetConfig
+from app.governance.resource_budget_manager import ResourceBudgetManager, ResourceBudgetConfig
 
 from app.system.catalog.asset_center import AssetCenter
 from app.system.catalog.resource_center import ResourceCenter

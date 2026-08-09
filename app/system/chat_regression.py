@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
-from app.services.context_storage_paths import DEFAULT_CHAT_REGRESSION_DIR
+from app.context.context_storage_paths import DEFAULT_CHAT_REGRESSION_DIR
 from app.refinement.refinement_memory import RefinementMemoryStore
 from uuid import uuid4
 

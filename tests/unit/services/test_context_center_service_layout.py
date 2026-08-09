@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from app.services.context_center import ContextCenter
-from app.services.context_query_service import ContextQueryService
-from app.services.context_recovery_manager import ContextRecoveryManager
-from app.services.context_storage_paths import build_context_storage_paths
-from app.services.context_summary_worker import ContextSummaryWorker
-from app.services.context_writer import ContextWriter
+from app.context.context_center import ContextCenter
+from app.context.context_query_service import ContextQueryService
+from app.context.context_recovery_manager import ContextRecoveryManager
+from app.context.context_storage_paths import build_context_storage_paths
+from app.context.context_summary_worker import ContextSummaryWorker
+from app.context.context_writer import ContextWriter
 
 
 def test_context_center_constructs_formal_service_area(tmp_path) -> None:

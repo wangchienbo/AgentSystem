@@ -1,6 +1,6 @@
 """Unit tests for HotToolManager — fixed + session-hot tool exposure."""
 import pytest
-from app.services.hot_tool_manager import (
+from app.system.runtime.hot_tool_manager import (
     HotToolManager,
     FIXED_TOOLS,
     find_dynamic_tools,

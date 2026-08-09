@@ -70,7 +70,7 @@ class TestObservabilityBlockEvents:
         gateway = LightBrainGateway(memory=memory, interpreter=interpreter)
         
         # Initialize contract linter for runtime asset tools
-        from app.services.contract_linter import ContractLinter
+        from app.governance.contract_linter import ContractLinter
         gateway._contract_linter = ContractLinter()
         
         # Mock observability record_command
@@ -96,7 +96,7 @@ class TestObservabilityBlockEvents:
 
     def test_contract_linter_reject_recorded_to_observability(self):
         """Verify contract linter validation failures are recorded."""
-        from app.services.contract_linter import ContractLinter, LintResult
+        from app.governance.contract_linter import ContractLinter, LintResult
         
         linter = ContractLinter()
         

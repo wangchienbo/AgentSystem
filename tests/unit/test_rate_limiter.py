@@ -1,6 +1,6 @@
 """Tests for rate limiter service."""
 import pytest
-from app.services.rate_limiter import RateLimiter, RateLimitConfig
+from app.governance.rate_limiter import RateLimiter, RateLimitConfig
 
 
 class TestRateLimiter:

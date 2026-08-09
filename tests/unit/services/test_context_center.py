@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.models.context import SessionContextRecord, SessionLink, SessionNode
-from app.services.context_center import ContextCenter
+from app.context.context_center import ContextCenter
 
 
 class TestContextCenter:
