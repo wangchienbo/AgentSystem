@@ -141,9 +141,20 @@ AgentSystem 是一个 **AI 原生应用操作系统（AI OS）**：
 OS 端点（create/start/stop/pause/resume/delete）通过 `_os_audit()` 写入 `audit_logger`，
 供 `/api/os/governance` 与工作台治理看板消费，保证治理数据**非空可验证**（闭环）。
 
-### E2E 回归（Playwright，脚本 /tmp/e2e_os7.js）
+### E2E 回归（Playwright）
 
-覆盖：工作台加载 / App 生命周期按钮 / Skill 详情展开 / 治理概览 / 自由设计闭环 —— 全部 PASS，无 console/page 错误。
+正式套件：`tests/e2e/test_os_workbench_e2e.py`（Python playwright，`.venv/bin/python` 运行）
+
+```bash
+# 先启动服务器
+python -m uvicorn app.system.http_test_server:app --port 8765
+# 跑全量回归（OS API 层 + 工作台 UI）
+.venv/bin/python tests/e2e/test_os_workbench_e2e.py
+# 只跑 OS API 层（不经浏览器）
+.venv/bin/python tests/e2e/test_os_workbench_e2e.py --api
+```
+
+覆盖：工作台加载 / App 生命周期按钮 / Skill 详情展开 / 治理概览 / 自由设计闭环 —— 100% 通过，无 console/page 错误。
 
 
 ---
