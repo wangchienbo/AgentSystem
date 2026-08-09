@@ -78,6 +78,21 @@
   .skill-detail .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; background: rgba(124,107,255,.12); color: var(--accent2); font-size: 11px; margin-right: 4px; }
   .skill-detail .cp { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--text); background: rgba(0,0,0,.25); border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; word-break: break-word; }
   .empty { color: var(--muted); font-size: 13px; padding: 20px; text-align:center; border:1px dashed var(--border); border-radius:12px; }
+  /* ── Governance ── */
+  .gov { margin-top: 22px; background: linear-gradient(150deg, rgba(61,220,132,.08), rgba(245,185,66,.05)); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .gov h3 { font-size: 14px; margin-bottom: 12px; }
+  .gov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+  .gov-stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+  .gov-stat .n { font-size: 24px; font-weight: 800; color: var(--green); }
+  .gov-stat .l { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .gov-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .gov-actions .act { font-size: 11px; padding: 4px 10px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--border); color: var(--text); }
+  .gov-actions .act b { color: var(--amber); margin-left: 4px; }
+  .gov-list { margin-top: 12px; max-height: 180px; overflow-y: auto; }
+  .gov-list .item { font-size: 11.5px; color: var(--muted); padding: 6px 4px; border-bottom: 1px dashed var(--border); display: flex; gap: 8px; align-items: baseline; }
+  .gov-list .item .a { color: var(--accent); font-weight: 600; font-family: ui-monospace, Menlo, monospace; }
+  .gov-list .item .ok { color: var(--green); }
+  .gov-list .item .fail { color: var(--red); }
   /* ── Buttons ── */
   .btn { cursor:pointer; border:none; border-radius:10px; padding:9px 14px; font-size:13px; font-weight:600; color:#fff;
     background: linear-gradient(135deg, var(--accent), var(--accent2)); transition: opacity .15s, transform .1s; }
@@ -127,6 +142,13 @@
     <h2>能力库 · Skill（可复用的原子能力）</h2>
     <div class="skill-grid" id="skills"></div>
 
+    <div class="gov" id="govPanel" style="display:none">
+      <h3>🛡️ 治理概览 · 审计 & 操作统计</h3>
+      <div class="gov-grid" id="govStats"></div>
+      <div class="gov-actions" id="govActions"></div>
+      <div class="gov-list" id="govList"></div>
+    </div>
+
     <div class="console">
       <h2 style="margin-top:6px;">系统命令行 · Shell</h2>
       <div class="console-box">
@@ -155,9 +177,42 @@
       $('runningN').textContent = d.running_count;
       renderApps(d.apps);
       renderSkills(d.skills);
+      loadGovernance();
     } catch (e) {
       $('apps').innerHTML = '<div class="empty">无法连接系统内核</div>';
     }
+  }
+
+  async function loadGovernance() {
+    try {
+      const d = await (await fetch('/api/os/governance')).json();
+      if (d.status !== 'ok') return;
+      renderGovernance(d);
+    } catch (e) { /* 治理数据不可用时不阻断页面 */ }
+  }
+
+  function renderGovernance(d) {
+    $('govPanel').style.display = 'block';
+    const audit = d.audit || {};
+    const count = audit.count || 0;
+    const actions = d.actions || {};
+    const recent = audit.recent || [];
+    const actionTotal = Object.values(actions).reduce((a, b) => a + b, 0);
+    $('govStats').innerHTML = `
+      <div class="gov-stat"><div class="n">${count}</div><div class="l">今日审计事件</div></div>
+      <div class="gov-stat"><div class="n">${actionTotal}</div><div class="l">操作统计</div></div>
+      <div class="gov-stat"><div class="n">${Object.keys(actions).length}</div><div class="l">动作类型</div></div>
+      <div class="gov-stat"><div class="n">${recent.length}</div><div class="l">最近记录</div></div>
+    `;
+    $('govActions').innerHTML = Object.entries(actions).map(([k, v]) =>
+      `<span class="act">${esc(k)}<b>${v}</b></span>`).join('') || '<span class="act">暂无操作记录</span>';
+    $('govList').innerHTML = recent.length ? recent.map(e => `
+      <div class="item">
+        <span class="a">${esc(e.action)}</span>
+        <span>${esc(e.target_id || '—')}</span>
+        <span class="${e.result === 'success' ? 'ok' : 'fail'}">${esc(e.result)}</span>
+        <span>${esc(new Date(e.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}))}</span>
+      </div>`).join('') : '<div class="item" style="border:none">今日暂无审计记录</div>';
   }
 
   function renderApps(apps) {

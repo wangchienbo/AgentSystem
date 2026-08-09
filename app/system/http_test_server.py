@@ -285,6 +285,13 @@ def os_create_app(payload: dict):
         return {"status": "needs_clarification", "result": result.model_dump(mode="json")}
     if result.status == "needs_confirmation":
         result = orch.confirm_and_create(result.design, DesignConfirmation(approved=True))
+    if result.status == "ok":
+        app_id = None
+        try:
+            app_id = result.app.app_id if hasattr(result, "app") and result.app else None
+        except Exception:
+            app_id = None
+        _os_audit("create_app", app_id or description[:40], result="success")
     return {"status": "ok", "result": result.model_dump(mode="json")}
 
 def _os_find_instance(lifecycle, app_id: str) -> str | None:
@@ -298,17 +305,38 @@ def _os_find_instance(lifecycle, app_id: str) -> str | None:
     return None
 
 
+def _os_audit(action: str, target_id: str, *, result: str = "success", details: dict | None = None, error: str = "") -> None:
+    """OS 工作台操作审计：写入 audit_logger（治理数据源，供工作台治理看板消费）。"""
+    logger = runtime_services.get("audit_logger")
+    if not logger:
+        return
+    try:
+        logger.log(
+            action=action,
+            user_id="os_workbench",
+            target_id=target_id,
+            details=details or {},
+            result=result,
+            error_message=error,
+        )
+    except Exception:
+        pass
+
+
 def _os_app_transition(app_id: str, event: str, reason: str) -> dict:
     lifecycle = runtime_services.get("lifecycle")
     if not lifecycle:
         return {"status": "error", "message": "lifecycle 不可用"}
     inst_id = _os_find_instance(lifecycle, app_id)
     if not inst_id:
+        _os_audit(event, app_id, result="failure", error="instance not found")
         return {"status": "error", "message": f"未找到 App 实例: {app_id}"}
     try:
         lifecycle.transition(inst_id, event, reason=reason)
+        _os_audit(event, app_id, result="success", details={"app_instance_id": inst_id})
         return {"status": "success", "message": f"App {app_id} 已 {event}", "app_id": app_id, "app_instance_id": inst_id}
     except Exception as e:
+        _os_audit(event, app_id, result="failure", error=str(e))
         return {"status": "error", "message": str(e), "app_id": app_id}
 
 
@@ -339,9 +367,11 @@ def os_app_delete(app_id: str):
         return {"status": "error", "message": "lifecycle 不可用"}
     inst_id = _os_find_instance(lifecycle, app_id)
     if not inst_id:
+        _os_audit("delete_app", app_id, result="failure", error="instance not found")
         return {"status": "error", "message": f"未找到 App 实例: {app_id}"}
     try:
         lifecycle.delete_app(inst_id)
+        _os_audit("delete_app", app_id, result="success", details={"app_instance_id": inst_id})
         return {"status": "success", "message": f"App {app_id} 已删除", "app_id": app_id}
     except Exception as e:
         return {"status": "error", "message": str(e), "app_id": app_id}
