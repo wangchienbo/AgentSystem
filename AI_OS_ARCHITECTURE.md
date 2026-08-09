@@ -104,6 +104,50 @@ AgentSystem 是一个 **AI 原生应用操作系统（AI OS）**：
 
 ---
 
+## 落地状态（2026-08-09 更新）
+
+| 里程碑 | 状态 | 落地证据 |
+|--------|------|----------|
+| M0 基线验证 | ✅ | 对话触发「创建 App」闭环可运行 |
+| M1 App 目录 & 状态卡 | ✅ | `/api/os/overview` 返回完整 App 目录（含真实实例状态） |
+| M2 Skill 库浏览 | ✅ | 工作台展示 15 个可复用 Skill |
+| M3 工作台桌面化 | ✅ | `index.html` 登录后「🖥️」导航 → `/workbench` 统一工作台 |
+| M4 装配运行闭环 | ✅ | 通过 `/api/os/apps/create` 用 Skill 组合实际创建 4 个可运行 App |
+| M5 治理产品化 | ✅ | `/api/os/governance` + 工作台治理概览区块（审计/操作分类/最近记录） |
+
+### 工作台功能闭环（G1–G5 差距补全）
+
+| 差距 | 落地 |
+|------|------|
+| G1 App 目录/状态卡 | 工作台列出已装 App + 运行状态徽标 |
+| G2 Skill 库可发现性 | Skill 卡片点击展开详情（适配器/版本/依赖/标签/能力画像） |
+| G3 自由设计入口 | 工作台「自由设计新 App」textarea → `/api/os/apps/create` |
+| G4 装配可运行性 | 实际创建 4 个 App（个人财务/待办/饮水/阅读打卡）均 running |
+| G5 生命周期管理 UI | App 卡片启动/停止/删除按钮 → `/api/os/apps/{id}/start\|stop` + DELETE |
+
+### 后端 OS API（app/system/http_test_server.py）
+
+| 端点 | 说明 |
+|------|------|
+| `GET /api/os/overview` | 工作台统一数据（App 目录 + Skill 库 + 实例状态） |
+| `GET /api/os/skills/{id}` | Skill 详情（回退 SYSTEM_SKILL_SPECS 兜底，保证 15 个 skill 全部可查） |
+| `GET /api/os/governance` | 治理概览（审计事件 + 动作分类统计） |
+| `POST /api/os/apps/create` | 确定性自由设计 App（intent→skill 组合→装配→安装） |
+| `POST /api/os/apps/{id}/start\|stop\|pause\|resume` | 生命周期转换 |
+| `DELETE /api/os/apps/{id}` | 卸载 App |
+
+### 治理审计数据源
+
+OS 端点（create/start/stop/pause/resume/delete）通过 `_os_audit()` 写入 `audit_logger`，
+供 `/api/os/governance` 与工作台治理看板消费，保证治理数据**非空可验证**（闭环）。
+
+### E2E 回归（Playwright，脚本 /tmp/e2e_os7.js）
+
+覆盖：工作台加载 / App 生命周期按钮 / Skill 详情展开 / 治理概览 / 自由设计闭环 —— 全部 PASS，无 console/page 错误。
+
+
+---
+
 ## 七、设计原则（延续用户偏好）
 
 - **零硬编码**：App 与 Skill 全部声明式定义，代码只做装配机械逻辑
