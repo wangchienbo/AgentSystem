@@ -36,6 +36,11 @@ from app.models.runtime_policy import RuntimePolicy
 from app.models.scheduling import ScheduleRecord
 from app.system.regression_nightly_control import RegressionNightlyControlService
 from app.system.chat_observation import build_chat_observation_probe, persist_chat_observation
+from app.system.session_context import (
+    build_effective_memory_context,
+    augment_user_message,
+    extract_run_metadata,
+)
 from app.system.regression_governance_policy import build_governance_rollout_operator_summary
 from app.system.chat_regression import (
     build_multi_run_comparison,
@@ -711,94 +716,11 @@ def tick_regression_nightly_cycle(user_session_id: str) -> dict[str, Any]:
     )
 
 
-def _build_memory_context(session_id: str, limit: int = 12) -> str:
-    history = conversation_history.get(session_id, [])[-limit:]
-    return "\n".join(
-        f"{item.get('role', 'unknown')}: {item.get('content', '')}"
-        for item in history
-    )
-
-
-def _extract_session_facts(session_id: str) -> dict[str, str]:
-    facts: dict[str, str] = {}
-    history = conversation_history.get(session_id, [])
-    for item in history:
-        if item.get("role") != "user":
-            continue
-        content = item.get("content", "")
-        if "闺女" in content or "女儿" in content:
-            facts["child_gender"] = "女"
-        if "姓王" in content:
-            facts["child_surname"] = "王"
-        if "辰时" in content:
-            facts["birth_time"] = "辰时"
-        if "2026年7月16" in content:
-            facts["birth_date"] = "2026年7月16日"
-        if "起名字" in content or "起名" in content:
-            facts["task"] = "给孩子起名"
-    return facts
-
-
-def _build_session_fact_board(session_id: str) -> str:
-    facts = _extract_session_facts(session_id)
-    if not facts:
-        return ""
-    labels = {
-        "task": "当前任务",
-        "child_gender": "孩子性别",
-        "child_surname": "孩子姓氏",
-        "birth_date": "出生日期",
-        "birth_time": "出生时辰",
-    }
-    lines = ["[当前会话已知事实]"]
-    for key in ["task", "child_gender", "child_surname", "birth_date", "birth_time"]:
-        if key in facts:
-            lines.append(f"- {labels[key]}: {facts[key]}")
-    lines.append("- 对已明确给出的事实，不要重复追问。")
-    return "\n".join(lines)
-
-
-def _build_effective_memory_context(session_id: str) -> str:
-    parts = []
-    fact_board = _build_session_fact_board(session_id)
-    history = _build_memory_context(session_id)
-    if fact_board:
-        parts.append(fact_board)
-    if history:
-        parts.append("[最近对话历史]\n" + history)
-    return "\n\n".join(parts)
-
-
-def _augment_user_message(raw_message: str, session_id: str) -> str:
-    history = conversation_history.get(session_id, [])
-    style_anchor = "回答时必须先给结论，再给细节。"
-    action_first_triggers = ["查看上下文", "看下上下文", "查代码", "源码仓库", "仓库位置", "调用工具查找"]
-    if not history:
-        return raw_message
-    prefix_lines = ["[对话约束]", f"- {style_anchor}"]
-    if any(trigger in raw_message for trigger in action_first_triggers):
-        prefix_lines.append("- 当前请求属于系统自省/检索类请求，必须优先尝试真实工具动作或真实检索，再根据结果回复；不要直接只做泛化能力解释。")
-        prefix_lines.append("- 若无法完成，也要明确说明已尝试了什么、为什么失败、还缺什么权限或信息。")
-    return "\n".join(prefix_lines) + f"\n\n[用户当前消息]\n{raw_message}"
-
 
 class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
     payload: dict[str, Any] | None = None
-
-
-def _extract_run_metadata(payload: dict[str, Any] | None) -> dict[str, str] | None:
-    if not isinstance(payload, dict):
-        return None
-    run_id = str(payload.get("run_id") or "").strip()
-    scenario_id = str(payload.get("scenario_id") or "").strip()
-    metadata: dict[str, str] = {}
-    if run_id:
-        metadata["run_id"] = run_id
-    if scenario_id:
-        metadata["scenario_id"] = scenario_id
-    return metadata or None
 
 
 async def get_current_user(request: Request):
@@ -967,15 +889,15 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
     user_sessions[session_id]["last_active"] = started_at.isoformat()
 
     try:
-        run_metadata = _extract_run_metadata(req.payload)
+        run_metadata = extract_run_metadata(req.payload)
         # Build ChatMessageRequest for LightBrain gateway
-        augmented_message = _augment_user_message(req.message, session_id)
+        augmented_message = augment_user_message(req.message, conversation_history.get(session_id, []))
         chat_req = ChatMessageRequest(
             user_id=user.get("username", "anonymous"),
             channel="webchat",
             message=req.message,
             session_id=session_id,
-            memory_context=_build_effective_memory_context(session_id),
+            memory_context=build_effective_memory_context(conversation_history.get(session_id, [])),
         )
         if augmented_message != req.message:
             chat_req.memory_context = ((chat_req.memory_context or "") + f"\n\n[webchat_style_hint]\n{augmented_message}").strip()
@@ -1007,7 +929,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
                 from app.models.context import SessionContextRecord
                 # Upload user message with enriched context
                 enriched_content = req.message
-                memory_ctx = _build_effective_memory_context(session_id)
+                memory_ctx = build_effective_memory_context(conversation_history.get(session_id, []))
                 if memory_ctx:
                     enriched_content = f"{memory_ctx}\n\n[当前消息]\n{req.message}"
                 cc.append_context(SessionContextRecord(
@@ -1129,14 +1051,14 @@ async def api_chat_stream(req: ChatRequest, user: dict = Depends(get_current_use
     async def event_generator():
         full_response = ""
         try:
-            run_metadata = _extract_run_metadata(req.payload)
-            augmented_message = _augment_user_message(req.message, session_id)
+            run_metadata = extract_run_metadata(req.payload)
+            augmented_message = augment_user_message(req.message, conversation_history.get(session_id, []))
             chat_req = ChatMessageRequest(
                 user_id=user.get("username", "anonymous"),
                 channel="webchat",
                 message=req.message,
                 session_id=session_id,
-                memory_context=_build_effective_memory_context(session_id),
+                memory_context=build_effective_memory_context(conversation_history.get(session_id, [])),
             )
             if augmented_message != req.message:
                 chat_req.memory_context = ((chat_req.memory_context or "") + f"\n\n[webchat_style_hint]\n{augmented_message}").strip()
