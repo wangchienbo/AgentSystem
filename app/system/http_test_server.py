@@ -347,6 +347,63 @@ def os_app_delete(app_id: str):
         return {"status": "error", "message": str(e), "app_id": app_id}
 
 
+@app.get("/api/os/skills/{skill_id}")
+def os_skill_detail(skill_id: str):
+    """Skill 详情：适配器、依赖、能力画像、标签（工作台可发现性）"""
+    sc = runtime_services.get("skill_control")
+    if not sc:
+        return {"status": "error", "error": "skill_control 不可用"}
+    try:
+        entry = sc.get_skill(skill_id)
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+    manifest = entry.manifest
+    desc = (getattr(manifest, "description", "") or "") if manifest else ""
+    tags = list(getattr(manifest, "tags", []) or []) if manifest else []
+    profile = entry.capability_profile.model_dump(mode="json") if entry.capability_profile else {}
+    return {
+        "status": "ok",
+        "skill": {
+            "skill_id": entry.skill_id,
+            "name": entry.name,
+            "description": desc,
+            "runtime_adapter": entry.runtime_adapter,
+            "dependencies": entry.dependencies,
+            "tags": tags,
+            "active_version": entry.active_version,
+            "origin": entry.origin,
+            "status": entry.status,
+            "immutable_interface": entry.immutable_interface,
+            "capability_profile": profile,
+        },
+    }
+
+
+@app.get("/api/os/governance")
+def os_governance():
+    """治理概览：审计事件、按动作分类统计（工作台治理看板）"""
+    audit = runtime_services.get("audit_logger")
+    out = {"status": "ok", "audit": {"count": 0, "recent": []}, "actions": {}}
+    if not audit:
+        return out
+    try:
+        entries = audit.get_entries(limit=60)
+    except Exception as e:
+        out["audit"]["error"] = str(e)
+        return out
+    out["audit"]["count"] = len(entries)
+    action_counter: dict = {}
+    for e in entries:
+        action = getattr(e, "action", "unknown")
+        action_counter[action] = action_counter.get(action, 0) + 1
+    out["actions"] = action_counter
+    out["audit"]["recent"] = [
+        e.to_dict() if hasattr(e, "to_dict") else e
+        for e in entries[:8]
+    ]
+    return out
+
+
 @app.get("/api/os/overview")
 def os_overview():
     """AI 操作系统统一工作台数据：App 目录 + Skill 库 + 运行时状态。"""
