@@ -193,7 +193,9 @@ class RollbackService:
     def _update_registry_blueprint(self, snapshot: UpgradeSnapshot) -> None:
         """Update the registry with the rolled-back blueprint."""
         try:
-            from app.api.main import app_registry
+            app_registry = getattr(self._upgrade_service, "_app_registry", None)
+            if app_registry is None:
+                return
             from app.models.app_blueprint import AppBlueprint
 
             bp_data = snapshot.blueprint

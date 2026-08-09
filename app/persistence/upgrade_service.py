@@ -84,12 +84,14 @@ class UpgradeService:
         compare_service: BlueprintCompareService | None = None,
         runtime_center: Any = None,
         asset_center: Any = None,
+        app_registry: Any = None,
     ) -> None:
         self._lifecycle = lifecycle
         self._log_service = log_service
         self._compare = compare_service or BlueprintCompareService()
         self._runtime_center = runtime_center
         self._asset_center = asset_center
+        self._app_registry = app_registry
         # Snapshots keyed by app_instance_id (only the latest kept per instance)
         self._snapshots: dict[str, UpgradeSnapshot] = {}
 
@@ -292,8 +294,9 @@ class UpgradeService:
     def _get_registry_blueprint(self, blueprint_id: str) -> AppBlueprint | None:
         """Try to get blueprint from registry."""
         try:
-            from app.api.main import app_registry
-            return app_registry.get_blueprint(blueprint_id)
+            if self._app_registry is None:
+                return None
+            return self._app_registry.get_blueprint(blueprint_id)
         except Exception:
             return None
 

@@ -418,8 +418,8 @@ class AppManagementWorker:
                 self._runtime_center.unregister(target)
         # 2. Uninstall from AssetCenter if available
         try:
-            from app.api.main import asset_center
-            asset_center.uninstall(target)
+            if self._app_installer is not None:
+                self._app_installer.uninstall_app_full(target)
         except Exception:
             pass  # Non-blocking: asset may not be in AssetCenter
         # 3. Delete lifecycle and registry entries
