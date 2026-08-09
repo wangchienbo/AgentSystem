@@ -150,6 +150,7 @@
         <div id="headerRight" style="display:flex;align-items:center;gap:8px;">
             <div class="user-info" id="userDisplay"></div>
             <div id="headerActions">
+                <button id="workbenchBtn" onclick="openWorkbench()" title="AI 操作系统工作台 — 大模型的自我进化之手">🖥️</button>
                 <button id="sidebarToggleBtn" onclick="toggleSidebar()" title="会话列表">☰</button>
                 <button id="clearBtn" title="清空对话">🗑</button>
                 <button id="logoutBtn">退出</button>
@@ -605,6 +606,9 @@ function timeSince(iso) {
 }
 
 // ── Header actions ────────────────────────────────────────────────────────────
+function openWorkbench() {
+    window.open('/workbench', '_blank', 'noopener');
+}
 document.getElementById('clearBtn').onclick = () => {
     if (confirm('确定清空当前对话？')) {
         const msgs = document.getElementById('messages');

@@ -351,12 +351,41 @@ def os_app_delete(app_id: str):
 def os_skill_detail(skill_id: str):
     """Skill 详情：适配器、依赖、能力画像、标签（工作台可发现性）"""
     sc = runtime_services.get("skill_control")
-    if not sc:
-        return {"status": "error", "error": "skill_control 不可用"}
-    try:
-        entry = sc.get_skill(skill_id)
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+    entry = None
+    if sc:
+        try:
+            entry = sc.get_skill(skill_id)
+        except Exception:
+            entry = None
+    if entry is None:
+        # 回退：overview 的 skill 库含 SYSTEM_SKILL_SPECS 静态声明，
+        # 但这些条目未 register 进 skill_control，须从同一来源构建详情，
+        # 否则工作台列出的 skill 点详情必然失败（数据源不一致）。
+        try:
+            from app.skills.system_skill_registry import SYSTEM_SKILL_SPECS
+            spec = SYSTEM_SKILL_SPECS.get(skill_id)
+        except Exception:
+            spec = None
+        if spec is None:
+            return {"status": "error", "error": f"Skill not found: {skill_id}"}
+        manifest = spec.get("manifest")
+        profile = spec.get("capability_profile")
+        return {
+            "status": "ok",
+            "skill": {
+                "skill_id": skill_id,
+                "name": spec.get("name", skill_id),
+                "description": (getattr(manifest, "description", "") or "") if manifest else "",
+                "runtime_adapter": (getattr(manifest, "runtime_adapter", "") or "") if manifest else "callable",
+                "dependencies": [],
+                "tags": list(getattr(manifest, "tags", []) or []) if manifest else [],
+                "active_version": spec.get("version", "1.0.0"),
+                "origin": "system",
+                "status": "active",
+                "immutable_interface": bool(spec.get("immutable_interface", False)),
+                "capability_profile": profile.model_dump(mode="json") if profile else {},
+            },
+        }
     manifest = entry.manifest
     desc = (getattr(manifest, "description", "") or "") if manifest else ""
     tags = list(getattr(manifest, "tags", []) or []) if manifest else []

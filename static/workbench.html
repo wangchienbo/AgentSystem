@@ -66,13 +66,17 @@
   textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   /* ── Skill grid ── */
   .skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
-  .skill {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px;
-    transition: border-color .15s;
-  }
+  .skill { cursor: pointer; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px;
+    transition: border-color .15s; }
   .skill:hover { border-color: var(--accent2); }
+  .skill.expanded { border-color: var(--accent); }
   .skill-id { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; color: var(--accent2); font-weight:600; }
   .skill-desc { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .skill-detail { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .skill-detail .row { display: flex; gap: 8px; margin-bottom: 4px; }
+  .skill-detail .k { color: var(--accent); min-width: 72px; flex-shrink: 0; font-weight: 600; }
+  .skill-detail .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; background: rgba(124,107,255,.12); color: var(--accent2); font-size: 11px; margin-right: 4px; }
+  .skill-detail .cp { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--text); background: rgba(0,0,0,.25); border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; word-break: break-word; }
   .empty { color: var(--muted); font-size: 13px; padding: 20px; text-align:center; border:1px dashed var(--border); border-radius:12px; }
   /* ── Buttons ── */
   .btn { cursor:pointer; border:none; border-radius:10px; padding:9px 14px; font-size:13px; font-weight:600; color:#fff;
@@ -181,10 +185,55 @@
     const box = $('skills');
     if (!skills.length) { box.innerHTML = '<div class="empty">暂无可用 Skill</div>'; return; }
     box.innerHTML = skills.map(s => `
-      <div class="skill">
+      <div class="skill" id="skill-${esc(s.skill_id)}" onclick="toggleSkillDetail('${esc(s.skill_id)}', this)">
         <div class="skill-id">${esc(s.skill_id)}</div>
         <div class="skill-desc">${esc(s.description || s.name)}</div>
+        <div class="skill-detail" id="detail-${esc(s.skill_id)}" style="display:none"></div>
       </div>`).join('');
+  }
+
+  // 点击 skill 卡片 -> 拉取详情并展开/收起（工作台可发现性 OS5）
+  async function toggleSkillDetail(skillId, el) {
+    const detailBox = document.getElementById('detail-' + skillId);
+    if (!detailBox) return;
+    if (detailBox.style.display !== 'none') {
+      detailBox.style.display = 'none';
+      el.classList.remove('expanded');
+      return;
+    }
+    if (detailBox.getAttribute('data-loaded') !== '1') {
+      detailBox.innerHTML = '<span class="loading">⏳ 加载详情…</span>';
+      try {
+        const resp = await fetch('/api/os/skills/' + encodeURIComponent(skillId));
+        const d = await resp.json();
+        if (d.status === 'ok') {
+          detailBox.innerHTML = buildSkillDetail(d.skill);
+          detailBox.setAttribute('data-loaded', '1');
+        } else {
+          detailBox.innerHTML = `<span style="color:var(--red)">⚠ ${esc(d.error || '加载失败')}</span>`;
+        }
+      } catch (e) {
+        detailBox.innerHTML = `<span style="color:var(--red)">⚠ ${esc(String(e))}</span>`;
+      }
+    }
+    detailBox.style.display = 'block';
+    el.classList.add('expanded');
+  }
+
+  function buildSkillDetail(s) {
+    const cp = s.capability_profile && Object.keys(s.capability_profile).length
+      ? JSON.stringify(s.capability_profile, null, 1) : '';
+    const deps = (s.dependencies && s.dependencies.length)
+      ? s.dependencies.join(', ') : '无';
+    const tags = (s.tags && s.tags.length)
+      ? s.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('') : '—';
+    return `
+      <div class="row"><span class="k">适配器</span><span>${esc(s.runtime_adapter || '—')}</span></div>
+      <div class="row"><span class="k">版本</span><span>v${esc(s.active_version || '—')} · ${esc(s.origin || '—')} · ${esc(s.status || '—')}</span></div>
+      <div class="row"><span class="k">依赖</span><span>${esc(deps)}</span></div>
+      <div class="row"><span class="k">标签</span><span>${tags}</span></div>
+      ${cp ? `<div class="row"><span class="k">能力画像</span></div><div class="cp">${esc(cp)}</div>` : ''}
+    `;
   }
 
   function startDesign() {
