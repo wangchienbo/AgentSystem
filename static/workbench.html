@@ -231,6 +231,10 @@
         <div class="app-desc">${esc(a.description || '暂无描述')}</div>
         <div class="app-actions">
           <button class="btn ghost" onclick="openApp('${esc(a.app_id)}')">打开</button>
+          ${a.status === 'running'
+            ? `<button class="btn ghost" onclick="appLifecycle('${esc(a.app_id)}','stop',this)">⏹ 停止</button>`
+            : `<button class="btn ghost" onclick="appLifecycle('${esc(a.app_id)}','start',this)">▶ 启动</button>`}
+          <button class="btn ghost" onclick="appDelete('${esc(a.app_id)}', this)">🗑 删除</button>
           <button class="btn ghost" onclick="sendCmd('介绍一下 ${esc(a.name)}')">ℹ 介绍</button>
         </div>
       </div>`).join('');
@@ -321,6 +325,37 @@
   }
 
   function openApp(id) { sendCmd('打开 ' + id); }
+
+  async function appLifecycle(appId, action, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const resp = await fetch(`/api/os/apps/${encodeURIComponent(appId)}/${action}`, { method: 'POST' });
+      const d = await resp.json();
+      const ok = d.status === 'success';
+      // 无论成功失败，重新加载以刷新状态 + 治理数据
+      await load();
+      const msg = ok ? `✅ ${action} 成功` : `⚠ ${d.message || action + '失败'}`;
+      if (!ok) alert(msg);
+    } catch (e) {
+      if (btn) { btn.disabled = false; }
+      alert('请求失败: ' + e);
+    }
+  }
+
+  async function appDelete(appId, btn) {
+    if (!confirm(`确定删除 App「${appId}」？此操作不可撤销。`)) return;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const resp = await fetch(`/api/os/apps/${encodeURIComponent(appId)}`, { method: 'DELETE' });
+      const d = await resp.json();
+      const ok = d.status === 'success';
+      await load();
+      if (!ok) alert(d.message || '删除失败');
+    } catch (e) {
+      if (btn) { btn.disabled = false; }
+      alert('请求失败: ' + e);
+    }
+  }
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   load();

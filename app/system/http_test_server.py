@@ -285,12 +285,9 @@ def os_create_app(payload: dict):
         return {"status": "needs_clarification", "result": result.model_dump(mode="json")}
     if result.status == "needs_confirmation":
         result = orch.confirm_and_create(result.design, DesignConfirmation(approved=True))
-    if result.status == "ok":
-        app_id = None
-        try:
-            app_id = result.app.app_id if hasattr(result, "app") and result.app else None
-        except Exception:
-            app_id = None
+    # confirm_and_create 成功返回 AppCreationResult(status="success")，blueprint_id 为最终 App id
+    if result.status in ("ok", "success"):
+        app_id = getattr(result, "blueprint_id", "") or ""
         _os_audit("create_app", app_id or description[:40], result="success")
     return {"status": "ok", "result": result.model_dump(mode="json")}
 
