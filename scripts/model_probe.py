@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.services.model_client import OpenAIResponsesClient
-from app.services.model_config_loader import ModelConfigLoader
+from app.ai.model_client import OpenAIResponsesClient
+from app.ai.model_config_loader import ModelConfigLoader
 
 
 if __name__ == "__main__":

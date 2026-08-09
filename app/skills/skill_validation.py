@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from app.models.skill_control import SkillRegistryEntry
-from app.services.skill_control import SkillControlError, SkillControlService
-from app.services.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
-from app.services.schema_registry import SchemaRegistryService
+from app.skills.skill_control import SkillControlError, SkillControlService
+from app.skills.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
+from app.skills.schema_registry import SchemaRegistryService
 
 
 class SkillValidationError(ValueError):

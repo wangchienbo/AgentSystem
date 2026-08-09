@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.models.model_config import ModelConfig
-from app.services.model_client import ModelClientError, OpenAIResponsesClient
+from app.ai.model_client import ModelClientError, OpenAIResponsesClient
 
 
 class _FakeResponse:

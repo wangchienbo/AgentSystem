@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.asset_center import AssetCenter
-from app.services.resource_center import ResourceCenter
-from app.services.asset_registry import AssetRegistry
-from app.services.runtime_center import RuntimeCenter
+from app.system.catalog.asset_center import AssetCenter
+from app.system.catalog.resource_center import ResourceCenter
+from app.system.catalog.asset_registry import AssetRegistry
+from app.system.catalog.runtime_center import RuntimeCenter
 
 
 class AssetResourceQueryTools:

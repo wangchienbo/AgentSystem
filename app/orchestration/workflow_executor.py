@@ -6,18 +6,18 @@ from copy import deepcopy
 
 from app.models.workflow_execution import WorkflowExecutionResult, WorkflowRetryComparison, WorkflowStepExecution
 from app.models.telemetry import StepTelemetryRecord, VersionBindingRecord
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.app_context_store import AppContextStore
-from app.services.app_data_store import AppDataStore
-from app.services.app_registry import AppRegistryService
-from app.services.event_bus import EventBusService
-from app.services.lifecycle import AppLifecycleService
-from app.services.skill_runtime import SkillRuntimeError, SkillRuntimeService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_context_store import AppContextStore
+from app.system.runtime.app_data_store import AppDataStore
+from app.system.runtime.app_registry import AppRegistryService
+from app.persistence.event_bus import EventBusService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.skills.skill_runtime import SkillRuntimeError, SkillRuntimeService
 from app.models.skill_runtime import SkillExecutionRequest
-from app.services.context_compaction import ContextCompactionService
-from app.services.policy_guard import PolicyGuardError, PolicyGuardService
-from app.services.telemetry_service import TelemetryService
-from app.services.prompt_invocation_service import PromptInvocationService
+from app.persistence.context_compaction import ContextCompactionService
+from app.governance.policy_guard import PolicyGuardError, PolicyGuardService
+from app.governance.telemetry_service import TelemetryService
+from app.ai.prompt_invocation_service import PromptInvocationService
 
 
 class WorkflowExecutorError(ValueError):

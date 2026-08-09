@@ -9,7 +9,7 @@ from typing import Any
 
 from app.models.governance_observation import GovernanceEvidenceDigest
 from app.models.refinement_loop import RefinementFilter
-from app.services.refinement_memory import RefinementMemoryStore
+from app.refinement.refinement_memory import RefinementMemoryStore
 from app.system.chat_observation import build_chat_observation_digest
 from app.system.chat_regression import build_multi_run_comparison, build_topic_trends, read_run_details
 from app.system.regression_evidence_bridge import list_regression_evidence_history

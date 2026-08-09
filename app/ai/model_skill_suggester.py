@@ -4,9 +4,9 @@ import json
 
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
-from app.services.model_client import OpenAIResponsesClient, ModelClientError
-from app.services.model_config_loader import ModelConfigError, ModelConfigLoader
-from app.services.model_router import ModelRouter
+from app.ai.model_client import OpenAIResponsesClient, ModelClientError
+from app.ai.model_config_loader import ModelConfigError, ModelConfigLoader
+from app.ai.model_router import ModelRouter
 
 
 class ModelSkillSuggester:

@@ -19,7 +19,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.services.asset_center import AssetCenter
+from app.system.catalog.asset_center import AssetCenter
 
 logger = logging.getLogger(__name__)
 

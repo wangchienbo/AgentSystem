@@ -1,5 +1,5 @@
 from app.models.app_blueprint import AppBlueprint
-from app.services.policy_guard import PolicyGuardError, PolicyGuardService
+from app.governance.policy_guard import PolicyGuardError, PolicyGuardService
 
 
 service = PolicyGuardService()

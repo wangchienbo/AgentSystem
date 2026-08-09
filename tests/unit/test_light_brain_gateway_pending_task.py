@@ -11,7 +11,7 @@ from app.persistence.runtime_state_store import RuntimeStateStore
 from app.services.app_application_service import AppApplicationService
 from app.services.draft_app_application_service import DraftAppApplicationService
 from app.services.draft_app_service import DraftAppService
-from app.services.light_brain_memory import LightBrainMemory
+from app.system.gateway.light_brain_memory import LightBrainMemory
 from app.system.gateway.light_brain_gateway import LightBrainGateway
 from app.system.runtime.lifecycle import AppLifecycleService
 from app.system.runtime.runtime_host import AppRuntimeHostService

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.models.app_profile import AppRuntimeProfile
-from app.services.skill_control import SkillControlError, SkillControlService
+from app.skills.skill_control import SkillControlError, SkillControlService
 
 
 _INTELLIGENCE_ORDER = {

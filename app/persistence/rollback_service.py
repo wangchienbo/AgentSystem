@@ -19,8 +19,8 @@ from pydantic import BaseModel, Field
 from app.models.app_instance import AppStatus
 from app.models.runtime_policy import RuntimePolicy
 from app.models.upgrade_log import UpgradeLogEvent
-from app.services.upgrade_log_service import UpgradeLogService
-from app.services.upgrade_service import UpgradeService, UpgradeSnapshot
+from app.persistence.upgrade_log_service import UpgradeLogService
+from app.persistence.upgrade_service import UpgradeService, UpgradeSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class RollbackService:
         3. Transition to installed state
         4. Record rollback log
         """
-        from app.services.lifecycle import LifecycleError
+        from app.system.runtime.lifecycle import LifecycleError
 
         # ---- Pre-flight checks ----
         try:

@@ -3,9 +3,9 @@ from __future__ import annotations
 from app.models.app_context import AppSharedContext
 from app.models.patch_proposal import PatchProposal, SelfRefinementResult
 from app.models.proposal_review import ProposalReviewRecord, ProposalReviewRequest
-from app.services.app_context_store import AppContextStore, AppContextStoreError
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_context_store import AppContextStore, AppContextStoreError
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class ProposalReviewError(ValueError):

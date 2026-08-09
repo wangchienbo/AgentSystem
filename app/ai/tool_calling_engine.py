@@ -39,8 +39,8 @@ from typing import Any, Callable
 # novels fit entirely, and _summary is always at the serialized string head.
 MAX_TOOL_RESULT_CHARS = 20000
 
-from app.services.model_router import ModelRouter, ModelRouterError
-from app.services.model_client import OpenAIResponsesClient, ModelClientError
+from app.ai.model_router import ModelRouter, ModelRouterError
+from app.ai.model_client import OpenAIResponsesClient, ModelClientError
 
 
 NON_CONVERGENCE_TEXT = "当前工具链路未在限定时间内收敛。我先给你保守结论: 需要轻量验证，或改走更窄的探针继续确认。"

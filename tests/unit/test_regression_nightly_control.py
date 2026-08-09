@@ -1777,7 +1777,7 @@ def test_refinement_translation_embeds_observation_hints_without_changing_queue_
 
 
 def test_persist_trigger_payloads_carries_observation_hints_into_hypothesis_text() -> None:
-    from app.services.refinement_memory import RefinementMemoryStore
+    from app.refinement.refinement_memory import RefinementMemoryStore
     from app.system.regression_refinement_translation import persist_trigger_payloads
 
     memory = RefinementMemoryStore()

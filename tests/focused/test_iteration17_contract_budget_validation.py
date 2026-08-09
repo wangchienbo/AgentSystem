@@ -10,8 +10,8 @@ from __future__ import annotations
 import pytest
 
 from app.system.gateway.light_brain_gateway import LightBrainGateway
-from app.services.light_brain_memory import LightBrainMemory
-from app.services.light_brain_interpreter import LightBrainInterpreter
+from app.system.gateway.light_brain_memory import LightBrainMemory
+from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
 from app.services.contract_linter import ContractLinter, LintResult
 from app.services.budget_tracker import BudgetTracker, BudgetConfig, BudgetExceededError
 

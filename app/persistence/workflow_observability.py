@@ -17,7 +17,7 @@ from app.models.workflow_observability import (
     WorkflowTimelineEvent,
     WorkflowTimelinePage,
 )
-from app.services.workflow_observability_helpers import (
+from app.persistence.workflow_observability_helpers import (
     apply_history_filters,
     classify_health,
     count_unresolved_failures,

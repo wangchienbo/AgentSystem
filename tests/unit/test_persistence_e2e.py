@@ -12,13 +12,13 @@ from pathlib import Path
 
 from app.models.app_instance import AppInstance
 from app.models.chat import ChatMessageResponse
-from app.services.app_catalog import AppCatalogService
-from app.services.app_registry import AppRegistryService
-from app.services.lifecycle import AppLifecycleService
-from app.services.persistence_service import PersistenceService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.light_brain_memory import LightBrainMemory
+from app.system.runtime.app_catalog import AppCatalogService
+from app.system.runtime.app_registry import AppRegistryService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.persistence.persistence_service import PersistenceService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.gateway.light_brain_memory import LightBrainMemory
 
 
 def test_persistence_service_save_and_restore():

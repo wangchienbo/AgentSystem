@@ -5,11 +5,11 @@ from typing import Callable
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.skill_control import SkillRegistryEntry
 from app.models.telemetry import StepTelemetryRecord
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.schema_registry import SchemaRegistryError, SchemaRegistryService
-from app.services.model_client import ModelClientError
-from app.services.telemetry_service import TelemetryService
-from app.services.executable_skill_adapter import ExecutableSkillAdapter, ExecutableSkillAdapterError
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.skills.schema_registry import SchemaRegistryError, SchemaRegistryService
+from app.ai.model_client import ModelClientError
+from app.governance.telemetry_service import TelemetryService
+from app.skills.executable_skill_adapter import ExecutableSkillAdapter, ExecutableSkillAdapterError
 from app.core.skill_invoker import (
     InvocationContext,
     SkillCycleError,

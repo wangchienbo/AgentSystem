@@ -7,8 +7,8 @@ from pathlib import Path
 from app.models.app_instance import AppInstance, AppStatus
 from app.models.runtime import LifecycleEvent, LifecycleTransitionResult
 from app.models.upgrade_log import UpgradeLogEvent
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.upgrade_log_service import UpgradeLogService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.persistence.upgrade_log_service import UpgradeLogService
 
 
 class LifecycleError(ValueError):

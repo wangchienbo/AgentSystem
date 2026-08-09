@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.config_center import ConfigCenterService
-from app.services.refinement_memory import RefinementMemoryStore
+from app.system.runtime.config_center import ConfigCenterService
+from app.refinement.refinement_memory import RefinementMemoryStore
 from app.system.asset_center.service import AssetCenterService
 from app.system.assets.config_center_asset import ConfigCenterAsset
 from app.system.assets.registration_protocol import AssetRegistrationProtocol

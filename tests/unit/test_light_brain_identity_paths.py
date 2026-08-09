@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.runtime_paths import resolve_runtime_paths
-from app.services.light_brain_memory import LightBrainMemory
+from app.system.gateway.light_brain_memory import LightBrainMemory
 from app.system.gateway.light_brain_gateway import LightBrainGateway
 from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
 

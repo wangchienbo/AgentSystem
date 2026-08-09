@@ -11,10 +11,10 @@ import json
 from typing import Any
 
 from app.models.chat import ChatMessageResponse, ActionSuggestion, TokenUsage
-from app.services.model_config_loader import ModelConfigLoader, ModelConfigError
-from app.services.model_client import OpenAIResponsesClient, ModelClientError
-from app.services.model_router import ModelRouter
-from app.services.tool_registry import ToolRegistry
+from app.ai.model_config_loader import ModelConfigLoader, ModelConfigError
+from app.ai.model_client import OpenAIResponsesClient, ModelClientError
+from app.ai.model_router import ModelRouter
+from app.system.master.tool_registry import ToolRegistry
 
 
 class LLMResponderError(Exception):

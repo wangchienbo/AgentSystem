@@ -6,10 +6,10 @@ from typing import Any
 from app.models.governance_preflight import GovernancePreflightContext
 from app.models.app_instance import AppInstance
 from app.models.scheduling import ScheduleRecord
-from app.services.refinement_memory import RefinementMemoryStore
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.scheduler import SchedulerService
+from app.refinement.refinement_memory import RefinementMemoryStore
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.runtime.scheduler import SchedulerService
 from app.system.chat_regression import list_saved_runs, make_testclient_poster, run_regression_governance_cycle
 from app.system.regression_dashboard import build_regression_operator_summary
 from app.system.regression_governance_policy import (

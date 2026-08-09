@@ -2,17 +2,17 @@ from pathlib import Path
 
 from app.models.evaluation import CandidateEvaluationRecord
 from app.models.telemetry import InteractionTelemetryRecord
-from app.services.collection_policy_service import CollectionPolicyService
-from app.services.core_skill_toolchain import (
+from app.governance.collection_policy_service import CollectionPolicyService
+from app.ai.core_skill_toolchain import (
     CoreAcceptanceReportSkill,
     CoreArchiveSummarySkill,
     CoreCostAnalyzerSkill,
     CoreReplaySelectorSkill,
 )
-from app.services.evaluation_summary_service import EvaluationSummaryService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.telemetry_service import TelemetryService
-from app.services.upgrade_log_service import UpgradeLogService
+from app.ai.evaluation_summary_service import EvaluationSummaryService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.governance.telemetry_service import TelemetryService
+from app.persistence.upgrade_log_service import UpgradeLogService
 
 
 def build_services(tmp_path: Path):

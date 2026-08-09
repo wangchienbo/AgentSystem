@@ -7,20 +7,20 @@ from app.models.app_blueprint import AppBlueprint
 from app.models.app_design import AppDesignResult, DesignConfirmation, SubordinateSkillDesign
 from app.models.app_instance import AppInstance
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
-from app.services.app_config_service import AppConfigService
-from app.services.app_data_store import AppDataStore
-from app.services.app_designer.orchestrator import AppDesignOrchestrator
-from app.services.app_installer import AppInstallerService
-from app.services.app_profile_resolver import AppProfileResolverService
-from app.services.app_registry import AppRegistryService
-from app.services.asset_center import AssetCenter
-from app.services.design_blueprint_builder import DesignBlueprintBuilderService
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.skill_control import SkillControlService
-from app.services.app_context_store import AppContextStore
-from app.services.system_catalog import SystemCatalog
+from app.system.runtime.app_config_service import AppConfigService
+from app.system.runtime.app_data_store import AppDataStore
+from app.orchestration.app_designer.orchestrator import AppDesignOrchestrator
+from app.app_installer import AppInstallerService
+from app.system.catalog.app_profile_resolver import AppProfileResolverService
+from app.system.runtime.app_registry import AppRegistryService
+from app.system.catalog.asset_center import AssetCenter
+from app.refinement.design_blueprint_builder import DesignBlueprintBuilderService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.skills.skill_control import SkillControlService
+from app.system.runtime.app_context_store import AppContextStore
+from app.system.catalog.system_catalog import SystemCatalog
 
 
 def _make_design(**overrides) -> AppDesignResult:

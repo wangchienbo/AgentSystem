@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.tool_calling_engine import (
+from app.ai.tool_calling_engine import (
     ToolCallingEngine,
     ToolCallingEngineError,
     ToolCallRecord,
@@ -11,8 +11,8 @@ from app.services.tool_calling_engine import (
     ToolDef,
     NON_CONVERGENCE_TEXT,
 )
-from app.services.model_client import ModelClientError
-from app.services.model_router import ModelRouter
+from app.ai.model_client import ModelClientError
+from app.ai.model_router import ModelRouter
 
 
 # ===========================================================================

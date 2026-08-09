@@ -6,18 +6,18 @@ from typing import Any
 
 from app.models.app_instance import AppInstance
 from app.models.registry import AppInstallResult
-from app.services.app_context_store import AppContextStore
-from app.services.app_data_store import AppDataStore
-from app.services.app_registry import AppRegistryService
-from app.services.config_center import ConfigCenterService
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.app_config_service import AppConfigService
-from app.services.app_profile_resolver import AppProfileResolverService
-from app.services.blueprint_validation import BlueprintValidationError, BlueprintValidationService
-from app.services.asset_center import AssetCenter
-from app.services.system_catalog import CatalogEntry, SystemCatalog
-from app.services.skill_control import SkillControlService
+from app.system.runtime.app_context_store import AppContextStore
+from app.system.runtime.app_data_store import AppDataStore
+from app.system.runtime.app_registry import AppRegistryService
+from app.system.runtime.config_center import ConfigCenterService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.system.runtime.app_config_service import AppConfigService
+from app.system.catalog.app_profile_resolver import AppProfileResolverService
+from app.refinement.blueprint_validation import BlueprintValidationError, BlueprintValidationService
+from app.system.catalog.asset_center import AssetCenter
+from app.system.catalog.system_catalog import CatalogEntry, SystemCatalog
+from app.skills.skill_control import SkillControlService
 from app.system.invocation.invocation_compliance import InvocationComplianceValidator
 
 

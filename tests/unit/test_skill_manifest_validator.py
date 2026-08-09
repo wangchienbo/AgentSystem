@@ -7,8 +7,8 @@ import pytest
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
 from app.models.skill_adapter import SkillAdapterSpec
-from app.services.schema_registry import SchemaRegistryService
-from app.services.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
+from app.skills.schema_registry import SchemaRegistryService
+from app.skills.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
 
 
 def build_entry() -> SkillRegistryEntry:

@@ -1,8 +1,8 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.skill_risk_policy import SkillRiskPolicyService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.skills.skill_risk_policy import SkillRiskPolicyService
 
 
 def test_skill_risk_policy_approve_list_revoke_and_reload(tmp_path: Path) -> None:

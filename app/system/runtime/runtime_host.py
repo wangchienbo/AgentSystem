@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 
 from app.models.app_instance import AppInstance
 from app.models.runtime import RuntimeCheckpoint, RuntimeLease, RuntimeOverview
-from app.services.lifecycle import AppLifecycleService, LifecycleError
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.lifecycle import AppLifecycleService, LifecycleError
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class RuntimeHostError(ValueError):

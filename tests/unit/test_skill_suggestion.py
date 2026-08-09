@@ -2,9 +2,9 @@ from pathlib import Path
 
 from app.models.experience import ExperienceRecord
 from app.models.skill_suggestion import SkillSuggestionRequest
-from app.services.experience_store import ExperienceStore
-from app.services.skill_risk_policy import SkillRiskPolicyService
-from app.services.skill_suggestion import SkillSuggestionService
+from app.persistence.experience_store import ExperienceStore
+from app.skills.skill_risk_policy import SkillRiskPolicyService
+from app.skills.skill_suggestion import SkillSuggestionService
 from tests.unit.api_test_helper import create_isolated_test_client
 
 

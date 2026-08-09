@@ -1,12 +1,12 @@
 from pathlib import Path
 
 from app.models.app_context import AppSharedContext
-from app.services.app_context_store import AppContextStore
-from app.services.context_compaction import ContextCompactionService
-from app.services.lifecycle import AppLifecycleService
-from app.services.log_evidence_service import LogEvidenceService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.skill_risk_policy import SkillRiskPolicyService
+from app.system.runtime.app_context_store import AppContextStore
+from app.persistence.context_compaction import ContextCompactionService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.governance.log_evidence_service import LogEvidenceService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.skills.skill_risk_policy import SkillRiskPolicyService
 
 
 

@@ -17,13 +17,13 @@ import pytest
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.workflow_execution import WorkflowExecutionResult
 from app.models.app_blueprint import WorkflowStep
-from app.services.pipeline_executor import (
+from app.orchestration.pipeline_executor import (
     ExecutorType,
     PipelineExecutor,
     PipelineStep,
     StepStatus,
 )
-from app.services.workflow_executor import WorkflowExecutorService
+from app.orchestration.workflow_executor import WorkflowExecutorService
 
 
 # ===========================================================================
@@ -280,11 +280,11 @@ def _make_handler(fn):
 def test_workflow_executor_with_skill_runtime_chain(tmp_path: Path) -> None:
     """Workflow executor should chain skill executions through skill runtime."""
     from app.models.app_blueprint import AppBlueprint
-    from app.services.app_context_store import AppContextStore
-    from app.services.app_installer import AppInstallerService
-    from app.services.event_bus import EventBusService
-    from app.services.runtime_host import AppRuntimeHostService
-    from app.services.scheduler import SchedulerService
+    from app.system.runtime.app_context_store import AppContextStore
+    from app.app_installer import AppInstallerService
+    from app.persistence.event_bus import EventBusService
+    from app.system.runtime.runtime_host import AppRuntimeHostService
+    from app.system.runtime.scheduler import SchedulerService
 
     services = _build_runtime_services(tmp_path)
     store = services["runtime_store"]
@@ -359,11 +359,11 @@ def test_workflow_executor_with_skill_runtime_chain(tmp_path: Path) -> None:
 def test_workflow_executor_chains_multiple_skills(tmp_path: Path) -> None:
     """Workflow should chain multiple skill steps with output passing."""
     from app.models.app_blueprint import AppBlueprint
-    from app.services.app_context_store import AppContextStore
-    from app.services.app_installer import AppInstallerService
-    from app.services.event_bus import EventBusService
-    from app.services.runtime_host import AppRuntimeHostService
-    from app.services.scheduler import SchedulerService
+    from app.system.runtime.app_context_store import AppContextStore
+    from app.app_installer import AppInstallerService
+    from app.persistence.event_bus import EventBusService
+    from app.system.runtime.runtime_host import AppRuntimeHostService
+    from app.system.runtime.scheduler import SchedulerService
 
     services = _build_runtime_services(tmp_path)
     store = services["runtime_store"]

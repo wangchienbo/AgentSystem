@@ -3,19 +3,19 @@ from app.models.app_blueprint import AppBlueprint
 from app.models.patch_proposal import SelfRefinementRequest
 from app.models.practice_review import PracticeReviewRequest
 from app.models.proposal_review import ProposalReviewRequest
-from app.services.app_context_store import AppContextStore
-from app.services.app_data_store import AppDataStore
-from app.services.app_installer import AppInstallerService
-from app.services.app_registry import AppRegistryService
-from app.services.event_bus import EventBusService
-from app.services.experience_store import ExperienceStore
-from app.services.lifecycle import AppLifecycleService
-from app.services.practice_review import PracticeReviewService
-from app.services.proposal_review import ProposalReviewService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.scheduler import SchedulerService
-from app.services.self_refinement import SelfRefinementService
+from app.system.runtime.app_context_store import AppContextStore
+from app.system.runtime.app_data_store import AppDataStore
+from app.app_installer import AppInstallerService
+from app.system.runtime.app_registry import AppRegistryService
+from app.persistence.event_bus import EventBusService
+from app.persistence.experience_store import ExperienceStore
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.governance.practice_review import PracticeReviewService
+from app.governance.proposal_review import ProposalReviewService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.runtime.scheduler import SchedulerService
+from app.refinement.self_refinement import SelfRefinementService
 from tests.unit.api_test_helper import create_isolated_test_client
 
 

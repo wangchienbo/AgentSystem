@@ -57,7 +57,7 @@ class _FakeRegistry:
 
 class _FailingInstaller:
     def install_app(self, blueprint_id, user_id):
-        from app.services.app_installer import AppInstallerError
+        from app.app_installer import AppInstallerError
         raise AppInstallerError("install failed")
 
 

@@ -24,17 +24,17 @@ from app.models.refinement_loop import RefinementLoopRequest
 from app.api.operator_filters import build_refinement_filter, build_workflow_observability_filter
 from app.models.policy_authority import AuthorityPolicyRecord
 from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError, SkillRetryAdviceRequest
-from app.services.priority_analysis import PriorityAnalysisError
+from app.governance.priority_analysis import PriorityAnalysisError
 from app.services.skill_factory import SkillFactoryError
-from app.services.skill_control import SkillControlError
-from app.services.skill_runtime import SkillRuntimeError
-from app.services.app_registry import AppRegistryError
-from app.services.app_installer import AppInstallerError
-from app.services.lifecycle import LifecycleError
-from app.services.runtime_host import RuntimeHostError
-from app.services.workflow_executor import WorkflowExecutorError
-from app.services.skill_retry_advisor import SkillRetryAdvisorService
-from app.services.core_skill_toolchain import (
+from app.skills.skill_control import SkillControlError
+from app.skills.skill_runtime import SkillRuntimeError
+from app.system.runtime.app_registry import AppRegistryError
+from app.app_installer import AppInstallerError
+from app.system.runtime.lifecycle import LifecycleError
+from app.system.runtime.runtime_host import RuntimeHostError
+from app.orchestration.workflow_executor import WorkflowExecutorError
+from app.skills.skill_retry_advisor import SkillRetryAdvisorService
+from app.ai.core_skill_toolchain import (
     CoreAcceptanceReportSkill,
     CoreArchiveSummarySkill,
     CoreCostAnalyzerSkill,

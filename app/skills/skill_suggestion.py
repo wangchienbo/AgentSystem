@@ -4,11 +4,11 @@ import re
 
 from app.models.skill_blueprint import SkillBlueprint
 from app.models.skill_suggestion import SkillSuggestionRequest, SkillSuggestionResult
-from app.services.experience_store import ExperienceStore
-from app.services.model_client import ModelClientError
-from app.services.model_config_loader import ModelConfigError
-from app.services.model_skill_suggester import ModelSkillSuggester
-from app.services.skill_risk_policy import SkillRiskPolicyService
+from app.persistence.experience_store import ExperienceStore
+from app.ai.model_client import ModelClientError
+from app.ai.model_config_loader import ModelConfigError
+from app.ai.model_skill_suggester import ModelSkillSuggester
+from app.skills.skill_risk_policy import SkillRiskPolicyService
 
 
 class SkillSuggestionError(ValueError):

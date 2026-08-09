@@ -4,8 +4,8 @@ from copy import deepcopy
 from typing import Any
 
 from app.models.system_skill import SystemAuditRecord, SystemAuditRequest, SystemStateRequest, SystemStateResponse
-from app.services.app_data_store import AppDataStore
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_data_store import AppDataStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class SystemSkillError(ValueError):

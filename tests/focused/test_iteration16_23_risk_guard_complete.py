@@ -13,8 +13,8 @@ import pytest
 import time
 
 from app.system.gateway.light_brain_gateway import LightBrainGateway
-from app.services.light_brain_memory import LightBrainMemory
-from app.services.light_brain_interpreter import LightBrainInterpreter
+from app.system.gateway.light_brain_memory import LightBrainMemory
+from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
 from app.models.chat import ChatMessageRequest
 
 

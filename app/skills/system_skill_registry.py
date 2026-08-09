@@ -4,9 +4,9 @@ from collections.abc import Callable
 
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
-from app.services.skill_authoring import SkillAuthoringService
-from app.services.skill_control import SkillControlService
-from app.services.skill_runtime import SkillRuntimeService
+from app.skills.skill_authoring import SkillAuthoringService
+from app.skills.skill_control import SkillControlService
+from app.skills.skill_runtime import SkillRuntimeService
 
 SkillHandler = Callable[[SkillExecutionRequest], SkillExecutionResult]
 
@@ -463,7 +463,7 @@ SYSTEM_SKILL_SPECS: dict[str, dict] = {
         "manifest": authoring.build_callable_entry(
             skill_id="core.skill.control",
             name="Human Skill Control Interface",
-            handler_entry="app.services.skill_control:SkillControlService",
+            handler_entry="app.skills.skill_control:SkillControlService",
             description="Protected control surface for skill lifecycle",
             tags=["system", "governance"],
             immutable_interface=True,

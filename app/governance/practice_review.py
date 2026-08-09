@@ -4,10 +4,10 @@ from app.models.app_context import AppSharedContext
 from app.models.event_bus import EventRecord
 from app.models.experience import ExperienceRecord
 from app.models.practice_review import PracticeReviewRequest, PracticeReviewResult
-from app.services.app_context_store import AppContextStore, AppContextStoreError
-from app.services.app_data_store import AppDataStore
-from app.services.event_bus import EventBusService
-from app.services.experience_store import ExperienceStore
+from app.system.runtime.app_context_store import AppContextStore, AppContextStoreError
+from app.system.runtime.app_data_store import AppDataStore
+from app.persistence.event_bus import EventBusService
+from app.persistence.experience_store import ExperienceStore
 
 
 class PracticeReviewError(ValueError):

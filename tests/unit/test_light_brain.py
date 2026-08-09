@@ -10,10 +10,10 @@ from app.models.chat import (
     InterpretedCommand,
 )
 from app.models.context import SessionContextRecord
-from app.services.light_brain_interpreter import LightBrainInterpreter
-from app.services.light_brain_memory import LightBrainMemory
+from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
+from app.system.gateway.light_brain_memory import LightBrainMemory
 from app.services.context_center import ContextCenter
-from app.services.light_brain_gateway import LightBrainGateway
+from app.system.gateway.light_brain_gateway import LightBrainGateway
 from app.system.catalog.runtime_center import RuntimeCenter
 
 
@@ -783,7 +783,7 @@ class TestLLMFallback:
 
     def test_llm_fallback_when_unclear(self):
         """When rule-based returns unclear, LLM should be consulted."""
-        from app.services.light_brain_interpreter import LightBrainInterpreter
+        from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
         interpreter = LightBrainInterpreter()
         mock_llm = MockLLMResponder()
         interpreter.set_llm_responder(mock_llm)
@@ -800,7 +800,7 @@ class TestLLMFallback:
 
     def test_llm_cache_prevents_duplicate_calls(self):
         """Same message should only trigger one LLM call."""
-        from app.services.light_brain_interpreter import LightBrainInterpreter
+        from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
         interpreter = LightBrainInterpreter()
         mock_llm = MockLLMResponder()
         interpreter.set_llm_responder(mock_llm)
@@ -824,7 +824,7 @@ class TestLLMFallback:
 
     def test_llm_intent_validation(self):
         """LLM should return valid intent values."""
-        from app.services.light_brain_interpreter import LightBrainInterpreter
+        from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
         interpreter = LightBrainInterpreter()
 
         # All valid intents
@@ -847,18 +847,18 @@ class TestPersistenceService:
 
     def setup_method(self):
         import tempfile
-        from app.services.persistence_service import PersistenceService
+        from app.persistence.persistence_service import PersistenceService
         self.tmpdir = tempfile.mkdtemp()
         self.persistence = PersistenceService(data_dir=self.tmpdir)
 
     def _build_services(self):
         """Build a minimal set of services for persistence testing."""
         import tempfile
-        from app.services.lifecycle import AppLifecycleService
-        from app.services.runtime_host import AppRuntimeHostService
-        from app.services.app_registry import AppRegistryService
-        from app.services.app_catalog import AppCatalogService
-        from app.services.light_brain_memory import LightBrainMemory
+        from app.system.runtime.lifecycle import AppLifecycleService
+        from app.system.runtime.runtime_host import AppRuntimeHostService
+        from app.system.runtime.app_registry import AppRegistryService
+        from app.system.runtime.app_catalog import AppCatalogService
+        from app.system.gateway.light_brain_memory import LightBrainMemory
         from app.models.app_instance import AppInstance
         from app.models.app_blueprint import AppBlueprint
         from app.models.runtime_policy import RuntimePolicy
@@ -1030,13 +1030,13 @@ class TestPersistenceService:
     def test_gateway_auto_save_with_persistence(self):
         """Gateway with persistence_service should auto-save after messages."""
         import tempfile
-        from app.services.lifecycle import AppLifecycleService
-        from app.services.runtime_host import AppRuntimeHostService
-        from app.services.app_registry import AppRegistryService
-        from app.services.app_catalog import AppCatalogService
-        from app.services.light_brain_memory import LightBrainMemory
-        from app.services.light_brain_gateway import LightBrainGateway
-        from app.services.persistence_service import PersistenceService
+        from app.system.runtime.lifecycle import AppLifecycleService
+        from app.system.runtime.runtime_host import AppRuntimeHostService
+        from app.system.runtime.app_registry import AppRegistryService
+        from app.system.runtime.app_catalog import AppCatalogService
+        from app.system.gateway.light_brain_memory import LightBrainMemory
+        from app.system.gateway.light_brain_gateway import LightBrainGateway
+        from app.persistence.persistence_service import PersistenceService
         from app.models.app_instance import AppInstance
         from app.models.app_blueprint import AppBlueprint
         from app.models.runtime_policy import RuntimePolicy

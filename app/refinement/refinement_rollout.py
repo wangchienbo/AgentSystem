@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from app.models.proposal_review import ProposalReviewRequest
 from app.models.refinement_loop import RolloutQueueItem
-from app.services.proposal_review import ProposalReviewError, ProposalReviewService
-from app.services.refinement_memory import RefinementMemoryStore
+from app.governance.proposal_review import ProposalReviewError, ProposalReviewService
+from app.refinement.refinement_memory import RefinementMemoryStore
 
 
 class RefinementRolloutError(ValueError):

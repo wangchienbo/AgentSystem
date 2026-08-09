@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.services.user_service import UserService, Role, Permission, PermissionDenied
+from app.system.workers.user_service import UserService, Role, Permission, PermissionDenied
 
 
 @dataclass
@@ -223,7 +223,7 @@ class PermissionSkillService:
         if not target:
             return {"success": False, "message": f"❌ 用户 '{command.target_user_id}' 不存在"}
 
-        from app.services.user_service import PERMISSION_MATRIX
+        from app.system.workers.user_service import PERMISSION_MATRIX
 
         perms = PERMISSION_MATRIX.get((target.role, "own"), set())
         perms_other = PERMISSION_MATRIX.get((target.role, "other"), set())
@@ -262,7 +262,7 @@ class PermissionSkillService:
 
     def _show_self(self, actor) -> dict[str, Any]:
         """Show the actor's own permissions."""
-        from app.services.user_service import PERMISSION_MATRIX
+        from app.system.workers.user_service import PERMISSION_MATRIX
 
         perms = PERMISSION_MATRIX.get((actor.role, "own"), set())
         perms_other = PERMISSION_MATRIX.get((actor.role, "other"), set())

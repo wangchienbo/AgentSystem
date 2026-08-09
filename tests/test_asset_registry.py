@@ -1,8 +1,8 @@
-"""Tests for app.services.asset_registry."""
+"""Tests for app.system.catalog.asset_registry."""
 import pytest
 
 from app.models.asset import Asset, AssetFunction, AssetType, Visibility
-from app.services.asset_registry import AssetRegistry
+from app.system.catalog.asset_registry import AssetRegistry
 
 
 def _make_asset(asset_id, owner_id, visibility=Visibility.PRIVATE, functions=None):

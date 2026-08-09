@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.models.app_blueprint import AppBlueprint
-from app.services.skill_validation import SkillValidationError, SkillValidationService
+from app.skills.skill_validation import SkillValidationError, SkillValidationService
 
 
 class BlueprintValidationError(ValueError):

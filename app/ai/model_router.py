@@ -23,7 +23,7 @@ from typing import Any
 import yaml
 
 from app.ai.model_config_loader import DEFAULT_MODEL_CONFIG_PATH
-from app.services.model_client import OpenAIResponsesClient, ModelClientError
+from app.ai.model_client import OpenAIResponsesClient, ModelClientError
 
 
 DEFAULT_CONFIG_PATH = DEFAULT_MODEL_CONFIG_PATH

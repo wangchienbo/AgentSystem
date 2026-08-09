@@ -3,11 +3,11 @@ from pathlib import Path
 
 from app.models.generated_skill import GeneratedSkillRequest
 from app.models.skill_runtime import SkillExecutionRequest
-from app.services.generated_skill_asset_store import GeneratedSkillAssetStore
-from app.services.script_skill_generator import ScriptSkillGenerator
-from app.services.schema_registry import SchemaRegistryService
-from app.services.skill_control import SkillControlService
-from app.services.skill_runtime import SkillRuntimeService
+from app.skills.generated_skill_asset_store import GeneratedSkillAssetStore
+from app.orchestration.script_skill_generator import ScriptSkillGenerator
+from app.skills.schema_registry import SchemaRegistryService
+from app.skills.skill_control import SkillControlService
+from app.skills.skill_runtime import SkillRuntimeService
 
 
 def test_generated_skill_asset_store_creates_scaffold(tmp_path: Path) -> None:

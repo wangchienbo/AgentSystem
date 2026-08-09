@@ -1,4 +1,4 @@
-from app.services.requirement_clarifier import RequirementClarifierService
+from app.refinement.requirement_clarifier import RequirementClarifierService
 
 
 service = RequirementClarifierService()

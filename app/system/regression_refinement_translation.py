@@ -4,7 +4,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.models.refinement_loop import RefinementHypothesis, RolloutQueueItem, VerificationResult
-from app.services.refinement_memory import RefinementMemoryStore
+from app.refinement.refinement_memory import RefinementMemoryStore
 from app.system.regression_governance_policy import classify_signal_domain, classify_signal_family
 
 APP_INSTANCE_ID = "agent_system"

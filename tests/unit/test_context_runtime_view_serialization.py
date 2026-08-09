@@ -4,11 +4,11 @@ import json
 
 from app.models.app_instance import AppInstance
 from app.models.context_skill import ContextSkillRequest
-from app.services.app_context_store import AppContextStore
-from app.services.context_skill_service import ContextSkillService
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_context_store import AppContextStore
+from app.persistence.context_skill_service import ContextSkillService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 def test_runtime_state_store_returns_default_for_empty_or_invalid_json(tmp_path: Path) -> None:

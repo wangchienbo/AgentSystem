@@ -11,7 +11,7 @@ from app.models.pending_task import (
     WORKFLOW_STAGE_IMPLEMENTATION_PENDING,
     WORKFLOW_STAGE_IMPLEMENTATION_RUNNING,
 )
-from app.services.pending_task_store import PendingTaskStore
+from app.system.runtime.pending_task_store import PendingTaskStore
 from app.services.high_value_fact_messages import acceptance_result_message
 from app.system.governance_failure_attribution import classify_governance_failure
 

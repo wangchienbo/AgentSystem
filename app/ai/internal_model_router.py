@@ -12,8 +12,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from app.services.model_client import OpenAIResponsesClient
-from app.services.model_config_loader import ModelConfigLoader
+from app.ai.model_client import OpenAIResponsesClient
+from app.ai.model_config_loader import ModelConfigLoader
 from app.services.resource_budget_manager import ResourceBudgetManager, ResourceType
 from app.services.budget_tracker import BudgetExceededError
 

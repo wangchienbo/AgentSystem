@@ -8,9 +8,9 @@ from app.models.telemetry import (
     VersionBindingRecord,
 )
 from app.models.upgrade_log import UpgradeLogEvent
-from app.services.collection_policy_service import CollectionPolicyService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.upgrade_log_service import UpgradeLogService
+from app.governance.collection_policy_service import CollectionPolicyService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.persistence.upgrade_log_service import UpgradeLogService
 
 
 class TelemetryService:

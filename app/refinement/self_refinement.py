@@ -3,13 +3,13 @@ from __future__ import annotations
 from app.models.app_blueprint import AppBlueprint
 from app.models.app_context import AppSharedContext
 from app.models.patch_proposal import PatchProposal, SelfRefinementRequest, SelfRefinementResult
-from app.services.app_context_store import AppContextStore, AppContextStoreError
-from app.services.app_registry import AppRegistryService
-from app.services.experience_store import ExperienceStore
-from app.services.lifecycle import AppLifecycleService
-from app.services.model_client import ModelClientError
-from app.services.model_config_loader import ModelConfigError
-from app.services.model_self_refiner import ModelSelfRefiner
+from app.system.runtime.app_context_store import AppContextStore, AppContextStoreError
+from app.system.runtime.app_registry import AppRegistryService
+from app.persistence.experience_store import ExperienceStore
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.ai.model_client import ModelClientError
+from app.ai.model_config_loader import ModelConfigError
+from app.ai.model_self_refiner import ModelSelfRefiner
 
 
 class SelfRefinementError(ValueError):

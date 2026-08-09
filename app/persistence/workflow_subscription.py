@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from app.models.workflow_execution import WorkflowExecutionResult
 from app.models.workflow_subscription import WorkflowEventSubscription
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.workflow_executor import WorkflowExecutorService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.orchestration.workflow_executor import WorkflowExecutorService
 
 
 class WorkflowSubscriptionError(ValueError):

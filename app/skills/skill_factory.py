@@ -10,14 +10,14 @@ from app.models.skill_diagnostics import SkillDiagnostic, SkillDiagnosticError
 from app.models.skill_runtime import SkillExecutionRequest
 from datetime import UTC, datetime
 
-from app.services.app_profile_resolver import AppProfileResolverService
-from app.services.generated_callable_materializer import GeneratedCallableMaterializer, GeneratedCallableMaterializerError
-from app.services.generated_skill_assets import GeneratedSkillAssetStore
-from app.services.schema_registry import SchemaRegistryService
-from app.services.skill_authoring import SkillAuthoringService
-from app.services.skill_risk_policy import SkillRiskPolicyService
-from app.services.skill_control import SkillControlService, SkillControlError
-from app.services.skill_runtime import SkillRuntimeService
+from app.system.catalog.app_profile_resolver import AppProfileResolverService
+from app.skills.generated_callable_materializer import GeneratedCallableMaterializer, GeneratedCallableMaterializerError
+from app.skills.generated_skill_assets import GeneratedSkillAssetStore
+from app.skills.schema_registry import SchemaRegistryService
+from app.skills.skill_authoring import SkillAuthoringService
+from app.skills.skill_risk_policy import SkillRiskPolicyService
+from app.skills.skill_control import SkillControlService, SkillControlError
+from app.skills.skill_runtime import SkillRuntimeService
 
 
 class SkillFactoryError(ValueError):
@@ -377,7 +377,7 @@ class SkillFactoryService:
             from app.models.skill_adapter import SkillAdapterSpec
             from app.models.skill_control import SkillRegistryEntry, SkillVersion
             from app.models.skill_manifest import SkillContractRef, SkillManifest
-            from app.services.generated_skill_asset_store import GeneratedSkillAssetStore as ExecutableAssetStore
+            from app.skills.generated_skill_asset_store import GeneratedSkillAssetStore as ExecutableAssetStore
 
             data_store = getattr(self._generated_assets, "_data_store", None)
             if data_store is None:

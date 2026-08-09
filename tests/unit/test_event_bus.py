@@ -4,11 +4,11 @@ from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_instance import AppInstance
 from app.models.event_bus import EventSubscription
 from app.models.scheduling import ScheduleRecord
-from app.services.event_bus import EventBusService
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.scheduler import SchedulerService
+from app.persistence.event_bus import EventBusService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.runtime.scheduler import SchedulerService
 
 
 

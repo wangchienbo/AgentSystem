@@ -5,7 +5,7 @@ import json
 from typing import Any
 
 from app.models.app_design import AppIntentResult
-from app.services.model_router import ModelRouter
+from app.ai.model_router import ModelRouter
 
 
 class AppIntentAnalyzerError(ValueError):

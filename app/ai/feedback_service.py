@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.models.telemetry import FeedbackRecord
-from app.services.runtime_state_store import RuntimeStateStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class FeedbackService:

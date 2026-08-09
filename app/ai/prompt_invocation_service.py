@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 
 from app.models.evaluation import CandidateEvaluationRecord
 from app.models.telemetry import InteractionTelemetryRecord, StepTelemetryRecord
-from app.services.model_client import OpenAIResponsesClient
-from app.services.model_config_loader import ModelConfigLoader
-from app.services.model_router import ModelRouter
-from app.services.prompt_selection_service import PromptSelectionService
+from app.ai.model_client import OpenAIResponsesClient
+from app.ai.model_config_loader import ModelConfigLoader
+from app.ai.model_router import ModelRouter
+from app.ai.prompt_selection_service import PromptSelectionService
 
 
 class PromptInvocationService:

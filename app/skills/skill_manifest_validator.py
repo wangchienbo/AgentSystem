@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.models.skill_control import SkillRegistryEntry
-from app.services.schema_registry import SchemaRegistryError, SchemaRegistryService
+from app.skills.schema_registry import SchemaRegistryError, SchemaRegistryService
 
 
 ALLOWED_SCRIPT_COMMAND_PREFIXES = (

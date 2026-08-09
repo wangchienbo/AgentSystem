@@ -4,10 +4,10 @@ from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_context import AppSharedContext
 from app.models.context_policy import ContextCompactionPolicy
 from app.models.context_summary import ContextSummary
-from app.services.app_context_store import AppContextStore
-from app.services.context_compaction import ContextCompactionService
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_context_store import AppContextStore
+from app.persistence.context_compaction import ContextCompactionService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 

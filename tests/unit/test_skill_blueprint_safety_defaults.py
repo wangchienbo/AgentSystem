@@ -1,11 +1,11 @@
 from app.models.skill_blueprint import SkillBlueprint
-from app.services.app_data_store import AppDataStore
-from app.services.generated_skill_assets import GeneratedSkillAssetStore
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.schema_registry import SchemaRegistryService
-from app.services.skill_control import SkillControlService
+from app.system.runtime.app_data_store import AppDataStore
+from app.skills.generated_skill_assets import GeneratedSkillAssetStore
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.skills.schema_registry import SchemaRegistryService
+from app.skills.skill_control import SkillControlService
 from app.services.skill_factory import SkillFactoryService
-from app.services.skill_runtime import SkillRuntimeService
+from app.skills.skill_runtime import SkillRuntimeService
 
 
 def test_skill_factory_builds_creation_defaults_from_blueprint_safety_profile(tmp_path) -> None:

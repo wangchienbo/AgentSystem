@@ -10,9 +10,9 @@ from tests.unit.api_test_helper import create_isolated_test_client
 
 from app.models.app_instance import AppInstance
 from app.models.scheduling import SupervisionPolicy
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_host import AppRuntimeHostService, RuntimeHostError
-from app.services.supervisor import SupervisorError, SupervisorService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService, RuntimeHostError
+from app.ai.supervisor import SupervisorError, SupervisorService
 
 
 def build_instance() -> AppInstance:

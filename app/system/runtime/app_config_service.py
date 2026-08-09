@@ -4,8 +4,8 @@ from copy import deepcopy
 from typing import Any
 
 from app.models.app_config import AppConfigMutation, AppConfigRequest, AppConfigResponse, AppConfigSnapshot
-from app.services.app_data_store import AppDataStore
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_data_store import AppDataStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class AppConfigError(ValueError):

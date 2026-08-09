@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.models.data_record import DataNamespace, DataRecord
 from app.runtime_paths import resolve_runtime_paths
-from app.services.runtime_state_store import RuntimeStateStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class AppDataStoreError(ValueError):

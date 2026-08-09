@@ -2,7 +2,7 @@ import pytest
 
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillManifest, SkillContractRef
-from app.services.skill_control import SkillControlError, SkillControlService
+from app.skills.skill_control import SkillControlError, SkillControlService
 
 
 def build_entry(skill_id: str = "router.skill", immutable: bool = False) -> SkillRegistryEntry:

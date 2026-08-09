@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.models.app_blueprint import AppBlueprint
 from app.orchestration.meta_app.orchestrator import MetaAppCreationOrchestrator
-from app.services.meta_app.bootstrap import MetaAppBootstrapService
+from app.orchestration.meta_app.bootstrap import MetaAppBootstrapService
 from app.services.skill_factory import SkillFactoryService
 
 

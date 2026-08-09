@@ -2,8 +2,8 @@ from pathlib import Path
 
 from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_blueprint import AppBlueprint
-from app.services.app_registry import AppRegistryService
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_registry import AppRegistryService
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 

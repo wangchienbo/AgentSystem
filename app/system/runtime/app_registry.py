@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from app.models.app_blueprint import AppBlueprint
 from app.models.registry import AppAttentionItem, AppAttentionSummary, AppControlPlaneSummary, AppOperatorActionRecord, AppRegistryOverviewItem, AppRegistryOverviewSummary, AppReleaseComparison, AppReleaseHistorySummary, AppReleaseRecord, AppRegistryEntry
-from app.services.runtime_state_store import RuntimeStateStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class AppRegistryError(ValueError):

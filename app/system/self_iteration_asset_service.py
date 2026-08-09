@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.refinement_memory import RefinementMemoryStore
+from app.refinement.refinement_memory import RefinementMemoryStore
 from app.system.self_iteration_assets import build_self_iteration_asset_summaries
 from app.system.self_iteration_strategy import (
     build_asset_query_action,

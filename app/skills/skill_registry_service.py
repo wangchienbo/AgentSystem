@@ -15,8 +15,8 @@ from typing import Any
 
 from app.models.tool_entry import ToolEntry, ToolType, ToolVisibility, ToolParameter
 from app.runtime_paths import resolve_runtime_paths
-from app.services.skill_rpc import SkillRpcService
-from app.services.unified_tool_registry import UnifiedToolRegistry
+from app.skills.skill_rpc import SkillRpcService
+from app.system.master.unified_tool_registry import UnifiedToolRegistry
 
 logger = logging.getLogger(__name__)
 

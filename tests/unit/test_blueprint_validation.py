@@ -5,18 +5,18 @@ from app.models.app_blueprint import AppBlueprint
 from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillContractRef, SkillManifest
-from app.services.app_data_store import AppDataStore
-from app.services.app_installer import AppInstallerError, AppInstallerService
-from app.services.app_profile_resolver import AppProfileResolverService
-from app.services.app_registry import AppRegistryService
-from app.services.app_config_service import AppConfigService
-from app.services.blueprint_validation import BlueprintValidationService
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.schema_registry import SchemaRegistryService
-from app.services.skill_control import SkillControlService
-from app.services.skill_validation import SkillValidationService
+from app.system.runtime.app_data_store import AppDataStore
+from app.app_installer import AppInstallerError, AppInstallerService
+from app.system.catalog.app_profile_resolver import AppProfileResolverService
+from app.system.runtime.app_registry import AppRegistryService
+from app.system.runtime.app_config_service import AppConfigService
+from app.refinement.blueprint_validation import BlueprintValidationService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.skills.schema_registry import SchemaRegistryService
+from app.skills.skill_control import SkillControlService
+from app.skills.skill_validation import SkillValidationService
 
 
 

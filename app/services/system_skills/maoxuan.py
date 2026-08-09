@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from app.models.maoxuan_skill import MaoxuanSkillRequest
-from app.services.model_client import OpenAIResponsesClient
-from app.services.model_config_loader import ModelConfigLoader, ModelConfigError
+from app.ai.model_client import OpenAIResponsesClient
+from app.ai.model_config_loader import ModelConfigLoader, ModelConfigError
 
 
 class MaoxuanSkillError(ValueError):

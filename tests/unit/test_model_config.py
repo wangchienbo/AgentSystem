@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.services.model_config_loader import ModelConfigLoader
+from app.ai.model_config_loader import ModelConfigLoader
 from app.runtime_paths import resolve_runtime_paths
 
 

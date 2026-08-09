@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.services.context_compaction import ContextCompactionService
-from app.services.log_evidence_service import LogEvidenceService
+from app.persistence.context_compaction import ContextCompactionService
+from app.governance.log_evidence_service import LogEvidenceService
 
 
 class PromptSelectionService:

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from app.models.generated_skill import GeneratedSkillRequest
-from app.services.skill_asset_service import SkillAssetService
+from app.skills.skill_asset_service import SkillAssetService
 
 
 def test_skill_asset_service_creates_candidate_asset_and_index(tmp_path: Path) -> None:

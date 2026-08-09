@@ -1,29 +1,29 @@
 from pathlib import Path
 
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
-from app.services.app_config_service import AppConfigService
-from app.services.app_context_store import AppContextStore
-from app.services.app_data_store import AppDataStore
-from app.services.app_installer import AppInstallerService
-from app.services.app_profile_resolver import AppProfileResolverService
-from app.services.app_registry import AppRegistryService
-from app.services.collection_policy_service import CollectionPolicyService
-from app.services.context_compaction import ContextCompactionService
-from app.services.evaluation_summary_service import EvaluationSummaryService
-from app.services.event_bus import EventBusService
-from app.services.lifecycle import AppLifecycleService
-from app.services.log_evidence_service import LogEvidenceService
-from app.services.prompt_invocation_service import PromptInvocationService
-from app.services.prompt_selection_service import PromptSelectionService
-from app.services.requirement_clarifier import RequirementClarifierService
-from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.scheduler import SchedulerService
-from app.services.skill_control import SkillControlService
-from app.services.telemetry_service import TelemetryService
-from app.services.upgrade_log_service import UpgradeLogService
-from app.services.workflow_executor import WorkflowExecutorService
+from app.system.runtime.app_config_service import AppConfigService
+from app.system.runtime.app_context_store import AppContextStore
+from app.system.runtime.app_data_store import AppDataStore
+from app.app_installer import AppInstallerService
+from app.system.catalog.app_profile_resolver import AppProfileResolverService
+from app.system.runtime.app_registry import AppRegistryService
+from app.governance.collection_policy_service import CollectionPolicyService
+from app.persistence.context_compaction import ContextCompactionService
+from app.ai.evaluation_summary_service import EvaluationSummaryService
+from app.persistence.event_bus import EventBusService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.governance.log_evidence_service import LogEvidenceService
+from app.ai.prompt_invocation_service import PromptInvocationService
+from app.ai.prompt_selection_service import PromptSelectionService
+from app.refinement.requirement_clarifier import RequirementClarifierService
+from app.refinement.requirement_blueprint_builder import RequirementBlueprintBuilderService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.runtime.scheduler import SchedulerService
+from app.skills.skill_control import SkillControlService
+from app.governance.telemetry_service import TelemetryService
+from app.persistence.upgrade_log_service import UpgradeLogService
+from app.orchestration.workflow_executor import WorkflowExecutorService
 
 
 class _FakeLoader:

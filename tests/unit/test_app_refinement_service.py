@@ -7,7 +7,7 @@ from app.models.skill_creation import AppFromSkillsResult, SkillCreationResult
 from app.models.skill_runtime import SkillExecutionResult
 from app.orchestration.app_refinement import AppRefinementService
 from app.persistence.experience_store import ExperienceStore
-from app.services.skill_control import SkillControlError
+from app.skills.skill_control import SkillControlError
 
 
 class _FakeSkillControl:

@@ -7,81 +7,81 @@ import os
 import shutil
 from pathlib import Path
 
-from app.services.app_catalog import AppCatalogService
+from app.system.runtime.app_catalog import AppCatalogService
 from app.services.system_skills.app_config import AppConfigService
-from app.services.app_context_store import AppContextStore
-from app.services.app_data_store import AppDataStore
-from app.services.app_installer import AppInstallerService
-from app.services.app_profile_resolver import AppProfileResolverService
-from app.services.app_refinement import AppRefinementService
-from app.services.app_refinement_orchestrator import AppRefinementOrchestratorService
-from app.services.app_registry import AppRegistryService
-from app.services.context_compaction import ContextCompactionService
+from app.system.runtime.app_context_store import AppContextStore
+from app.system.runtime.app_data_store import AppDataStore
+from app.app_installer import AppInstallerService
+from app.system.catalog.app_profile_resolver import AppProfileResolverService
+from app.orchestration.app_refinement import AppRefinementService
+from app.orchestration.app_refinement_orchestrator import AppRefinementOrchestratorService
+from app.system.runtime.app_registry import AppRegistryService
+from app.persistence.context_compaction import ContextCompactionService
 from app.services.system_skills.context import ContextSkillService
-from app.services.blueprint_validation import BlueprintValidationService
-from app.services.skill_validation import SkillValidationService
-from app.services.demonstration_extractor import DemonstrationExtractor
-from app.services.event_bus import EventBusService
-from app.services.evaluation_summary_service import EvaluationSummaryService
-from app.services.experience_store import ExperienceStore
-from app.services.feedback_service import FeedbackService
-from app.services.generated_skill_assets import GeneratedSkillAssetStore
-from app.services.interaction_gateway import InteractionGateway
-from app.services.lifecycle import AppLifecycleService
-from app.services.model_self_refiner import ModelSelfRefiner
-from app.services.model_skill_suggester import ModelSkillSuggester
-from app.services.practice_review import PracticeReviewService
-from app.services.priority_analysis import PriorityAnalysisService
-from app.services.proposal_review import ProposalReviewService
-from app.services.collection_policy_service import CollectionPolicyService
-from app.services.context_retrieval_service import ContextRetrievalService
-from app.services.persistence_health_service import PersistenceHealthService
-from app.services.policy_authority_service import PolicyAuthorityService
+from app.refinement.blueprint_validation import BlueprintValidationService
+from app.skills.skill_validation import SkillValidationService
+from app.governance.demonstration_extractor import DemonstrationExtractor
+from app.persistence.event_bus import EventBusService
+from app.ai.evaluation_summary_service import EvaluationSummaryService
+from app.persistence.experience_store import ExperienceStore
+from app.ai.feedback_service import FeedbackService
+from app.skills.generated_skill_assets import GeneratedSkillAssetStore
+from app.system.gateway.interaction_gateway import InteractionGateway
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.ai.model_self_refiner import ModelSelfRefiner
+from app.ai.model_skill_suggester import ModelSkillSuggester
+from app.governance.practice_review import PracticeReviewService
+from app.governance.priority_analysis import PriorityAnalysisService
+from app.governance.proposal_review import ProposalReviewService
+from app.governance.collection_policy_service import CollectionPolicyService
+from app.system.gateway.context_retrieval_service import ContextRetrievalService
+from app.persistence.persistence_health_service import PersistenceHealthService
+from app.governance.policy_authority_service import PolicyAuthorityService
 from app.governance.audit_logger import AuditLogger
 from app.governance.cost_quota import CostQuotaManager
-from app.services.policy_guard import PolicyGuardService
-from app.services.log_evidence_service import LogEvidenceService
-from app.services.requirement_router import RequirementRouter
-from app.services.requirement_clarifier import RequirementClarifierService
-from app.services.requirement_blueprint_builder import RequirementBlueprintBuilderService
+from app.governance.policy_guard import PolicyGuardService
+from app.governance.log_evidence_service import LogEvidenceService
+from app.orchestration.requirement_router import RequirementRouter
+from app.refinement.requirement_clarifier import RequirementClarifierService
+from app.refinement.requirement_blueprint_builder import RequirementBlueprintBuilderService
 from app.models.requirement_skill import RequirementSkillRequest
 from app.models.evidence_skill import EvidenceSkillRequest
 from app.models.context_compaction_skill import ContextCompactionSkillRequest
 from app.models.workflow_insight_skill import WorkflowInsightSkillRequest
 from app.models.risk_governance_skill import RiskGovernanceSkillRequest
 from app.models.prompt_selection_skill import PromptSelectionSkillRequest
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.scheduler import SchedulerService
-from app.services.schema_registry import SchemaRegistryService
-from app.services.self_refinement import SelfRefinementService
-from app.services.refinement_loop import RefinementLoopService
-from app.services.refinement_memory import RefinementMemoryStore
-from app.services.refinement_rollout import RefinementRolloutService
-from app.services.skill_control import SkillControlService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.runtime.scheduler import SchedulerService
+from app.skills.schema_registry import SchemaRegistryService
+from app.refinement.self_refinement import SelfRefinementService
+from app.refinement.refinement_loop import RefinementLoopService
+from app.refinement.refinement_memory import RefinementMemoryStore
+from app.refinement.refinement_rollout import RefinementRolloutService
+from app.skills.skill_control import SkillControlService
 from app.services.skill_factory import SkillFactoryService
-from app.services.skill_runtime import SkillRuntimeService
-from app.services.skill_risk_policy import SkillRiskPolicyService
-from app.services.prompt_selection_service import PromptSelectionService
-from app.services.prompt_invocation_service import PromptInvocationService
-from app.services.skill_suggestion import SkillSuggestionService
-from app.services.supervisor import SupervisorService
+from app.skills.skill_runtime import SkillRuntimeService
+from app.skills.skill_risk_policy import SkillRiskPolicyService
+from app.ai.prompt_selection_service import PromptSelectionService
+from app.ai.prompt_invocation_service import PromptInvocationService
+from app.skills.skill_suggestion import SkillSuggestionService
+from app.ai.supervisor import SupervisorService
 from app.services.system_skills.state_audit import SystemAuditService, SystemStateService
-from app.services.telemetry_service import TelemetryService
-from app.services.upgrade_log_service import UpgradeLogService
-from app.services.persistence_service import PersistenceService
-from app.services.blueprint_compare import BlueprintCompareService
-from app.services.upgrade_service import UpgradeService
-from app.services.rollback_service import RollbackService
-from app.services.workflow_executor import WorkflowExecutorService
-from app.services.workflow_observability import WorkflowObservabilityService
-from app.services.workflow_subscription import WorkflowSubscriptionService
-from app.services.meta_app.bootstrap import MetaAppBootstrapService
-from app.services.meta_app.orchestrator import MetaAppCreationOrchestrator
+from app.governance.telemetry_service import TelemetryService
+from app.persistence.upgrade_log_service import UpgradeLogService
+from app.persistence.persistence_service import PersistenceService
+from app.refinement.blueprint_compare import BlueprintCompareService
+from app.persistence.upgrade_service import UpgradeService
+from app.persistence.rollback_service import RollbackService
+from app.orchestration.workflow_executor import WorkflowExecutorService
+from app.persistence.workflow_observability import WorkflowObservabilityService
+from app.persistence.workflow_subscription import WorkflowSubscriptionService
+from app.orchestration.meta_app.bootstrap import MetaAppBootstrapService
+from app.orchestration.meta_app.orchestrator import MetaAppCreationOrchestrator
 from app.models.maoxuan_skill import MaoxuanSkillRequest
 from app.models.memory_skill import MemorySkillRequest
 from app.services.system_skills.maoxuan import MaoxuanSkillService
-from app.services.system_skills.memory import MemorySkillService
+from app.skills.system_skills.memory import MemorySkillService
 from app.services.context_center import ContextCenter
 from app.runtime_paths import resolve_runtime_paths
 
@@ -155,12 +155,12 @@ def materialize_builtin_path_definitions(
         encoding="utf-8",
     )
     return destination
-from app.services.interactive_app import InteractiveAppService
-from app.services.interactive_app_workflow import InteractiveAppWorkflow
-from app.services.user_service import UserService
-from app.services.auth_service import AuthService
-from app.services.session_router import SessionRouter
-from app.services.pipeline_service import PipelineService
+from app.interactive_app import InteractiveAppService
+from app.interactive_app_workflow import InteractiveAppWorkflow
+from app.system.workers.user_service import UserService
+from app.governance.auth_service import AuthService
+from app.orchestration.session_router import SessionRouter
+from app.orchestration.pipeline_service import PipelineService
 from app.services.draft_app_service import DraftAppService
 from app.services.draft_app_application_service import DraftAppApplicationService
 from app.services.app_application_service import AppApplicationService
@@ -183,9 +183,9 @@ from app.tools.internal_tools import AGENTSYSTEM_INTERNAL_TOOL_HANDLERS
 from app.core.message_bus import MessageBus
 from app.core.worker_manager import WorkerManager
 from app.core.gateway_orchestrator_bridge import GatewayOrchestratorBridge
-from app.services.log_center import LogCenter
-from app.services.skill_meta_service import SkillMetaService
-from app.services.path_store import PathStore
+from app.governance.log_center import LogCenter
+from app.skills.skill_meta_service import SkillMetaService
+from app.persistence.path_store import PathStore
 from app.models.log_center import LogCollectionConfig
 
 
@@ -197,12 +197,12 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     schema_registry = SchemaRegistryService()
 
     # Config Center — system-level skill template + app binding config
-    from app.services.config_center import ConfigCenterService
+    from app.system.runtime.config_center import ConfigCenterService
     config_center = ConfigCenterService()
 
     # Phase F.1: Unified Model Router
-    from app.services.model_router import ModelRouter
-    from app.services.tool_calling_engine import ToolCallingEngine
+    from app.ai.model_router import ModelRouter
+    from app.ai.tool_calling_engine import ToolCallingEngine
     model_router = ModelRouter(skill_control=skill_control, config_center=config_center)
     tool_calling_engine = ToolCallingEngine(model_router=model_router)
     schema_registry.register(
@@ -598,9 +598,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     )
 
     # Phase N asset infrastructure must be initialized before MetaApp orchestrator wiring.
-    from app.services.system_catalog import SystemCatalog, CatalogEntry
-    from app.services.asset_center import AssetCenter
-    from app.services.runtime_center import RuntimeCenter
+    from app.system.catalog.system_catalog import SystemCatalog, CatalogEntry
+    from app.system.catalog.asset_center import AssetCenter
+    from app.system.catalog.runtime_center import RuntimeCenter
     from app.system.self_iteration_asset_service import SelfIterationAssetService
     from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -843,9 +843,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     )
 
     # Phase F.3: App Designer (Path B) — LLM-driven app creation with skill composition
-    from app.services.app_designer.intent_analyzer import AppIntentAnalyzer
-    from app.services.app_designer.architect import AppArchitect
-    from app.services.app_designer.orchestrator import AppDesignOrchestrator
+    from app.orchestration.app_designer.intent_analyzer import AppIntentAnalyzer
+    from app.orchestration.app_designer.architect import AppArchitect
+    from app.orchestration.app_designer.orchestrator import AppDesignOrchestrator
     app_intent_analyzer = AppIntentAnalyzer(model_router=model_router)
     app_architect = AppArchitect(model_router=model_router, skill_registry=skill_factory)
     app_design_orchestrator = AppDesignOrchestrator(
@@ -884,7 +884,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     skill_factory.reload_generated_skills()
 
     # -- Permission Skill (through main controller) ----------------------------
-    from app.services.system_skills.permission import PermissionSkillService
+    from app.skills.system_skills.permission import PermissionSkillService
     permission_skill = PermissionSkillService(user_service=user_service)
 
     # -- G.1/G.2: MessageBus + Workers + LogCenter + SkillMeta + PathStore ---
@@ -900,7 +900,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     # Pre-load path definitions from YAML files
     g1g2_path_store.load_all()
     # -- Dynamic Path Composer --------------------------------------------------
-    from app.services.dynamic_path_composer import DynamicPathComposer
+    from app.orchestration.dynamic_path.dynamic_path_composer import DynamicPathComposer
     g1g2_dynamic_composer = DynamicPathComposer(
         skill_meta_service=g1g2_meta_service,
         message_bus=g1g2_bus,
@@ -917,7 +917,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     )
 
     # -- Dynamic Path Composer (dynamic skill chain composition) ---------------
-    from app.services.dynamic_path_composer import DynamicPathComposer
+    from app.orchestration.dynamic_path.dynamic_path_composer import DynamicPathComposer
     g1g2_dynamic_composer = DynamicPathComposer(
         skill_meta_service=g1g2_meta_service,
         message_bus=g1g2_bus,
@@ -933,14 +933,14 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     )
 
     # -- LightBrain interaction gateway -----------------------------------------
-    from app.services.light_brain_gateway import LightBrainGateway
-    from app.services.light_brain_interpreter import LightBrainInterpreter
-    from app.services.light_brain_memory import LightBrainMemory
-    from app.services.llm_responder import LLMResponder
+    from app.system.gateway.light_brain_gateway import LightBrainGateway
+    from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
+    from app.system.gateway.light_brain_memory import LightBrainMemory
+    from app.system.gateway.llm_responder import LLMResponder
     from app.services.external_model_review import ExternalModelReviewService, ExternalModelReviewWorker
-    from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
+    from app.system.master.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
     from app.services.asset_tools import AssetToolExecutor, make_all_asset_tools
-    from app.services.package_manager import PackageManagerExecutor, make_all_package_tools
+    from app.system.master.package_manager import PackageManagerExecutor, make_all_package_tools
 
     # External model review (planned but not yet implemented)
     external_model_review = ExternalModelReviewService(model_router=None)
@@ -962,13 +962,13 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     tool_registry = ToolRegistry()
 
     # -- Phase M: Master Control + subordinate Workers -----------------------
-    from app.services.master_control import MasterControl
-    from app.services.workers.app_management_worker import AppManagementWorker
-    from app.services.workers.user_manager import UserManager
-    from app.services.workers.skill_manager import SkillManager
-    from app.services.workers.refinement_worker import RefinementWorker
-    from app.services.workers.file_worker import FileWorker
-    from app.services.workers.suggestion_worker import SuggestionWorker
+    from app.system.master.master_control import MasterControl
+    from app.system.workers.app_mgmt import AppManagementWorker
+    from app.system.workers.user_mgr import UserManager
+    from app.system.workers.skill_mgr import SkillManager
+    from app.system.workers.refinement import RefinementWorker
+    from app.system.workers.file import FileWorker
+    from app.system.workers.suggestion import SuggestionWorker
 
     master_control = MasterControl()
     master_control.set_tool_registry(tool_registry)
@@ -1577,11 +1577,11 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     ))
 
     # -- Phase I: Register system services as MessageBus Workers ----------------
-    from app.services.system_lifecycle_worker import SystemLifecycleWorker
-    from app.services.system_app_registry_worker import SystemAppRegistryWorker
-    from app.services.system_meta_app_worker import SystemMetaAppWorker
-    from app.services.system_app_refinement_worker import SystemAppRefinementWorker
-    from app.services.system_config_center_worker import SystemConfigCenterWorker
+    from app.system.workers.system_lifecycle_worker import SystemLifecycleWorker
+    from app.system.workers.system_app_registry_worker import SystemAppRegistryWorker
+    from app.system.workers.system_meta_app_worker import SystemMetaAppWorker
+    from app.system.workers.system_app_refinement_worker import SystemAppRefinementWorker
+    from app.system.workers.system_config_center_worker import SystemConfigCenterWorker
 
     lifecycle_worker = SystemLifecycleWorker(g1g2_bus, lifecycle)
     app_registry_worker = SystemAppRegistryWorker(g1g2_bus, app_registry)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.models.generated_skill import GeneratedSkillAsset, GeneratedSkillRequest
 from app.models.skill_asset import SkillAssetMetadata
-from app.services.skill_asset_service import SkillAssetService
+from app.skills.skill_asset_service import SkillAssetService
 
 
 class GeneratedSkillAssetStore:

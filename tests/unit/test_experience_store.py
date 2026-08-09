@@ -1,6 +1,6 @@
 from app.models.experience import ExperienceRecord
 from app.models.skill_blueprint import SkillBlueprint
-from app.services.experience_store import ExperienceStore
+from app.persistence.experience_store import ExperienceStore
 
 
 def test_add_and_list_experiences() -> None:

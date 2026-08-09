@@ -12,7 +12,7 @@ from app.models.log_evidence import (
     SuspiciousSignal,
 )
 from app.models.operator_contracts import OperatorPageMeta
-from app.services.runtime_state_store import RuntimeStateStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class LogEvidenceService:

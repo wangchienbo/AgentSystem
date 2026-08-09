@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from app.models.evaluation import CandidateEvaluationRecord
-from app.services.evaluation_summary_service import EvaluationSummaryService
-from app.services.telemetry_service import TelemetryService
+from app.ai.evaluation_summary_service import EvaluationSummaryService
+from app.governance.telemetry_service import TelemetryService
 
 
 class CoreReplaySelectorSkill:

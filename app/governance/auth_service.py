@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.services.user_service import UserService, UserServiceError
+from app.system.workers.user_service import UserService, UserServiceError
 
 
 class AuthError(ValueError):

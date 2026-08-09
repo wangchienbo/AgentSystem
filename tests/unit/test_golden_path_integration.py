@@ -1,19 +1,19 @@
 from app.models.app_blueprint import AppBlueprint
-from app.services.app_catalog import AppCatalogService
+from app.system.runtime.app_catalog import AppCatalogService
 from app.models.interaction import AppCatalogEntry, UserCommand
-from app.services.app_context_store import AppContextStore
-from app.services.app_data_store import AppDataStore
-from app.services.app_installer import AppInstallerService
-from app.services.app_registry import AppRegistryService
-from app.services.event_bus import EventBusService
-from app.services.interaction_gateway import InteractionGateway
-from app.services.lifecycle import AppLifecycleService
-from app.services.requirement_router import RequirementRouter
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.scheduler import SchedulerService
-from app.services.workflow_executor import WorkflowExecutorService
-from app.services.workflow_observability import WorkflowObservabilityService
+from app.system.runtime.app_context_store import AppContextStore
+from app.system.runtime.app_data_store import AppDataStore
+from app.app_installer import AppInstallerService
+from app.system.runtime.app_registry import AppRegistryService
+from app.persistence.event_bus import EventBusService
+from app.system.gateway.interaction_gateway import InteractionGateway
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.orchestration.requirement_router import RequirementRouter
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.runtime.scheduler import SchedulerService
+from app.orchestration.workflow_executor import WorkflowExecutorService
+from app.persistence.workflow_observability import WorkflowObservabilityService
 
 
 def _build_runtime(prefix: str):

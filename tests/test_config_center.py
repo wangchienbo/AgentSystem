@@ -6,18 +6,18 @@ from pathlib import Path
 
 import pytest
 
-from app.services.config_center import (
+from app.system.runtime.config_center import (
     AppSkillBinding,
     ConfigCenterService,
     SkillTemplateConfig,
 )
-from app.services.model_router import DEFAULT_MODEL_POOL, ModelRouter
+from app.ai.model_router import DEFAULT_MODEL_POOL, ModelRouter
 from app.models.skill_control import (
     SkillCapabilityProfile,
     SkillManifest,
     SkillRegistryEntry,
 )
-from app.services.skill_control import SkillControlService
+from app.skills.skill_control import SkillControlService
 
 
 class TestSkillTemplateConfig:

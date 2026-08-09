@@ -1,10 +1,10 @@
 import pytest
 
-from app.services.requirement_blueprint_builder import (
+from app.refinement.requirement_blueprint_builder import (
     RequirementBlueprintBuilderError,
     RequirementBlueprintBuilderService,
 )
-from app.services.requirement_clarifier import RequirementClarifierService
+from app.refinement.requirement_clarifier import RequirementClarifierService
 
 
 clarifier = RequirementClarifierService()

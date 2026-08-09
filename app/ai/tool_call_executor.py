@@ -21,7 +21,7 @@ from typing import Any
 from app.models.tool_entry import ToolEntry, ToolType
 from app.services.contract_linter import ContractLinter
 from app.services.tool_loop_guard import ToolLoopGuard
-from app.services.unified_tool_registry import UnifiedToolRegistry
+from app.system.master.unified_tool_registry import UnifiedToolRegistry
 
 logger = logging.getLogger(__name__)
 

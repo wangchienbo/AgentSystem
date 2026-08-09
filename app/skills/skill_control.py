@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.models.skill_control import SkillMutationResult, SkillRegistryEntry, SkillVersion
-from app.services.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
+from app.skills.skill_manifest_validator import SkillManifestValidationError, SkillManifestValidatorService
 
 
 class SkillControlError(ValueError):

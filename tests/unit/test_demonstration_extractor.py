@@ -1,5 +1,5 @@
 from app.models.demonstration import DemonstrationRecord
-from app.services.demonstration_extractor import DemonstrationExtractor
+from app.governance.demonstration_extractor import DemonstrationExtractor
 
 
 def test_extract_demonstration_into_experience_and_skill() -> None:

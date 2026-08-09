@@ -1,5 +1,5 @@
 from app.models.meta_app_skill import MetaAppSkillRequest
-from app.services.meta_app.bootstrap import MetaAppBootstrapService
+from app.orchestration.meta_app.bootstrap import MetaAppBootstrapService
 
 
 def test_meta_app_bootstrap_generates_control_skill_for_simple_app() -> None:

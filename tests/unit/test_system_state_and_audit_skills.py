@@ -3,19 +3,19 @@ from pathlib import Path
 from app.models.app_blueprint import AppBlueprint
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
 from app.models.system_skill import SystemAuditRequest, SystemStateRequest
-from app.services.app_config_service import AppConfigService
-from app.services.app_context_store import AppContextStore
-from app.services.app_data_store import AppDataStore
-from app.services.app_installer import AppInstallerService
-from app.services.app_registry import AppRegistryService
-from app.services.event_bus import EventBusService
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.scheduler import SchedulerService
-from app.services.skill_runtime import SkillRuntimeService
-from app.services.system_skill_service import SystemAuditService, SystemStateService
-from app.services.workflow_executor import WorkflowExecutorService
+from app.system.runtime.app_config_service import AppConfigService
+from app.system.runtime.app_context_store import AppContextStore
+from app.system.runtime.app_data_store import AppDataStore
+from app.app_installer import AppInstallerService
+from app.system.runtime.app_registry import AppRegistryService
+from app.persistence.event_bus import EventBusService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.runtime.scheduler import SchedulerService
+from app.skills.skill_runtime import SkillRuntimeService
+from app.skills.system_skill_service import SystemAuditService, SystemStateService
+from app.orchestration.workflow_executor import WorkflowExecutorService
 
 
 def test_system_state_and_audit_skills_execute_through_runtime(tmp_path: Path) -> None:

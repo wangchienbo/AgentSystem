@@ -14,8 +14,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from app.services.execution_monitor import ExecutionMonitor
-from app.services.command_queue import CommandQueue, Priority
+from app.system.master.execution_monitor import ExecutionMonitor
+from app.persistence.command_queue import CommandQueue, Priority
 
 logger = logging.getLogger(__name__)
 

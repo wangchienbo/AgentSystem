@@ -5,11 +5,11 @@ import json
 from unittest.mock import MagicMock, patch
 
 from app.models.chat import InterpretedCommand
-from app.services.light_brain_memory import LightBrainMemory
-from app.services.tool_registry import ToolRegistry
-from app.services.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord, ToolDef
+from app.system.gateway.light_brain_memory import LightBrainMemory
+from app.system.master.tool_registry import ToolRegistry
+from app.ai.tool_calling_engine import ToolCallingEngine, ToolCallingResult, ToolCallRecord, ToolDef
 from app.system.master.tool_registry import ToolDefinition
-from app.services.model_router import ModelRouter
+from app.ai.model_router import ModelRouter
 from app.system.gateway.scan_profiles import SCAN_PROFILES, derive_scan_profile
 from app.system.gateway.tool_calling_interpreter import (
     ToolCallingInterpreter,

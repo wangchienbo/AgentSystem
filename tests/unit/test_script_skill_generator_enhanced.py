@@ -5,10 +5,10 @@ from pathlib import Path
 
 from app.models.generated_skill import GeneratedSkillRequest
 from app.models.skill_runtime import SkillExecutionRequest
-from app.services.generated_skill_asset_store import GeneratedSkillAssetStore
-from app.services.script_skill_generator import ScriptSkillGenerator, ScriptSkillGenerationError
-from app.services.skill_control import SkillControlService
-from app.services.skill_runtime import SkillRuntimeService
+from app.skills.generated_skill_asset_store import GeneratedSkillAssetStore
+from app.orchestration.script_skill_generator import ScriptSkillGenerator, ScriptSkillGenerationError
+from app.skills.skill_control import SkillControlService
+from app.skills.skill_runtime import SkillRuntimeService
 
 
 def test_auto_description_from_skill_id_and_name(tmp_path: Path) -> None:

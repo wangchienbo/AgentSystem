@@ -20,11 +20,11 @@ from app.models.app_binding import AppInstanceBinding
 from app.models.log_center import LogCollectionConfig, LogLevel
 from app.models.request_context import RequestContext
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
-from app.services.app_orchestrator import AppOrchestrator
-from app.services.dynamic_path_composer import DynamicPathComposer
-from app.services.log_center import LogCenter
-from app.services.path_store import PathStore
-from app.services.skill_meta_service import SkillMetaService
+from app.orchestration.app_orchestrator import AppOrchestrator
+from app.orchestration.dynamic_path.dynamic_path_composer import DynamicPathComposer
+from app.governance.log_center import LogCenter
+from app.persistence.path_store import PathStore
+from app.skills.skill_meta_service import SkillMetaService
 
 logger = logging.getLogger(__name__)
 

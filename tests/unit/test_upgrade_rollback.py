@@ -21,16 +21,16 @@ from app.models.app_blueprint import (
 from app.models.app_instance import AppInstance, AppStatus
 from app.models.app_profile import AppRuntimeProfile
 from app.models.runtime_policy import RuntimePolicy
-from app.services.blueprint_compare import (
+from app.refinement.blueprint_compare import (
     BlueprintCompareError,
     BlueprintCompareService,
     BlueprintDiffItem,
 )
-from app.services.lifecycle import AppLifecycleService, LifecycleError
-from app.services.rollback_service import RollbackError, RollbackService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.upgrade_log_service import UpgradeLogService
-from app.services.upgrade_service import UpgradeError, UpgradeService
+from app.system.runtime.lifecycle import AppLifecycleService, LifecycleError
+from app.persistence.rollback_service import RollbackError, RollbackService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.persistence.upgrade_log_service import UpgradeLogService
+from app.persistence.upgrade_service import UpgradeError, UpgradeService
 
 
 # ---------------------------------------------------------------------------

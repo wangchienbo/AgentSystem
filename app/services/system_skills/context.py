@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.models.context_skill import ContextSkillRequest
-from app.services.app_context_store import AppContextStore
+from app.system.runtime.app_context_store import AppContextStore
 
 
 class ContextSkillError(ValueError):

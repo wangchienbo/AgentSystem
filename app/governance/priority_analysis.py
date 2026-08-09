@@ -3,8 +3,8 @@ from __future__ import annotations
 from app.models.app_context import AppSharedContext
 from app.models.patch_proposal import PatchProposal
 from app.models.priority_analysis import PriorityAnalysisRequest, PriorityAnalysisResult, PrioritizedProposal
-from app.services.app_context_store import AppContextStore, AppContextStoreError
-from app.services.proposal_review import ProposalReviewService
+from app.system.runtime.app_context_store import AppContextStore, AppContextStoreError
+from app.governance.proposal_review import ProposalReviewService
 
 
 class PriorityAnalysisError(ValueError):

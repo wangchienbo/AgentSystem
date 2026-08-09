@@ -9,9 +9,9 @@ from app.models.meta_app import (
     SubordinateSkillSuggestion,
 )
 from app.models.meta_app_skill import MetaAppSkillRequest
-from app.services.model_client import OpenAIResponsesClient
-from app.services.model_config_loader import ModelConfigLoader, ModelConfigError
-from app.services.model_router import ModelRouter
+from app.ai.model_client import OpenAIResponsesClient
+from app.ai.model_config_loader import ModelConfigLoader, ModelConfigError
+from app.ai.model_router import ModelRouter
 
 
 class MetaAppModelClientError(Exception):

@@ -4,8 +4,8 @@ from typing import Any
 
 from app.models.skill_creation import GeneratedSkillVersionComparison, SkillCreationRequest, SkillSchemaDefinition
 from app.models.skill_control import SkillRegistryEntry
-from app.services.app_data_store import AppDataStore
-from app.services.skill_authoring import SkillAuthoringService
+from app.system.runtime.app_data_store import AppDataStore
+from app.skills.skill_authoring import SkillAuthoringService
 
 
 class GeneratedSkillAssetStore:

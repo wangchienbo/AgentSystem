@@ -11,7 +11,7 @@ import json
 import re
 from typing import Any
 
-from app.services.tool_registry import ToolRegistry, ToolDefinition
+from app.system.master.tool_registry import ToolRegistry, ToolDefinition
 
 from app.models.chat import ActionSuggestion, InterpretedCommand
 

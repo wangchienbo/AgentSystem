@@ -8,8 +8,8 @@ from app.models.generated_skill import GeneratedSkillRequest
 from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
-from app.services.generated_skill_asset_store import GeneratedSkillAssetStore
-from app.services.skill_control import SkillControlService
+from app.skills.generated_skill_asset_store import GeneratedSkillAssetStore
+from app.skills.skill_control import SkillControlService
 
 
 class ScriptSkillGenerationError(ValueError):

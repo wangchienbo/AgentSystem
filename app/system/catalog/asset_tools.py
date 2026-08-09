@@ -15,7 +15,7 @@ from typing import Any
 
 from app.models.asset import Asset, AssetFunction
 from app.models.asset_contract import AssetDescriptor
-from app.services.asset_registry import AssetRegistry
+from app.system.catalog.asset_registry import AssetRegistry
 from app.system.runtime_asset_formatter import render_asset_overview_prompt
 
 logger = logging.getLogger(__name__)

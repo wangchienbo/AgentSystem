@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 from app.models.requirement_spec import RequirementSpec
-from app.services.requirement_router import RequirementRouter
+from app.orchestration.requirement_router import RequirementRouter
 
 
 class RequirementClarifierService:

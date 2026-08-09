@@ -4,8 +4,8 @@ import re
 
 from app.models.app_refinement import SuggestedSkillRefinementRequest, SuggestedSkillRefinementResult
 from app.models.skill_blueprint import SkillBlueprint
-from app.services.experience_store import ExperienceStore
-from app.services.skill_control import SkillControlService, SkillControlError
+from app.persistence.experience_store import ExperienceStore
+from app.skills.skill_control import SkillControlService, SkillControlError
 from app.services.skill_factory import SkillFactoryService, SkillFactoryError
 
 

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from app.models.app_blueprint import AppBlueprint
 from app.models.interaction import AppCatalogEntry
-from app.services.app_catalog import AppCatalogService
-from app.services.app_registry import AppRegistryService
+from app.system.runtime.app_catalog import AppCatalogService
+from app.system.runtime.app_registry import AppRegistryService
 
 
 def bootstrap_demo_catalog(app_registry: AppRegistryService, app_catalog: AppCatalogService) -> None:

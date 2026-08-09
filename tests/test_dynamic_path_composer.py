@@ -116,7 +116,7 @@ def mock_universal_skill():
 @pytest.fixture
 def composer(mock_meta_service, mock_bus, mock_model_router, mock_universal_skill):
     """Create a DynamicPathComposer with all mocks."""
-    from app.services.dynamic_path_composer import DynamicPathComposer
+    from app.orchestration.dynamic_path.dynamic_path_composer import DynamicPathComposer
     return DynamicPathComposer(
         skill_meta_service=mock_meta_service,
         message_bus=mock_bus,
@@ -458,7 +458,7 @@ class TestFallback:
 
     @pytest.mark.asyncio
     async def test_fallback_no_universal(self, mock_meta_service, mock_bus, mock_model_router):
-        from app.services.dynamic_path_composer import DynamicPathComposer
+        from app.orchestration.dynamic_path.dynamic_path_composer import DynamicPathComposer
         composer = DynamicPathComposer(
             skill_meta_service=mock_meta_service,
             message_bus=mock_bus,
@@ -513,8 +513,8 @@ class TestAppOrchestratorDynamicPath:
     @pytest.mark.asyncio
     async def test_orchestrator_uses_dynamic_composer(self):
         """When no YAML path matches, orchestrator should try dynamic composition."""
-        from app.services.app_orchestrator import AppOrchestrator
-        from app.services.path_store import PathStore
+        from app.orchestration.app_orchestrator import AppOrchestrator
+        from app.persistence.path_store import PathStore
 
         mock_bus = MagicMock()
         mock_bus.list_workers.return_value = []
@@ -555,8 +555,8 @@ class TestAppOrchestratorDynamicPath:
     @pytest.mark.asyncio
     async def test_orchestrator_falls_back_when_composer_fails(self):
         """When dynamic composition fails, should fall back to universal."""
-        from app.services.app_orchestrator import AppOrchestrator
-        from app.services.path_store import PathStore
+        from app.orchestration.app_orchestrator import AppOrchestrator
+        from app.persistence.path_store import PathStore
 
         mock_bus = MagicMock()
         mock_bus.list_workers.return_value = []

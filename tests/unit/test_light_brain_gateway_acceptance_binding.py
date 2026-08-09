@@ -7,7 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 from app.models.pending_task import PendingTaskRecord
 from app.persistence.runtime_state_store import RuntimeStateStore
-from app.services.light_brain_memory import LightBrainMemory
+from app.system.gateway.light_brain_memory import LightBrainMemory
 from app.system.gateway.light_brain_gateway import LightBrainGateway
 
 

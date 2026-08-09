@@ -12,9 +12,9 @@ from app.models.app_design import (
     AppIntentResult,
     DesignConfirmation,
 )
-from app.services.app_designer.architect import AppArchitect, AppArchitectError
-from app.services.app_designer.intent_analyzer import AppIntentAnalyzer, AppIntentAnalyzerError
-from app.services.design_blueprint_builder import DesignBlueprintBuilderService
+from app.orchestration.app_designer.architect import AppArchitect, AppArchitectError
+from app.orchestration.app_designer.intent_analyzer import AppIntentAnalyzer, AppIntentAnalyzerError
+from app.refinement.design_blueprint_builder import DesignBlueprintBuilderService
 
 
 class AppDesignOrchestratorError(ValueError):

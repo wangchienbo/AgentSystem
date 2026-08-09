@@ -4,12 +4,12 @@ from app.models.app_refinement import (
     SuggestedSkillRefinementClosureRequest,
     SuggestedSkillRefinementClosureResult,
 )
-from app.services.app_installer import AppInstallerError, AppInstallerService
-from app.services.app_refinement import AppRefinementService
-from app.services.app_registry import AppRegistryService
+from app.app_installer import AppInstallerError, AppInstallerService
+from app.orchestration.app_refinement import AppRefinementService
+from app.system.runtime.app_registry import AppRegistryService
 from app.models.skill_diagnostics import SkillDiagnostic
-from app.services.workflow_executor import WorkflowExecutorService
-from app.services.policy_authority_service import PolicyAuthorityError, PolicyAuthorityService
+from app.orchestration.workflow_executor import WorkflowExecutorService
+from app.governance.policy_authority_service import PolicyAuthorityError, PolicyAuthorityService
 
 
 class AppRefinementOrchestratorError(ValueError):

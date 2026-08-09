@@ -2,8 +2,8 @@ from pathlib import Path
 
 from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.app_instance import AppInstance
-from app.services.lifecycle import AppLifecycleService, LifecycleError
-from app.services.runtime_host import AppRuntimeHostService
+from app.system.runtime.lifecycle import AppLifecycleService, LifecycleError
+from app.system.runtime.runtime_host import AppRuntimeHostService
 
 
 

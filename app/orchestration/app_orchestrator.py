@@ -16,8 +16,8 @@ from app.core.message_bus import MessageBus, WorkerNotFoundError
 from app.core.model_health import ModelHealthMonitor, ModelHealthStatus
 from app.core.skill_worker import SkillWorker
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
-from app.services.path_store import PathStore, PathTemplate
-from app.services.dynamic_path_composer import DynamicPathComposer
+from app.persistence.path_store import PathStore, PathTemplate
+from app.orchestration.dynamic_path.dynamic_path_composer import DynamicPathComposer
 
 logger = logging.getLogger(__name__)
 

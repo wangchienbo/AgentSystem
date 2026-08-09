@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from app.services.model_router import ModelRouter, ModelClientError
+from app.ai.model_router import ModelRouter, ModelClientError
 
 logger = logging.getLogger(__name__)
 

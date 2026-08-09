@@ -19,7 +19,7 @@ from app.models.refinement_loop import (
     RolloutQueueItem,
     VerificationResult,
 )
-from app.services.runtime_state_store import RuntimeStateStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class RefinementMemoryStore:

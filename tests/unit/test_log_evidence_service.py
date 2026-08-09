@@ -1,4 +1,4 @@
-from app.services.log_evidence_service import LogEvidenceService
+from app.governance.log_evidence_service import LogEvidenceService
 
 
 

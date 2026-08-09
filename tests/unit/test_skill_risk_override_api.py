@@ -4,7 +4,7 @@ from tests.unit.api_test_helper import create_isolated_test_client
 from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillContractRef, SkillManifest, SkillManifestRisk
-from app.services.skill_control import SkillControlError
+from app.skills.skill_control import SkillControlError
 
 def _register_blocked_skill(client) -> None:
     skill_control = client.app.state.services["skill_control"]

@@ -6,7 +6,7 @@ from app.models.chat import ChatMessageRequest
 from app.models.context import SessionContextRecord, SessionNode
 from app.models.pending_task import PendingTaskRecord
 from app.services.context_center import ContextCenter
-from app.services.light_brain_memory import LightBrainMemory
+from app.system.gateway.light_brain_memory import LightBrainMemory
 from app.services.pending_task_orchestrator import PendingTaskOrchestrator
 from app.system.gateway.light_brain_gateway import LightBrainGateway
 from app.system.invocation.context_bundle_assembly import ContextBundleAssemblyService

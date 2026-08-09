@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.models.persistence_health import PersistenceHealthSummary
-from app.services.runtime_state_store import RuntimeStateStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class PersistenceHealthService:

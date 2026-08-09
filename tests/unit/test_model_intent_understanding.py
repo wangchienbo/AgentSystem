@@ -1,4 +1,4 @@
-from app.services.requirement_router import RequirementRouter
+from app.orchestration.requirement_router import RequirementRouter
 
 
 router = RequirementRouter()

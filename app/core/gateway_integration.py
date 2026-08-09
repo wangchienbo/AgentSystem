@@ -16,10 +16,10 @@ from app.core.worker_manager import WorkerManager
 from app.models.app_binding import AppInstanceBinding, SkillBindingConfig
 from app.models.request_context import RequestContext
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
-from app.services.app_orchestrator import AppOrchestrator
-from app.services.log_center import LogCenter
-from app.services.skill_meta_service import SkillMetaService
-from app.services.system_skill_registry import register_builtin_handlers
+from app.orchestration.app_orchestrator import AppOrchestrator
+from app.governance.log_center import LogCenter
+from app.skills.skill_meta_service import SkillMetaService
+from app.skills.system_skill_registry import register_builtin_handlers
 from app.core.skill_worker import SkillWorker
 
 logger = logging.getLogger(__name__)

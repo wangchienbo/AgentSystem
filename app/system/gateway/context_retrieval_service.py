@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.services.app_context_store import AppContextStore
-from app.services.context_compaction import ContextCompactionService
+from app.system.runtime.app_context_store import AppContextStore
+from app.persistence.context_compaction import ContextCompactionService
 
 
 class ContextRetrievalService:

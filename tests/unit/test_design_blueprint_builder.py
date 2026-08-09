@@ -1,5 +1,5 @@
 from app.models.app_design import AppDesignResult, SubordinateSkillDesign
-from app.services.design_blueprint_builder import DesignBlueprintBuilderService
+from app.refinement.design_blueprint_builder import DesignBlueprintBuilderService
 
 
 def test_design_blueprint_builder_materializes_blueprint_from_design() -> None:

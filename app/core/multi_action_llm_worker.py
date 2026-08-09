@@ -13,7 +13,7 @@ from typing import Any
 
 from app.core.skill_worker import SkillWorker, WorkerHealth
 from app.models.skill_runtime import SkillExecutionRequest, SkillExecutionResult
-from app.services.model_router import ModelRouter
+from app.ai.model_router import ModelRouter
 
 logger = logging.getLogger(__name__)
 

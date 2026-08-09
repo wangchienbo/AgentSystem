@@ -300,7 +300,7 @@ class TestHelperFunctions:
 class TestRuntimeIntegration:
     def test_invoker_injected_into_callable(self):
         """Verify that SkillRuntimeService injects invoker when context is present."""
-        from app.services.skill_runtime import SkillRuntimeService
+        from app.skills.skill_runtime import SkillRuntimeService
 
         received_invoker = None
 
@@ -337,7 +337,7 @@ class TestRuntimeIntegration:
 
     def test_cross_skill_call_via_runtime(self):
         """Skill A invokes Skill B through the runtime."""
-        from app.services.skill_runtime import SkillRuntimeService
+        from app.skills.skill_runtime import SkillRuntimeService
         from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry
 
         call_log = []
@@ -384,7 +384,7 @@ class TestRuntimeIntegration:
 
     def test_cycle_detected_in_runtime(self):
         """Runtime should prevent A → B → A cycles."""
-        from app.services.skill_runtime import SkillRuntimeService
+        from app.skills.skill_runtime import SkillRuntimeService
         from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry
 
         def handler_a(request: SkillExecutionRequest) -> SkillExecutionResult:

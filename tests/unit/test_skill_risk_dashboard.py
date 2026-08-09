@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from tests.unit.api_test_helper import create_isolated_test_client
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.skill_risk_policy import SkillRiskPolicyService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.skills.skill_risk_policy import SkillRiskPolicyService
 
 def test_skill_risk_policy_stats_and_dashboard_service_view(tmp_path: Path) -> None:
     client = create_isolated_test_client(tmp_path)

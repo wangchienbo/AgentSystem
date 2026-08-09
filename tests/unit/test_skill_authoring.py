@@ -1,5 +1,5 @@
 from app.models.skill_control import SkillCapabilityProfile
-from app.services.skill_authoring import SkillAuthoringService, SkillAuthoringSpec
+from app.skills.skill_authoring import SkillAuthoringService, SkillAuthoringSpec
 
 
 def test_skill_authoring_service_builds_callable_entry() -> None:

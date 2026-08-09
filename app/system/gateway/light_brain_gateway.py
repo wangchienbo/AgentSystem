@@ -37,8 +37,8 @@ from app.models.pending_task import (
     PENDING_TASK_ACTION_UPGRADE_APP_RUNTIME,
     PendingTaskRecord,
 )
-from app.services.light_brain_interpreter import LightBrainInterpreter
-from app.services.tool_registry import ToolRegistry
+from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
+from app.system.master.tool_registry import ToolRegistry
 from app.system.catalog.runtime_center import RuntimeCenter
 from app.config.context_upload import (
     ContextUploadConfig,
@@ -1130,7 +1130,7 @@ class LightBrainGateway:
         return self._app_command_recovery
 
     def _build_default_tool_registry(self):
-        from app.services.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
+        from app.system.master.tool_registry import ToolRegistry, ToolDefinition, ToolParameter
         registry = ToolRegistry()
 
         registry.register(ToolDefinition(
@@ -1608,7 +1608,7 @@ class LightBrainGateway:
         user_id = command.user_id or ""
         if not user_id:
             return self._error_reply(session_id, "⚠️ 无法识别用户身份。")
-        from app.services.system_skills.permission import parse_permission_command
+        from app.skills.system_skills.permission import parse_permission_command
         cmd = parse_permission_command(command.raw_input or "", user_id)
         if not cmd:
             return ChatMessageResponse(

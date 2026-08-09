@@ -1,11 +1,11 @@
 from app.models.app_context import AppSharedContext
-from app.services.app_context_store import AppContextStore
-from app.services.context_compaction import ContextCompactionService
-from app.services.lifecycle import AppLifecycleService
-from app.services.log_evidence_service import LogEvidenceService
-from app.services.prompt_invocation_service import PromptInvocationService
-from app.services.prompt_selection_service import PromptSelectionService
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_context_store import AppContextStore
+from app.persistence.context_compaction import ContextCompactionService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.governance.log_evidence_service import LogEvidenceService
+from app.ai.prompt_invocation_service import PromptInvocationService
+from app.ai.prompt_selection_service import PromptSelectionService
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class _StubWorkflowExecutor:
@@ -40,11 +40,11 @@ class _FakeClient:
         }
 
 
-from app.services.collection_policy_service import CollectionPolicyService
-from app.services.evaluation_summary_service import EvaluationSummaryService
-from app.services.telemetry_service import TelemetryService
-from app.services.upgrade_log_service import UpgradeLogService
-from app.services.skill_risk_policy import SkillRiskPolicyService
+from app.governance.collection_policy_service import CollectionPolicyService
+from app.ai.evaluation_summary_service import EvaluationSummaryService
+from app.governance.telemetry_service import TelemetryService
+from app.persistence.upgrade_log_service import UpgradeLogService
+from app.skills.skill_risk_policy import SkillRiskPolicyService
 
 
 class _JsonFakeClient:

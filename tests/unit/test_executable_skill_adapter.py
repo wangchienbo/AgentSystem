@@ -4,8 +4,8 @@ from app.models.skill_adapter import SkillAdapterSpec
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
 from app.models.skill_manifest import SkillContractRef, SkillManifest
 from app.models.skill_runtime import SkillExecutionRequest
-from app.services.executable_skill_adapter import ExecutableSkillAdapter, ExecutableSkillAdapterError
-from app.services.skill_runtime import SkillRuntimeService
+from app.skills.executable_skill_adapter import ExecutableSkillAdapter, ExecutableSkillAdapterError
+from app.skills.skill_runtime import SkillRuntimeService
 
 
 def _write_script(path: Path, content: str) -> str:

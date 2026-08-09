@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from app.models.interaction import AppExecutionMode, InteractionDecision, UserCommand
 from app.models.telemetry import InteractionTelemetryRecord
-from app.services.app_catalog import AppCatalogService
-from app.services.app_context_store import AppContextStore
-from app.services.app_installer import AppInstallerService
-from app.services.lifecycle import AppLifecycleService
-from app.services.requirement_router import RequirementRouter
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.telemetry_service import TelemetryService
+from app.system.runtime.app_catalog import AppCatalogService
+from app.system.runtime.app_context_store import AppContextStore
+from app.app_installer import AppInstallerService
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.orchestration.requirement_router import RequirementRouter
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.governance.telemetry_service import TelemetryService
 
 
 class InteractionGateway:

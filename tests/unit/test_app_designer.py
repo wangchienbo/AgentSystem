@@ -11,19 +11,19 @@ from app.models.app_design import (
     DesignConfirmation,
     SubordinateSkillDesign,
 )
-from app.services.app_designer.intent_analyzer import (
+from app.orchestration.app_designer.intent_analyzer import (
     AppIntentAnalyzer,
     AppIntentAnalyzerError,
 )
-from app.services.app_designer.architect import (
+from app.orchestration.app_designer.architect import (
     AppArchitect,
     AppArchitectError,
 )
-from app.services.app_designer.orchestrator import (
+from app.orchestration.app_designer.orchestrator import (
     AppDesignOrchestrator,
     AppDesignOrchestratorError,
 )
-from app.services.design_blueprint_builder import DesignBlueprintBuilderService
+from app.refinement.design_blueprint_builder import DesignBlueprintBuilderService
 
 
 # ===========================================================================
@@ -69,7 +69,7 @@ def _make_intent(**overrides) -> AppIntentResult:
 
 def test_analyze_parses_valid_json(tmp_path) -> None:
     """Analyzer should parse valid JSON response."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
@@ -105,7 +105,7 @@ def test_analyze_parses_valid_json(tmp_path) -> None:
 
 def test_analyze_parses_clarification_needed(tmp_path) -> None:
     """Analyzer should detect when clarification is needed."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
@@ -139,7 +139,7 @@ def test_analyze_parses_clarification_needed(tmp_path) -> None:
 
 def test_analyze_extracts_json_from_code_block(tmp_path) -> None:
     """Analyzer should extract JSON from markdown code blocks."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
@@ -162,7 +162,7 @@ def test_analyze_extracts_json_from_code_block(tmp_path) -> None:
 
 def test_analyze_fallback_on_error(tmp_path) -> None:
     """Analyzer should fallback gracefully on LLM errors."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
@@ -186,7 +186,7 @@ def test_analyze_fallback_on_error(tmp_path) -> None:
 
 def test_analyze_includes_context(tmp_path) -> None:
     """Analyzer should include context in the user message."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
@@ -227,7 +227,7 @@ def _make_architect_with_mock(router, response_text: str, skill_registry=None) -
 @patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
 def test_architect_parses_valid_design(tmp_path) -> None:
     """Architect should parse valid design response."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
@@ -276,7 +276,7 @@ def test_architect_parses_valid_design(tmp_path) -> None:
 
 def test_architect_handles_empty_skill_registry(tmp_path) -> None:
     """Architect should work without a skill registry."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
@@ -305,7 +305,7 @@ def test_architect_handles_empty_skill_registry(tmp_path) -> None:
 
 def test_architect_raises_on_parse_error(tmp_path) -> None:
     """Architect should raise AppArchitectError on unparseable response."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
@@ -329,7 +329,7 @@ def test_architect_raises_on_parse_error(tmp_path) -> None:
 
 def test_architect_gathers_skills_from_handlers_registry(tmp_path) -> None:
     """Architect should gather skills from _handlers registry."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({
@@ -353,7 +353,7 @@ def test_architect_gathers_skills_from_handlers_registry(tmp_path) -> None:
 
 def test_architect_gathers_skills_from_entries_registry(tmp_path) -> None:
     """Architect should gather skills from _entries registry."""
-    from app.services.model_router import ModelRouter
+    from app.ai.model_router import ModelRouter
     import yaml
     config_file = tmp_path / "config.yaml"
     config_file.write_text(yaml.dump({

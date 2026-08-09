@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from app.models.event_bus import EventPublishResult, EventRecord, EventSubscription
 from app.models.scheduling import ScheduleTriggerResult
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.scheduler import SchedulerService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.system.runtime.scheduler import SchedulerService
 
 
 class EventBusError(ValueError):

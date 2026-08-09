@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from app.models.evaluation import CandidateEvaluationRecord, EvaluationGatePolicy
 from app.models.upgrade_log import UpgradeLogEvent
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.upgrade_log_service import UpgradeLogService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.persistence.upgrade_log_service import UpgradeLogService
 
 
 class EvaluationSummaryService:

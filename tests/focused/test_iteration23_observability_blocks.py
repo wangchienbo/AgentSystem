@@ -8,8 +8,8 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from app.system.gateway.light_brain_gateway import LightBrainGateway
-from app.services.light_brain_memory import LightBrainMemory
-from app.services.light_brain_interpreter import LightBrainInterpreter
+from app.system.gateway.light_brain_memory import LightBrainMemory
+from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
 from app.models.chat import ChatMessageRequest
 
 
@@ -158,8 +158,8 @@ class TestRiskGuardObservabilityComplete:
     def test_all_block_paths_recorded(self):
         """Verify all risk guard block paths record to observability."""
         from app.system.gateway.light_brain_gateway import LightBrainGateway
-        from app.services.light_brain_memory import LightBrainMemory
-        from app.services.light_brain_interpreter import LightBrainInterpreter
+        from app.system.gateway.light_brain_memory import LightBrainMemory
+        from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
         
         memory = LightBrainMemory(data_dir="/tmp/test_complete")
         interpreter = LightBrainInterpreter()

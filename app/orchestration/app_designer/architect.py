@@ -11,7 +11,7 @@ import json
 from typing import Any
 
 from app.models.app_design import AppDesignResult, AppIntentResult, SubordinateSkillDesign
-from app.services.model_router import ModelRouter
+from app.ai.model_router import ModelRouter
 
 
 class AppArchitectError(ValueError):

@@ -14,23 +14,23 @@ import logging
 from typing import Any
 
 from app.runtime_paths import resolve_runtime_paths
-from app.services.skill_rpc import SkillRpcService
-from app.services.unified_tool_registry import UnifiedToolRegistry
+from app.skills.skill_rpc import SkillRpcService
+from app.system.master.unified_tool_registry import UnifiedToolRegistry
 from app.services.contract_linter import ContractLinter
 from app.services.tool_loop_guard import ToolLoopGuard, ToolLoopConfig
-from app.services.command_queue import CommandQueue
-from app.services.tool_call_executor import ToolCallExecutor
-from app.services.internal_model_router import InternalModelRouter
+from app.persistence.command_queue import CommandQueue
+from app.ai.tool_call_executor import ToolCallExecutor
+from app.ai.internal_model_router import InternalModelRouter
 from app.services.resource_budget_manager import ResourceBudgetManager, ResourceBudgetConfig
 
-from app.services.asset_center import AssetCenter
-from app.services.resource_center import ResourceCenter
-from app.services.config_center import ConfigCenterService
+from app.system.catalog.asset_center import AssetCenter
+from app.system.catalog.resource_center import ResourceCenter
+from app.system.runtime.config_center import ConfigCenterService
 
-from app.services.master_control import MasterControlService
-from app.services.execution_monitor import ExecutionMonitor
-from app.services.intent_router import IntentRouter
-from app.services.asset_resource_query_tools import AssetResourceQueryTools
+from app.system.master.master_control import MasterControlService
+from app.system.master.execution_monitor import ExecutionMonitor
+from app.system.master.intent_router import IntentRouter
+from app.system.catalog.asset_resource_query_tools import AssetResourceQueryTools
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ class CoreOrchestrator:
         self._register_system_tools()
 
         # 7. Discover and register installed skills
-        from app.services.skill_registry_service import SkillRegistryService
+        from app.skills.skill_registry_service import SkillRegistryService
         skill_registry = SkillRegistryService(
             installed_dir=str(self.asset_center._installed_dir),
             rpc_service=self.skill_rpc,

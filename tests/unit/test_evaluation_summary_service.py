@@ -2,9 +2,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from app.models.evaluation import CandidateEvaluationRecord, EvaluationGatePolicy
-from app.services.evaluation_summary_service import EvaluationSummaryService
-from app.services.runtime_state_store import RuntimeStateStore
-from app.services.upgrade_log_service import UpgradeLogService
+from app.ai.evaluation_summary_service import EvaluationSummaryService
+from app.persistence.runtime_state_store import RuntimeStateStore
+from app.persistence.upgrade_log_service import UpgradeLogService
 
 
 def test_evaluation_service_accepts_candidate_within_gates(tmp_path: Path) -> None:

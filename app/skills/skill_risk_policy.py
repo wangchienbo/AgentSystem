@@ -5,7 +5,7 @@ from datetime import datetime
 
 from app.models.operator_contracts import OperatorPageMeta
 from app.models.skill_risk_policy import SkillRiskDashboard, SkillRiskDecision, SkillRiskEventPage, SkillRiskGovernanceEvent, SkillRiskStatsSummary
-from app.services.runtime_state_store import RuntimeStateStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class SkillRiskPolicyService:

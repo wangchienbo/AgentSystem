@@ -21,9 +21,9 @@ from app.models.app_blueprint import AppBlueprint
 from app.models.app_instance import AppInstance, AppStatus
 from app.models.runtime_policy import RuntimePolicy
 from app.models.upgrade_log import UpgradeLogEvent
-from app.services.blueprint_compare import BlueprintCompareResult, BlueprintCompareService
-from app.services.lifecycle import AppLifecycleService, LifecycleError
-from app.services.upgrade_log_service import UpgradeLogService
+from app.refinement.blueprint_compare import BlueprintCompareResult, BlueprintCompareService
+from app.system.runtime.lifecycle import AppLifecycleService, LifecycleError
+from app.persistence.upgrade_log_service import UpgradeLogService
 
 logger = logging.getLogger(__name__)
 

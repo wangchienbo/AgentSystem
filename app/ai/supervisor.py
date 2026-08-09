@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from app.models.scheduling import SupervisionActionResult, SupervisionPolicy, SupervisionStatus
-from app.services.runtime_host import AppRuntimeHostService, RuntimeHostError
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.runtime_host import AppRuntimeHostService, RuntimeHostError
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class SupervisorError(ValueError):

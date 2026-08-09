@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from app.models.context_summary import ContextSummary
 from app.models.context_policy import ContextCompactionPolicy
-from app.services.app_context_store import AppContextStore
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_context_store import AppContextStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class ContextCompactionError(ValueError):

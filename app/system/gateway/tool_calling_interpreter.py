@@ -46,8 +46,8 @@ from typing import Any
 from app.models.chat import InterpretedCommand
 from app.models.cognition import SelfModel, StructuredAnswer, StructuredClaim
 from app.models.telemetry import StepTelemetryRecord
-from app.services.tool_registry import ToolRegistry
-from app.services.tool_calling_engine import ToolCallingEngine, ToolDef
+from app.system.master.tool_registry import ToolRegistry
+from app.ai.tool_calling_engine import ToolCallingEngine, ToolDef
 from app.system.gateway.scan_profiles import derive_scan_profile
 from app.system.runtime_asset_formatter import render_asset_method_catalog
 from app.tools.internal_tools import exec_shell

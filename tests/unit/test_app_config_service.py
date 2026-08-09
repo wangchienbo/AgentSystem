@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from app.models.app_config import AppConfigRequest
-from app.services.app_config_service import AppConfigService
-from app.services.app_data_store import AppDataStore
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.app_config_service import AppConfigService
+from app.system.runtime.app_data_store import AppDataStore
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 def test_app_config_service_initializes_and_mutates_values(tmp_path: Path) -> None:

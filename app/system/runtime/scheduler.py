@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 
 from app.models.event_bus import EventSubscription
 from app.models.scheduling import ScheduleRecord, ScheduleTriggerResult
-from app.services.lifecycle import AppLifecycleService
-from app.services.runtime_host import AppRuntimeHostService
-from app.services.runtime_state_store import RuntimeStateStore
+from app.system.runtime.lifecycle import AppLifecycleService
+from app.system.runtime.runtime_host import AppRuntimeHostService
+from app.persistence.runtime_state_store import RuntimeStateStore
 
 
 class SchedulerError(ValueError):

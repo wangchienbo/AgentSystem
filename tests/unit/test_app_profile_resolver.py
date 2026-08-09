@@ -1,6 +1,6 @@
 from app.models.skill_control import SkillCapabilityProfile, SkillRegistryEntry, SkillVersion
-from app.services.app_profile_resolver import AppProfileResolverService
-from app.services.skill_control import SkillControlService
+from app.system.catalog.app_profile_resolver import AppProfileResolverService
+from app.skills.skill_control import SkillControlService
 
 
 def register_skill(service: SkillControlService, skill_id: str, *, intelligence: str, network: str, criticality: str, locality: str, invocation: str) -> None:

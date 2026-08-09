@@ -13,10 +13,10 @@ from app.models.workflow_insight_skill import WorkflowInsightSkillRequest
 from app.models.meta_app_skill import MetaAppSkillRequest
 from app.models.maoxuan_skill import MaoxuanSkillRequest
 from app.models.memory_skill import MemorySkillRequest
-from app.services.model_client import OpenAIResponsesClient
-from app.services.model_config_loader import ModelConfigLoader
-from app.services.skill_runtime import SkillRuntimeService
-from app.services.system_skill_registry import register_builtin_handlers, register_builtin_skills
+from app.ai.model_client import OpenAIResponsesClient
+from app.ai.model_config_loader import ModelConfigLoader
+from app.skills.skill_runtime import SkillRuntimeService
+from app.skills.system_skill_registry import register_builtin_handlers, register_builtin_skills
 
 
 def build_builtin_skill_handlers(services: dict[str, object]) -> dict[str, callable]:
