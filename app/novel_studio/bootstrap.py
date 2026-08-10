@@ -532,9 +532,7 @@ def _novel_delete_range_resp(engine, novel_id="", chapter_from=0, chapter_to=0, 
 
 def _novel_add_chapter_resp(engine, novel_id="", title="", **kw):
     """手动添加空章节"""
-    from app.novel_studio.pipeline.step_chapter_plan import determine_chapter_number
-    number = determine_chapter_number(engine._storage, novel_id)
-    ch = engine._storage.add_chapter(novel_id, number=number, title=title or f"第{number}章")
+    ch = engine.add_chapter(novel_id, title=title or "新章节", content="")
     if ch:
         return {"success": True, "chapter": {"id": ch.id, "number": ch.number, "title": ch.title, "content": ch.content}}
     return {"success": False, "error": "添加失败"}

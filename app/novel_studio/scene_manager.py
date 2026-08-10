@@ -34,7 +34,6 @@ class SceneManager:
             if sid not in self._scenes:
                 if isinstance(scene, dict):
                     # 从 dict 构造 SceneSetting
-                    from app.novel_studio.data_models import SceneSetting
                     s = SceneSetting(
                         id=sid,
                         name=scene.get("name", sid),
