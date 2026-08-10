@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.refinement.refinement_memory import RefinementMemoryStore
+from app.skills.skill_asset_service import SkillAssetService
 from app.system.self_diagnosis import SelfDiagnosisService
 from app.system.self_dev import SelfDevService
 from app.system.self_iteration_assets import build_self_iteration_asset_summaries
@@ -15,10 +16,11 @@ from app.system.self_iteration_strategy import (
 
 
 class SelfIterationAssetService:
-    def __init__(self, memory: RefinementMemoryStore | None = None, diagnosis: SelfDiagnosisService | None = None, dev: SelfDevService | None = None) -> None:
+    def __init__(self, memory: RefinementMemoryStore | None = None, diagnosis: SelfDiagnosisService | None = None, dev: SelfDevService | None = None, skills: SkillAssetService | None = None) -> None:
         self._memory = memory or RefinementMemoryStore()
         self._diagnosis = diagnosis or SelfDiagnosisService(root_dir="app")
         self._dev = dev or SelfDevService(root_dir="app")
+        self._skills = skills
 
     def diagnose_codebase(self, *, include_god_objects: bool = True) -> dict[str, Any]:
         """运行只读代码健康诊断（导入缺陷 + God Object），供自治开发闭环的观察层使用。"""
@@ -28,6 +30,91 @@ class SelfIterationAssetService:
         """自治开发闭环的分析→方案层：基于诊断生成代码重构方案（供人类审批，不自动应用）。"""
         diagnosis = self._diagnosis.diagnose_codebase(include_god_objects=include_god_objects)
         return self._dev.build_dev_report(diagnosis)
+
+    # ─── Phase 2：能力自举（系统自己生成并注册新 skill 资产） ────────────────
+
+    def _require_skill_service(self) -> SkillAssetService:
+        if self._skills is None:
+            raise RuntimeError("能力自举需要注入 SkillAssetService")
+        return self._skills
+
+    def bootstrap_skill_asset(
+        self,
+        *,
+        skill_id: str,
+        name: str,
+        description: str = "",
+        template_type: str = "text_transform",
+        status: str = "candidate",
+        source_workflow: str | None = None,
+    ) -> dict[str, Any]:
+        """能力自举：生成一个新的 skill 资产脚手架并注册到资产索引。
+
+        默认落 candidate（草稿），由人类审批后 promote 到 core。
+        """
+        from app.models.generated_skill import GeneratedSkillRequest
+
+        svc = self._require_skill_service()
+        request = GeneratedSkillRequest(
+            skill_id=skill_id,
+            name=name,
+            description=description,
+            template_type=template_type,
+        )
+        asset, metadata = svc.create_asset_scaffold(
+            request,
+            adapter_kind="executable",
+            status=status,
+            source_workflow=source_workflow,
+        )
+        return {
+            "skill_id": skill_id,
+            "status": metadata.asset_status,
+            "asset_dir": asset.asset_dir,
+            "manifest_path": asset.manifest_path,
+            "entrypoint_path": asset.entrypoint_path,
+            "readme_path": asset.readme_path,
+            "smoke_test_path": f"{asset.asset_dir}/tests/test_smoke.py",
+            "message": "skill 资产脚手架已生成（candidate），可运行 smoke test 验证后 promote 到 core",
+        }
+
+    def list_bootstrapped_skills(self, status: str | None = None) -> list[dict[str, Any]]:
+        """列出已自举的 skill 资产（默认全部状态）。"""
+        svc = self._require_skill_service()
+        entries = svc.list_assets(status=status)
+        return [
+            {
+                "skill_id": e.skill_id,
+                "status": e.asset_status,
+                "version": e.version,
+                "origin": e.asset_origin,
+                "accepted": e.accepted,
+            }
+            for e in entries
+        ]
+
+    def promote_skill_asset(self, skill_id: str, accepted_by: str = "") -> dict[str, Any]:
+        """人类审批：把 candidate skill 资产提升为 core（真正接入运行时能力）。"""
+        svc = self._require_skill_service()
+        metadata = svc.promote_candidate_to_core(skill_id, accepted_by=accepted_by)
+        return {
+            "skill_id": skill_id,
+            "status": metadata.asset_status,
+            "accepted": metadata.accepted,
+            "accepted_by": metadata.accepted_by,
+            "message": "skill 资产已提升为 core，能力自举完成",
+        }
+
+    def verify_bootstrapped_skills(self) -> dict[str, Any]:
+        """校验已自举 skill 资产的完整性（manifest/metadata/entrypoint/smoke test）。"""
+        svc = self._require_skill_service()
+        results = svc.check_consistency()
+        return {
+            "total": len(results),
+            "ok": sum(1 for r in results if r.ok),
+            "failed": [{"skill_id": r.skill_id, "issues": [i.kind for i in r.issues]} for r in results if not r.ok],
+            "results": [{"skill_id": r.skill_id, "ok": r.ok} for r in results],
+        }
 
     def list_self_iteration_assets(self, replay_session_id: str | None = None, comparison_limit: int = 5) -> list[dict[str, Any]]:
         return build_self_iteration_asset_summaries(

@@ -89,6 +89,64 @@ class SelfIterationCenterAsset(BaseAsset):
                     },
                 },
             ),
+            AssetMethodSpec(
+                name="bootstrap_skill_asset",
+                description=(
+                    "能力自举（Phase 2）：生成一个新的 skill 资产脚手架并注册到资产索引。"
+                    "系统通过此方法可自己创造新能力（默认 candidate，人类审批后 promote 到 core）。"
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "skill_id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "description": {"type": "string", "default": ""},
+                        "template_type": {"type": "string", "default": "text_transform"},
+                        "status": {"type": "string", "default": "candidate"},
+                        "source_workflow": {"type": "string"},
+                    },
+                    "required": ["skill_id", "name"],
+                },
+            ),
+            AssetMethodSpec(
+                name="list_bootstrapped_skills",
+                description=(
+                    "列出已自举的 skill 资产（系统自己创造的能力）。"
+                    "可按 status 过滤（candidate/core/archived/deprecated）。"
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "string"},
+                    },
+                },
+            ),
+            AssetMethodSpec(
+                name="promote_skill_asset",
+                description=(
+                    "人类审批：把 candidate skill 资产提升为 core（真正接入运行时能力）。"
+                    "这是能力自举闭环的审批节点。"
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "skill_id": {"type": "string"},
+                        "accepted_by": {"type": "string", "default": ""},
+                    },
+                    "required": ["skill_id"],
+                },
+            ),
+            AssetMethodSpec(
+                name="verify_bootstrapped_skills",
+                description=(
+                    "校验已自举 skill 资产的完整性（manifest/metadata/entrypoint/smoke test）。"
+                    "用于确认系统自举的能力是完整的。"
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {},
+                },
+            ),
         ]
         return build_asset_descriptor(
             descriptor_version=1,
@@ -128,6 +186,17 @@ class SelfIterationCenterAsset(BaseAsset):
             "propose_code_improvements": lambda include_god_objects=True: self._service.propose_code_improvements(
                 include_god_objects=include_god_objects,
             ),
+            "bootstrap_skill_asset": lambda skill_id, name, description="", template_type="text_transform", status="candidate", source_workflow=None: self._service.bootstrap_skill_asset(
+                skill_id=skill_id,
+                name=name,
+                description=description,
+                template_type=template_type,
+                status=status,
+                source_workflow=source_workflow,
+            ),
+            "list_bootstrapped_skills": lambda status=None: self._service.list_bootstrapped_skills(status=status),
+            "promote_skill_asset": lambda skill_id, accepted_by="": self._service.promote_skill_asset(skill_id, accepted_by=accepted_by),
+            "verify_bootstrapped_skills": lambda: self._service.verify_bootstrapped_skills(),
         }
 
     def get_service_ref(self) -> SelfIterationAssetService:
