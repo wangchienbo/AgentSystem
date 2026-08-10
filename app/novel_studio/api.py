@@ -748,15 +748,6 @@ def create_novel_router(
             },
         }
 
-    @router.post("/chapter/delete")
-    async def api_delete_chapter(data: dict):
-        novel_id = data.get("novel_id", "")
-        chapter_number = data.get("chapter_number", 0)
-        if not novel_id or not chapter_number:
-            return {"success": False, "error": "缺少参数"}
-        ok = engine._storage.delete_chapter(novel_id, chapter_number)
-        return {"success": ok}
-
     @router.post("/chapter/update")
     async def api_update_chapter(data: dict):
         novel_id = data.get("novel_id", "")

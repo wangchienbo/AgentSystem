@@ -710,11 +710,6 @@ def tick_regression_nightly_cycle(user_session_id: str) -> dict[str, Any]:
         "cycle": cycle_result,
         "nightly_status": refreshed,
     }
-    return "\n".join(
-        f"{item.get('role', 'unknown')}: {item.get('content', '')}"
-        for item in history
-    )
-
 
 
 class ChatRequest(BaseModel):
@@ -1372,13 +1367,6 @@ class LobsterSessionStore:
 lobster_sessions = LobsterSessionStore()
 
 
-if __name__ == "__main__":
-    import uvicorn
-
-    port = int(os.environ.get("PORT", "80"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
-
-
 @app.get("/api/chat-regression/evidence")
 async def api_chat_regression_evidence_history(user: dict = Depends(get_current_user), limit: int = 20, topic: str | None = None):
     history = list_regression_evidence_history(limit=limit, topic=topic)
@@ -1529,3 +1517,10 @@ async def api_governance_regression_cycle_nightly_driver_start(interval_seconds:
 @app.post("/api/governance/regression-cycle/nightly/driver/stop")
 async def api_governance_regression_cycle_nightly_driver_stop(user: dict = Depends(get_current_user)):
     return {"success": True, "driver": regression_nightly_driver.stop()}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.environ.get("PORT", "80"))
+    uvicorn.run(app, host="0.0.0.0", port=port)
