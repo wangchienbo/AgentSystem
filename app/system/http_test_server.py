@@ -209,49 +209,6 @@ async def serve_download(filename: str):
     )
 
 
-# ── Novel engine proxy helpers (已迁移到 app/novel_studio/bootstrap.py) ────
-# 以下函数保留以兼容遗留代码，新代码应直接使用 bootstrap 模块
-
-def _novel_create_resp(engine, title="未命名", genre="", logline="", **kw):
-    from app.novel_studio.bootstrap import _novel_create_resp as _impl
-    return _impl(engine, title=title, genre=genre, logline=logline, **kw)
-
-def _novel_list_resp(engine, **kw):
-    novels = engine.list_novels()
-    return {"success": True, "novels": novels}
-
-def _novel_get_resp(engine, novel_id="", **kw):
-    data = engine.get_novel_full_report(novel_id)
-    if data:
-        return {"success": True, "novel": data}
-    return {"success": False, "error": "小说不存在"}
-
-def _novel_add_char_resp(engine, novel_id="", name="", archetype="", personality=None, background="", speech_style="", **kw):
-    char = engine.add_character(novel_id, name, archetype,
-                                personality=personality or [],
-                                background=background,
-                                speech_style=speech_style)
-    if char:
-        return {"success": True, "character": {"id": char.id, "name": char.name}}
-    return {"success": False, "error": "添加角色失败"}
-
-def _novel_save_outline_resp(engine, novel_id="", summary="", three_act=None, **kw):
-    engine.create_outline(novel_id, summary, three_act=three_act or {})
-    return {"success": True}
-
-def _novel_create_world_resp(engine, novel_id="", name="", overview="", rules=None, **kw):
-    world = engine.create_world(novel_id, name, overview=overview, rules=rules or [])
-    if world:
-        return {"success": True}
-    return {"success": False, "error": "创建世界观失败"}
-
-def _novel_add_scene_resp(engine, novel_id="", name="", location="", description="", **kw):
-    scene = engine.add_scene(novel_id, name, location=location, description=description)
-    if scene:
-        return {"success": True}
-    return {"success": False, "error": "添加场景失败"}
-
-
 def _build_available_apps() -> list[dict[str, Any]]:
     """Build the available_apps list from the AppRegistry for the gateway."""
     registry = runtime_services.get("app_registry")
