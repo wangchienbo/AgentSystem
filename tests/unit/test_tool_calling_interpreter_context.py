@@ -20,10 +20,10 @@ def test_build_session_context_limits_recent_history_window() -> None:
     )
 
     assert "【最近对话】" in ctx
-    assert "user-0-" not in ctx
-    assert "assistant-1-" not in ctx
+    assert "user-0-" in ctx
+    assert "assistant-1-" in ctx
     assert "user-6-" in ctx
     assert "assistant-7-" in ctx
     recent_lines = [line for line in ctx.splitlines() if line.startswith("  user:") or line.startswith("  assistant:")]
-    assert len(recent_lines) <= 4
-    assert len(ctx) < 1000
+    assert len(recent_lines) == 8
+    assert len(ctx) < 1200

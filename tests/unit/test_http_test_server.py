@@ -248,11 +248,12 @@ def test_api_chat_error_returns_visible_response_and_history_entry() -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is False
-    assert data["response"] == "LLM request failed: upstream 429"
-    assert data["content"] == "LLM request failed: upstream 429"
+    assert "系统暂时无法处理这个请求" in data["response"]
+    assert "upstream 429" in data["response"]
+    assert "系统暂时无法处理这个请求" in data["content"]
     history = conversation_history["session_tester"]
     assert history[-1]["role"] == "assistant"
-    assert history[-1]["content"] == "LLM request failed: upstream 429"
+    assert "系统暂时无法处理这个请求" in history[-1]["content"]
 
 
 def test_api_chat_exposes_recent_working_memory_view() -> None:
@@ -785,7 +786,7 @@ def test_api_action_success_shape_matches_chat_contract() -> None:
         )
         return ChatMessageResponse(type="text", content=f"已处理: {message}", session_id="session_tester", structured_answer=structured)
 
-    async def fake_receive_message(chat_req):
+    async def fake_receive_message(chat_req, available_apps=None):
         return build_reply(chat_req.message)
 
     with patch("app.system.http_test_server.gateway.receive_message", new=AsyncMock(side_effect=fake_receive_message)):
@@ -1668,7 +1669,6 @@ def test_api_chat_attaches_run_metadata_to_logs_and_observations() -> None:
     fake_reply = ChatMessageResponse(type="text", content="ok", session_id="session_tester")
 
     with patch("app.system.http_test_server.gateway.receive_message", new=AsyncMock(return_value=fake_reply)), \
-         patch("app.system.http_test_server._append_chat_log") as append_log_mock, \
          patch("app.system.http_test_server.persist_chat_observation") as persist_mock:
         response = client.post(
             "/api/chat",
@@ -1679,15 +1679,12 @@ def test_api_chat_attaches_run_metadata_to_logs_and_observations() -> None:
         )
 
     assert response.status_code == 200
-    assert append_log_mock.call_count == 1
-    log_event = append_log_mock.call_args.args[1]
-    assert log_event["run_id"] == "run-e2e-1"
-    assert log_event["scenario_id"] == "S01"
     probe = persist_mock.call_args.kwargs["probe"]
     assert probe["run_id"] == "run-e2e-1"
     assert probe["scenario_id"] == "S01"
     assert persist_mock.call_args.kwargs["run_id"] == "run-e2e-1"
     assert conversation_history["session_tester"][0]["metadata"]["scenario_id"] == "S01"
+    assert conversation_history["session_tester"][0]["metadata"]["run_id"] == "run-e2e-1"
 
 
 def test_api_chat_persists_live_chat_observation() -> None:

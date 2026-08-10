@@ -83,7 +83,7 @@ def test_app_management_worker_query_app_uses_target_app_param() -> None:
         "related_session_ids": ["sess-1"],
     })
     assert result["status"] == "success"
-    assert result["data"]["instance_id"] == "novel"
+    assert result["data"]["blueprint_id"] == "app.novel"
     assert result["data"]["context_hints"] == ["recent:App: novel"]
     assert result["data"]["related_session_ids"] == ["sess-1"]
 

@@ -20,6 +20,37 @@ from app.models.skill_control import (
 from app.skills.skill_control import SkillControlService
 
 
+def _make_router(cc: ConfigCenterService, skill_control: SkillControlService | None = None) -> ModelRouter:
+    """构造一个自包含的 ModelRouter，使用临时 config.yaml 定义 cheap/balanced/strong 别名。
+
+    避免依赖机器上真实 config.yaml（其模型池不含这些成本档别名）。
+    """
+    config_path = Path(tempfile.mkdtemp()) / "config.yaml"
+    config_path.write_text(
+        "model:\n"
+        "  default: gpt-4.1\n"
+        "  api_key_env: TEST_API_KEY\n"
+        "  base_url: https://test.local/v1\n"
+        "models:\n"
+        "  cheap:\n"
+        "    model: gpt-4o-mini\n"
+        "    base_url: https://test.local/v1\n"
+        "    api_key_env: TEST_API_KEY\n"
+        "  balanced:\n"
+        "    model: gpt-4.1\n"
+        "    base_url: https://test.local/v1\n"
+        "    api_key_env: TEST_API_KEY\n"
+        "  strong:\n"
+        "    model: gpt-5.4\n"
+        "    base_url: https://test.local/v1\n"
+        "    api_key_env: TEST_API_KEY\n"
+        "routing:\n"
+        "  callers: {}\n",
+        encoding="utf-8",
+    )
+    return ModelRouter(config_path=str(config_path), skill_control=skill_control, config_center=cc)
+
+
 class TestSkillTemplateConfig:
     """Test skill template default configuration."""
 
@@ -131,7 +162,7 @@ class TestModelRouterWithConfigCenter:
         cc.set_skill_config("novel-writer", "cheap")
 
         ctrl = SkillControlService()
-        router = ModelRouter(skill_control=ctrl, config_center=cc)
+        router = _make_router(cc, ctrl)
 
         # ConfigCenter: skill template = cheap
         route = router.resolve("skill:novel-writer")
@@ -143,7 +174,7 @@ class TestModelRouterWithConfigCenter:
         cc.set_skill_config("writer", "cheap")
         cc.set_app_skill_binding("app.novel", "writer", "strong")
 
-        router = ModelRouter(config_center=cc)
+        router = _make_router(cc)
 
         # App-level binding: skill instance with app context
         route = router.resolve("skill:writer:app:app.novel")
@@ -176,7 +207,7 @@ class TestModelRouterWithConfigCenter:
         )
         ctrl.register(entry)
 
-        router = ModelRouter(skill_control=ctrl, config_center=cc)
+        router = _make_router(cc, ctrl)
         route = router.resolve("skill:writer")
         assert route.model_name == "gpt-4.1"  # balanced
         assert "skill:writer" in route.source

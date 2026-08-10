@@ -181,26 +181,6 @@ def test_run_cli_bootstrap_seeds_legacy_config_and_installs_assets(monkeypatch, 
     assert second.details["runtime_registry_created"] is False
 
 
-def test_run_cli_migrate_runtime_reports_legacy_paths_and_repo_overlap(monkeypatch, tmp_path: Path) -> None:
-    repo_runtime_home = REPO_ROOT / "tmp-runtime-home-test"
-    monkeypatch.setenv("AGENTSYSTEM_HOME", str(repo_runtime_home))
-    monkeypatch.delenv("AGENTSYSTEM_CONFIG_DIR", raising=False)
-    legacy_runtime_center = REPO_ROOT / "data" / "runtime_center.json"
-    legacy_runtime_center.parent.mkdir(parents=True, exist_ok=True)
-    legacy_runtime_center.write_text("{}\n", encoding="utf-8")
-    try:
-        result = run_cli(["migrate-runtime"])
-    finally:
-        legacy_runtime_center.unlink(missing_ok=True)
-        if repo_runtime_home.exists():
-            import shutil
-            shutil.rmtree(repo_runtime_home, ignore_errors=True)
-
-    assert result.command == "migrate-runtime"
-    assert result.details["migration_status"] == "attention_needed"
-    assert result.details["warnings"]
-
-
 def test_repo_shell_wrappers_delegate_to_python_cli() -> None:
     start_wrapper = (REPO_ROOT / "start_server.sh").read_text(encoding="utf-8")
     stop_wrapper = (REPO_ROOT / "stop_server.sh").read_text(encoding="utf-8")

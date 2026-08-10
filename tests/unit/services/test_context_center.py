@@ -5,8 +5,8 @@ from app.context.context_center import ContextCenter
 
 
 class TestContextCenter:
-    def test_register_session_node_and_append_context(self):
-        center = ContextCenter()
+    def test_register_session_node_and_append_context(self, tmp_path):
+        center = ContextCenter(base_dir=tmp_path)
         center.register_session_node(
             SessionNode(session_id="sess-root", user_id="u1", channel="webchat", kind="root")
         )
@@ -19,8 +19,8 @@ class TestContextCenter:
         assert len(window.records) == 1
         assert window.records[0].content == "你好"
 
-    def test_link_sessions_and_read_linked_context(self):
-        center = ContextCenter()
+    def test_link_sessions_and_read_linked_context(self, tmp_path):
+        center = ContextCenter(base_dir=tmp_path)
         center.register_session_node(
             SessionNode(session_id="sess-root", user_id="u1", channel="webchat", kind="root")
         )

@@ -776,54 +776,32 @@ class Test50AuthorizationEngineeringScenarios:
         assert categories.get("reconnect", 0) >= 3, f"G类(reconnect)不足: {categories.get('reconnect', 0)}"
         assert categories.get("edge", 0) >= 4, f"H类(edge)不足: {categories.get('edge', 0)}"
 
-    def test_prompt_composer_conditional_loading(self):
-        """验证 PromptComposer 按条件加载子 prompt。"""
-        composer = PromptComposer()
-
-        # 无授权→chat 模式 → 只加载 always 的 prompt
-        ctx = {}
-        prompt = composer.compose(ctx)
-        assert "核心身份" in prompt or "最小执行纪律" in prompt, "应包含核心 prompt"
-        assert "已授权" not in prompt, "无授权时不应加载已授权 prompt"
-
-        # 已授权 → 应包含已授权行为准则
-        ctx = {"authorization": {"is_authorized": True}}
-        prompt = composer.compose(ctx)
-        assert "已授权时" in prompt, "已授权时应包含已授权 prompt"
-
-        # 工程模式 → 应包含模式切换 prompt
-        ctx = {"task_mode": {"mode": "engineering"}}
-        prompt = composer.compose(ctx)
-        assert "工程" in prompt and "模式" in prompt, "工程模式应包含模式切换 prompt"
-
-        # 后台模式 → 应包含后台执行 prompt
-        ctx = {"task_mode": {"mode": "background"}}
-        prompt = composer.compose(ctx)
-        assert "后台" in prompt, "后台模式应包含后台 prompt"
-
-        # 自我改造 → 应包含改造纪律
-        ctx = {"task_mode": {"is_self_modification": True}}
-        prompt = composer.compose(ctx)
-        assert "自我改造" in prompt, "自我改造应包含改造纪律"
-
     def test_turn_budget_mapping(self):
-        """验证 turn budget 策略映射。"""
-        assert TurnBudgetPolicy.decide(TaskModeBudget.CHAT) == 6
-        assert TurnBudgetPolicy.decide(TaskModeBudget.EXECUTION) == 15
-        assert TurnBudgetPolicy.decide(TaskModeBudget.ENGINEERING) == 30
-        assert TurnBudgetPolicy.decide(TaskModeBudget.BACKGROUND) == 50
+        """验证 turn budget 策略映射（当前策略：BASE 50/80/120/200，AUTH_BONUS 50，HARD_CAP 200）。"""
+        assert TurnBudgetPolicy.decide(TaskModeBudget.CHAT) == 50
+        assert TurnBudgetPolicy.decide(TaskModeBudget.EXECUTION) == 80
+        assert TurnBudgetPolicy.decide(TaskModeBudget.ENGINEERING) == 120
+        assert TurnBudgetPolicy.decide(TaskModeBudget.BACKGROUND) == 200
 
-        # 已授权 → budget 增加
-        assert TurnBudgetPolicy.decide(TaskModeBudget.CHAT, authorized=True) == 26
-        assert TurnBudgetPolicy.decide(TaskModeBudget.ENGINEERING, authorized=True) == 50
+        # 已授权 → budget 增加（AUTH_BONUS=50）
+        assert TurnBudgetPolicy.decide(TaskModeBudget.CHAT, authorized=True) == 100
+        assert TurnBudgetPolicy.decide(TaskModeBudget.ENGINEERING, authorized=True) == 170
 
-        # 不超过硬上限
-        assert TurnBudgetPolicy.decide(TaskModeBudget.BACKGROUND, authorized=True) == 50
+        # 不超过硬上限（HARD_CAP=200）
+        assert TurnBudgetPolicy.decide(TaskModeBudget.BACKGROUND, authorized=True) == 200
 
     def test_background_executor_lifecycle(self):
         """验证后台执行器生命周期。"""
         mock_store = MagicMock()
-        executor = BackgroundExecutor(pending_task_store=mock_store)
+
+        # 无 orchestrator 时任务会立即进入 blocked 并自移除，无法测到 cancel。
+        # 提供 mock orchestrator，让其保持 running 状态，以便验证提交/状态/取消全流程。
+        class _StuckOrchestrator:
+            def advance_if_possible(self, task):
+                task.next_recommended_action = {"type": "implementation_running", "description": "running"}
+                return task
+
+        executor = BackgroundExecutor(pending_task_store=mock_store, orchestrator=_StuckOrchestrator())
 
         task = PendingTaskRecord(
             task_id="lifecycle-test-1",

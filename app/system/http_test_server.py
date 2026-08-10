@@ -995,7 +995,7 @@ async def api_chat(req: ChatRequest, user: dict = Depends(get_current_user)):
                 error_type=error_type,
             )
         )
-        return {"success": True, "error": None, "error_type": None, "session_id": session_id, "latency_ms": latency_ms, "response": visible_error, "content": visible_error}
+        return {"success": False, "error": error_type, "error_type": error_type, "session_id": session_id, "latency_ms": latency_ms, "response": visible_error, "content": visible_error}
 
 
 # ---------------------------------------------------------------------------

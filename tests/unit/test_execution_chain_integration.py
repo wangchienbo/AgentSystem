@@ -239,12 +239,17 @@ def test_skill_runtime_chain_with_callable_and_generated(tmp_path: Path) -> None
 
     skill_runtime.register_handler("chain.prepare", prepare_data)
 
-    # Register the generated normalize_keys chain skill
-    import sys
-    skill_dir = Path(__file__).parent.parent.parent / "data" / "generated_callable_skills"
-    sys.path.insert(0, str(skill_dir))
-    from skill_object_normalize_keys_chain import handle as normalize_keys_handle
-    sys.path.pop(0)
+    # Register the normalize_keys chain skill as an inline callable (self-contained,
+    # instead of importing a runtime-generated module from data/generated_callable_skills)
+    def normalize_keys_handle(request: SkillExecutionRequest) -> SkillExecutionResult:
+        payload = (request.inputs or {}).get("payload", {})
+        normalized = {str(k).lower().replace(" ", "_").replace("-", "_"): v for k, v in payload.items()}
+        return SkillExecutionResult(
+            skill_id="skill.object.normalize_keys.chain",
+            status="completed",
+            output={"normalized": normalized},
+        )
+
     skill_runtime.register_handler("skill.object.normalize_keys.chain", normalize_keys_handle)
 
     # Execute prepare
