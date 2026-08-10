@@ -544,35 +544,38 @@ def _novel_add_chapter_resp(engine, novel_id="", title="", **kw):
 
 
 def _session_list_resp(engine, novel_id="", username="", **kw):
-    from app.novel_studio.api import _session_store
+    from app.novel_studio.api import session_store
     if not novel_id:
         return {"success": False, "error": "缺少 novel_id"}
-    sessions = _session_store.list_sessions(username, novel_id)
+    sessions = session_store.list_sessions(username, novel_id)
     return {"success": True, "sessions": sessions, "count": len(sessions)}
 
 
 def _session_create_resp(engine, novel_id="", username="", label="", **kw):
-    from app.novel_studio.api import _session_store, context_center, get_or_create_novel_session
+    from app.novel_studio.api import session_store
+    from app.novel_studio.novel_context_builder import get_or_create_novel_session
     if not novel_id:
         return {"success": False, "error": "缺少 novel_id"}
-    session_uuid = _session_store.create_session(username, novel_id, label)
+    session_uuid = session_store.create_session(username, novel_id, label)
+    # context_center 通过引擎上下文解析（此处降级为 None，get_or_create 会静默跳过）
+    context_center = getattr(engine, "_context_center", None)
     session_id = get_or_create_novel_session(novel_id, context_center, user_id=username, session_uuid=session_uuid)
     return {"success": True, "session_uuid": session_uuid, "session_id": session_id}
 
 
 def _session_switch_resp(engine, novel_id="", username="", session_uuid="", **kw):
-    from app.novel_studio.api import _session_store
+    from app.novel_studio.api import session_store
     if not novel_id or not session_uuid:
         return {"success": False, "error": "缺少 novel_id 或 session_uuid"}
-    ok = _session_store.switch_session(username, novel_id, session_uuid)
+    ok = session_store.switch_session(username, novel_id, session_uuid)
     return {"success": ok, "error": "" if ok else "会话不存在"}
 
 
 def _session_delete_resp(engine, novel_id="", username="", session_uuid="", **kw):
-    from app.novel_studio.api import _session_store
+    from app.novel_studio.api import session_store
     if not novel_id or not session_uuid:
         return {"success": False, "error": "缺少 novel_id 或 session_uuid"}
-    ok = _session_store.delete_session(username, novel_id, session_uuid)
+    ok = session_store.delete_session(username, novel_id, session_uuid)
     return {"success": ok, "error": "" if ok else "会话不存在"}
 
 

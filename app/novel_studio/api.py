@@ -19,6 +19,13 @@ from app.novel_studio.session_store import SessionStore
 logger = logging.getLogger(__name__)
 
 
+# ──── 模块级共享单例 ─────────────────────────────────────────
+# 会话元数据存储。提升为模块级单例，使 create_novel_router 闭包与
+# bootstrap 的资产方法（_session_*_resp）共享同一个实例。
+# 之前它只在闭包内定义，导致 bootstrap `from api import _session_store` 抛 ImportError。
+session_store = SessionStore()
+
+
 def create_novel_router(
     model_router=None,
     llm_client=None,
@@ -69,7 +76,8 @@ def create_novel_router(
         )
 
     # ──── 会话管理辅助 ─────────────────────────────────────────
-    _session_store = SessionStore()
+    # 复用模块级单例（bootstrap 资产方法也依赖它）
+    _session_store = session_store
 
     def _extract_username(request: Request) -> str:
         """从 cookie 提取用户名"""
