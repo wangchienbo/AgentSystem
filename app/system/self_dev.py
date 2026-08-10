@@ -39,6 +39,7 @@ class CodeRefactorProposal:
     classes: list[str] = field(default_factory=list)     # 文件内所有类
     validation_checklist: list[str] = field(default_factory=list)
     rollback: str = "git checkout 该文件（未提交前）"
+    verify: dict = field(default_factory=dict)   # 验证结果（syntax/import）
 
 
 def _collect_functions(tree: ast.AST) -> list[str]:
@@ -61,6 +62,26 @@ def _guess_risk(size_lines: int) -> str:
     if size_lines >= 1000:
         return "medium"
     return "low"
+
+
+def _verify_file(file: str) -> dict:
+    """对目标文件做只读验证：AST 可解析 + py_compile 通过。"""
+    result: dict = {"syntax_ok": False, "parse_error": None}
+    try:
+        with open(file) as f:
+            ast.parse(f.read())
+        result["syntax_ok"] = True
+    except (OSError, SyntaxError) as e:
+        result["parse_error"] = str(e)
+        return result
+    try:
+        import py_compile
+        py_compile.compile(file, doraise=True)
+        result["compile_ok"] = True
+    except Exception as e:  # noqa: BLE001
+        result["compile_ok"] = False
+        result["compile_error"] = str(e)
+    return result
 
 
 class SelfDevService:
@@ -88,6 +109,7 @@ class SelfDevService:
             functions = _collect_functions(tree)
             classes = _collect_classes(tree)
             size = obj.get("size_lines", 0)
+            verify = _verify_file(file)
 
             if kind == "god_object_module":
                 pid = f"refactor.{rel}.module"
@@ -111,6 +133,7 @@ class SelfDevService:
                         "重启服务器验证受影响端点 200",
                     ],
                     rollback=f"git checkout -- {file}",
+                    verify=verify,
                 ))
             elif kind == "god_object_function":
                 pid = f"refactor.{rel}.{obj.get('name','fn')}"
@@ -133,6 +156,7 @@ class SelfDevService:
                         "相关回归测试通过",
                     ],
                     rollback=f"git checkout -- {file}",
+                    verify=verify,
                 ))
         return proposals
 
