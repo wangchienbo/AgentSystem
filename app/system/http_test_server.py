@@ -158,6 +158,7 @@ class RegressionNightlyTickDriver:
 runtime_services = build_runtime()
 from app.system.http_routers.deps import set_runtime_services as _set_runtime_services
 _set_runtime_services(runtime_services)
+from app.system.http_routers.deps import get_current_user  # noqa: E402 (认证依赖, 供主文件路由复用)
 gateway = runtime_services["light_brain_gateway"]
 refinement_memory = runtime_services["refinement_memory"]
 refinement_rollout = runtime_services["refinement_rollout"]
@@ -239,6 +240,14 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 TEMPLATES_DIR.mkdir(exist_ok=True)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
+# 注册静态页面域 Router（依赖 templates/STATIC_DIR，须在其定义之后注入）
+from app.system.http_routers.deps import set_static_dir as _set_static_dir
+from app.system.http_routers.deps import set_templates as _set_templates
+from app.system.http_routers.pages import create_pages_router as _create_pages_router
+_set_templates(templates)
+_set_static_dir(STATIC_DIR)
+app.include_router(_create_pages_router())
+
 user_sessions: dict[str, dict[str, Any]] = {}  # session_id -> user_data
 conversation_history: dict[str, list[dict[str, str]]] = {}  # session_id -> messages
 APP_INSTANCE_ID = "agent_system"
@@ -248,8 +257,6 @@ REGRESSION_NIGHTLY_STATE_KEY = "regression_nightly_state"
 REGRESSION_NIGHTLY_DRIVER_STATE_KEY = "regression_nightly_driver_state"
 REGRESSION_NIGHTLY_SERVICE_SESSION_ID = "session_regression_nightly_service"
 regression_nightly_driver = RegressionNightlyTickDriver()
-
-
 
 
 def ensure_regression_service_session() -> str:
@@ -286,10 +293,8 @@ def build_regression_nightly_status() -> dict[str, Any]:
     return regression_nightly_control.build_nightly_status(regression_nightly_driver.status())
 
 
-
 def load_regression_nightly_state() -> dict[str, Any]:
     return runtime_services["runtime_store"].load_json(REGRESSION_NIGHTLY_STATE_KEY, {})
-
 
 
 def load_regression_nightly_driver_state() -> dict[str, Any]:
@@ -399,142 +404,6 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
     payload: dict[str, Any] | None = None
-
-
-async def get_current_user(request: Request):
-    session_id = request.cookies.get("session_id")
-    if not session_id:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    existing = user_sessions.get(session_id)
-    if existing:
-        return existing
-
-    username = session_id[len("session_"):] if session_id.startswith("session_") and len(session_id) > len("session_") else "anonymous"
-    hydrated = {
-        "username": username,
-        "session_id": session_id,
-        "login_time": datetime.now().isoformat(),
-        "last_active": datetime.now().isoformat(),
-    }
-    user_sessions[session_id] = hydrated
-    conversation_history.setdefault(session_id, [])
-    return hydrated
-
-
-@app.get("/favicon.ico")
-async def favicon():
-    from fastapi.responses import Response
-    return Response(content=b"", media_type="image/x-icon")
-
-
-@app.get("/studio", response_class=HTMLResponse)
-async def novel_studio_page():
-    studio_path = Path(__file__).resolve().parent.parent / "novel_studio" / "templates" / "studio.html"
-    if studio_path.exists():
-        from fastapi.responses import HTMLResponse as _HTML
-        content = studio_path.read_text(encoding="utf-8")
-        return _HTML(
-            content=content,
-            headers={"Cache-Control": "no-cache, no-store, must-revalidate, max-age=0"}
-        )
-    return HTMLResponse("<html><body><h1>Novel Studio</h1><p>Template not found</p></body></html>")
-
-
-@app.get("/debug-log")
-async def debug_log(msg: str = "", ts: str = ""):
-    """Client-side debug logging endpoint"""
-    logger.info("[CLIENT] %s (ts=%s)", msg, ts)
-    return HTMLResponse("ok")
-
-
-@app.get("/download/{filename:path}")
-async def download_file(filename: str):
-    """静态文件下载"""
-    safe = Path(filename).name  # 防止路径穿越
-    file_path = STATIC_DIR / safe
-    if not file_path.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(file_path, filename=safe, media_type="application/octet-stream")
-
-
-@app.get("/", response_class=FileResponse)
-async def root():
-    # Ensure the index.html exists; if not, fall back to a minimal placeholder
-    index_path = STATIC_DIR / "index.html"
-    if not index_path.is_file():
-        # Create a simple placeholder page on‑the‑fly
-        placeholder = """<html><head><title>AgentSystem</title></head><body><h1>AgentSystem 已启动</h1><p>请检查 static/index.html 是否存在。</p></body></html>"""
-        return HTMLResponse(content=placeholder, status_code=200)
-    return FileResponse(index_path)
-
-
-@app.get("/workbench", response_class=FileResponse)
-async def workbench():
-    """新时代 AI 操作系统统一工作台（App 桌面 + Skill 库 + 自由设计 + Shell）。"""
-    wb_path = STATIC_DIR / "workbench.html"
-    if not wb_path.is_file():
-        return HTMLResponse(content="<h1>workbench.html 未找到</h1>", status_code=404)
-    return FileResponse(wb_path)
-
-
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    return templates.TemplateResponse(
-        "login.html",
-        {"request": request, "title": "Login - AgentSystem"},
-    )
-
-
-@app.post("/login")
-async def login(request: Request):
-    username = "testuser"
-    content_type = (request.headers.get("content-type") or "").lower()
-    if "application/json" in content_type:
-        payload = await request.json()
-        if isinstance(payload, dict):
-            username = payload.get("username", username)
-    else:
-        try:
-            form_data = await request.form()
-            username = form_data.get("username", username)
-        except AssertionError:
-            raw_body = (await request.body()).decode("utf-8", errors="ignore")
-            parsed = parse_qs(raw_body, keep_blank_values=True)
-            username = parsed.get("username", [username])[0]
-    # 按用户名生成稳定的 session_id（同一用户每次登录都恢复同一会话）
-    session_id = f"session_{username}"
-    # 确保 LobsterSessionStore 有此会话
-    ls = lobster_sessions._ensure_user(username)
-    if session_id not in ls["sessions"]:
-        ls["sessions"][session_id] = {
-            "label": "默认对话",
-            "created_at": datetime.now(UTC).isoformat(),
-            "last_active": datetime.now(UTC).isoformat(),
-        }
-        ls["current"] = session_id
-    if session_id in user_sessions:
-        # 已存在 → 更新登录时间，不重建会话
-        user_sessions[session_id]["login_time"] = datetime.now().isoformat()
-        user_sessions[session_id]["last_active"] = datetime.now().isoformat()
-    else:
-        # 新建会话
-        user_sessions[session_id] = {
-            "username": username,
-            "session_id": session_id,
-            "login_time": datetime.now().isoformat(),
-            "last_active": datetime.now().isoformat(),
-        }
-        conversation_history[session_id] = []
-    from fastapi.responses import JSONResponse
-    hist = conversation_history.get(session_id, [])
-    resp = JSONResponse(content={
-        "success": True,
-        "session_id": session_id,
-        "history": hist,
-        "username": username,
-    })
-    resp.set_cookie(key="session_id", value=session_id, max_age=86400, httponly=False)
-    return resp
 
 
 @app.get("/chat")
@@ -710,8 +579,6 @@ async def api_task_query(task_id: str):
     return {"success": True, "task": result}
 
 
-
-
 @app.post("/api/chat/stream")
 async def api_chat_stream(req: ChatRequest, user: dict = Depends(get_current_user)):
     """SSE streaming chat endpoint."""
@@ -823,7 +690,6 @@ async def api_chat_regression_run_detail(run_id: str, user: dict = Depends(get_c
     return {"success": True, **detail}
 
 
-
 from app.system.regression_dashboard import build_regression_governance_dashboard, build_regression_operator_summary, build_regression_triggers, apply_regression_triggers_to_refinement
 from app.system.regression_evidence_bridge import list_regression_evidence_history, promote_regression_evidence
 
@@ -889,90 +755,6 @@ async def api_action(req: ActionRequest, user: dict = Depends(get_current_user))
 
 
 # ---------- 旧的状态与登出接口继续保留 ----------
-@app.get("/api/status")
-async def api_status():
-    return {
-        "status": "ok",
-        "timestamp": datetime.now().isoformat(),
-        "active_sessions": len(user_sessions),
-        "build_marker": RUNTIME_TRACE_BUILD,
-        "tool_route_budget": describe_tool_route_budget(),
-    }
-
-
-@app.get("/logout")
-async def logout():
-    response = RedirectResponse(url="/", status_code=302)
-    response.delete_cookie("session_id")
-    return response
-
-
-# ---------- 会话管理接口 ----------
-@app.get("/api/sessions")
-async def api_list_sessions(user: dict = Depends(get_current_user)):
-    """列出当前用户的所有会话"""
-    username = user["username"]
-    # 确保有会话
-    ls = lobster_sessions._ensure_user(username)
-    if not ls["sessions"]:
-        lobster_sessions.create_session(username, "默认对话")
-    sessions = lobster_sessions.list_sessions(username)
-    return {"success": True, "sessions": sessions}
-
-
-@app.post("/api/sessions")
-async def api_create_session(user: dict = Depends(get_current_user), request: Request = None):
-    """创建新会话"""
-    label = ""
-    if request:
-        try:
-            body = await request.json()
-            label = body.get("label", "") if isinstance(body, dict) else ""
-        except Exception:
-            pass
-    sid = lobster_sessions.create_session(user["username"], label or None)
-    return {"success": True, "session_id": sid}
-
-
-@app.post("/api/sessions/{session_id}/switch")
-async def api_switch_session(session_id: str, user: dict = Depends(get_current_user)):
-    """切换到指定会话"""
-    ok = lobster_sessions.switch_session(user["username"], session_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return {"success": True, "session_id": session_id}
-
-
-@app.delete("/api/sessions/{session_id}")
-async def api_delete_session(session_id: str, user: dict = Depends(get_current_user)):
-    """删除指定会话"""
-    ok = lobster_sessions.delete_session(user["username"], session_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return {"success": True}
-
-
-@app.get("/api/sessions/{session_id}/history")
-async def api_session_history(session_id: str, user: dict = Depends(get_current_user), limit: int = 50, offset: int = 0):
-    """获取指定会话的历史记录（分页）"""
-    # 安全检查：验证会话属于当前用户
-    username = user["username"]
-    ls = lobster_sessions._ensure_user(username)
-    if session_id not in ls["sessions"]:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    history = conversation_history.get(session_id, [])
-    total = len(history)
-    # 倒序截取（最新的在后面）
-    start = max(0, total - offset - limit)
-    end = max(0, total - offset)
-    page = history[start:end] if start < end else []
-    return {
-        "success": True,
-        "history": page,
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-    }
 
 
 class LobsterSessionStore:
@@ -1048,6 +830,14 @@ class LobsterSessionStore:
             ns["sessions"][session_id]["last_active"] = datetime.now(timezone.utc).isoformat()
 
 lobster_sessions = LobsterSessionStore()
+
+# 注册认证/会话管理域 Router（依赖会话状态 + lobster_sessions，须在其定义后注入）
+from app.system.http_routers.deps import set_lobster_sessions as _set_lobster_sessions
+from app.system.http_routers.deps import set_sessions as _set_sessions
+from app.system.http_routers.auth import create_auth_router as _create_auth_router
+_set_sessions(user_sessions, conversation_history)
+_set_lobster_sessions(lobster_sessions)
+app.include_router(_create_auth_router(build_marker=RUNTIME_TRACE_BUILD))
 
 
 @app.get("/api/chat-regression/evidence")
