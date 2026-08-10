@@ -6,6 +6,7 @@ from app.refinement.refinement_memory import RefinementMemoryStore
 from app.skills.skill_asset_service import SkillAssetService
 from app.system.self_diagnosis import SelfDiagnosisService
 from app.system.self_dev import SelfDevService
+from app.system.self_evolution import SelfEvolutionService
 from app.system.self_iteration_assets import build_self_iteration_asset_summaries
 from app.system.self_iteration_strategy import (
     build_asset_query_action,
@@ -16,11 +17,12 @@ from app.system.self_iteration_strategy import (
 
 
 class SelfIterationAssetService:
-    def __init__(self, memory: RefinementMemoryStore | None = None, diagnosis: SelfDiagnosisService | None = None, dev: SelfDevService | None = None, skills: SkillAssetService | None = None) -> None:
+    def __init__(self, memory: RefinementMemoryStore | None = None, diagnosis: SelfDiagnosisService | None = None, dev: SelfDevService | None = None, skills: SkillAssetService | None = None, evolution: SelfEvolutionService | None = None) -> None:
         self._memory = memory or RefinementMemoryStore()
         self._diagnosis = diagnosis or SelfDiagnosisService(root_dir="app")
         self._dev = dev or SelfDevService(root_dir="app")
         self._skills = skills
+        self._evolution = evolution
 
     def diagnose_codebase(self, *, include_god_objects: bool = True) -> dict[str, Any]:
         """运行只读代码健康诊断（导入缺陷 + God Object），供自治开发闭环的观察层使用。"""
@@ -115,6 +117,24 @@ class SelfIterationAssetService:
             "failed": [{"skill_id": r.skill_id, "issues": [i.kind for i in r.issues]} for r in results if not r.ok],
             "results": [{"skill_id": r.skill_id, "ok": r.ok} for r in results],
         }
+
+    # ─── Phase 3：长期进化（周期性代码审查 + 跨会话演进历史） ─────────────
+
+    def _require_evolution(self) -> SelfEvolutionService:
+        if self._evolution is None:
+            raise RuntimeError("长期进化需要注入 SelfEvolutionService")
+        return self._evolution
+
+    def run_periodic_review(self, *, force: bool = False) -> dict[str, Any]:
+        """长期进化：周期性代码健康审查（默认 24h 间隔，force 强制重跑）。
+
+        每次审查把健康度快照持久化，跨会话可对比代码演进。
+        """
+        return self._require_evolution().run_periodic_review(force=force)
+
+    def get_evolution_history(self, *, limit: int = 20) -> dict[str, Any]:
+        """长期进化：读取历史审查记录，展示代码健康度随时间演进。"""
+        return self._require_evolution().get_evolution_history(limit=limit)
 
     def list_self_iteration_assets(self, replay_session_id: str | None = None, comparison_limit: int = 5) -> list[dict[str, Any]]:
         return build_self_iteration_asset_summaries(

@@ -147,6 +147,33 @@ class SelfIterationCenterAsset(BaseAsset):
                     "properties": {},
                 },
             ),
+            AssetMethodSpec(
+                name="run_periodic_review",
+                description=(
+                    "长期进化（Phase 3）：周期性代码健康审查。"
+                    "重跑诊断并持久化健康度快照，跨会话可对比代码演进。"
+                    "默认 24h 间隔，force=true 强制重跑。"
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "force": {"type": "boolean", "default": False},
+                    },
+                },
+            ),
+            AssetMethodSpec(
+                name="get_evolution_history",
+                description=(
+                    "长期进化（Phase 3）：读取历史代码审查记录，"
+                    "展示 God Object / 导入缺陷数量随时间演进（长期进化趋势）。"
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "default": 20},
+                    },
+                },
+            ),
         ]
         return build_asset_descriptor(
             descriptor_version=1,
@@ -197,6 +224,8 @@ class SelfIterationCenterAsset(BaseAsset):
             "list_bootstrapped_skills": lambda status=None: self._service.list_bootstrapped_skills(status=status),
             "promote_skill_asset": lambda skill_id, accepted_by="": self._service.promote_skill_asset(skill_id, accepted_by=accepted_by),
             "verify_bootstrapped_skills": lambda: self._service.verify_bootstrapped_skills(),
+            "run_periodic_review": lambda force=False: self._service.run_periodic_review(force=force),
+            "get_evolution_history": lambda limit=20: self._service.get_evolution_history(limit=limit),
         }
 
     def get_service_ref(self) -> SelfIterationAssetService:

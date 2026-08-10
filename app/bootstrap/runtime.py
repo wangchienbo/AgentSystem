@@ -603,6 +603,7 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     from app.system.catalog.runtime_center import RuntimeCenter
     from app.system.self_iteration_asset_service import SelfIterationAssetService
     from app.skills.skill_asset_service import SkillAssetService
+    from app.system.self_evolution import SelfEvolutionService
     from app.models.asset_contract import AssetCapability, AssetDescriptor, AssetKind, AssetState, AssetType
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     bootstrap_binding = describe_phase6_asset_bootstrap_binding(
@@ -620,6 +621,9 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     self_iteration_asset_service = SelfIterationAssetService(
         refinement_memory,
         skills=SkillAssetService(os.path.join(bootstrap_binding["data_dir"], "skill_bootstrap")),
+        evolution=SelfEvolutionService(
+            history_path=os.path.join(bootstrap_binding["data_dir"], "evolution_history.json"),
+        ),
     )
     self_iteration_asset_protocol = AssetRegistrationProtocol()
     startup_orchestrator = StartupOrchestrator()
