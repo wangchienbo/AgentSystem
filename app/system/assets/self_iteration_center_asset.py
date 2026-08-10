@@ -75,6 +75,20 @@ class SelfIterationCenterAsset(BaseAsset):
                     },
                 },
             ),
+            AssetMethodSpec(
+                name="propose_code_improvements",
+                description=(
+                    "自治开发闭环的分析→方案层：基于 diagnose_codebase 的诊断结果，"
+                    "对 God Object / 超长函数生成结构化代码重构方案（拆分建议、风险、验证清单、回滚）。"
+                    "方案仅供审批参考，不自动应用任何代码变更。"
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "include_god_objects": {"type": "boolean", "default": True},
+                    },
+                },
+            ),
         ]
         return build_asset_descriptor(
             descriptor_version=1,
@@ -109,6 +123,9 @@ class SelfIterationCenterAsset(BaseAsset):
                 comparison_limit=comparison_limit,
             ),
             "diagnose_codebase": lambda include_god_objects=True: self._service.diagnose_codebase(
+                include_god_objects=include_god_objects,
+            ),
+            "propose_code_improvements": lambda include_god_objects=True: self._service.propose_code_improvements(
                 include_god_objects=include_god_objects,
             ),
         }

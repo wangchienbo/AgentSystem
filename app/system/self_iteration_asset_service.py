@@ -4,6 +4,7 @@ from typing import Any
 
 from app.refinement.refinement_memory import RefinementMemoryStore
 from app.system.self_diagnosis import SelfDiagnosisService
+from app.system.self_dev import SelfDevService
 from app.system.self_iteration_assets import build_self_iteration_asset_summaries
 from app.system.self_iteration_strategy import (
     build_asset_query_action,
@@ -14,13 +15,19 @@ from app.system.self_iteration_strategy import (
 
 
 class SelfIterationAssetService:
-    def __init__(self, memory: RefinementMemoryStore | None = None, diagnosis: SelfDiagnosisService | None = None) -> None:
+    def __init__(self, memory: RefinementMemoryStore | None = None, diagnosis: SelfDiagnosisService | None = None, dev: SelfDevService | None = None) -> None:
         self._memory = memory or RefinementMemoryStore()
         self._diagnosis = diagnosis or SelfDiagnosisService(root_dir="app")
+        self._dev = dev or SelfDevService(root_dir="app")
 
     def diagnose_codebase(self, *, include_god_objects: bool = True) -> dict[str, Any]:
         """运行只读代码健康诊断（导入缺陷 + God Object），供自治开发闭环的观察层使用。"""
         return self._diagnosis.diagnose_codebase(include_god_objects=include_god_objects)
+
+    def propose_code_improvements(self, *, include_god_objects: bool = True) -> dict[str, Any]:
+        """自治开发闭环的分析→方案层：基于诊断生成代码重构方案（供人类审批，不自动应用）。"""
+        diagnosis = self._diagnosis.diagnose_codebase(include_god_objects=include_god_objects)
+        return self._dev.build_dev_report(diagnosis)
 
     def list_self_iteration_assets(self, replay_session_id: str | None = None, comparison_limit: int = 5) -> list[dict[str, Any]]:
         return build_self_iteration_asset_summaries(
