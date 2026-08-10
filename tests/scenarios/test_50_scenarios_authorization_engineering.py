@@ -5,11 +5,13 @@
   - test_all_scenarios_are_covered：场景数据完整性/分类均匀性
   - test_turn_budget_mapping：turn budget 策略映射
   - test_background_executor_lifecycle：后台执行器生命周期
+  - test_scenario_fallback_conservative：fallback 意图提取的保守性（纯聊天不误报）
+  - test_scenario_classify_conservative：classify 工程初筛的保守性（非工程不误报）
 
-注：原「test_scenario_intent_extraction / test_scenario_mode_integrator」
-两个逐场景分类测试已删除——它们验证的是旧契约（本地代码做完整语义分类）。
-当前架构（IntentExtractor._fallback_extract / classify_engineering_task）有意
-改为「保守初筛 + LLM 最终判定」，本地仅兜底，语义判断交给 LLM。旧契约已被取代。
+架构说明：意图/工程分类采用「保守初筛 + LLM 最终判定」——
+IntentExtractor._fallback_extract / classify_engineering_task 是本地轻量初筛，
+只保证保守（宁可漏报也不错报），完整语义判断交给 LLM prompt。
+因此对本地代码只断言「保守性安全契约」，不强求达到 LLM 级的完整语义分类。
 
 不依赖外部 LLM，纯逻辑测试。
 """
@@ -29,6 +31,8 @@ from app.models.authorization import (
 from app.models.intent import AuthorizationSignal
 from app.models.pending_task import PendingTaskRecord
 from app.core.background_executor import BackgroundExecutor
+from app.system.gateway.intent_extractor import IntentExtractor
+from app.system.gateway.execution_mode_integrator import ExecutionModeIntegrator
 from app.governance.turn_budget_policy import TurnBudgetPolicy, TaskModeBudget
 
 
@@ -665,8 +669,47 @@ SCENARIOS.append(Scenario(
 # ════════════════════════════════════════════════════════════════════
 
 class Test50AuthorizationEngineeringScenarios:
-    """逐一执行 50 个场景，验证意图提取 + 授权 + 路由的正确性。"""
+    """基于 50 个真实场景契约，验证本地初筛的保守性安全契约。"""
 
+    def test_scenario_fallback_conservative(self):
+        """验证 IntentExtractor fallback 的保守性（安全底线）。
+
+        IntentExtractor 是「保守初筛 + LLM 最终判定」架构，fallback 只在无 LLM 时兜底，
+        不承诺完整语义分类。因此只断言保守性安全底线：
+        - 纯聊天场景（category='chat'）不得被误判为工程任务
+        - 纯聊天场景不得产生授权信号（授权是敏感操作，宁可漏报也不错报）
+        完整语义判断交给 LLM，不在此处强求逐场景完整分类。
+        """
+        extractor = IntentExtractor()
+        for scenario in SCENARIOS:
+            if scenario.category != "chat":
+                continue
+            for turn in scenario.turns:
+                intent = extractor.extract(turn.message)
+                assert not intent.is_engineering, (
+                    f"[{scenario.id}] 纯聊天场景被误判为工程: {turn.message[:40]}"
+                )
+                assert intent.implied_authorization == AuthorizationSignal.NONE, (
+                    f"[{scenario.id}] 纯聊天场景产生授权信号: {turn.message[:40]}"
+                )
+
+    def test_scenario_classify_conservative(self):
+        """验证 classify_engineering_task 初筛的保守性。
+
+        classify_engineering_task 是「轻量本地初筛，提取信号，最终判定交给 LLM」，
+        保守漏报是设计意图（宁可交给 LLM 判定）。因此只断言：
+        - 非工程/纯聊天场景不得被误报为 engineering/background 模式
+        不要求它识别所有期望工程场景（那是 LLM 的职责）。
+        """
+        integrator = ExecutionModeIntegrator()
+        for scenario in SCENARIOS:
+            for turn in scenario.turns:
+                ctx = integrator.on_message_received("test-session", "test-user", turn.message)
+                mode = ctx["task_mode"]["mode"]
+                if not turn.expect_engineering and turn.expect_task_mode == "chat":
+                    assert mode not in ("engineering", "background"), (
+                        f"[{scenario.id}] 非工程场景被误报为 {mode}: {turn.message[:40]}"
+                    )
 
     def test_all_scenarios_are_covered(self):
         """验证确实有 50 个且分类均匀。"""
