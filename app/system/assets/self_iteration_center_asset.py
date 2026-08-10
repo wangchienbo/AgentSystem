@@ -61,6 +61,20 @@ class SelfIterationCenterAsset(BaseAsset):
                     },
                 },
             ),
+            AssetMethodSpec(
+                name="diagnose_codebase",
+                description=(
+                    "运行只读代码健康诊断：扫描导入缺陷（from-import 目标缺失）和 "
+                    "God Object（超大模块/超长函数）。返回结构化诊断报告。"
+                    "用于自治开发闭环的观察层，让系统看见自己代码的问题。"
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "include_god_objects": {"type": "boolean", "default": True},
+                    },
+                },
+            ),
         ]
         return build_asset_descriptor(
             descriptor_version=1,
@@ -93,6 +107,9 @@ class SelfIterationCenterAsset(BaseAsset):
             "strategy_overview": lambda replay_session_id=None, comparison_limit=5: self._service.get_self_iteration_strategy_overview(
                 replay_session_id=replay_session_id,
                 comparison_limit=comparison_limit,
+            ),
+            "diagnose_codebase": lambda include_god_objects=True: self._service.diagnose_codebase(
+                include_god_objects=include_god_objects,
             ),
         }
 
