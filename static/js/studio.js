@@ -900,32 +900,6 @@ function buildReaderToc(){
   }).join('');
 }
 
-function renderPanels(panels){
-  if(!panels||!panels.length)return'';
-  const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const boxes=panels.map(p=>{
-    const title=esc(p.title||p.id||'面板');
-    const secs=(p.sections||[]).map(s=>{
-      let html='';
-      const stitle=s.title?`<div class="panel-sec-title">${esc(s.title)}</div>`:'';
-      let body='';
-      const fields=(s.fields||[]).filter(f=>f&&typeof f==='object');
-      if(fields.length){
-        body+=fields.map(f=>`<div class="panel-field"><span class="pf-key">${esc(f.key)}</span><span class="pf-val">${esc(f.value)}</span></div>`).join('');
-      }
-      const list=(s.list||[]).filter(r=>r&&typeof r==='object');
-      if(list.length){
-        const keys=[...new Set(list.flatMap(r=>Object.keys(r)))];
-        body+='<table class="panel-table"><thead><tr>'+keys.map(k=>`<th>${esc(k)}</th>`).join('')+'</tr></thead><tbody>'+
-          list.map(r=>'<tr>'+keys.map(k=>`<td>${esc(r[k])}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
-      }
-      return stitle||body?`<div class="panel-sec">${stitle}${body}</div>`:'';
-    }).join('');
-    return `<div class="panel-box"><div class="panel-title">${title}</div>${secs}</div>`;
-  }).join('');
-  return `<div class="panel-wrap">${boxes}</div>`;
-}
-
 function loadChapter(idx){
   const chs=novelData&&novelData.chapters||[];
   if(idx<0||idx>=chs.length)return;
@@ -956,14 +930,12 @@ function loadChapter(idx){
       '<div class="rc-meta">'+
         (wc?'<span>📝 '+wc+'字</span>':'')+
         (status?'<span>🏷️ '+esc(status)+'</span>':'')+
-        (ch.panels&&ch.panels.length?'<span>🖥️ '+ch.panels.length+' 面板</span>':'')+
         '<span>📄 第'+num+'/'+chs.length+'章</span>'+
       '</div>'+
     '</div>'+
     '<div class="rc-body">'+
       (content?paragraphs:'<p>（内容待生成）</p>')+
-    '</div>'+
-    renderPanels(ch.panels);
+    '</div>';
   
   // Update nav
   $('prev-ch-btn').disabled=(idx===0);
