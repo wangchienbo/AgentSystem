@@ -151,13 +151,17 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
 def setup_middleware(app):
     """Add all security and operational middleware to the FastAPI app."""
 
-    # CORS — allow configured origins (default: same-origin)
+    # CORS — 仅允许显式配置的来源；未配置则同源（不跨域）。
+    # 前端（FastAPI serve 静态页面 + 同源 AJAX）无需跨域，故不再用 "*" 兜底：
+    #  1) "*" + allow_credentials=True 是不安全且被浏览器拒绝的组合；
+    #  2) 全开放会让任意站点从浏览器读取本 API 响应。
+    # 需要跨域部署时通过 AGENTSYSTEM_CORS_ORIGINS 显式列出来源。
     allowed_origins = os.environ.get("AGENTSYSTEM_CORS_ORIGINS", "").split(",")
     allowed_origins = [o.strip() for o in allowed_origins if o.strip()]
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=allowed_origins or ["*"],  # TODO: tighten in production
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
         allow_headers=["*"],
