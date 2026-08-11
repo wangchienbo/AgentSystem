@@ -100,11 +100,15 @@ class NarrativeModule(BaseModule):
         clean_title = re.sub(r'^第[一二三四五六七八九十\d]+章[：:．\.\s]*', '', raw_title).strip()
         if not clean_title:
             clean_title = raw_title
+        # 聚合本章结构化面板（来自角色决策 actions 的 panels，通用 schema）
+        chapter_panels = _aggregate_panels(actions)
+
         new_chapter = Chapter(
             number=chapter_number,
             title=clean_title,
             content=text,
             scenes=scenes,  # ★ 持久化场景数据（crowd/感官/参与者）
+            panels=chapter_panels,  # ★ 持久化结构化面板
         )
 
         try:
@@ -452,3 +456,21 @@ def _build_world_context(novel) -> str:
             parts.append(f"位置：{loc}")
             parts.append(f"简介：{desc}")
     return "\n\n".join(parts)
+
+
+def _aggregate_panels(actions: list[dict]) -> list[dict]:
+    """聚合角色决策中的结构化 panels 到章节。
+
+    通用逻辑：按 panel['id'] 去重，同 id 取后出现的（覆盖更新）。
+    不含任何故事概念。
+    """
+    merged: dict[str, dict] = {}
+    for action in actions or []:
+        for panel in (action.get("panels") or []):
+            if not isinstance(panel, dict):
+                continue
+            pid = panel.get("id") or panel.get("title") or panel.get("key")
+            if pid is None:
+                continue
+            merged[pid] = panel  # 同 id 后出现的覆盖
+    return list(merged.values())

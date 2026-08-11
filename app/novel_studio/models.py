@@ -404,6 +404,7 @@ class Chapter(BaseModel):
     word_count: int = 0
     status: str = "draft"  # draft | revised | final
     scenes: list[dict] = Field(default_factory=list)  # 场景数据（crowd/感官/参与者等）
+    panels: list[dict] = Field(default_factory=list)  # 结构化面板（系统/游戏/状态面板，通用 schema）
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     notes: str = ""

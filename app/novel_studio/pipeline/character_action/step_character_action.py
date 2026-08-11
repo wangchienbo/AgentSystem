@@ -592,6 +592,46 @@ def _build_scene_context_text(scene: dict) -> str:
     return "\n".join(parts)
 
 
+def _extract_json_objects(text: str) -> list[str]:
+    """括号配平扫描，提取文本中所有完整的 JSON 对象子串。
+
+    支持嵌套花括号（如 panels 结构），区别于正则的 `[\s\S]*?\}` 非贪婪
+    （后者在遇到嵌套对象时会提前截断导致 json.loads 失败）。
+    """
+    objs: list[str] = []
+    n = len(text)
+    i = 0
+    while i < n:
+        if text[i] == "{":
+            depth = 0
+            j = i
+            in_str = False
+            esc = False
+            while j < n:
+                ch = text[j]
+                if in_str:
+                    if esc:
+                        esc = False
+                    elif ch == "\\":
+                        esc = True
+                    elif ch == '"':
+                        in_str = False
+                else:
+                    if ch == '"':
+                        in_str = True
+                    elif ch == "{":
+                        depth += 1
+                    elif ch == "}":
+                        depth -= 1
+                        if depth == 0:
+                            objs.append(text[i:j + 1])
+                            i = j
+                            break
+                j += 1
+        i += 1
+    return objs
+
+
 def _parse_decision(text: str, char_name: str) -> dict[str, str]:
     result = {
         "character": char_name,
@@ -600,6 +640,7 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
         "inner": "",
         "感知": "",
         "面板": "",
+        "panels": [],  # 结构化面板（通用 schema，可选）
     }
 
     import re
@@ -612,25 +653,30 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
     text_clean = text_clean.strip()
     logger.debug("LLM 原始输出 (%s):\n%s", char_name, text_clean[:500])
 
-    # JSON 解析
-    json_patterns = [
-        r'\{[\s\S]*?"(?:action|行动|dialogue|对话|inner|内心|perception|感知|面板|panel)"[\s\S]*?\}',
-        r'\{[\s\S]*?["\'](?:action|行动|dialogue|对话|面板)["\'][\s\S]*?\}',
-    ]
-    for jp in json_patterns:
+    # JSON 解析（括号配平扫描，支持嵌套对象如 panels）
+    for obj_str in _extract_json_objects(text_clean):
         try:
-            m = re.search(jp, text_clean)
-            if m:
-                data = json.loads(m.group(0))
-                result["action"] = data.get("action", "") or data.get("行动", "")
-                result["dialogue"] = data.get("dialogue", "") or data.get("对话", "")
-                result["inner"] = data.get("inner", "") or data.get("内心", "")
-                result["感知"] = data.get("perception", "") or data.get("感知", "")
-                result["面板"] = data.get("面板", "") or data.get("panel", "")
-                if result["action"] or result["dialogue"] != "沉默" or result.get("对话", "") != "沉默":
-                    return result
+            data = json.loads(obj_str)
         except (json.JSONDecodeError, ValueError, TypeError):
-            pass
+            continue
+        if not isinstance(data, dict):
+            continue
+        result["action"] = data.get("action", "") or data.get("行动", "")
+        result["dialogue"] = data.get("dialogue", "") or data.get("对话", "")
+        result["inner"] = data.get("inner", "") or data.get("内心", "")
+        result["感知"] = data.get("perception", "") or data.get("感知", "")
+        result["面板"] = data.get("面板", "") or data.get("panel", "")
+        # 结构化 panels：若 LLM 输出 panels 数组，则解析并渲染成文本「面板」
+        raw_panels = data.get("panels") or []
+        if isinstance(raw_panels, list):
+            valid = [p for p in raw_panels if isinstance(p, dict)]
+            if valid:
+                result["panels"] = valid
+                rendered = _render_panels(valid)
+                if rendered:
+                    result["面板"] = rendered or result["面板"]
+        if result["action"] or result["dialogue"] != "沉默" or result.get("对话", "") != "沉默":
+            return result
 
     # 逐行解析
     lines = text_clean.split("\n")
@@ -667,3 +713,31 @@ def _parse_decision(text: str, char_name: str) -> dict[str, str]:
         result[field_map[prefix]] = val
 
     return result
+
+
+def _render_panels(panels: list[dict]) -> str:
+    """把结构化 panels 渲染为可读文本（供叙事正文消费/展示）。
+
+    通用逻辑：面板=标题+分组(字段/列表)。不含任何故事概念。
+    """
+    lines: list[str] = []
+    for panel in panels:
+        title = (panel.get("title") or panel.get("id") or "面板").strip()
+        lines.append(f"【{title}】")
+        for sec in panel.get("sections", []) or []:
+            sec_title = sec.get("title")
+            if sec_title:
+                lines.append(f"— {sec_title} —")
+            for f in sec.get("fields", []) or []:
+                if isinstance(f, dict):
+                    key = str(f.get("key", "")).strip()
+                    val = str(f.get("value", "")).strip()
+                    if key or val:
+                        lines.append(f"{key}：{val}" if key else val)
+            for row in sec.get("list", []) or []:
+                if isinstance(row, dict):
+                    lines.append("、".join(
+                        f"{k}：{v}" for k, v in row.items() if str(v) not in ("", "None")
+                    ))
+        lines.append("")
+    return "\n".join(lines).strip()
