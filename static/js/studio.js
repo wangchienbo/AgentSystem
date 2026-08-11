@@ -20,6 +20,52 @@ async function api(path,body){
   }catch(e){return {error:e.message}}
 }
 
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+/**
+ * 通用任务轮询循环（生成管线 pollTask 与聊天 _pollChatTask 共用）。
+ * - 从 fromEventRef.current 增量拉取事件，回调 onEvent(ev, idx)
+ * - 网络瞬断/5xx 自动指数退避重试（maxRetries 次），而非直接失败
+ * - status=complete/error 时调用对应回调并结束
+ */
+async function _pollTaskLoop(taskId, opts){
+  const {fromEventRef, onEvent, onComplete, onError, onBusy, pollMs=2000, maxRetries=5, dedupeComplete=true} = opts;
+  let lastIdx = (fromEventRef && fromEventRef.current) || 0;
+  let retries = 0;
+  while(true){
+    let data;
+    try{
+      const resp = await fetch(`/api/novel/task/${taskId}?from_event=${lastIdx}`);
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      data = await resp.json();
+      if(!data.success) throw new Error(data.error||'unknown');
+      retries = 0; // 成功即重置退避计数
+    }catch(e){
+      retries++;
+      if(retries > maxRetries) throw e; // 超过重试上限，交给调用方处理
+      const backoff = Math.min(500 * Math.pow(2, retries), 5000);
+      await sleep(backoff);
+      continue;
+    }
+    const evts = data.events || [];
+    let sawCompleteEvent = false;
+    for(let i=0;i<evts.length;i++){
+      if(onEvent) onEvent(evts[i], lastIdx+i);
+      if(evts[i] && evts[i].type==='complete') sawCompleteEvent = true;
+      lastIdx++;
+    }
+    if(fromEventRef) fromEventRef.current = lastIdx;
+    if(onBusy) onBusy(data);
+    if(data.status==='complete'){
+      // 若事件流里已含 complete 事件（由 onEvent 渲染），则不再重复触发 onComplete
+      if(onComplete && (!dedupeComplete || !sawCompleteEvent)) onComplete(data);
+      break;
+    }
+    if(data.status==='error'){ if(onError) onError(data.error||'任务失败'); break; }
+    await sleep(pollMs);
+  }
+}
+
 // === View switching ===
 function showView(id){
   // Toggle CSS classes for consistency with other code
@@ -366,44 +412,29 @@ async function _pollChatTask(taskId,msgDiv,msgs){
   if(_chatPollActive)return;
   _chatPollActive=true;
   try{
-    let taskStatus='pending',taskResult=null,taskError=null;
-    let lastIdx=0;
-    while(true){
-      const resp=await fetch(`/api/novel/task/${taskId}?from_event=${lastIdx}`);
-      if(!resp.ok)throw new Error('Poll HTTP '+resp.status);
-      const data=await resp.json();
-      if(!data.success)throw new Error(data.error||'unknown');
-      taskStatus=data.status;
-      // Show progress events if available
-      const evts=data.events||[];
-      for(let i=lastIdx;i<data.total_events;i++){
-        const ev=evts[i-lastIdx];
-        if(ev&&ev.type==='status'&&ev.text==='running'){
+    await _pollTaskLoop(taskId, {
+      dedupeComplete:false,
+      onEvent(ev){
+        if(ev && ev.type==='status' && ev.text==='running'){
           msgDiv.innerHTML='⏳ 思考中...';
         }
-        lastIdx=i+1;
-      }
-      if(taskStatus==='complete'){
-        taskResult=data.result;
-        if(taskResult&&taskResult.content){
-          msgDiv.innerHTML=esc(taskResult.content);
-          if(taskResult.chapter&&taskResult.chapter.number){
+      },
+      onComplete(data){
+        const result=data.result;
+        if(result&&result.content){
+          msgDiv.innerHTML=esc(result.content);
+          if(result.chapter&&result.chapter.number){
             var tag=document.createElement('span');tag.className='ch-tag';
-            tag.textContent='📚 已保存为第'+taskResult.chapter.number+'章'+(taskResult.chapter.title?'「'+taskResult.chapter.title+'」':'');
+            tag.textContent='📚 已保存为第'+result.chapter.number+'章'+(result.chapter.title?'「'+result.chapter.title+'」':'');
             msgDiv.appendChild(tag);
             refreshSidebar();
           }
         }else{
           msgDiv.innerHTML='（模型暂无回复）';
         }
-        break;
-      }
-      if(taskStatus==='error'){
-        msgDiv.innerHTML='⚠️ '+esc(data.error||'任务失败');
-        break;
-      }
-      await new Promise(r=>{_chatPollTimer=setTimeout(r,2000)});
-    }
+      },
+      onError(msg){ msgDiv.innerHTML='⚠️ '+esc(msg); },
+    });
   }catch(e){
     msgDiv.innerHTML='⚠️ 请求失败: '+esc(e.message);
   }finally{
@@ -544,28 +575,16 @@ async function pollTask(taskId){
   const rc=$('pipe-result'); if(rc)rc.innerHTML='';
   const grid=document.querySelector('.char-grid'); if(grid)grid.innerHTML='';
   try{
-    while(true){
-      const resp=await fetch(`/api/novel/task/${taskId}?from_event=${_lastEventIdx}`);
-      if(!resp.ok)throw new Error(`HTTP ${resp.status}`);
-      const data=await resp.json();
-      if(!data.success)throw new Error(data.error||'unknown');
-      const evts=data.events||[];
-      for(const ev of evts){
-        try{_pipelineHandleEvent(ev)}catch(e){console.warn('[pipeline] event error',ev.type,e)}
-        _lastEventIdx++;
-      }
-      if(data.status==='complete'){
-        if(data.has_result&&data.result&&!evts.some(e=>e.type==='complete')){
+    await _pollTaskLoop(taskId, {
+      fromEventRef:{ get current(){return _lastEventIdx}, set current(v){_lastEventIdx=v} },
+      onEvent(ev){ try{_pipelineHandleEvent(ev)}catch(e){console.warn('[pipeline] event error',ev.type,e)} },
+      onComplete(data){
+        if(data.has_result&&data.result){
           _pipelineHandleEvent({type:'complete',...data.result});
         }
-        break;
-      }
-      if(data.status==='error'){
-        _pipelineHandleEvent({type:'error',message:data.error||'管道执行失败'});
-        break;
-      }
-      await new Promise(r=>{_pollTimer=setTimeout(r,2000)});
-    }
+      },
+      onError(msg){ _pipelineHandleEvent({type:'error',message:msg}); },
+    });
   }catch(e){
     _pipelineShowError(e.message);
   }finally{

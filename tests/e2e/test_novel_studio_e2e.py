@@ -150,8 +150,15 @@ def main():
             except Exception:
                 check("4c 流式完成后输入框重新启用", False, f"timeout {STREAM_TIMEOUT}s")
             page.wait_for_timeout(1500)
-            growth = len(page.inner_text("body")) - before
-            check("4d 有回复内容", growth > 30, f"body +{growth} chars")
+            # 4d: 只要有非空的 AI 回复气泡（排除加载态/空回复/错误提示）即通过，
+            # 不依赖字数阈值——LLM 偶发短回复不应误判为链路失败
+            ai_msgs = page.locator(".msg.ai")
+            ai_text = ai_msgs.last.inner_text().strip() if ai_msgs.count() else ""
+            has_reply = (ai_msgs.count() > 0 and len(ai_text) > 0
+                         and not ai_text.startswith("⏳")
+                         and "暂无回复" not in ai_text
+                         and not ai_text.startswith("⚠️"))
+            check("4d 收到AI回复", has_reply, f"AI气泡: {ai_text[:60]!r}")
         else:
             print("\n💬 4 — 聊天（已跳过 --no-chat）")
 
