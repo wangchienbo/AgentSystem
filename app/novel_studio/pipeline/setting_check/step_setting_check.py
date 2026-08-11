@@ -74,9 +74,11 @@ class SettingCheckModule(BaseModule):
         is_consistent = result.get("is_consistent", True)
         high_violations = [v for v in violations if v.get("severity") == "high"]
 
-        # 强制输出违规详情（用于调试）
+        # 输出违规详情（便于排查设定一致性问题）
         if violations:
-            print(f"[setting_check] violations={json.dumps(violations, ensure_ascii=False)[:2000]}", flush=True)
+            logger.info(
+                "[setting_check] violations=%s", json.dumps(violations, ensure_ascii=False)[:2000]
+            )
 
         if len(high_violations) >= 2:
             logger.warning(

@@ -61,7 +61,10 @@ class SelfDiagnosisService:
         """扫描 root_dir 下所有 .py 的 from-import 缺陷（模块级 + 函数体内延迟导入）。"""
         problems: list[dict[str, Any]] = []
         if not os.path.isdir(self._root_dir):
-            return problems
+            raise FileNotFoundError(
+                f"self_diagnosis 的 root_dir 不存在: {self._root_dir!r}（当前 cwd={os.getcwd()!r}）。"
+                "请传入有效绝对路径或在项目根目录运行。静默返回空会导致自治诊断'假健康'，故改为抛错暴露。"
+            )
 
         for root, _dirs, files in os.walk(self._root_dir):
             for fn in files:
@@ -101,7 +104,10 @@ class SelfDiagnosisService:
         """检测超大模块与超长函数（潜在 God Object / 上帝类）。"""
         findings: list[dict[str, Any]] = []
         if not os.path.isdir(self._root_dir):
-            return findings
+            raise FileNotFoundError(
+                f"self_diagnosis 的 root_dir 不存在: {self._root_dir!r}（当前 cwd={os.getcwd()!r}）。"
+                "请传入有效绝对路径或在项目根目录运行。静默返回空会导致自治诊断'假健康'，故改为抛错暴露。"
+            )
 
         for root, _dirs, files in os.walk(self._root_dir):
             for fn in files:
