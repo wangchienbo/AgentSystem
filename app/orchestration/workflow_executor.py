@@ -235,7 +235,7 @@ class WorkflowExecutorService:
                 self._context_compaction.compact(app_instance_id, reason=event_name)
         return result
 
-    def _execute_step(
+    def _execute_module_state_write(
         self,
         app_instance_id: str,
         blueprint,
@@ -247,424 +247,652 @@ class WorkflowExecutorService:
         inputs: dict[str, Any],
         execution_context: dict[str, Any],
     ) -> WorkflowStepExecution:
-        if self._policy_guard is not None:
-            try:
-                self._policy_guard.ensure_workflow_step_allowed(blueprint, kind=kind, ref=ref)
-            except PolicyGuardError as error:
-                if self._context_store is not None:
-                    self._context_store.append_entry(
-                        app_instance_id,
-                        section="constraints",
-                        key=f"policy:{step_id}",
-                        value={"ref": ref, "kind": kind, "status": "blocked", "reason": str(error)},
-                        tags=["workflow", "policy"],
-                    )
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="blocked_by_policy",
-                    detail={"reason": str(error), "ref": ref, "kind": kind, "policy_blocked": True},
-                    output={},
-                )
-        if kind == "module" and ref in {"state.set", "data.write"}:
-            key = str(config.get("key", f"workflow.{workflow_id}.{step_id}"))
-            value = self._resolve_value(config.get("value", inputs), execution_context)
-            record = self._data_store.put_record(
-                namespace_id=f"{app_instance_id}:app_data",
-                key=key,
-                value=value if isinstance(value, dict) else {"value": value},
-                tags=["workflow", workflow_id, step_id],
-            )
-            if self._context_store is not None and ref == "data.write":
-                self._context_store.append_entry(
-                    app_instance_id,
-                    section="artifacts",
-                    key=f"data-write:{key}",
-                    value={"record_id": record.record_id, "key": key, "value": record.value},
-                    tags=["workflow", "data-write"],
-                )
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="completed",
-                detail={"record_id": record.record_id, "key": key},
-                output={"record_id": record.record_id, "key": key, "value": record.value},
-            )
-
-        if kind == "module" and ref in {"state.get", "data.read"}:
-            key = str(config.get("key", ""))
-            if not key:
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="skipped",
-                    detail={"reason": "missing key"},
-                    output={},
-                )
-            records = self._data_store.list_records(f"{app_instance_id}:app_data")
-            record = next((item for item in records if item.key == key), None)
-            if self._context_store is not None:
-                self._context_store.append_entry(
-                    app_instance_id,
-                    section="artifacts",
-                    key=f"{'data-read' if ref == 'data.read' else 'state-read'}:{key}",
-                    value={} if record is None else record.value,
-                    tags=["workflow", "data-read" if ref == "data.read" else "state-get"],
-                )
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="completed" if record is not None else "skipped",
-                detail={"key": key, "found": record is not None},
-                output={} if record is None else {"key": key, "value": record.value},
-            )
-
-        if kind == "module" and ref == "data.list":
-            prefix = config.get("prefix")
-            records = self._data_store.list_records(f"{app_instance_id}:app_data")
-            if prefix is not None:
-                records = [item for item in records if item.key.startswith(str(prefix))]
-            items = [{"record_id": item.record_id, "key": item.key, "value": item.value, "tags": list(item.tags)} for item in records]
-            if self._context_store is not None:
-                self._context_store.append_entry(
-                    app_instance_id,
-                    section="artifacts",
-                    key=f"data-list:{step_id}",
-                    value={"count": len(items), "prefix": prefix},
-                    tags=["workflow", "data-list"],
-                )
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="completed",
-                detail={"count": len(items), "prefix": prefix},
-                output={"items": items, "count": len(items)},
-            )
-
-        if kind == "module" and ref == "context.append":
-            if self._context_store is None:
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="skipped",
-                    detail={"reason": "context store unavailable"},
-                    output={},
-                )
-            section = str(config.get("section", "artifacts"))
-            key = str(config.get("key", step_id))
-            value = self._resolve_value(config.get("value", inputs), execution_context)
-            tags = self._resolve_value(config.get("tags", []), execution_context)
-            entry = self._context_store.append_entry(
+        key = str(config.get("key", f"workflow.{workflow_id}.{step_id}"))
+        value = self._resolve_value(config.get("value", inputs), execution_context)
+        record = self._data_store.put_record(
+            namespace_id=f"{app_instance_id}:app_data",
+            key=key,
+            value=value if isinstance(value, dict) else {"value": value},
+            tags=["workflow", workflow_id, step_id],
+        )
+        if self._context_store is not None and ref == "data.write":
+            self._context_store.append_entry(
                 app_instance_id,
-                section=section,
-                key=key,
-                value=value,
-                tags=list(tags) if isinstance(tags, list) else [],
+                section="artifacts",
+                key=f"data-write:{key}",
+                value={"record_id": record.record_id, "key": key, "value": record.value},
+                tags=["workflow", "data-write"],
             )
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="completed",
+            detail={"record_id": record.record_id, "key": key},
+            output={"record_id": record.record_id, "key": key, "value": record.value},
+        )
+
+
+    def _execute_module_state_read(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        key = str(config.get("key", ""))
+        if not key:
             return WorkflowStepExecution(
                 step_id=step_id,
                 ref=ref,
                 kind=kind,
-                status="completed",
-                detail={"entry_id": entry.entry_id, "section": section, "key": key},
-                output={"entry_id": entry.entry_id, "section": section, "key": key, "value": value},
+                status="skipped",
+                detail={"reason": "missing key"},
+                output={},
             )
+        records = self._data_store.list_records(f"{app_instance_id}:app_data")
+        record = next((item for item in records if item.key == key), None)
+        if self._context_store is not None:
+            self._context_store.append_entry(
+                app_instance_id,
+                section="artifacts",
+                key=f"{'data-read' if ref == 'data.read' else 'state-read'}:{key}",
+                value={} if record is None else record.value,
+                tags=["workflow", "data-read" if ref == "data.read" else "state-get"],
+            )
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="completed" if record is not None else "skipped",
+            detail={"key": key, "found": record is not None},
+            output={} if record is None else {"key": key, "value": record.value},
+        )
 
-        if kind == "module" and ref == "context.set_goal":
-            if self._context_store is None:
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="skipped",
-                    detail={"reason": "context store unavailable"},
-                    output={},
+
+    def _execute_module_data_list(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        prefix = config.get("prefix")
+        records = self._data_store.list_records(f"{app_instance_id}:app_data")
+        if prefix is not None:
+            records = [item for item in records if item.key.startswith(str(prefix))]
+        items = [{"record_id": item.record_id, "key": item.key, "value": item.value, "tags": list(item.tags)} for item in records]
+        if self._context_store is not None:
+            self._context_store.append_entry(
+                app_instance_id,
+                section="artifacts",
+                key=f"data-list:{step_id}",
+                value={"count": len(items), "prefix": prefix},
+                tags=["workflow", "data-list"],
+            )
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="completed",
+            detail={"count": len(items), "prefix": prefix},
+            output={"items": items, "count": len(items)},
+        )
+
+
+    def _execute_module_context_append(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        if self._context_store is None:
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="skipped",
+                detail={"reason": "context store unavailable"},
+                output={},
+            )
+        section = str(config.get("section", "artifacts"))
+        key = str(config.get("key", step_id))
+        value = self._resolve_value(config.get("value", inputs), execution_context)
+        tags = self._resolve_value(config.get("tags", []), execution_context)
+        entry = self._context_store.append_entry(
+            app_instance_id,
+            section=section,
+            key=key,
+            value=value,
+            tags=list(tags) if isinstance(tags, list) else [],
+        )
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="completed",
+            detail={"entry_id": entry.entry_id, "section": section, "key": key},
+            output={"entry_id": entry.entry_id, "section": section, "key": key, "value": value},
+        )
+
+
+    def _execute_module_context_set_goal(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        if self._context_store is None:
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="skipped",
+                detail={"reason": "context store unavailable"},
+                output={},
+            )
+        goal = self._resolve_value(config.get("goal", config.get("value", "")), execution_context)
+        context = self._context_store.update_context(app_instance_id, current_goal=str(goal))
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="completed",
+            detail={"current_goal": context.current_goal},
+            output={"current_goal": context.current_goal},
+        )
+
+
+    def _execute_module_context_set_stage(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        if self._context_store is None:
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="skipped",
+                detail={"reason": "context store unavailable"},
+                output={},
+            )
+        stage = self._resolve_value(config.get("stage", config.get("value", "")), execution_context)
+        context = self._context_store.update_context(app_instance_id, current_stage=str(stage))
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="completed",
+            detail={"current_stage": context.current_stage},
+            output={"current_stage": context.current_stage},
+        )
+
+
+    def _execute_module_pause_for_human(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        if self._context_store is not None:
+            self._context_store.append_entry(
+                app_instance_id,
+                section="questions",
+                key=f"pause-for-human:{step_id}",
+                value={"message": config.get("message"), "required_action": config.get("required_action")},
+                tags=["workflow", "pause-for-human"],
+            )
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="paused_for_human",
+            detail={"reason": str(config.get("message", "manual action required")), "manual_action_required": True},
+            output={"manual_action_required": True, "message": config.get("message"), "required_action": config.get("required_action")},
+        )
+
+
+    def _execute_module_wait_for_event(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        event_name = str(config.get("event_name", ""))
+        if self._context_store is not None:
+            self._context_store.append_entry(
+                app_instance_id,
+                section="open_loops",
+                key=f"wait-for-event:{step_id}",
+                value={"event_name": event_name, "resume_hint": config.get("resume_hint")},
+                tags=["workflow", "wait-for-event"],
+            )
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="waiting_for_event",
+            detail={"event_name": event_name, "resume_hint": config.get("resume_hint")},
+            output={"event_name": event_name, "resume_hint": config.get("resume_hint")},
+        )
+
+
+    def _execute_module_workflow_fail(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        reason = self._resolve_value(config.get("reason", "workflow marked failed"), execution_context)
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="failed",
+            detail={"reason": str(reason), "forced_failure": True},
+            output={"forced_failure": True, "reason": str(reason)},
+        )
+
+
+    def _execute_module_workflow_complete(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        result_value = self._resolve_value(config.get("result", config.get("value", {})), execution_context)
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="completed",
+            detail={"forced_completion": True},
+            output={"forced_completion": True, "result": result_value},
+        )
+
+
+    def _execute_module_prompt_invoke(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        if self._prompt_invocation_service is None:
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="skipped",
+                detail={"reason": "prompt invocation service unavailable"},
+                output={"placeholder": "prompt_invoke", "ref": ref},
+            )
+        resolved = self._resolve_value(config, execution_context)
+        if blueprint.runtime_policy.prompt_invoke_requires_ask_user and not bool(resolved.get("approved_by_user", False)):
+            if hasattr(self, "_skill_risk_policy") and self._skill_risk_policy is not None:
+                self._skill_risk_policy.record_event(
+                    skill_id="prompt.invoke",
+                    event_type="approval_required",
+                    actor="system",
+                    reason="prompt invocation requires user approval",
+                    scope="prompt_invocation",
+                    details={"app_instance_id": app_instance_id, "workflow_id": workflow_id, "step_id": step_id},
                 )
-            goal = self._resolve_value(config.get("goal", config.get("value", "")), execution_context)
-            context = self._context_store.update_context(app_instance_id, current_goal=str(goal))
             return WorkflowStepExecution(
                 step_id=step_id,
                 ref=ref,
                 kind=kind,
-                status="completed",
-                detail={"current_goal": context.current_goal},
-                output={"current_goal": context.current_goal},
+                status="blocked_by_policy",
+                detail={"reason": "prompt invocation requires user approval", "policy_blocked": True},
+                output={},
             )
-
-        if kind == "module" and ref == "context.set_stage":
-            if self._context_store is None:
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="skipped",
-                    detail={"reason": "context store unavailable"},
-                    output={},
-                )
-            stage = self._resolve_value(config.get("stage", config.get("value", "")), execution_context)
-            context = self._context_store.update_context(app_instance_id, current_stage=str(stage))
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="completed",
-                detail={"current_stage": context.current_stage},
-                output={"current_stage": context.current_stage},
+        result = self._prompt_invocation_service.invoke_with_selection(
+            app_instance_id=app_instance_id,
+            query=str(resolved.get("query", "")),
+            category=resolved.get("category") or None,
+            limit=int(resolved.get("limit", 5)),
+            max_prompt_tokens=resolved.get("max_prompt_tokens"),
+            reserved_output_tokens=int(resolved.get("reserved_output_tokens", 256)),
+            working_set_token_estimate=int(resolved.get("working_set_token_estimate", 400)),
+            per_evidence_token_estimate=int(resolved.get("per_evidence_token_estimate", 120)),
+            strategy=str(resolved.get("strategy", "balanced")),
+            include_prompt_assembly=bool(resolved.get("include_prompt_assembly", True)),
+            extra_payload=resolved.get("extra_payload"),
+        )
+        if self._context_store is not None:
+            self._context_store.append_entry(
+                app_instance_id,
+                section="artifacts",
+                key=f"prompt-invocation:{step_id}",
+                value={
+                    "selection_summary": result.get("selection_summary", {}),
+                    "model_invocation": result.get("model_invocation", {}),
+                },
+                tags=["workflow", "prompt-invocation"],
             )
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="completed",
+            detail={"provider": result.get("model_invocation", {}).get("provider"), "model": result.get("model_invocation", {}).get("model")},
+            output=result,
+        )
 
-        if kind == "module" and ref == "workflow.pause_for_human":
+
+    def _execute_event(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        event_name = str(config.get("event_name", ref))
+        event_payload = self._resolve_value(config.get("payload", inputs), execution_context)
+        result = self._event_bus.publish(
+            event_name=event_name,
+            source="workflow",
+            app_instance_id=app_instance_id,
+            payload={"workflow_id": workflow_id, "step_id": step_id, **(event_payload if isinstance(event_payload, dict) else {"value": event_payload})},
+        )
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="completed",
+            detail={"event_id": result.event.event_id, "event_name": event_name},
+            output={"event_id": result.event.event_id, "event_name": event_name},
+        )
+
+
+    def _execute_human_task(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        if self._context_store is not None:
+            self._context_store.append_entry(
+                app_instance_id,
+                section="questions",
+                key=f"human-task:{step_id}",
+                value={"ref": ref, "config": config},
+                tags=["workflow", "human-task"],
+            )
+        return WorkflowStepExecution(
+            step_id=step_id,
+            ref=ref,
+            kind=kind,
+            status="paused_for_human",
+            detail={"reason": "human task requires manual action", "ref": ref, "manual_action_required": True},
+            output={"placeholder": "human_task", "ref": ref, "manual_action_required": True},
+        )
+
+
+    def _execute_skill(
+        self,
+        app_instance_id: str,
+        blueprint,
+        workflow_id: str,
+        kind: str,
+        step_id: str,
+        ref: str,
+        config: dict[str, Any],
+        inputs: dict[str, Any],
+        execution_context: dict[str, Any],
+    ) -> WorkflowStepExecution:
+        if ref not in blueprint.required_skills:
             if self._context_store is not None:
                 self._context_store.append_entry(
                     app_instance_id,
-                    section="questions",
-                    key=f"pause-for-human:{step_id}",
-                    value={"message": config.get("message"), "required_action": config.get("required_action")},
-                    tags=["workflow", "pause-for-human"],
+                    section="constraints",
+                    key=f"skill-policy:{step_id}",
+                    value={"ref": ref, "kind": kind, "status": "blocked", "reason": "skill not declared in blueprint"},
+                    tags=["workflow", "policy", "skill-step"],
                 )
             return WorkflowStepExecution(
                 step_id=step_id,
                 ref=ref,
                 kind=kind,
-                status="paused_for_human",
-                detail={"reason": str(config.get("message", "manual action required")), "manual_action_required": True},
-                output={"manual_action_required": True, "message": config.get("message"), "required_action": config.get("required_action")},
+                status="blocked_by_policy",
+                detail={"reason": "skill not declared in blueprint", "ref": ref, "kind": kind, "policy_blocked": True},
+                output={},
             )
-
-        if kind == "module" and ref == "workflow.wait_for_event":
-            event_name = str(config.get("event_name", ""))
+        if self._skill_runtime is None:
             if self._context_store is not None:
                 self._context_store.append_entry(
                     app_instance_id,
                     section="open_loops",
-                    key=f"wait-for-event:{step_id}",
-                    value={"event_name": event_name, "resume_hint": config.get("resume_hint")},
-                    tags=["workflow", "wait-for-event"],
-                )
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="waiting_for_event",
-                detail={"event_name": event_name, "resume_hint": config.get("resume_hint")},
-                output={"event_name": event_name, "resume_hint": config.get("resume_hint")},
-            )
-
-        if kind == "module" and ref == "workflow.fail":
-            reason = self._resolve_value(config.get("reason", "workflow marked failed"), execution_context)
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="failed",
-                detail={"reason": str(reason), "forced_failure": True},
-                output={"forced_failure": True, "reason": str(reason)},
-            )
-
-        if kind == "module" and ref == "workflow.complete":
-            result_value = self._resolve_value(config.get("result", config.get("value", {})), execution_context)
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="completed",
-                detail={"forced_completion": True},
-                output={"forced_completion": True, "result": result_value},
-            )
-
-        if kind == "module" and ref == "prompt.invoke":
-            if self._prompt_invocation_service is None:
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="skipped",
-                    detail={"reason": "prompt invocation service unavailable"},
-                    output={"placeholder": "prompt_invoke", "ref": ref},
-                )
-            resolved = self._resolve_value(config, execution_context)
-            if blueprint.runtime_policy.prompt_invoke_requires_ask_user and not bool(resolved.get("approved_by_user", False)):
-                if hasattr(self, "_skill_risk_policy") and self._skill_risk_policy is not None:
-                    self._skill_risk_policy.record_event(
-                        skill_id="prompt.invoke",
-                        event_type="approval_required",
-                        actor="system",
-                        reason="prompt invocation requires user approval",
-                        scope="prompt_invocation",
-                        details={"app_instance_id": app_instance_id, "workflow_id": workflow_id, "step_id": step_id},
-                    )
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="blocked_by_policy",
-                    detail={"reason": "prompt invocation requires user approval", "policy_blocked": True},
-                    output={},
-                )
-            result = self._prompt_invocation_service.invoke_with_selection(
-                app_instance_id=app_instance_id,
-                query=str(resolved.get("query", "")),
-                category=resolved.get("category") or None,
-                limit=int(resolved.get("limit", 5)),
-                max_prompt_tokens=resolved.get("max_prompt_tokens"),
-                reserved_output_tokens=int(resolved.get("reserved_output_tokens", 256)),
-                working_set_token_estimate=int(resolved.get("working_set_token_estimate", 400)),
-                per_evidence_token_estimate=int(resolved.get("per_evidence_token_estimate", 120)),
-                strategy=str(resolved.get("strategy", "balanced")),
-                include_prompt_assembly=bool(resolved.get("include_prompt_assembly", True)),
-                extra_payload=resolved.get("extra_payload"),
-            )
-            if self._context_store is not None:
-                self._context_store.append_entry(
-                    app_instance_id,
-                    section="artifacts",
-                    key=f"prompt-invocation:{step_id}",
-                    value={
-                        "selection_summary": result.get("selection_summary", {}),
-                        "model_invocation": result.get("model_invocation", {}),
-                    },
-                    tags=["workflow", "prompt-invocation"],
-                )
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="completed",
-                detail={"provider": result.get("model_invocation", {}).get("provider"), "model": result.get("model_invocation", {}).get("model")},
-                output=result,
-            )
-
-        if kind == "event":
-            event_name = str(config.get("event_name", ref))
-            event_payload = self._resolve_value(config.get("payload", inputs), execution_context)
-            result = self._event_bus.publish(
-                event_name=event_name,
-                source="workflow",
-                app_instance_id=app_instance_id,
-                payload={"workflow_id": workflow_id, "step_id": step_id, **(event_payload if isinstance(event_payload, dict) else {"value": event_payload})},
-            )
-            return WorkflowStepExecution(
-                step_id=step_id,
-                ref=ref,
-                kind=kind,
-                status="completed",
-                detail={"event_id": result.event.event_id, "event_name": event_name},
-                output={"event_id": result.event.event_id, "event_name": event_name},
-            )
-
-        if kind == "human_task":
-            if self._context_store is not None:
-                self._context_store.append_entry(
-                    app_instance_id,
-                    section="questions",
-                    key=f"human-task:{step_id}",
+                    key=f"skill-step:{step_id}",
                     value={"ref": ref, "config": config},
-                    tags=["workflow", "human-task"],
+                    tags=["workflow", "skill-step"],
                 )
             return WorkflowStepExecution(
                 step_id=step_id,
                 ref=ref,
                 kind=kind,
-                status="paused_for_human",
-                detail={"reason": "human task requires manual action", "ref": ref, "manual_action_required": True},
-                output={"placeholder": "human_task", "ref": ref, "manual_action_required": True},
+                status="skipped",
+                detail={"reason": "skill execution placeholder", "ref": ref},
+                output={"placeholder": "skill", "ref": ref},
+            )
+        try:
+            mapped_inputs = self._resolve_value(config.get("inputs", inputs), execution_context)
+            mapped_config = self._resolve_value(config, execution_context)
+            working_set = None
+            if self._context_compaction is not None:
+                working_set = self._context_compaction.build_working_set(app_instance_id).model_dump(mode="json")
+            request = SkillExecutionRequest(
+                skill_id=ref,
+                app_instance_id=app_instance_id,
+                workflow_id=workflow_id,
+                step_id=step_id,
+                inputs=(mapped_inputs if isinstance(mapped_inputs, dict) else {"value": mapped_inputs}) | ({"working_set": working_set} if working_set is not None else {}),
+                config=mapped_config if isinstance(mapped_config, dict) else {"value": mapped_config},
+            )
+            result = self._skill_runtime.execute(request)
+            if self._context_store is not None:
+                target_section = "artifacts" if result.status == "completed" else "open_loops"
+                self._context_store.append_entry(
+                    app_instance_id,
+                    section=target_section,
+                    key=f"skill-result:{step_id}",
+                    value={"output": result.output, "error": result.error, "status": result.status},
+                    tags=["workflow", "skill-step", ref],
+                )
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="completed" if result.status == "completed" else "failed",
+                detail={
+                    "skill_id": ref,
+                    "status": result.status,
+                    "error": result.error,
+                    "error_detail": result.error_detail,
+                },
+                output=result.output,
+            )
+        except SkillRuntimeError:
+            if self._context_store is not None:
+                self._context_store.append_entry(
+                    app_instance_id,
+                    section="open_loops",
+                    key=f"skill-step:{step_id}",
+                    value={"ref": ref, "config": config, "status": "unhandled"},
+                    tags=["workflow", "skill-step"],
+                )
+            return WorkflowStepExecution(
+                step_id=step_id,
+                ref=ref,
+                kind=kind,
+                status="skipped",
+                detail={"reason": "skill handler missing", "ref": ref},
+                output={"placeholder": "skill", "ref": ref},
             )
 
-        if kind == "skill":
-            if ref not in blueprint.required_skills:
-                if self._context_store is not None:
-                    self._context_store.append_entry(
-                        app_instance_id,
-                        section="constraints",
-                        key=f"skill-policy:{step_id}",
-                        value={"ref": ref, "kind": kind, "status": "blocked", "reason": "skill not declared in blueprint"},
-                        tags=["workflow", "policy", "skill-step"],
-                    )
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="blocked_by_policy",
-                    detail={"reason": "skill not declared in blueprint", "ref": ref, "kind": kind, "policy_blocked": True},
-                    output={},
-                )
-            if self._skill_runtime is None:
-                if self._context_store is not None:
-                    self._context_store.append_entry(
-                        app_instance_id,
-                        section="open_loops",
-                        key=f"skill-step:{step_id}",
-                        value={"ref": ref, "config": config},
-                        tags=["workflow", "skill-step"],
-                    )
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="skipped",
-                    detail={"reason": "skill execution placeholder", "ref": ref},
-                    output={"placeholder": "skill", "ref": ref},
-                )
+
+    def _execute_step(
+
+        self,
+
+        app_instance_id: str,
+
+        blueprint,
+
+        workflow_id: str,
+
+        kind: str,
+
+        step_id: str,
+
+        ref: str,
+
+        config: dict[str, Any],
+
+        inputs: dict[str, Any],
+
+        execution_context: dict[str, Any],
+
+    ) -> WorkflowStepExecution:
+
+        if self._policy_guard is not None:
+
             try:
-                mapped_inputs = self._resolve_value(config.get("inputs", inputs), execution_context)
-                mapped_config = self._resolve_value(config, execution_context)
-                working_set = None
-                if self._context_compaction is not None:
-                    working_set = self._context_compaction.build_working_set(app_instance_id).model_dump(mode="json")
-                request = SkillExecutionRequest(
-                    skill_id=ref,
-                    app_instance_id=app_instance_id,
-                    workflow_id=workflow_id,
-                    step_id=step_id,
-                    inputs=(mapped_inputs if isinstance(mapped_inputs, dict) else {"value": mapped_inputs}) | ({"working_set": working_set} if working_set is not None else {}),
-                    config=mapped_config if isinstance(mapped_config, dict) else {"value": mapped_config},
-                )
-                result = self._skill_runtime.execute(request)
+
+                self._policy_guard.ensure_workflow_step_allowed(blueprint, kind=kind, ref=ref)
+
+            except PolicyGuardError as error:
+
                 if self._context_store is not None:
-                    target_section = "artifacts" if result.status == "completed" else "open_loops"
+
                     self._context_store.append_entry(
+
                         app_instance_id,
-                        section=target_section,
-                        key=f"skill-result:{step_id}",
-                        value={"output": result.output, "error": result.error, "status": result.status},
-                        tags=["workflow", "skill-step", ref],
+
+                        section="constraints",
+
+                        key=f"policy:{step_id}",
+
+                        value={"ref": ref, "kind": kind, "status": "blocked", "reason": str(error)},
+
+                        tags=["workflow", "policy"],
+
                     )
+
                 return WorkflowStepExecution(
+
                     step_id=step_id,
+
                     ref=ref,
+
                     kind=kind,
-                    status="completed" if result.status == "completed" else "failed",
-                    detail={
-                        "skill_id": ref,
-                        "status": result.status,
-                        "error": result.error,
-                        "error_detail": result.error_detail,
-                    },
-                    output=result.output,
-                )
-            except SkillRuntimeError:
-                if self._context_store is not None:
-                    self._context_store.append_entry(
-                        app_instance_id,
-                        section="open_loops",
-                        key=f"skill-step:{step_id}",
-                        value={"ref": ref, "config": config, "status": "unhandled"},
-                        tags=["workflow", "skill-step"],
-                    )
-                return WorkflowStepExecution(
-                    step_id=step_id,
-                    ref=ref,
-                    kind=kind,
-                    status="skipped",
-                    detail={"reason": "skill handler missing", "ref": ref},
-                    output={"placeholder": "skill", "ref": ref},
+
+                    status="blocked_by_policy",
+
+                    detail={"reason": str(error), "ref": ref, "kind": kind, "policy_blocked": True},
+
+                    output={},
+
                 )
 
+        if kind == 'module' and ref in {'state.set', 'data.write'}:
+            return self._execute_module_state_write(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref in {'state.get', 'data.read'}:
+            return self._execute_module_state_read(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref == 'data.list':
+            return self._execute_module_data_list(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref == 'context.append':
+            return self._execute_module_context_append(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref == 'context.set_goal':
+            return self._execute_module_context_set_goal(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref == 'context.set_stage':
+            return self._execute_module_context_set_stage(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref == 'workflow.pause_for_human':
+            return self._execute_module_pause_for_human(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref == 'workflow.wait_for_event':
+            return self._execute_module_wait_for_event(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref == 'workflow.fail':
+            return self._execute_module_workflow_fail(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref == 'workflow.complete':
+            return self._execute_module_workflow_complete(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'module' and ref == 'prompt.invoke':
+            return self._execute_module_prompt_invoke(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'event':
+            return self._execute_event(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'human_task':
+            return self._execute_human_task(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
+        if kind == 'skill':
+            return self._execute_skill(app_instance_id, blueprint, workflow_id, kind, step_id, ref, config, inputs, execution_context)
         return WorkflowStepExecution(
             step_id=step_id,
             ref=ref,
@@ -673,6 +901,7 @@ class WorkflowExecutorService:
             detail={"reason": "unsupported step"},
             output={},
         )
+
 
     def _should_run_step(self, config: dict[str, Any], execution_context: dict[str, Any]) -> bool:
         when = config.get("when")
