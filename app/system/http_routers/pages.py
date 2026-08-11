@@ -21,9 +21,23 @@ def create_pages_router() -> APIRouter:
         from fastapi.responses import Response
         return Response(content=b"", media_type="image/x-icon")
 
+    @router.get("/static/{path:path}")
+    async def static_file(path: str):
+        """静态资源服务（css/js/img 等）。middleware 已排除 /static/，此处补齐实际服务。"""
+        if not path or ".." in path or path.startswith("/"):
+            raise HTTPException(status_code=404, detail="File not found")
+        candidate = (static_dir / path).resolve()
+        root = static_dir.resolve()
+        if not str(candidate).startswith(str(root)):
+            raise HTTPException(status_code=403, detail="Forbidden")
+        if not candidate.is_file():
+            raise HTTPException(status_code=404, detail="File not found")
+        return FileResponse(candidate)
+
     @router.get("/studio", response_class=HTMLResponse)
     async def novel_studio_page():
-        studio_path = Path(__file__).resolve().parent.parent / "novel_studio" / "templates" / "studio.html"
+        # pages.py 位于 app/system/http_routers/，需回退到 app/ 再进 novel_studio
+        studio_path = Path(__file__).resolve().parent.parent.parent / "novel_studio" / "templates" / "studio.html"
         if studio_path.exists():
             from fastapi.responses import HTMLResponse as _HTML
             content = studio_path.read_text(encoding="utf-8")

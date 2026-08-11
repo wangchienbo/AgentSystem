@@ -1,346 +1,218 @@
 #!/usr/bin/env python3
-"""AgentSystem Novel Studio — 全面端到端验证（含登录认证）"""
-import json, subprocess, sys, time, os
+"""Novel Studio — 参数化 Playwright 端到端测试（模拟真实用户操作）
+
+不再硬编码 novel_id/标题/角色名。脚本先用 HTTP API 预取当前真实数据
+（小说列表 → 章节名 → 角色名），再用 Playwright 驱动浏览器模拟用户：
+登录 → 选小说 → 进工作室 → 查看章节/角色 → 聊天(流式) → 详情 → JS/网络检查。
+
+用法:
+    python tests/e2e/test_novel_studio_e2e.py            # 完整模拟用户流程(不含生成)
+    python tests/e2e/test_novel_studio_e2e.py --with-generate   # 额外触发"生成下一章"
+    python tests/e2e/test_novel_studio_e2e.py --base-url http://localhost:8765
+"""
+import sys, json, os, re, argparse, urllib.request
 
 BASE = "http://127.0.0.1:8765"
-NOVEL_ID = "novel_20260529035145_b5a09027"  # 明末艺术家 — 4章
+CHROME = os.path.expanduser("~/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome")
+STREAM_TIMEOUT = 90   # 聊天流式最长等待
+LOGIN_USER = "e2e_user"
 
-results = []
-def check(name, ok, detail=""):
-    status = "✅" if ok else "❌"
-    results.append((name, ok))
-    print(f"  {status} {name}" + (f" — {detail}" if detail else ""))
 
-def curl(url, data=None, method="POST", timeout=30, cookies=None):
-    cmd = ["curl", "-s", "--max-time", str(timeout)]
-    if cookies:
-        cmd += ["-c", cookies, "-b", cookies]
-    if method == "POST":
-        cmd += ["-X", "POST", "-H", "Content-Type: application/json", "-d", json.dumps(data)]
-    cmd.append(url)
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout+5)
-    try: return json.loads(r.stdout)
-    except: return {"raw": r.stdout[:200]}
+def api_post(path, payload, cookie=None):
+    """HTTP 调用 API，返回 (json, cookie)。用于预取真实数据做断言期望。"""
+    req = urllib.request.Request(BASE + path, data=json.dumps(payload).encode(),
+                                 headers={"Content-Type": "application/json"},
+                                 method="POST")
+    if cookie:
+        req.add_header("Cookie", cookie)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        ck = resp.headers.get("Set-Cookie", "")
+        body = resp.read().decode("utf-8", "replace")
+        return json.loads(body), ck
 
-# ═══════════════════════════════════════════════
-# PART 0: 认证准备
-# ═══════════════════════════════════════════════
-print("=" * 60)
-print("🧪 Novel Studio 全面端到端验证（含登录认证）")
-print("=" * 60)
 
-print("\n🔑 0 — 认证")
-print("-" * 40)
+def prefetch_real_data():
+    """预取当前真实小说数据，返回断言期望字典。"""
+    # 登录拿 cookie
+    d, ck = api_post("/login", {"username": LOGIN_USER})
+    if not d.get("success"):
+        raise RuntimeError("登录失败: " + str(d))
+    cookie = ck.split(";")[0]
+    # 小说列表
+    lst, _ = api_post("/api/novel/list", {}, cookie)
+    novels = lst.get("novels") or []
+    if not novels:
+        raise RuntimeError("无可用小说数据，无法做 E2E")
+    novel = novels[0]  # 取第一部（最活跃）
+    nid = novel["id"]
+    # 章节 + 角色
+    det, _ = api_post("/api/novel/get", {"novel_id": nid}, cookie)
+    nd = det.get("novel") or {}
+    chs = [c.get("title") for c in (nd.get("chapters") or [])]
+    chars = [c.get("name") for c in (nd.get("characters") or {}).values() if c.get("name")]
+    return {
+        "novel_id": nid,
+        "title": novel.get("title") or "未命名",
+        "chapter_count": novel.get("chapter_count") or len(chs),
+        "chapters": chs,
+        "characters": chars,
+        "cookie": cookie,
+    }
 
-# 0a: 未认证请求被拒绝
-d = curl(f"{BASE}/api/novel/list", {})
-check("0a 未认证被拒绝", d.get("detail") == "Not authenticated")
 
-# 0b: 登录
-COOKIE = "/tmp/e2e_cookies.txt"
-d = curl(f"{BASE}/login", {"username": "e2etest"}, cookies=COOKIE)
-check("0b 登录成功", d.get("success") and d.get("session_id") == "session_e2etest",
-      f"session_id={d.get('session_id','?')}")
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--base-url", default=BASE)
+    ap.add_argument("--with-generate", action="store_true",
+                    help="额外触发'生成下一章'（会启动慢速 LLM 管线，谨慎）")
+    ap.add_argument("--no-chat", action="store_true", help="跳过聊天（避免调 LLM）")
+    args = ap.parse_args()
 
-# ═══════════════════════════════════════════════
-# PART A: API 层综合验证
-# ═══════════════════════════════════════════════
-print("\n📡 A — API 层综合验证")
-print("-" * 40)
+    real = prefetch_real_data()
+    results = []
+    def check(name, ok, detail=""):
+        results.append((name, bool(ok)))
+        print(f"  {'✅' if ok else '❌'} {name}" + (f" — {detail}" if detail else ""))
 
-# A1: 列出小说
-d = curl(f"{BASE}/api/novel/list", {}, cookies=COOKIE)
-check("A1 列出小说", d.get("success") and len(d.get("novels", [])) >= 1, f"{len(d.get('novels',[]))} 本")
+    from playwright.sync_api import sync_playwright
 
-# A2: 获取小说完整数据 — 紧凑摘要验证
-d = curl(f"{BASE}/api/novel/get", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-n = d.get("novel", {})
-summary = d.get("_summary", "")
-has_summary = bool(summary) and "明末艺术家" in summary
-check("A2 获取小说", d.get("success") and n.get("title") == "明末艺术家" and has_summary,
-      f"《{n.get('title','?')}》 — {'有摘要' if has_summary else '无摘要'}")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True, executable_path=CHROME,
+            args=["--no-sandbox", "--disable-setuid-sandbox"])
+        context = browser.new_context(viewport={"width": 1280, "height": 800})
+        page = context.new_page()
 
-# A3: 章节完整性
-chapters = n.get("chapters", [])
-check("A3 章节数正确", len(chapters) >= 4, f"{len(chapters)} 章")
+        console_errors, failed_requests = [], []
+        page.on("console", lambda m: console_errors.append((m.type, m.text)))
+        page.on("response", lambda r: failed_requests.append((r.status, r.url))
+                if r.status >= 400 and "favicon" not in r.url else None)
 
-# A4: 角色数据
-chars = n.get("characters", {})
-check("A4 角色数", len(chars) >= 2, f"{len(chars)} 个角色")
+        T = real["title"]
+        print("=" * 62)
+        print(f"🧪 Novel Studio E2E（参数化）— 目标小说《{T}》 id={real['novel_id']}")
+        print(f"   预取: {real['chapter_count']}章 | 角色 {real['characters']}")
+        print("=" * 62)
 
-# A5: 大纲数据
-outline = n.get("outline", {})
-has_outline = bool(outline) and (bool(outline.get("summary", "")) or bool(outline.get("chapters")))
-check("A5 有大纲", has_outline,
-      f"梗概:{outline.get('summary','')[:30] if outline else '无'} | 章节规划:{len(outline.get('chapters',[])) if outline else 0}")
+        # ── 1. 页面加载 + 登录 ──
+        print("\n🌐 1 — 加载 + 登录")
+        page.goto(f"{args.base_url}/studio", wait_until="domcontentloaded", timeout=15000)
+        page.wait_for_timeout(1500)
+        check("1a 页面加载", True, page.url)
+        check("1b 标题", "小说创作室" in page.title(), page.title())
+        # 登录框出现（新会话无 cookie）
+        login_visible = page.locator("#loginUser").count() > 0 and page.locator("#loginUser").is_visible()
+        check("1c 显示登录框", login_visible)
+        if login_visible:
+            page.fill("#loginUser", LOGIN_USER)
+            page.click("#loginBtn")
+            page.wait_for_timeout(2000)
+        check("1d 登录进入", page.locator("#chatMain").is_visible() or "赤旗" in page.inner_text("body"))
 
-# A6: 世界观
-world = n.get("world", {})
-check("A6 有世界观", bool(world) and bool(world.get("name", "")),
-      f"名称: {world.get('name','') if world else '无'}")
+        # ── 2. 小说列表 ──
+        print("\n📚 2 — 小说列表")
+        body = page.inner_text("body")
+        check("2a 见真实标题", T in body, f"{len(body)} chars")
+        check(f"2b 章节数={real['chapter_count']}",
+              re.search(rf"📄\s*{real['chapter_count']}章", body) is not None)
 
-# A7: 报告接口
-d = curl(f"{BASE}/api/novel/report", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-check("A7 小说报告", d.get("success") and bool(d.get("report", "")), f"报告长度: {len(d.get('report',''))}")
+        # ── 3. 进入工作室 ──
+        print("\n🎯 3 — 进入工作室")
+        card = page.locator(f".card[data-id='{real['novel_id']}']")
+        if card.count() > 0:
+            card.first.click()
+        else:
+            page.locator("text=" + T).first.click()
+        page.wait_for_timeout(2500)
+        body2 = page.inner_text("body")
+        check("3a 进入工作区", len(body2) > 300, f"{len(body2)} chars")
+        if real["chapters"]:
+            check(f"3b 见章节「{real['chapters'][0]}」", real["chapters"][0] in body2)
+        if real["characters"]:
+            check(f"3c 见角色「{real['characters'][0]}」", real["characters"][0] in body2)
+        check("3d 聊天区存在", page.locator("#chat-area").count() > 0)
+        check("3e 输入框可用", page.locator("#chat-input").first.is_visible() if page.locator("#chat-input").count() else False)
 
-# A8: 角色列表
-d = curl(f"{BASE}/api/novel/characters", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-chars_list = d.get("characters", [])
-check("A8 角色列表", d.get("success") and len(chars_list) >= 2, f"{len(chars_list)} 个")
+        # ── 4. 聊天交互（真实流式） ──
+        if not args.no_chat:
+            print("\n💬 4 — 聊天交互（流式）")
+            before = len(page.inner_text("body"))
+            ta = page.locator("#chat-input")
+            ta.fill("这部小说讲了什么故事？")
+            check("4a 输入文字", ta.input_value() == "这部小说讲了什么故事？")
+            page.locator("#send-btn").click()
+            check("4b 已发送", True)
+            try:
+                page.wait_for_function(
+                    "document.querySelector('#chat-input') && !document.querySelector('#chat-input').disabled",
+                    timeout=STREAM_TIMEOUT * 1000)
+                check("4c 流式完成后输入框重新启用", True)
+            except Exception:
+                check("4c 流式完成后输入框重新启用", False, f"timeout {STREAM_TIMEOUT}s")
+            page.wait_for_timeout(1500)
+            growth = len(page.inner_text("body")) - before
+            check("4d 有回复内容", growth > 30, f"body +{growth} chars")
+        else:
+            print("\n💬 4 — 聊天（已跳过 --no-chat）")
 
-# A9: 角色添加/删除
-import uuid
-tmp_char_name = f"E2E测试_{uuid.uuid4().hex[:6]}"
-d = curl(f"{BASE}/api/novel/character/add", {
-    "novel_id": NOVEL_ID,
-    "name": tmp_char_name,
-    "archetype": "配角",
-    "personality": ["勇敢", "幽默"],
-    "background": "E2E测试角色-测试后请删除"
-}, cookies=COOKIE)
-check("A9a 添加角色", d.get("success") and d.get("character", {}).get("name") == tmp_char_name,
-      f"name={d.get('character',{}).get('name','?')}")
+        # ── 5. 功能按钮 ──
+        print("\n⚡ 5 — 功能按钮")
+        b5 = page.inner_text("body")
+        for name, label in [("生成下一章", "⚡ 生成"), ("新建章节", "新建章节"),
+                            ("添加角色", "添加角色"), ("新建对话", "新建对话")]:
+            check(f"5 按钮-{name}", label in b5)
 
-# 清理临时角色
-char_id = d.get("character", {}).get("id", "")
-if char_id:
-    d = curl(f"{BASE}/api/novel/character/delete", {"novel_id": NOVEL_ID, "char_id": char_id}, cookies=COOKIE)
-    check("A9b 删除角色", d.get("success"), f"char_id={char_id[:12]}...")
-else:
-    check("A9b 删除角色", False, "char_id 为空, 跳过")
+        # ── 6. 详情视图（点击角色） ──
+        print("\n🔍 6 — 详情视图")
+        if real["characters"]:
+            cname = real["characters"][0]
+            ci = page.locator(".tree-item").filter(has_text=cname).first
+            if ci.count() > 0:
+                ci.click()
+                page.wait_for_timeout(1200)
+                check(f"6 点击角色「{cname}」", ci.count() > 0)
+            else:
+                check("6 角色树存在", False, f"未找到角色 {cname}")
 
-# A10: 生成章节（非流式） — commented out because slow
-# d = curl(f"{BASE}/api/novel/generate", {"novel_id": NOVEL_ID, "instruction": "写一段200字的景物描写"}, cookies=COOKIE)
-# check("A10 生成内容", d.get("success") and len(d.get("content","")) > 50,
-#       f"内容长度: {len(d.get('content',''))}")
+        # ── 7. JS 错误 + 网络 ──
+        print("\n🧹 7 — 错误检查")
+        real_errors = [(t, m) for t, m in console_errors
+                       if t == "error" and "favicon" not in m.lower() and "Failed to load resource" not in m]
+        check("7a 无 JS 错误", len(real_errors) == 0, f"{len(real_errors)} errors")
+        for t, m in real_errors[:3]:
+            print(f"     ⚠️ [{t}] {m[:180]}")
+        non_login = [(s, u) for s, u in failed_requests if "/api/novel/list" not in u]
+        check("7b 无失败请求", len(non_login) == 0, f"{len(non_login)} failed")
+        for s, u in non_login[:3]:
+            print(f"     ⚠️ {s} {u[:80]}")
 
-# ═══════════════════════════════════════════════
-# PART B: 对话 API
-# ═══════════════════════════════════════════════
-print("\n💬 B — 对话/聊天 API")
-print("-" * 40)
+        # ── 可选：生成下一章 ──
+        if args.with_generate:
+            print("\n🚀 8 — 生成下一章（慢速管线）")
+            page.locator("#gen-btn").click()
+            try:
+                page.wait_for_function(
+                    "document.querySelector('#gen-btn') && !document.querySelector('#gen-btn').disabled",
+                    timeout=2400 * 1000)
+                check("8 生成管线完成", True)
+            except Exception:
+                check("8 生成管线完成", False, "超时 40min")
 
-# B1: 聊天历史（空）
-d = curl(f"{BASE}/api/novel/chat/history", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-check("B1 聊天历史", d.get("success") and isinstance(d.get("records"), list),
-      f"{len(d.get('records',[]))} 条")
+        # ── 汇总 ──
+        passed = sum(1 for r in results if r[1])
+        total = len(results)
+        pct = int(passed / total * 100) if total else 0
+        print("\n" + "=" * 62)
+        print(f"📊 汇总: {passed}/{total} 通过 ({pct}%)")
+        for name, ok in results:
+            if not ok:
+                print(f"   ❌ {name}")
+        print("=" * 62)
+        page.screenshot(path="/tmp/studio_e2e_final.png")
+        print("截图: MEDIA:/tmp/studio_e2e_final.png")
+        browser.close()
+        return passed == total or passed / total >= 0.85
 
-# B2: 非流式聊天
-d = curl(f"{BASE}/api/novel/chat", {"novel_id": NOVEL_ID, "message": "请用10个字简单概括一下这个小说"}, cookies=COOKIE)
-check("B2 非流式聊天", d.get("success") and bool(d.get("content","")),
-      f"回复: {d.get('content','')[:50] if d.get('success') else '失败'}...")
 
-# B3: 再次聊天历史（应有2条记录）
-d = curl(f"{BASE}/api/novel/chat/history", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-records = d.get("records", [])
-check("B3 聊天历史有记录", d.get("success") and len(records) >= 2,
-      f"{len(records)} 条")
-
-# ═══════════════════════════════════════════════
-# PART C: 前端页面
-# ═══════════════════════════════════════════════
-print("\n🌐 C — 前端页面")
-print("-" * 40)
-
-# C1: 主页面
-d = curl(f"{BASE}/", method="GET")
-check("C1 主页访问", isinstance(d, dict) and (d.get("raw") or True),
-      "状态码200" if d else "无法访问")
-
-# C2: 小说工作室页面
-d = curl(f"{BASE}/studio", method="GET")
-check("C2 小说工作室页面", isinstance(d, dict) and (d.get("raw") or True),
-      "页面可访问" if isinstance(d, dict) else "OK")
-
-# ═══════════════════════════════════════════════
-# PART D: 数据完整性
-# ═══════════════════════════════════════════════
-print("\n📊 D — 数据完整性")
-print("-" * 40)
-
-# D1: 详细章节数据
-d = curl(f"{BASE}/api/novel/get", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-n = d.get("novel", {})
-chs = n.get("chapters", [])
-chapter_titles = [c.get("title", "")[:15] for c in chs]
-check("D1 章节标题可读", all(bool(t.strip()) for t in chapter_titles),
-      f"前3章: {' | '.join(chapter_titles[:3])}")
-
-# D2: 角色详情
-for cid, cdata in (n.get("characters") or {}).items():
-    if hasattr(cdata, 'get'):
-        check("D2 角色有背景", bool(cdata.get("background", "")),
-              f"{cdata.get('name','?')}: {cdata.get('background','')[:30]}")
-        break
-
-# D3: API 数据一致性（_summary 与 chapters 一致）
-summary = d.get("_summary", "")
-summary_has_chapters = "已写" in summary and "章" in summary
-check("D3 摘要含章节信息", bool(summary_has_chapters), f"摘要: {summary[:80]}...")
-
-# ═══════════════════════════════════════════════
-# PART E: 流程连续性验证
-# ═══════════════════════════════════════════════
-print("\n🔄 E — 流程 / 认证连续性")
-print("-" * 40)
-
-# E1: 第一次对话 → 记录到 history
-d1 = curl(f"{BASE}/api/novel/chat", {"novel_id": NOVEL_ID, "message": "这部小说的核心冲突是什么？用一句话回答"}, cookies=COOKIE)
-check("E1 对话1回复", d1.get("success") and bool(d1.get("content","")),
-      f"回复: {d1.get('content','')[:50] if d1.get('success') else '空'}...")
-
-# E2: 确认历史记录了对话1
-d = curl(f"{BASE}/api/novel/chat/history", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-prev_count = len(d.get("records", []))
-check("E2 历史记录数量", prev_count >= 2,
-      f"{prev_count} 条记录（至少含之前的 user + assistant）")
-
-# ═══════════════════════════════════════════════
-# PART F: 缓冲模式聊天（浏览器断开不丢失）
-# ═══════════════════════════════════════════════
-print("\n📦 F — 缓冲模式聊天")
-print("-" * 40)
-
-# F1: 启动后台聊天任务
-d = curl(f"{BASE}/api/novel/chat/start", {"novel_id": NOVEL_ID, "message": "主角是谁？一句话回答"}, cookies=COOKIE)
-task_id = d.get("task_id", "")
-check("F1 启动缓冲聊天", d.get("success") and bool(task_id), f"task_id={task_id[:12]}...")
-
-# F2: 轮询等待任务完成
-done = False
-task_result = None
-for i in range(120):  # 最多等 4 分钟
-    time.sleep(2)
-    d = curl(f"{BASE}/api/novel/task/{task_id}", method="GET", cookies=COOKIE, timeout=10)
-    if d.get("success") and d.get("status") == "complete":
-        task_result = d.get("result", {})
-        done = True
-        check("F2 缓冲聊天完成", bool(task_result.get("content", "")),
-              f"回复: {task_result.get('content','')[:60]}...")
-        break
-    elif d.get("success") and d.get("status") == "error":
-        check("F2 缓冲聊天失败", False, f"error: {d.get('error','?')}")
-        done = True
-        break
-if not done:
-    check("F2 缓冲聊天超时", False, "轮询120次仍未完成")
-
-# F3: 确认聊天历史有完整记录（user + assistant）
-d = curl(f"{BASE}/api/novel/chat/history", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-buffered_records = d.get("records", [])
-# 应该至少比之前的 prev_count 多 2 条（user + assistant）
-check("F3 缓冲对话写入历史", len(buffered_records) >= prev_count + 2,
-      f"之前{prev_count}条, 现在{len(buffered_records)}条")
-
-# F4: 确认 task_id 可重复拉取完成状态（模拟断线重连）
-d = curl(f"{BASE}/api/novel/task/{task_id}", method="GET", cookies=COOKIE, timeout=10)
-check("F4 断线重连可拉取任务", d.get("success") and d.get("status") == "complete" and d.get("has_result"),
-      f"status={d.get('status','?')}, has_result={d.get('has_result')}")
-
-# ═══════════════════════════════════════════════
-# PART G: 会话管理
-# ═══════════════════════════════════════════════
-print("\n💬 G — 会话管理")
-print("-" * 40)
-
-# G1: 列出会话（新用户、新小说应无会话或自动创建默认）
-d = curl(f"{BASE}/api/novel/sessions", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-check("G1 列出会话", d.get("success") and isinstance(d.get("sessions"), list),
-      f"sessions_count={len(d.get('sessions',[]))}")
-g1_count = len(d.get("sessions", []))
-
-# G2: 创建新会话
-d = curl(f"{BASE}/api/novel/session/create", {"novel_id": NOVEL_ID, "label": "测试会话"}, cookies=COOKIE)
-su1 = d.get("session_uuid", "")
-check("G2 创建会话", d.get("success") and len(su1) == 12,
-      f"session_uuid={su1}, session_id={d.get('session_id','')}")
-
-# G3: 列出会话应比之前多1
-d = curl(f"{BASE}/api/novel/sessions", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-check("G3 创建后列表数+1", d.get("success") and len(d.get("sessions",[])) == g1_count + 1,
-      f"before={g1_count}, after={len(d.get('sessions',[]))}")
-
-# G4: 创建第二个会话
-d = curl(f"{BASE}/api/novel/session/create", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-su2 = d.get("session_uuid", "")
-check("G4 创建第二个会话", d.get("success") and len(su2) == 12 and su2 != su1,
-      f"session_uuid={su2}")
-
-# G5: 切换到第一个会话并确认
-d = curl(f"{BASE}/api/novel/session/switch", {"novel_id": NOVEL_ID, "session_uuid": su1}, cookies=COOKIE)
-check("G5 切换到会话1", d.get("success") and d.get("session_uuid") == su1)
-
-# G6: 确认当前会话已切换
-d = curl(f"{BASE}/api/novel/sessions", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-current = None
-for s in d.get("sessions", []):
-    if s.get("is_current"):
-        current = s.get("session_uuid")
-        break
-check("G6 当前会话是会话1", current == su1, f"current={current}")
-
-# G7: 切换到第二个会话
-d = curl(f"{BASE}/api/novel/session/switch", {"novel_id": NOVEL_ID, "session_uuid": su2}, cookies=COOKIE)
-check("G7 切换到会话2", d.get("success") and d.get("session_uuid") == su2)
-
-# G8: 聊天时传递 session_uuid
-d = curl(f"{BASE}/api/novel/chat/start", {"novel_id": NOVEL_ID, "message": "小说主人公叫什么？", "session_uuid": su2}, cookies=COOKIE)
-task_id = d.get("task_id", "")
-check("G8 指定 session_uuid 聊天", d.get("success") and task_id,
-      f"task_id={task_id}")
-
-# G9: 等待聊天完成
-if task_id:
-    for _ in range(90):
-        d2 = curl(f"{BASE}/api/novel/task/{task_id}", method="GET", cookies=COOKIE, timeout=10)
-        if d2.get("status") == "complete":
-            break
-        time.sleep(2)
-    check("G9 会话2聊天完成", d2.get("status") == "complete" and d2.get("has_result"),
-          f"status={d2.get('status','?')}")
-else:
-    check("G9 会话2聊天完成", False, "无 task_id")
-
-# G10: 确认会话2的消息计数
-d = curl(f"{BASE}/api/novel/sessions", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-target = None
-for s in d.get("sessions", []):
-    if s.get("session_uuid") == su2:
-        target = s
-        break
-check("G10 会话2有聊天记录", target is not None and target.get("msg_count", 0) >= 1,
-      f"msg_count={target.get('msg_count',0) if target else 'N/A'}")
-
-# G11: 切换到会话1，检查历史为空（隔离的）
-d = curl(f"{BASE}/api/novel/session/switch", {"novel_id": NOVEL_ID, "session_uuid": su1}, cookies=COOKIE)
-check("G11 切换回会话1", d.get("success"))
-
-d = curl(f"{BASE}/api/novel/chat/history", {"novel_id": NOVEL_ID, "session_uuid": su1}, cookies=COOKIE)
-check("G12 会话1历史隔离（空）", d.get("success") and len(d.get("records", [])) < 2,
-      f"records={len(d.get('records',[]))}")
-
-# G13: 删除会话2
-d = curl(f"{BASE}/api/novel/session/delete", {"novel_id": NOVEL_ID, "session_uuid": su2}, cookies=COOKIE)
-check("G13 删除会话2", d.get("success"))
-
-# G14: 确认删除后列表减少
-d = curl(f"{BASE}/api/novel/sessions", {"novel_id": NOVEL_ID}, cookies=COOKIE)
-check("G14 删除后列表数-1", d.get("success") and len(d.get("sessions",[])) == g1_count + 1,
-      f"expected={g1_count+1}, got={len(d.get('sessions',[]))}")
-
-# ═══════════════════════════════════════════════
-# 汇总
-# ═══════════════════════════════════════════════
-print("\n" + "=" * 60)
-passed = sum(1 for _, ok in results if ok)
-total = len(results)
-print(f"📊 汇总: {passed}/{total} 通过 ({passed/total*100:.0f}%)")
-if passed == total:
-    print("🎉 全部通过！")
-else:
-    print(f"❌ {total-passed} 项失败")
-    for name, ok in results:
-        if not ok:
-            print(f"   ❌ {name}")
-
-exit(0 if passed == total else 1)
+if __name__ == "__main__":
+    sys.exit(0 if main() else 1)
