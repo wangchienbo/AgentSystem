@@ -161,6 +161,8 @@ from .tool_calling_prompts import (  # noqa: F401,F403
 )
 
 
+# 消息特征 → 工具路由收窄关键词（operator 路由）
+_OPERATOR_ROUTE_KEYWORDS = ("app", "标准安装", "安装链路", "交付", "创建", "状态", "运行", "安装", "注册", "部署")
 
 
 # ─── System Tool Definitions ────────────────────────────────────────────────
@@ -443,15 +445,20 @@ class ToolCallingInterpreter:
         text = (raw_input or "").lower()
         return any(keyword in text for keyword in INTROSPECTION_KEYWORDS)
 
-    def _run_deterministic_script_prestep(
-        self,
-        message: str,
-        user_id: str,
-        session_id: str,
-    ) -> InterpretedCommand | None:
-        profile = derive_scan_profile(message)
-        if not profile:
-            return None
+    def _resolve_tool_route(self, tool_defs: list, message: str) -> list:
+        """按消息特征收窄工具集（script 路由 / operator 路由 / 通用）。
+
+        消除 _llm_interpret 中重复的路由判断逻辑。tool_defs 应为已含
+        澄清类工具（ASK_CLARIFICATION/UNCLEAR）的列表。
+        """
+        if is_script_like_request(message):
+            return narrow_tools_for_script_route(tool_defs)
+        if any(keyword in message.lower() for keyword in _OPERATOR_ROUTE_KEYWORDS):
+            return narrow_tools_for_operator_route(tool_defs)
+        return tool_defs
+
+    def _build_scan_script_command(self, profile: dict) -> str:
+        """根据扫描 profile 构造本地扫描脚本命令（独立关注点）。"""
         scan_roots = profile.get("scan_roots", ["app"])
         file_extensions = profile.get("file_extensions", [".py"])
         max_files = int(profile.get("max_files", 200))
@@ -462,7 +469,7 @@ class ToolCallingInterpreter:
         output_template = profile.get("output_template", "优先使用简洁小节或表格，最后明确未证实点")
         roots_json = json.dumps(scan_roots, ensure_ascii=False)
         exts_json = json.dumps(file_extensions, ensure_ascii=False)
-        command = f"""python3 - <<'PY'
+        return f"""python3 - <<'PY'
 import os, re, json
 roots=json.loads(r'''{roots_json}''')
 exts=set(json.loads(r'''{exts_json}'''))
@@ -513,6 +520,20 @@ for root in roots:
             break
 print(json.dumps(rows[:max_rows], ensure_ascii=False))
 PY"""
+
+
+    def _run_deterministic_script_prestep(
+        self,
+        message: str,
+        user_id: str,
+        session_id: str,
+    ) -> InterpretedCommand | None:
+        profile = derive_scan_profile(message)
+        if not profile:
+            return None
+        summary_focus = profile.get("summary_focus", "仅基于脚本命中结果做汇总")
+        output_template = profile.get("output_template", "优先使用简洁小节或表格，最后明确未证实点")
+        command = self._build_scan_script_command(profile)
         script_started = datetime.now(UTC)
         prestep = exec_shell(command=command, workdir=str(Path(__file__).resolve().parents[3]), timeout=60)
         script_latency_ms = int((datetime.now(UTC) - script_started).total_seconds() * 1000)
@@ -717,12 +738,7 @@ PY"""
         else:
             prompt_tool_defs = self._build_tool_defs()
 
-        if is_script_like_request(message):
-            prompt_tool_defs = narrow_tools_for_script_route(prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
-        elif any(keyword in message.lower() for keyword in ("app", "标准安装", "安装链路", "交付", "创建", "状态", "运行", "安装", "注册", "部署")):
-            prompt_tool_defs = narrow_tools_for_operator_route(prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF])
-        else:
-            prompt_tool_defs = prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
+        prompt_tool_defs = self._resolve_tool_route(prompt_tool_defs + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF], message)
 
         # P0-4: 工程/后台模式追加专用工具集
         if self._current_exec_context:
@@ -788,12 +804,7 @@ PY"""
         else:
             registry_tools = self._build_tool_defs()
         all_tools = registry_tools + [ASK_CLARIFICATION_DEF, UNCLEAR_DEF]
-        if is_script_like_request(message):
-            all_tools = narrow_tools_for_script_route(all_tools)
-        elif any(keyword in message.lower() for keyword in ("app", "标准安装", "安装链路", "交付", "创建", "状态", "运行", "安装", "注册", "部署")):
-            all_tools = narrow_tools_for_operator_route(all_tools)
-        else:
-            pass  # No narrowing for general routes
+        all_tools = self._resolve_tool_route(all_tools, message)
 
         # P0-4: 工程/后台模式追加执行工具集（同样影响实际执行）
         if self._current_exec_context:
@@ -1112,10 +1123,6 @@ PY"""
             unverified_points=parsed_unverified,
             text=parsed_claim,
         )
-
-    def _is_code_introspection_query(self, raw_input: str) -> bool:
-        text = (raw_input or "").lower()
-        return any(keyword in text for keyword in INTROSPECTION_KEYWORDS)
 
     # ── Helpers ──────────────────────────────────────────────────────────
 
