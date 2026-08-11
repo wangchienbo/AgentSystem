@@ -20,6 +20,7 @@ self_dev.py — 自治开发闭环的「分析 → 方案」层（Phase 1）
 from __future__ import annotations
 
 import ast
+import json
 import os
 from dataclasses import dataclass, field
 from typing import Any
@@ -154,8 +155,79 @@ def _classify_refactorability(file: str, tree: ast.AST, kind: str, size: int) ->
 class SelfDevService:
     """代码自治开发方案生成器。纯只读。"""
 
-    def __init__(self, root_dir: str = "app") -> None:
+    def __init__(self, root_dir: str = "app", processed_path: str | None = None) -> None:
         self._root_dir = root_dir
+        # 待办裁决持久化：`{file::target: {status, rationale, decided_at}}`。
+        # 记录已评估的目标（done=已重构 / declined=判定不值得拆），使后续
+        # build_dev_report 不再重复建议它们（打通自动待办的收敛闭环）。
+        self._processed_path = processed_path or os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "self_dev_processed.json"
+        )
+
+    # ── 待办裁决持久化 ─────────────────────────────
+    @staticmethod
+    def _processed_key(file: str, target: str) -> str:
+        return f"{file}::{target}"
+
+    def _normalize_file(self, file: str) -> str:
+        """归一化为相对 root_dir 路径，兼容带 root_dir 前缀的入参。
+
+        build_dev_report 的 todo_queue 中 file 是相对 root_dir 的路径
+        （如 'orchestration/workflow_executor.py'）。record_todo_decision 若
+        传入 'app/orchestration/...' 会因基准不一致导致过滤失效，这里统一。
+        """
+        prefix = self._root_dir.rstrip("/") + "/"
+        if file.startswith(prefix):
+            return file[len(prefix):]
+        return file
+
+    def _load_processed(self) -> dict[str, Any]:
+        if not os.path.exists(self._processed_path):
+            return {}
+        try:
+            data = json.loads(open(self._processed_path).read())
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _save_processed(self, data: dict[str, Any]) -> None:
+        tmp = self._processed_path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, self._processed_path)
+
+    def record_todo_decision(self, file: str, target: str, *, status: str = "declined", rationale: str = "") -> dict[str, Any]:
+        """记录对某重构目标的裁决（done=已重构 / declined=判定不值得拆）。
+
+        记录后，build_dev_report 生成的 todo_queue 将不再包含该目标，
+        实现自动待办的跨会话收敛。
+        """
+        if status not in ("done", "declined"):
+            raise ValueError(f"status 必须是 'done' 或 'declined'，收到 {status!r}")
+        data = self._load_processed()
+        key = self._processed_key(self._normalize_file(file), target)
+        data[key] = {
+            "status": status,
+            "rationale": rationale,
+            "decided_at": __import__("datetime").datetime.now().isoformat(timespec="seconds"),
+        }
+        self._save_processed(data)
+        return {"file": file, "target": target, "status": status, "recorded": True, "queue_size": len(data)}
+
+    def list_todo_decisions(self) -> list[dict[str, Any]]:
+        """列出全部已裁决目标（供审计/查询）。"""
+        data = self._load_processed()
+        out = []
+        for key, meta in sorted(data.items()):
+            f, t = key.split("::", 1)
+            out.append({"file": f, "target": t, **meta})
+        return out
+
+    def clear_todo_decisions(self) -> int:
+        """清空全部裁决记录（用于重置自动待办）。返回清空条数。"""
+        n = len(self._load_processed())
+        self._save_processed({})
+        return n
 
     def propose_refactors(self, god_objects: list[dict[str, Any]]) -> list[CodeRefactorProposal]:
         """基于 God Object 诊断结果，生成重构方案。"""
@@ -247,18 +319,26 @@ class SelfDevService:
         """整合诊断 + 方案，产出自治开发报告。"""
         god_objects = diagnose_report.get("god_objects", [])
         proposals = self.propose_refactors(god_objects)
-        # 待办队列：refactorability 为 high/medium（未处理且值得拆）的提案
-        todo_queue = [
-            {
+        # 待办队列：refactorability 为 high/medium（未处理且值得拆）的提案，
+        # 过滤掉已记录裁决的目标（done/declined），实现自动待办跨会话收敛
+        processed = self._load_processed()
+        todo_queue = []
+        filtered = []
+        for p in proposals:
+            if p.refactorability not in ("high", "medium"):
+                continue
+            item = {
                 "file": p.file,
                 "target": p.target,
                 "refactorability": p.refactorability,
                 "risk_level": p.risk_level,
                 "rationale": p.refactor_rationale,
             }
-            for p in proposals
-            if p.refactorability in ("high", "medium")
-        ]
+            key = self._processed_key(p.file, p.target)
+            if key in processed:
+                filtered.append({**item, "status": processed[key].get("status"), "decided_at": processed[key].get("decided_at")})
+                continue
+            todo_queue.append(item)
         return {
             "root_dir": self._root_dir,
             "generated_at": __import__("datetime").datetime.now().isoformat(timespec="seconds"),
@@ -270,5 +350,7 @@ class SelfDevService:
             "proposal_count": len(proposals),
             "todo_queue": todo_queue,
             "todo_queue_count": len(todo_queue),
-            "note": "方案仅供审批参考，未自动应用任何代码变更（人机协作边界：高风险变更由人类审批）。todo_queue 为待办重构清单。",
+            "filtered_processed_count": len(filtered),
+            "filtered_processed": filtered,
+            "note": "方案仅供审批参考，未自动应用任何代码变更（人机协作边界：高风险变更由人类审批）。todo_queue 为待办重构清单，已排除 record_todo_decision 记录的 done/declined 目标。",
         }

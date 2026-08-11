@@ -33,6 +33,23 @@ class SelfIterationAssetService:
         diagnosis = self._diagnosis.diagnose_codebase(include_god_objects=include_god_objects)
         return self._dev.build_dev_report(diagnosis)
 
+    # ─── 自动待办裁决（打通待办收敛闭环） ─────────────────────────
+    def record_todo_decision(self, file: str, target: str, *, status: str = "declined", rationale: str = "") -> dict[str, Any]:
+        """记录对某重构目标的裁决（done=已重构 / declined=判定不值得拆）。
+
+        记录后，propose_code_improvements 生成的 todo_queue 将不再包含该目标，
+        实现自动待办的跨会话收敛（避免每次 review 重复建议已评估目标）。
+        """
+        return self._dev.record_todo_decision(file, target, status=status, rationale=rationale)
+
+    def list_todo_decisions(self) -> list[dict[str, Any]]:
+        """列出全部已裁决目标（供审计/查询）。"""
+        return self._dev.list_todo_decisions()
+
+    def clear_todo_decisions(self) -> dict[str, Any]:
+        """清空全部裁决记录（重置自动待办）。返回清空条数。"""
+        return {"cleared": self._dev.clear_todo_decisions()}
+
     # ─── Phase 2：能力自举（系统自己生成并注册新 skill 资产） ────────────────
 
     def _require_skill_service(self) -> SkillAssetService:

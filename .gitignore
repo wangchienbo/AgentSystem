@@ -6,6 +6,8 @@ __pycache__/
 .env
 model.local.env
 config/model.local.json
+app/system/self_dev_processed.json
+app/system/evolution_history.json
 data/runtime/
 data/generated_callable_skills/
 data/test-*/
