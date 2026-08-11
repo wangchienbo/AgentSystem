@@ -34,8 +34,10 @@ class SelfEvolutionService:
         diagnosis: SelfDiagnosisService | None = None,
         history_path: str | None = None,
         interval_seconds: int = DEFAULT_REVIEW_INTERVAL_SECONDS,
+        dev: "SelfDevService | None" = None,
     ) -> None:
         self._diagnosis = diagnosis or SelfDiagnosisService(root_dir="app")
+        self._dev = dev
         self._history_path = history_path or os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "evolution_history.json"
         )
@@ -109,6 +111,7 @@ class SelfEvolutionService:
             "import_defects": diagnosis.get("import_defects", []),
             "god_objects": diagnosis.get("god_objects", []),
             "top_problems": self._top_problems(diagnosis),
+            "todo": self._snapshot_todo(diagnosis),
         }
         self._append_snapshot(snapshot)
         trend = self._compute_trend(snapshot)
@@ -117,8 +120,28 @@ class SelfEvolutionService:
             "reviewed_at": snapshot["reviewed_at"],
             "counts": snapshot["counts"],
             "top_problems": snapshot["top_problems"],
+            "todo": snapshot["todo"],
             "trend": trend,
             "history_size": len(self._load_history()),
+        }
+
+    def _snapshot_todo(self, diagnosis: dict[str, Any]) -> dict[str, Any]:
+        """记录收敛后的自动待办统计（打通观察层与待办闭环）。
+
+        依赖注入的 SelfDevService（dev）生成已过滤已裁决目标的 todo_queue，
+        使快照可持久化待办数随时间的收敛。dev 未注入时返回空统计（向后兼容）。
+        """
+        if self._dev is None:
+            return {"available": False, "queue_count": 0, "processed_count": 0}
+        report = self._dev.build_dev_report(diagnosis)
+        return {
+            "available": True,
+            "queue_count": report.get("todo_queue_count", 0),
+            "processed_count": report.get("filtered_processed_count", 0),
+            "queue": [
+                {"file": t.get("file"), "target": t.get("target"), "refactorability": t.get("refactorability")}
+                for t in report.get("todo_queue", [])
+            ],
         }
 
     @staticmethod
@@ -156,6 +179,8 @@ class SelfEvolutionService:
                 "reviewed_at": s.get("reviewed_at"),
                 "god_objects": s.get("counts", {}).get("god_objects", 0),
                 "import_defects": s.get("counts", {}).get("import_defects", 0),
+                "todo_queue_count": s.get("todo", {}).get("queue_count", 0),
+                "processed_decisions_count": s.get("todo", {}).get("processed_count", 0),
             }
             for s in history
         ]
@@ -166,6 +191,7 @@ class SelfEvolutionService:
             "latest": {
                 "reviewed_at": latest.get("reviewed_at"),
                 "counts": latest.get("counts", {}),
+                "todo": latest.get("todo", {}),
             } if latest else None,
         }
 

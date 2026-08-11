@@ -22,7 +22,8 @@ class SelfIterationAssetService:
         self._diagnosis = diagnosis or SelfDiagnosisService(root_dir="app")
         self._dev = dev or SelfDevService(root_dir="app")
         self._skills = skills
-        self._evolution = evolution
+        # 注入 dev，使 evolution 快照能持久化收敛后的待办统计（观察层与待办闭环打通）
+        self._evolution = evolution or SelfEvolutionService(dev=self._dev)
 
     def diagnose_codebase(self, *, include_god_objects: bool = True) -> dict[str, Any]:
         """运行只读代码健康诊断（导入缺陷 + God Object），供自治开发闭环的观察层使用。"""
