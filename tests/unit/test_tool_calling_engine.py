@@ -511,6 +511,126 @@ def test_execute_turns_truncates_at_max_turns(tmp_path) -> None:
     assert "Reached max turns" in result.final_text
 
 
+@patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+def test_execute_turns_stop_loss_on_consecutive_failures(tmp_path) -> None:
+    """连续多轮工具全部失败时应触发止损，而非无限重试。"""
+    router = build_router(tmp_path)
+    engine = ToolCallingEngine(router)
+
+    def mock_chat_with_tools(messages, tools, **kwargs):
+        # LLM 不死心，每一轮都坚持调用同一个工具
+        return (
+            {
+                "message": {"role": "assistant", "content": None},
+                "tool_calls": [
+                    {
+                        "id": "call_fail",
+                        "function": {
+                            "name": "query_metrics",
+                            "arguments": '{"metric": "cpu"}',
+                        },
+                    }
+                ],
+                "text": "",
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            },
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        )
+
+    def always_fail(metric: str) -> dict:
+        raise ValueError("目标资源不可用")
+
+    engine.register_tool("query_metrics", always_fail)
+
+    mock_client = MagicMock()
+    mock_client._config.model = "gpt-4o-mini"
+    mock_client.chat_with_tools = mock_chat_with_tools
+
+    with patch.object(router, "get_client", return_value=mock_client):
+        result = engine.execute_turns(
+            skill_id="test-skill",
+            system_prompt="test",
+            user_message="test",
+            tools=sample_tool_defs(),
+            max_turns=30,  # 故意给很大预算，验证止损先于预算触发
+        )
+
+    # 连续 2 轮全部失败即止损，远未到 30 轮
+    assert result.truncated is True
+    assert result.turns == 2
+    assert result.usage.get("stop_loss") is True
+    assert "连续失败" in result.final_text
+
+
+@patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"})
+def test_execute_turns_success_resets_stop_loss_counter(tmp_path) -> None:
+    """一轮成功应重置连续失败计数，需重新累积 2 次连续失败才止损。"""
+    router = build_router(tmp_path)
+    engine = ToolCallingEngine(router)
+
+    # 序列驱动：每个元素表示该轮 LLM 返回什么
+    # ("tool", fail?) → 返回工具调用; None → 返回最终答案(无工具)
+    # 模式: 失败, 成功, 失败, 失败 → 第2次连续失败(第4轮)才止损
+    sequence = [
+        ("tool", True),   # turn0: 失败 → cft=1
+        ("tool", False),  # turn1: 成功 → cft 重置=0
+        ("tool", True),   # turn2: 失败 → cft=1
+        ("tool", True),   # turn3: 失败 → cft=2 → 止损, turns=4
+    ]
+    state = {"i": 0}
+
+    def make_response(tool_call: bool, fail: bool):
+        tool_calls = []
+        if tool_call:
+            tool_calls.append({
+                "id": f"call_{state['i']}",
+                "function": {"name": "query_metrics", "arguments": '{"metric": "cpu"}'},
+            })
+        return (
+            {
+                "message": {"role": "assistant", "content": None},
+                "tool_calls": tool_calls,
+                "text": "",
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            },
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        )
+
+    def chat_with_tools(messages, tools, **kwargs):
+        i = state["i"]
+        kind, fail = sequence[min(i, len(sequence) - 1)]
+        state["i"] += 1
+        return make_response(kind == "tool", fail)
+
+    def handler(metric: str) -> dict:
+        # 根据是否失败返回
+        i = state["i"] - 1  # 已被 chat_with_tools 自增
+        _, fail = sequence[min(i, len(sequence) - 1)]
+        if fail:
+            raise ValueError("目标资源不可用")
+        return {"value": 42}
+
+    engine.register_tool("query_metrics", handler)
+
+    mock_client = MagicMock()
+    mock_client._config.model = "gpt-4o-mini"
+    mock_client.chat_with_tools = chat_with_tools
+
+    with patch.object(router, "get_client", return_value=mock_client):
+        result = engine.execute_turns(
+            skill_id="test-skill",
+            system_prompt="test",
+            user_message="test",
+            tools=sample_tool_defs(),
+            max_turns=30,
+        )
+
+    # 模式 [失败, 成功, 失败, 失败]：成功(第2轮)重置计数，
+    # 因此需到第 4 轮才累积满 2 次连续失败触发止损，而非第 2 轮
+    assert result.usage.get("stop_loss") is True
+    assert result.turns == 4
+
+
 # ===========================================================================
 # execute_turns — model override
 # ===========================================================================

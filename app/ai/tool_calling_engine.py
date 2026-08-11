@@ -109,6 +109,22 @@ class ToolCallingEngine:
         self._router = model_router
         self._tools: dict[str, Callable] = {}
         self._telemetry_service = telemetry_service
+        # 连续失败止损：连续 N 轮工具调用全部失败时强制中止，避免 LLM 无限重试
+        self._max_consecutive_failures = 2
+
+    @staticmethod
+    def _tool_call_failed(br: dict) -> bool:
+        """判定单个工具调用是否失败（异常 / 显式 success=False / dict error）。"""
+        if br.get("error"):
+            return True
+        result = br.get("result")
+        if result is None:
+            return False
+        if hasattr(result, "success") and getattr(result, "success") is False:
+            return True
+        if isinstance(result, dict) and result.get("success") is False:
+            return True
+        return False
 
     def _sanitize_tool_result(self, tool_name: str, result: Any) -> str:
         """Compress tool result into a bounded payload for the next LLM turn."""
@@ -257,6 +273,7 @@ class ToolCallingEngine:
 
         consecutive_tool_name = None
         consecutive_tool_count = 0
+        consecutive_fail_turns = 0
 
         # 收敛提示阈值（turn≥CONVERGENCE_HINT_TURN 时注入）
         try:
@@ -495,6 +512,56 @@ class ToolCallingEngine:
                         ),
                         app_id=asset_id,
                     )
+
+            # ── 连续失败止损：连续多轮全部工具失败则强制中止，避免 LLM 无限重试 ──
+            turn_all_failed = bool(batch_results) and all(self._tool_call_failed(br) for br in batch_results)
+            if turn_all_failed:
+                consecutive_fail_turns += 1
+            else:
+                consecutive_fail_turns = 0
+            if consecutive_fail_turns >= self._max_consecutive_failures:
+                tried = ", ".join(dict.fromkeys(br.tool_name for br in call_records)) or "无"
+                logger.warning(
+                    "ToolCallingEngine stop-loss session=%s consecutive_fail_turns=%s turn=%s tools=%s",
+                    session_id, consecutive_fail_turns, turn + 1,
+                    [br["tool_name"] for br in batch_results],
+                )
+                if self._telemetry_service is not None:
+                    self._telemetry_service.record_step(
+                        StepTelemetryRecord(
+                            interaction_id=interaction_id,
+                            step_id=f"stop_loss_{turn + 1}",
+                            step_type="reason",
+                            name="consecutive_tool_failure",
+                            success=False,
+                            error_code="consecutive_tool_failure",
+                            payload_summary={
+                                "turns": turn + 1,
+                                "consecutive_fail_turns": consecutive_fail_turns,
+                                "tried": tried,
+                                "session_id": session_id,
+                                "user_id": user_id,
+                            },
+                        ),
+                        app_id=asset_id,
+                    )
+                total_usage["model"] = model_name
+                total_usage["turns"] = turn + 1
+                total_usage["truncated"] = True
+                total_usage["stop_loss"] = True
+                total_usage["stop_loss_reason"] = f"consecutive_fail_turns={consecutive_fail_turns}"
+                return ToolCallingResult(
+                    final_text=(
+                        "工具调用连续失败，已中止继续尝试。"
+                        f"累计 {turn + 1} 轮调用（已尝试: {tried}）。"
+                        "请求可能参数不正确或目标资源不可用，请调整后重试。"
+                    ),
+                    tool_calls=call_records,
+                    evidence_items=evidence_items,
+                    turns=turn + 1,
+                    truncated=True,
+                    usage=total_usage,
+                )
 
 
         if self._telemetry_service is not None:
