@@ -82,7 +82,281 @@ WORKFLOW_FUTURE_ACTION_LABELS = {
 }
 
 
-class LightBrainGateway:
+class _PackageManagementMixin:
+    def _handle_package_list_installed(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_list_installed", command.parameters)
+            if result.success:
+                packages = result.data.get("packages", [])
+                if not packages:
+                    return ChatMessageResponse(
+                        type="text",
+                        content="📦 当前没有已安装的包。\n\n可用 package_search 搜索可安装的包。",
+                        session_id=child_session_id,
+                        requires_input=False,
+                    )
+                return ChatMessageResponse(
+                    type="text",
+                    content=render_package_list(packages, header="📦 **已安装的包：**\n"),
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, render_management_status("failure", "query", error=result.error))
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_list_installed",
+            channel="package_manager",
+            system_note="local_handler:package_list_installed",
+            build_response=build_response,
+        )
+
+
+    def _handle_package_show(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_show", command.parameters)
+            if result.success:
+                d = result.data
+                return ChatMessageResponse(
+                    type="text",
+                    content=render_package_detail(d),
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, render_management_status("failure", "query", error=result.error))
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_show",
+            channel="package_manager",
+            system_note="local_handler:package_show",
+            build_response=build_response,
+        )
+
+
+    def _handle_package_build(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_build", command.parameters)
+            if result.success:
+                d = result.data
+                return ChatMessageResponse(
+                    type="text",
+                    content=render_package_operation_result("build", d),
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, render_management_status("failure", "build", error=result.error))
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_build",
+            channel="package_manager",
+            system_note="local_handler:package_build",
+            build_response=build_response,
+        )
+
+
+    def _handle_package_install(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_install", command.parameters)
+            if result.success:
+                d = result.data
+                return ChatMessageResponse(
+                    type="text",
+                    content=render_package_operation_result("install", d),
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, render_management_status("failure", "install", error=result.error))
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_install",
+            channel="package_manager",
+            system_note="local_handler:package_install",
+            build_response=build_response,
+        )
+
+
+    def _handle_package_uninstall(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_uninstall", command.parameters)
+            if result.success:
+                return ChatMessageResponse(
+                    type="text",
+                    content=render_management_status(
+                        "success",
+                        "uninstall",
+                        subject=command.parameters.get("asset_id", "unknown"),
+                    ),
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, render_management_status("failure", "uninstall", error=result.error))
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_uninstall",
+            channel="package_manager",
+            system_note="local_handler:package_uninstall",
+            build_response=build_response,
+        )
+
+
+    def _handle_package_rollback(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_rollback", command.parameters)
+            if result.success:
+                d = result.data
+                return ChatMessageResponse(
+                    type="text",
+                    content=render_package_operation_result("rollback", d),
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, render_management_status("failure", "rollback", error=result.error))
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_rollback",
+            channel="package_manager",
+            system_note="local_handler:package_rollback",
+            build_response=build_response,
+        )
+
+
+    def _handle_package_search(self, command, session_id, apps):
+        # Phase H+: Tool loop guard check
+        import time as _time
+        allowed, block_reason = self._tool_loop_guard.check_allowed(
+            command.intent, dict(command.parameters or {}), _time.time()
+        )
+        if not allowed:
+            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
+            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
+        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
+        
+        if not self._package_manager_executor:
+            return self._error_reply(session_id, render_management_availability("包管理模块"))
+
+        def build_response(child_session_id: str) -> ChatMessageResponse:
+            result = self._package_manager_executor.execute("package_search", command.parameters)
+            if result.success:
+                packages = result.data.get("packages", [])
+                if not packages:
+                    return ChatMessageResponse(
+                        type="text",
+                        content=f"🔍 未找到与 '{command.parameters.get('query', '')}' 匹配的包。",
+                        session_id=child_session_id,
+                        requires_input=False,
+                    )
+                return ChatMessageResponse(
+                    type="text",
+                    content=render_package_list(
+                        packages,
+                        header=f"🔍 搜索结果（{len(packages)} 个）:\n",
+                        include_install_status=True,
+                    ),
+                    session_id=child_session_id,
+                    requires_input=False,
+                )
+            return self._error_reply(child_session_id, render_management_status("failure", "search", error=result.error))
+
+        return self._run_local_child_handler(
+            parent_session_id=session_id,
+            user_id=command.user_id or "system",
+            topic_key="package_search",
+            channel="package_manager",
+            system_note="local_handler:package_search",
+            build_response=build_response,
+        )
+
+
+class LightBrainGateway(_PackageManagementMixin):
     """Unified entry point: message → intent → execution → reply."""
 
     RUNTIME_ASSET_TOOL_INTENTS = {"call_asset_method"}
@@ -1722,271 +1996,6 @@ class LightBrainGateway:
         )
 
 
-    def _handle_package_list_installed(self, command, session_id, apps):
-        # Phase H+: Tool loop guard check
-        import time as _time
-        allowed, block_reason = self._tool_loop_guard.check_allowed(
-            command.intent, dict(command.parameters or {}), _time.time()
-        )
-        if not allowed:
-            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
-            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
-        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
-        
-        if not self._package_manager_executor:
-            return self._error_reply(session_id, render_management_availability("包管理模块"))
-
-        def build_response(child_session_id: str) -> ChatMessageResponse:
-            result = self._package_manager_executor.execute("package_list_installed", command.parameters)
-            if result.success:
-                packages = result.data.get("packages", [])
-                if not packages:
-                    return ChatMessageResponse(
-                        type="text",
-                        content="📦 当前没有已安装的包。\n\n可用 package_search 搜索可安装的包。",
-                        session_id=child_session_id,
-                        requires_input=False,
-                    )
-                return ChatMessageResponse(
-                    type="text",
-                    content=render_package_list(packages, header="📦 **已安装的包：**\n"),
-                    session_id=child_session_id,
-                    requires_input=False,
-                )
-            return self._error_reply(child_session_id, render_management_status("failure", "query", error=result.error))
-
-        return self._run_local_child_handler(
-            parent_session_id=session_id,
-            user_id=command.user_id or "system",
-            topic_key="package_list_installed",
-            channel="package_manager",
-            system_note="local_handler:package_list_installed",
-            build_response=build_response,
-        )
-
-    def _handle_package_show(self, command, session_id, apps):
-        # Phase H+: Tool loop guard check
-        import time as _time
-        allowed, block_reason = self._tool_loop_guard.check_allowed(
-            command.intent, dict(command.parameters or {}), _time.time()
-        )
-        if not allowed:
-            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
-            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
-        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
-        
-        if not self._package_manager_executor:
-            return self._error_reply(session_id, render_management_availability("包管理模块"))
-
-        def build_response(child_session_id: str) -> ChatMessageResponse:
-            result = self._package_manager_executor.execute("package_show", command.parameters)
-            if result.success:
-                d = result.data
-                return ChatMessageResponse(
-                    type="text",
-                    content=render_package_detail(d),
-                    session_id=child_session_id,
-                    requires_input=False,
-                )
-            return self._error_reply(child_session_id, render_management_status("failure", "query", error=result.error))
-
-        return self._run_local_child_handler(
-            parent_session_id=session_id,
-            user_id=command.user_id or "system",
-            topic_key="package_show",
-            channel="package_manager",
-            system_note="local_handler:package_show",
-            build_response=build_response,
-        )
-
-    def _handle_package_build(self, command, session_id, apps):
-        # Phase H+: Tool loop guard check
-        import time as _time
-        allowed, block_reason = self._tool_loop_guard.check_allowed(
-            command.intent, dict(command.parameters or {}), _time.time()
-        )
-        if not allowed:
-            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
-            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
-        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
-        
-        if not self._package_manager_executor:
-            return self._error_reply(session_id, render_management_availability("包管理模块"))
-
-        def build_response(child_session_id: str) -> ChatMessageResponse:
-            result = self._package_manager_executor.execute("package_build", command.parameters)
-            if result.success:
-                d = result.data
-                return ChatMessageResponse(
-                    type="text",
-                    content=render_package_operation_result("build", d),
-                    session_id=child_session_id,
-                    requires_input=False,
-                )
-            return self._error_reply(child_session_id, render_management_status("failure", "build", error=result.error))
-
-        return self._run_local_child_handler(
-            parent_session_id=session_id,
-            user_id=command.user_id or "system",
-            topic_key="package_build",
-            channel="package_manager",
-            system_note="local_handler:package_build",
-            build_response=build_response,
-        )
-
-    def _handle_package_install(self, command, session_id, apps):
-        # Phase H+: Tool loop guard check
-        import time as _time
-        allowed, block_reason = self._tool_loop_guard.check_allowed(
-            command.intent, dict(command.parameters or {}), _time.time()
-        )
-        if not allowed:
-            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
-            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
-        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
-        
-        if not self._package_manager_executor:
-            return self._error_reply(session_id, render_management_availability("包管理模块"))
-
-        def build_response(child_session_id: str) -> ChatMessageResponse:
-            result = self._package_manager_executor.execute("package_install", command.parameters)
-            if result.success:
-                d = result.data
-                return ChatMessageResponse(
-                    type="text",
-                    content=render_package_operation_result("install", d),
-                    session_id=child_session_id,
-                    requires_input=False,
-                )
-            return self._error_reply(child_session_id, render_management_status("failure", "install", error=result.error))
-
-        return self._run_local_child_handler(
-            parent_session_id=session_id,
-            user_id=command.user_id or "system",
-            topic_key="package_install",
-            channel="package_manager",
-            system_note="local_handler:package_install",
-            build_response=build_response,
-        )
-
-    def _handle_package_uninstall(self, command, session_id, apps):
-        # Phase H+: Tool loop guard check
-        import time as _time
-        allowed, block_reason = self._tool_loop_guard.check_allowed(
-            command.intent, dict(command.parameters or {}), _time.time()
-        )
-        if not allowed:
-            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
-            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
-        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
-        
-        if not self._package_manager_executor:
-            return self._error_reply(session_id, render_management_availability("包管理模块"))
-
-        def build_response(child_session_id: str) -> ChatMessageResponse:
-            result = self._package_manager_executor.execute("package_uninstall", command.parameters)
-            if result.success:
-                return ChatMessageResponse(
-                    type="text",
-                    content=render_management_status(
-                        "success",
-                        "uninstall",
-                        subject=command.parameters.get("asset_id", "unknown"),
-                    ),
-                    session_id=child_session_id,
-                    requires_input=False,
-                )
-            return self._error_reply(child_session_id, render_management_status("failure", "uninstall", error=result.error))
-
-        return self._run_local_child_handler(
-            parent_session_id=session_id,
-            user_id=command.user_id or "system",
-            topic_key="package_uninstall",
-            channel="package_manager",
-            system_note="local_handler:package_uninstall",
-            build_response=build_response,
-        )
-
-    def _handle_package_rollback(self, command, session_id, apps):
-        # Phase H+: Tool loop guard check
-        import time as _time
-        allowed, block_reason = self._tool_loop_guard.check_allowed(
-            command.intent, dict(command.parameters or {}), _time.time()
-        )
-        if not allowed:
-            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
-            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
-        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
-        
-        if not self._package_manager_executor:
-            return self._error_reply(session_id, render_management_availability("包管理模块"))
-
-        def build_response(child_session_id: str) -> ChatMessageResponse:
-            result = self._package_manager_executor.execute("package_rollback", command.parameters)
-            if result.success:
-                d = result.data
-                return ChatMessageResponse(
-                    type="text",
-                    content=render_package_operation_result("rollback", d),
-                    session_id=child_session_id,
-                    requires_input=False,
-                )
-            return self._error_reply(child_session_id, render_management_status("failure", "rollback", error=result.error))
-
-        return self._run_local_child_handler(
-            parent_session_id=session_id,
-            user_id=command.user_id or "system",
-            topic_key="package_rollback",
-            channel="package_manager",
-            system_note="local_handler:package_rollback",
-            build_response=build_response,
-        )
-
-    def _handle_package_search(self, command, session_id, apps):
-        # Phase H+: Tool loop guard check
-        import time as _time
-        allowed, block_reason = self._tool_loop_guard.check_allowed(
-            command.intent, dict(command.parameters or {}), _time.time()
-        )
-        if not allowed:
-            logger.warning(f"Tool loop guard blocked: session={session_id}, tool={command.intent}, reason={block_reason}")
-            return self._error_reply(session_id, f"工具调用过于频繁或出现循环，已阻断。{block_reason}")
-        self._tool_loop_guard.record_call(command.intent, dict(command.parameters or {}), _time.time())
-        
-        if not self._package_manager_executor:
-            return self._error_reply(session_id, render_management_availability("包管理模块"))
-
-        def build_response(child_session_id: str) -> ChatMessageResponse:
-            result = self._package_manager_executor.execute("package_search", command.parameters)
-            if result.success:
-                packages = result.data.get("packages", [])
-                if not packages:
-                    return ChatMessageResponse(
-                        type="text",
-                        content=f"🔍 未找到与 '{command.parameters.get('query', '')}' 匹配的包。",
-                        session_id=child_session_id,
-                        requires_input=False,
-                    )
-                return ChatMessageResponse(
-                    type="text",
-                    content=render_package_list(
-                        packages,
-                        header=f"🔍 搜索结果（{len(packages)} 个）:\n",
-                        include_install_status=True,
-                    ),
-                    session_id=child_session_id,
-                    requires_input=False,
-                )
-            return self._error_reply(child_session_id, render_management_status("failure", "search", error=result.error))
-
-        return self._run_local_child_handler(
-            parent_session_id=session_id,
-            user_id=command.user_id or "system",
-            topic_key="package_search",
-            channel="package_manager",
-            system_note="local_handler:package_search",
-            build_response=build_response,
-        )
 
     def _handle_master_execute(self, command, session_id, apps):
         # Phase H+: Tool loop guard check
