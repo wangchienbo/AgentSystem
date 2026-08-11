@@ -24,6 +24,7 @@ from app.models.chat import (
 from app.models.telemetry import InteractionTelemetryRecord
 from app.runtime_paths import resolve_runtime_paths
 from app.context.context_center import ContextCenter
+from app.context.reply_decision import PreReplyRouter, ReplyContext
 from app.models.context import SessionContextRecord, SessionLink, SessionNode
 from app.ai.model_client import ModelClientError
 from app.models.pending_task import (
@@ -449,6 +450,9 @@ class LightBrainGateway(_PackageManagementMixin):
         # P1-2: 回放跟踪（session_id → set of task_ids）
         self._replayed_tasks: dict[str, set[str]] = {}
 
+        # 控制层：回答前决策（PreReplyRouter）—— 短路/放行策略集中管理
+        self._pre_reply_router = PreReplyRouter()
+
         # Built-in intent → handler mapping (defined below in class body)
         self._handlers: dict[str, Any] = {
             "greet": self._handle_greet,
@@ -542,21 +546,18 @@ class LightBrainGateway(_PackageManagementMixin):
                 kind="system_note",
             )
 
-        # P1-2: 结果回放 — 检测已完成任务并回放
-        if pending_task is None:
-            replay_task = self._get_latest_closed_task(request.user_id)
-            if replay_task is not None and not self.was_replayed(session_id, replay_task.task_id):
-                self.mark_replayed(session_id, replay_task.task_id)
-                logger.info(
-                    "Replaying task result: user=%s task=%s status=%s",
-                    request.user_id, replay_task.task_id, replay_task.status,
-                )
-                return ChatMessageResponse(
-                    type="replay",
-                    content=self._format_replay_content(replay_task),
-                    session_id=session_id,
-                    data={"pending_task": replay_task.model_dump(mode="json")},
-                )
+        # 控制层：回答前决策 — 回放等策略决定是否短路。
+        # 不变量：非用户主动请求时，任何策略不得吞掉模型主干。
+        reply_decision = self._pre_reply_router.decide(ReplyContext(
+            message=request.message,
+            session_id=session_id,
+            user_id=request.user_id,
+            pending_task=pending_task,
+            continuation_decision=continuation_decision,
+            gateway=self,
+        ))
+        if reply_decision.outcome == "short_circuit":
+            return reply_decision.response
 
         # Phase H+: Rate limit check
         allowed, block_reason = self._rate_limiter.try_acquire_session_slot(session_id)
