@@ -78,6 +78,35 @@ class ServiceB:
     assert refact == "high"
 
 
+def test_module_with_mixin_trace_is_done():
+    """模块已有 mixin 拆分痕迹（*Mixin 类 + 主类继承）→ done（已处理）。"""
+    src = """\
+class _XxxMixin:
+    def a(self):
+        return 1
+
+class Service(_XxxMixin):
+    def run(self):
+        return self.a()
+"""
+    tree = _parse(src)
+    refact, rationale = _classify_refactorability("x.py", tree, "god_object_module", 60)
+    assert refact == "done"
+    assert "Mixin" in rationale
+
+
+def test_module_inheriting_mixin_is_done():
+    """主类继承 Mixin（无独立 Mixin 定义，来自外部）→ 仍识别为已拆分。"""
+    src = """\
+class Service(_SkillToBlueprintMappingMixin):
+    def run(self):
+        return self.a()
+"""
+    tree = _parse(src)
+    refact, _ = _classify_refactorability("x.py", tree, "god_object_module", 40)
+    assert refact == "done"
+
+
 def test_module_multiple_top_functions_is_medium():
     """模块为多顶层函数集合 → medium。"""
     src = """\
@@ -153,11 +182,11 @@ def test_real_execute_turns_is_low():
     ) == "low"
 
 
-def test_real_skill_factory_is_high():
-    """真实多职责类 skill_factory → high（已有可拆边界，确实拆过）。"""
-    assert _classify_real("skills/skill_factory.py", "god_object_module") == "high"
+def test_real_skill_factory_is_done():
+    """真实 skill_factory 已有 mixin 拆分 → 识别为 done（已处理）。"""
+    assert _classify_real("skills/skill_factory.py", "god_object_module") == "done"
 
 
-def test_real_light_brain_gateway_is_high():
-    """真实 light_brain_gateway → high（多职责类，已拆出 mixin）。"""
-    assert _classify_real("system/gateway/light_brain_gateway.py", "god_object_module") == "high"
+def test_real_light_brain_gateway_is_done():
+    """真实 light_brain_gateway 已有 mixin 拆分 → done（已处理）。"""
+    assert _classify_real("system/gateway/light_brain_gateway.py", "god_object_module") == "done"

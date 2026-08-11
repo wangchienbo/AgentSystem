@@ -113,6 +113,15 @@ def _classify_refactorability(file: str, tree: ast.AST, kind: str, size: int) ->
         # god_object_module
         classes = [n for n in tree.body if isinstance(n, ast.ClassDef)]
         funcs = [n for n in tree.body if isinstance(n, ast.FunctionDef)]
+        # 已拆分痕迹：模块含 *Mixin 类，或主类继承 *Mixin（mixin 拆分模式）
+        mixin_names = [c.name for c in classes if c.name.endswith("Mixin")]
+        inherits_mixin = any(
+            any(isinstance(b, ast.Name) and b.id.endswith("Mixin") for b in c.bases)
+            for c in classes
+        )
+        if mixin_names or inherits_mixin:
+            trace = ", ".join(mixin_names) or "主类继承 Mixin"
+            return "done", f"模块已有 mixin 拆分痕迹（{trace}），已处理，无需重复拆分"
         if len(classes) >= 2:
             return "high", f"模块含 {len(classes)} 个职责可能独立的类，可按类拆分"
         if len(classes) == 1:
@@ -178,12 +187,16 @@ class SelfDevService:
                     target="module",
                     problem=f"超大模块 {size} 行，承担过多职责（cohesion 过高/职责混杂）",
                     suggestion=(
-                        "按业务子域拆分为独立子模块：识别文件中相互独立的职责簇，"
-                        "将每簇提取为子模块（子目录 + 独立 .py）。参考 http_test_server 已拆分 "
-                        "OS/静态页/认证域的先例（deps.py setter 注入模式）。"
-                        if refact in ("high", "medium")
-                        else f"该模块可拆性评估为 {refact}（{rationale}）。若确需拆分，先人工确认职责边界；"
-                             "若属内聚逻辑，不建议强行拆分（避免破坏 cohesion 与参数膨胀）。"
+                        "该模块已拆分处理过（mixin 拆分痕迹），无需重复拆分。"
+                        if refact == "done"
+                        else (
+                            "按业务子域拆分为独立子模块：识别文件中相互独立的职责簇，"
+                            "将每簇提取为子模块（子目录 + 独立 .py）。参考 http_test_server 已拆分 "
+                            "OS/静态页/认证域的先例（deps.py setter 注入模式）。"
+                            if refact in ("high", "medium")
+                            else f"该模块可拆性评估为 {refact}（{rationale}）。若确需拆分，先人工确认职责边界；"
+                                 "若属内聚逻辑，不建议强行拆分（避免破坏 cohesion 与参数膨胀）。"
+                        )
                     ),
                     risk_level=_guess_risk(size),
                     refactorability=refact,
@@ -234,6 +247,18 @@ class SelfDevService:
         """整合诊断 + 方案，产出自治开发报告。"""
         god_objects = diagnose_report.get("god_objects", [])
         proposals = self.propose_refactors(god_objects)
+        # 待办队列：refactorability 为 high/medium（未处理且值得拆）的提案
+        todo_queue = [
+            {
+                "file": p.file,
+                "target": p.target,
+                "refactorability": p.refactorability,
+                "risk_level": p.risk_level,
+                "rationale": p.refactor_rationale,
+            }
+            for p in proposals
+            if p.refactorability in ("high", "medium")
+        ]
         return {
             "root_dir": self._root_dir,
             "generated_at": __import__("datetime").datetime.now().isoformat(timespec="seconds"),
@@ -243,5 +268,7 @@ class SelfDevService:
             },
             "proposals": [p.__dict__ for p in proposals],
             "proposal_count": len(proposals),
-            "note": "方案仅供审批参考，未自动应用任何代码变更（人机协作边界：高风险变更由人类审批）。",
+            "todo_queue": todo_queue,
+            "todo_queue_count": len(todo_queue),
+            "note": "方案仅供审批参考，未自动应用任何代码变更（人机协作边界：高风险变更由人类审批）。todo_queue 为待办重构清单。",
         }
