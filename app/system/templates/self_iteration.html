@@ -141,7 +141,7 @@
             const opts = { method, headers: { 'Content-Type': 'application/json' } };
             if (body) opts.body = JSON.stringify(body);
             const r = await fetch(path, opts);
-            const json = await r.json().catch(() => ({ raw: await r.text() }));
+            const json = await r.json().catch(async () => ({ raw: await r.text() }));
             if (!r.ok) return { error: `HTTP ${r.status}`, detail: json };
             return json;
         }

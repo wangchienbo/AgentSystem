@@ -8,6 +8,8 @@
 """
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -46,7 +48,7 @@ class PromoteReq(BaseModel):
 class TodoDecisionReq(BaseModel):
     file: str = Field(min_length=1)
     target: str = Field(min_length=1)
-    status: str = "declined"
+    status: Literal["done", "declined"] = "declined"
     rationale: str = ""
 
 
