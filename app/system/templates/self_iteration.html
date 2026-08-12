@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自治进化控制台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header h1 { font-size: 1.5rem; }
+        .container { max-width: 1080px; margin: 2rem auto; padding: 0 1rem; }
+        .card {
+            background: white; border-radius: 12px; padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 1.5rem;
+        }
+        .card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: #333; }
+        .row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+        .btn {
+            background: #667eea; color: white; border: none; padding: 0.55rem 1.2rem;
+            border-radius: 8px; cursor: pointer; font-size: 0.95rem;
+        }
+        .btn:hover { background: #5a6fd8; }
+        .btn.green { background: #38a169; }
+        .btn.green:hover { background: #2f855a; }
+        .btn.red { background: #e53e3e; }
+        .btn.red:hover { background: #c53030; }
+        .btn.gray { background: #718096; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .status {
+            background: #edf2f7; border-radius: 8px; padding: 0.6rem 1rem;
+            font-size: 0.9rem; color: #4a5568;
+        }
+        pre {
+            background: #1a202c; color: #a0aec0; padding: 1rem; border-radius: 8px;
+            overflow: auto; max-height: 480px; font-size: 0.85rem; white-space: pre-wrap;
+            word-break: break-word; margin-top: 0.75rem;
+        }
+        pre.error { color: #feb2b2; }
+        input, textarea, select {
+            width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #e2e8f0;
+            border-radius: 8px; font-size: 0.95rem; margin-bottom: 0.6rem;
+        }
+        .field label { display: block; font-size: 0.85rem; color: #718096; margin-bottom: 0.25rem; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .tag {
+            display: inline-block; background: #ebf4ff; color: #3182ce;
+            padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.8rem; margin-right: 0.4rem;
+        }
+        .spin { display: inline-block; animation: rot 1s linear infinite; }
+        @keyframes rot { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 自治进化控制台</h1>
+        <span id="tickStatus" class="status"></span>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>⚡ 快速操作</h2>
+            <div class="row">
+                <button class="btn" onclick="runAction('diagnose')">🔍 诊断代码库</button>
+                <button class="btn" onclick="runAction('propose')">💡 生成优化方案</button>
+                <button class="btn green" onclick="runAction('review', true)">🔄 强制周期审查</button>
+                <button class="btn gray" onclick="loadHistory()">📜 进化历史</button>
+                <button class="btn gray" onclick="loadOverview()">📊 全局视图</button>
+            </div>
+            <p class="status" style="margin-top:0.75rem">诊断/提议/审查可能耗时数十秒（需调用 LLM）。操作期间请勿重复点击。</p>
+        </div>
+
+        <div class="card">
+            <h2>🧬 能力自举（新功能拓展）</h2>
+            <div class="grid2">
+                <div class="field"><label>Skill ID</label><input id="bs_id" placeholder="e.g. my_skill"></div>
+                <div class="field"><label>名称</label><input id="bs_name" placeholder="e.g. 我的技能"></div>
+            </div>
+            <div class="field"><label>描述</label><input id="bs_desc" placeholder="这个技能做什么"></div>
+            <div class="row">
+                <button class="btn green" onclick="bootstrap()">⚒️ 生成技能脚手架</button>
+                <button class="btn gray" onclick="loadBootstrapped()">📦 已自举技能</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>⚖️ 重构目标裁决（双方约束 · 待办收敛）</h2>
+            <div class="grid2">
+                <div class="field"><label>文件 (相对路径)</label><input id="td_file" placeholder="e.g. app/xxx.py"></div>
+                <div class="field"><label>目标</label><input id="td_target" placeholder="e.g. 类名/函数名/module"></div>
+            </div>
+            <div class="row">
+                <select id="td_status" style="width:auto">
+                    <option value="declined">declined（判定不值得拆）</option>
+                    <option value="done">done（已重构）</option>
+                </select>
+                <input id="td_rationale" placeholder="裁决理由（可选）" style="width:auto;flex:1">
+                <button class="btn" onclick="recordDecision()">📌 记录裁决</button>
+                <button class="btn gray" onclick="loadDecisions()">🗂 已裁决清单</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📄 输出</h2>
+            <pre id="output">等待操作…</pre>
+        </div>
+    </div>
+
+    <script>
+        let busy = false;
+        const out = document.getElementById('output');
+
+        function setBusy(b) {
+            busy = b;
+            document.querySelectorAll('.btn').forEach(x => x.disabled = b);
+        }
+
+        function render(data) {
+            if (data && typeof data === 'object' && data.error) {
+                out.className = 'error';
+            } else {
+                out.className = '';
+            }
+            out.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function api(path, method = 'GET', body = null) {
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            const r = await fetch(path, opts);
+            const json = await r.json().catch(() => ({ raw: await r.text() }));
+            if (!r.ok) return { error: `HTTP ${r.status}`, detail: json };
+            return json;
+        }
+
+        async function runAction(action, force = false) {
+            if (busy) return;
+            setBusy(true);
+            out.className = '';
+            out.textContent = (action === 'review' && force ? '🔄 强制周期审查中（可能 30s+）…' : '⏳ 运行中…');
+            const route = action === 'review' ? '/api/self-iteration/review' : '/api/self-iteration/' + action;
+            const body = action === 'review' ? { force: force } : { include_god_objects: true };
+            try { render(await api(route, 'POST', body)); }
+            catch (e) { render({ error: String(e) }); }
+            setBusy(false);
+        }
+
+        async function loadHistory() {
+            if (busy) return; setBusy(true);
+            out.textContent = '⏳ 加载进化历史…';
+            try { render(await api('/api/self-iteration/history?limit=20')); }
+            catch (e) { render({ error: String(e) }); }
+            setBusy(false);
+        }
+
+        async function loadOverview() {
+            if (busy) return; setBusy(true);
+            out.textContent = '⏳ 加载全局视图…';
+            try { render(await api('/api/self-iteration/overview')); }
+            catch (e) { render({ error: String(e) }); }
+            setBusy(false);
+        }
+
+        async function bootstrap() {
+            if (busy) return; setBusy(true);
+            const skill_id = document.getElementById('bs_id').value.trim();
+            const name = document.getElementById('bs_name').value.trim();
+            if (!skill_id || !name) { render({ error: '请填写 skill_id 和名称' }); setBusy(false); return; }
+            out.textContent = '⏳ 生成技能脚手架…';
+            try {
+                render(await api('/api/self-iteration/bootstrap', 'POST', {
+                    skill_id, name,
+                    description: document.getElementById('bs_desc').value.trim(),
+                }));
+            } catch (e) { render({ error: String(e) }); }
+            setBusy(false);
+        }
+
+        async function loadBootstrapped() {
+            if (busy) return; setBusy(true);
+            out.textContent = '⏳ 加载已自举技能…';
+            try { render(await api('/api/self-iteration/bootstrapped')); }
+            catch (e) { render({ error: String(e) }); }
+            setBusy(false);
+        }
+
+        async function recordDecision() {
+            if (busy) return; setBusy(true);
+            const file = document.getElementById('td_file').value.trim();
+            const target = document.getElementById('td_target').value.trim();
+            if (!file || !target) { render({ error: '请填写文件和目标' }); setBusy(false); return; }
+            try {
+                render(await api('/api/self-iteration/todo-decision', 'POST', {
+                    file, target,
+                    status: document.getElementById('td_status').value,
+                    rationale: document.getElementById('td_rationale').value.trim(),
+                }));
+            } catch (e) { render({ error: String(e) }); }
+            setBusy(false);
+        }
+
+        async function loadDecisions() {
+            if (busy) return; setBusy(true);
+            try { render(await api('/api/self-iteration/todo-decisions')); }
+            catch (e) { render({ error: String(e) }); }
+            setBusy(false);
+        }
+
+        async function refreshTickStatus() {
+            try {
+                const s = await api('/api/self-iteration/tick-status');
+                const el = document.getElementById('tickStatus');
+                if (s.running) {
+                    el.textContent = '🟢 周期审查线路运行中（' + (s.interval_seconds / 3600).toFixed(1) + 'h）';
+                } else {
+                    el.textContent = '⚪ 周期审查线路未运行';
+                }
+            } catch (e) { /* 未登录等，忽略 */ }
+        }
+
+        refreshTickStatus();
+        setInterval(refreshTickStatus, 30000);
+    </script>
+</body>
+</html>

@@ -69,6 +69,19 @@ def get_lobster_sessions():
     return _lobster_sessions
 
 
+_self_review_tick = None
+
+
+def set_self_review_tick(driver) -> None:
+    """注入周期审查驱动（由 http_test_server.py 在实例化后调用）。"""
+    global _self_review_tick
+    _self_review_tick = driver
+
+
+def get_self_review_tick():
+    return _self_review_tick
+
+
 def get_current_user(request: Request):
     """认证依赖：从 cookie 解析 session_id 并水合用户会话。"""
     user_sessions = get_user_sessions()

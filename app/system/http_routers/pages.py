@@ -47,6 +47,19 @@ def create_pages_router() -> APIRouter:
             )
         return HTMLResponse("<html><body><h1>Novel Studio</h1><p>Template not found</p></body></html>")
 
+    @router.get("/self-iteration", response_class=HTMLResponse)
+    async def self_iteration_page():
+        """自治进化控制台：确定性触发诊断/提议/造技能/审查/裁决/历史。"""
+        page_path = Path(__file__).resolve().parent.parent / "templates" / "self_iteration.html"
+        if page_path.exists():
+            from fastapi.responses import HTMLResponse as _HTML
+            content = page_path.read_text(encoding="utf-8")
+            return _HTML(
+                content=content,
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate, max-age=0"}
+            )
+        return HTMLResponse("<html><body><h1>自治进化控制台</h1><p>模板未找到</p></body></html>")
+
     @router.get("/debug-log")
     async def debug_log(msg: str = "", ts: str = ""):
         """Client-side debug logging endpoint"""

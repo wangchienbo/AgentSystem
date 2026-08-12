@@ -180,6 +180,10 @@ app = FastAPI(
 from app.system.http_routers.os_workbench import create_os_router as _create_os_router
 app.include_router(_create_os_router())
 
+# 注册自治进化域 Router（确定性 HTTP 入口：诊断/提议/造技能/审查/裁决/历史）
+from app.system.http_routers.self_iteration import create_self_iteration_router as _create_self_iteration_router
+app.include_router(_create_self_iteration_router())
+
 # 确保所有 JSON 响应包含 charset=utf-8 防止中文乱码
 @app.middleware("http")
 async def add_charset_to_json(request: Request, call_next):
@@ -257,6 +261,20 @@ REGRESSION_NIGHTLY_STATE_KEY = "regression_nightly_state"
 REGRESSION_NIGHTLY_DRIVER_STATE_KEY = "regression_nightly_driver_state"
 REGRESSION_NIGHTLY_SERVICE_SESSION_ID = "session_regression_nightly_service"
 regression_nightly_driver = RegressionNightlyTickDriver()
+
+
+# ── 固化周期审查线路：daemon 线程周期唤醒 run_periodic_review ──
+# 此前 run_periodic_review 虽有"24h 间隔"语义但无任何调度器调用，固化线路是断的。
+# 这里启动 SelfReviewTickDriver 周期 tick（内部 24h 间隔判断由服务自身节制）。
+from app.system.self_review_tick import SelfReviewTickDriver
+from app.system.http_routers.deps import set_self_review_tick as _set_self_review_tick
+self_review_tick = SelfReviewTickDriver(runtime_services["self_iteration_asset_service"])
+_set_self_review_tick(self_review_tick)
+try:
+    self_review_tick.start(interval_seconds=3600)
+except Exception as _self_review_tick_error:  # noqa: BLE001 - 周期线路启动失败不应拖垮服务
+    import logging as _logging
+    _logging.getLogger(__name__).warning("SelfReviewTickDriver 启动失败: %s", _self_review_tick_error)
 
 
 def ensure_regression_service_session() -> str:
