@@ -168,7 +168,7 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
     novel_asset = AssetDescriptor(
         asset_id="asset:novel_studio:v1",
         name="小说工作室",
-        description="小说创作应用，支持创建小说、管理角色、大纲、世界观、章节生成、章节编辑、角色编辑、场景编辑",
+        description="小说创作应用（App 级）。支持创建小说、管理角色/大纲/世界观/章节/场景，并可通过 get_novel / list_novels / get_latest_task 查询小说数据与生成进度。查询/监控某本小说的内容与正在进行的生成任务时，应调用本 asset 的 get_novel / get_latest_task，而不是 app 管理工具。",
         asset_type=AssetType.APP,
         asset_kind=AssetKind.MATERIALIZED,
         version="2.0.0",
@@ -177,6 +177,9 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
         source_of_truth="runtime",
         status=AssetState.ACTIVE,
         capabilities=[
+            AssetCapability(name="list_novels", description="列出所有小说及其基本信息（id/书名/题材/章节数/状态）。监控前先用它找到目标 novel_id。",
+                method="list_novels",
+                input_schema={}),
             AssetCapability(name="create_novel", description="创建一本新小说。自动生成 novel_id。返回 novel 对象含 id/title/genre/logline。示例：create_novel(title=\"穿越大明\", genre=\"历史奇幻\", logline=\"...\")",
                 method="create_novel",
                 input_schema={"title": {"type": "string", "desc": "书名"},
@@ -282,6 +285,7 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
     )
 
     method_mappings = {
+        "list_novels": lambda **p: {"success": True, "novels": engine.list_novels()},
         "create_novel": lambda **p: _novel_create_resp(engine, **p),
         "add_character": lambda **p: _novel_add_char_resp(engine, **p),
         "update_character": lambda **p: _novel_update_char_resp(engine, **p),

@@ -13,6 +13,7 @@ import asyncio
 
 from app.system.master.master_control import TaskRecord, AppWorkerProtocol
 from app.novel_studio.engine import NovelStudioEngine
+from app.novel_studio.task_manager import get_latest_task
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ OPERATIONS: dict[str, tuple[list[str], str]] = {
     "create_world":       (["novel_id", "name"], "创建世界观"),
     "add_scene":          (["novel_id", "name"], "添加场景"),
     "get_novel":          (["novel_id"], "查询小说"),
+    "get_latest_task":    (["novel_id"], "查询小说最新生成任务/进度"),
     # ── 演化操作 ──
     "init_evolution":     (["novel_id"], "初始化演化"),
     "tick":               ([], "世界演化的一个时间步"),
@@ -108,6 +110,9 @@ class NovelStudioWorker(AppWorkerProtocol):
             "add_scene": "add_scene", "create_scene": "add_scene",
             "get_novel": "get_novel", "query_novel": "get_novel",
             "get_character": "get_novel", "get_novel_info": "get_novel",
+            "get_latest_task": "get_latest_task", "query_latest_task": "get_latest_task",
+            "latest_task": "get_latest_task", "get_progress": "get_latest_task",
+            "query_progress": "get_latest_task", "get_task_status": "get_latest_task",
             "modify_novel": "add_character", "update_novel": "add_character",
             "save_chapter": "save_chapter",
             "add_chapter_outline": "add_chapter_outline",
@@ -256,6 +261,17 @@ class NovelStudioWorker(AppWorkerProtocol):
                     "chapter_count": len(novel.chapters) if novel.chapters else 0,
                 }
             raise ValueError("小说不存在")
+
+        elif canonical == "get_latest_task":
+            novel_id = params.get("novel_id", "")
+            if not novel_id:
+                raise ValueError("缺少 novel_id")
+            self._set_progress(task_id, 50, "正在查询最新生成任务...")
+            task = get_latest_task(novel_id)
+            self._set_progress(task_id, 100, "查询完成")
+            if not task:
+                return {"novel_id": novel_id, "task": None, "message": "该小说暂无生成任务"}
+            return {"novel_id": novel_id, "task": task.to_dict()}
 
         # ═══════════════════════════════════════════════════════════════
         # 角色属性操作
