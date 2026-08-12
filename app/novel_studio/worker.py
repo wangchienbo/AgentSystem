@@ -13,7 +13,7 @@ import asyncio
 
 from app.system.master.master_control import TaskRecord, AppWorkerProtocol
 from app.novel_studio.engine import NovelStudioEngine
-from app.novel_studio.task_manager import get_latest_task
+from app.novel_studio.task_manager import get_latest_task, list_active_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,7 @@ OPERATIONS: dict[str, tuple[list[str], str]] = {
     "add_scene":          (["novel_id", "name"], "添加场景"),
     "get_novel":          (["novel_id"], "查询小说"),
     "get_latest_task":    (["novel_id"], "查询小说最新生成任务/进度"),
+    "get_active_tasks":   (["novel_id"], "查询小说当前所有运行中/排队的生成任务(能准确回答'是否有章节在跑')"),
     # ── 演化操作 ──
     "init_evolution":     (["novel_id"], "初始化演化"),
     "tick":               ([], "世界演化的一个时间步"),
@@ -113,6 +114,9 @@ class NovelStudioWorker(AppWorkerProtocol):
             "get_latest_task": "get_latest_task", "query_latest_task": "get_latest_task",
             "latest_task": "get_latest_task", "get_progress": "get_latest_task",
             "query_progress": "get_latest_task", "get_task_status": "get_latest_task",
+            "get_active_tasks": "get_active_tasks", "active_tasks": "get_active_tasks",
+            "list_active_tasks": "get_active_tasks", "running_tasks": "get_active_tasks",
+            "has_running_task": "get_active_tasks", "is_running": "get_active_tasks",
             "modify_novel": "add_character", "update_novel": "add_character",
             "save_chapter": "save_chapter",
             "add_chapter_outline": "add_chapter_outline",
@@ -272,6 +276,20 @@ class NovelStudioWorker(AppWorkerProtocol):
             if not task:
                 return {"novel_id": novel_id, "task": None, "message": "该小说暂无生成任务"}
             return {"novel_id": novel_id, "task": task.to_dict()}
+
+        elif canonical == "get_active_tasks":
+            novel_id = params.get("novel_id", "")
+            self._set_progress(task_id, 50, "正在查询运行中的生成任务...")
+            tasks = list_active_tasks(novel_id or None)
+            self._set_progress(task_id, 100, "查询完成")
+            running = [t for t in tasks if t["status"] == "running"]
+            return {
+                "novel_id": novel_id,
+                "active_tasks": tasks,
+                "running_count": len(running),
+                "has_running": len(running) > 0,
+                "message": "有章节/任务正在运行" if running else "当前无运行中的生成任务",
+            }
 
         # ═══════════════════════════════════════════════════════════════
         # 角色属性操作

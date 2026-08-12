@@ -79,6 +79,24 @@ def get_latest_task(novel_id: str) -> GenerateTask | None:
     return None
 
 
+def list_active_tasks(novel_id: str | None = None) -> list[dict[str, Any]]:
+    """列出仍在运行的生成任务（status=pending/running）。
+
+    注意：get_latest_task 只返回 _novel_latest 指向的单个最新任务，且会被
+    用户后续对话创建的 chat 任务覆盖，导致"后台章节生成任务在跑却查不到"。
+    本方法遍历全部 _tasks 按 novel_id 过滤，能准确回答"是否有章节在跑"。
+    novel_id 为空则返回全部运行中的任务。
+    """
+    out: list[dict[str, Any]] = []
+    for task in _tasks.values():
+        if task.status in ("pending", "running"):
+            if novel_id is None or task.novel_id == novel_id:
+                out.append(task.to_dict())
+    # 运行中优先，其次按创建时间倒序
+    out.sort(key=lambda t: (t["status"] != "running", t["created_at"]), reverse=True)
+    return out
+
+
 def cleanup_old_tasks(max_age_seconds: int = 3600):
     """清理过期任务"""
     now = datetime.now(timezone.utc)

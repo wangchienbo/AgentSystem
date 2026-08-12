@@ -276,6 +276,9 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
             AssetCapability(name="get_latest_task", description="获取某小说的最新生成任务。",
                 method="get_latest_task",
                 input_schema={"novel_id": "string"}),
+            AssetCapability(name="get_active_tasks", description="获取某小说当前所有运行中/排队的生成任务，返回 active_tasks/running_count/has_running。用于准确回答'是否有章节/任务正在生成'（get_latest_task 会被 chat 对话任务覆盖，查进行中任务请用本方法）。",
+                method="get_active_tasks",
+                input_schema={"novel_id": "string"}),
             AssetCapability(name="export_novel", description="导出小说全文文本。format 当前支持 text。返回 content 字符串。",
                 method="export_novel",
                 input_schema={"novel_id": "string", "format": "string"}),
@@ -312,6 +315,7 @@ def _register_asset(runtime_services: dict, engine, model_router) -> None:
         "delete_session": lambda **p: _session_delete_resp(engine, **p),
         "get_task": lambda **p: _task_get_resp(engine, **p),
         "get_latest_task": lambda **p: _task_latest_resp(engine, **p),
+        "get_active_tasks": lambda **p: _task_active_resp(engine, **p),
         "export_novel": lambda **p: _export_novel_resp(engine, **p),
     }
 
@@ -602,6 +606,20 @@ def _task_latest_resp(engine, novel_id="", **kw):
     if not task:
         return {"success": True, "task": None}
     return {"success": True, "task": task.to_dict()}
+
+
+def _task_active_resp(engine, novel_id="", **kw):
+    from app.novel_studio.task_manager import list_active_tasks
+    tasks = list_active_tasks(novel_id or None)
+    running = [t for t in tasks if t["status"] == "running"]
+    return {
+        "success": True,
+        "novel_id": novel_id,
+        "active_tasks": tasks,
+        "running_count": len(running),
+        "has_running": len(running) > 0,
+        "message": "有生成任务正在运行" if running else "当前无运行中的生成任务",
+    }
 
 
 # ──── 新增能力：导出小说 ──────────────────────────────────
