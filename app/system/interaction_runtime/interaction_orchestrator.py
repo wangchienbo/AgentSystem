@@ -103,11 +103,13 @@ class InteractionOrchestrator:
                     self._snapshot,
                 )
         # Governance: explicit mention of governance summary (before general self-iteration check)
+        # 注意：self_iteration_center 无 governance_summary 方法，治理摘要映射到
+        # strategy_overview（其返回含治理状态与推荐动作）。
         elif "治理摘要" in lower or "治理概览" in lower:
             asset_id = "asset:self_iteration_center:v1"
             envelope = self._decision_protocol.build_invoke_request(
                 asset_id=asset_id,
-                method="governance_summary",
+                method="strategy_overview",
                 params={},
             )
             result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
@@ -124,7 +126,7 @@ class InteractionOrchestrator:
             asset_id = self._last_asset_id or "asset:self_iteration_center:v1"
             envelope = self._decision_protocol.build_invoke_request(
                 asset_id=asset_id,
-                method="governance_summary",
+                method="strategy_overview",
                 params={},
             )
             result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
@@ -248,35 +250,28 @@ class InteractionOrchestrator:
                 self._decision_protocol.build_text_response("你想了解配置的哪个方面？例如：查看当前配置、修改某个参数、或者模型配置摘要。"),
                 self._snapshot,
             )
-        # Asset health check: "各资产都健康" → list_models on asset_center
+        # Asset health check: "各资产都健康" → list_assets on asset_center
         elif "资产" in lower and "健康" in lower:
             asset_id = "asset:asset_center:v1"
             envelope = self._decision_protocol.build_invoke_request(
                 asset_id=asset_id,
-                method="list_models",
+                method="list_assets",
                 params={},
             )
             result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
-        # Novel Studio: explicit mention of 小说/章节/生成进度 → novel_studio asset
-        elif any(k in lower for k in ("小说", "章节", "novel", "chapter", "生成进度")):
-            # 状态类查询 → list_novels（列出所有小说及其状态）
-            if "状态" in lower or "status" in lower or "进度" in lower or "情况" in lower or "看看" in lower or "看下" in lower or "查看" in lower:
-                asset_id = "asset:novel_studio:v1"
-                envelope = self._decision_protocol.build_invoke_request(
-                    asset_id=asset_id,
-                    method="list_novels",
-                    params={},
-                )
-                result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
-            # 指定了具体小说 → get_novel
-            else:
-                asset_id = "asset:novel_studio:v1"
-                envelope = self._decision_protocol.build_invoke_request(
-                    asset_id=asset_id,
-                    method="get_novel",
-                    params={},
-                )
-                result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
+        # Novel Studio: explicit mention of 小说/章节/第几章/进展 → novel_studio asset
+        elif any(k in lower for k in ("小说", "章节", "第几章", "几章", "进展", "更新到", "novel", "chapter", "生成进度")):
+            # 查询统一走 list_novels：无需 novel_id，返回所有小说（含 chapter_count /
+            # status / char_count），可回答「到第几章了」「状态」「进展」等。
+            # 单本详情（get_novel 需 novel_id，orchestrator 无法从自然语言提取 ID）
+            # 留给 LLM 工具链处理——LLM 可先 list_novels 拿 id 再 get_novel。
+            asset_id = "asset:novel_studio:v1"
+            envelope = self._decision_protocol.build_invoke_request(
+                asset_id=asset_id,
+                method="list_novels",
+                params={},
+            )
+            result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
         # Status check: "状态" / "status"（未指明具体对象时才归 self_iteration）
         elif "状态" in lower or "status" in lower:
             asset_id = "asset:self_iteration_center:v1"

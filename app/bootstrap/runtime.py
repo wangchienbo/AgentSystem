@@ -831,7 +831,37 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             method_mappings=self_iteration_registered.method_mappings,
         )
 
-
+        # Register asset_center (静态资产目录 + 模型路由) as a RuntimeAsset, so
+        # interaction orchestrator's asset_center routes (模型资源 / 资产健康)
+        # resolve to a real runtime asset instead of `descriptor unavailable`.
+        runtime_center.register_asset(
+            AssetDescriptor(
+                asset_id="asset:asset_center:v1",
+                asset_type=AssetType.SERVICE,
+                asset_kind=AssetKind.CORE_RUNTIME,
+                version="1.0.0",
+                owner_type="system",
+                owner_id="system",
+                source_of_truth="runtime",
+                status=AssetState.ACTIVE,
+                capabilities=[
+                    AssetCapability(name="list models", description="返回所有已配置模型（含健康状态）", method="list_models", side_effect_level="read"),
+                    AssetCapability(name="list assets", description="列出全部静态资产定义（AssetDefinition）", method="list_assets", side_effect_level="read"),
+                    AssetCapability(name="get asset", description="获取单个资产定义", method="get_asset", side_effect_level="read"),
+                ],
+                invoke_contract={"kind": "service", "service_name": "asset_center"},
+                health_contract={"heartbeat": False},
+                name="asset_center",
+                description="资产目录与模型资源查询",
+                tags=["phase-h", "core-runtime"],
+            ),
+            service_ref=asset_center,
+            method_mappings={
+                "list_models": lambda **p: {"success": True, "models": model_router.get_available_models()},
+                "list_assets": lambda **p: {"success": True, "assets": [vars(a) for a in asset_center.list_assets(p.get("asset_type"))]},
+                "get_asset": lambda **p: (lambda a: {"success": True, "asset": vars(a)} if a is not None else {"success": False, "error": "not_found"})(asset_center.get_asset(p.get("asset_id", ""))),
+            },
+        )
 
     # Wire Phase N assets into services created earlier (couldn't reference these at creation time)
     app_installer._asset_center = asset_center
