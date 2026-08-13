@@ -189,6 +189,9 @@ class NovelStorage:
         章节被删后，角色 worldview 中属于已删章节的认知（known_facts/beliefs）
         会成为虚假的『超前认知』，导致 LLM 门禁误判。删除章节必须一并清空，
         让后续生成从干净状态重新累积。
+
+        同时清理章节级的叙事状态残留（chapter_timeline / state），
+        否则 world_check 仍会基于已删章节的事件误判时间线矛盾。
         """
         chars = getattr(novel, "characters", None) or {}
         if isinstance(chars, dict):
@@ -201,6 +204,16 @@ class NovelStorage:
                     wv.last_updated_chapter = 0
                 if hasattr(c, "current_scene"):
                     c.current_scene = ""
+        # 章节事件线：只保留仍存在的章节（挂在 world 下）
+        world = getattr(novel, "world", None)
+        timeline = getattr(world, "chapter_timeline", None) if world is not None else None
+        if timeline:
+            existing_numbers = {c.number for c in getattr(novel, "chapters", [])}
+            world.chapter_timeline = [t for t in timeline if t.chapter in existing_numbers]
+        # 世界动态状态：current_chapter 回退到剩余章节的最大编号
+        if world is not None and getattr(world, "state", None) is not None:
+            existing_numbers = {c.number for c in getattr(novel, "chapters", [])}
+            world.state.current_chapter = max(existing_numbers) if existing_numbers else 0
 
     # ──── 角色管理 ────
 
