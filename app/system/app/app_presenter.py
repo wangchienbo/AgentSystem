@@ -5,6 +5,50 @@ from typing import Any
 from app.models.chat import ActionSuggestion, ChatMessageResponse, InlineItem
 
 
+def humanize_pending_task(pending: "PendingTaskRecord") -> str:
+    """把 pending 工程任务的内部状态/阶段转成对普通用户友好的文案。
+
+    原则：绝不直接暴露 status / current_stage / intent 等内部术语
+    （如 ready_to_execute / create_app / implementation_pending）。
+    """
+    from app.models.pending_task import PendingTaskRecord  # noqa: F401  # 仅类型标注
+
+    status = (pending.status or "")
+    stage = (pending.current_stage or "")
+    error = (pending.error_message or "").strip()
+    next_action = ((pending.next_recommended_action or {}).get("type") or "")
+
+    # 已完成 / 已取消
+    if status == "completed" or stage == "done":
+        return "✅ 任务已完成！"
+    if status == "abandoned":
+        return "该任务已取消。"
+
+    # 阻塞
+    if status == "blocked" or stage == "blocked":
+        return f"⚠️ 任务暂时无法继续{('：' + error) if error else ''}，请告诉我如何调整。"
+
+    # 执行中
+    if status == "executing" or stage in ("implementation_running", "upgrade_running", "acceptance_running"):
+        return "⏳ 正在执行中，请稍候…"
+
+    # 等待用户推进
+    if status in ("ready_to_execute", "pending_input"):
+        if next_action in (
+            "apply_draft_app",
+            "approve_solution_draft",
+            "materialize_task_list",
+            "locate_repo_context",
+            "continue_draft_app_setup",
+        ):
+            return "📋 方案已就绪。回复「继续」即可推进下一步。"
+        return "✅ 已收到您的需求，正在为您安排…回复「继续」继续推进。"
+
+    # 兜底：不暴露内部术语
+    return "🔄 正在为您处理，请稍候…"
+
+
+
 class AppPresenter:
     @staticmethod
     def _append_context_summary(content: str, parameters: dict[str, Any] | None = None) -> str:

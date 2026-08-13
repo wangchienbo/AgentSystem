@@ -500,7 +500,7 @@ async function sendMessage() {
         if (resp.ok) {
             const data = await resp.json();
             if (data.success) {
-                appendBubble('assistant', data.response);
+                appendBubble('assistant', formatAssistantResponse(data.response));
                 historyTotal += 2;
                 historyOffset += 2;
                 updateLoadMoreBtn();
@@ -580,6 +580,51 @@ function escHtml(s) {
     const d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
+}
+// ── 响应美化：把 AI 返回的 JSON 渲染成可读卡片/列表 ─────────────────────────
+function formatAssistantResponse(content) {
+    const s = String(content || '').trim();
+    if (!s) return content;
+    if (s[0] === '{' || s[0] === '[') {
+        try { return renderJsonCard(JSON.parse(s)); } catch(e) { /* 非 JSON，原样 */ }
+    }
+    return content;
+}
+function renderJsonCard(obj) {
+    if (obj && typeof obj === 'object') {
+        if (Array.isArray(obj.novels)) return renderNovelList(obj.novels);
+        if (obj.models && typeof obj.models === 'object') return renderModelList(obj.models);
+        if (Array.isArray(obj.assets)) return renderAssetList(obj.assets);
+    }
+    return '<pre style="background:#f6f6f6;padding:10px;border-radius:8px;overflow-x:auto;font-size:12px;margin:0">'
+        + escHtml(JSON.stringify(obj, null, 2)) + '</pre>';
+}
+function renderNovelList(novels) {
+    if (!novels.length) return '<div style="color:#888">暂无小说</div>';
+    const rows = novels.map(n => `
+        <div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
+            <div style="font-weight:600">${escHtml(n.title || '未命名')} <span style="color:${n.status==='writing'?'var(--success)':'#888'};font-size:12px">${escHtml(n.status || '')}</span></div>
+            <div style="font-size:12px;color:#666">${escHtml(n.genre || '')} · ${n.chapter_count ?? 0} 章 · ${n.char_count ?? 0} 角色</div>
+            ${n.description ? `<div style="font-size:12px;color:#888;margin-top:4px">${escHtml(n.description)}</div>` : ''}
+        </div>`).join('');
+    return `<div><b>📚 小说列表</b>${rows}</div>`;
+}
+function renderModelList(models) {
+    const entries = Object.entries(models || {});
+    if (!entries.length) return '<div style="color:#888">暂无模型配置</div>';
+    const rows = entries.map(([k, m]) => {
+        const name = (m && (m.model || m.model_id)) || k;
+        return `<div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;font-size:13px">🤖 <b>${escHtml(String(name))}</b> <span style="color:#888;font-size:12px">${escHtml(k)}</span></div>`;
+    }).join('');
+    return `<div><b>🧠 模型资源</b>${rows}</div>`;
+}
+function renderAssetList(assets) {
+    if (!assets.length) return '<div style="color:#888">暂无资产</div>';
+    const rows = assets.map(a => `
+        <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;font-size:13px">
+            📦 <b>${escHtml(a.name || a.asset_id || '')}</b> <span style="color:#888">${escHtml(a.asset_type || '')}</span>
+        </div>`).join('');
+    return `<div><b>🗂️ 资产列表</b>${rows}</div>`;
 }
 function autoResize(el) {
     el.style.height = 'auto';

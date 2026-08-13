@@ -1513,23 +1513,25 @@ class LightBrainGateway(_PackageManagementMixin):
                 session_id=session_id,
             )
 
-        # 3. 根据 next_action 决定返回
+        # 3. 根据 next_action 决定返回（文案一律人话化，原始数据留在 data 供开发者/前端）
+        from app.system.app.app_presenter import humanize_pending_task
+
         next_action = (pending.next_recommended_action or {}).get("type", "")
 
         if next_action in ("implementation_running", "upgrade_running"):
             # 需要执行 → 走 interpreter tool-calling（现有流程）
             return ChatMessageResponse(
                 type="text",
-                content=f"正在执行工程任务阶段: {pending.current_stage}。请继续说明具体操作要求。",
+                content=humanize_pending_task(pending),
                 session_id=session_id,
                 data={"pending_task": pending.model_dump(mode="json")},
             )
 
         if next_action in ("", "continue_draft_app_setup", "materialize_task_list"):
-            # 需要用户输入或等待 → 返回进度状态
+            # 需要用户输入或等待 → 返回进度状态（人话化）
             return ChatMessageResponse(
                 type="progress",
-                content=f"工程任务进行中，当前阶段: {pending.current_stage}",
+                content=humanize_pending_task(pending),
                 session_id=session_id,
                 data={"pending_task": pending.model_dump(mode="json")},
             )
@@ -1538,14 +1540,14 @@ class LightBrainGateway(_PackageManagementMixin):
         if pending.status in ("completed", "abandoned"):
             return ChatMessageResponse(
                 type="progress",
-                content=f"工程任务已完成: {pending.intent}",
+                content=humanize_pending_task(pending),
                 session_id=session_id,
                 data={"pending_task": pending.model_dump(mode="json")},
             )
 
         return ChatMessageResponse(
             type="progress",
-            content=f"工程任务状态: {pending.status}",
+            content=humanize_pending_task(pending),
             session_id=session_id,
             data={"pending_task": pending.model_dump(mode="json")},
         )
