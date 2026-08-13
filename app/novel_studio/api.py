@@ -351,7 +351,7 @@ def create_novel_router(
     # ──── 后台任务 API（缓冲模式，断开连接后继续生成） ────
 
     import asyncio as _asyncio
-    from app.novel_studio.task_manager import create_task, get_task, get_latest_task, cleanup_old_tasks
+    from app.novel_studio.task_manager import create_task, get_task, get_latest_task, list_active_tasks, cleanup_old_tasks
 
     @router.post("/generate/start")
     async def api_generate_start(data: dict):
@@ -361,13 +361,15 @@ def create_novel_router(
         if not novel_id:
             return {"success": False, "error": "缺少 novel_id"}
 
-        # 检查是否有已存在的运行中任务
-        existing = get_latest_task(novel_id)
-        if existing and existing.status == "running":
+        # 防重复触发：检查该小说是否已有运行中的章节生成任务。
+        # 用 list_active_tasks 而非 get_latest_task——后者会被用户对话创建的
+        # chat 任务覆盖（_novel_latest 指向 chat），导致连点/并发时防重失效。
+        running = [t for t in list_active_tasks(novel_id) if t.get("kind") == "chapter"]
+        if running:
             return {
                 "success": True,
-                "task_id": existing.id,
-                "note": "已有运行中的任务，继续使用",
+                "task_id": running[0]["id"],
+                "note": "已有运行中的章节生成任务，继续使用",
             }
 
         task = create_task(novel_id, template)
@@ -940,7 +942,7 @@ def create_novel_router(
                     tools=tool_defs,
                     asset_id="asset:novel_studio:v1",
                     session_id=session_id,
-                    max_turns=15,
+                    max_turns=30,
                 )
 
                 # 6. 提取回复正文（优先从 save_chapter 工具参数中提取）
@@ -1155,7 +1157,7 @@ def create_novel_router(
                     tools=tool_defs,
                     asset_id="asset:novel_studio:v1",
                     session_id=session_id,
-                    max_turns=15,
+                    max_turns=30,
                 )
                 text = (result.final_text or "").strip()
                 # 检测是否有 save_chapter 工具调用，如有则用章节正文覆盖回复文本
@@ -1358,7 +1360,7 @@ def create_novel_router(
                         tools=tool_defs,
                         asset_id="asset:novel_studio:v1",
                         session_id=session_id,
-                        max_turns=15,
+                        max_turns=30,
                     )
                     text = (result.final_text or "").strip()
                     for _tc in (result.tool_calls or []):

@@ -175,12 +175,26 @@ def _build_outline_context(novel) -> str:
 
 
 def _build_chapters_summary(chapters) -> str:
+    """构建已有章节摘要，供规划下一章时参考。
+
+    关键：必须包含最近章节的内容片段（开头+结尾），否则 LLM 规划时不知道
+    上一章写了什么，会把上一章的桥段（打听销路、修窑等）重新编一遍，
+    导致相邻两章情节重复/时间线矛盾（用户123 第3/4章重复的根因）。
+    只列标题+字数是不够的——LLM 凭标题猜不出具体情节。
+    """
     if not chapters:
         return ""
     lines = []
-    for ch in chapters[-5:]:  # 最近5章
+    for ch in chapters[-3:]:  # 最近3章（重点：上一章）
         content = getattr(ch, "content", "") or ""
-        lines.append(f"  第{ch.number}章 {ch.title}（{len(content)}字）")
+        n = getattr(ch, "number", "?")
+        title = getattr(ch, "title", "") or ""
+        if not content:
+            lines.append(f"  第{n}章《{title}》（无内容）")
+            continue
+        head = content[:300].replace("\n", " ")
+        tail = content[-500:].replace("\n", " ")
+        lines.append(f"  第{n}章《{title}》{len(content)}字：开头[{head}] 结尾[{tail}]")
     return "\n".join(lines)
 
 
