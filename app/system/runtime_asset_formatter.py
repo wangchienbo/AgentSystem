@@ -166,7 +166,7 @@ def render_asset_overview_prompt(
         "",
         "选择原则：先根据资产描述判断哪个资产最贴近当前问题，再按需调用 query_asset_detail(asset_id) 查看详细契约。",
         "不要因为提问里出现某些关键词就假设必须命中某个固定资产，优先基于可见资产列表做选择。",
-        "如果问题涉及系统最近的演化状态、治理风险、回归观察或待优化项，可重点关注带有 self-iteration / governance / refinement 描述的资产。",
+        "判断资产归属的优先顺序：先看问题里的具体对象——如果是查询某本小说/章节/生成任务的状态或内容，应选带 novel_studio 描述的资产（其 get_novel / list_novels / get_latest_task 专门查这些）；只有问题明确涉及系统自身的治理风险、回归观察、自进化待办时，才选择带 self-iteration / governance / refinement 描述的资产。泛化的『状态』『进度』『情况』不是选择 self-iteration 的理由，先确认对象再选资产。",
         "",
         "**重要：如需了解某个资产的详细使用说明（输入参数格式、输出格式、注意事项），",
         "请调用 query_asset_detail(asset_id) 工具。**",

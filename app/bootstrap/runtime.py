@@ -1384,89 +1384,54 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         model_input_builder=model_input_builder,  # Path B: context view layer
     )
     def _interaction_detail_provider(asset_id: str) -> dict[str, object] | None:
+        # 1) AssetCenter 静态资产目录（若支持该查询，优先使用其完整 methods）
         if hasattr(asset_center, "get_asset_detail"):
-            detail = asset_center.get_asset_detail(asset_id)
-            if isinstance(detail, dict):
-                return detail
-        if asset_id in {"asset:config_center:v1", "asset:self_iteration_center:v1"}:
-            runtime_detail = runtime_center.query_asset_info(asset_id)
-            if isinstance(runtime_detail, dict):
-                descriptor_methods = []
-                if asset_id == "asset:config_center:v1":
-                    descriptor_methods = [{
-                        "name": "get_config",
-                        "description": "Read config center values for a skill or app binding scope",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {
-                                "skill_id": {"type": "string"},
-                                "app_id": {"type": "string"},
-                            },
-                        },
-                    }]
-                elif asset_id == "asset:self_iteration_center:v1":
-                    descriptor_methods = [{
-                        "name": "list_self_iteration_assets",
-                        "description": "List self-iteration asset summaries",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {
-                                "replay_session_id": {"type": "string"},
-                                "comparison_limit": {"type": "integer", "default": 5},
-                            },
-                        },
-                    }, {
-                        "name": "query_self_iteration_asset",
-                        "description": "Query one self-iteration asset summary",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {
-                                "asset_id": {"type": "string"},
-                                "replay_session_id": {"type": "string"},
-                                "comparison_limit": {"type": "integer", "default": 5},
-                            },
-                            "required": ["asset_id"],
-                        },
-                    }, {
-                        "name": "get_self_iteration_strategy_overview",
-                        "description": "Return the whole-system self-iteration view with recommended next asset",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {
-                                "replay_session_id": {"type": "string"},
-                                "comparison_limit": {"type": "integer", "default": 5},
-                            },
-                        },
-                    }, {
-                        "name": "strategy_overview",
-                        "description": "Alias for get_self_iteration_strategy_overview",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {
-                                "replay_session_id": {"type": "string"},
-                                "comparison_limit": {"type": "integer", "default": 5},
-                            },
-                        },
-                    }]
-                return {
-                    "descriptor_version": 1,
-                    "asset_id": asset_id,
-                    "kind": "system_asset",
-                    "summary": runtime_detail.get("description") or runtime_detail.get("name") or asset_id,
-                    "detail": runtime_detail.get("description") or asset_id,
-                    "methods": descriptor_methods,
-                    "model_requirement": {
-                        "preferred_model": None,
-                        "fallback_model": None,
-                        "minimum_requirements": {},
-                    },
-                    "metadata": runtime_detail.get("metadata") or {},
-                }
-        if hasattr(runtime_center, "query_asset_info"):
-            info = runtime_center.query_asset_info(asset_id)
-            if isinstance(info, dict):
-                return info
-        return None
+            try:
+                detail = asset_center.get_asset_detail(asset_id)
+                if isinstance(detail, dict) and detail.get("methods"):
+                    return detail
+            except Exception:
+                pass
+        # 2) 通用桥接：任何 RuntimeCenter 注册的 asset（config_center /
+        #    self_iteration_center / novel_studio 等 App 资产）都通过其
+        #    capabilities 转出 descriptor methods，供 InvocationDispatcher 解析。
+        #    零硬编码——新增 runtime asset 自动可用。
+        runtime_detail = runtime_center.query_asset_info(asset_id)
+        if not isinstance(runtime_detail, dict):
+            return None
+        capabilities = runtime_detail.get("capabilities") or []
+        descriptor_methods = []
+        for cap in capabilities:
+            if not isinstance(cap, dict):
+                continue
+            name = cap.get("method") or cap.get("name")
+            if not name:
+                continue
+            descriptor_methods.append({
+                "name": name,
+                "description": cap.get("description") or "",
+                "input_schema": cap.get("input_schema") or {"type": "object", "properties": {}},
+                "output_schema": {},
+            })
+        # 兼容：个别 asset 直接暴露 methods（无 capabilities）时按原样透传
+        if not descriptor_methods and runtime_detail.get("methods"):
+            return runtime_detail
+        if not descriptor_methods:
+            return None
+        return {
+            "descriptor_version": 1,
+            "asset_id": asset_id,
+            "kind": "system_asset",
+            "summary": runtime_detail.get("description") or runtime_detail.get("name") or asset_id,
+            "detail": runtime_detail.get("description") or asset_id,
+            "methods": descriptor_methods,
+            "model_requirement": {
+                "preferred_model": None,
+                "fallback_model": None,
+                "minimum_requirements": {},
+            },
+            "metadata": runtime_detail.get("metadata") or {},
+        }
 
     interaction_asset_summaries = [
         {

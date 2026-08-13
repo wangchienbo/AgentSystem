@@ -257,7 +257,27 @@ class InteractionOrchestrator:
                 params={},
             )
             result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
-        # Status check: "状态" / "status"
+        # Novel Studio: explicit mention of 小说/章节/生成进度 → novel_studio asset
+        elif any(k in lower for k in ("小说", "章节", "novel", "chapter", "生成进度")):
+            # 状态类查询 → list_novels（列出所有小说及其状态）
+            if "状态" in lower or "status" in lower or "进度" in lower or "情况" in lower or "看看" in lower or "看下" in lower or "查看" in lower:
+                asset_id = "asset:novel_studio:v1"
+                envelope = self._decision_protocol.build_invoke_request(
+                    asset_id=asset_id,
+                    method="list_novels",
+                    params={},
+                )
+                result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
+            # 指定了具体小说 → get_novel
+            else:
+                asset_id = "asset:novel_studio:v1"
+                envelope = self._decision_protocol.build_invoke_request(
+                    asset_id=asset_id,
+                    method="get_novel",
+                    params={},
+                )
+                result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
+        # Status check: "状态" / "status"（未指明具体对象时才归 self_iteration）
         elif "状态" in lower or "status" in lower:
             asset_id = "asset:self_iteration_center:v1"
             envelope = self._decision_protocol.build_invoke_request(
