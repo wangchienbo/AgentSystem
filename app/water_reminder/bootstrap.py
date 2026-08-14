@@ -24,13 +24,13 @@ def register_water_reminder_worker(runtime_services: dict) -> None:
 
         # 主键：blueprint_id（与 app_registry 中一致，LLM 调度时 app 参数常用此值）
         master_control.register_app_worker("bp.designed.daily-water-reminder", worker)
-        # 别名：slug / App 名 / 中文显示名 / 短名（LLM 调度时可能传这些值）
+        # 别名：slug / App 名 / 中文显示名（LLM 调度时可能传这些值）
         master_control.register_app_worker("daily-water-reminder", worker)
         master_control.register_app_worker("daily_water_reminder", worker)
         master_control.register_app_worker("每日饮水提醒助手", worker)
+        # 目录短名 slug（LLM 调度时 app 参数可能用此值）
         master_control.register_app_worker("water_reminder", worker)
-        master_control.register_app_worker("饮水", worker)
 
-        logger.info("✅ water_reminder Worker registered (keys: bp.designed.daily-water-reminder / daily-water-reminder / daily_water_reminder / 每日饮水提醒助手 / water_reminder / 饮水)")
+        logger.info("✅ water_reminder Worker registered (keys: bp.designed.daily-water-reminder / daily-water-reminder / daily_water_reminder / 每日饮水提醒助手 / water_reminder)")
     except Exception as e:
         logger.warning("Failed to register water_reminder Worker: %s", e)

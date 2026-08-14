@@ -159,6 +159,7 @@ from .tool_calling_prompts import (  # noqa: F401,F403
     narrow_tools_for_operator_route,
     INTROSPECTION_KEYWORDS,
 )
+from .dev_directive import is_dev_directive  # noqa: F401
 
 
 # 消息特征 → 工具路由收窄关键词（operator 路由）
@@ -317,7 +318,7 @@ class ToolCallingInterpreter:
         if fast_path:
             return fast_path
 
-        if is_script_like_request(message):
+        if not is_dev_directive(message) and is_script_like_request(message):
             return self._run_script_first_route(message, user_id, session_id, available_apps, exec_context)
 
         # Tier 3: Full LLM tool calling

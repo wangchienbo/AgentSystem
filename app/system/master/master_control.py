@@ -491,7 +491,28 @@ class TaskDispatcher:
     def register_app(self, app_id: str, worker: AppWorkerProtocol) -> None:
         """App 注册自己的 Worker"""
         self._app_workers[app_id] = worker
-    
+
+    def _resolve_app_key(self, app: str) -> str:
+        """别名归一：把 app 标识解析为实际注册键。
+
+        归一逻辑：
+        1. 若 app 直接命中注册键，直接返回 app；
+        2. 否则将 app 与所有注册键都做（去空格、下划线/连字符归一、转小写）
+           后比较，命中则返回对应注册键；
+        3. 都不命中则返回原 app（由调用方决定是否报错）。
+        """
+        if app in self._app_workers:
+            return app
+
+        def _norm(key: str) -> str:
+            return key.strip().replace(" ", "_").replace("-", "_").lower()
+
+        norm_app = _norm(app)
+        for key in self._app_workers:
+            if _norm(key) == norm_app:
+                return key
+        return app
+
     def generate_task_id(self) -> str:
         return f"t_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
     
@@ -511,7 +532,8 @@ class TaskDispatcher:
         with self._lock:
             self._tasks[task_id] = record
         
-        worker = self._app_workers.get(app)
+        app_key = self._resolve_app_key(app)
+        worker = self._app_workers.get(app_key)
         if not worker:
             record.status = "failed"
             record.error = f"App {app} 未注册 Worker"

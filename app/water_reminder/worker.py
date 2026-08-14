@@ -104,19 +104,13 @@ class WaterReminderWorker(AppWorkerProtocol):
             "设置饮水目标": "set_water_reminder",
             "log_water_intake": "log_water_intake", "log_water": "log_water_intake",
             "log_intake": "log_water_intake", "drink": "log_water_intake",
-            "记录饮水": "log_water_intake", "喝水": "log_water_intake",
             "record_water": "log_water_intake", "add_water": "log_water_intake",
-            "record_intake": "log_water_intake", "add_water_record": "log_water_intake",
-            "log": "log_water_intake", "add": "log_water_intake", "记录": "log_water_intake",
-            "record": "log_water_intake", "饮水记录": "log_water_intake", "喝水记录": "log_water_intake",
+            "record_intake": "log_water_intake",
+            "记录饮水": "log_water_intake", "喝水": "log_water_intake",
             "query_today": "query_today", "today": "query_today", "progress": "query_today",
-            "query_progress": "query_today", "今日进度": "query_today", "查看进度": "query_today",
-            "query_water_records": "query_today", "query_records": "query_today",
-            "query_water": "query_today", "get_records": "query_today",
-            "get_water_records": "query_today", "list_records": "query_today",
-            "查询饮水": "query_today", "查看饮水": "query_today", "饮水记录": "query_today",
-            "查询记录": "query_today", "查看记录": "query_today", "查记录": "query_today",
-            "status": "query_today", "query": "query_today", "查询": "query_today", "查看": "query_today",
+            "query_progress": "query_today", "query_water_records": "query_today",
+            "query_records": "query_today", "get_water_records": "query_today",
+            "今日进度": "query_today", "查看进度": "query_today",
             "cancel_water_reminder": "cancel_water_reminder", "cancel_reminder": "cancel_water_reminder",
             "取消提醒": "cancel_water_reminder",
         }
@@ -151,24 +145,15 @@ class WaterReminderWorker(AppWorkerProtocol):
 
         elif canonical == "log_water_intake":
             self._set_progress(task_id, 30, "正在记录饮水...")
-            # LLM 参数名不稳定：兼容 ml / amount_ml / amount / volume 等常见键
-            ml = None
-            for key in ("ml", "amount_ml", "amount", "volume", "volume_ml", "water_ml", "milliliters", "饮水毫升"):
-                v = params.get(key)
-                if v is not None and v != "":
-                    ml = v
-                    break
-            if ml is None:
+            ml = params.get("ml")
+            if ml is None or ml == "":
+                ml = params.get("amount_ml")  # 兼容 LLM 传的 amount_ml
+            if ml is None or ml == "":
                 raise ValueError("缺少必要参数 ml（毫升数）")
             try:
-                ml_val = float(ml)
+                ml_val = int(ml)
             except (TypeError, ValueError):
                 raise ValueError(f"ml 必须是数字，收到: {ml}")
-            # 单位换算：unit 为「升/L」时乘以 1000
-            unit = str(params.get("unit", "")).lower()
-            if unit in ("升", "l", "liter", "liters"):
-                ml_val = ml_val * 1000
-            ml_val = int(round(ml_val))
             if ml_val <= 0:
                 raise ValueError("ml 必须为正数")
             data = self._load()
