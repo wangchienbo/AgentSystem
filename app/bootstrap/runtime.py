@@ -655,6 +655,23 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
                     lambda _request: None,  # executable 技能走 ExecutableSkillAdapter，handler 为占位
                     entry=_entry,
                 )
+                # 注册 schema：把 core 技能目录下的 input/output/error.schema.json
+                # 按 manifest.contract 里的 schema_ref（绝对路径）注册进 schema_registry，
+                # 否则 contract 校验 resolve 时抛 Schema ref not found。
+                _contract = getattr(_manifest, "contract", None)
+                if _contract is not None:
+                    for _ref_key in ("input_schema_ref", "output_schema_ref", "error_schema_ref"):
+                        _ref = getattr(_contract, _ref_key, "") or ""
+                        if not _ref:
+                            continue
+                        _schema_file = Path(_ref)
+                        if _schema_file.is_file():
+                            _schema_data = json.loads(_schema_file.read_text(encoding="utf-8"))
+                            schema_registry.register(_ref, _schema_data)
+                        else:
+                            logging.getLogger(__name__).warning(
+                                "schema file missing for %s: %s", _manifest.skill_id, _ref,
+                            )
                 _registered_core_skills.append(_manifest.skill_id)
             except Exception as _exc:  # noqa: BLE001
                 logging.getLogger(__name__).warning(

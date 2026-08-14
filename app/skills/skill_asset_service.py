@@ -196,6 +196,13 @@ class SkillAssetService:
         metadata.updated_at = datetime.now(UTC).isoformat()
         metadata_path.write_text(metadata.model_dump_json(indent=2))
         manifest_path = core_dir / "manifest.json"
+        # 修复：promote 后 manifest 中的绝对路径仍指向 candidate 目录，
+        # 需将 candidates 段替换为 core 段（input/output/error schema ref + entry）
+        if manifest_path.exists():
+            manifest_text = manifest_path.read_text()
+            if "/candidates/" in manifest_text:
+                manifest_text = manifest_text.replace("/candidates/", "/core/")
+                manifest_path.write_text(manifest_text)
         asset = GeneratedSkillAsset(
             skill_id=skill_id,
             asset_dir=str(core_dir),
