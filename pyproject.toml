@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentsystem"
-version = "0.1.0"
+version = "0.2.0"
 description = "App OS prototype for building and managing AI-native apps"
 requires-python = ">=3.11"
 dependencies = [
