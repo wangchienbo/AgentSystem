@@ -625,6 +625,49 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
             history_path=os.path.join(bootstrap_binding["data_dir"], "evolution_history.json"),
         ),
     )
+    # ─── 注册层注入：把 bootstrapped core executable 技能注册进 skill_runtime ───
+    # reload_generated_skills 只加载 GeneratedSkillAssetStore（script/callable），
+    # 不加载 skill_bootstrap/core/executable 下的自举技能，这里在启动时显式注入。
+    from app.models.skill_manifest import SkillManifest
+    from app.models.skill_control import SkillRegistryEntry
+    _bootstrap_skill_base = os.path.join(bootstrap_binding["data_dir"], "skill_bootstrap")
+    _core_executable_root = Path(_bootstrap_skill_base) / "skill_assets" / "core" / "executable"
+    _registered_core_skills: list[str] = []
+    if _core_executable_root.is_dir():
+        for _skill_dir in sorted(_core_executable_root.iterdir()):
+            if not _skill_dir.is_dir():
+                continue
+            _manifest_path = _skill_dir / "manifest.json"
+            try:
+                if not _manifest_path.is_file():
+                    continue
+                _manifest = SkillManifest.model_validate_json(_manifest_path.read_text())
+                _entry = SkillRegistryEntry(
+                    skill_id=_manifest.skill_id,
+                    name=_manifest.name,
+                    origin="generated",
+                    active_version=_manifest.version,
+                    runtime_adapter=_manifest.runtime_adapter or "executable",
+                    manifest=_manifest,
+                )
+                skill_runtime.register_handler(
+                    _manifest.skill_id,
+                    lambda _request: None,  # executable 技能走 ExecutableSkillAdapter，handler 为占位
+                    entry=_entry,
+                )
+                _registered_core_skills.append(_manifest.skill_id)
+            except Exception as _exc:  # noqa: BLE001
+                logging.getLogger(__name__).warning(
+                    "skip bootstrapped core skill registration failed: %s (%s)",
+                    _skill_dir.name,
+                    _exc,
+                )
+    if _registered_core_skills:
+        logging.getLogger(__name__).info(
+            "registered %d bootstrapped core executable skill(s): %s",
+            len(_registered_core_skills),
+            ", ".join(_registered_core_skills),
+        )
     self_iteration_asset_protocol = AssetRegistrationProtocol()
     startup_orchestrator = StartupOrchestrator()
     asset_center.discover()

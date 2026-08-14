@@ -184,6 +184,10 @@ app.include_router(_create_os_router())
 from app.system.http_routers.self_iteration import create_self_iteration_router as _create_self_iteration_router
 app.include_router(_create_self_iteration_router())
 
+# 注册技能执行域 Router（触发 core skill 真实执行）
+from app.system.http_routers.skill_execute import create_skill_execute_router as _create_skill_execute_router
+app.include_router(_create_skill_execute_router())
+
 # 确保所有 JSON 响应包含 charset=utf-8 防止中文乱码
 @app.middleware("http")
 async def add_charset_to_json(request: Request, call_next):
