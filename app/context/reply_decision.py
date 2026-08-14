@@ -17,6 +17,7 @@ ContextCenter 体系第三层：把 receive_message 中散落的「回答前短�
 from __future__ import annotations
 
 import logging
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -88,20 +89,38 @@ class ReplyPolicy(ABC):
 def is_user_asking_task_result(message: str | None) -> bool:
     """判断用户是否在主动询问任务 / 操作结果。
 
-    只有明确询问「上次任务 / 操作怎么样了」时返回 True，才触发结果回放；
-    其他任何请求（寒暄、计算、翻译、内容创作等）一律 False，
-    保证回放绝不拦截正常对话主干。
+    只有**同时**满足两个条件才返回 True（触发回放）：
+      1. 消息明确引用「任务/操作/上次做的事」等对象
+      2. 消息询问其状态/结果/进展
+
+    仅含「怎么样/状态」等通用词（如「今天天气怎么样」「这个App怎么样」）
+    不引用具体任务 → 返回 False，保证回放绝不拦截正常对话主干。
     """
     if not message:
         return False
     m = message.strip().lower()
-    keywords = (
-        "任务", "结果", "进展", "进度", "上次", "之前",
-        "完成", "状态", "处理得", "搞完", "做完", "好了吗",
-        "完成情况", "办得", "怎么样", "status", "task",
-        "result", "progress", "done", "finished",
+
+    # 1) 明确引用任务/操作对象的信号
+    task_ref = (
+        "任务", "上次", "之前", "刚才",
+        "后台", "那个任务", "这个任务", "之前那个", "上次那个",
+        "执行", "操作结果", "搞完", "做完",
     )
-    return any(k in m for k in keywords)
+    # 2) 询问状态/结果/进展的信号
+    ask_status = (
+        "结果", "进展", "进度", "状态", "完成情况", "办得",
+        "怎么样了", "好了吗", "完成了吗", "搞定了吗", "做完没",
+        "status", "result", "progress", "done", "finished",
+    )
+    has_task_ref = any(k in m for k in task_ref)
+    has_ask_status = any(k in m for k in ask_status)
+
+    # 兼容英文：task/status 等词本身既是引用也是询问
+    if re.search(r"\b(task|job|operation)\b", m) and re.search(
+        r"\b(status|result|progress|done|finished|how)\b", m
+    ):
+        return True
+    return has_task_ref and has_ask_status
 
 
 class ReplayPolicy(ReplyPolicy):

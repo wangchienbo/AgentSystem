@@ -1236,6 +1236,16 @@ class LightBrainGateway(_PackageManagementMixin):
             "create_app", "start_app", "stop_app", "pause_app",
             "resume_app", "query_app", "list_apps", "delete_app", "modify_app",
         }
+        # 规则路由已确定性判定的命令（context.route_source=deterministic_rule_route）：
+        # 优先走本地确定性 handler，绕过 orchestrator_bridge 的二次 LLM 路由，
+        # 避免「创建小说/App」请求被 bridge 重新丢给 LLM 导致答非所问。
+        if command.context.get("route_source") == "deterministic_rule_route" and command.intent in bridge_eligible_intents:
+            local_det_handler = {
+                "create_app": self._handle_create_app,
+            }.get(command.intent)
+            if local_det_handler:
+                return await local_det_handler(command, session_id, available_apps)
+
         if (
             self._orchestrator_bridge
             and self._orchestrator_bridge.is_available()
@@ -2088,6 +2098,122 @@ class LightBrainGateway(_PackageManagementMixin):
             else:
                 return self._error_reply(master_session_id, f"❌ {message or f'操作失败: {status}'}")
         return self._error_reply(master_session_id, "⚠️ 主控返回了意外结果。")
+
+    async def _handle_create_app(
+        self, command: InterpretedCommand, session_id: str, apps: list[dict],
+    ) -> ChatMessageResponse:
+        """确定性创建 App/小说——规则路由命中后直接分发，不依赖 LLM 二次路由。
+
+        - app_type=novel → dispatch_app_task("novel_studio", "create_novel", {title, genre})
+        - 其他 app_type   → dispatch_app_task(app_key, "create_app", {name, description})
+        异步分发后立即返回 task_id，让用户知道已安排。
+        """
+        message = command.raw_input or ""
+        params = command.parameters or {}
+        app_type = params.get("app_type", "")
+        display_name = params.get("app_name_display", "") or ""
+        task_session_id = f"{session_id}.local.create_app"
+        self._create_child_session(
+            parent_session_id=session_id,
+            child_session_id=task_session_id,
+            user_id=command.user_id or "system",
+            channel="local_gateway",
+            actor="interaction",
+            topic_key="create_app",
+        )
+        self._append_context_record(
+            session_id=task_session_id,
+            role="system",
+            content="local_handler:create_app",
+            kind="system_note",
+        )
+
+        # 提取《书名》
+        title = params.get("title", "")
+        if not title and message:
+            import re as _re
+            m = _re.search(r"[《]([^》]+)[》]", message)
+            if m:
+                title = m.group(1).strip()
+            if not title:
+                # 尝试「(创建|写)一本?《?X》?小说」
+                m2 = _re.search(r"(?:创建|新建|写|写一本|开写|生成)(?:一本|一个|一部)?[\s]*[《]?([\u4e00-\u9fa5A-Za-z0-9]{2,20})[》]?(?:小说|书|故事)?", message)
+                if m2:
+                    title = m2.group(1).strip()
+        if not title and display_name:
+            title = display_name
+        if not title:
+            title = "未命名"
+
+        try:
+            if app_type == "novel" or "小说" in message:
+                # 小说创建走 novel_studio worker
+                if not self._master_control:
+                    content = "⚠️ 主控模块未加载，暂时无法创建小说。"
+                    self._append_context_record(session_id=task_session_id, role="assistant", content=content, kind="message")
+                    return ChatMessageResponse(type="text", content=content, session_id=task_session_id)
+                # 提取题材
+                genre = params.get("genre", "")
+                if not genre and message:
+                    import re as _re2
+                    for kw in ("科幻", "玄幻", "仙侠", "历史", "都市", "武侠", "奇幻", "悬疑", "言情", "军事", "游戏", "体育"):
+                        if kw in message:
+                            genre = kw
+                            break
+                dispatch = self._master_control.dispatch_app_task(
+                    app="novel_studio",
+                    operation="create_novel",
+                    params={"title": title, "genre": genre},
+                    parent_session=task_session_id,
+                )
+                task_id = dispatch.get("task_id", "")
+                content = (
+                    f"✅ 已开始创建小说《{title}》\n\n"
+                    f"📌 任务ID：`{task_id}`\n"
+                    f"题材：{genre or '未指定'}\n\n"
+                    "创建完成后可对我说「看看我的小说」查看。"
+                )
+                self._append_context_record(session_id=task_session_id, role="assistant", content=content, kind="message")
+                return ChatMessageResponse(type="text", content=content, session_id=task_session_id)
+
+            # 通用 App 创建（走 master_control.execute → app_management worker 的 create_app 执行器）
+            if not self._master_control:
+                content = "⚠️ 主控模块未加载，暂时无法创建 App。"
+                self._append_context_record(session_id=task_session_id, role="assistant", content=content, kind="message")
+                return ChatMessageResponse(type="text", content=content, session_id=task_session_id)
+            # master_control.execute 是同步方法，直接拿结果（无需处理 coroutine）
+            result = self._master_control.execute(
+                operation="create_app",
+                user_id=command.user_id or "system",
+                user_role="user",
+                target=display_name or title,
+                params={
+                    "name": display_name or title,
+                    "description": f"Auto-created: {display_name or title}",
+                    "app_type": app_type,
+                },
+            )
+            if isinstance(result, dict) and result.get("status") == "success":
+                app_id = result.get("app_id") or result.get("data", {}).get("app_id") if isinstance(result.get("data"), dict) else result.get("app_id", "")
+                content = (
+                    f"✅ 已创建 App「{display_name or title}」\n\n"
+                    f"🆔 App ID：`{app_id or '已生成'}`\n\n"
+                    "可对我说「看看我的App列表」查看。"
+                )
+            else:
+                task_id = (result or {}).get("task_id") or (result or {}).get("data", {}).get("task_id") if isinstance(result, dict) else ""
+                content = (
+                    f"✅ 已开始创建 App「{display_name or title}」\n\n"
+                    f"📌 任务ID：`{task_id or '已安排'}`\n\n"
+                    "创建完成后可对我说「看看我的App列表」查看。"
+                )
+            self._append_context_record(session_id=task_session_id, role="assistant", content=content, kind="message")
+            return ChatMessageResponse(type="text", content=content, session_id=task_session_id)
+        except Exception as e:
+            logger.error("create_app handler failed: %s", e, exc_info=True)
+            content = f"❌ 创建失败：{str(e)[:80]}"
+            self._append_context_record(session_id=task_session_id, role="assistant", content=content, kind="message")
+            return ChatMessageResponse(type="text", content=content, session_id=task_session_id)
 
     async def _handle_list_apps(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],

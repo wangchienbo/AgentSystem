@@ -24,11 +24,13 @@ FUZZY_MATCH_PATTERNS: list[tuple[str, Pattern, str]] = [
     # (intent_name, compiled_regex, description)
     ("create_app", re.compile(r"(创建|新建|建|建立|生成|做一个|搞一个).*(app|应用|程序|模块)", re.IGNORECASE), "Create a new app"),
     ("create_app", re.compile(r"(帮我|给我|我要).*(创建|新建|建|建立).*(监控|日报|提醒|翻译|爬虫|定时|通知|记录|工具|小说|日记|博客|音乐)", re.IGNORECASE), "Create app by action type"),
+    ("create_app", re.compile(r"(创建|新建|建|写|写一本|生成|开写).{0,4}?(一本|个|一部)?\s*([\u4e00-\u9fa5A-Za-z《》]{1,20}?)(小说|书|故事|长篇)", re.IGNORECASE), "Create a novel/book by title"),
     ("start_app", re.compile(r"(启动|开启|运行|开始|激活|打开).*(app|应用|程序|监控|日报|提醒|翻译|服务|小说|日记|博客|音乐|监控)", re.IGNORECASE), "Start an app"),
     ("start_app", re.compile(r"(启动|开启|运行|开始)\s+[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Start app by name"),
     ("start_app", re.compile(r"^(启动|开启|恢复|继续|运行)(一下)?$", re.IGNORECASE), "Start/resume"),
     ("start_app", re.compile(r"把\s*.+\s*打开", re.IGNORECASE), "Start app (把...打开)"),
     ("stop_app", re.compile(r"把\s*.+\s*关掉", re.IGNORECASE), "Stop app (把...关掉)"),
+    ("stop_app", re.compile(r"把\s*.+\s*(停掉|停止|关掉|关闭|终止)", re.IGNORECASE), "Stop app (把...停掉)"),
     ("stop_app", re.compile(r"(停止|关闭|关掉|停掉|终止).*(app|应用|程序|监控|日报|提醒|翻译|服务|小说|日记|博客|音乐)", re.IGNORECASE), "Stop an app"),
     ("stop_app", re.compile(r"(停止|关闭|关掉|停掉)\s+[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Stop app by name"),
     ("pause_app", re.compile(r"(暂停|挂起).{0,5}[\u4e00-\u9fa5a-zA-Z]{2,15}", re.IGNORECASE), "Pause an app"),

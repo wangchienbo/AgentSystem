@@ -92,7 +92,8 @@ class AppManagementWorker:
         user_id = params.get("user_id", "system")
         if self._cost_quota_manager:
             try:
-                self._cost_quota_manager.check_and_consume("app_create", user_id)
+                # CostQuotaManager.consume(quota_type, amount, period) — 非 check_and_consume
+                self._cost_quota_manager.consume("app_create", amount=1, period="daily")
             except QuotaExceededError as e:
                 if self._audit_logger:
                     self._audit_logger.log("create_app", target, "failed", user_id, {"reason": "quota_exceeded", "error": str(e)})

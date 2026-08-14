@@ -274,6 +274,18 @@ class InteractionOrchestrator:
             )
             result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
         # Novel Studio: explicit mention of 小说/章节/第几章/进展 → novel_studio asset
+        # 创建意图豁免：含「创建/新建/写/生成/做一个/搞一个」+ 小说时，这是**创建请求**，
+        # 不是查询——放行给规则路由/LLM 处理创建，避免被误判成 list_novels 查询。
+        _create_intent = any(_k in lower for _k in ("创建", "新建", "生成", "写一本", "写本", "开写", "做一个", "搞一个"))
+        if _create_intent and any(k in lower for k in ("小说", "书", "故事", "章节")) or (
+            _create_intent and re.search(r"\bnovel\b", lower)
+        ):
+            return self._make_result(
+                self._decision_protocol.resolve_against_context(
+                    self._decision_protocol.build_text_response("（创建请求，已放行至规则路由处理）"),
+                    self._snapshot,
+                )
+            )
         elif any(k in lower for k in ("小说", "章节", "第几章", "几章", "进展", "更新到", "生成进度")) \
                 or re.search(r"\bnovel\b", lower) or re.search(r"\bchapter\b", lower):
             # 查询统一走 list_novels：无需 novel_id，返回所有小说（含 chapter_count /
