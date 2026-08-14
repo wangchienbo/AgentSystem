@@ -248,10 +248,23 @@ def _build_available_apps() -> list[dict[str, Any]]:
     dispatcher = getattr(master_control, "_task_dispatcher", None)
     if dispatcher is not None:
         worker_keys = set(getattr(dispatcher, "_app_workers", {}) or {})
+    # 能力单一来源：已注册 App Worker 的支持操作清单（零硬编码，新增 worker 自动可见）
+    app_operations: dict[str, dict] = {}
+    if master_control is not None:
+        try:
+            app_operations = master_control.list_app_operations() or {}
+        except Exception:
+            app_operations = {}
     apps = []
     for entry in registry.list_entries():
         # 兼容注册键不一致：novel_studio 注册键是短名 "novel_studio"（非 blueprint_id "bp.novel_studio"）
         available = entry.blueprint_id in worker_keys or entry.name in worker_keys
+        # 匹配 worker 操作清单：优先 blueprint_id，其次短名 / display_name
+        ops: dict = {}
+        for key in (entry.blueprint_id, entry.blueprint_id.replace("bp.", "", 1), entry.name):
+            if key in app_operations and isinstance(app_operations[key], dict):
+                ops = app_operations[key]
+                break
         apps.append({
             "app_id": entry.blueprint_id,
             "name": entry.name,
@@ -260,6 +273,7 @@ def _build_available_apps() -> list[dict[str, Any]]:
             "version": entry.version,
             "description": entry.description,
             "available": available,
+            "operations": ops,
         })
     return apps
 

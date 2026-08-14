@@ -45,6 +45,29 @@ class AuditEntry:
             "error_message": self.error_message,
         }
 
+
+def _stringify_target(value: Any) -> str:
+    """审计 target 归一化为可读字符串（防 [object Object]）。
+
+    审计日志的 target 字段语义是"目标资源标识"，应为字符串。
+    调用方可能误传 dict（如 {"app": "..."} 或 {"app_id": "..."}），
+    这里统一提取常见标识字段；提取不到则 JSON 序列化，保证前端可读。
+    """
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    if isinstance(value, dict):
+        for key in ("app", "app_id", "app_name", "name", "id", "blueprint_id", "target", "skill_id"):
+            v = value.get(key)
+            if isinstance(v, str) and v:
+                return v
+        try:
+            return json.dumps(value, ensure_ascii=False)
+        except Exception:
+            return str(value)
+    return str(value)
+
 class AuditLogger:
     """Audit logger for governance compliance."""
     
@@ -64,7 +87,7 @@ class AuditLogger:
         error_message: str = "",
     ) -> AuditEntry:
         """Log an audit entry.
-        
+
         Args:
             action: Type of action being performed
             user_id: ID of the user performing the action
@@ -79,11 +102,11 @@ class AuditLogger:
         entry = AuditEntry(
             timestamp=datetime.now(UTC).isoformat(),
             action=action,
-            user_id=user_id,
-            target_id=target_id,
+            user_id=str(user_id or ""),
+            target_id=_stringify_target(target_id),
             details=details or {},
             result=result,
-            error_message=error_message,
+            error_message=str(error_message or ""),
         )
         self._write_entry(entry)
         return entry

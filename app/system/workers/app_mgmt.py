@@ -96,7 +96,10 @@ class AppManagementWorker:
                 self._cost_quota_manager.consume("app_create", amount=1, period="daily")
             except QuotaExceededError as e:
                 if self._audit_logger:
-                    self._audit_logger.log("create_app", target, "failed", user_id, {"reason": "quota_exceeded", "error": str(e)})
+                    self._audit_logger.log(
+                action="create_app", user_id=user_id, target_id=target,
+                result="failed", details={"reason": "quota_exceeded", "error": str(e)},
+            )
                 return {"status": "error", "message": f"配额不足：{str(e)}"}
         
         blueprint_id = params.get("blueprint_id", target)
@@ -108,11 +111,17 @@ class AppManagementWorker:
             )
             # Governance: Audit log
             if self._audit_logger:
-                self._audit_logger.log("create_app", target, "success", user_id, {"blueprint_id": blueprint_id, "app_id": result.app_instance_id})
+                self._audit_logger.log(
+                action="create_app", user_id=user_id, target_id=target,
+                result="success", details={"blueprint_id": blueprint_id, "app_id": result.app_instance_id},
+            )
             return {"status": "success", "data": {"app_id": result.app_instance_id}}
         except Exception as e:
             if self._audit_logger:
-                self._audit_logger.log("create_app", target, "failed", user_id, {"error": str(e)})
+                self._audit_logger.log(
+                action="create_app", user_id=user_id, target_id=target,
+                result="failed", details={"error": str(e)},
+            )
             return {"status": "error", "message": str(e)}
 
     def _start_app(self, target: str, params: dict) -> dict:
@@ -124,11 +133,17 @@ class AppManagementWorker:
             self._lifecycle.transition(target, "start", reason=params.get("reason", "master_control.start_app"))
             # Governance: Audit log
             if self._audit_logger:
-                self._audit_logger.log("start_app", target, "success", user_id, {"reason": params.get("reason", "master_control.start_app")})
+                self._audit_logger.log(
+                action="start_app", user_id=user_id, target_id=target,
+                result="success", details={"reason": params.get("reason", "master_control.start_app")},
+            )
             return {"status": "success", "message": f"App {target} 已启动"}
         except Exception as e:
             if self._audit_logger:
-                self._audit_logger.log("start_app", target, "failed", user_id, {"error": str(e)})
+                self._audit_logger.log(
+                action="start_app", user_id=user_id, target_id=target,
+                result="failed", details={"error": str(e)},
+            )
             return {"status": "error", "message": str(e)}
 
     def _stop_app(self, target: str, params: dict) -> dict:
@@ -139,11 +154,17 @@ class AppManagementWorker:
             self._lifecycle.transition(target, "stop", reason=params.get("reason", "master_control.stop_app"))
             # Governance: Audit log
             if self._audit_logger:
-                self._audit_logger.log("stop_app", target, "success", user_id, {"reason": params.get("reason", "master_control.stop_app")})
+                self._audit_logger.log(
+                action="stop_app", user_id=user_id, target_id=target,
+                result="success", details={"reason": params.get("reason", "master_control.stop_app")},
+            )
             return {"status": "success", "message": f"App {target} 已停止"}
         except Exception as e:
             if self._audit_logger:
-                self._audit_logger.log("stop_app", target, "failed", user_id, {"error": str(e)})
+                self._audit_logger.log(
+                action="stop_app", user_id=user_id, target_id=target,
+                result="failed", details={"error": str(e)},
+            )
             return {"status": "error", "message": str(e)}
 
     def _start_asset(self, target: str, params: dict) -> dict:
@@ -289,11 +310,17 @@ class AppManagementWorker:
             self._lifecycle.pause_app(target)
             # Governance: Audit log
             if self._audit_logger:
-                self._audit_logger.log("pause_app", target, "success", user_id, {})
+                self._audit_logger.log(
+                action="pause_app", user_id=user_id, target_id=target,
+                result="success", details={},
+            )
             return {"status": "success", "message": f"App {target} 已暂停"}
         except Exception as e:
             if self._audit_logger:
-                self._audit_logger.log("pause_app", target, "failed", user_id, {"error": str(e)})
+                self._audit_logger.log(
+                action="pause_app", user_id=user_id, target_id=target,
+                result="failed", details={"error": str(e)},
+            )
             return {"status": "error", "message": str(e)}
 
     def _resume_app(self, target: str, params: dict) -> dict:
@@ -304,11 +331,17 @@ class AppManagementWorker:
             self._lifecycle.resume_app(target)
             # Governance: Audit log
             if self._audit_logger:
-                self._audit_logger.log("resume_app", target, "success", user_id, {})
+                self._audit_logger.log(
+                action="resume_app", user_id=user_id, target_id=target,
+                result="success", details={},
+            )
             return {"status": "success", "message": f"App {target} 已恢复"}
         except Exception as e:
             if self._audit_logger:
-                self._audit_logger.log("resume_app", target, "failed", user_id, {"error": str(e)})
+                self._audit_logger.log(
+                action="resume_app", user_id=user_id, target_id=target,
+                result="failed", details={"error": str(e)},
+            )
             return {"status": "error", "message": str(e)}
 
     def _list_apps(self, target: str, params: dict) -> dict:
@@ -390,11 +423,17 @@ class AppManagementWorker:
             self._lifecycle.delete_app(target)
             # Governance: Audit log
             if self._audit_logger:
-                self._audit_logger.log("delete_app", target, "success", user_id, {})
+                self._audit_logger.log(
+                action="delete_app", user_id=user_id, target_id=target,
+                result="success", details={},
+            )
             return {"status": "success", "message": f"App {target} 已删除"}
         except Exception as e:
             if self._audit_logger:
-                self._audit_logger.log("delete_app", target, "failed", user_id, {"error": str(e)})
+                self._audit_logger.log(
+                action="delete_app", user_id=user_id, target_id=target,
+                result="failed", details={"error": str(e)},
+            )
             return {"status": "error", "message": str(e)}
 
     def _install_app(self, target: str, params: dict) -> dict:
@@ -408,7 +447,10 @@ class AppManagementWorker:
                 self._cost_quota_manager.check_and_consume("app_uninstall", user_id)
             except QuotaExceededError as e:
                 if self._audit_logger:
-                    self._audit_logger.log("uninstall_app", target, "failed", user_id, {"reason": "quota_exceeded", "error": str(e)})
+                    self._audit_logger.log(
+                action="uninstall_app", user_id=user_id, target_id=target,
+                result="failed", details={"reason": "quota_exceeded", "error": str(e)},
+            )
                 return {"status": "error", "message": f"配额不足：{str(e)}"}
         
         # 1. Stop in RuntimeCenter first
@@ -427,7 +469,13 @@ class AppManagementWorker:
         result = self._delete_app(target, params)
         # Governance: Audit log for uninstall
         if self._audit_logger and result.get("status") == "success":
-            self._audit_logger.log("uninstall_app", target, "success", user_id, {})
+            self._audit_logger.log(
+                action="uninstall_app", user_id=user_id, target_id=target,
+                result="success", details={},
+            )
         elif self._audit_logger and result.get("status") == "error":
-            self._audit_logger.log("uninstall_app", target, "failed", user_id, {"error": result.get("message")})
+            self._audit_logger.log(
+                action="uninstall_app", user_id=user_id, target_id=target,
+                result="failed", details={"error": result.get("message")},
+            )
         return result

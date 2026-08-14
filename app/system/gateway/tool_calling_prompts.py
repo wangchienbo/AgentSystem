@@ -98,8 +98,17 @@ def build_session_context(
             lines.append(asset_section)
 
         if available_apps:
-            names = [a.get("name", a.get("app_id", "")) for a in available_apps[:5]]
-            lines.append(f"【已安装 App】{', '.join(names)}")
+            app_lines = []
+            for a in available_apps[:5]:
+                name = a.get("name", a.get("app_id", ""))
+                ops = a.get("operations")
+                if isinstance(ops, dict) and ops:
+                    op_text = "、".join(ops.keys())
+                    app_lines.append(f"- {name}（支持操作：{op_text}）")
+                else:
+                    app_lines.append(f"- {name}")
+            lines.append("【已安装 App】")
+            lines.extend(app_lines)
 
         if history:
             lines.append("【最近对话】")

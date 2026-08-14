@@ -96,9 +96,14 @@ class ExpenseTrackerWorker(AppWorkerProtocol):
         op = operation.lower().replace(" ", "_").replace("-", "_")
         op_map = {
             "add_expense": "add_expense", "add": "add_expense", "record": "add_expense",
-            "record_expense": "add_expense", "记账": "add_expense", "记一笔账": "add_expense",
+            "record_expense": "add_expense", "add_transaction": "add_expense", "transaction": "add_expense",
+            "record_transaction": "add_expense", "记账": "add_expense", "记一笔账": "add_expense",
+            "记一笔": "add_expense", "记支出": "add_expense", "记消费": "add_expense",
             "list_expenses": "list_expenses", "list": "list_expenses", "get_expenses": "list_expenses",
-            "show_expenses": "list_expenses", "查看账目": "list_expenses", "账目列表": "list_expenses",
+            "show_expenses": "list_expenses", "query_expenses": "list_expenses", "query": "list_expenses",
+            "query_records": "list_expenses", "expense_list": "list_expenses", "查看账目": "list_expenses",
+            "账目列表": "list_expenses", "我的账本": "list_expenses", "账本": "list_expenses",
+            "支出记录": "list_expenses", "收支记录": "list_expenses", "最近支出": "list_expenses", "查账": "list_expenses",
             "monthly_total": "monthly_total", "month_total": "monthly_total",
             "monthly_sum": "monthly_total", "统计": "monthly_total", "月支出": "monthly_total",
             "delete_expense": "delete_expense", "remove_expense": "delete_expense",

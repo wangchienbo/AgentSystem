@@ -122,6 +122,7 @@ SYSTEM_PROMPT_TEMPLATE = """你是 AgentSystem 的智能交互引擎。
 9. **接口调用优先级高于文件系统探索**：调用 `call_asset_method` 获取数据后如果需要进一步验证，应优先再次调用 `call_asset_method`（如 get_novel），而不是直接用 `exec_shell`/`read_file`/`list_files`/`search_files` 去读文件系统。文件系统是最后的手段，不是验证途径。
    - 具体的文件路径和存储结构信息，系统不会主动给你——你需要时可以通过 `call_asset_method(method="get_system_info")` 获取架构总览
    - 不要因为你知道某个文件名就去读它——除非用户明确要求操作该文件
+10. **数据呈现**：查询/列表类工具返回数据后，将结果整理成易读的中文描述（分点、表格或摘要）呈现给用户，禁止原样输出原始 JSON 或大段原始数据。
 """
 
 

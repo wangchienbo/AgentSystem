@@ -263,6 +263,50 @@ class MasterControl:
             "error": record.error or None,
         }
 
+    def list_app_operations(self, app: str | None = None) -> dict:
+        """返回已注册 App Worker 的支持操作清单 {app_key: {operation: 说明}}。
+
+        能力单一来源约定（零硬编码）：
+          - worker 类/实例暴露 OPERATIONS（dict: op -> (required_params, 说明)）
+          - 或实例方法 list_operations() 返回 {op: 说明}
+        新增 App Worker 只要遵循该约定，自动对 LLM 可见。
+        """
+        dispatcher = self._task_dispatcher
+        if not dispatcher:
+            return {}
+        result: dict[str, dict] = {}
+        for key, worker in dispatcher._app_workers.items():
+            # 能力单一来源约定：worker 暴露 OPERATIONS（模块级/类级/实例级均可），
+            # 或实例方法 list_operations() 返回 {op: 说明}。
+            ops = getattr(worker, "OPERATIONS", None)
+            if not isinstance(ops, dict):
+                ops = getattr(type(worker), "OPERATIONS", None)
+            if not isinstance(ops, dict):
+                try:
+                    import sys as _sys
+                    mod = _sys.modules.get(type(worker).__module__)
+                    ops = getattr(mod, "OPERATIONS", None) if mod else None
+                except Exception:
+                    ops = None
+            if isinstance(ops, dict):
+                result[key] = {
+                    op: (desc[1] if isinstance(desc, tuple) and len(desc) > 1 else desc)
+                    for op, desc in ops.items()
+                }
+                continue
+            list_fn = getattr(worker, "list_operations", None)
+            if callable(list_fn):
+                try:
+                    loaded = list_fn()
+                    if isinstance(loaded, dict):
+                        result[key] = loaded
+                except Exception:
+                    pass
+        if app:
+            app_key = dispatcher._resolve_app_key(app)
+            return {app_key: result.get(app_key, {})}
+        return result
+
     def query_task(self, task_id: str) -> dict | None:
         """查询任务状态"""
         if not hasattr(self, '_task_dispatcher') or self._task_dispatcher is None:
@@ -546,6 +590,17 @@ class TaskDispatcher:
                 record.status = "running"
                 record.updated_at = datetime.now().isoformat()
                 worker.execute(task_id, operation, params, self._callback)
+            except TypeError as e:
+                # 签名不兼容（如系统管理 worker 的 execute(operation, target, params)）：
+                # 不裸崩溃，给出友好错误，引导调用方走正确路径。
+                self._callback(
+                    task_id,
+                    "failed",
+                    error=(
+                        f"Worker 不支持标准 App 调度协议（execute(task_id, operation, params, callback)）。"
+                        f"请改用 master_control.execute / call_asset_method 调用该系统能力。原始错误: {e}"
+                    ),
+                )
             except Exception as e:
                 self._callback(task_id, "failed", error=str(e))
         

@@ -317,6 +317,8 @@
       const d = await resp.json();
       body.querySelector('.loading')?.remove();
       body.insertAdjacentHTML('beforeend', `<div class="sys">${esc(d.response || '(无响应)')}</div>`);
+      // 创建/管理类操作后刷新 App 列表与治理数据，让新 App / 新状态立即可见
+      try { await load(); } catch (_) {}
     } catch (e) {
       body.querySelector('.loading')?.remove();
       body.insertAdjacentHTML('beforeend', `<div class="sys" style="color:var(--red)">⚠ 请求失败：${esc(String(e))}</div>`);
