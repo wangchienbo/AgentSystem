@@ -24,11 +24,13 @@ def register_expense_tracker_worker(runtime_services: dict) -> None:
 
         # 主键：blueprint_id（与 app_registry 中一致，LLM 调度时 app 参数常用此值）
         master_control.register_app_worker("bp.designed.personal-finance-tracker", worker)
-        # 别名：slug / App 名 / 中文显示名（LLM 调度时可能传这些值）
+        # 别名：slug / App 名 / 中文显示名 / 短名（LLM 调度时可能传这些值）
         master_control.register_app_worker("personal-finance-tracker", worker)
         master_control.register_app_worker("personal_finance_tracker", worker)
         master_control.register_app_worker("个人财务记账助手", worker)
+        master_control.register_app_worker("expense_tracker", worker)
+        master_control.register_app_worker("记账", worker)
 
-        logger.info("✅ expense_tracker Worker registered (keys: bp.designed.personal-finance-tracker / personal-finance-tracker / personal_finance_tracker / 个人财务记账助手)")
+        logger.info("✅ expense_tracker Worker registered (keys: bp.designed.personal-finance-tracker / personal-finance-tracker / personal_finance_tracker / 个人财务记账助手 / expense_tracker / 记账)")
     except Exception as e:
         logger.warning("Failed to register expense_tracker Worker: %s", e)
