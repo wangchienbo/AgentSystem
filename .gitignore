@@ -28,6 +28,7 @@ data/namespaces/
 logs/
 
 # Memory & workspace
+.hermes/
 memory/
 
 # Temporary docs

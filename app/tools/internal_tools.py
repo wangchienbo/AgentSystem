@@ -76,7 +76,11 @@ def exec_shell(command: str, workdir: str | None = None, timeout: int = 60) -> d
         return {"success": False, "error": str(e), "workdir": str(_normalize_workdir(workdir))}
 
 
-def read_file(path: str, limit: int | None = None, offset: int | None = None) -> dict[str, Any]:
+def read_file(path: str | None = None, limit: int | None = None, offset: int | None = None, file_path: str | None = None) -> dict[str, Any]:
+    # 兼容工具 schema 的 file_path 与 handler 的 path 两种参数名
+    path = path or file_path
+    if not path:
+        return {"success": False, "error": "缺少 path / file_path 参数"}
     try:
         file_path = _normalize_path(path)
         if not file_path.exists():
@@ -97,7 +101,11 @@ def read_file(path: str, limit: int | None = None, offset: int | None = None) ->
         return {"success": False, "error": str(e)}
 
 
-def write_file(path: str, content: str) -> dict[str, Any]:
+def write_file(path: str | None = None, content: str = "", file_path: str | None = None) -> dict[str, Any]:
+    # 兼容工具 schema 的 file_path 与 handler 的 path 两种参数名
+    path = path or file_path
+    if not path:
+        return {"success": False, "error": "缺少 path / file_path 参数"}
     try:
         file_path = _normalize_path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -107,7 +115,11 @@ def write_file(path: str, content: str) -> dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def edit_file(path: str, old_text: str, new_text: str) -> dict[str, Any]:
+def edit_file(path: str | None = None, old_text: str = "", new_text: str = "", file_path: str | None = None) -> dict[str, Any]:
+    # 兼容工具 schema 的 file_path 与 handler 的 path 两种参数名
+    path = path or file_path
+    if not path:
+        return {"success": False, "error": "缺少 path / file_path 参数"}
     try:
         file_path = _normalize_path(path)
         if not file_path.exists():

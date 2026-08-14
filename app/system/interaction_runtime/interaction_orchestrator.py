@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.system.asset_center.service import AssetCenterService
@@ -30,6 +31,19 @@ class InteractionOrchestrator:
 
     def process_message(self, user_message: str) -> dict[str, Any]:
         lower = (user_message or "").lower()
+
+        # P0-2 开发指令豁免：引导系统用工具读写代码库的元指令，不判为任何资产操作，
+        # 直接返回无 route 的 fallback（gateway 会放行到 interpreter → LLM 工具链）。
+        # 否则宽泛关键词（如「把…改为」「配置」「列表」等组合）会把开发指令误吞成资产操作。
+        from app.system.gateway.dev_directive import is_dev_directive
+        if is_dev_directive(user_message):
+            return self._make_result(
+                self._decision_protocol.resolve_against_context(
+                    self._decision_protocol.build_text_response("（开发指令，已放行至工具链处理）"),
+                    self._snapshot,
+                )
+            )
+
         asset_from_msg = self._extract_asset_id(user_message)
         if asset_from_msg:
             self._last_asset_id = asset_from_msg
@@ -86,7 +100,7 @@ class InteractionOrchestrator:
                 self._snapshot = self._snapshot.with_summaries(summaries, summary_index)
 
         # Greetings must come before other keyword checks
-        if "你好" in lower or "hello" in lower or "hi" in lower:
+        if "你好" in lower or re.search(r"\bhello\b", lower) or re.search(r"\bhi\b", lower):
             result = self._decision_protocol.resolve_against_context(
                 self._decision_protocol.build_text_response("你好，系统正常运行中。有什么可以帮你的？"),
                 self._snapshot,
@@ -170,7 +184,7 @@ class InteractionOrchestrator:
                 )
                 result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
             # If "列表" or "list" → list_self_iteration_assets
-            elif "列表" in lower or "list" in lower:
+            elif "列表" in lower or re.search(r"\blist\b", lower):
                 asset_id = "asset:self_iteration_center:v1"
                 envelope = self._decision_protocol.build_invoke_request(
                     asset_id=asset_id,
@@ -260,7 +274,8 @@ class InteractionOrchestrator:
             )
             result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
         # Novel Studio: explicit mention of 小说/章节/第几章/进展 → novel_studio asset
-        elif any(k in lower for k in ("小说", "章节", "第几章", "几章", "进展", "更新到", "novel", "chapter", "生成进度")):
+        elif any(k in lower for k in ("小说", "章节", "第几章", "几章", "进展", "更新到", "生成进度")) \
+                or re.search(r"\bnovel\b", lower) or re.search(r"\bchapter\b", lower):
             # 查询统一走 list_novels：无需 novel_id，返回所有小说（含 chapter_count /
             # status / char_count），可回答「到第几章了」「状态」「进展」等。
             # 单本详情（get_novel 需 novel_id，orchestrator 无法从自然语言提取 ID）
@@ -272,8 +287,8 @@ class InteractionOrchestrator:
                 params={},
             )
             result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
-        # Status check: "状态" / "status"（未指明具体对象时才归 self_iteration）
-        elif "状态" in lower or "status" in lower:
+        # Status check: "状态" / 独立词 "status"（未指明具体对象时才归 self_iteration）
+        elif "状态" in lower or re.search(r"\bstatus\b", lower):
             asset_id = "asset:self_iteration_center:v1"
             envelope = self._decision_protocol.build_invoke_request(
                 asset_id=asset_id,
@@ -282,13 +297,13 @@ class InteractionOrchestrator:
             )
             result = self._decision_protocol.resolve_against_context(envelope, self._snapshot)
         # Summary / wrap-up (must be specific enough to not catch model_config_summary above)
-        elif "总结" in lower or "总结报告" in lower or "summary" in lower or "总结做了什么" in lower or "好了" in lower:
+        elif "总结" in lower or "总结报告" in lower or re.search(r"\bsummary\b", lower) or "总结做了什么" in lower or "好了" in lower:
             result = self._decision_protocol.resolve_against_context(
                 self._decision_protocol.build_text_response("本轮交互已完成。"),
                 self._snapshot,
             )
         # Asset detail / list
-        elif "资产" in lower or "asset" in lower or "功能" in lower or "详情" in lower or "detail" in lower:
+        elif "资产" in lower or re.search(r"\basset\b", lower) or "功能" in lower or "详情" in lower or re.search(r"\bdetail\b", lower):
             asset_id = self._extract_asset_id(user_message)
             if asset_id:
                 envelope = self._decision_protocol.build_detail_request(asset_id, self._snapshot)

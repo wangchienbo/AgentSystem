@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -2221,8 +2222,33 @@ class LightBrainGateway(_PackageManagementMixin):
                 missing_fields=list(pending_task.missing_fields),
                 confidence=0.9,
             )
-        create_like = any(token in stripped for token in ["创建", "新建", "做一个", "搞一个"]) and any(
-            token.lower() in stripped.lower() for token in ["app", "应用", "程序", "模块"]
+        # 意图区分（P0-2 收窄）：仅当用户确实要「新建一个应用」时才判 create_like。
+        # 1) 开发指令语境（引导系统用工具写代码的元指令）绝不判为创建 App；
+        # 2) 否定语境（「不要创建」等）不判；
+        # 3) app 引用用词边界匹配，排除 app/ 路径与 _app 复合词。
+        _dev_directive_markers = (
+            "开发执行助手", "代码开发任务", "开发任务",
+            "使用 read_file", "使用 exec_shell", "使用 write_file", "使用 edit_file",
+            "read_file 工具", "exec_shell 工具", "write_file 工具", "edit_file 工具",
+        )
+        _is_dev_directive = any(_m in stripped for _m in _dev_directive_markers)
+        _negated = any(
+            _n in stripped
+            for _n in ("不要创建", "别创建", "不创建", "不要新建", "不新建",
+                       "不要走", "禁止", "不需要创建", "不用创建")
+        )
+
+        def _has_app_ref(_s: str) -> bool:
+            if any(_k in _s for _k in ("应用", "程序", "模块")):
+                return True
+            # 独立词 app（前后非字母/数字/下划线/斜杠），排除 app/ 路径与 _app 复合词
+            return re.search(r"(?<![\w/])app(?![\w/])", _s.lower()) is not None
+
+        create_like = (
+            not _is_dev_directive
+            and not _negated
+            and any(_t in stripped for _t in ("创建", "新建", "做一个", "搞一个"))
+            and _has_app_ref(stripped)
         )
         if pending_task is not None and create_like and pending_task.intent == "create_app" and pending_task.status in {"drafted", "pending_input", "ready_to_execute"}:
             return TaskContinuationDecision(

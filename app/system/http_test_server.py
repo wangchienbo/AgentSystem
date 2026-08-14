@@ -200,6 +200,14 @@ _novel_result = bootstrap_novel_studio(runtime_services, fastapi_app=app)
 novel_engine = _novel_result["engine"]
 novel_router = _novel_result["router"]
 
+# 注册待办事项提醒 / 记账助手 / 饮水提醒 的后台处理组件（Worker）
+from app.todo_reminder.bootstrap import register_todo_reminder_worker as _register_todo_reminder_worker
+from app.expense_tracker.bootstrap import register_expense_tracker_worker as _register_expense_tracker_worker
+from app.water_reminder.bootstrap import register_water_reminder_worker as _register_water_reminder_worker
+_register_todo_reminder_worker(runtime_services)
+_register_expense_tracker_worker(runtime_services)
+_register_water_reminder_worker(runtime_services)
+
 # 注册系统级压缩下载路由
 from app.api.download_router import router as download_router, _DOWNLOAD_DIR as download_dir
 app.include_router(download_router)
@@ -221,19 +229,33 @@ async def serve_download(filename: str):
 
 
 def _build_available_apps() -> list[dict[str, Any]]:
-    """Build the available_apps list from the AppRegistry for the gateway."""
+    """Build the available_apps list from the AppRegistry for the gateway.
+
+    可用性判断：仅当该应用的 blueprint_id 已注册后台处理组件
+    （即存在于 master_control._task_dispatcher._app_workers 键集合中）才标记为可用，
+    否则标记为不可用（available=False / status=stopped），不再只凭 release 标记全标绿色。
+    """
     registry = runtime_services.get("app_registry")
     if not registry:
         return []
+    # 收集已注册后台处理组件的键集合
+    worker_keys: set[str] = set()
+    master_control = runtime_services.get("master_control")
+    dispatcher = getattr(master_control, "_task_dispatcher", None)
+    if dispatcher is not None:
+        worker_keys = set(getattr(dispatcher, "_app_workers", {}) or {})
     apps = []
     for entry in registry.list_entries():
+        # 兼容注册键不一致：novel_studio 注册键是短名 "novel_studio"（非 blueprint_id "bp.novel_studio"）
+        available = entry.blueprint_id in worker_keys or entry.name in worker_keys
         apps.append({
             "app_id": entry.blueprint_id,
             "name": entry.name,
             "display_name": {"novel_studio": "小说工作室"}.get(entry.name, entry.name),
-            "status": "running" if entry.release_status == "active" else "stopped",
+            "status": "running" if available else "stopped",
             "version": entry.version,
             "description": entry.description,
+            "available": available,
         })
     return apps
 

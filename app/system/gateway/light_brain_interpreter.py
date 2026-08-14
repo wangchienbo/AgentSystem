@@ -126,6 +126,16 @@ class LightBrainInterpreter:
         if not stripped:
             return self._empty_command()
 
+        # P0-2 开发指令豁免：引导系统用工具读写代码库的元指令，不判为 App 生命周期意图，
+        # 直接走 LLM 工具链（parse_intent_with_tools），避免被宽泛 FUZZY 正则
+        # （list_apps/query_app/modify_app 等）误吞成 App 操作，导致系统收不到开发指令。
+        if self._is_dev_directive(stripped):
+            if hasattr(self, "_llm_responder") and self._llm_responder is not None:
+                llm_result, _ = self._try_llm_fallback(stripped, available_apps, user_id)
+                if llm_result is not None:
+                    return llm_result
+            return self._empty_command()
+
         # 1. EXACT match check (always runs, zero cost)
         intent, confidence, matched_text = self._match_exact_intent(stripped)
         
@@ -757,6 +767,16 @@ class LightBrainInterpreter:
         ), usage
 
     # -- private helpers -----------------------------------------------------
+
+    def _is_dev_directive(self, message: str) -> bool:
+        """检测是否为『引导系统用工具读写代码库』的开发指令（P0-2 意图区分）。
+
+        开发指令是元指令（让系统用 read_file/exec_shell/write_file/edit_file
+        等工具开发代码），不是用户对 App 的操作请求，不应被 App 生命周期
+        意图正则吞掉。命中则走 LLM 工具链。与 orchestrator 共用判定逻辑。
+        """
+        from app.system.gateway.dev_directive import is_dev_directive
+        return is_dev_directive(message)
 
     def _empty_command(self) -> InterpretedCommand:
         return InterpretedCommand(
