@@ -51,7 +51,10 @@ class RuntimeStateStore:
     def _write_json(self, name: str, payload: Any) -> None:
         path = self.base_path / f"{name}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        # 原子写入：先写临时文件再 rename，避免进程中断/OOM 时留下半截损坏的 JSON
+        tmp = self.base_path / f".{name}.json.tmp"
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(path)
 
     def _quarantine_invalid_file(self, path: Path, *, reason: str) -> None:
         try:

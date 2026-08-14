@@ -15,6 +15,10 @@ class LifecycleError(ValueError):
     pass
 
 
+# 落盘时每个 App 最多保留的事件条数（裁剪策略，防止 lifecycle_events.json 无限膨胀导致 OOM）
+_MAX_PERSISTED_EVENTS_PER_APP = 50
+
+
 _ALLOWED_TRANSITIONS: dict[AppStatus, set[AppStatus]] = {
     "draft": {"validating", "archived"},
     "validating": {"compiled", "draft", "archived"},
@@ -292,4 +296,11 @@ class AppLifecycleService:
         if self._store is None:
             return
         self._store.save_mapping("app_instances", self._instances)
-        self._store.save_nested_mapping("lifecycle_events", self._events)
+        # 落盘前裁剪：每个 App 只保留最近 N 条事件，避免 lifecycle_events.json 无限膨胀
+        # （曾因事件累积到 62 万条/326MB，导致每次 transition 全量序列化触发 OOM）
+        trimmed = {
+            key: values[-_MAX_PERSISTED_EVENTS_PER_APP :]
+            for key, values in self._events.items()
+            if isinstance(values, list)
+        }
+        self._store.save_nested_mapping("lifecycle_events", trimmed)
