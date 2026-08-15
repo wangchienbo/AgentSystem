@@ -1146,6 +1146,10 @@ class LightBrainGateway(_PackageManagementMixin):
                     rendered = self._render_self_iteration_invoke_result(method, result_data)
                     if rendered:
                         return ChatMessageResponse(type="text", content=rendered, session_id=session_id)
+                # Iteration 3 fix: render novel app responses as friendly text
+                novel_rendered = self._render_novel_invoke_result(method, result_data)
+                if novel_rendered:
+                    return ChatMessageResponse(type="text", content=novel_rendered, session_id=session_id)
                 if isinstance(result_data, dict):
                     content = json.dumps(result_data, ensure_ascii=False, indent=2)
                 elif isinstance(result_data, list):
@@ -1181,6 +1185,73 @@ class LightBrainGateway(_PackageManagementMixin):
         if method == "query_self_iteration_asset" and isinstance(result_data, dict):
             return render_self_iteration_asset_detail(result_data)
         return None
+
+    def _render_novel_invoke_result(self, method: str, result_data: Any) -> str | None:
+        """Render novel app invoke result as friendly text instead of raw JSON.
+        
+        Iteration 3 fix: When novel app returns dict/list with novel data,
+        format it as human-readable text instead of dumping raw JSON.
+        """
+        if not isinstance(result_data, dict):
+            return None
+        
+        # Handle novel list response: {"success": true, "novels": [...]}
+        if "novels" in result_data and isinstance(result_data["novels"], list):
+            novels = result_data["novels"]
+            if not novels:
+                return "📚 你还没有创建任何小说。\n\n对我说「写一篇悬疑小说」来开始创作吧！"
+            
+            lines = ["📚 **你的小说列表**\n"]
+            for i, novel in enumerate(novels, 1):
+                title = novel.get("title", "未命名")
+                genre = novel.get("genre", "") or "未指定"
+                status = novel.get("status", "planning")
+                char_count = novel.get("char_count", 0)
+                chapter_count = novel.get("chapter_count", 0)
+                
+                status_map = {
+                    "planning": "📝 规划中",
+                    "writing": "✍️ 写作中",
+                    "completed": "✅ 已完成",
+                }
+                status_text = status_map.get(status, status)
+                
+                lines.append(f"{i}. **《{title}》**")
+                lines.append(f"   - 类型：{genre}")
+                lines.append(f"   - 状态：{status_text}")
+                lines.append(f"   - 字数：{char_count} | 章节：{chapter_count}")
+                lines.append("")
+            
+            lines.append("💡 对我说「看看《小说名》」查看详情，或「继续写《小说名》」来创作。")
+            return "\n".join(lines)
+        
+        # Handle single novel response: {"success": true, "novel": {...}}
+        if "novel" in result_data and isinstance(result_data["novel"], dict):
+            novel = result_data["novel"]
+            title = novel.get("title", "未命名")
+            genre = novel.get("genre", "") or "未指定"
+            description = novel.get("description", "") or "暂无简介"
+            
+            lines = [
+                f"📖 **《{title}》**",
+                f"",
+                f"**类型**：{genre}",
+                f"**简介**：{description}",
+            ]
+            return "\n".join(lines)
+        
+        # Handle create_novel response: {"success": true, "novel_id": "...", "title": "..."}
+        if result_data.get("success") and "novel_id" in result_data:
+            title = result_data.get("title", "未命名")
+            novel_id = result_data.get("novel_id", "")
+            return (
+                f"✅ 已创建小说《{title}》\n\n"
+                f"📌 小说ID：`{novel_id}`\n\n"
+                f"对我说「继续写《{title}》」来开始创作！"
+            )
+        
+        return None
+
 
     def _append_context_record(self, session_id: str, role: str, content: str, kind: str = "message") -> None:
         """Append context record with whitelist validation (Phase H+ risk guard)."""
