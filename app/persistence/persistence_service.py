@@ -174,10 +174,9 @@ class PersistenceService:
 
         restored: dict[str, int] = {"status": "restored"}
 
-        # Restore app instances and lifecycle events
+        # Restore app instances（事件历史已由 AppLifecycleService 从 JSONL 自恢复）
         if lifecycle is not None:
             restored["app_instances"] = self._restore_app_instances(state.get("app_instances", []), lifecycle)
-            restored["lifecycle_events"] = self._restore_lifecycle_events(state.get("lifecycle_events", {}), lifecycle)
 
         # Restore runtime host state
         if runtime_host is not None:
@@ -230,22 +229,9 @@ class PersistenceService:
         return items
 
     def _serialize_lifecycle_events(self, lifecycle: Any) -> dict[str, list[dict[str, Any]]]:
-        if lifecycle is None or not hasattr(lifecycle, "_events"):
-            return {}
-        result = {}
-        for app_id, events in lifecycle._events.items():
-            result[app_id] = [
-                {
-                    "app_instance_id": e.app_instance_id,
-                    "event_type": e.event_type,
-                    "from_status": e.from_status,
-                    "to_status": e.to_status,
-                    "reason": e.reason,
-                    "created_at": _iso(e.created_at),
-                }
-                for e in events
-            ]
-        return result
+        """lifecycle_events 已由 LifecycleEventStore 按 JSONL 流式持久化，
+        不再冗余写入 agent_state.json（曾因全量序列化 62 万条事件导致 OOM）。"""
+        return {}
 
     def _serialize_runtime_leases(self, runtime_host: Any) -> list[dict[str, Any]]:
         if runtime_host is None or not hasattr(runtime_host, "_leases"):
@@ -395,26 +381,9 @@ class PersistenceService:
         return count
 
     def _restore_lifecycle_events(self, events: dict[str, list[dict]], lifecycle: Any) -> int:
-        from app.models.runtime import LifecycleEvent
-
-        count = 0
-        for app_id, event_list in events.items():
-            lifecycle._events.setdefault(app_id, [])
-            for data in event_list:
-                try:
-                    evt = LifecycleEvent(
-                        app_instance_id=data["app_instance_id"],
-                        event_type=data["event_type"],
-                        from_status=data["from_status"],
-                        to_status=data["to_status"],
-                        reason=data.get("reason", ""),
-                        created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(UTC),
-                    )
-                    lifecycle._events[app_id].append(evt)
-                    count += 1
-                except Exception as e:
-                    logger.warning("Failed to restore lifecycle event for %s: %s", app_id, e)
-        return count
+        """Deprecated：lifecycle_events 已由 LifecycleEventStore 从 JSONL 自恢复，
+        不再从 agent_state.json 反序列化灌入内存。保留方法体仅作兼容。"""
+        return 0
 
     def _restore_runtime_leases(self, leases: list[dict], runtime_host: Any) -> int:
         from app.models.runtime import RuntimeLease

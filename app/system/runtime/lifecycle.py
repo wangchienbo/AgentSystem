@@ -7,6 +7,7 @@ from pathlib import Path
 from app.models.app_instance import AppInstance, AppStatus
 from app.models.runtime import LifecycleEvent, LifecycleTransitionResult
 from app.models.upgrade_log import UpgradeLogEvent
+from app.persistence.lifecycle_event_store import LifecycleEventStore, DEFAULT_MEMORY_EVENT_LIMIT
 from app.persistence.runtime_state_store import RuntimeStateStore
 from app.persistence.upgrade_log_service import UpgradeLogService
 
@@ -15,7 +16,7 @@ class LifecycleError(ValueError):
     pass
 
 
-# 落盘时每个 App 最多保留的事件条数（裁剪策略，防止 lifecycle_events.json 无限膨胀导致 OOM）
+# 落盘时每个 App 最多保留的事件条数（保留为兼容旧 RuntimeStateStore 路径，实际已由 JSONL 流式接管）
 _MAX_PERSISTED_EVENTS_PER_APP = 50
 
 
@@ -47,10 +48,17 @@ _EVENT_TO_TARGET: dict[str, AppStatus] = {
 
 
 class AppLifecycleService:
-    def __init__(self, store: RuntimeStateStore | None = None) -> None:
+    def __init__(self, store: RuntimeStateStore | None = None, event_store: LifecycleEventStore | None = None) -> None:
         self._instances: dict[str, AppInstance] = {}
         self._events: dict[str, list[LifecycleEvent]] = {}
         self._store = store
+        # JSONL 流式事件存储（独立关注点，不依赖 RuntimeStateStore）
+        # 显式传入 event_store 时使用之；否则仅在提供 store（生产）时落到磁盘，
+        # 无 store（纯单元测试）时保持纯内存态，避免污染全局路径。
+        self._event_store = event_store
+        self._persist_events = event_store is not None or store is not None
+        if self._persist_events:
+            self._event_store = event_store or LifecycleEventStore()
 
         # Asset registration hooks — set by runtime bootstrap
         self._on_asset_start_fn = None  # called after start → running
@@ -58,24 +66,31 @@ class AppLifecycleService:
         self._load()
 
     def _load(self) -> None:
-        """启动时从持久化 store 恢复 app 实例（含自由设计 App）。"""
-        if self._store is None:
-            return
-        try:
-            raw = self._store.load_json("app_instances", {})
-            for key, val in raw.items():
-                try:
-                    self._instances[key] = AppInstance.model_validate(val)
-                except Exception:
-                    pass
-            raw_events = self._store.load_json("lifecycle_events", {})
-            for key, val in raw_events.items():
-                try:
-                    self._events[key] = [LifecycleEvent.model_validate(item) for item in val]
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        """启动时从持久化 store 恢复 app 实例（含自由设计 App）。
+
+        事件历史从 JSONL 流式存储恢复每个 App 最近 N 条（常驻内存上限），
+        不再全量加载历史事件，避免 62 万条事件常驻内存导致 OOM。
+        """
+        if self._store is not None:
+            try:
+                raw = self._store.load_json("app_instances", {})
+                for key, val in raw.items():
+                    try:
+                        self._instances[key] = AppInstance.model_validate(val)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        # 事件：仅从 JSONL 恢复最近 N 条到内存（纯内存态无 event_store 则跳过）
+        if self._persist_events:
+            try:
+                recent = self._event_store.load_all_recent(
+                    limit=DEFAULT_MEMORY_EVENT_LIMIT,
+                    event_model=LifecycleEvent,
+                )
+                self._events = recent
+            except Exception:
+                self._events = {}
 
     def set_asset_hooks(self, on_asset_start=None, on_asset_stop=None) -> None:
         """Set callbacks for asset self-registration.
@@ -100,9 +115,37 @@ class AppLifecycleService:
     def list_instances(self) -> list[AppInstance]:
         return list(self._instances.values())
 
-    def list_events(self, app_instance_id: str) -> list[LifecycleEvent]:
+    def _record_event(self, app_instance_id: str, event: LifecycleEvent) -> None:
+        """记录一条事件：追加到内存（裁剪到最近 N 条）+ 流式写入 JSONL。
+
+        事件持久化走 JSONL 流式追加，内存只保留每个 App 最近
+        DEFAULT_MEMORY_EVENT_LIMIT 条，历史查询走磁盘。
+        """
+        events = self._events.setdefault(app_instance_id, [])
+        events.append(event)
+        if len(events) > DEFAULT_MEMORY_EVENT_LIMIT:
+            del events[: len(events) - DEFAULT_MEMORY_EVENT_LIMIT]
+        if self._persist_events:
+            try:
+                self._event_store.append_event(app_instance_id, event)
+            except Exception:
+                pass  # 流式写入失败不阻断状态机（内存仍记录）
+
+    def list_events(self, app_instance_id: str, *, include_history: bool = False, limit: int | None = None) -> list[LifecycleEvent]:
         self.get_instance(app_instance_id)
-        return list(self._events.get(app_instance_id, []))
+        if include_history and self._persist_events:
+            # 全量历史查询走磁盘（JSONL 按时间正序返回）
+            return self._event_store.list_events(
+                app_instance_id,
+                limit=limit,
+                include_history=True,
+                event_model=LifecycleEvent,
+            )
+        # 默认返回内存中最近的事件（常驻内存有上限）
+        events = list(self._events.get(app_instance_id, []))
+        if limit is not None:
+            events = events[-limit:]
+        return events
 
     def transition(self, app_instance_id: str, event: str, reason: str = "") -> LifecycleTransitionResult:
         instance = self.get_instance(app_instance_id)
@@ -116,14 +159,15 @@ class AppLifecycleService:
 
         previous_status = instance.status
         instance.status = target
-        self._events[app_instance_id].append(
+        self._record_event(
+            app_instance_id,
             LifecycleEvent(
                 app_instance_id=app_instance_id,
                 event_type=event,  # type: ignore[arg-type]
                 from_status=previous_status,
                 to_status=target,
                 reason=reason,
-            )
+            ),
         )
         self._persist()
 
@@ -166,14 +210,15 @@ class AppLifecycleService:
         self._store_snapshot(app_instance_id, snapshot)
         # Transition to archived
         instance.status = "archived"
-        self._events[app_instance_id].append(
+        self._record_event(
+            app_instance_id,
             LifecycleEvent(
                 app_instance_id=app_instance_id,
                 event_type="archive",
                 from_status=previous_status,
                 to_status="archived",
                 reason=reason,
-            )
+            ),
         )
         self._persist()
         self._log_archive_event(app_instance_id, "archive", previous_status, snapshot)
@@ -202,14 +247,15 @@ class AppLifecycleService:
             instance.skill_instances = snapshot.get("skill_instances", instance.skill_instances)
         previous_status = instance.status
         instance.status = "installed"
-        self._events[app_instance_id].append(
+        self._record_event(
+            app_instance_id,
             LifecycleEvent(
                 app_instance_id=app_instance_id,
                 event_type="archive",  # same event type, direction indicated by from/to
                 from_status=previous_status,
                 to_status="installed",
                 reason=reason,
-            )
+            ),
         )
         self._persist()
         self._log_archive_event(app_instance_id, "unarchive", previous_status, snapshot)
@@ -226,6 +272,20 @@ class AppLifecycleService:
             raise LifecycleError(f"App instance not found: {app_instance_id}")
         self._instances.pop(app_instance_id, None)
         self._events.pop(app_instance_id, None)
+        # 同步清理 JSONL 事件目录（避免删除 App 后残留历史文件）
+        if self._persist_events:
+            try:
+                from pathlib import Path as _Path
+                app_dir = _Path(str(self._event_store.base_path)) / app_instance_id
+                if app_dir.exists():
+                    for p in app_dir.glob("*.jsonl"):
+                        p.unlink(missing_ok=True)
+                    try:
+                        app_dir.rmdir()
+                    except OSError:
+                        pass
+            except Exception:
+                pass
         self._persist()
         return True
 
@@ -293,14 +353,11 @@ class AppLifecycleService:
             pass  # Best-effort logging
 
     def _persist(self) -> None:
+        """持久化 App 实例状态。
+
+        lifecycle_events 已由 LifecycleEventStore 按 JSONL 流式持久化，
+        不再在这里全量序列化写入（避免 62 万条事件全量落盘触发 OOM）。
+        """
         if self._store is None:
             return
         self._store.save_mapping("app_instances", self._instances)
-        # 落盘前裁剪：每个 App 只保留最近 N 条事件，避免 lifecycle_events.json 无限膨胀
-        # （曾因事件累积到 62 万条/326MB，导致每次 transition 全量序列化触发 OOM）
-        trimmed = {
-            key: values[-_MAX_PERSISTED_EVENTS_PER_APP :]
-            for key, values in self._events.items()
-            if isinstance(values, list)
-        }
-        self._store.save_nested_mapping("lifecycle_events", trimmed)
