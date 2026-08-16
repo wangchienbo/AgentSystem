@@ -49,13 +49,19 @@ class NovelStorage:
         for f in sorted(novels_dir.glob("*.json")):
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))
+                chapters = data.get("chapters", [])
                 results.append({
                     "id": data.get("id", f.stem),
                     "title": data.get("title", "未命名"),
                     "genre": data.get("genre", ""),
                     "status": data.get("status", "planning"),
                     "char_count": len(data.get("characters", {})),
-                    "chapter_count": len(data.get("chapters", [])),
+                    "chapter_count": len(chapters),
+                    "total_words": sum(
+                        (c.get("word_count") or len(c.get("content", "")))
+                        for c in chapters
+                        if isinstance(c, dict)
+                    ),
                     "description": data.get("description", ""),
                     "updated_at": data.get("updated_at", ""),
                 })

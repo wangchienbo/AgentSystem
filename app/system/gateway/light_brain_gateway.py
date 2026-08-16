@@ -1208,6 +1208,7 @@ class LightBrainGateway(_PackageManagementMixin):
                 status = novel.get("status", "planning")
                 char_count = novel.get("char_count", 0)
                 chapter_count = novel.get("chapter_count", 0)
+                total_words = novel.get("total_words", 0)
                 
                 status_map = {
                     "planning": "📝 规划中",
@@ -1219,7 +1220,7 @@ class LightBrainGateway(_PackageManagementMixin):
                 lines.append(f"{i}. **《{title}》**")
                 lines.append(f"   - 类型：{genre}")
                 lines.append(f"   - 状态：{status_text}")
-                lines.append(f"   - 字数：{char_count} | 章节：{chapter_count}")
+                lines.append(f"   - 字数：{total_words} | 章节：{chapter_count} | 角色：{char_count}")
                 lines.append("")
             
             lines.append("💡 对我说「看看《小说名》」查看详情，或「继续写《小说名》」来创作。")
