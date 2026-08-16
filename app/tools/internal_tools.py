@@ -46,9 +46,26 @@ def _normalize_workdir(workdir: str | None) -> Path:
 
 
 def _normalize_path(path: str) -> Path:
+    """解析工具路径，并强制限定在项目根目录内（防止 LLM 传 ~ 或任意绝对路径
+    导致 os.walk 遍历整个用户目录，卡死事件循环）。
+
+    - 绝对路径：必须位于 DEFAULT_REPO_ROOT 之下，否则退回项目根
+    - 相对路径：基于项目根解析
+    - 越界路径退回项目根（不报错，工具调用继续安全执行）
+    """
     raw = Path(path).expanduser()
     if raw.is_absolute():
-        return raw
+        try:
+            resolved = raw.resolve()
+        except OSError:
+            return DEFAULT_REPO_ROOT
+        try:
+            resolved.relative_to(DEFAULT_REPO_ROOT.resolve())
+            return resolved
+        except ValueError:
+            # 越界：退回项目根，避免遍历到用户主目录/系统目录
+            logger.warning("search/read path outside repo root, falling back to root: %s", path)
+            return DEFAULT_REPO_ROOT
     return DEFAULT_REPO_ROOT / raw
 
 
@@ -170,6 +187,9 @@ def search_files(pattern: str, path: str, file_pattern: str | None = None) -> di
             return {"success": False, "error": f"Directory not found: {path}"}
         results = []
         compiled = re.compile(pattern, re.IGNORECASE)
+        scanned_files = 0
+        # 遍历上限：防止 LLM 传项目根/~ 导致 os.walk 遍历海量文件卡死事件循环
+        MAX_SCANNED_FILES = 5000
         for root, dirs, files in os.walk(search_path):
             dirs[:] = [d for d in dirs if d not in IGNORED_DIR_NAMES]
             for filename in files:
@@ -178,6 +198,17 @@ def search_files(pattern: str, path: str, file_pattern: str | None = None) -> di
                     continue
                 if file_pattern and not re.match(file_pattern.replace("*", ".*"), filename):
                     continue
+                scanned_files += 1
+                if scanned_files > MAX_SCANNED_FILES:
+                    return {
+                        "success": True,
+                        "pattern": pattern,
+                        "path": str(search_path),
+                        "matches": len(results),
+                        "results": results,
+                        "truncated": True,
+                        "note": f"扫描超过 {MAX_SCANNED_FILES} 个文件，提前返回（结果可能不完整）",
+                    }
                 try:
                     if file_path.stat().st_size > 100000:
                         continue
@@ -201,6 +232,7 @@ def search_files(pattern: str, path: str, file_pattern: str | None = None) -> di
             "path": str(search_path),
             "matches": len(results),
             "results": results,
+            "scanned_files": scanned_files,
         }
     except re.error as e:
         return {"success": False, "error": f"Invalid regex pattern: {e}"}
