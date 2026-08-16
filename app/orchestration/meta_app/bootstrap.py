@@ -22,6 +22,21 @@ def _slug(name: str) -> str:
     return name.strip().lower().replace(" ", "-").replace("_", "-")
 
 
+def _normalize_priority(value: Any) -> str:
+    """将 LLM 可能返回的任意 priority 形式归一化为枚举值 high/medium/low。
+
+    LLM 常返回 int（1/2/3）、数字字符串（"1"）或中英文别名（"紧急"/"High"）。
+    无法识别时回退到 medium，避免 pydantic str 字段校验失败。
+    """
+    aliases = {
+        "high": "high", "h": "high", "紧急": "high", "高": "high", "1": "high", 1: "high",
+        "medium": "medium", "m": "medium", "中": "medium", "2": "medium", 2: "medium",
+        "low": "low", "l": "low", "低": "low", "3": "low", 3: "low",
+    }
+    return aliases.get(value, aliases.get(str(value).strip().lower(), "medium"))
+
+
+
 class MetaAppBootstrapService:
     """Generic app control skill generator powered by LLM.
 
@@ -196,7 +211,7 @@ class MetaAppBootstrapService:
                 suggested_name=item.get("suggested_name", f"{slug}-unknown"),
                 scope=item.get("scope", ""),
                 responsibility=item.get("responsibility", ""),
-                priority=item.get("priority", "medium"),
+                priority=_normalize_priority(item.get("priority", "medium")),
             )
             for item in subordinate_items
         ]

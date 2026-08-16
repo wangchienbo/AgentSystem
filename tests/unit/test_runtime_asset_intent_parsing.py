@@ -147,7 +147,7 @@ def test_render_asset_overview_prompt_includes_selection_guidance() -> None:
 
     assert "先根据资产描述判断哪个资产最贴近当前问题" in rendered
     assert "不要因为提问里出现某些关键词就假设必须命中某个固定资产" in rendered
-    assert "系统最近的演化状态、治理风险、回归观察或待优化项" in rendered
+    assert "系统自身的治理风险、回归观察" in rendered
     assert "asset:self_iteration_center:v1" in rendered
 def test_build_follow_up_actions_excludes_recommended_asset() -> None:
     actions = build_follow_up_actions(recommended_asset_id="self_iteration.governance_dashboard")

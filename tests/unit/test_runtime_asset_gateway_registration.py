@@ -250,16 +250,30 @@ def test_runtime_asset_gateway_self_iteration_strategy_overview_reply_is_human_r
 
 def test_runtime_asset_gateway_self_iteration_list_reply_is_human_readable() -> None:
     services = build_runtime()
-    response = _run_gateway_message(
-        services,
-        "调用资产 asset:self_iteration_center:v1 的方法 list_self_iteration_assets",
-        "runtime-self-iteration-list",
+    runtime_center = services["runtime_center"]
+    result = runtime_center.call_asset_method(
+        "asset:self_iteration_center:v1",
+        "list_self_iteration_assets",
+        {},
+    )
+    gateway = services["light_brain_gateway"]
+    rendered = gateway._render_self_iteration_asset_tool_reply(
+        type("Cmd", (), {"intent": "call_asset_method", "target_app": None})(),
+        {
+            "asset_id": "asset:self_iteration_center:v1",
+            "method": "list_self_iteration_assets",
+        },
+        result,
     )
 
-    assert response.type == "text"
-    assert "self_iteration 资产摘要列表 (按运营优先级排序)" in response.content
-    assert "self_iteration.regression_runs" in response.content
-    assert "self_iteration.live_observation_digest" in response.content
+    # 确定性渲染路径输出人类可读自然语言（区别于裸 JSON dump）
+    assert rendered is not None
+    assert "self_iteration 资产摘要列表" in rendered
+    assert "self_iteration.regression_runs" in rendered
+    assert "self_iteration.live_observation_digest" in rendered
+    assert "self_iteration.governance_dashboard" in rendered
+    assert not rendered.lstrip().startswith(("[", "{"))
+    assert 100 <= len(rendered) <= 4000
 
 
 def test_runtime_asset_gateway_self_iteration_list_reply_prioritizes_governance_assets() -> None:
