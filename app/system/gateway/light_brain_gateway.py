@@ -395,8 +395,6 @@ class LightBrainGateway(_PackageManagementMixin):
         self._persistence = persistence or persistence_service  # legacy alias
         self._context_center = context_center
         self._runtime_center = runtime_center
-        # Phase 7.4: new interaction runtime injection
-        self._interaction_orchestrator: Any | None = extra_deps.get("interaction_orchestrator")
         self._invocation_dispatcher: Any | None = extra_deps.get("invocation_dispatcher")
         self._permission_skill = permission_skill
         self._permission_validator = permission_validator
@@ -619,10 +617,6 @@ class LightBrainGateway(_PackageManagementMixin):
                 self._after_reply(session_id=session_id, reply=response)
                 self._auto_save()
                 return response
-
-            interaction_result = self._try_new_interaction_chain(request.message)
-            if interaction_result is not None:
-                return self._build_interaction_response(session_id, request.message, interaction_result, _cmd_start_time)
 
             # P0-7: 意图提取层 — 先结构化理解，再路由执行
             intent_result = None
@@ -1081,178 +1075,6 @@ class LightBrainGateway(_PackageManagementMixin):
                 content=reply.content,
                 kind="message",
             )
-
-    # Phase 7.4: new interaction runtime bridge
-    def _try_new_interaction_chain(self, message: str) -> dict[str, Any] | None:
-        """Try the new asset-centered interaction runtime. Returns None if fallback needed."""
-        if self._interaction_orchestrator is None:
-            return None
-        try:
-            result = self._interaction_orchestrator.process_message(message)
-        except Exception as exc:
-            logger.warning("Interaction orchestrator error, falling back: %s", exc)
-            return None
-        action = result.get("resolved_action")
-        metadata = result.get("metadata", {})
-        if action == "invoke_method":
-            invoke = result.get("invoke")
-            if invoke and self._invocation_dispatcher is not None:
-                try:
-                    execution = self._invocation_dispatcher.dispatch(
-                        asset_id=invoke["asset_id"],
-                        method=invoke["method"],
-                        params=invoke.get("params") or {},
-                    )
-                    return {
-                        "action": "invoke_executed",
-                        "invoke": invoke,
-                        "execution": execution,
-                        "metadata": metadata,
-                    }
-                except Exception as exc:
-                    logger.warning("Invocation dispatch error: %s", exc)
-                    return {"action": "invoke_error", "error": str(exc), "metadata": metadata}
-        if action == "reply_text":
-            # Only claim the new-chain reply for specific recognized routes;
-            # generic fallback text means "no route matched" → let legacy handle it.
-            if metadata.get("route"):
-                text = result.get("text") or "请告诉我你想做什么，例如查看状态、了解某个资产、或者执行某个操作。"
-                return {"action": "reply_text", "text": text, "metadata": metadata}
-            return None
-        if action == "load_detail":
-            detail_id = result.get("need_asset_detail_id")
-            return {"action": "load_detail", "need_asset_detail_id": detail_id, "metadata": metadata}
-        # Unknown action — fallback to legacy interpreter
-        return None
-
-    def _build_interaction_response(
-        self,
-        session_id: str,
-        raw_message: str,
-        interaction_result: dict[str, Any],
-        cmd_start_time: float,
-    ) -> ChatMessageResponse:
-        """Convert new interaction runtime result to ChatMessageResponse."""
-        action = interaction_result["action"]
-        if action == "invoke_executed":
-            invoke = interaction_result.get("invoke", {})
-            execution = interaction_result["execution"]
-            if execution.get("ok"):
-                result_data = execution.get("execution", {}).get("result", "")
-                # Phase 7.4: use specialized renderers for self-iteration assets
-                asset_id = invoke.get("asset_id", "")
-                method = invoke.get("method", "")
-                if asset_id == "asset:self_iteration_center:v1":
-                    rendered = self._render_self_iteration_invoke_result(method, result_data)
-                    if rendered:
-                        return ChatMessageResponse(type="text", content=rendered, session_id=session_id)
-                # Iteration 3 fix: render novel app responses as friendly text
-                novel_rendered = self._render_novel_invoke_result(method, result_data)
-                if novel_rendered:
-                    return ChatMessageResponse(type="text", content=novel_rendered, session_id=session_id)
-                if isinstance(result_data, dict):
-                    content = json.dumps(result_data, ensure_ascii=False, indent=2)
-                elif isinstance(result_data, list):
-                    content = json.dumps(result_data, ensure_ascii=False, indent=2)
-                else:
-                    content = str(result_data)
-            else:
-                content = f"调用失败: {execution.get('error', '未知错误')}"
-            return ChatMessageResponse(type="text", content=content, session_id=session_id)
-        if action == "invoke_error":
-            return ChatMessageResponse(
-                type="text",
-                content=f"执行出错: {interaction_result.get('error', '未知错误')}",
-                session_id=session_id,
-            )
-        if action == "load_detail":
-            detail_id = interaction_result.get("need_asset_detail_id", "")
-            return ChatMessageResponse(
-                type="text",
-                content=f"需要加载资产详情: {detail_id}",
-                session_id=session_id,
-            )
-        # reply_text or fallback
-        text = interaction_result.get("text", "请告诉我你想做什么。")
-        return ChatMessageResponse(type="text", content=text, session_id=session_id)
-
-    def _render_self_iteration_invoke_result(self, method: str, result_data: Any) -> str | None:
-        """Render self-iteration invoke result using specialized formatters."""
-        if method in ("get_self_iteration_strategy_overview", "strategy_overview") and isinstance(result_data, dict):
-            return render_self_iteration_strategy_overview(result_data)
-        if method == "list_self_iteration_assets" and isinstance(result_data, list):
-            return render_self_iteration_asset_list(result_data)
-        if method == "query_self_iteration_asset" and isinstance(result_data, dict):
-            return render_self_iteration_asset_detail(result_data)
-        return None
-
-    def _render_novel_invoke_result(self, method: str, result_data: Any) -> str | None:
-        """Render novel app invoke result as friendly text instead of raw JSON.
-        
-        Iteration 3 fix: When novel app returns dict/list with novel data,
-        format it as human-readable text instead of dumping raw JSON.
-        """
-        if not isinstance(result_data, dict):
-            return None
-        
-        # Handle novel list response: {"success": true, "novels": [...]}
-        if "novels" in result_data and isinstance(result_data["novels"], list):
-            novels = result_data["novels"]
-            if not novels:
-                return "📚 你还没有创建任何小说。\n\n对我说「写一篇悬疑小说」来开始创作吧！"
-            
-            lines = ["📚 **你的小说列表**\n"]
-            for i, novel in enumerate(novels, 1):
-                title = novel.get("title", "未命名")
-                genre = novel.get("genre", "") or "未指定"
-                status = novel.get("status", "planning")
-                char_count = novel.get("char_count", 0)
-                chapter_count = novel.get("chapter_count", 0)
-                total_words = novel.get("total_words", 0)
-                
-                status_map = {
-                    "planning": "📝 规划中",
-                    "writing": "✍️ 写作中",
-                    "completed": "✅ 已完成",
-                }
-                status_text = status_map.get(status, status)
-                
-                lines.append(f"{i}. **《{title}》**")
-                lines.append(f"   - 类型：{genre}")
-                lines.append(f"   - 状态：{status_text}")
-                lines.append(f"   - 字数：{total_words} | 章节：{chapter_count} | 角色：{char_count}")
-                lines.append("")
-            
-            lines.append("💡 对我说「看看《小说名》」查看详情，或「继续写《小说名》」来创作。")
-            return "\n".join(lines)
-        
-        # Handle single novel response: {"success": true, "novel": {...}}
-        if "novel" in result_data and isinstance(result_data["novel"], dict):
-            novel = result_data["novel"]
-            title = novel.get("title", "未命名")
-            genre = novel.get("genre", "") or "未指定"
-            description = novel.get("description", "") or "暂无简介"
-            
-            lines = [
-                f"📖 **《{title}》**",
-                f"",
-                f"**类型**：{genre}",
-                f"**简介**：{description}",
-            ]
-            return "\n".join(lines)
-        
-        # Handle create_novel response: {"success": true, "novel_id": "...", "title": "..."}
-        if result_data.get("success") and "novel_id" in result_data:
-            title = result_data.get("title", "未命名")
-            novel_id = result_data.get("novel_id", "")
-            return (
-                f"✅ 已创建小说《{title}》\n\n"
-                f"📌 小说ID：`{novel_id}`\n\n"
-                f"对我说「继续写《{title}》」来开始创作！"
-            )
-        
-        return None
-
 
     def _append_context_record(self, session_id: str, role: str, content: str, kind: str = "message") -> None:
         """Append context record with whitelist validation (Phase H+ risk guard)."""
@@ -1776,25 +1598,84 @@ class LightBrainGateway(_PackageManagementMixin):
     async def _handle_query_help(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],
     ) -> ChatMessageResponse:
+        """返回当前系统可直接执行的指令清单（动态生成，非固定文本）。"""
+        lines = ["💠 **可直接执行的指令**\n"]
+
+        # 1) 通用系统指令
+        lines.append("📊 **系统与 App**")
+        lines.append('• `系统状态` — 查看系统整体运行状态')
+        lines.append('• `看看我的App` / `列出所有App` — 查看 App 列表')
+        lines.append('• `启动/停止/暂停/恢复 XX` — 控制 App 运行')
+        lines.append('• `创建一个 XX App` — 按需求创建新 App')
+        lines.append('• `修改/删除 XX` — 修改或删除 App')
+        lines.append('')
+
+        # 2) 动态：当前运行时 ACTIVE 资产及其可调用方法
+        runtime_assets = self._collect_runtime_asset_commands()
+        if runtime_assets:
+            lines.append("⚙️ **当前可调用的资产方法**")
+            lines.extend(runtime_assets)
+            lines.append("")
+
+        # 3) 资产/状态查询指令
+        lines.append("🔎 **查询与操作**")
+        lines.append('• `看看《小说名》` — 查看小说详情（小说工作室）')
+        lines.append('• `继续写《小说名》` — 续写小说')
+        lines.append('• `治理摘要` / `策略概览` — 查看自迭代治理状态')
+        lines.append('• `配置` / `查配置` — 查看系统配置')
+        lines.append('• `调用资产 asset:xxx 的方法 yyy` — 调用任意资产方法')
+        lines.append('• `帮助` / `help` — 显示本指令清单')
+        lines.append('')
+
         return ChatMessageResponse(
             type="text",
-            content="💠 光脑使用帮助\n\n"
-                    "你可以用自然语言跟我对话，我能帮你：\n\n"
-                    "📱 **App 管理**\n"
-                    '• "帮我建一个 XX App" — 创建新 App\n'
-                    '• "看看我的 App" — 查看 App 列表\n'
-                    '• "启动/停止 XX" — 控制 App 运行\n'
-                    '• "看看 XX 的状态" — 查询 App 详情\n\n'
-                    "⚙️ **系统操作**\n"
-                    '• "系统状态" — 查看整体状态\n'
-                    '• "帮助" — 查看本帮助\n\n'
-                    "💡 **提示**：说不清楚的时候，我会问你更多细节。",
+            content="\n".join(lines),
             session_id=session_id,
             actions=[
-                ActionSuggestion(id="list_apps", label="📱 查看 App", action_type="navigate", payload={"intent": "list_apps"}, style="primary"),
-                ActionSuggestion(id="create_app", label="➕ 创建 App", action_type="navigate", payload={"intent": "create_app"}, style="secondary"),
+                ActionSuggestion(id="query_status", label="📊 系统状态", action_type="execute", payload={"intent": "query_status"}, style="primary"),
+                ActionSuggestion(id="list_apps", label="📱 查看 App", action_type="navigate", payload={"intent": "list_apps"}, style="secondary"),
             ],
         )
+
+    def _collect_runtime_asset_commands(self) -> list[str]:
+        """从 RuntimeCenter 动态收集当前注册资产的可用方法（零硬编码）。"""
+        commands: list[str] = []
+        try:
+            if self._runtime_center is None or not hasattr(self._runtime_center, "list_assets"):
+                return commands
+            assets = self._runtime_center.list_assets()
+            for asset in assets:
+                if isinstance(asset, dict):
+                    asset_id = asset.get("asset_id")
+                    desc = asset.get("description") or asset.get("name") or ""
+                    caps = asset.get("capabilities") or []
+                else:
+                    asset_id = getattr(asset, "asset_id", None)
+                    desc = getattr(asset, "description", "") or getattr(asset, "name", "") or ""
+                    caps = getattr(asset, "capabilities", None) or []
+                if not asset_id:
+                    continue
+                method_names = []
+                for cap in caps:
+                    if isinstance(cap, dict):
+                        name = cap.get("method") or cap.get("name")
+                    else:
+                        name = getattr(cap, "method", None) or getattr(cap, "name", None)
+                    if name:
+                        method_names.append(name)
+                if method_names:
+                    commands.append(f"• 资产 `{asset_id}`：{desc if desc else '可用'}")
+                    commands.append(f"  可调用方法：{', '.join(sorted(set(method_names))[:8])}")
+        except Exception as exc:  # 失败不影响 help 主流程
+            self._log_help_asset_error(exc)
+        return commands
+
+    def _log_help_asset_error(self, exc: Exception) -> None:
+        """记录 help 资产收集异常（静默失败，不阻断帮助）。"""
+        try:
+            logger.warning("help 动态资产收集失败: %s", exc)
+        except Exception:
+            pass
 
     async def _handle_modify_interactive_app(
         self, command: InterpretedCommand, session_id: str, apps: list[dict],

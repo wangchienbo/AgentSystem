@@ -76,22 +76,6 @@ def test_script_route_tool_narrowing_keeps_exec_shell_and_core_file_tools() -> N
     assert "search_files" not in names
 
 
-def test_cheap_query_fast_path_bypasses_llm_for_list_and_status_requests() -> None:
-    interpreter, execute_turns = _build_interpreter()
-    command = interpreter.interpret(
-        message="看看我有哪些 app 在运行",
-        user_id="u1",
-        session_id="sess-cheap-query",
-        available_apps=[],
-    )
-    assert command.intent in {"list_apps", "query_app", "query_status"}
-    assert command.source == "cheap_query_fast_path"
-    assert execute_turns.called is False
-
-
-
-
-
 def _build_interpreter() -> tuple[ToolCallingInterpreter, MagicMock]:
     memory = LightBrainMemory()
     registry = ToolRegistry()

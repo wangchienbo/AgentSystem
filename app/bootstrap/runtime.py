@@ -172,7 +172,6 @@ from app.system.assets.self_iteration_center_asset import SelfIterationCenterAss
 from app.system.gateway.tool_calling_interpreter import ToolCallingInterpreter
 from app.system.interaction_runtime.context_assembly import InteractionContextSnapshot, build_initial_interaction_context
 from app.system.interaction_runtime.decision_protocol import DecisionProtocol
-from app.system.interaction_runtime.interaction_orchestrator import InteractionOrchestrator
 from app.system.invocation.invocation_dispatcher import InvocationDispatcher
 from app.system.model_runtime.model_selector import ModelSelector
 from app.system.startup.startup_orchestrator import StartupOrchestrator, StartupStage
@@ -1544,11 +1543,6 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         detail_provider=_interaction_detail_provider,
     )
     interaction_decision_protocol = DecisionProtocol()
-    interaction_orchestrator = InteractionOrchestrator(decision_protocol=interaction_decision_protocol)
-    interaction_debug_view = lambda result: interaction_orchestrator.debug_view(
-        context=interaction_context_snapshot,
-        result=result,
-    )
     invocation_dispatcher = InvocationDispatcher(
         asset_center=asset_center,
         runtime_center=runtime_center,
@@ -1585,8 +1579,6 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
         master_control=master_control,  # Pass MasterControl for centralized execution
         telemetry_service=telemetry_service,
         context_center=context_center,  # Phase H: unified context assembly
-        # Phase 7.4: new interaction runtime injection
-        interaction_orchestrator=interaction_orchestrator,
         invocation_dispatcher=invocation_dispatcher,
         draft_app_service=draft_app_service,
         pending_task_store=pending_task_store,
@@ -1750,8 +1742,6 @@ def build_runtime(*, runtime_store_base_dir: str | None = None, app_data_base_di
     services["rerun_startup_stage"] = rerun_startup_stage
     services["interaction_context_snapshot"] = interaction_context_snapshot
     services["interaction_decision_protocol"] = interaction_decision_protocol
-    services["interaction_orchestrator"] = interaction_orchestrator
-    services["interaction_debug_view"] = interaction_debug_view
     services["invocation_dispatcher"] = invocation_dispatcher
     services["invoke_asset_envelope"] = invocation_dispatcher.dispatch_from_envelope
     services["safe_invoke_asset"] = invocation_dispatcher.safe_dispatch

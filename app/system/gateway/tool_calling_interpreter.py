@@ -299,40 +299,8 @@ class ToolCallingInterpreter:
                 message, pending, user_id, session_id, available_apps
             )
 
-        # Tier 2.4: cheap query/read fast path
-        cheap_query = self._try_cheap_query_fast_path(
-            message=message,
-            user_id=user_id,
-            session_id=session_id,
-            available_apps=available_apps,
-        )
-        if cheap_query:
-            return cheap_query
-
-        # Tier 2.5: explicit file-path introspection fast path
-        fast_path = self._try_explicit_file_read_fast_path(
-            message=message,
-            user_id=user_id,
-            session_id=session_id,
-            available_apps=available_apps,
-        )
-        if fast_path:
-            return fast_path
-
         if not is_dev_directive(message) and is_script_like_request(message):
             return self._run_script_first_route(message, user_id, session_id, available_apps, exec_context)
-
-        # Tier 2.8: 确定性规则路由——先用 LightBrainInterpreter 的规则（EXACT+FUZZY）
-        # 匹配明确意图（create_app/create_novel/start_app/stop_app/list_apps/query_app 等）。
-        # 命中即直接返回命令，不落 LLM 自由工具选择，避免 LLM 路由错乱（答非所问）。
-        rule_command = self._try_deterministic_rule_route(
-            message=message,
-            user_id=user_id,
-            session_id=session_id,
-            available_apps=available_apps,
-        )
-        if rule_command:
-            return rule_command
 
         # Tier 3: Full LLM tool calling
         return self._llm_interpret(
@@ -428,79 +396,6 @@ class ToolCallingInterpreter:
         if any(keyword in text for keyword in ("脚本", "script", "批量", "遍历", "聚合", "解析", "提取")):
             return self._load_governor_text(SCRIPT_FIRST_BRANCH_PATH)
         return ""
-    def _try_cheap_query_fast_path(
-        self,
-        message: str,
-        user_id: str,
-        session_id: str,
-        available_apps: list[dict[str, Any]],
-    ) -> InterpretedCommand | None:
-        """Bypass tool-calling LLM for cheap list/query/status requests."""
-        from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
-
-        interpreter = LightBrainInterpreter()
-        command = interpreter.interpret(message, user_id=user_id, available_apps=available_apps)
-        if command.intent not in {"list_apps", "query_app", "query_status"}:
-            return None
-        command = command.model_copy(update={"raw_input": message, "source": "cheap_query_fast_path"})
-        return command
-
-
-    def _try_deterministic_rule_route(
-        self,
-        message: str,
-        user_id: str,
-        session_id: str,
-        available_apps: list[dict[str, Any]],
-    ) -> InterpretedCommand | None:
-        """确定性规则路由——用 LightBrainInterpreter 的规则（EXACT+FUZZY）匹配明确意图。
-
-        与 cheap_query_fast_path 的区别：
-        - cheap_query_fast_path 只接管 list/query/status 三类查询
-        - 本方法接管**所有**规则可高置信判定的生命周期意图（create_app/start_app/
-          stop_app/pause_app/resume_app/modify_app/delete_app 等），
-          命中即直接返回命令，避免落 LLM 自由工具选择导致路由错乱（答非所问）。
-
-        规则已能精确识别（如「帮我创建一本新小说」→ create_app + app_type=novel、
-        「帮我建一个睡眠记录App」→ create_app + 名称提取），无需 LLM 二次理解。
-        """
-        # 只有模糊正则匹配启用时才走规则路由，保持与 light_brain_interpreter 行为一致
-        from app.system.gateway.light_brain_interpreter import LightBrainInterpreter
-
-        interpreter = LightBrainInterpreter()
-        command = interpreter.interpret(message, user_id=user_id, available_apps=available_apps)
-        # 不接管：unclear（低置信）/ 纯聊天意图 / 资产调用 / 交互式修改（这些仍需 LLM 或专门处理）
-        if command.intent in {
-            "unclear", "greet", "query_help", "query_status",
-            "call_asset_method", "modify_interactive_app", "self_modify",
-            "grant_admin", "grant_root", "revoke_role", "show_permissions",
-            "list_users", "show_self", "package_list_installed", "package_show",
-            "package_build", "package_install", "package_uninstall", "package_rollback",
-        }:
-            return None
-        # 需要澄清的暂不接管（让上层走澄清流程）
-        if getattr(command, "requires_clarification", False):
-            return None
-        if getattr(command, "confidence", 0) < 0.5:
-            return None
-        command = command.model_copy(update={
-            "raw_input": message,
-        })
-        # 用 context 标记（pydantic 正式字段，model_copy/序列化均保留），
-        # 避免用非字段实例属性在链路中被丢弃。
-        command.context["route_source"] = "deterministic_rule_route"
-        return command
-
-
-    def _try_explicit_file_read_fast_path(
-        self,
-        message: str,
-        user_id: str,
-        session_id: str,
-        available_apps: list[dict[str, Any]],
-    ) -> InterpretedCommand | None:
-        return None
-
     def _is_code_introspection_query(self, raw_input: str) -> bool:
         text = (raw_input or "").lower()
         return any(keyword in text for keyword in INTROSPECTION_KEYWORDS)

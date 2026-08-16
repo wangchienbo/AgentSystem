@@ -46,8 +46,9 @@ def test_build_runtime_exposes_new_interaction_and_invocation_services() -> None
 
     assert services["interaction_context_snapshot"] is not None
     assert services["interaction_decision_protocol"] is not None
-    assert services["interaction_orchestrator"] is not None
-    assert callable(services["interaction_debug_view"])
+    # 关键词路由 orchestrator 已移除（2026-08-16），不再注册
+    assert "interaction_orchestrator" not in services
+    assert "interaction_debug_view" not in services
     assert services["invocation_dispatcher"] is not None
     assert callable(services["invoke_asset_envelope"])
     assert callable(services["safe_invoke_asset"])

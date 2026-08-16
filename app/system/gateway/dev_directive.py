@@ -3,8 +3,8 @@
 开发指令 = 引导系统用工具读写代码库的元指令（read_file / exec_shell /
 write_file / edit_file 等），不是用户对 App 的操作请求。
 
-orchestrator（interaction_orchestrator）与 interpreter（light_brain_interpreter）
-共用此判定：命中开发指令时，两层都应放行到 LLM 工具链，避免宽泛的
+interpreter（light_brain_interpreter / tool_calling_interpreter）共用此判定：
+命中开发指令时，解释器应放行到 LLM 工具链，避免宽泛的
 资产路由关键词 / App 生命周期意图正则把开发指令误判成资产操作或
 App 创建/查询/修改等操作。
 """

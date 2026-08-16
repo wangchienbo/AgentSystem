@@ -25,45 +25,14 @@ class TestLightBrainInterpreter:
     def setup_method(self):
         self.interpreter = LightBrainInterpreter()
 
-    def test_intent_pattern_view_matches_exact_plus_fuzzy_sources(self):
-        assert len(LightBrainInterpreter.INTENT_PATTERNS) == (
-            len(LightBrainInterpreter.EXACT_MATCH_PATTERNS)
-            + len(LightBrainInterpreter.FUZZY_MATCH_PATTERNS)
-        )
+    def test_exact_match_patterns_preserved(self):
+        # 关键词匹配已移除（2026-08-16）：仅保留 EXACT 全匹配命中，FUZZY 层已删除
+        assert len(LightBrainInterpreter.EXACT_MATCH_PATTERNS) >= 3
 
         cmd = self.interpreter.interpret("你好")
         assert cmd.intent == "greet"
         assert cmd.confidence >= 0.8
         assert not cmd.requires_clarification
-
-    def test_list_apps(self):
-        cmd = self.interpreter.interpret("看看我的 App 列表")
-        assert cmd.intent == "list_apps"
-
-    def test_create_app(self):
-        cmd = self.interpreter.interpret("帮我建一个监控 App")
-        assert cmd.intent == "create_app"
-        assert cmd.parameters.get("app_type") == "monitor"
-
-    def test_create_app_with_schedule(self):
-        cmd = self.interpreter.interpret("创建一个每小时检查的日报 App")
-        assert cmd.intent == "create_app"
-        assert cmd.parameters.get("schedule_type") == "interval"
-        assert cmd.parameters.get("schedule_interval") == 3600
-
-    def test_create_app_with_threshold(self):
-        cmd = self.interpreter.interpret("建一个 CPU 超过 80% 告警的监控 App")
-        assert cmd.intent == "create_app"
-        assert cmd.parameters.get("threshold") == 80
-
-    def test_start_app_with_name(self):
-        cmd = self.interpreter.interpret("启动服务器监控")
-        assert cmd.intent == "start_app"
-        assert cmd.target_app == "服务器监控"
-
-    def test_stop_app(self):
-        cmd = self.interpreter.interpret("停止日报")
-        assert cmd.intent == "stop_app"
 
     def test_query_status(self):
         cmd = self.interpreter.interpret("系统状态")
@@ -72,15 +41,6 @@ class TestLightBrainInterpreter:
     def test_query_help(self):
         cmd = self.interpreter.interpret("帮助")
         assert cmd.intent == "query_help"
-
-    def test_modify_app(self):
-        cmd = self.interpreter.interpret("把日报改成每天早上9点发给我")
-        assert cmd.intent == "modify_app"
-        assert cmd.parameters.get("modification") == "每天早上9点发给我"
-
-    def test_delete_app(self):
-        cmd = self.interpreter.interpret("删除测试 App")
-        assert cmd.intent == "delete_app"
 
     def test_empty_message(self):
         cmd = self.interpreter.interpret("")
@@ -91,22 +51,6 @@ class TestLightBrainInterpreter:
         cmd = self.interpreter.interpret("asdfghjkl")
         assert cmd.intent == "unclear"
         assert cmd.requires_clarification
-
-    def test_create_app_without_type_needs_clarification(self):
-        cmd = self.interpreter.interpret("帮我建一个 App")
-        assert cmd.intent == "create_app"
-        assert cmd.requires_clarification
-
-    def test_start_app_without_name_needs_clarification(self):
-        cmd = self.interpreter.interpret("启动")
-        assert cmd.intent == "start_app"
-        assert cmd.requires_clarification
-
-    def test_suggested_actions_for_create(self):
-        cmd = self.interpreter.interpret("帮我建一个监控 App")
-        assert len(cmd.suggested_actions) > 0
-        action_ids = [a.id for a in cmd.suggested_actions]
-        assert "confirm_create" in action_ids
 
     def test_suggested_actions_for_greet(self):
         cmd = self.interpreter.interpret("你好")
@@ -457,20 +401,6 @@ class TestLightBrainGateway:
         assert session_node.user_id == "u1"
 
     @pytest.mark.asyncio
-    async def test_session_persistence(self):
-        req1 = ChatMessageRequest(user_id="u1", channel="webchat", message="你好")
-        reply1 = await self.gateway.process_message(req1)
-        session_id = reply1.session_id
-
-        req2 = ChatMessageRequest(
-            user_id="u1", channel="webchat",
-            message="看看我的 App",
-            session_id=session_id,
-        )
-        reply2 = await self.gateway.process_message(req2)
-        assert reply2.session_id == f"{session_id}.local.list_apps"
-
-    @pytest.mark.asyncio
     async def test_unclear_message_ask_clarification(self):
         request = ChatMessageRequest(user_id="u1", channel="webchat", message="asdfghjkl")
         reply = await self.gateway.process_message(request)
@@ -562,23 +492,6 @@ class TestLightBrainGateway:
         assert len(ranged.records) == 1
         assert any(node.session_id == "sess-child-q" for node in children)
         assert any(link.child_session_id == "sess-child-q" for link in links)
-
-    @pytest.mark.asyncio
-    async def test_bridge_eligible_command_creates_orchestration_child_session(self):
-        bridge = MockOrchestratorBridge()
-        self.gateway.set_orchestrator_bridge(bridge)
-
-        reply = await self.gateway.process_message(
-            ChatMessageRequest(user_id="u1", channel="webchat", message="帮我建一个监控 App")
-        )
-        assert reply.session_id.endswith(".orch.create_app")
-        runtime_node = self.runtime_center.get_session(reply.session_id)
-        context_node = self.context_center.get_session_node(reply.session_id)
-        assert runtime_node is not None
-        assert runtime_node.actor == "orchestration"
-        assert runtime_node.kind == "child"
-        assert context_node is not None
-        assert bridge.calls[-1]["session_id"] == reply.session_id
 
     @pytest.mark.asyncio
     async def test_master_execute_creates_orchestration_child_session(self):

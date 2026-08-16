@@ -13,7 +13,6 @@ from typing import Any
 
 from app.system.gateway.intent_patterns import (
     EXACT_MATCH_PATTERNS as INTENT_PATTERNS_EXACT,
-    FUZZY_MATCH_PATTERNS as INTENT_PATTERNS_FUZZY,
     APP_EXTRACT_PATTERNS as INTENT_APP_EXTRACT_PATTERNS,
 )
 from app.system.master.tool_registry import ToolRegistry, ToolDefinition
@@ -23,7 +22,6 @@ from app.models.chat import ActionSuggestion, InterpretedCommand
 
 class LightBrainInterpreter:
     EXACT_MATCH_PATTERNS = INTENT_PATTERNS_EXACT
-    FUZZY_MATCH_PATTERNS = INTENT_PATTERNS_FUZZY
     APP_EXTRACT_PATTERNS = INTENT_APP_EXTRACT_PATTERNS
 
     def __init__(self) -> None:
@@ -31,30 +29,18 @@ class LightBrainInterpreter:
 
     """Rule-based interpreter that maps user messages to structured commands.
 
-    Phase 8.3: optionally falls back to LLM parsing when rule-based confidence
-    is low (returns 'unclear' with confidence < 0.5). Results are cached so
-    identical messages don't trigger repeated LLM calls.
-    
-    Two-tier intent recognition:
-    - EXACT_MATCH_PATTERNS: 100% precise patterns, always bypass LLM (zero cost)
-    - FUZZY_MATCH_PATTERNS: fuzzy patterns, routed through LLM when fuzzy_regex_match=False
-    - fuzzy_regex_match: config switch (default False). When False, only exact matches
-      bypass LLM; everything else goes through LLM for intent analysis.
+    意图识别策略（关键词匹配全量移除，2026-08-16）：
+    - 仅保留 EXACT_MATCH_PATTERNS（全匹配命中）作为无歧义意图的零成本直通：
+      纯问候 / 帮助 / 状态查询等完整匹配。
+    - 其余消息一律走 LLM 意图解析（_try_llm_fallback → parse_intent_with_tools），
+      不采用关键词/正则模糊匹配（FUZZY 层已删除）。
+    - LLM 不可用/超时时，回退到 rule-based 路径（extract app name + 参数提取）。
     """
 
     # ---- EXACT MATCH PATTERNS (always bypass LLM, zero cost) ----
     # These are 100% unambiguous — pure greetings, help requests, status queries
 
-    # ---- FUZZY MATCH PATTERNS (routed through LLM when fuzzy_regex_match=False) ----
-    # All other intents are fuzzy-matched via regex; LLM fallback is available when confidence is low.
-
-    # Combined pattern view used by current interpreter flow
-    INTENT_PATTERNS = EXACT_MATCH_PATTERNS + FUZZY_MATCH_PATTERNS
-
-    # Config: fuzzy regex matching (default True in the current runtime)
-    # True: all patterns try regex first (no LLM needed for common intents)
-    # False: only exact matches bypass LLM; everything else goes through LLM
-    fuzzy_regex_match: bool = True
+    # ---- 其余意图统一走 LLM，不做关键词匹配 ----
 
     # Valid intent values the LLM may return
     VALID_INTENTS = {
@@ -169,47 +155,13 @@ class LightBrainInterpreter:
                 stripped,
             )
 
-        # 2. FUZZY match check (controlled by fuzzy_regex_match config)
-        if self.fuzzy_regex_match:
-            # Try fuzzy regex patterns
-            intent, confidence, matched_text = self._match_fuzzy_intent(stripped)
-            if intent != "unclear" and confidence >= 0.5:
-                # Fuzzy match succeeded with decent confidence
-                target_app = self._extract_app_name(stripped, available_apps)
-                parameters = self._extract_parameters(stripped, intent, session_key=user_id)
-            if intent == "modify_app" and not parameters.get("modification"):
-                mod_match = re.search(r"把.+?(?:改成|改为|调整为)(.+)$", stripped)
-                if mod_match:
-                    parameters["modification"] = mod_match.group(1).strip()
-                suggested_actions = self._build_actions(intent, target_app, available_apps)
-                requires_clarification, clarification_question = self._needs_clarification(
-                    intent, target_app, parameters, session_key=user_id
-                )
-                return self._finalize_command(
-                    InterpretedCommand(
-                        intent=intent,
-                        confidence=confidence,
-                        target_app=target_app,
-                        parameters=parameters,
-                        requires_clarification=requires_clarification,
-                        clarification_question=clarification_question,
-                        suggested_actions=suggested_actions,
-                        raw_interpretation=f"fuzzy-match: matched '{matched_text}' target='{target_app}'",
-                        user_id=user_id,
-                        raw_input=stripped,
-                    ),
-                    available_apps,
-                    user_id,
-                    stripped,
-                )
-
-        # 3. LLM fallback (default path when fuzzy_regex_match=False)
+        # 2. LLM 意图解析（主路径）：EXACT 未命中即走 LLM，不做关键词模糊匹配
         if hasattr(self, "_llm_responder") and self._llm_responder is not None:
             llm_result, _ = self._try_llm_fallback(stripped, available_apps, user_id)
             if llm_result is not None:
                 return llm_result
 
-        # 4. Standard rule-based path (fallback if LLM unavailable)
+        # 3. Standard rule-based path (fallback if LLM unavailable)
         target_app = self._extract_app_name(stripped, available_apps)
         parameters = self._extract_parameters(stripped, intent, session_key=user_id)
         suggested_actions = self._build_actions(intent, target_app, available_apps)
@@ -241,63 +193,6 @@ class LightBrainInterpreter:
             if pattern.search(message):
                 return intent, 0.95, desc
         return "unclear", 0.1, "no exact match"
-
-    def _match_fuzzy_intent(self, message: str) -> tuple[str, float, str]:
-        """Return (intent, confidence, matched_pattern_desc) for FUZZY matches."""
-        tool_match = self._match_tool_aware_intent(message)
-        if tool_match is not None:
-            return tool_match
-        for intent, pattern, desc in self.FUZZY_MATCH_PATTERNS:
-            if pattern.search(message):
-                return intent, 0.75, desc
-        return "unclear", 0.1, "no fuzzy match"
-
-    def _match_tool_aware_intent(self, message: str) -> tuple[str, float, str] | None:
-        registry = getattr(self, "_tool_registry", None)
-        if registry is None:
-            return None
-        lowered = message.lower()
-        asset_tools = {
-            tool.name: tool
-            for tool in registry.list_all()
-            if getattr(tool, "category", "") == "asset"
-        }
-        if not asset_tools:
-            return None
-
-        if self._looks_like_asset_call_request(lowered) and "call_asset_method" in asset_tools:
-            return "call_asset_method", 0.82, "tool-aware asset call"
-        return None
-
-    def _looks_like_asset_list_request(self, lowered: str) -> bool:
-        return any(k in lowered for k in ["资产", "服务", "能力", "runtime", "运行态"]) and any(
-            k in lowered for k in ["有哪些", "有什么", "列出", "看看", "查看"]
-        )
-
-    def _looks_like_asset_info_request(self, lowered: str) -> bool:
-        return any(k in lowered for k in ["资产", "服务"]) and any(
-            k in lowered for k in ["详情", "信息", "能力", "配置", "契约"]
-        )
-
-    def _looks_like_asset_call_request(self, lowered: str) -> bool:
-        return (
-            any(k in lowered for k in ["调用", "执行", "运行"])
-            and any(k in lowered for k in ["资产", "服务"])
-            and any(k in lowered for k in ["方法", "能力"])
-        )
-
-    def _looks_like_asset_detail_request(self, lowered: str) -> bool:
-        return any(k in lowered for k in ["资产", "服务"]) and any(
-            k in lowered for k in ["使用说明", "怎么用", "详细", "契约", "查看", "详情"]
-        )
-
-    def _match_intent(self, message: str) -> tuple[str, float, str]:
-        """Return (intent, confidence, matched_pattern_desc)."""
-        for intent, pattern, desc in self.INTENT_PATTERNS:
-            if pattern.search(message):
-                return intent, 0.85, desc
-        # Fallback
-        return "unclear", 0.1, "no pattern matched"
 
     def _extract_app_name(
         self,
@@ -608,8 +503,7 @@ class LightBrainInterpreter:
                 if parameters.get(key) in (None, "", False):
                     parameters[key] = value
         # Step 2: runtime asset call intent override takes precedence
-        if self._looks_like_asset_call_request(lowered):
-            command.intent = "call_asset_method"
+        # （关键词判断已移除 2026-08-16：asset 调用意图由 LLM 识别，此处不 override）
         # Step 3: re-extract params (needed for the fresh intent after override)
         extracted = self._extract_parameters(message, command.intent, session_key=user_id)
         for key, value in extracted.items():
@@ -625,13 +519,7 @@ class LightBrainInterpreter:
         # OR when we have consumed pending clarification that gives us complete params
         intent = command.intent
         has_complete_asset_call_params = parameters.get("asset_id") and parameters.get("method")
-        looks_like_asset_call = self._looks_like_asset_call_request(lowered)
         if intent == "unclear" and has_complete_asset_call_params:
-            intent = "call_asset_method"
-        elif intent == "unclear" and (parameters.get("asset_id") or parameters.get("method")) and looks_like_asset_call:
-            intent = "call_asset_method"
-        elif looks_like_asset_call and intent not in ("call_asset_method",):
-            # Override other intents to call_asset_method if message clearly indicates asset call
             intent = "call_asset_method"
         requires_clarification, clarification_question = self._needs_clarification(
             intent, target_app, parameters, session_key=user_id
